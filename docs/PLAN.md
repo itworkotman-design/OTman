@@ -27,7 +27,7 @@ Goal: a customer can browse safely even when DB is slow or broken.
 ## Phase P2 — Public request flow (optional, but likely)
 Goal: customer can submit a request without accounts.
 
-- [ ] Define minimal Request data shape (name/contact/message + optional service reference).
+- [x] Define minimal Request data shape (name/contact/message + optional service reference).
 - [ ] Add submit endpoint (server-only) with validation.
 - [ ] Store request in DB (Prisma model + migration).
 - [ ] Basic anti-abuse controls (rate limit + honeypot field).
