@@ -19,11 +19,7 @@ export default function Home() {
           </a>
         </div>
       </header>
-
-      <Suspense fallback={<CatalogSectionSkeleton />}>
-        <CatalogSection />
-      </Suspense>
-
+      
       <section id="request" className="mt-12 rounded-2xl border p-6 text-sm">
         <h2 className="text-base font-semibold">Request a service</h2>
         <p className="mt-2 text-muted-foreground">
