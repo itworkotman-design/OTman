@@ -19,7 +19,7 @@ Goal: a customer can browse safely even when DB is slow or broken.
 
 - [x] Loading state for catalog (Suspense + skeleton).
 - [x] Error state for `/` (error boundary UI, no stack trace leakage).
-- [ ] Empty state copy is customer-friendly (not developer-speak).
+- [x] Empty state copy is customer-friendly (not developer-speak).
 - [ ] Contact CTA has real business details (email/phone placeholders removed).
 
 ---
