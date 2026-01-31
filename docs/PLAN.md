@@ -18,7 +18,7 @@ Only tick items when there is concrete proof (code merged + build green, or veri
 Goal: a customer can browse safely even when DB is slow or broken.
 
 - [x] Loading state for catalog (Suspense + skeleton).
-- [ ] Error state for `/` (error boundary UI, no stack trace leakage).
+- [x] Error state for `/` (error boundary UI, no stack trace leakage).
 - [ ] Empty state copy is customer-friendly (not developer-speak).
 - [ ] Contact CTA has real business details (email/phone placeholders removed).
 
