@@ -14,43 +14,80 @@ export function ServiceWindow({
   const isCarousel = items.length > 1;
 
   // Build 3 copies for "infinite" feel; we start in the middle copy.
-  const loopItems = useMemo(() => (isCarousel ? [...items, ...items, ...items] : items), [items, isCarousel]);
+  const loopItems = useMemo(
+    () => (isCarousel ? [...items, ...items, ...items] : items),
+    [items, isCarousel]
+  );
   const base = items.length; // size of one copy
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
+
+  // Control flags/timers
+  const isTeleportingRef = useRef(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper: compute stride between adjacent cards from DOM (handles gap + padding)
+  const getStride = () => {
+    const el = scrollerRef.current;
+    if (!el) return 0;
+    const cards = Array.from(el.querySelectorAll<HTMLElement>("[data-card]"));
+    if (cards.length < 2) return 0;
+    return cards[1].offsetLeft - cards[0].offsetLeft;
+  };
+
+  // Helper: run a scrollLeft change with snap & smooth disabled for one frame (no `any`)
+  const doInstant = (el: HTMLElement, fn: () => void) => {
+    const cs = getComputedStyle(el) as CSSStyleDeclaration & Partial<{ scrollBehavior: string }>;
+    const prevSnap = cs.scrollSnapType || "";
+    const prevBehavior = cs.scrollBehavior ?? "";
+
+    // Disable snapping & smoothing just for this operation
+    el.style.setProperty("scroll-snap-type", "none");
+    el.style.setProperty("scroll-behavior", "auto");
+
+    fn();
+
+    requestAnimationFrame(() => {
+      // Restore previous values (or clear inline overrides)
+      if (prevSnap) el.style.setProperty("scroll-snap-type", prevSnap);
+      else el.style.removeProperty("scroll-snap-type");
+
+      if (prevBehavior) el.style.setProperty("scroll-behavior", prevBehavior);
+      else el.style.removeProperty("scroll-behavior");
+    });
+  };
 
   // Jump to the middle copy on mount so you can scroll both ways.
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el || !isCarousel) return;
 
-    // Wait a tick so layout is measured
     requestAnimationFrame(() => {
-      const firstCard = el.querySelector<HTMLElement>("[data-card]");
-      if (!firstCard) return;
-
-      const cardW = firstCard.offsetWidth;
-      const gap = parseFloat(getComputedStyle(el).columnGap || getComputedStyle(el).gap || "0") || 0;
+      const stride = getStride();
+      if (!stride) return;
 
       // index = base (first item of middle copy)
-      el.scrollLeft = (cardW + gap) * base;
+      doInstant(el, () => {
+        el.scrollLeft = stride * base;
+      });
       setActive(0);
     });
   }, [base, isCarousel]);
 
-  // Update active dot + keep "infinite" by teleporting when near edges.
+  // Update active dot; teleport back to middle copy only AFTER scrolling goes idle.
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el || !isCarousel) return;
 
-    const onScroll = () => {
+    const handleScroll = () => {
+      if (isTeleportingRef.current) return;
+
       const cards = Array.from(el.querySelectorAll<HTMLElement>("[data-card]"));
       if (!cards.length) return;
 
+      // Find closest card to the visual center
       const center = el.scrollLeft + el.clientWidth / 2;
-
-      // Find closest card to center
       let bestIdx = 0;
       let bestDist = Infinity;
       for (let i = 0; i < cards.length; i++) {
@@ -64,24 +101,39 @@ export function ServiceWindow({
       }
 
       const logical = ((bestIdx % base) + base) % base;
-      setActive(logical);
+      if (logical !== active) setActive(logical);
 
-      // Teleport logic: if you drift into the first/last copy, jump back to middle same logical item.
-      // This keeps scrolling "infinite" without visible jump.
-      if (bestIdx < base * 0.5 || bestIdx > base * 2.5) {
-        const targetIdx = base + logical; // same item in middle copy
-        const target = cards[targetIdx];
-        if (target) {
-          // keep same visual center
-          const targetLeft = target.offsetLeft - (el.clientWidth - target.offsetWidth) / 2;
-          el.scrollLeft = targetLeft;
+      // Restart idle debounce
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => {
+        const stride = getStride();
+        if (!stride) return;
+
+        // Middle copy is [base, 2*base). Teleport only if outside.
+        if (bestIdx < base || bestIdx >= 2 * base) {
+          const targetIdx = base + logical; // same item in middle copy
+          const target = cards[targetIdx];
+          if (!target) return;
+
+          isTeleportingRef.current = true;
+          doInstant(el, () => {
+            const left = target.offsetLeft - (el.clientWidth - target.offsetWidth) / 2;
+            el.scrollLeft = left;
+          });
+          // let layout settle one frame
+          requestAnimationFrame(() => {
+            isTeleportingRef.current = false;
+          });
         }
-      }
+      }, 140); // tweakable: higher = more conservative, fewer teleports during momentum
     };
 
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-    }, [base, isCarousel]);
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [active, base, isCarousel]);
 
   const scrollToLogical = (logicalIndex: number) => {
     const el = scrollerRef.current;
@@ -95,6 +147,7 @@ export function ServiceWindow({
     if (!target) return;
 
     const left = target.offsetLeft - (el.clientWidth - target.offsetWidth) / 2;
+    // user-initiated programmatic scroll should be smooth
     el.scrollTo({ left, behavior: "smooth" });
   };
 
@@ -112,16 +165,13 @@ export function ServiceWindow({
                 flex gap-6 overflow-x-auto pb-4
                 snap-x snap-mandatory
                 px-[10vw]
+                overscroll-x-contain
                 [-ms-overflow-style:none] [scrollbar-width:none]
                 [&::-webkit-scrollbar]:hidden
               "
             >
               {loopItems.map((item, idx) => (
-                <div
-                  key={`${item.href}-${idx}`}
-                  data-card
-                  className="shrink-0 snap-center"
-                >
+                <div key={`${item.href}-${idx}`} data-card className="shrink-0 snap-center">
                   <ServiceWindowItem {...item} />
                 </div>
               ))}
