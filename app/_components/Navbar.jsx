@@ -50,7 +50,7 @@ export const Navbar = () => {
               <ul className="flex flex-col gap-0 p-0 border-b-1 items-end md:flex-row md:gap-8 md:pr-4 md:border-b-0 pr-4 md:pr-0">
                 <li>
                   <Link
-                    href="/Produkti"
+                    href="/"
                     className={`
                       block px-3 py-4 md:py-0 text-sm
                       transition-colors duration-140
@@ -65,7 +65,7 @@ export const Navbar = () => {
 
                 <li>
                   <Link
-                    href="/Galerija"
+                    href="/"
                     className={`
                       block px-3 py-4 md:py-0 text-sm
                       transition-colors duration-140
@@ -80,7 +80,7 @@ export const Navbar = () => {
 
                 <li>
                   <Link
-                    href="/Kontakti"
+                    href="/"
                     className={`
                       block px-3 py-4 md:py-0 text-sm
                       transition-colors duration-140
@@ -94,7 +94,7 @@ export const Navbar = () => {
                 </li>
                 <li>
                   <Link
-                    href="/Kontakti"
+                    href="/"
                     className={`
                       block px-3 py-4 md:py-0 text-sm
                       transition-colors duration-140
@@ -112,7 +112,7 @@ export const Navbar = () => {
           {/*Grid Right*/}
           <div className="relative justify-self-end hidden md:block  md:justify-self-end flex items-center gap-4">
           <Link
-            href="/Kontakti"
+            href="/"
             className={`
                 text-white! font-bold
                 flex items-center justify-center gap-4

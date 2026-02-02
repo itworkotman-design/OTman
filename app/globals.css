@@ -27,3 +27,16 @@ h1, h2, h3, h4, h5 {
 p, ul, li, a {
   font-family: var(--font-geist), Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 50s linear infinite;
+}

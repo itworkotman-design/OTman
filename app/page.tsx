@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { CatalogSection, CatalogSectionSkeleton } from "./_components/CatalogSection";
 import { ServiceWindow } from "./_components/@TransportService/ServiceWindow";
 import { StatsDisplay } from "./_components/@TransportService/StatsDisplay"
+import { PartnersDisplay } from "./_components/@TransportService/PartnersDisplay"
 
 const items = [
   { title: "Collection & Pickup", href: "/services/collection-pickup" },
@@ -26,6 +27,7 @@ export default function Home() {
         <p className="text-center justify-self-center w-[800px]">From small packages to large projects – we take on everything.  Need help with moving? Need your car transported? Or do you have a package that needs to go out faster than lightning? We can handle it.</p>
       </section>
       <StatsDisplay/>
+      <PartnersDisplay/>
       
 
       {/*Hid it for now */}
