@@ -34,7 +34,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${plusJakarta.variable} ${geist.variable}`}>
         <Navbar/>
-        <main className="max-w-screen-xl justify-self-center">
+        <main className="mx-auto max-w-screen-xl px-[20px]">
           {children}
         </main>
         <Footer/>

@@ -1,16 +1,35 @@
 import { Suspense } from "react";
 import { CatalogSection, CatalogSectionSkeleton } from "./_components/CatalogSection";
+import { ServiceWindow } from "./_components/@TransportService/ServiceWindow";
+import { StatsDisplay } from "./_components/@TransportService/StatsDisplay"
+
+const items = [
+  { title: "Collection & Pickup", href: "/services/collection-pickup" },
+  { title: "Package Delivery", href: "/services/package-delivery" },
+  { title: "Moving & Relocation", href: "/services/moving-relocation" },
+  { title: "Custom Transport", href: "/services/custom-transport" },
+  // add more → it will scroll horizontally
+];
 
 export default function Home() {
   return (
-    <main className="mx-auto w-full">
-      <header className="space-y-2 py-16">
-        <h1 className="text-3xl font-bold tracking-tight">Otman Transport</h1>
-        <p className="text-sm text-muted-foreground">
+    <>
+      <header className="py-16">
+        <h1 className="text-logoblue text-[48px] font-bold justify-self-center">Otman Transport</h1>
+        <h3 className="text-logoblue text-[20px] font-bold justify-self-center">
           Smart Transport. Simple Ordering.
-        </p>
+        </h3>
+      </header>
+      <ServiceWindow items={items} />
+      <section className="py-[40px]">
+        <h3 className="text-center text-[20px] font-bold pb-2">Are you looking for a reliable transport partner?</h3>
+        <p className="text-center justify-self-center w-[800px]">From small packages to large projects – we take on everything.  Need help with moving? Need your car transported? Or do you have a package that needs to go out faster than lightning? We can handle it.</p>
+      </section>
+      <StatsDisplay/>
+      
 
-        <div className="pt-2">
+      {/*Hid it for now */}
+      <div className="hidden pt-2">
           <a
             href="#request"
             className="inline-flex items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:opacity-90"
@@ -18,9 +37,9 @@ export default function Home() {
             Request a service
           </a>
         </div>
-      </header>
-      
-      <section id="request" className="mt-12 rounded-2xl border p-6 text-sm">
+
+        {/*Hid it for now */}
+      <section id="request" className=" hidden mt-12 rounded-2xl border p-6 text-sm">
         <h2 className="text-base font-semibold">Request a service</h2>
         <p className="mt-2 text-muted-foreground">
           Tell us what you need and weâ€™ll confirm availability and pricing.
@@ -45,6 +64,6 @@ export default function Home() {
           Replace the email/phone with real contact details later.
         </p>
       </section>
-    </main>
+    </>
   );
 }

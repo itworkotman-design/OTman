@@ -110,7 +110,7 @@ export const Navbar = () => {
             </div>
           </div>
           {/*Grid Right*/}
-          <div className="relative justify-self-end md:justify-self-end flex items-center gap-4">
+          <div className="relative justify-self-end hidden md:block  md:justify-self-end flex items-center gap-4">
           <Link
             href="/Kontakti"
             className={`

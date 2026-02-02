@@ -17,13 +17,13 @@
 
 body {
   background: var(--background);
+  color: var(--textcolor)
 }
 
 h1, h2, h3, h4, h5 {
   font-family: var(--font-plus-jakarta), Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
-p, ul li, a {
+p, ul, li, a {
   font-family: var(--font-geist), Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  color: var(--textcolor)
 }
