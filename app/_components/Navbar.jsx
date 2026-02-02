@@ -45,7 +45,7 @@ export const Navbar = () => {
               className={`${open ? "block" : "hidden"} 
                 absolute right-[-20px] top-full w-screen mt-3 
                 md:mt-0 md:static md:block md:w-auto  
-                md:border-t-0 border-t-1 border-logoblue bg-white shadow-sm`}
+                md:border-t-0 border-t-1 border-logoblue bg-white shadow-sm md:shadow-none`}
             >
               <ul className="flex flex-col gap-0 p-0 items-end md:flex-row md:gap-8 md:pr-4 md:border-b-0 pr-4 md:pr-0">
                 <li>
