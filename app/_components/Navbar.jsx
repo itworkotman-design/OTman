@@ -43,19 +43,19 @@ export const Navbar = () => {
             <div
               id="navbar-menu"
               className={`${open ? "block" : "hidden"} 
-                absolute right-0 top-full w-screen mt-3 
+                absolute right-[-20px] top-full w-screen mt-3 
                 md:mt-0 md:static md:block md:w-auto  
-                md:border-t-0 border-t-1`}
+                md:border-t-0 border-t-1 border-logoblue bg-white shadow-sm`}
             >
-              <ul className="flex flex-col gap-0 p-0 border-b-1 items-end md:flex-row md:gap-8 md:pr-4 md:border-b-0 pr-4 md:pr-0">
+              <ul className="flex flex-col gap-0 p-0 items-end md:flex-row md:gap-8 md:pr-4 md:border-b-0 pr-4 md:pr-0">
                 <li>
                   <Link
                     href="/"
                     className={`
-                      block px-3 py-4 md:py-0 text-sm
+                      block px-3 py-6 md:py-0 text-lg md:text-sm
                       transition-colors duration-140
                       ${isActive("/")
-                        ? "text-green"
+                        ? "text-logoblue font-semibold"
                         : "hover:text-green"}
                     `}
                   >
@@ -67,10 +67,10 @@ export const Navbar = () => {
                   <Link
                     href="/"
                     className={`
-                      block px-3 py-4 md:py-0 text-sm
+                      block px-3 py-6 md:py-0 text-lg md:text-sm
                       transition-colors duration-140
-                      ${isActive("/")
-                        ? "text-green"
+                      ${isActive("/VehicleRental")
+                        ? "text-logoblue font-semibold"
                         : "hover:text-green"}
                     `}
                   >
@@ -82,10 +82,10 @@ export const Navbar = () => {
                   <Link
                     href="/"
                     className={`
-                      block px-3 py-4 md:py-0 text-sm
+                      block px-3 py-6 md:py-0 text-lg md:text-sm
                       transition-colors duration-140
-                      ${isActive("/")
-                        ? "text-green"
+                      ${isActive("/ManpoweRental")
+                        ? "text-logoblue font-semibold"
                         : "hover:text-green"}
                     `}
                   >
@@ -96,16 +96,31 @@ export const Navbar = () => {
                   <Link
                     href="/"
                     className={`
-                      block px-3 py-4 md:py-0 text-sm
+                      block px-3 py-6 md:py-0 text-lg md:text-sm
                       transition-colors duration-140
-                      ${isActive("/")
-                        ? "text-green"
+                      ${isActive("/About")
+                        ? "text-logoblue font-semibold"
                         : "hover:text-green"}
                     `}
                   >
                     About
                   </Link>
                 </li>
+                <li className="block md:hidden">
+                  <Link
+                    href="/"
+                    className={`
+                      block px-3 py-6 md:py-0 text-lg md:text-sm
+                      transition-colors duration-140
+                      ${isActive("/About")
+                        ? "text-logoblue font-semibold"
+                        : "hover:text-green"}
+                    `}
+                  >
+                    Contact
+                  </Link>
+                </li>
+
               </ul>
             </div>
           </div>
@@ -117,9 +132,7 @@ export const Navbar = () => {
                 text-white! font-bold
                 flex items-center justify-center gap-4
                 bg-logoblue w-[90px] h-[31px] rounded-[26px]
-                text-sm transition-colors duration-140
-                ${isActive("/") ? "text-green" : "hover:text-green"}
-            `}
+                text-sm transition-colors duration-140`}
             >
             Contact
             </Link>
