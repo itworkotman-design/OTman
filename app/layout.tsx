@@ -32,9 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${plusJakarta.variable} ${geist.variable}`}>
+      <body className={`${plusJakarta.variable} ${geist.variable} overflow-x-hidden` }>
         <Navbar/>
-        <main className="mx-auto max-w-screen-xl px-[20px]">
+        <main className="mx-auto w-full max-w-screen-xl px-[20px]">
           {children}
         </main>
         <Footer/>

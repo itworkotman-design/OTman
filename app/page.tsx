@@ -16,18 +16,20 @@ export default function Home() {
   return (
     <>
       <header className="py-16">
-        <h1 className="text-logoblue text-[48px] font-bold justify-self-center">Otman Transport</h1>
-        <h3 className="text-logoblue text-[20px] font-bold justify-self-center">
+        <h1 className="text-logoblue text-[40px] md:text-[48px] font-bold justify-self-center">Otman Transport</h1>
+        <h3 className="text-logoblue text-[18px] md:text-[20px] font-bold justify-self-center">
           Smart Transport. Simple Ordering.
         </h3>
       </header>
       <ServiceWindow items={items} />
       <section className="py-[40px]">
         <h3 className="text-center text-[20px] font-bold pb-2">Are you looking for a reliable transport partner?</h3>
-        <p className="text-center justify-self-center w-[800px]">From small packages to large projects – we take on everything.  Need help with moving? Need your car transported? Or do you have a package that needs to go out faster than lightning? We can handle it.</p>
+        <p className="text-center mx-auto w-full  max-w-[800px]">From small packages to large projects – we take on everything.  Need help with moving? Need your car transported? Or do you have a package that needs to go out faster than lightning? We can handle it.</p>
       </section>
       <StatsDisplay/>
-      <PartnersDisplay/>
+       <PartnersDisplay/>
+      
+      
       
 
       {/*Hid it for now */}
