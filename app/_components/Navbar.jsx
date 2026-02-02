@@ -13,11 +13,11 @@ export const Navbar = () => {
 
   return (
     <>
-      <nav className="w-full start-0 z-50">
-        <div className="nav relative max-w-screen-xl px-[20] mx-auto grid grid-cols-2 md:grid-cols-3 items-center h-[60px] shadow-sm">
+      <nav className="w-full start-0 z-50 shadow-sm">
+        <div className="nav relative max-w-screen-xl px-[20] mx-auto grid grid-cols-2 md:grid-cols-3 items-center h-[60px] ">
           {/* Grid left - logo */}
           <Link href="/" className="justify-self-start">
-            <span className="text-sm text-heading font-semibold"><Image src="/Logo.png" width={116} height={50}></Image></span>
+            <span className="text-sm text-heading font-semibold"><Image src="/Logo.png" width={116} height={50} alt="Logo"></Image></span>
           </Link>
 
           {/* Grid middle */}
@@ -114,7 +114,7 @@ export const Navbar = () => {
           <Link
             href="/Kontakti"
             className={`
-                text-white font-bold
+                text-white! font-bold
                 flex items-center justify-center gap-4
                 bg-logoblue w-[90px] h-[31px] rounded-[26px]
                 text-sm transition-colors duration-140

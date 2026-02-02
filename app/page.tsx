@@ -3,11 +3,11 @@ import { CatalogSection, CatalogSectionSkeleton } from "./_components/CatalogSec
 
 export default function Home() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Service catalog</h1>
+    <main className="mx-auto w-full">
+      <header className="space-y-2 py-16">
+        <h1 className="text-3xl font-bold tracking-tight">Otman Transport</h1>
         <p className="text-sm text-muted-foreground">
-          Browse our available services. Clear pricing, fast response.
+          Smart Transport. Simple Ordering.
         </p>
 
         <div className="pt-2">
