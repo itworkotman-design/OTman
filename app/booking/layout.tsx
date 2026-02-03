@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Sidebar } from "../_components/(booking)/Sidebar";
+import  TopFilters  from "../_components/(booking)/TopFilters"
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -13,7 +14,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <section className="flex-1 flex flex-col min-w-0">
         {/* Filters */}
         <header className="border-b px-6 py-4">
-          {/* TopFilters */}
+          <TopFilters/>
         </header>
 
         {/* Archive */}
