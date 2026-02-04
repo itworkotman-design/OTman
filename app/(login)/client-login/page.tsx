@@ -28,6 +28,7 @@ export default function LoginPage() {
               </label>
               <input
                 id="email"
+                required
                 name="email"
                 type="text"
                 autoComplete="username"
@@ -41,6 +42,7 @@ export default function LoginPage() {
               </label>
               <input
                 id="password"
+                required
                 name="password"
                 type="password"
                 autoComplete="current-password"
@@ -55,7 +57,7 @@ export default function LoginPage() {
                 type="checkbox"
                 className="h-5 w-5 cursor-pointer"
               />
-              <label htmlFor="remember" className="text-xs text-logoblue font-semibold">
+              <label htmlFor="remember" className="text-xs text-logoblue font-semibold cursor-pointer">
                 Remember me
               </label>
             </div>
@@ -70,7 +72,7 @@ export default function LoginPage() {
             <div className="text-center">
               <Link
                 href="/forgot-password"
-                className="text-[11px] text-gray-500 hover:text-gray-700"
+                className="text-[14px] text-gray-500 hover:text-gray-700"
               >
                 Forgot password?
               </Link>

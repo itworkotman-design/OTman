@@ -28,6 +28,7 @@ export default function LoginPage() {
               </label>
               <input
                 id="email"
+                required
                 name="email"
                 type="text"
                 autoComplete="username"
