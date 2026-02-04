@@ -1,9 +1,9 @@
 "use client";
 
 import { Combobox } from "@headlessui/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-/* demo data – replace later */
+/* DATA FOR CLIENTS AND CONTRACTORS GOES HERE */
 const CLIENTS = ["Power Rud", "Power Ski", "Power Skullerud"];
 const SUBCONTRACTORS = ["Sub A", "Sub B", "Sub C"];
 
@@ -15,31 +15,38 @@ export default function TopFilters() {
   const [subcontractor, setSubcontractor] = useState("");
   const [subQuery, setSubQuery] = useState("");
 
-  const filteredClients = CLIENTS.filter((c) =>
-    c.toLowerCase().includes(clientQuery.toLowerCase())
+  // NEW: editable rows per page
+  const [rowsPerPage, setRowsPerPage] = useState<number>(25);
+
+  const filteredClients = useMemo(
+    () => CLIENTS.filter((c) => c.toLowerCase().includes(clientQuery.toLowerCase())),
+    [clientQuery]
   );
 
-  const filteredSubs = SUBCONTRACTORS.filter((s) =>
-    s.toLowerCase().includes(subQuery.toLowerCase())
+  const filteredSubs = useMemo(
+    () => SUBCONTRACTORS.filter((s) => s.toLowerCase().includes(subQuery.toLowerCase())),
+    [subQuery]
   );
 
   return (
-    <section className="rounded-xl border bg-white p-4">
-      {/* Row 1 */}
+    <section className="rounded-xl border bg-white p-4 max-w-[1000px]">
+      {/*Status field*/}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <Field label="Status">
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="h-10 w-full rounded-md border px-3 text-sm"
-          >
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-10 w-full rounded-md border px-3 text-sm">
             <option value="">All statuses</option>
+            <option value="inProgress">In progress</option>
             <option value="confirmed">Confirmed</option>
-            <option value="completed">Completed</option>
+            <option value="active">Active</option>
             <option value="cancelled">Cancelled</option>
+            <option value="fail">Fail</option>
+            <option value="completed">Completed</option>
+            <option value="invoiced">Invoiced</option>
+            <option value="betalt">Paid</option>
           </select>
         </Field>
 
+        {/*Client field*/}
         <ComboField
           label="Client"
           value={client}
@@ -50,6 +57,7 @@ export default function TopFilters() {
           placeholder="Select client"
         />
 
+        {/*Subcontractor field*/}
         <ComboField
           label="Subcontractor"
           value={subcontractor}
@@ -61,7 +69,7 @@ export default function TopFilters() {
         />
       </div>
 
-      {/* Row 2 */}
+      {/*Dates field*/}
       <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="grid grid-cols-2 gap-3 md:col-span-2">
           <Field label="From date">
@@ -80,7 +88,7 @@ export default function TopFilters() {
         </div>
       </div>
 
-      {/* Row 3 */}
+      {/*Search by ID input field */}
       <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
         <Field label="Search">
           <input
@@ -89,18 +97,49 @@ export default function TopFilters() {
           />
         </Field>
 
+      {/*Number per page input field */}
         <Field label="Rows per page">
-          <select className="h-10 w-full rounded-md border px-3 text-sm">
-            <option>25</option>
-            <option>50</option>
-            <option>100</option>
-          </select>
+          <div className="space-y-2">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={10000}
+              value={Number.isFinite(rowsPerPage) ? rowsPerPage : ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") return;
+                const n = Number(raw);
+                if (!Number.isFinite(n)) return;
+                setRowsPerPage(Math.max(1, Math.min(10000, Math.floor(n))));
+              }}
+              onBlur={(e) => {
+                if (e.target.value === "") setRowsPerPage(25);
+              }}
+              className="h-10 w-full rounded-md border px-3 text-sm"
+              placeholder="Type any number"
+            />
+            <div className="flex flex-wrap gap-2">
+              {[10, 25, 50, 100, 250, 500].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setRowsPerPage(n)}
+                  className={`h-8 rounded-md border px-3 text-xs mx-auto ${
+                    rowsPerPage === n
+                      ? "bg-logoblue text-white font-bold"
+                      : "hover:bg-neutral-50"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
         </Field>
 
         <div className="flex items-end justify-end gap-2">
-          <button className="h-10 rounded-md border px-4 text-sm">
-            Reset
-          </button>
+          <button className="h-10 rounded-md border px-4 text-sm">Reset</button>
           <button className="h-10 rounded-md bg-logoblue px-4 text-sm font-semibold text-white">
             Apply filters
           </button>
