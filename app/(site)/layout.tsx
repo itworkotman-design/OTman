@@ -32,7 +32,7 @@ export default function SiteLayout({
   return (
     <>
     <Navbar/>
-    <main className="mx-auto w-full max-w-screen-xl px-[20px]">
+    <main className="mx-auto w-full max-w-7xl px-5">
         {children}
     </main>
     <Footer/></>

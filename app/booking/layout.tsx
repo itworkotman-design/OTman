@@ -7,7 +7,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex">
       {/* LEFT */}
-      <aside className="w-[300px] shrink-0">
+      <aside className="w-75 shrink-0">
         <Sidebar />
       </aside>
 

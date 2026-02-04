@@ -29,7 +29,7 @@ export default function TopFilters() {
   );
 
   return (
-    <section className="rounded-xl border bg-white p-4 max-w-[1000px]">
+    <section className="rounded-xl border bg-white p-4 max-w-250">
       {/*Status field*/}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <Field label="Status">

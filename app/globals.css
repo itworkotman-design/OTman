@@ -20,7 +20,7 @@ body {
   color: var(--textcolor)
 }
 
-h1, h2, h3, h4, h5 , th {
+h1, h2, h3, h4, h5 , th, label {
   font-family: var(--font-plus-jakarta), Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 

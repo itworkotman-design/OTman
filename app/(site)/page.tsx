@@ -22,9 +22,9 @@ export default function Home() {
         </h3>
       </header>
       <ServiceWindow items={items} />
-      <section className="py-[40px]">
+      <section className="py-10">
         <h3 className="text-center text-[20px] font-bold pb-2">Are you looking for a reliable transport partner?</h3>
-        <p className="text-center mx-auto w-full  max-w-[800px]">From small packages to large projects – we take on everything.  Need help with moving? Need your car transported? Or do you have a package that needs to go out faster than lightning? We can handle it.</p>
+        <p className="text-center mx-auto w-full  max-w-200">From small packages to large projects – we take on everything.  Need help with moving? Need your car transported? Or do you have a package that needs to go out faster than lightning? We can handle it.</p>
       </section>
       <StatsDisplay/>
        <PartnersDisplay/>
