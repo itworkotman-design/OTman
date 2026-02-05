@@ -4,9 +4,9 @@ import Link from "next/link";
 
 export default function LoginPage() {
   return (
-    <main>
-      <div className="mx-auto flex justify-center mt-30 max-w-90">
-        <section className="w-100 max-w-sm sm:max-w-md">
+    <main className="w-full">
+      <div className="mx-auto flex justify-center mt-30 px-4">
+        <section className="w-full max-w-[420px]">
           {/* Logo */}
           <div className="mb-8 flex justify-center sm:mb-10">
             {/* Replace with your logo path or component */}

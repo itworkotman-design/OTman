@@ -4,11 +4,11 @@ import Link from "next/link";
 
 export default function LoginPage() {
   return (
-    <main>
-      <div className="mx-auto flex justify-center mt-30 max-w-90">
-        <section className="w-100 max-w-sm sm:max-w-md">
+    <main className="w-full">
+      <div className="mx-auto flex justify-center mt-30 px-4">
+        <section className="w-full max-w-[420px]">
           {/* Logo */}
-          <div className="mb-8 flex justify-center sm:mb-10">
+          <div className="flex justify-center">
             {/* Replace with your logo path or component */}
             <Image
               src="/logo.png"
@@ -18,6 +18,10 @@ export default function LoginPage() {
               priority
               className="h-auto w-full"
             />
+          </div>
+          <div>
+            <h1 className="text-center text-3xl font-semibold mt-6 text-logoblue">Forgot your password?</h1>
+            <p className="text-center text-md font-base my-6">We&apos;ll email you instructions on how to reset your password</p>
           </div>
 
           {/* Form */}
@@ -41,7 +45,7 @@ export default function LoginPage() {
               type="submit"
               className="h-10 w-50 rounded-lg bg-logoblue text-lg font-semibold text-white hover:opacity-95 active:opacity-90 cursor-pointer"
             >
-              Receive email
+              Reset Password
             </button>
           </div>
             
