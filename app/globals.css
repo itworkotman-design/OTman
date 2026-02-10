@@ -40,3 +40,18 @@ p, ul, li, a, td {
 .animate-marquee {
   animation: marquee 50s linear infinite;
 }
+.priceRow {
+  border-bottom: 1px solid #cfcfcf;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.priceRow:last-child{
+  border-bottom: 0px solid #ff0101;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
