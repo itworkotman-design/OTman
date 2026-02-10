@@ -57,7 +57,29 @@ export const Sidebar = () => {
       </Link>
 
       <Link
-        href="/logout"
+        href="/booking/users"
+        className={`${linkBase} ${
+          isActive("/booking/users")
+            ? "bg-logoblue text-white"
+            : "bg-transparent text-logoblue hover:bg-logoblue/10"
+        }`}
+      >
+        Users
+      </Link>
+
+      <Link
+        href="/booking/editPrices"
+        className={`${linkBase} ${
+          isActive("/booking/editPrices")
+            ? "bg-logoblue text-white"
+            : "bg-transparent text-logoblue hover:bg-logoblue/10"
+        }`}
+      >
+        Edit Prices
+      </Link>
+
+      <Link
+        href=""
         className={`${linkBase} text-logoblue hover:bg-logoblue/10`}
       >
         Log out
