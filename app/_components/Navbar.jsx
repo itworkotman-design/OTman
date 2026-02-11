@@ -14,14 +14,14 @@ export const Navbar = () => {
   return (
     <>
       <nav className="w-full start-0 z-50 shadow-sm">
-        <div className="nav relative max-w-screen-xl px-[20] mx-auto grid grid-cols-2 md:grid-cols-3 items-center h-[60px] ">
+        <div className="nav relative max-w-7xl px-[20] mx-auto grid grid-cols-2 md:grid-cols-3 items-center h-15 ">
           {/* Grid left - logo */}
           <Link href="/" className="justify-self-start">
             <span className="text-sm text-heading font-semibold"><Image src="/Logo.png" width={116} height={50} alt="Logo"></Image></span>
           </Link>
 
           {/* Grid middle */}
-          <div className="relative justify-self-end md:justify-self-center flex items-center gap-4 md:w-[600px]">
+          <div className="relative justify-self-end md:justify-self-center flex items-center gap-4 md:w-150">
             <button
               onClick={() => setOpen((prev) => !prev)}
               aria-expanded={open}
@@ -43,11 +43,11 @@ export const Navbar = () => {
             <div
               id="navbar-menu"
               className={`${open ? "block" : "hidden"} 
-                absolute right-[-20px] top-full w-screen mt-3 
+                absolute -right-5 top-full w-screen mt-3 
                 md:mt-0 md:static md:block md:w-auto  
-                md:border-t-0 border-t-1 border-logoblue bg-white shadow-sm md:shadow-none`}
+                md:border-t-0 border-t border-logoblue bg-white shadow-sm md:shadow-none`}
             >
-              <ul className="flex flex-col gap-0 p-0 items-end md:flex-row md:gap-8 md:pr-4 md:border-b-0 pr-4 md:pr-0">
+              <ul className="flex flex-col gap-0 p-0 items-end md:flex-row md:gap-8 md:pr-4 md:border-b-0 pr-4">
                 <li>
                   <Link
                     href="/"
@@ -125,13 +125,13 @@ export const Navbar = () => {
             </div>
           </div>
           {/*Grid Right*/}
-          <div className="relative justify-self-end hidden md:block  md:justify-self-end flex items-center gap-4">
+          <div className="relative justify-self-end hidden md:block  md:justify-self-end items-center gap-4">
           <Link
             href="/"
             className={`
                 text-white! font-bold
                 flex items-center justify-center gap-4
-                bg-logoblue w-[90px] h-[31px] rounded-[26px]
+                bg-logoblue w-22.5 h-7.75 rounded-[26px]
                 text-sm transition-colors duration-140`}
             >
             Contact

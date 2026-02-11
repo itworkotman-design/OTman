@@ -4,7 +4,7 @@ import Link from "next/link";
 export function Footer() {
   return (
     <footer className="w-full bg-logoblue md:bg-white shadow-[0_-1px_2px_0_rgba(0,0,0,0.1)]">
-      <div className="mx-auto w-full max-w-[800px] px-[20] pt-6">
+      <div className="mx-auto w-full max-w-200 px-[20] pt-6">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-3">
           {/* Company info */}
           <div className="md:justify-self-center">
