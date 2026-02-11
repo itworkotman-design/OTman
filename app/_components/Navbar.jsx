@@ -56,7 +56,7 @@ export const Navbar = () => {
                       transition-colors duration-140
                       ${isActive("/")
                         ? "text-logoblue font-semibold"
-                        : "hover:text-green"}
+                        : ""}
                     `}
                   >
                     Transport Services
@@ -71,7 +71,7 @@ export const Navbar = () => {
                       transition-colors duration-140
                       ${isActive("/VehicleRental")
                         ? "text-logoblue font-semibold"
-                        : "hover:text-green"}
+                        : ""}
                     `}
                   >
                     Vehicle Rental
@@ -86,7 +86,7 @@ export const Navbar = () => {
                       transition-colors duration-140
                       ${isActive("/ManpoweRental")
                         ? "text-logoblue font-semibold"
-                        : "hover:text-green"}
+                        : ""}
                     `}
                   >
                     Manpower Rental
@@ -100,7 +100,7 @@ export const Navbar = () => {
                       transition-colors duration-140
                       ${isActive("/About")
                         ? "text-logoblue font-semibold"
-                        : "hover:text-green"}
+                        : ""}
                     `}
                   >
                     About
@@ -114,7 +114,7 @@ export const Navbar = () => {
                       transition-colors duration-140
                       ${isActive("/About")
                         ? "text-logoblue font-semibold"
-                        : "hover:text-green"}
+                        : ""}
                     `}
                   >
                     Contact

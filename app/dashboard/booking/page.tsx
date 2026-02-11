@@ -2,10 +2,10 @@
 //import ArchiveActions from "";
 
 
-import TopFiltersField from "../_components/(booking)/TopFiltersField"
-import { BookingFieldEditor } from "../_components/(booking)/BookingFieldEditor";
-import { MessageSender } from "../_components/(booking)/MessageSender";
-import { ArchiveTable } from "../_components/(booking)/ArchiveTable";
+import TopFiltersField from "../../_components/(booking)/TopFiltersField"
+import { BookingFieldEditor } from "../../_components/(booking)/BookingFieldEditor";
+import { MessageSender } from "../../_components/(booking)/MessageSender";
+import { ArchiveTable } from "../../_components/(booking)/ArchiveTable";
 
 
 export default function BookingDashboard() {
@@ -61,7 +61,7 @@ export default function BookingDashboard() {
         onExportExcel={() => console.log("excel")}
       />
       {/* Archive table */}
-      <div className="flex-1 overflow-auto px-6 py-4">
+      <div className="flex-1 overflow-auto py-4">
         <ArchiveTable/>
       </div>
     </section>

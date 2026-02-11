@@ -24,9 +24,9 @@ export const Sidebar = () => {
 
       {/* Links */}
       <Link
-        href="/booking"
+        href="/dashboard/booking"
         className={`${linkBase} ${
-          isActive("/booking")
+          isActive("/dashboard/booking")
             ? "bg-logoblue text-white"
             : "bg-transparent text-logoblue hover:bg-logoblue/10"
         }`}
@@ -35,9 +35,9 @@ export const Sidebar = () => {
       </Link>
 
       <Link
-        href="/booking/create"
+        href="/dashboard/booking/create"
         className={`${linkBase} ${
-          isActive("/booking/create")
+          isActive("/dashboard/booking/create")
             ? "bg-logoblue text-white"
             : "bg-transparent text-logoblue hover:bg-logoblue/10"
         }`}
@@ -46,9 +46,9 @@ export const Sidebar = () => {
       </Link>
 
       <Link
-        href="/booking/power"
+        href="/dashboard/booking/power"
         className={`${linkBase} ${
-          isActive("/booking/power")
+          isActive("/dashboard/booking/power")
             ? "bg-logoblue text-white"
             : "bg-transparent text-logoblue hover:bg-logoblue/10"
         }`}
@@ -57,20 +57,20 @@ export const Sidebar = () => {
       </Link>
 
       <Link
-        href="/booking/users"
+        href="/dashboard/booking/booking_users"
         className={`${linkBase} ${
-          isActive("/booking/users")
+          isActive("/dashboard/booking/booking_users")
             ? "bg-logoblue text-white"
             : "bg-transparent text-logoblue hover:bg-logoblue/10"
         }`}
       >
-        Users
+        Booking users
       </Link>
 
       <Link
-        href="/booking/editPrices"
+        href="/dashboard/booking/editPrices"
         className={`${linkBase} ${
-          isActive("/booking/editPrices")
+          isActive("/dashboard/booking/editPrices")
             ? "bg-logoblue text-white"
             : "bg-transparent text-logoblue hover:bg-logoblue/10"
         }`}

@@ -17,7 +17,7 @@ export default function CreatePage(){
     return (
         <>
         <main className="flex">
-            <div className="w-full max-w-xl pl-4 pt-8">
+            <div className="w-full max-w-xl">
             <h1 className="font-bold">Add Product</h1>
             {cards.map((id)=>(
                 <ProductCard key={id}/>
@@ -160,7 +160,7 @@ export default function CreatePage(){
                     <button className="block w-full mb-20 mt-8 border-2 border-logoblue text-logoblue py-4 px-8 rounded-2xl cursor-pointer font-bold hover:bg-logoblue hover:text-white" type="submit">Submit</button>
                 </div>
             </div>
-            <div className="fixed left-230 top-18">
+            <div className="fixed left-230 top-32">
                 <CalculatorDisplay/>
             </div>
             
