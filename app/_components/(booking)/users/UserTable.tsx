@@ -1,6 +1,6 @@
 "use client";
 
-import type { User } from "@/app/dashboard/booking/booking_users/_types/user";
+import type { User } from "@/app/dashboard/booking/booking_users/_types/user.ts";
 
 export function UserTable({
   users,
@@ -13,19 +13,19 @@ export function UserTable({
     <table className="w-full table-fixed min-w-275 border border-black/10">
       <thead>
         <tr>
-          <th className="px-4 py-4 border bg-black/5 w-40">Name</th>
-          <th className="px-4 py-4 border bg-black/5 w-50">Email</th>
-          <th className="px-4 py-4 border bg-black/5 w-40">Company</th>
-          <th className="px-4 py-4 border bg-black/5 w-40">Number</th>
-          <th className="px-4 py-4 border bg-black/5 w-30">Role</th>
-          <th className="px-4 py-4 border bg-black/5 w-auto">Info</th>
-          <th className="px-4 py-4 border bg-black/5 w-20">Posts</th>
+          <th className="px-4 py-4 border bg-logoblue text-white font-semibold w-40">Name</th>
+          <th className="px-4 py-4 border bg-logoblue text-white font-semibold w-50">Email</th>
+          <th className="px-4 py-4 border bg-logoblue text-white font-semibold w-40">Company</th>
+          <th className="px-4 py-4 border bg-logoblue text-white font-semibold w-40">Number</th>
+          <th className="px-4 py-4 border bg-logoblue text-white font-semibold w-30">Role</th>
+          <th className="px-4 py-4 border bg-logoblue text-white font-semibold w-auto">Info</th>
+          <th className="px-4 py-4 border bg-logoblue text-white font-semibold w-20">Posts</th>
         </tr>
       </thead>
 
       <tbody>
         {users.map((u) => (
-          <tr key={u.id} className="cursor-pointer border-b border-black/10 hover:bg-logoblue/10"
+          <tr key={u.id} className="cursor-pointer border-b border-black/10 hover:bg-black/2"
           onClick={() => {
             onRowClick(u); }}
           >

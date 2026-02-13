@@ -42,13 +42,9 @@ export default function EditUserModal({
     role: initialValueRole,
   });
 
-  const updateField =
-    (key: keyof typeof form) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      setForm((prev) => ({ ...prev, [key]: e.target.value }));
-    };
+  const updateField =(key: keyof typeof form) =>(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {setForm((prev) => ({ ...prev, [key]: e.target.value }))};
 
-  // auto-grow textarea (no scroll)
+  // auto-grow
   const infoRef = useRef<HTMLTextAreaElement>(null);
   const autoGrow = () => {
     const el = infoRef.current;
@@ -72,11 +68,7 @@ export default function EditUserModal({
           <h1 className="text-center font-semibold text-3xl text-logoblue">
             Edit User
           </h1>
-          <button
-            className="ml-auto bg-logoblue text-white w-8 h-8 rounded-full font-bold grid place-items-center cursor-pointer"
-            onClick={onClose}
-            type="button"
-          >
+          <button className="ml-auto bg-logoblue text-white w-8 h-8 rounded-full font-bold grid place-items-center cursor-pointer" onClick={onClose} type="button" >
             <span className="-translate-y-px">x</span>
           </button>
         </div>
@@ -85,51 +77,28 @@ export default function EditUserModal({
           <h2 className="pl-2 text-logoblue font-semibold pb-2">Information</h2>
 
           <table className="w-full table-fixed border-collapse">
-            <colgroup>
-              <col className="w-32" />
-              <col />
-              <col className="w-32" />
-              <col />
-            </colgroup>
-
             <tbody>
               <tr>
                 <td className="px-4 py-2 border border-black/20">Name</td>
                 <td className="border border-black/20">
-                  <input
-                    value={form.name}
-                    onChange={updateField("name")}
-                    className="w-full px-3 py-2 border-none outline-none focus:ring-0"
-                  />
+                  <input value={form.name} onChange={updateField("name")} className="w-full px-3 py-2 border-none outline-none focus:ring-0" />
                 </td>
 
                 <td className="px-4 py-2 border border-black/20">Company</td>
                 <td className="border border-black/20">
-                  <input
-                    value={form.company}
-                    onChange={updateField("company")}
-                    className="w-full px-3 py-2 border-none outline-none focus:ring-0"
-                  />
+                  <input value={form.company} onChange={updateField("company")} className="w-full px-3 py-2 border-none outline-none focus:ring-0" />
                 </td>
               </tr>
 
               <tr>
                 <td className="px-4 py-2 border border-black/20">Email</td>
                 <td className="border border-black/20">
-                  <input
-                    value={form.email}
-                    onChange={updateField("email")}
-                    className="w-full px-3 py-2 border-none outline-none focus:ring-0"
-                  />
+                  <input value={form.email} onChange={updateField("email")} className="w-full px-3 py-2 border-none outline-none focus:ring-0" />
                 </td>
 
                 <td className="px-4 py-2 border border-black/20">Number</td>
                 <td className="border border-black/20">
-                  <input
-                    value={form.number}
-                    onChange={updateField("number")}
-                    className="w-full px-3 py-2 border-none outline-none focus:ring-0"
-                  />
+                  <input value={form.number} onChange={updateField("number")} className="w-full px-3 py-2 border-none outline-none focus:ring-0" />
                 </td>
               </tr>
 
@@ -138,16 +107,7 @@ export default function EditUserModal({
                   Info
                 </td>
                 <td className="border border-black/20 align-top" colSpan={3}>
-                  <textarea
-                    ref={infoRef}
-                    value={form.info}
-                    onChange={(e) => {
-                      updateField("info")(e);
-                      requestAnimationFrame(autoGrow);
-                    }}
-                    rows={1}
-                    className="w-full px-3 py-2 resize-none overflow-hidden border-none outline-none focus:ring-0"
-                  />
+                  <textarea ref={infoRef} value={form.info} onChange={(e) => { updateField("info")(e); requestAnimationFrame(autoGrow); }} rows={1} className="w-full px-3 py-2 resize-none overflow-hidden border-none outline-none focus:ring-0"/>
                 </td>
               </tr>
             </tbody>
@@ -160,19 +120,11 @@ export default function EditUserModal({
               </h2>
 
               <table className="w-full table-fixed border-collapse">
-                <colgroup>
-                  <col className="w-32" />
-                  <col />
-                </colgroup>
                 <tbody>
                   <tr>
                     <td className="px-4 py-2 border border-black/20">Role</td>
                     <td className="border border-black/20">
-                      <input
-                        value={form.role}
-                        onChange={updateField("role")}
-                        className="w-full px-3 py-2 border-none outline-none focus:ring-0"
-                      />
+                      <input value={form.role} onChange={updateField("role")} className="w-full px-3 py-2 border-none outline-none focus:ring-0"/>
                     </td>
                   </tr>
                 </tbody>
@@ -183,10 +135,6 @@ export default function EditUserModal({
               </h2>
 
               <table className="w-full table-fixed border-collapse">
-                <colgroup>
-                  <col className="w-32" />
-                  <col />
-                </colgroup>
                 <tbody>
                   <tr>
                     <td className="px-4 py-2 border border-black/20">
@@ -216,14 +164,7 @@ export default function EditUserModal({
           </div>
 
           <div className="flex justify-center mt-10">
-            <button
-              onClick={() => {
-                onSave(form);
-                onClose();
-              }}
-              className="bg-logoblue text-white w-96 py-3 rounded-full font-semibold cursor-pointer"
-              type="button"
-            >
+            <button onClick={() => { onSave(form); onClose(); }} className="bg-logoblue text-white w-96 py-3 rounded-full font-semibold cursor-pointer" type="button">
               Save Changes
             </button>
           </div>
