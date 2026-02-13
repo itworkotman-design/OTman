@@ -1,151 +1,234 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { User } from "@/app/dashboard/booking/booking_users/_types/user";
+import React, { useEffect, useRef, useState } from "react";
 
-export function EditUserModal({
-  user,
+type Props = {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: {
+    name: string;
+    company: string;
+    email: string;
+    number: string;
+    info: string;
+    role: string;
+  }) => void;
+
+  initialValueName: string;
+  initialValueCompany: string;
+  initialValueEmail: string;
+  initialValueNumber: string;
+  initialValueInfo: string;
+  initialValueRole: string;
+};
+
+export default function EditUserModal({
+  isOpen,
   onClose,
   onSave,
-}: {
-  user: User | null;
-  onClose: () => void;
-  onSave: (u: User) => void;
-}) {
-  const open = !!user;
+  initialValueName,
+  initialValueCompany,
+  initialValueEmail,
+  initialValueNumber,
+  initialValueInfo,
+  initialValueRole,
+}: Props) {
+  const [form, setForm] = useState({
+    name: initialValueName,
+    company: initialValueCompany,
+    email: initialValueEmail,
+    number: initialValueNumber,
+    info: initialValueInfo,
+    role: initialValueRole,
+  });
 
-  const initial = useMemo(() => user, [user]);
-  const [draft, setDraft] = useState<User | null>(user);
+  const updateField =
+    (key: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setDraft(user), [initial, user]);
+  // auto-grow textarea (no scroll)
+  const infoRef = useRef<HTMLTextAreaElement>(null);
+  const autoGrow = () => {
+    const el = infoRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
 
   useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    if (open) window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
-  }, [open, onClose]);
+    if (!isOpen) return;
+    autoGrow(); 
+  }, [isOpen]);
 
-  if (!open || !draft) return null;
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black" aria-modal="true" role="dialog">
-      {/* backdrop */}
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+    <div className="fixed inset-0 z-5 ml-75 bg-black/40 flex items-center justify-center">
+      <div className="bg-white w-full max-w-3xl rounded-3xl shadow p-6">
+        <div className="grid grid-cols-3 items-start">
+          <div />
+          <h1 className="text-center font-semibold text-3xl text-logoblue">
+            Edit User
+          </h1>
+          <button
+            className="ml-auto bg-logoblue text-white w-8 h-8 rounded-full font-bold grid place-items-center cursor-pointer"
+            onClick={onClose}
+            type="button"
+          >
+            <span className="-translate-y-px">x</span>
+          </button>
+        </div>
 
-      {/* modal */}
-      <div className="relative z-10 bg-white rounded-2xl p-6 w-195">
-        <button onClick={onClose} className="" aria-label="Close modal">
-            X
-        </button>
+        <div className="mt-6 px-6">
+          <h2 className="pl-2 text-logoblue font-semibold pb-2">Information</h2>
 
-        <h2 className="text-center font-semibold text-logoblue text-4xl">Edit user</h2>
+          <table className="w-full table-fixed border-collapse">
+            <colgroup>
+              <col className="w-32" />
+              <col />
+              <col className="w-32" />
+              <col />
+            </colgroup>
 
-        <div className="mt-6 grid grid-cols-3 gap-6">
-          <div className="col-span-2">
-            <div className="text-xs font-semibold text-logoblue mb-2">Information</div>
-            <div className="grid grid-cols-2 gap-3 border border-black/10 p-3 rounded-md">
-              <Field label="Name">
-                <input
-                  className="w-full border border-black/10 px-2 py-1 rounded"
-                  value={draft.name}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                />
-              </Field>
-              <Field label="Company">
-                <input
-                  className="w-full border border-black/10 px-2 py-1 rounded"
-                  value={draft.company}
-                  onChange={(e) => setDraft({ ...draft, company: e.target.value })}
-                />
-              </Field>
-              <Field label="Email">
-                <input
-                  className="w-full border border-black/10 px-2 py-1 rounded"
-                  value={draft.email}
-                  onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                />
-              </Field>
-              <Field label="Number">
-                <input
-                  className="w-full border border-black/10 px-2 py-1 rounded"
-                  value={draft.number}
-                  onChange={(e) => setDraft({ ...draft, number: e.target.value })}
-                />
-              </Field>
-              <div className="col-span-2">
-                <div className="text-[11px] text-black/60 mb-1">Info</div>
-                <textarea
-                  className="w-full border border-black/10 px-2 py-1 rounded min-h-17.5"
-                  value={draft.info}
-                  onChange={(e) => setDraft({ ...draft, info: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="mt-5 text-xs font-semibold text-logoblue mb-2">Permissions</div>
-            <div className="border border-black/10 p-3 rounded-md">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Role">
+            <tbody>
+              <tr>
+                <td className="px-4 py-2 border border-black/20">Name</td>
+                <td className="border border-black/20">
                   <input
-                    className="w-full border border-black/10 px-2 py-1 rounded"
-                    value={draft.role}
-                    onChange={(e) => setDraft({ ...draft, role: e.target.value })}
+                    value={form.name}
+                    onChange={updateField("name")}
+                    className="w-full px-3 py-2 border-none outline-none focus:ring-0"
                   />
-                </Field>
-              </div>
+                </td>
+
+                <td className="px-4 py-2 border border-black/20">Company</td>
+                <td className="border border-black/20">
+                  <input
+                    value={form.company}
+                    onChange={updateField("company")}
+                    className="w-full px-3 py-2 border-none outline-none focus:ring-0"
+                  />
+                </td>
+              </tr>
+
+              <tr>
+                <td className="px-4 py-2 border border-black/20">Email</td>
+                <td className="border border-black/20">
+                  <input
+                    value={form.email}
+                    onChange={updateField("email")}
+                    className="w-full px-3 py-2 border-none outline-none focus:ring-0"
+                  />
+                </td>
+
+                <td className="px-4 py-2 border border-black/20">Number</td>
+                <td className="border border-black/20">
+                  <input
+                    value={form.number}
+                    onChange={updateField("number")}
+                    className="w-full px-3 py-2 border-none outline-none focus:ring-0"
+                  />
+                </td>
+              </tr>
+
+              <tr>
+                <td className="px-4 py-2 border border-black/20 align-top">
+                  Info
+                </td>
+                <td className="border border-black/20 align-top" colSpan={3}>
+                  <textarea
+                    ref={infoRef}
+                    value={form.info}
+                    onChange={(e) => {
+                      updateField("info")(e);
+                      requestAnimationFrame(autoGrow);
+                    }}
+                    rows={1}
+                    className="w-full px-3 py-2 resize-none overflow-hidden border-none outline-none focus:ring-0"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="grid grid-cols-2 gap-8 mt-6">
+            <div>
+              <h2 className="pl-2 text-logoblue font-semibold pb-2">
+                Permissions
+              </h2>
+
+              <table className="w-full table-fixed border-collapse">
+                <colgroup>
+                  <col className="w-32" />
+                  <col />
+                </colgroup>
+                <tbody>
+                  <tr>
+                    <td className="px-4 py-2 border border-black/20">Role</td>
+                    <td className="border border-black/20">
+                      <input
+                        value={form.role}
+                        onChange={updateField("role")}
+                        className="w-full px-3 py-2 border-none outline-none focus:ring-0"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <h2 className="pl-2 text-logoblue font-semibold pb-2 pt-6">
+                Security
+              </h2>
+
+              <table className="w-full table-fixed border-collapse">
+                <colgroup>
+                  <col className="w-32" />
+                  <col />
+                </colgroup>
+                <tbody>
+                  <tr>
+                    <td className="px-4 py-2 border border-black/20">
+                      Password
+                    </td>
+                    <td className="border border-black/20">
+                      <input
+                        value="*******"
+                        readOnly
+                        className="w-full px-3 py-2 border-none outline-none focus:ring-0"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            <div className="mt-5 text-xs font-semibold text-logoblue mb-2">Security</div>
-            <div className="border border-black/10 p-3 rounded-md">
-              <Field label="Password">
-                <input
-                  className="w-full border border-black/10 px-2 py-1 rounded"
-                  value={"********"}
-                  readOnly
-                />
-              </Field>
-
-              <div className="mt-3 flex gap-2">
-                <button className="rounded-md bg-logoblue px-3 py-2 text-white text-sm">
-                  Change password
-                </button>
-                <button className="rounded-md bg-logoblue px-3 py-2 text-white text-sm">
-                  Send Reset Link
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-span-1">
-            <div className="text-xs font-semibold text-logoblue mb-2">Edit user</div>
-            <div className="flex flex-col gap-2">
-              <button className="rounded-md bg-red-700 px-3 py-2 text-white text-sm">
-                {draft.disabled ? "Enable" : "Disable"}
+            <div className="ml-auto">
+              <h2 className="pl-2 text-logoblue font-semibold pb-2">Manage</h2>
+              <button className="block bg-red-800 w-40 py-1 rounded-2xl text-white font-semibold mb-3 cursor-pointer">
+                Disable
               </button>
-              <button className="rounded-md bg-red-700 px-3 py-2 text-white text-sm">
+              <button className="block bg-red-800 w-40 py-1 rounded-2xl text-white font-semibold cursor-pointer">
                 Remove
               </button>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={() => onSave(draft)}
-          className="mt-8 w-full rounded-full bg-logoblue py-3 text-white font-semibold"
-        >
-          Save Changes
-        </button>
+          <div className="flex justify-center mt-10">
+            <button
+              onClick={() => {
+                onSave(form);
+                onClose();
+              }}
+              className="bg-logoblue text-white w-96 py-3 rounded-full font-semibold cursor-pointer"
+              type="button"
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <div className="text-[11px] text-black/60 mb-1">{label}</div>
-      {children}
-    </label>
   );
 }

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "./app/**/*.{js,ts,jsx,tsx}";
+@source "./components/**/*.{js,ts,jsx,tsx}";
 
 :root {
   --logoblue: #273097;
