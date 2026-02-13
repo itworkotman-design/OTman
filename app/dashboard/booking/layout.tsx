@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Sidebar } from "../../_components/(booking)/Sidebar";
+import { Sidebar } from "../../_components/(Dahsboard)/(booking)/Sidebar";
 import { Navbar } from "@/app/_components/(Dahsboard)/Navbar";
 
 export default function AppLayout({ children }: { children: ReactNode }) {

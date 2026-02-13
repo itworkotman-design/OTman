@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import EditUserModal from "@/app/_components/(booking)/users/EditUserModal";
+import EditUserModal from "@/app/_components/(Dahsboard)/(booking)/users/EditUserModal";
 import type { User } from "./_types/user";
-import { UserTable } from "@/app/_components/(booking)/users/UserTable";
+import { UserTable } from "@/app/_components/(Dahsboard)/(booking)/users/UserTable";
 
 export default function UserPage() {
   const [users, setUsers] = useState<User[]>([

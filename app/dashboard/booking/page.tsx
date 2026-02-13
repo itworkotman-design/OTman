@@ -2,10 +2,10 @@
 //import ArchiveActions from "";
 
 
-import TopFiltersField from "../../_components/(booking)/TopFiltersField"
-import { BookingFieldEditor } from "../../_components/(booking)/BookingFieldEditor";
-import { MessageSender } from "../../_components/(booking)/MessageSender";
-import { ArchiveTable } from "../../_components/(booking)/ArchiveTable";
+import TopFiltersField from "../../_components/(Dahsboard)/(booking)/orders/TopFiltersField"
+import { BookingFieldEditor } from "../../_components/(Dahsboard)/(booking)/orders/BookingFieldEditor";
+import { MessageSender } from "../../_components/(Dahsboard)/(booking)/orders/MessageSender";
+import { ArchiveTable } from "../../_components/(Dahsboard)/(booking)/orders/ArchiveTable";
 
 
 export default function BookingDashboard() {

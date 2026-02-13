@@ -1,14 +1,39 @@
 "use client"
 import { useState } from "react";
-import { ProductCard } from "@/app/_components/(booking)/ProductCard";
-import { PickupLocations } from "@/app/_components/(booking)/PickupLocations";
-import { CalculatorDisplay } from "@/app/_components/(booking)/CalculatorDisplay";
+import { ProductCard } from "@/app/_components/(Dahsboard)/(booking)/create/ProductCard";
+import { PickupLocations } from "@/app/_components/(Dahsboard)/(booking)/create/PickupLocations";
+import { CalculatorDisplay } from "@/app/_components/(Dahsboard)/(booking)/create/CalculatorDisplay";
+import { PRICE_ITEMS } from "@/lib/pricing";
+
+function calculateTotal(keys: string[]) {
+  let total = 0;
+  let foundAny = false;
+  let onlyReturns = true;
+
+  for (const key of keys) {
+    const item = PRICE_ITEMS.find(i => i.key === key);
+    if (!item) continue;
+
+    foundAny = true;
+    if (item.category !== "return") onlyReturns = false;
+
+    total += item.customerPrice;
+  }
+
+  if (!foundAny) return 0;
+  if (onlyReturns) return 0; // "Kun return" rule
+
+  return total;
+}
 
 export default function CreatePage(){
     const [cards, setCards] = useState([0])
     const [phone, setPhone] = useState("+47 ");
     const [phoneTwo, setPhoneTwo] = useState("+47 ");
     const [phoneThree, setPhoneThree] = useState("+47 ");
+
+    const [cardKeys, setCardKeys] = useState<Record<number, string[]>>({});
+    const total = calculateTotal(Object.values(cardKeys).flat());
 
     const addCard = () => {
         setCards((prev) => [...prev, prev.length]);
@@ -18,10 +43,15 @@ export default function CreatePage(){
         <>
         <main className="flex">
             <div className="w-full max-w-xl">
-            <h1 className="font-bold">Add Product</h1>
-            {cards.map((id)=>(
-                <ProductCard key={id}/>
-            ))}
+                {cards.map((id) => (<ProductCard key={id} cardId={id} onChange={(keys) => setCardKeys((prev) => ({ ...prev, [id]: keys }))}/>))}
+            <button
+                type="button"
+                className="my-8 w-full font-bold cursor-pointer border-2 border-logoblue text-logoblue py-3 px-4 rounded-xl hover:bg-logoblue hover:text-white"
+                onClick={addCard}
+                >
+                Add extra products
+            </button>
+
             <button className="my-8 w-full font-bold cursor-pointer border-2 border-logoblue text-logoblue py-3 px-4 rounded-xl hover:bg-logoblue hover:text-white" onClick={addCard}>Add extra products</button>
                 <div className="">
                     <h1 className="font-bold py-2">Order number</h1>
@@ -161,7 +191,7 @@ export default function CreatePage(){
                 </div>
             </div>
             <div className="fixed left-230 top-32">
-                <CalculatorDisplay/>
+                <CalculatorDisplay total={total} />
             </div>
             
         </main>
