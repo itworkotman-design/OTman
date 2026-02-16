@@ -264,84 +264,8 @@ export default function CreatePage() {
               className="w-full rounded-xl border px-4 py-2 outline-none"
             />
 
-            <h1 className="font-bold py-2">Subcontractor</h1>
-            <select className="w-full py-2 px-2 rounded-xl border">
-              <option aria-disabled>Choose</option>
-              <option>Otman Transport AS</option>
-              <option>Bahs Courier</option>
-              <option>Nordline AS</option>
-              <option>Tastanovas Grocery Store</option>
-              <option>Viken Trotting Sport Tanha</option>
-              <option>Levitis Transport</option>
-              <option>Arnosan AS</option>
-              <option>Stombergas Transport</option>
-              <option>Construction Service Vaicuss</option>
-              <option>New subcontractor 1</option>
-              <option>New subcontractor 2</option>
-            </select>
-
-            <h1 className="font-bold py-2">Driver</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Second driver</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Info for the driver</h1>
-            <input className="w-full py-2 px-4 h-30 rounded-xl border" />
-
-            <h1 className="font-bold py-2">License plate</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">??????</h1>
-            <select className="w-full py-2 px-2 rounded-xl border">
-              <option aria-disabled>Choose</option>
-              <option>Deviation, missed trip; Customer not at home</option>
-              <option>Deviation, dead end; Customer cancelled</option>
-              <option>Deviation, missed delivery; Damaged goods</option>
-              <option>Deviation, delivery toll stairs; Wrong item</option>
-              <option>Deviation, toll; Wrong address</option>
-              <option>Deviation, toll trip; New driving date</option>
-              <option>Deviation, missed trip; Warehouse cannot find the product</option>
-              <option>Deviation, toll trip; Cancelled the day before</option>
-            </select>
-
-            <div className="pt-2">
-              <input type="checkbox" className="inline" />
-              <p className="inline pl-2">Fee for extra work per started</p>
-            </div>
-            <div className="pt-2">
-              <input type="checkbox" className="inline" />
-              <p className="inline pl-2">Fee for adding to order</p>
-            </div>
-
-            <h1 className="font-bold py-2">Status notes</h1>
-            <input className="w-full py-2 px-4 h-30 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Change customer</h1>
-            <select className="w-full py-2 px-2 rounded-xl border">
-              <option aria-disabled>Choose</option>
-              <option>Power this</option>
-              <option>Power that</option>
-            </select>
-
-            <h1 className="font-bold py-2">Status</h1>
-            <select className="w-full py-2 px-2 rounded-xl border">
-              <option aria-disabled>Choose</option>
-              <option></option>
-              <option>Behandles</option>
-              <option>Bekreftet</option>
-              <option>Aktiv</option>
-              <option>Kanselert</option>
-              <option>Fail</option>
-              <option>Ferdig</option>
-              <option>Fakturert</option>
-              <option>Betalt</option>
-            </select>
-
             <h1 className="font-bold py-2">Attachment</h1>
 
-            <input type="checkbox" className=" inline mr-2" />
-            <p className="py-2 inline">Don&apos;t send email</p>
 
             <button
               className="block w-full mb-20 mt-8 border-2 border-logoblue text-logoblue py-4 px-8 rounded-2xl cursor-pointer font-bold hover:bg-logoblue hover:text-white"
