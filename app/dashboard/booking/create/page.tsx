@@ -18,7 +18,7 @@ function codeToKey(code: string): string | null {
 
 // Order-level fees (charge max once per order)
 const ORDER_LEVEL_KEYS = new Set<string>(
-  ["DELIVERY", "INDOOR", "INSTALL"]
+  ["DELIVERY", "INDOOR", "MONTERING"]
     .map(codeToKey)
     .filter((x): x is string => Boolean(x))
 );
@@ -60,9 +60,10 @@ function calculateTotalFromCards(
 
 export default function CreatePage() {
   const [cards, setCards] = useState<number[]>([0]);
-
   // never-repeating internal ids
   const nextCardId = useRef(1);
+  //card expansion
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({ 0: true });
 
   const [phone, setPhone] = useState("+47 ");
   const [phoneTwo, setPhoneTwo] = useState("+47 ");
@@ -108,9 +109,19 @@ export default function CreatePage() {
   }, [cards, cardProducts, cardItems, cardDeliveryType]);
 
   const addCard = () => {
-    const id = nextCardId.current++;
-    setCards((prev) => [...prev, id]);
-  };
+  const id = nextCardId.current++;
+  setCards((prev) => [...prev, id]);
+
+  setExpanded((prev) => {
+    const collapsedAll: Record<number, boolean> = {};
+    for (const k of Object.keys(prev)) collapsedAll[Number(k)] = false;
+    // also collapse any cards that didn’t exist in prev (safe)
+    for (const c of cards) collapsedAll[c] = false;
+
+    collapsedAll[id] = true; // open the new one
+    return collapsedAll;
+  });
+};
 
   const canRemove = cards.length > 1;
 
@@ -118,6 +129,12 @@ export default function CreatePage() {
     if (!canRemove) return;
 
     setCards((prev) => prev.filter((c) => c !== id));
+
+    setExpanded((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
 
     setCardItems((prev) => {
       const copy = { ...prev };
@@ -157,6 +174,10 @@ export default function CreatePage() {
               }
               onRemove={removeCard}
               disableRemove={!canRemove}
+              isExpanded={expanded[id] ?? true}
+              onToggle={() =>
+                setExpanded((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }))
+              }
             />
           ))}
 

@@ -33,6 +33,8 @@ type Props = {
   onProductChange?: (productId: string | null) => void;
   onRemove?: (cardId: number) => void;
   disableRemove?: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
 };
 
 // ============================================================================
@@ -46,6 +48,9 @@ export function ProductCard({
   onProductChange,
   onRemove,
   disableRemove,
+  isExpanded,
+  onToggle,
+  
 }: Props) {
   const [productId, setProductId] = useState<string | null>(null);
 
@@ -181,7 +186,7 @@ export function ProductCard({
 
     // Base install fee (ORDER-LEVEL)
     if (deliveryType === "Kun Installasjon/Montering") {
-      const k = keyFromCode("INSTALL");
+      const k = keyFromCode("MONTERING");
       if (k) items.push({ key: k, qty: 1 });
     }
 
@@ -232,20 +237,30 @@ export function ProductCard({
 
   const shownCardNumber = displayIndex ?? cardId + 1;
 
-  return (
-    <div className="relative w-full px-8 py-8 mt-4 rounded-2xl border">
-      {/* REMOVE BUTTON */}
-      <button type="button" onClick={() => onRemove?.(cardId)} disabled={disableRemove} className={"absolute top-3 right-3 text-white text-xs font-bold px-2 py-1 rounded-2xl " +(disableRemove ? " cursor-not-allowed" : "bg-red-500/50 hover:bg-red-600 cursor-pointer")}>X</button>
-      <div className="flex pb-2 mb-4 border-b">
-        <div className="w-6 h-6 bg-gray-200 flex items-center justify-center rounded-2xl mr-2">
-          <span>{shownCardNumber}</span>
-        </div>
-        <h1 className="items-center">Chosen Product</h1>
-      </div>
+  //Title for the cards - selected item
+  const productLabel =
+  productId
+    ? PRODUCTS.find((p) => p.id === productId)?.label ?? "Velg"
+    : "Velg";
 
-      <div>
+  return (
+    <div className="relative w-full px-8 pb-8 mt-4 rounded-2xl border">
+      {/* REMOVE BUTTON */}
+      <button type="button" onClick={() => onRemove?.(cardId)} disabled={disableRemove} className={"absolute top-3 right-3 text-white text-xs font-bold px-2 py-1 rounded-2xl " +(disableRemove ? " cursor-not-allowed" : "bg-red-500/20 hover:bg-red-600 cursor-pointer")}>X</button>
+      <button type="button" onClick={onToggle} className="items-center flex-1 text-left w-full pt-8 cursor-pointer">
+        <div className="flex pb-2 mb-4">
+          <div className="w-6 h-6 bg-logoblue text-white font-semibold flex items-center justify-center rounded-2xl mr-2">
+            <span>{shownCardNumber}</span>
+          </div>
+          <h1 className="items-center font-semibold text-logoblue text-md">{productLabel}</h1>
+        </div>
+      </button>
+      
+      {isExpanded && (
+  <div>
+    <div>
         {/* Product Selection */}
-        <h1 className="font-bold mb-2">Choose product</h1>
+        <h1 className="font-semibold mb-2 text-lg text-textcolor">Velg produkt</h1>
         <select
           className="w-full py-2 px-2 rounded-xl border"
           value={productId ?? ""}
@@ -264,7 +279,7 @@ export function ProductCard({
         {/* Delivery Type (hidden for PALLET/ETTER/TIME) */}
         {!hideDeliveryAndReturn && (
           <>
-            <h1 className="font-bold my-2">Choose delivery type</h1>
+            <h1 className="font-semibold text-lg text-textcolor my-2">Velg leveringstype</h1>
             <select
               className="w-full py-2 px-2 rounded-xl border"
               value={deliveryType}
@@ -346,7 +361,7 @@ export function ProductCard({
             <h1 className="font-bold my-2">Timepris</h1>
 
             {installOptions.length === 0 ? (
-              <p className="text-sm opacity-70">No time options for this product.</p>
+              <p className="text-sm opacity-70">Ingen tidsalternativer for dette produktet.</p>
             ) : (
               installOptions.map((opt) => {
                 const priceDetails = getPriceDetails(opt.priceKey);
@@ -386,10 +401,10 @@ export function ProductCard({
         {!hideDeliveryAndReturn &&
           (deliveryType === "Kun Installasjon/Montering" || deliveryType === "Innbæring") && (
             <>
-              <h1 className="font-bold my-2">Installation options</h1>
+              <h1 className="font-semibold text-lg text-textcolor my-2">Installasjonsmuligheter</h1>
 
               {installOptions.length === 0 ? (
-                <p className="text-sm opacity-70">No installation options for this product.</p>
+                <p className="text-sm opacity-70">Ingen installasjonsalternativer for dette produktet</p>
               ) : (
                 installOptions.map((opt) => {
                   const priceDetails = getPriceDetails(opt.priceKey);
@@ -416,7 +431,7 @@ export function ProductCard({
         {/* EXTRAS + DEMONTERING (only for Innbæring) */}
         {!hideDeliveryAndReturn && deliveryType === "Innbæring" && (
           <>
-            <h1 className="font-bold my-2">Utpakking / Demontering</h1>
+            <h1 className="font-semibold text-lg text-textcolor my-2">Utpakking / Demontering</h1>
 
             {demontOption && (
               <label className="block">
@@ -459,7 +474,7 @@ export function ProductCard({
         {/* RETURN (radio) – hidden for PALLET/ETTER/TIME; demontering excluded */}
         {!hideDeliveryAndReturn && (
           <>
-            <h1 className="font-bold my-2">Return</h1>
+            <h1 className="font-semibold text-lg text-textcolor my-2">Return</h1>
             {returnTripOptions.length === 0 ? (
               <p className="text-sm opacity-70">No return options for this product.</p>
             ) : (
@@ -469,10 +484,11 @@ export function ProductCard({
                   <label key={opt.id} className="block my-1">
                     <input
                       className="inline mr-2"
-                      type="radio"
-                      name={`return-${cardId}`}
+                      type="checkbox"
                       checked={returnOptionId === opt.id}
-                      onChange={() => setReturnOptionId(opt.id)}
+                      onChange={() =>
+                        setReturnOptionId((prev) => (prev === opt.id ? null : opt.id))
+                      }
                     />
                     <span className="inline">{priceDetails?.label ?? "Unknown option"}</span>
                   </label>
@@ -485,7 +501,7 @@ export function ProductCard({
         {/* Product amount (hidden for PALLET/ETTER/TIME) */}
         {!hideDeliveryAndReturn && (
           <>
-            <h1 className="font-bold my-2">Product amount</h1>
+            <h1 className="font-semibold text-lg text-textcolor my-2">Product amount</h1>
             <input
               type="number"
               min={1}
@@ -496,6 +512,9 @@ export function ProductCard({
           </>
         )}
       </div>
-    </div>
+    
+  </div>
+)}
+   </div>   
   );
 }

@@ -34,7 +34,7 @@ type LineItem = {
 
 type ProductBreakdown = {
   productName: string;
-  items: LineItem[]; // ✅ was keys: string[]
+  items: LineItem[];
 };
 
 type Props = {
@@ -103,7 +103,7 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
                         </h1>
 
                         <p className="font-semibold text-sm whitespace-nowrap">
-                          {lineTotal.toFixed(2)} NOK
+                          {lineTotal} NOK
                         </p>
                       </div>
 
