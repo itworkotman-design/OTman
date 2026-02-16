@@ -1,6 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PRICE_ITEMS } from "@/lib/pricing";
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
 function parseNOK(input: string) {
   const s = input.replace(/[^\d.,-]/g, "").replace(",", ".");
@@ -12,39 +17,106 @@ function formatNOK(n: number) {
   return `${n.toFixed(2)} NOK`;
 }
 
-export function CalculatorDisplay({ total }: { total: number }) {
+function formatQty(qty: number) {
+  // show nice 0.5 steps, and avoid floating noise
+  const rounded = Math.round(qty * 2) / 2;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+type LineItem = {
+  key: string;
+  qty: number; // 0.5, 1, 2, 2.5 ...
+};
+
+type ProductBreakdown = {
+  productName: string;
+  items: LineItem[]; // ✅ was keys: string[]
+};
+
+type Props = {
+  total: number;
+  productBreakdowns: ProductBreakdown[];
+};
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
+export function CalculatorDisplay({ total, productBreakdowns }: Props) {
   const [rabatt, setRabatt] = useState("");
   const [leggTil, setLegTil] = useState("");
 
   const discount = useMemo(() => parseNOK(rabatt), [rabatt]);
   const plus = useMemo(() => parseNOK(leggTil), [leggTil]);
 
-  // totals are assumed EX VAT (uten MVA)
   const totalExVat = Math.max(0, total - discount + plus);
   const vat = totalExVat * 0.25;
   const totalIncVat = totalExVat + vat;
 
   return (
     <section className="w-140 border rounded-2xl px-4 max-h-[calc(100vh-9rem)] overflow-y-auto">
+      {/* TOP SECTION - Product breakdowns */}
       <div className="border-b-2 py-4">
-        <h1 className="font-bold text-md">Product name</h1>
+        {productBreakdowns.length === 0 ? (
+          <p className="text-sm opacity-70">No products selected.</p>
+        ) : (
+          productBreakdowns.map((product, productIdx) => {
+            // Group by key so rows update instead of duplicating
+            const grouped = new Map<string, number>();
+            for (const it of product.items) {
+              grouped.set(it.key, (grouped.get(it.key) ?? 0) + it.qty);
+            }
 
-        {/* Placeholder for breakdown - wire later */}
-        <div className="priceRow">
-          <h1>installasjon (montering)</h1>
-          <p className="font-semibold">{formatNOK(0)}</p>
-        </div>
-        <div className="priceRow">
-          <h1>Montering av vaskemaskin</h1>
-          <p className="font-semibold">{formatNOK(0)}</p>
-        </div>
-        <div className="priceRow">
-          <h1>Return til butikk</h1>
-          <p className="font-semibold">{formatNOK(0)}</p>
-        </div>
+            // Convert grouped keys to price items
+            const lines = Array.from(grouped.entries())
+              .map(([key, qty]) => {
+                const item = PRICE_ITEMS.find((i) => i.key === key);
+                if (!item) return null;
+                return { item, qty };
+              })
+              .filter(
+                (x): x is { item: NonNullable<(typeof PRICE_ITEMS)[number]>; qty: number } =>
+                  Boolean(x)
+              );
+
+            return (
+              <div key={productIdx} className="mb-4 last:mb-0">
+                <h1 className="font-bold text-md mb-2">{product.productName}</h1>
+
+                {lines.length === 0 ? (
+                  <p className="text-sm opacity-70 ml-2">No services selected for this product.</p>
+                ) : (
+                  lines.map(({ item, qty }) => {
+                    const lineTotal = item.customerPrice * qty;
+
+                    return (
+                      <div key={item.key} className="priceRow ml-2">
+                        <h1 className="text-sm">
+                          {qty > 1 && (
+                            <span className="opacity-70 mr-1">x{formatQty(qty)}</span>
+                          )}
+                          {item.label} <span className="text-logoblue">({item.code})</span>
+                        </h1>
+
+                        <p className="font-semibold text-sm whitespace-nowrap">
+                          {lineTotal.toFixed(2)} NOK
+                        </p>
+                      </div>
+
+                    );
+                  })
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
-      {/* Bottom half */}
+      {/* BOTTOM SECTION - Totals and adjustments */}
       <div className="pb-4">
         <div className="priceRow">
           <h1 className="font-bold text-2xl">Total</h1>
@@ -61,7 +133,6 @@ export function CalculatorDisplay({ total }: { total: number }) {
           <p className="font-semibold">{formatNOK(totalIncVat)}</p>
         </div>
 
-        {/* edit mode block (keep as-is for now) */}
         <div id="editModeCalculator">
           <div className="mt-8 flex items-center">
             <h1>Rabatt (uten MVA): </h1>
