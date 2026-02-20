@@ -5,5 +5,7 @@ export type User = {
   company: string;
   number: string;
   role: string;
+  priceList: string;
   info: string;
+  active: boolean;
 };

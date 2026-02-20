@@ -12,7 +12,12 @@ type Props = {
     number: string;
     info: string;
     role: string;
+    priceList: string;
+    active: boolean;
   }) => void;
+
+  onRemove: () => void;
+  onToggleActive: () => void;
 
   initialValueName: string;
   initialValueCompany: string;
@@ -20,18 +25,24 @@ type Props = {
   initialValueNumber: string;
   initialValueInfo: string;
   initialValueRole: string;
+  initialValuePriceList: string;
+  initialValueActive: boolean;
 };
 
 export default function EditUserModal({
   isOpen,
   onClose,
   onSave,
+  onRemove,
+  onToggleActive,
   initialValueName,
   initialValueCompany,
   initialValueEmail,
   initialValueNumber,
   initialValueInfo,
   initialValueRole,
+  initialValuePriceList,
+  initialValueActive,
 }: Props) {
   const [form, setForm] = useState({
     name: initialValueName,
@@ -40,6 +51,8 @@ export default function EditUserModal({
     number: initialValueNumber,
     info: initialValueInfo,
     role: initialValueRole,
+    priceList: initialValuePriceList,
+    active: initialValueActive,
   });
 
   const updateField =(key: keyof typeof form) =>(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {setForm((prev) => ({ ...prev, [key]: e.target.value }))};
@@ -127,6 +140,12 @@ export default function EditUserModal({
                       <input value={form.role} onChange={updateField("role")} className="w-full px-3 py-2 border-none outline-none focus:ring-0"/>
                     </td>
                   </tr>
+                  <tr>
+                    <td className="px-4 py-2 border border-black/20">Price List</td>
+                    <td className="border border-black/20">
+                      <input value={form.priceList} onChange={updateField("priceList")} className="w-full px-3 py-2 border-none outline-none focus:ring-0"/>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
 
@@ -154,10 +173,26 @@ export default function EditUserModal({
 
             <div className="ml-auto">
               <h2 className="pl-2 text-logoblue font-semibold pb-2">Manage</h2>
-              <button className="block bg-red-800 w-40 py-1 rounded-2xl text-white font-semibold mb-3 cursor-pointer">
-                Disable
+              <button
+                type="button"
+                onClick={() => {
+                  if (!confirm(form.active ? "Disable this user?" : "Enable this user?")) return;
+                  onToggleActive(); // updates parent list
+                  setForm((p) => ({ ...p, active: !p.active })); // update UI immediately
+                }}
+                className={[
+                  "block w-40 py-1 rounded-2xl text-white font-semibold mb-3 cursor-pointer",
+                  form.active ? "bg-red-800" : "bg-green-700",
+                ].join(" ")}
+              >
+                {form.active ? "Disable" : "Enable"}
               </button>
-              <button className="block bg-red-800 w-40 py-1 rounded-2xl text-white font-semibold cursor-pointer">
+              <button onClick={() => {
+                console.log("REMOVE CLICKED");
+                if (!confirm("Remove this user?")) return;
+                onRemove();
+                onClose();
+              }} className="block bg-red-800 w-40 py-1 rounded-2xl text-white font-semibold cursor-pointer">
                 Remove
               </button>
             </div>

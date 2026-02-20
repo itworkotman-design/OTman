@@ -1,19 +1,19 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ProductCard } from "@/app/_components/(Dahsboard)/(booking)/create/ProductCard";
-import { PickupLocations } from "@/app/_components/(Dahsboard)/(booking)/create/PickupLocations";
-import { CalculatorDisplay } from "@/app/_components/(Dahsboard)/(booking)/create/CalculatorDisplay";
-import { PRICE_ITEMS } from "@/lib/pricing";
-import { PRODUCTS } from "@/lib/products";
-import type { DeliveryType, LineItem } from "@/app/_components/(Dahsboard)/(booking)/create/ProductCard";
+import { ProductCard } from "@/app/_components/Dahsboard/booking/create/ProductCard";
+import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
+import { CalculatorDisplay } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
+import { PRICE_ITEMS_POWER } from "@/lib/prices_power/pricingPower";
+import { PRODUCTS_POWER } from "@/lib/prices_power/productsPower";
+import type { DeliveryType, LineItem } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 
 // ============================================================================
 // HELPERS
 // ============================================================================
 
 function codeToKey(code: string): string | null {
-  return PRICE_ITEMS.find((i) => i.code === code)?.key ?? null;
+  return PRICE_ITEMS_POWER.find((i) => i.code === code)?.key ?? null;
 }
 
 // Order-level fees (charge max once per order)
@@ -37,7 +37,7 @@ function calculateTotalFromCards(
     if (cardDeliveryType[cardId] === "Kun retur") continue;
 
     for (const it of items) {
-      const price = PRICE_ITEMS.find((p) => p.key === it.key)?.customerPrice ?? 0;
+      const price = PRICE_ITEMS_POWER.find((p) => p.key === it.key)?.customerPrice ?? 0;
 
       // Order-level fees: only once, qty forced to 1
       if (ORDER_LEVEL_KEYS.has(it.key)) {
@@ -87,7 +87,7 @@ export default function CreatePage() {
       .map((cardId) => {
         const productId = cardProducts[cardId];
         const productName = productId
-          ? PRODUCTS.find((p) => p.id === productId)?.label || "Unknown Product"
+          ? PRODUCTS_POWER.find((p) => p.id === productId)?.label || "Unknown Product"
           : "No product selected";
 
         const rawItems = cardItems[cardId] || [];
@@ -157,11 +157,13 @@ export default function CreatePage() {
 
   return (
     <>
-      <main className="flex">
-        <div className="w-full max-w-xl">
+      <main className="flex justify-center px-4 sm:px-6 lg:px-8">
+        <div className="flex w-full max-w-300 gap-5">
+          <div className="flex-1 min-w-75">
           {/* Product Cards - dynamically rendered */}
           {cards.map((id, index) => (
             <ProductCard
+              dataset="power"
               key={id}
               cardId={id}
               displayIndex={index + 1}
@@ -274,11 +276,12 @@ export default function CreatePage() {
               Submit
             </button>
           </div>
-        </div>
+          </div>
 
         {/* Price Calculator - Fixed position on right side */}
-        <div className="fixed left-230 top-26">
-          <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} />
+          <div className="flex-1 min-w-75">
+            <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} />
+          </div>
         </div>
       </main>
     </>

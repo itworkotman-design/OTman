@@ -4,7 +4,7 @@ export type Product = {
   active: boolean;
 };
 
-export const PRODUCTS: Product[] = [
+export const PRODUCTS_DEFAULT: Product[] = [
   // White Goods
   { id: "WASH", label: "Vaskemaskin (Washing Machine)", active: true },
   { id: "DISH", label: "Oppvaskmaskin (Dishwasher)", active: true },

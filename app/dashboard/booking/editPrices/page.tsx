@@ -1,10 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useMemo, useState } from "react";
-import { PRODUCTS } from "@/lib/products";
-import { PRICE_OPTIONS, type PriceOption } from "@/lib/priceOptions";
-import { PRICE_ITEMS, type PriceItem } from "@/lib/pricing";
+import type React from "react";
+import { useMemo, useState, useEffect } from "react";
+//default
+import { PRODUCTS_DEFAULT } from "@/lib/prices_default/productsDefault";
+import { PRICE_OPTIONS_DEFAULT } from "@/lib/prices_default/priceOptionsDefault";
+import { PRICE_ITEMS_DEFAULT } from "@/lib/prices_default/pricingDefault";
+import type { PriceItem } from "@/lib/prices_default/pricingDefault";
+import type { PriceOption } from "@/lib/prices_default/priceOptionsDefault";
+//power
+import { PRODUCTS_POWER } from "@/lib/prices_power/productsPower";
+import { PRICE_OPTIONS_POWER } from "@/lib/prices_power/priceOptionsPower";
+import { PRICE_ITEMS_POWER } from "@/lib/prices_power/pricingPower";
 
 type Product = { id: string | number; label: string };
 
@@ -46,12 +54,27 @@ function setDraftField<T extends object>(
     return { ...prev, [draftKey]: entry };
   });
 }
+//This is used to store which files for what category selected
+const DATASETS = {
+  default: {
+    products: PRODUCTS_DEFAULT,
+    options: PRICE_OPTIONS_DEFAULT,
+    prices: PRICE_ITEMS_DEFAULT,
+  },
+  power: {
+    products: PRODUCTS_POWER,
+    options: PRICE_OPTIONS_POWER,
+    prices: PRICE_ITEMS_POWER,
+  }
+} as const;
 
 export default function EditPricesPage() {
 
-const [products,   setProducts]   = useState<Product[]>(PRODUCTS as Product[]);
-const [optionRows, setOptionRows] = useState<PriceOption[]>(PRICE_OPTIONS);
-const [priceRows,  setPriceRows]  = useState<PriceItem[]>(PRICE_ITEMS);
+const [activeTab, setActiveTab] = useState<keyof typeof DATASETS>("default");
+
+const [products, setProducts] = useState<Product[]>(DATASETS.default.products as Product[]);
+const [optionRows, setOptionRows] = useState<PriceOption[]>(DATASETS.default.options);
+const [priceRows, setPriceRows] = useState<PriceItem[]>(DATASETS.default.prices);
 // ── Draft (pending) state ────────────────────────────────────────────────
 const [priceDrafts,   setPriceDrafts]   = useState<PriceDrafts>({});
 const [optionDrafts,  setOptionDrafts]  = useState<OptionDrafts>({});
@@ -75,13 +98,10 @@ const [newProductIds, setNewProductIds] = useState<Set<string>>(new Set());
 
     // Draft field change handlers
 
-    const onPriceChange = <K extends keyof PriceItem>(
-        priceKey: string,
-        field: K,
-        value: PriceItem[K]
-    ) => {
-        const committed = priceRows.find((p) => p.key === priceKey);
-        setDraftField(setPriceDrafts, priceKey, field, value, committed?.[field]);};
+    const onPriceChange = <K extends keyof PriceItem>(priceKey: string, field: K, value: PriceItem[K]) => {
+      const committed = priceRows.find((p) => p.key === priceKey);
+      setDraftField(setPriceDrafts, priceKey, field, value, committed?.[field]);
+    };
 
     const onOptionChange = <K extends keyof PriceOption>(
         optionId: string,
@@ -193,221 +213,247 @@ const addProduct = () => {
     setNewProductIds((prev) => new Set(prev).add(String(productId)));
   };
 
+useEffect(() => {
+    const dataset = DATASETS[activeTab];
+    console.log("Switching to:", activeTab);
+    console.log("options count:", dataset.options.length);
+    console.log("prices count:", dataset.prices.length);
+    console.log("first option:", dataset.options[0]);
+    console.log("first price:", dataset.prices[0]);
+
+  setProducts(dataset.products as Product[]);
+  setOptionRows(dataset.options);
+  setPriceRows(dataset.prices);
+
+  setPriceDrafts({});
+  setOptionDrafts({});
+  setProductDrafts({});
+  setNewOptionIds(new Set());
+  setNewProductIds(new Set());
+}, [activeTab]);
+
 const dirtyCellClass = "border-2 border-logoblue text-logoblue";
 
   return (
-    <main className="p-6">
-      <div className="mb-20">
-        <h1 className="text-2xl font-bold text-center text-logoblue">Edit Prices</h1>
-      </div>
-
-      <div className="overflow-x-auto px-80">
-        {/* ── Toolbar ── */}
-        <div className="justify-self-end">
-          <button
-            className="btn bg-logoblue py-1 px-4 rounded-4xl mb-4 font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={addProduct}
-          >
-            Add Product
-          </button>
+    <main className="p-6 w-full">
+      <div className="mx-auto max-w-[1800]">
+        {/*Title*/}
+        <div className="mb-20">
+          <h1 className="text-2xl font-bold text-center text-logoblue">Edit Prices</h1>
         </div>
+        {/*DATASET Switch*/}
+        <div id="activeTab" className="w-full">
+          <div className="max-w-[500] mx-auto flex justify-center">
+            {(["default", "power"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`mx-4 px-4 py-1 rounded-2xl border-2 border-logoblue font-semibold cursor-pointer transition-colors
+                ${activeTab === tab
+                  ? "bg-logoblue text-white"
+                  : "text-logoblue hover:bg-logoblue hover:text-white"
+                }`}
+            >
+              {tab}
+            </button>
+          ))}
+          </div>
+        </div>
+        <div className="overflow-x-auto px-[100]">
+          {/* ── Toolbar ── */}
+          <div className="justify-self-end">
+            <button
+              className="btn bg-logoblue py-1 px-4 rounded-4xl mb-4 font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={addProduct}
+            >
+              Add Product
+            </button>
+            </div>
 
-        {/* ── Main table ── */}
-        <table className="w-full text-sm table-fixed border-2 border-logoblue">
-          <thead className="bg-gray-100">
-            <tr className="text-left">
-              <th className="w-64 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Product</th>
-              <th className="w-26 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Label</th>
-              <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Code</th>
-              <th className="w-60 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Description</th>
-              <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Customer Price</th>
-              <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Subcontractor Price</th>
-              <th className="w-22 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Active</th>
-            </tr>
-          </thead>
+            {/* ── Main table ── */}
+            <div className="overflow-visible">
+              <table className="w-full table-fixed border border-black/10">
+              <thead className="bg-gray-100">
+                <tr className="text-left">
+                  <th className="w-64 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Product</th>
+                  <th className="w-26 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Label</th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Code</th>
+                  <th className="w-60 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Description</th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Customer Price</th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Subcontractor Price</th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Discount</th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Discount time</th>
+                  <th className="w-22 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Active</th>
+                </tr>
+              </thead>
 
 
-          {/* One <tbody> per product, with a thick bottom border between groups */}
-          {groupedByProduct.map(([productId, options]) => {
-            const product        = products.find((p) => String(p.id) === productId);
-            const isNewProduct   = newProductIds.has(productId);
-            const productDraft   = productDrafts[productId] ?? {};
-            const displayProduct = { ...(product ?? { id: productId, label: "" }), ...productDraft };
+              {/* One <tbody> per product, with a thick bottom border between groups */}
+              {groupedByProduct.map(([productId, options]) => {
+                const product        = products.find((p) => String(p.id) === productId);
+                const isNewProduct   = newProductIds.has(productId);
+                const productDraft   = productDrafts[productId] ?? {};
+                const displayProduct = { ...(product ?? { id: productId, label: "" }), ...productDraft };
 
-            return (
-              <tbody key={productId} className="group">
-                {options.map((row, idx) => {
-                  const optionId = String(row.id);
-                  const isNewRow = newOptionIds.has(optionId) || isNewProduct;
+                return (
+                  <tbody key={productId} className="group">
+                    {options.map((row, idx) => {
+                      const optionId = String(row.id);
+                      const isNewRow = newOptionIds.has(optionId) || isNewProduct;
 
-                  // Committed data for this row
-                  const committedPrice  = priceRows.find((p) => p.key === row.priceKey);
-                  const committedOption = row;
+                      // Committed data for this row
+                      const committedPrice  = priceRows.find((p) => p.key === row.priceKey);
+                      const committedOption = row;
 
-                  // Pending drafts for this row
-                  const priceDraft  = priceDrafts[row.priceKey] ?? {};
-                  const optionDraft = optionDrafts[optionId]    ?? {};
+                      // Pending drafts for this row
+                      const priceDraft  = priceDrafts[row.priceKey] ?? {};
+                      const optionDraft = optionDrafts[optionId]    ?? {};
 
-                  // Merge committed + draft so inputs always show the latest value
-                  const displayPrice  = { ...(committedPrice ?? {}), ...priceDraft };
-                  const displayOption = { ...committedOption,        ...optionDraft };
+                      // Merge committed + draft so inputs always show the latest value
+                      const displayPrice  = { ...(committedPrice ?? {}), ...priceDraft };
+                      const displayOption = { ...committedOption,        ...optionDraft };
 
-                  // Show "Update" if there are any pending changes OR the row is brand-new
-                  const hasPendingChanges =
-                    Object.keys(priceDraft).length   > 0 ||
-                    Object.keys(optionDraft).length  > 0 ||
-                    Object.keys(productDraft).length > 0 ||
-                    isNewRow;
+                      // Show "Update" if there are any pending changes OR the row is brand-new
+                      const hasPendingChanges =
+                        Object.keys(priceDraft).length   > 0 ||
+                        Object.keys(optionDraft).length  > 0 ||
+                        Object.keys(productDraft).length > 0 ||
+                        isNewRow;
 
-                  // Per-cell dirty flags — only highlight cells that actually changed
-                  const dirty = {
-                    code:               "code"               in priceDraft,
-                    label:              "label"              in priceDraft,
-                    customerPrice:      "customerPrice"      in priceDraft,
-                    subcontractorPrice: "subcontractorPrice" in priceDraft,
-                    active:             "active"             in optionDraft,
-                    productLabel:       "label"              in productDraft,
-                  };
+                      // Per-cell dirty flags — only highlight cells that actually changed
+                      const dirty = {
+                        code:               "code"               in priceDraft,
+                        label:              "label"              in priceDraft,
+                        customerPrice:      "customerPrice"      in priceDraft,
+                        subcontractorPrice: "subcontractorPrice" in priceDraft,
+                        discount:           "discount"           in priceDraft,
+                        discountTime:       "discountTime"       in priceDraft,
+                        active:             "active"             in optionDraft,
+                        productLabel:       "label"              in productDraft,
+                      };
 
-                  return (
-                    <tr
-                      key={row.id}
-                      className={`group relative align-middle ${
-                        idx === options.length - 1
-                          ? "border-b-2 border-logoblue"
-                          : "border-b border-black/10"
-                      }`}
-                    >
-                      {/* ── Product cell (only on the first option row; spans all option rows) ── */}
-                      {idx === 0 && (
-                        <td
-                          className="
-                            border-r border-logoblue/50 font-medium align-center relative
-                            before:content-[''] before:absolute before:top-0 before:bottom-0
-                            before:left-[-100] before:w-[200] before:bg-transparent
-                          "
-                          rowSpan={options.length}
+                      return (
+                        <tr
+                          key={row.id}
+                          className={`group relative align-middle ${
+                            idx === options.length - 1
+                              ? "border-b-2 border-logoblue"
+                              : "border-b border-black/10"
+                          }`}
                         >
-                          <div className="flex flex-col gap-3 p-3">
-                            <input
-                              className={`w-full text-center py-1 px-2 rounded focus:outline-none hover:bg-black/5 ${
-                                dirty.productLabel || isNewProduct
-                                  ? dirtyCellClass
-                                  : "border border-transparent"
-                              }`}
-                              placeholder="Product name…"
-                              value={displayProduct.label}
-                              onChange={(e) =>
-                                product && onProductLabelChange(productId, e.target.value, product)
-                              }
-                            />
-
-                            {/* "+" button: appears on row-group hover, adds a new blank option */}
-                            <button
-                              type="button"
-                              title="Add option"
+                          {/* ── Product cell (only on the first option row; spans all option rows) ── */}
+                          {idx === 0 && (
+                            <td
                               className="
-                                cursor-pointer absolute -left-11 top-1/2 -translate-y-1/2
-                                w-6 h-6 text-sm rounded-full bg-white
-                                border-2 border-logoblue font-bold
-                                opacity-0 group-hover:opacity-100 transition-opacity z-10
-                                hover:text-white hover:bg-logoblue
+                                border-r border-logoblue/50 font-medium align-center relative
+                                before:content-[''] before:absolute before:top-0 before:bottom-0
+                                before:left-[-100] before:w-[200] before:bg-transparent
                               "
-                              onClick={() => addOption(productId)}
+                              rowSpan={options.length}
                             >
-                              +
-                            </button>
-                          </div>
-                        </td>
-                      )}
+                              <div className="flex flex-col gap-3 p-3">
+                                <input
+                                  className={`w-full text-center py-1 px-2 rounded focus:outline-none hover:bg-black/5 ${
+                                    dirty.productLabel || isNewProduct
+                                      ? dirtyCellClass
+                                      : "border border-transparent"
+                                  }`}
+                                  placeholder="Product name…"
+                                  value={displayProduct.label}
+                                  onChange={(e) =>
+                                    product && onProductLabelChange(productId, e.target.value, product)
+                                  }
+                                />
 
-                      {/* ── Option Label (read-only) ── */}
-                      <td>
-                        <input
-                          className="w-full py-2 px-2 hover:bg-black/2"
-                          value={`Install option: ${idx + 1}`}
-                          readOnly
-                        />
-                      </td>
+                                {/* "+" button: appears on row-group hover, adds a new blank option */}
+                                <button
+                                  type="button"
+                                  title="Add option"
+                                  className="
+                                    cursor-pointer absolute -left-11 top-1/2 -translate-y-1/2
+                                    w-6 h-6 text-sm rounded-full bg-white
+                                    border-2 border-logoblue font-bold
+                                    opacity-0 group-hover:opacity-100 transition-opacity z-10
+                                    hover:text-white hover:bg-logoblue
+                                  "
+                                  onClick={() => addOption(productId)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </td>
+                          )}
 
-                      {/* ── Option Code ── */}
-                      <td>
-                        <input
-                          className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.code ? dirtyCellClass : ""}`}
-                          placeholder="e.g. OPT-01"
-                          value={(displayPrice.code as string) ?? ""}
-                          onChange={(e) => onPriceChange(row.priceKey, "code", e.target.value)}
-                        />
-                      </td>
+                          {/* ── Option Label (read-only) ── */}
+                          <td>
+                            <input className="w-full py-2 px-2 hover:bg-black/2" value={`Install option: ${idx + 1}`} readOnly />
+                          </td>
 
-                      {/* ── Description ── */}
-                      <td>
-                        <input
-                          className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.label ? dirtyCellClass : ""}`}
-                          placeholder="Description…"
-                          value={(displayPrice.label as string) ?? ""}
-                          onChange={(e) => onPriceChange(row.priceKey, "label", e.target.value)}
-                        />
-                      </td>
+                          {/* ── Option Code ── */}
+                          <td>
+                            <input className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.code ? dirtyCellClass : ""}`} placeholder="e.g. OPT-01" value={(displayPrice.code as string) ?? ""} onChange={(e) => onPriceChange(row.priceKey, "code", e.target.value)} />
+                          </td>
 
-                      {/* ── Customer Price ── */}
-                      <td>
-                        <input
-                          type="number"
-                          className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.customerPrice ? dirtyCellClass : ""}`}
-                          value={(displayPrice.customerPrice as number) ?? 0}
-                          onChange={(e) =>
-                            onPriceChange(row.priceKey, "customerPrice", Number(e.target.value))
-                          }
-                        />
-                      </td>
+                          {/* ── Description ── */}
+                          <td>
+                            <input className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.label ? dirtyCellClass : ""}`} placeholder="Description…" value={(displayPrice.label as string) ?? ""} onChange={(e) => onPriceChange(row.priceKey, "label", e.target.value)} />
+                          </td>
 
-                      {/* ── Subcontractor Price ── */}
-                      <td>
-                        <input
-                          type="number"
-                          className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.subcontractorPrice ? dirtyCellClass : ""}`}
-                          value={(displayPrice.subcontractorPrice as number) ?? 0}
-                          onChange={(e) =>
-                            onPriceChange(row.priceKey, "subcontractorPrice", Number(e.target.value))
-                          }
-                        />
-                      </td>
+                          {/* ── Customer Price ── */}
+                          <td>
+                            <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.customerPrice ? dirtyCellClass : ""}`} value={(displayPrice.customerPrice as number) ?? 0} onChange={(e) => onPriceChange(row.priceKey, "customerPrice", Number(e.target.value)) } />
+                          </td>
 
-                      {/* ── Active toggle + Update button ── */}
-                      <td className="pr-2 relative">
-                        <select
-                          className={`w-full py-2 px-2 hover:bg-black/2 ${dirty.active ? dirtyCellClass : ""}`}
-                          value={displayOption.active ? "active" : "disabled"}
-                          onChange={(e) =>
-                            onOptionChange(optionId, "active", e.target.value === "active", committedOption)
-                          }
-                        >
-                          <option value="active">Active</option>
-                          <option value="disabled">Disabled</option>
-                        </select>
+                          {/* ── Subcontractor Price ── */}
+                          <td>
+                            <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.subcontractorPrice ? dirtyCellClass : ""}`} value={(displayPrice.subcontractorPrice as number) ?? 0} onChange={(e) => onPriceChange(row.priceKey, "subcontractorPrice", Number(e.target.value)) } />
+                          </td>
+{/* ── Discount - have to make funcitoning── */}
+                          <td>
+                            <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discount ? dirtyCellClass : ""}`} value={""} readOnly/>
+                          </td>
+{/* ── Discount Time - have to make funcitoning ── */}
+                          <td>
+                            <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discountTime ? dirtyCellClass : ""}`} value={""} readOnly/>
+                          </td>
 
-                        {/* "Update" button */}
-                        {hasPendingChanges && (
-                          <button
-                            type="button"
-                            className="
-                              cursor-pointer absolute right-[-80] top-1/2 -translate-y-1/2
-                              px-3 py-1 rounded-full bg-logoblue text-white font-semibold
-                            "
-                            onClick={() => commitRow(row)}
-                          >
-                            Update
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            );
-          })}
-        </table>
+                          {/* ── Active toggle + Update button ── */}
+                          <td className="pr-2 relative">
+                            <select
+                              className={`w-full py-2 px-2 hover:bg-black/2 ${dirty.active ? dirtyCellClass : ""}`}
+                              value={displayOption.active ? "active" : "disabled"}
+                              onChange={(e) =>
+                                onOptionChange(optionId, "active", e.target.value === "active", committedOption)
+                              }
+                            >
+                              <option value="active">Active</option>
+                              <option value="disabled">Disabled</option>
+                            </select>
+
+                            {/* "Update" button */}
+                            {hasPendingChanges && (
+                              <button
+                                type="button"
+                                className="
+                                  cursor-pointer absolute right-[-80] top-1/2 -translate-y-1/2
+                                  px-3 py-1 rounded-full bg-logoblue text-white font-semibold
+                                "
+                                onClick={() => commitRow(row)}
+                              >
+                                Update
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                );
+              })}
+              </table>
+            </div>
+          
+        </div>
       </div>
     </main>
   );

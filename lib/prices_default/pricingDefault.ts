@@ -10,7 +10,7 @@ export type PriceItem = {
   active: boolean;
 };
 
-export const PRICE_ITEMS: PriceItem[] = [
+export const PRICE_ITEMS_DEFAULT: PriceItem[] = [
   // ============================================================================
   // DELIVERY SERVICES
   // ============================================================================

@@ -1,19 +1,19 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ProductCard } from "@/app/_components/(Dahsboard)/(booking)/create/ProductCard";
-import { PickupLocations } from "@/app/_components/(Dahsboard)/(booking)/create/PickupLocations";
-import { CalculatorDisplay } from "@/app/_components/(Dahsboard)/(booking)/create/CalculatorDisplay";
-import { PRICE_ITEMS } from "@/lib/pricing";
-import { PRODUCTS } from "@/lib/products";
-import type { DeliveryType, LineItem } from "@/app/_components/(Dahsboard)/(booking)/create/ProductCard";
+import { ProductCard } from "@/app/_components/Dahsboard/booking/create/ProductCard";
+import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
+import { CalculatorDisplay } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
+import { PRICE_ITEMS_DEFAULT } from "@/lib/prices_default/pricingDefault";
+import { PRODUCTS_DEFAULT } from "@/lib/prices_default/productsDefault";
+import type { DeliveryType, LineItem } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 
 // ============================================================================
 // HELPERS
 // ============================================================================
 
 function codeToKey(code: string): string | null {
-  return PRICE_ITEMS.find((i) => i.code === code)?.key ?? null;
+  return PRICE_ITEMS_DEFAULT.find((i) => i.code === code)?.key ?? null;
 }
 
 // Order-level fees (charge max once per order)
@@ -37,7 +37,7 @@ function calculateTotalFromCards(
     if (cardDeliveryType[cardId] === "Kun retur") continue;
 
     for (const it of items) {
-      const price = PRICE_ITEMS.find((p) => p.key === it.key)?.customerPrice ?? 0;
+      const price = PRICE_ITEMS_DEFAULT.find((p) => p.key === it.key)?.customerPrice ?? 0;
 
       // Order-level fees: only once, qty forced to 1
       if (ORDER_LEVEL_KEYS.has(it.key)) {
@@ -87,7 +87,7 @@ export default function CreatePage() {
       .map((cardId) => {
         const productId = cardProducts[cardId];
         const productName = productId
-          ? PRODUCTS.find((p) => p.id === productId)?.label || "Unknown Product"
+          ? PRODUCTS_DEFAULT.find((p) => p.id === productId)?.label || "Unknown Product"
           : "No product selected";
 
         const rawItems = cardItems[cardId] || [];
@@ -157,204 +157,208 @@ export default function CreatePage() {
 
   return (
     <>
-      <main className="flex">
-        <div className="w-full max-w-xl">
-          {/* Product Cards - dynamically rendered */}
-          {cards.map((id, index) => (
-            <ProductCard
-              key={id}
-              cardId={id}
-              displayIndex={index + 1}
-              onChange={({ items, deliveryType }) => {
-                setCardItems((prev) => ({ ...prev, [id]: items }));
-                setCardDeliveryType((prev) => ({ ...prev, [id]: deliveryType }));
-              }}
-              onProductChange={(productId) =>
-                setCardProducts((prev) => ({ ...prev, [id]: productId }))
-              }
-              onRemove={removeCard}
-              disableRemove={!canRemove}
-              isExpanded={expanded[id] ?? true}
-              onToggle={() =>
-                setExpanded((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }))
-              }
-            />
-          ))}
+      <main className="flex justify-center px-4 sm:px-6 lg:px-8">
+        <div className="flex w-full max-w-300 gap-5">
+          <div className="flex-1 min-w-75">
+            {/* Product Cards - dynamically rendered */}
+            {cards.map((id, index) => (
+              <ProductCard
+                dataset="default"
+                key={id}
+                cardId={id}
+                displayIndex={index + 1}
+                onChange={({ items, deliveryType }) => {
+                  setCardItems((prev) => ({ ...prev, [id]: items }));
+                  setCardDeliveryType((prev) => ({ ...prev, [id]: deliveryType }));
+                }}
+                onProductChange={(productId) =>
+                  setCardProducts((prev) => ({ ...prev, [id]: productId }))
+                }
+                onRemove={removeCard}
+                disableRemove={!canRemove}
+                isExpanded={expanded[id] ?? true}
+                onToggle={() =>
+                  setExpanded((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }))
+                }
+              />
+            ))}
 
-          {/* Add Product Button */}
-          <button
-            type="button"
-            className="my-8 w-full font-bold cursor-pointer border-2 border-logoblue text-logoblue py-3 px-4 rounded-xl hover:bg-logoblue hover:text-white"
-            onClick={addCard}
-          >
-            Add extra products
-          </button>
-
-          {/* Order Form Fields */}
-          <div className="">
-            <h1 className="font-bold py-2">Order number</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Description</h1>
-            <input className="w-full py-2 px-4 h-30 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Delivery date</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Delivery Time window</h1>
-            <select className="w-full py-2 px-2 rounded-xl border">
-              <option value="disabled" aria-disabled>
-                Choose
-              </option>
-              <option value="morning">10:00-16:00</option>
-              <option value="afternoon">16:00-21:00</option>
-              <option value="contact">Contact client</option>
-            </select>
-
-            <PickupLocations />
-
-            <h1 className="font-bold py-2">Delivery address</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" placeholder="Enter a location" />
-
-            <h1 className="font-bold py-2">Total driving distance</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Customer&apos;s name</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Customer&apos;s phone</h1>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-xl border px-4 py-2 outline-none"
-            />
-
-            <h1 className="font-bold py-2">Additional customer&apos;s phone</h1>
-            <input
-              type="tel"
-              value={phoneTwo}
-              onChange={(e) => setPhoneTwo(e.target.value)}
-              className="w-full rounded-xl border px-4 py-2 outline-none"
-            />
-
-            <h1 className="font-bold py-2">Customer&apos;s email</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Customer comments</h1>
-            <input className="w-full py-2 px-4 h-30 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Floor No.</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Lift</h1>
-            <input className="inline mr-2" type="radio" name="lift" />
-            <p className="inline">Yes</p>
-            <input className="inline ml-4 mr-2" type="radio" name="lift" />
-            <p className="inline">No</p>
-
-            <h1 className="font-bold py-2">Cashier&apos;s name</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Cashier&apos;s phone</h1>
-            <input
-              type="tel"
-              value={phoneThree}
-              onChange={(e) => setPhoneThree(e.target.value)}
-              className="w-full rounded-xl border px-4 py-2 outline-none"
-            />
-
-            <h1 className="font-bold py-2">Subcontractor</h1>
-            <select className="w-full py-2 px-2 rounded-xl border">
-              <option aria-disabled>Choose</option>
-              <option>Otman Transport AS</option>
-              <option>Bahs Courier</option>
-              <option>Nordline AS</option>
-              <option>Tastanovas Grocery Store</option>
-              <option>Viken Trotting Sport Tanha</option>
-              <option>Levitis Transport</option>
-              <option>Arnosan AS</option>
-              <option>Stombergas Transport</option>
-              <option>Construction Service Vaicuss</option>
-              <option>New subcontractor 1</option>
-              <option>New subcontractor 2</option>
-            </select>
-
-            <h1 className="font-bold py-2">Driver</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Second driver</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Info for the driver</h1>
-            <input className="w-full py-2 px-4 h-30 rounded-xl border" />
-
-            <h1 className="font-bold py-2">License plate</h1>
-            <input className="w-full py-2 px-4 rounded-xl border" />
-
-            <h1 className="font-bold py-2">??????</h1>
-            <select className="w-full py-2 px-2 rounded-xl border">
-              <option aria-disabled>Choose</option>
-              <option>Deviation, missed trip; Customer not at home</option>
-              <option>Deviation, dead end; Customer cancelled</option>
-              <option>Deviation, missed delivery; Damaged goods</option>
-              <option>Deviation, delivery toll stairs; Wrong item</option>
-              <option>Deviation, toll; Wrong address</option>
-              <option>Deviation, toll trip; New driving date</option>
-              <option>Deviation, missed trip; Warehouse cannot find the product</option>
-              <option>Deviation, toll trip; Cancelled the day before</option>
-            </select>
-
-            <div className="pt-2">
-              <input type="checkbox" className="inline" />
-              <p className="inline pl-2">Fee for extra work per started</p>
-            </div>
-            <div className="pt-2">
-              <input type="checkbox" className="inline" />
-              <p className="inline pl-2">Fee for adding to order</p>
-            </div>
-
-            <h1 className="font-bold py-2">Status notes</h1>
-            <input className="w-full py-2 px-4 h-30 rounded-xl border" />
-
-            <h1 className="font-bold py-2">Change customer</h1>
-            <select className="w-full py-2 px-2 rounded-xl border">
-              <option aria-disabled>Choose</option>
-              <option>Power this</option>
-              <option>Power that</option>
-            </select>
-
-            <h1 className="font-bold py-2">Status</h1>
-            <select className="w-full py-2 px-2 rounded-xl border">
-              <option aria-disabled>Choose</option>
-              <option></option>
-              <option>Behandles</option>
-              <option>Bekreftet</option>
-              <option>Aktiv</option>
-              <option>Kanselert</option>
-              <option>Fail</option>
-              <option>Ferdig</option>
-              <option>Fakturert</option>
-              <option>Betalt</option>
-            </select>
-
-            <h1 className="font-bold py-2">Attachment</h1>
-
-            <input type="checkbox" className=" inline mr-2" />
-            <p className="py-2 inline">Don&apos;t send email</p>
-
+            {/* Add Product Button */}
             <button
-              className="block w-full mb-20 mt-8 border-2 border-logoblue text-logoblue py-4 px-8 rounded-2xl cursor-pointer font-bold hover:bg-logoblue hover:text-white"
-              type="submit"
+              type="button"
+              className="my-8 w-full font-bold cursor-pointer border-2 border-logoblue text-logoblue py-3 px-4 rounded-xl hover:bg-logoblue hover:text-white"
+              onClick={addCard}
             >
-              Submit
+              Add extra products
             </button>
+
+            {/* Order Form Fields */}
+            <div className="">
+              <h1 className="font-bold py-2">Order number</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Description</h1>
+              <input className="w-full py-2 px-4 h-30 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Delivery date</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Delivery Time window</h1>
+              <select className="w-full py-2 px-2 rounded-xl border">
+                <option value="disabled" aria-disabled>
+                  Choose
+                </option>
+                <option value="morning">10:00-16:00</option>
+                <option value="afternoon">16:00-21:00</option>
+                <option value="contact">Contact client</option>
+              </select>
+
+              <PickupLocations />
+
+              <h1 className="font-bold py-2">Delivery address</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" placeholder="Enter a location" />
+
+              <h1 className="font-bold py-2">Total driving distance</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Customer&apos;s name</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Customer&apos;s phone</h1>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full rounded-xl border px-4 py-2 outline-none"
+              />
+
+              <h1 className="font-bold py-2">Additional customer&apos;s phone</h1>
+              <input
+                type="tel"
+                value={phoneTwo}
+                onChange={(e) => setPhoneTwo(e.target.value)}
+                className="w-full rounded-xl border px-4 py-2 outline-none"
+              />
+
+              <h1 className="font-bold py-2">Customer&apos;s email</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Customer comments</h1>
+              <input className="w-full py-2 px-4 h-30 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Floor No.</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Lift</h1>
+              <input className="inline mr-2" type="radio" name="lift" />
+              <p className="inline">Yes</p>
+              <input className="inline ml-4 mr-2" type="radio" name="lift" />
+              <p className="inline">No</p>
+
+              <h1 className="font-bold py-2">Cashier&apos;s name</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Cashier&apos;s phone</h1>
+              <input
+                type="tel"
+                value={phoneThree}
+                onChange={(e) => setPhoneThree(e.target.value)}
+                className="w-full rounded-xl border px-4 py-2 outline-none"
+              />
+
+              <h1 className="font-bold py-2">Subcontractor</h1>
+              <select className="w-full py-2 px-2 rounded-xl border">
+                <option aria-disabled>Choose</option>
+                <option>Otman Transport AS</option>
+                <option>Bahs Courier</option>
+                <option>Nordline AS</option>
+                <option>Tastanovas Grocery Store</option>
+                <option>Viken Trotting Sport Tanha</option>
+                <option>Levitis Transport</option>
+                <option>Arnosan AS</option>
+                <option>Stombergas Transport</option>
+                <option>Construction Service Vaicuss</option>
+                <option>New subcontractor 1</option>
+                <option>New subcontractor 2</option>
+              </select>
+
+              <h1 className="font-bold py-2">Driver</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Second driver</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Info for the driver</h1>
+              <input className="w-full py-2 px-4 h-30 rounded-xl border" />
+
+              <h1 className="font-bold py-2">License plate</h1>
+              <input className="w-full py-2 px-4 rounded-xl border" />
+
+              <h1 className="font-bold py-2">??????</h1>
+              <select className="w-full py-2 px-2 rounded-xl border">
+                <option aria-disabled>Choose</option>
+                <option>Deviation, missed trip; Customer not at home</option>
+                <option>Deviation, dead end; Customer cancelled</option>
+                <option>Deviation, missed delivery; Damaged goods</option>
+                <option>Deviation, delivery toll stairs; Wrong item</option>
+                <option>Deviation, toll; Wrong address</option>
+                <option>Deviation, toll trip; New driving date</option>
+                <option>Deviation, missed trip; Warehouse cannot find the product</option>
+                <option>Deviation, toll trip; Cancelled the day before</option>
+              </select>
+
+              <div className="pt-2">
+                <input type="checkbox" className="inline" />
+                <p className="inline pl-2">Fee for extra work per started</p>
+              </div>
+              <div className="pt-2">
+                <input type="checkbox" className="inline" />
+                <p className="inline pl-2">Fee for adding to order</p>
+              </div>
+
+              <h1 className="font-bold py-2">Status notes</h1>
+              <input className="w-full py-2 px-4 h-30 rounded-xl border" />
+
+              <h1 className="font-bold py-2">Change customer</h1>
+              <select className="w-full py-2 px-2 rounded-xl border">
+                <option aria-disabled>Choose</option>
+                <option>Power this</option>
+                <option>Power that</option>
+              </select>
+
+              <h1 className="font-bold py-2">Status</h1>
+              <select className="w-full py-2 px-2 rounded-xl border">
+                <option aria-disabled>Choose</option>
+                <option></option>
+                <option>Behandles</option>
+                <option>Bekreftet</option>
+                <option>Aktiv</option>
+                <option>Kanselert</option>
+                <option>Fail</option>
+                <option>Ferdig</option>
+                <option>Fakturert</option>
+                <option>Betalt</option>
+              </select>
+
+              <h1 className="font-bold py-2">Attachment</h1>
+
+              <input type="checkbox" className=" inline mr-2" />
+              <p className="py-2 inline">Don&apos;t send email</p>
+
+              <button
+                className="block w-full mb-20 mt-8 border-2 border-logoblue text-logoblue py-4 px-8 rounded-2xl cursor-pointer font-bold hover:bg-logoblue hover:text-white"
+                type="submit"
+              >
+                Submit
+              </button>
+            </div>
           </div>
-        </div>
+        
 
         {/* Price Calculator - Fixed position on right side */}
-        <div className="fixed left-230 top-26">
-          <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} />
+          <div className="flex-1 min-w-75">
+            <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} />
+          </div>
         </div>
       </main>
     </>

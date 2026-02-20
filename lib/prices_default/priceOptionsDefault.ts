@@ -9,7 +9,7 @@ export type PriceOption = {
 };
 
 // Product-specific installation options
-export const PRICE_OPTIONS: PriceOption[] = [
+export const PRICE_OPTIONS_DEFAULT: PriceOption[] = [
   // ============================================================================
   // WASHING MACHINE
   // ============================================================================
@@ -531,7 +531,7 @@ export function getActiveOptions(productId: string | null) {
   if (!productId) return [];
   
   // Get product-specific options
-  const productOptions = PRICE_OPTIONS.filter(
+  const productOptions = PRICE_OPTIONS_DEFAULT.filter(
     (o) => o.productId === productId && o.active
   );
   
@@ -544,8 +544,8 @@ export function getActiveOptions(productId: string | null) {
 /**
  * Get the full price details for a price option
  */
-import { PRICE_ITEMS } from "./pricing";
+import { PRICE_ITEMS_DEFAULT } from "./pricingDefault";
 
 export function getPriceDetails(priceKey: string) {
-  return PRICE_ITEMS.find((item) => item.key === priceKey);
+  return PRICE_ITEMS_DEFAULT.find((item) => item.key === priceKey);
 }

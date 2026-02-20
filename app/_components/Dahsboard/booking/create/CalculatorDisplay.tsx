@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PRICE_ITEMS } from "@/lib/pricing";
+import { PRICE_ITEMS_DEFAULT } from "@/lib/prices_default/pricingDefault";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -58,7 +58,7 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
   const totalIncVat = totalExVat + vat;
 
   return (
-    <section className="w-140 border rounded-2xl px-4 max-h-[calc(100vh-9rem)] overflow-y-auto">
+    <section className="w-full border rounded-2xl px-4 max-h-[calc(100vh-9rem)] overflow-y-auto">
       {/* TOP SECTION - Product breakdowns */}
       <div className="border-b-2 py-4">
         {productBreakdowns.length === 0 ? (
@@ -74,12 +74,12 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
             // Convert grouped keys to price items
             const lines = Array.from(grouped.entries())
               .map(([key, qty]) => {
-                const item = PRICE_ITEMS.find((i) => i.key === key);
+                const item = PRICE_ITEMS_DEFAULT.find((i) => i.key === key);
                 if (!item) return null;
                 return { item, qty };
               })
               .filter(
-                (x): x is { item: NonNullable<(typeof PRICE_ITEMS)[number]>; qty: number } =>
+                (x): x is { item: NonNullable<(typeof PRICE_ITEMS_DEFAULT)[number]>; qty: number } =>
                   Boolean(x)
               );
 
@@ -135,80 +135,44 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
 
         <div id="editModeCalculator">
           <div className="mt-8 flex items-center">
-            <h1>Rabatt (uten MVA): </h1>
-            <input
-              id="rabattInput"
-              type="text"
-              value={rabatt}
-              onChange={(e) => setRabatt(e.target.value)}
-              className="border ml-2 pl-2 h-8 rounded-md"
-              placeholder="f.eks. 500"
-            />
-            <button
-              id="btnBrukRabatt"
-              type="button"
-              disabled={!rabatt.trim()}
-              className="border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
-            >
+            <h1 className="whitespace-nowrap">Rabatt (uten MVA): </h1>
+            <input id="rabattInput" type="text" value={rabatt} onChange={(e) => setRabatt(e.target.value)} className="w-full border ml-2 pl-2 h-8 rounded-md" placeholder="f.eks. 500"/>
+            <button id="btnBrukRabatt" type="button" disabled={!rabatt.trim()} className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto">
               Bruk rabatt
             </button>
           </div>
 
           <div className="mt-4 flex items-center">
-            <h1>Ekstra (uten MVA): </h1>
-            <input
-              id="ekstraRabattInput"
-              type="text"
-              value={leggTil}
-              onChange={(e) => setLegTil(e.target.value)}
-              className="border ml-3 pl-2 h-8 rounded-md"
-              placeholder="f.eks. 300"
-            />
-            <button
-              id="btnLeggTil"
-              type="button"
-              disabled={!leggTil.trim()}
-              className="border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
-            >
+            <h1 className="whitespace-nowrap">Ekstra (uten MVA): </h1>
+            <input id="ekstraRabattInput" type="text" value={leggTil} onChange={(e) => setLegTil(e.target.value)} className="w-full border ml-3 pl-2 h-8 rounded-md" placeholder="f.eks. 300"/>
+            <button id="btnLeggTil" type="button" disabled={!leggTil.trim()} className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto">
               Legg til
             </button>
           </div>
 
           <div className="mt-8 flex justify-evenly">
-            <button
-              id="btnSummary"
-              type="button"
-              className="w-full border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white"
-            >
+            <button id="btnSummary" type="button" className="w-full border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white">
               Summary
             </button>
-            <button
-              id="btnSubcontractorSummary"
-              type="button"
-              className="w-full ml-8 border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white"
-            >
+            <button id="btnSubcontractorSummary" type="button" className="w-full ml-8 border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white" >
               Subcontractor Summary
             </button>
           </div>
 
           <div className="mt-8 flex items-center">
-            <h1>Subcontractor minus: </h1>
-            <input
-              id="subcontractorMinusInput"
-              type="text"
-              className="border ml-2 pl-2 h-8 rounded-md"
-              placeholder="f.eks. 200"
-            />
+            <h1 className="whitespace-nowrap">Subcontractor minus: </h1>
+            <input id="subcontractorMinusInput" type="text" className=" w-full border ml-2 pl-2 h-8 rounded-md" placeholder="f.eks. 200" />
+            <button id="btnLeggTil" type="button" disabled={!leggTil.trim()} className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto">
+              Legg til
+            </button>
           </div>
 
           <div className="mt-8 flex items-center">
-            <h1>Subcontractor plus: </h1>
-            <input
-              id="subcontractorPlusInput"
-              type="text"
-              className="border ml-5 pl-2 h-8 rounded-md"
-              placeholder="f.eks. 200"
-            />
+            <h1 className="whitespace-nowrap">Subcontractor plus: </h1>
+            <input id="subcontractorPlusInput" type="text" className="border w-full ml-5 pl-2 h-8 rounded-md" placeholder="f.eks. 200" />
+            <button id="btnLeggTil" type="button" disabled={!leggTil.trim()} className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto">
+              Legg til
+            </button>
           </div>
 
           <div id="existingOrderId" className="mt-8">

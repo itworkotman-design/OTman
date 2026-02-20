@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { CatalogSection, CatalogSectionSkeleton } from "../_components/CatalogSection";
-import { ServiceWindow } from "../_components/(TransportService)/ServiceWindow";
-import { StatsDisplay } from "../_components/(TransportService)/StatsDisplay"
-import { PartnersDisplay } from "../_components/(TransportService)/PartnersDisplay"
+import { ServiceWindow } from "../_components/TransportService/ServiceWindow";
+import { StatsDisplay } from "../_components/TransportService/StatsDisplay"
+import { PartnersDisplay } from "../_components/TransportService/PartnersDisplay"
 
 const items = [
   { title: "Collection & Pickup", href: "/services/collection-pickup" },

@@ -2,19 +2,18 @@
 
 import { useMemo, useState } from "react";
 
-type BookingFieldEditor = {
-  // what you currently have selected in the table
+type BookingFieldEditorProps = {
   selectedCount: number;
 
-  // options
-  statusOptions: { value: string; label: string }[];
-  subcontractorOptions: { value: string; label: string }[];
+  statusOptions: readonly { value: string; label: string }[];
+  subcontractorOptions: readonly { value: string; label: string }[];
 
-  // actions (call your API / state updates from parent)
   onUpdateStatus: (status: string) => void | Promise<void>;
   onUpdateSubcontractor: (subcontractorId: string) => void | Promise<void>;
   onUpdateDriverText: (text: string) => void | Promise<void>;
 };
+
+type ActionKind = "status" | "subcontractor" | "driver" | null;
 
 export function BookingFieldEditor({
   selectedCount,
@@ -23,25 +22,53 @@ export function BookingFieldEditor({
   onUpdateStatus,
   onUpdateSubcontractor,
   onUpdateDriverText,
-}: BookingFieldEditor) {
+}: BookingFieldEditorProps) {
   const disabled = selectedCount <= 0;
 
+  // draft inputs
   const [status, setStatus] = useState("");
   const [subcontractor, setSubcontractor] = useState("");
   const [driverText, setDriverText] = useState("");
 
-  const canUpdateStatus = !disabled && status !== "";
-  const canUpdateSub = !disabled && subcontractor !== "";
-  const canUpdateDriver = !disabled && driverText.trim().length > 0;
+  // UX state: submitting + feedback
+  const [busy, setBusy] = useState<ActionKind>(null);
+  const [, setError] = useState<string>("");
+  const [, setSuccess] = useState<string>("");
+
+  const canUpdateStatus = !disabled && status !== "" && busy === null;
+  const canUpdateSub = !disabled && subcontractor !== "" && busy === null;
+  const canUpdateDriver = !disabled && driverText.trim().length > 0 && busy === null;
 
   const helperText = useMemo(() => {
-    if (selectedCount > 0) return `Editing ${selectedCount} selected booking(s).`;
-    return "Select at least 1 booking to edit.";
-  }, [selectedCount]);
+    if (disabled) return "Select at least 1 booking to edit.";
+    return `Editing ${selectedCount} selected booking(s).`;
+  }, [disabled, selectedCount]);
+
+  // Shared runner: handles async + feedback + disables other actions while running
+  const run = async (kind: Exclude<ActionKind, null>, fn: () => void | Promise<void>) => {
+    setError("");
+    setSuccess("");
+    setBusy(kind);
+    try {
+      await fn();
+      setSuccess("Saved.");
+      // clear only the field that was applied (keeps other drafts intact)
+      if (kind === "status") setStatus("");
+      if (kind === "subcontractor") setSubcontractor("");
+      if (kind === "driver") setDriverText("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <section className="mt-4 rounded-xl border bg-white p-4 max-w-250">
-      <div className="mb-3 text-xs text-neutral-600">{helperText}</div>
+      <div className={`mb-2 text-xs ${disabled ? "text-neutral-600/50" : "text-neutral-600"}`}>
+        {helperText}
+      </div>
+
 
       <div className="grid grid-cols-1 gap-3">
         {/* Row 1: Status */}
@@ -49,7 +76,7 @@ export function BookingFieldEditor({
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            disabled={disabled}
+            disabled={disabled || busy !== null}
             className="h-10 w-full rounded-md border px-3 text-sm disabled:bg-neutral-100"
           >
             <option value="">Change status for selected:</option>
@@ -63,10 +90,10 @@ export function BookingFieldEditor({
           <button
             type="button"
             disabled={!canUpdateStatus}
-            onClick={() => onUpdateStatus(status)}
+            onClick={() => run("status", () => onUpdateStatus(status))}
             className="h-10 w-full rounded-md bg-logoblue px-4 text-sm font-semibold text-white disabled:bg-logoblue/60"
           >
-            Update status
+            {busy === "status" ? "Updating…" : "Update status"}
           </button>
         </div>
 
@@ -75,7 +102,7 @@ export function BookingFieldEditor({
           <select
             value={subcontractor}
             onChange={(e) => setSubcontractor(e.target.value)}
-            disabled={disabled}
+            disabled={disabled || busy !== null}
             className="h-10 w-full rounded-md border px-3 text-sm disabled:bg-neutral-100"
           >
             <option value="">Change subcontractor for selected:</option>
@@ -89,10 +116,10 @@ export function BookingFieldEditor({
           <button
             type="button"
             disabled={!canUpdateSub}
-            onClick={() => onUpdateSubcontractor(subcontractor)}
+            onClick={() => run("subcontractor", () => onUpdateSubcontractor(subcontractor))}
             className="h-10 w-full rounded-md bg-logoblue px-4 text-sm font-semibold text-white disabled:bg-logoblue/60"
           >
-            Update subcontractor
+            {busy === "subcontractor" ? "Updating…" : "Update subcontractor"}
           </button>
         </div>
 
@@ -101,7 +128,7 @@ export function BookingFieldEditor({
           <input
             value={driverText}
             onChange={(e) => setDriverText(e.target.value)}
-            disabled={disabled}
+            disabled={disabled || busy !== null}
             placeholder="Write driver name…"
             className="h-10 w-full rounded-md border px-3 text-sm disabled:bg-neutral-100"
           />
@@ -109,10 +136,10 @@ export function BookingFieldEditor({
           <button
             type="button"
             disabled={!canUpdateDriver}
-            onClick={() => onUpdateDriverText(driverText.trim())}
+            onClick={() => run("driver", () => onUpdateDriverText(driverText.trim()))}
             className="h-10 w-full rounded-md bg-logoblue px-4 text-sm font-semibold text-white disabled:bg-logoblue/60"
           >
-            Update driver (free text)
+            {busy === "driver" ? "Updating…" : "Update driver"}
           </button>
         </div>
       </div>
