@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useCallback } from "react";
 import { ProductCard } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { CalculatorDisplay } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
@@ -155,6 +156,13 @@ export default function CreatePage() {
     });
   };
 
+  const makeOnProductChange = useCallback(
+  (cardId: number) => (productId: string | null) => {
+    setCardProducts((prev) => ({ ...prev, [cardId]: productId }));
+  },
+  []
+);
+
   return (
     <>
       <main className="flex justify-center px-4 sm:px-6 lg:px-8">
@@ -171,9 +179,7 @@ export default function CreatePage() {
                   setCardItems((prev) => ({ ...prev, [id]: items }));
                   setCardDeliveryType((prev) => ({ ...prev, [id]: deliveryType }));
                 }}
-                onProductChange={(productId) =>
-                  setCardProducts((prev) => ({ ...prev, [id]: productId }))
-                }
+                onProductChange={makeOnProductChange(id)}
                 onRemove={removeCard}
                 disableRemove={!canRemove}
                 isExpanded={expanded[id] ?? true}

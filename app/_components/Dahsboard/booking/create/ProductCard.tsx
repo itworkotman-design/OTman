@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { getDataset, type Dataset } from "@/lib/getDataset";
 
 // ============================================================================
@@ -130,10 +130,16 @@ export function ProductCard({
   }, [productId]);
 
   // Also reset product selection when dataset changes
-  useEffect(() => {
-    setProductId(null);
-    onProductChange?.(null);
-  }, [dataset, onProductChange]);
+  const prevDataset = useRef(dataset);
+
+useEffect(() => {
+  if (prevDataset.current === dataset) return;
+  prevDataset.current = dataset;
+
+  setProductId(null);
+  onProductChange?.(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [dataset]);
 
   function buildItems(): LineItem[] {
     const items: LineItem[] = [];

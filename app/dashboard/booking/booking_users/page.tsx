@@ -56,7 +56,7 @@ export default function UserPage() {
 
   return (
     <div className="p-6 w-full">
-      <div className="mx-auto max-w-[1600px]">
+      <div className="mx-auto max-w-400">
         <div className="mb-20">
           <h1 className="text-2xl font-bold text-center text-logoblue">
             Booking Users

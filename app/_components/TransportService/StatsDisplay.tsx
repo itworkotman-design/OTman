@@ -2,8 +2,8 @@
 export const StatsDisplay = () => {
   return (
     <>
-        <section className="w-full py-[40px]">
-            <div className="grid grid-cols-1 md:grid-cols-3  md:gap-32 max-w-[800px] justify-self-center">
+        <section className="w-full py-10">
+            <div className="grid grid-cols-1 md:grid-cols-3  md:gap-32 max-w-200 justify-self-center">
                 <div className="text-center">
                     <h1 className="text-[40px] text-logoblue font-bold">737 363</h1>
                     <p>Newspapers delivered</p>
