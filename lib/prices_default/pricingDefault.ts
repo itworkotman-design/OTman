@@ -73,8 +73,8 @@ export const PRICE_ITEMS_DEFAULT: PriceItem[] = [
     code: "XTRA",
     label: "Hjemlevering av mer enn 1 ting - Tillegg ekstra kolli",
     category: "delivery",
-    customerPrice: 150,
-    subcontractorPrice: 100,
+    customerPrice: 229,
+    subcontractorPrice: 99999,
     active: true,
   },
   {
@@ -144,6 +144,15 @@ export const PRICE_ITEMS_DEFAULT: PriceItem[] = [
   // ============================================================================
   // RETURN SERVICES
   // ============================================================================
+  {
+    key: "RETURN__install",
+    code: "RETURN",
+    label: "Installasjon",
+    category: "return",
+    customerPrice: 669,
+    subcontractorPrice: 99999,
+    active: true,
+  },
   {
     key: "DEMONT__demontering_gamle_vare",
     code: "DEMONT",

@@ -185,11 +185,20 @@ useEffect(() => {
     if (deliveryType === "Innbæring") {
       const k = keyFromCode("INDOOR");
       if (k) items.push({ key: k, qty: 1 });
+      if (amt > 1) {
+        const xtra = keyFromCode("XTRA");
+        if (xtra) items.push({ key: xtra, qty: amt - 1 });
+      }
     }
 
     if (deliveryType === "Kun Installasjon/Montering") {
       const k = keyFromCode("MONTERING");
       if (k) items.push({ key: k, qty: 1 });
+    }
+//????????????????????????????????????????????????????????? No idea how it should actually be
+    if (returnOptionId) {
+      const opt = returnTripOptions.find((o) => o.id === returnOptionId);
+      if (opt) items.push({ key: opt.priceKey, qty: 1 });
     }
 
     if (deliveryType === "Kun Installasjon/Montering" || showFullServiceList) {
