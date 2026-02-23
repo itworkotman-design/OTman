@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { LineItem } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 import { PRICE_ITEMS_DEFAULT } from "@/lib/prices_default/pricingDefault";
 
 // ============================================================================
@@ -18,7 +19,6 @@ function formatNOK(n: number) {
 }
 
 function formatQty(qty: number) {
-  // show nice 0.5 steps, and avoid floating noise
   const rounded = Math.round(qty * 2) / 2;
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
 }
@@ -26,11 +26,6 @@ function formatQty(qty: number) {
 // ============================================================================
 // TYPES
 // ============================================================================
-
-type LineItem = {
-  key: string;
-  qty: number; // 0.5, 1, 2, 2.5 ...
-};
 
 type ProductBreakdown = {
   productName: string;
@@ -65,23 +60,27 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
           <p className="text-sm opacity-70">No products selected.</p>
         ) : (
           productBreakdowns.map((product, productIdx) => {
-            // Group by key so rows update instead of duplicating
-            const grouped = new Map<string, number>();
+            // Group by key, carrying priceOverride through
+            const grouped = new Map<string, { qty: number; priceOverride?: number }>();
             for (const it of product.items) {
-              grouped.set(it.key, (grouped.get(it.key) ?? 0) + it.qty);
+              const existing = grouped.get(it.key);
+              grouped.set(it.key, {
+                qty: (existing?.qty ?? 0) + it.qty,
+                priceOverride:
+                  it.priceOverride !== undefined
+                    ? it.priceOverride
+                    : existing?.priceOverride,
+              });
             }
 
             // Convert grouped keys to price items
             const lines = Array.from(grouped.entries())
-              .map(([key, qty]) => {
+              .map(([key, { qty, priceOverride }]) => {
                 const item = PRICE_ITEMS_DEFAULT.find((i) => i.key === key);
                 if (!item) return null;
-                return { item, qty };
+                return { item, qty, priceOverride };
               })
-              .filter(
-                (x): x is { item: NonNullable<(typeof PRICE_ITEMS_DEFAULT)[number]>; qty: number } =>
-                  Boolean(x)
-              );
+              .filter((x): x is NonNullable<typeof x> => x !== null);
 
             return (
               <div key={productIdx} className="mb-4 last:mb-0">
@@ -90,8 +89,10 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
                 {lines.length === 0 ? (
                   <p className="text-sm opacity-70 ml-2">No services selected for this product.</p>
                 ) : (
-                  lines.map(({ item, qty }) => {
-                    const lineTotal = item.customerPrice * qty;
+                  lines.map(({ item, qty, priceOverride }) => {
+                    const price =
+                      priceOverride !== undefined ? priceOverride : item.customerPrice;
+                    const lineTotal = price * qty;
 
                     return (
                       <div key={item.key} className="priceRow ml-2">
@@ -106,7 +107,6 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
                           {lineTotal} NOK
                         </p>
                       </div>
-
                     );
                   })
                 )}
@@ -136,41 +136,91 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
         <div id="editModeCalculator">
           <div className="mt-8 flex items-center">
             <h1 className="whitespace-nowrap">Rabatt (uten MVA): </h1>
-            <input id="rabattInput" type="text" value={rabatt} onChange={(e) => setRabatt(e.target.value)} className="w-full border ml-2 pl-2 h-8 rounded-md" placeholder="f.eks. 500"/>
-            <button id="btnBrukRabatt" type="button" disabled={!rabatt.trim()} className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto">
+            <input
+              id="rabattInput"
+              type="text"
+              value={rabatt}
+              onChange={(e) => setRabatt(e.target.value)}
+              className="w-full border ml-2 pl-2 h-8 rounded-md"
+              placeholder="f.eks. 500"
+            />
+            <button
+              id="btnBrukRabatt"
+              type="button"
+              disabled={!rabatt.trim()}
+              className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
+            >
               Bruk rabatt
             </button>
           </div>
 
           <div className="mt-4 flex items-center">
             <h1 className="whitespace-nowrap">Ekstra (uten MVA): </h1>
-            <input id="ekstraRabattInput" type="text" value={leggTil} onChange={(e) => setLegTil(e.target.value)} className="w-full border ml-3 pl-2 h-8 rounded-md" placeholder="f.eks. 300"/>
-            <button id="btnLeggTil" type="button" disabled={!leggTil.trim()} className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto">
+            <input
+              id="ekstraRabattInput"
+              type="text"
+              value={leggTil}
+              onChange={(e) => setLegTil(e.target.value)}
+              className="w-full border ml-3 pl-2 h-8 rounded-md"
+              placeholder="f.eks. 300"
+            />
+            <button
+              id="btnLeggTil"
+              type="button"
+              disabled={!leggTil.trim()}
+              className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
+            >
               Legg til
             </button>
           </div>
 
           <div className="mt-8 flex justify-evenly">
-            <button id="btnSummary" type="button" className="w-full border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white">
+            <button
+              id="btnSummary"
+              type="button"
+              className="w-full border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white"
+            >
               Summary
             </button>
-            <button id="btnSubcontractorSummary" type="button" className="w-full ml-8 border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white" >
+            <button
+              id="btnSubcontractorSummary"
+              type="button"
+              className="w-full ml-8 border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white"
+            >
               Subcontractor Summary
             </button>
           </div>
 
           <div className="mt-8 flex items-center">
             <h1 className="whitespace-nowrap">Subcontractor minus: </h1>
-            <input id="subcontractorMinusInput" type="text" className=" w-full border ml-2 pl-2 h-8 rounded-md" placeholder="f.eks. 200" />
-            <button id="btnLeggTil" type="button" disabled={!leggTil.trim()} className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto">
+            <input
+              id="subcontractorMinusInput"
+              type="text"
+              className="w-full border ml-2 pl-2 h-8 rounded-md"
+              placeholder="f.eks. 200"
+            />
+            <button
+              type="button"
+              disabled={!leggTil.trim()}
+              className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
+            >
               Legg til
             </button>
           </div>
 
           <div className="mt-8 flex items-center">
             <h1 className="whitespace-nowrap">Subcontractor plus: </h1>
-            <input id="subcontractorPlusInput" type="text" className="border w-full ml-5 pl-2 h-8 rounded-md" placeholder="f.eks. 200" />
-            <button id="btnLeggTil" type="button" disabled={!leggTil.trim()} className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto">
+            <input
+              id="subcontractorPlusInput"
+              type="text"
+              className="border w-full ml-5 pl-2 h-8 rounded-md"
+              placeholder="f.eks. 200"
+            />
+            <button
+              type="button"
+              disabled={!leggTil.trim()}
+              className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
+            >
               Legg til
             </button>
           </div>

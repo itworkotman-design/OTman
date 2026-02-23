@@ -71,9 +71,9 @@ export const PRICE_ITEMS_DEFAULT: PriceItem[] = [
   {
     key: "XTRA__ekstra_kolli",
     code: "XTRA",
-    label: "Hjemlevering av mer enn 1 ting - Tillegg ekstra kolli",
+    label: "Ekstra levering",
     category: "delivery",
-    customerPrice: 229,
+    customerPrice: 250,
     subcontractorPrice: 99999,
     active: true,
   },

@@ -17,11 +17,13 @@ export type DeliveryType =
 export type LineItem = {
   key: string;
   qty: number;
+  priceOverride?: number;
 };
 
 export type ProductCardChangePayload = {
   items: LineItem[];
   deliveryType: DeliveryType;
+  amount: number;
 };
 
 type Props = {
@@ -180,6 +182,10 @@ useEffect(() => {
     if (deliveryType === "Første trinn") {
       const k = keyFromCode("DELIVERY");
       if (k) items.push({ key: k, qty: 1 });
+      if (amt > 1) {
+        const xtra = keyFromCode("XTRA");
+        if (xtra) items.push({ key: xtra, qty: amt - 1 });
+      }
     }
 
     if (deliveryType === "Innbæring") {
@@ -196,9 +202,16 @@ useEffect(() => {
       if (k) items.push({ key: k, qty: 1 });
     }
 //????????????????????????????????????????????????????????? No idea how it should actually be
-    if (returnOptionId) {
-      const opt = returnTripOptions.find((o) => o.id === returnOptionId);
-      if (opt) items.push({ key: opt.priceKey, qty: 1 });
+    if (deliveryType === "Kun retur") {
+      const k = keyFromCode("RETURN");
+      if (k) items.push({ key: k, qty: 1 });
+
+      if (returnOptionId) {
+        const opt = returnTripOptions.find((o) => o.id === returnOptionId);
+        if (opt) items.push({ key: opt.priceKey, qty: amt });
+      }
+
+      return items; // important: stops XTRA logic
     }
 
     if (deliveryType === "Kun Installasjon/Montering" || showFullServiceList) {
@@ -231,9 +244,9 @@ useEffect(() => {
 
   // Notify parent
   useEffect(() => {
-    onChange({ items: buildItems(), deliveryType });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, deliveryType, selectedInstallOptionIds, returnOptionId, amount, selectedExtraOptionIds, demontEnabled, extraPalletEnabled, extraPalletQty, etterEnabled, etterQty, selectedTimeOptionIds, extraTimeHours]);
+  onChange({ items: buildItems(), deliveryType, amount: clampInt(amount, 1) });
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [productId, deliveryType, selectedInstallOptionIds, returnOptionId, amount, selectedExtraOptionIds, demontEnabled, extraPalletEnabled, extraPalletQty, etterEnabled, etterQty, selectedTimeOptionIds, extraTimeHours]);
 
   function handleProductSelect(newProductId: string | null) {
     setProductId(newProductId);

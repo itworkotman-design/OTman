@@ -5,6 +5,7 @@ import { ProductCard } from "@/app/_components/Dahsboard/booking/create/ProductC
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { CalculatorDisplay } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
 import { PRICE_ITEMS_DEFAULT } from "@/lib/prices_default/pricingDefault";
+import { PRICE_ITEMS_POWER} from "@/lib/prices_power/pricingPower";
 import { PRODUCTS_DEFAULT } from "@/lib/prices_default/productsDefault";
 import type { DeliveryType, LineItem } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 
@@ -109,43 +110,18 @@ export const OrderPresets = {
 // ============================================================================
 
 function codeToKey(code: string): string | null {
-  return PRICE_ITEMS_DEFAULT.find((i) => i.code === code)?.key ?? null;
+  return (
+    PRICE_ITEMS_DEFAULT.find((i) => i.code === code)?.key ??
+    PRICE_ITEMS_POWER.find((i) => i.code === code)?.key ??
+    null
+  );
 }
 
-// Order-level fees — charged once per order regardless of card count
-const ORDER_LEVEL_KEYS = new Set<string>(
+const DELIVERY_BASE_KEYS = new Set<string>(
   ["DELIVERY", "INDOOR", "MONTERING"]
     .map(codeToKey)
     .filter((x): x is string => Boolean(x))
 );
-
-function calculateTotalFromCards(
-  cardItems: Record<number, LineItem[]>,
-  cardDeliveryType: Record<number, DeliveryType>
-) {
-  let total = 0;
-  const seenOrderLevel = new Set<string>();
-
-  for (const [cardIdStr, items] of Object.entries(cardItems)) {
-    const cardId = Number(cardIdStr);
-
-    for (const it of items) {
-      const price =
-        PRICE_ITEMS_DEFAULT.find((p) => p.key === it.key)?.customerPrice ?? 0;
-
-      if (ORDER_LEVEL_KEYS.has(it.key)) {
-        if (seenOrderLevel.has(it.key)) continue;
-        seenOrderLevel.add(it.key);
-        total += price * 1;
-        continue;
-      }
-
-      total += price * it.qty;
-    }
-  }
-
-  return total;
-}
 
 // ============================================================================
 // TYPES
@@ -220,7 +196,7 @@ export function OrderForm({
   const [cards, setCards] = useState<number[]>([0]);
   const nextCardId = useRef(1);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({ 0: true });
-
+  const [cardAmounts, setCardAmounts] = useState<Record<number, number>>({});
   const [cardItems, setCardItems] = useState<Record<number, LineItem[]>>({});
   const [cardDeliveryType, setCardDeliveryType] = useState<Record<number, DeliveryType>>({});
   const [cardProducts, setCardProducts] = useState<Record<number, string | null>>({});
@@ -255,36 +231,53 @@ export function OrderForm({
     []
   );
 
-  // --- pricing ---
-  const total = useMemo(
-    () => calculateTotalFromCards(cardItems, cardDeliveryType),
-    [cardItems, cardDeliveryType]
-  );
 
   const productBreakdowns = useMemo(() => {
-    const seenOrderLevel = new Set<string>();
+  const xtraKey = codeToKey("XTRA");
 
-    return cards
-      .map((cardId) => {
-        const productId = cardProducts[cardId];
-        const productName = productId
-          ? PRODUCTS_DEFAULT.find((p) => p.id === productId)?.label ?? "Unknown Product"
-          : "No product selected";
+  // Pre-pass: find the first card with a delivery based type selected
+  const deliveryTypes = ["Første trinn", "Innbæring", "Kun Installasjon/Montering"];
+  const firstDeliveryCardId =
+    cards.find((cardId) => deliveryTypes.includes(cardDeliveryType[cardId] ?? "")) ?? null;
 
-        const rawItems = cardItems[cardId] ?? [];
-        const items = rawItems.filter((it) => {
-                if (!ORDER_LEVEL_KEYS.has(it.key)) return true;
-                if (seenOrderLevel.has(it.key)) return false;
-                seenOrderLevel.add(it.key);
-                return true;
-              });
+  return cards
+    .map((cardId) => {
+      const productId = cardProducts[cardId];
+      const productName = productId
+        ? PRODUCTS_DEFAULT.find((p) => p.id === productId)?.label ?? "Unknown Product"
+        : "No product selected";
 
-        return { productName, items };
-      })
-      .filter((b) => b.items.length > 0 || b.productName !== "No product selected");
-  }, [cards, cardProducts, cardItems, cardDeliveryType]);
+      const rawItems = cardItems[cardId] ?? [];
+      const needsDeliveryBase = deliveryTypes.includes(cardDeliveryType[cardId] ?? "");
+
+      let items = [...rawItems];
+
+      if (needsDeliveryBase && cardId !== firstDeliveryCardId) {
+        const existingXtra = rawItems.find((it) => it.key === xtraKey);
+        const inferredAmt = existingXtra ? existingXtra.qty + 1 : cardAmounts[cardId] ?? 1;
+
+        items = items.filter((it) => !DELIVERY_BASE_KEYS.has(it.key) && it.key !== xtraKey);
+        if (xtraKey) items = [{ key: xtraKey, qty: inferredAmt }, ...items];
+      }
+
+      return { productName, items };
+    }).filter((b) => b.items.length > 0 || b.productName !== "No product selected");
+}, [cards, cardProducts, cardItems, cardAmounts, cardDeliveryType]);
+
+  // --- pricing ---
+const total = useMemo(() => {
+  return productBreakdowns.reduce((sum, product) => {
+    return sum + product.items.reduce((s, it) => {
+      const price = it.priceOverride !== undefined
+        ? it.priceOverride
+        : PRICE_ITEMS_DEFAULT.find((p) => p.key === it.key)?.customerPrice ?? 0;
+      return s + price * it.qty;
+    }, 0);
+  }, 0);
+}, [productBreakdowns]);
 
   // --- form fields ---
+
   const [orderNumber, setOrderNumber] = useState("");
   const [description, setDescription] = useState("");
   const [modelNr, setModelNr] = useState("");
@@ -355,9 +348,10 @@ export function OrderForm({
                   key={id}
                   cardId={id}
                   displayIndex={index + 1}
-                  onChange={({ items, deliveryType }) => {
+                  onChange={({ items, deliveryType, amount }) => {
                     setCardItems((prev) => ({ ...prev, [id]: items }));
                     setCardDeliveryType((prev) => ({ ...prev, [id]: deliveryType }));
+                    setCardAmounts((prev) => ({ ...prev, [id]: amount }));
                   }}
                   onProductChange={makeOnProductChange(id)}
                   onRemove={removeCard}

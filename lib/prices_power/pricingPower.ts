@@ -49,5 +49,88 @@ export const PRICE_ITEMS_POWER: PriceItem[] = [
     customerPrice: 599,
     subcontractorPrice: 199,
     active: true,
-  }
+  },
+  // ============================================================================
+  // DELIVERY
+  // ============================================================================
+  {
+    key: "DELIVERY__frakt_til_trapp",
+    code: "DELIVERY",
+    label: "Frakt til trapp/dør",
+    category: "delivery",
+    customerPrice: 590,
+    subcontractorPrice: 390,
+    active: true,
+  },
+  {
+    key: "INDOOR__hjemlevering_innbaering",
+    code: "INDOOR",
+    label: "Hjemlevering innbæring",
+    category: "delivery",
+    customerPrice: 790,
+    subcontractorPrice: 490,
+    active: true,
+  },
+  {
+    key: "XTRA__ekstra_kolli",
+    code: "XTRA",
+    label: "Ekstra levering",
+    category: "delivery",
+    customerPrice: 250,
+    subcontractorPrice: 99999,
+    active: true,
+  },
+  {
+    key: "PICKUP__hent_andre_butikk",
+    code: "PICKUP",
+    label: "Hent fra annen butikk",
+    category: "delivery",
+    customerPrice: 299,
+    subcontractorPrice: 199,
+    active: true,
+  },
+
+  // ============================================================================
+  // RETURN
+  // ============================================================================
+  {
+    key: "RETURNSTORE__retur_butikk",
+    code: "RETURNSTORE",
+    label: "Retur til butikk",
+    category: "return",
+    customerPrice: 299,
+    subcontractorPrice: 199,
+    active: true,
+  },
+  {
+    key: "RETURNREC__retur_gjenvinning",
+    code: "RETURNREC",
+    label: "Tillegg Retur til gjenvinning",
+    category: "return",
+    customerPrice: 250,
+    subcontractorPrice: 150,
+    active: true,
+  },
+  {
+    key: "DEMONT__demontering_gamle_vare",
+    code: "DEMONT",
+    label: "Demontering av gamle varer",
+    category: "return",
+    customerPrice: 299,
+    subcontractorPrice: 199,
+    active: true,
+  },
+
+  // ============================================================================
+  // EXTRA
+  // ============================================================================
+  {
+    key: "UNPACKING__utpakking_emballasje",
+    code: "UNPACKING",
+    label: "Utpakking og fjerning av emballasje",
+    category: "extra",
+    customerPrice: 199,
+    subcontractorPrice: 99,
+    active: true,
+  },
 ];
