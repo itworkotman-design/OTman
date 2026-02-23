@@ -193,6 +193,7 @@ export function OrderForm({
   onSubmit?: (payload: OrderFormPayload) => void;
 }) {
   // --- product cards ---
+  const [calcOpen, setCalcOpen] = useState(false);
   const [cards, setCards] = useState<number[]>([0]);
   const nextCardId = useRef(1);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({ 0: true });
@@ -336,9 +337,9 @@ const total = useMemo(() => {
 
   return (
     <form onSubmit={handleSubmit}>
-      <main className="flex justify-center px-4 sm:px-6 lg:px-8">
-        <div className="flex w-full max-w-300 gap-5">
-          <div className="flex-1 min-w-75">
+      <main className="flex justify-center ">
+        <div className="flex w-full max-w-300 gap-5 ">
+          <div className="md:flex-1 min-w-75 mr-[40] w-full lg:mr-0 ">
 
             {/* Product Cards */}
             {shown(hidden, OrderFields.Products) &&
@@ -764,9 +765,43 @@ const total = useMemo(() => {
           </div>
 
           {shown(hidden, OrderFields.Calculator) && (
-            <div className="flex-1 min-w-75">
-              <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} />
-            </div>
+            <>
+              {/* Mobile: collapsed vertical rail -> expands */}
+              <div className="lg:hidden fixed right-0 top-1/2 -translate-y-1/2 z-40">
+                {!calcOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setCalcOpen(true)}
+                    className="h-80 w-10 rounded-l-full bg-white shadow-xl border border-black/10 flex items-center justify-center"
+                    aria-label="Open calculator"
+                  >
+                    <span className="[writing-mode:vertical-rl] rotate-180 text-md font-semibold text-logoblue">
+                      Calculator
+                    </span>
+                  </button>
+                ) : (
+                  <div className="flex flex-col bg-white overflow-auto border rounded-2xl shadow-xl">
+                    <button
+                      type="button"
+                      onClick={() => setCalcOpen(false)}
+                      className="rounded-4xl bg-logoblue text-sm font-semibold w-[80] h-[40] text-white text-center ml-auto mr-2 mt-2"
+                      aria-label="Close calculator"
+                    >
+                      Close
+                    </button>
+
+                    <div className="p-4">
+                      <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop: normal flow */}
+              <div className="hidden lg:block flex-1 min-w-75">
+                <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} />
+              </div>
+            </>
           )}
         </div>
       </main>

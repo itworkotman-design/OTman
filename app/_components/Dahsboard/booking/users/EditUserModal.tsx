@@ -74,7 +74,7 @@ export default function EditUserModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-5 ml-75 bg-black/40 flex items-center justify-center">
+    <div className="fixed inset-0 z-5 lg:ml-75 bg-black/40 flex items-center justify-center">
       <div className="bg-white w-full max-w-3xl rounded-3xl shadow p-6">
         <div className="grid grid-cols-3 items-start">
           <div />
