@@ -759,12 +759,14 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                 </label>
               )}
 
-              <button
-                className="block w-full mb-20 mt-8 border-2 border-logoblue text-logoblue py-4 px-8 rounded-2xl cursor-pointer font-bold hover:bg-logoblue hover:text-white"
-                type="submit"
-              >
-                Submit
-              </button>
+              {!hideSubmitButton && (
+            <button
+              className="block w-full mb-20 mt-8 border-2 border-logoblue text-logoblue py-4 px-8 rounded-2xl cursor-pointer font-bold hover:bg-logoblue hover:text-white"
+              type="submit"
+            >
+              Submit
+            </button>
+          )}
             </div>
           </div>
 
@@ -807,14 +809,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
               </div>
             </>
           )}
-          {!hideSubmitButton && (
-            <button
-              className="block w-full mb-20 mt-8 border-2 ..."
-              type="submit"
-            >
-              Submit
-            </button>
-          )}
+          
         </div>
       </main>
     </form>

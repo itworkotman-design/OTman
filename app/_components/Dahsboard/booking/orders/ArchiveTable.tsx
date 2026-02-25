@@ -176,6 +176,7 @@ export function ArchiveTable({
                     <input
                       type="checkbox"
                       checked={checked}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={() => toggleOne(r.id)}
                       className="h-4 w-4"
                       aria-label={`Select booking ${r.id}`}
