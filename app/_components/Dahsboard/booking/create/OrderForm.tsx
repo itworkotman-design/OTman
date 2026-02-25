@@ -791,7 +791,7 @@ const total = useMemo(() => {
                     </button>
 
                     <div className="p-4">
-                      <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} />
+                      <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} adminView={dataset === "default"} />
                     </div>
                   </div>
                 )}
@@ -799,7 +799,7 @@ const total = useMemo(() => {
 
               {/* Desktop: normal flow */}
               <div className="hidden lg:block flex-1 min-w-75">
-                <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} />
+                <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} adminView={dataset === "default"} />
               </div>
             </>
           )}

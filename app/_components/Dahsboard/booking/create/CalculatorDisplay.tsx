@@ -35,13 +35,14 @@ type ProductBreakdown = {
 type Props = {
   total: number;
   productBreakdowns: ProductBreakdown[];
+  adminView?: boolean;
 };
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function CalculatorDisplay({ total, productBreakdowns }: Props) {
+export function CalculatorDisplay({ total, productBreakdowns, adminView = false}: Props) {
   const [rabatt, setRabatt] = useState("");
   const [leggTil, setLegTil] = useState("");
 
@@ -117,6 +118,7 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
       </div>
 
       {/* BOTTOM SECTION - Totals and adjustments */}
+      
       <div className="pb-4">
         <div className="priceRow">
           <h1 className="font-bold text-2xl">Total</h1>
@@ -132,7 +134,7 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
           <h1 className="text-md">Total inkl. MVA</h1>
           <p className="font-semibold">{formatNOK(totalIncVat)}</p>
         </div>
-
+        {adminView && (
         <div id="editModeCalculator">
           <div className="mt-8 flex items-center">
             <h1 className="whitespace-nowrap">Rabatt (uten MVA): </h1>
@@ -229,7 +231,7 @@ export function CalculatorDisplay({ total, productBreakdowns }: Props) {
             <h1 className="text-xl font-semibold">Bestiller: POWER Skullerud</h1>
             <p>Ordre-ID: 13288</p>
           </div>
-        </div>
+        </div>)}
       </div>
     </section>
   );
