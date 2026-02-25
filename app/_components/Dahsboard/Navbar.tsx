@@ -17,7 +17,7 @@ export const Navbar = ({
     <>
       {/* Mobile */}
       <div className="lg:hidden w-full relative mb-6">
-        <button type="button" onClick={onToggle} className="w-full py-auto h-[60] text-center font-semibold shadow-md bg-white lg:rounded-b-2xl text-logoblue" >Navbar</button>
+        <button type="button" onClick={onToggle} className="w-full py-auto h-[60] text-center font-semibold shadow-md bg-mainPrimary lg:rounded-b-2xl text-logoblue" >Navbar</button>
         <div className={[ "absolute left-0 top-full w-full bg-white z-50 shadow-md overflow-hidden ", open ? "py-6 rounded-b-2xl" : "max-h-0", ].join(" ")} >
           <div className="flex flex-col items-start gap-8 text-xl  mx-5">
             <NavLinks isActive={isActive}/>

@@ -64,7 +64,7 @@ export function BookingFieldEditor({
   };
 
   return (
-    <section className="mt-4 rounded-xl border bg-white p-4 max-w-250">
+    <section className="customContainer mt-4 max-w-250">
       <div className={`mb-2 text-xs ${disabled ? "text-neutral-600/50" : "text-neutral-600"}`}>
         {helperText}
       </div>
@@ -77,7 +77,7 @@ export function BookingFieldEditor({
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             disabled={disabled || busy !== null}
-            className="h-10 w-full rounded-md border px-3 text-sm disabled:bg-neutral-100"
+            className="customInput w-full disabled:bg-neutral-100"
           >
             <option value="">Change status for selected:</option>
             {statusOptions.map((o) => (
@@ -91,7 +91,7 @@ export function BookingFieldEditor({
             type="button"
             disabled={!canUpdateStatus}
             onClick={() => run("status", () => onUpdateStatus(status))}
-            className="h-10 w-full rounded-md bg-logoblue px-4 text-sm font-semibold text-white disabled:bg-logoblue/60"
+            className="customButtonEnabled h-10 w-full disabled:bg-logoblue/60! disabled:cursor-auto!"
           >
             {busy === "status" ? "Updating…" : "Update status"}
           </button>
@@ -103,7 +103,7 @@ export function BookingFieldEditor({
             value={subcontractor}
             onChange={(e) => setSubcontractor(e.target.value)}
             disabled={disabled || busy !== null}
-            className="h-10 w-full rounded-md border px-3 text-sm disabled:bg-neutral-100"
+            className="customInput w-full disabled:bg-neutral-100"
           >
             <option value="">Change subcontractor for selected:</option>
             {subcontractorOptions.map((o) => (
@@ -117,7 +117,7 @@ export function BookingFieldEditor({
             type="button"
             disabled={!canUpdateSub}
             onClick={() => run("subcontractor", () => onUpdateSubcontractor(subcontractor))}
-            className="h-10 w-full rounded-md bg-logoblue px-4 text-sm font-semibold text-white disabled:bg-logoblue/60"
+            className="customButtonEnabled h-10 w-full disabled:bg-logoblue/60! disabled:cursor-auto!"
           >
             {busy === "subcontractor" ? "Updating…" : "Update subcontractor"}
           </button>
@@ -130,14 +130,14 @@ export function BookingFieldEditor({
             onChange={(e) => setDriverText(e.target.value)}
             disabled={disabled || busy !== null}
             placeholder="Write driver name…"
-            className="h-10 w-full rounded-md border px-3 text-sm disabled:bg-neutral-100"
+            className="customInput w-full disabled:bg-neutral-100"
           />
 
           <button
             type="button"
             disabled={!canUpdateDriver}
             onClick={() => run("driver", () => onUpdateDriverText(driverText.trim()))}
-            className="h-10 w-full rounded-md bg-logoblue px-4 text-sm font-semibold text-white disabled:bg-logoblue/60"
+            className="customButtonEnabled h-10 w-full disabled:bg-logoblue/60! disabled:cursor-auto!"
           >
             {busy === "driver" ? "Updating…" : "Update driver"}
           </button>

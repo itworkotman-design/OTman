@@ -260,7 +260,7 @@ useEffect(() => {
     : "Velg";
 
   return (
-    <div className="relative w-full px-8 pb-8 mb-4 rounded-2xl border">
+    <div className="customContainer relative w-full mb-4">
       {/* REMOVE BUTTON */}
       <button
         type="button"
@@ -277,7 +277,7 @@ useEffect(() => {
       <button
         type="button"
         onClick={onToggle}
-        className="items-center flex-1 text-left w-full pt-8 cursor-pointer"
+        className="items-center flex-1 text-left w-full pt-6 cursor-pointer"
       >
         <div className="flex pb-2 mb-4">
           <div className="w-6 h-6 bg-logoblue text-white font-semibold flex items-center justify-center rounded-2xl mr-2">
@@ -293,7 +293,7 @@ useEffect(() => {
             {/* Product Selection */}
             <h1 className="font-semibold mb-2 text-lg text-textcolor">Velg produkt</h1>
             <select
-              className="w-full py-2 px-2 rounded-xl border"
+              className="customInput w-full"
               value={productId ?? ""}
               onChange={(e) => handleProductSelect(e.target.value || null)}
             >
@@ -312,7 +312,7 @@ useEffect(() => {
               <>
                 <h1 className="font-semibold text-lg text-textcolor my-2">Velg leveringstype</h1>
                 <select
-                  className="w-full py-2 px-2 rounded-xl border"
+                  className="customInput w-full"
                   value={deliveryType}
                   onChange={(e) => setDeliveryType(e.target.value as DeliveryType)}
                   disabled={!productId}
@@ -334,7 +334,7 @@ useEffect(() => {
                 <h1 className="font-bold my-2">Extra pall</h1>
                 <label className="block">
                   <input
-                    className="inline mr-2"
+                    className="customInput w-full"
                     type="checkbox"
                     checked={extraPalletEnabled}
                     onChange={(e) => setExtraPalletEnabled(e.target.checked)}
@@ -350,7 +350,7 @@ useEffect(() => {
                       min={1}
                       value={extraPalletQty}
                       onChange={(e) => setExtraPalletQty(Number(e.target.value) || 1)}
-                      className="w-full py-2 px-2 rounded-xl border"
+                      className="customInput w-full"
                     />
                   </>
                 )}
@@ -379,7 +379,7 @@ useEffect(() => {
                       min={1}
                       value={etterQty}
                       onChange={(e) => setEtterQty(Number(e.target.value) || 1)}
-                      className="w-full py-2 px-2 rounded-xl border"
+                      className="customInput w-full"
                     />
                   </>
                 )}
@@ -423,7 +423,7 @@ useEffect(() => {
                   step={0.5}
                   value={extraTimeHours}
                   onChange={(e) => setExtraTimeHours(Number(e.target.value) || 0.5)}
-                  className="w-full py-2 px-2 rounded-xl border"
+                  className="customInput w-full"
                 />
               </>
             )}
@@ -548,7 +548,7 @@ useEffect(() => {
                   min={1}
                   value={amount}
                   onChange={(e) => setAmount(Number(e.target.value) || 1)}
-                  className="w-full py-2 px-2 rounded-xl border"
+                  className="customInput w-full"
                 />
               </>
             )}

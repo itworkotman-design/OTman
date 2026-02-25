@@ -102,7 +102,7 @@ export function ArchiveTable({
   };
 
   return (
-    <section className="border border-b-gray-200">
+    <section>
       <div className="px-2 py-2 text-xs text-neutral-600">
         Showing {rows.length} of {total}
       </div>

@@ -4,6 +4,9 @@
 
 :root {
   --logoblue: #273097;
+  --mainPrimary: #ffffff;
+  --linePrimary: #0000000a;
+  --lineSecondary:#00000031;
   --textcolor: #151515;
   --background: #ffffff;
   --foreground: #151515;
@@ -11,6 +14,9 @@
 
 @theme {
   --color-logoblue: var(--logoblue);
+  --color-mainPrimary: var(--mainPrimary);
+  --color-linePrimary: var(--linePrimary);
+  --color-lineSecondary: var(--lineSecondary);
   --color-textcolor: var(--textcolor);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -60,4 +66,59 @@ p, ul, li, a, td {
   padding-bottom: 4px;
   display: flex;
   justify-content: space-between;
+}
+.customInput{
+  border: 1px solid var(--lineSecondary);
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 8px;
+  padding-right:8px;
+  border-radius: 8px;
+}
+
+.customContainer{
+  border: 1px solid var(--linePrimary);
+  padding-top: 20px;
+  padding-bottom: 20px;
+  padding-left: 20px;
+  padding-right:20px;
+  border-radius: 20px;
+  box-shadow: 0px 0px 10px 0 rgba(0, 0, 0, 0.1);
+}
+
+.customButtonDefault{
+  border: 1px solid var(--linePrimary);
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 18px;
+  padding-right:18px;
+  border-radius: 18px;
+  box-shadow: 0px 0px 4px 0 rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.customButtonEnabled{
+  border: 1px solid var(--linePrimary);
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 18px;
+  padding-right:18px;
+  border-radius: 18px;
+  box-shadow: 0px 0px 4px 0 rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--mainPrimary);
+  background-color: var(--logoblue);
+}
+
+.customButtonDefault:disabled {
+  opacity: 0.6;
+  cursor: auto;
+}
+
+.customButtonDefault:hover:not(:disabled){
+  color: var(--mainPrimary);
+  background-color: var(--logoblue);
+  transition-duration: 200ms;
 }

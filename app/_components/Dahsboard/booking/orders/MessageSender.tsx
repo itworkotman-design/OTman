@@ -29,7 +29,7 @@ export function MessageSender({
   const canSendSMS = employeeId !== "";
 
   return (
-    <section className="mt-4 rounded-xl border p-4 max-w-250">
+    <section className="customContainer mt-4 max-w-250">
       {/* Top row */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] items-end">
         <div>
@@ -39,7 +39,7 @@ export function MessageSender({
           <select
             value={employeeId}
             onChange={(e) => setEmployeeId(e.target.value)}
-            className="h-10 w-full rounded-md border px-3 text-sm"
+            className="customInput w-full"
           >
             <option value="">Select employee…</option>
             {employees.map((e) => (
@@ -57,7 +57,7 @@ export function MessageSender({
           <select
             value={emailType}
             onChange={(e) => setEmailType(e.target.value)}
-            className="h-10 w-full rounded-md border px-3 text-sm"
+            className="customInput w-full"
           >
             <option value="">Select type…</option>
             <option value="prepare_orders">Prepare orders</option>
@@ -69,7 +69,7 @@ export function MessageSender({
         <button
           disabled={!canSendEmail}
           onClick={() => onSendEmail(employeeId, emailType)}
-          className="h-10 rounded-md bg-logoblue px-4 text-sm font-semibold text-white disabled:bg-logoblue/60"
+          className="customButtonEnabled h-10 disabled:bg-logoblue/60! disabled:cursor-auto!"
         >
           Send email
         </button>
@@ -80,21 +80,21 @@ export function MessageSender({
         <button
           disabled={!canSendSMS}
           onClick={() => onSendGsm(employeeId)}
-          className="h-9 rounded-md bg-logoblue font-semibold border px-3 text-sm text-white disabled:bg-logoblue/60"
+          className="customButtonEnabled h-10 disabled:bg-logoblue/60! disabled:cursor-auto!"
         >
           Send to GSM
         </button>
 
         <button
           onClick={onCopySelected}
-          className="h-9 rounded-md border px-3 text-sm"
+          className="customButtonDefault h-10 disabled:bg-logoblue/60! disabled:cursor-auto!"
         >
           Copy selected
         </button>
 
         <button
           onClick={onExportExcel}
-          className="h-9 rounded-md border px-3 text-sm"
+          className="customButtonDefault h-10 disabled:bg-logoblue/60! disabled:cursor-auto!"
         >
           Export Excel
         </button>

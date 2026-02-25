@@ -136,14 +136,14 @@ export default function TopFilters({
 
   return (
     <section className="w-full">
-      <div className="w-full max-w-[1000] border p-4 rounded-2xl">
+      <div className="customContainer w-full max-w-[1000]">
         {/* Status / Client / Subcontractor */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <Field label="Status">
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="h-10 w-full rounded-md border px-3 text-sm"
+              className="customInput w-full"
             >
               <option value="">All statuses</option>
               <option value="inProgress">In progress</option>
@@ -186,7 +186,7 @@ export default function TopFilters({
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="block h-10 lg:w-full w-[calc(100%-26px)] min-w-0 box-border rounded-md border px-3 text-sm"
+                className="customInput block lg:w-full w-[calc(100%-26px)] min-w-0 text-sm"
               />
             </Field>
 
@@ -195,7 +195,7 @@ export default function TopFilters({
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="h-10 lg:w-full w-[calc(100%-26px)] rounded-md border px-3 text-sm"
+                className="customInput block lg:w-full w-[calc(100%-26px)] min-w-0 text-sm"
               />
             </Field>
           </div>
@@ -204,21 +204,21 @@ export default function TopFilters({
             <button
               type="button"
               onClick={setToday}
-              className="border px-4 h-[40] rounded-xl whitespace-nowrap hover:bg-logoblue hover:text-white cursor-pointer"
+              className="customButtonDefault h-[40]"
             >
               Today
             </button>
             <button
               type="button"
               onClick={setTomorrow}
-              className="border px-4 h-[40] rounded-xl whitespace-nowrap hover:bg-logoblue hover:text-white cursor-pointer"
+              className="customButtonDefault h-[40]"
             >
               Tomorrow
             </button>
             <button
               type="button"
               onClick={setThisWeek}
-              className="border px-4 h-[40] rounded-xl whitespace-nowrap hover:bg-logoblue hover:text-white cursor-pointer"
+              className="customButtonDefault h-[40]"
             >
               This week
             </button>
@@ -232,7 +232,7 @@ export default function TopFilters({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search ID, name, phone, order no…"
-              className="h-10 w-full rounded-md border px-3 text-sm"
+              className="customInput w-full"
             />
           </Field>
 
@@ -254,7 +254,7 @@ export default function TopFilters({
                 onBlur={(e) => {
                   if (e.target.value === "") setRowsPerPage(25);
                 }}
-                className="h-10 w-full rounded-md border px-3 text-sm"
+                className="customInput w-full"
                 placeholder="Type any number"
               />
               <div className="flex flex-wrap gap-2">
@@ -263,10 +263,10 @@ export default function TopFilters({
                     key={n}
                     type="button"
                     onClick={() => setRowsPerPage(n)}
-                    className={`h-8 rounded-md border px-3 text-xs mx-auto cursor-pointer ${
+                    className={`customButtonDefault h-8 px-2! text-xs mx-auto ${
                       rowsPerPage === n
-                        ? "bg-logoblue text-white font-bold"
-                        : "hover:bg-logoblue hover:text-white"
+                        ? "customButtonDefault px-2!"
+                        : ""
                     }`}
                   >
                     {n}
@@ -277,13 +277,13 @@ export default function TopFilters({
           </Field>
 
           <div className="flex items-end justify-end gap-2">
-            <button type="button" onClick={handleReset} className="h-10 rounded-md border px-4 text-sm cursor-pointer">
+            <button type="button" onClick={handleReset} className="customButtonDefault h-10 ">
               Reset
             </button>
             <button
               type="button"
               onClick={handleApply}
-              className="h-10 rounded-md bg-logoblue px-4 text-sm font-semibold text-white cursor-pointer"
+              className="customButtonEnabled h-10"
             >
               Apply filters
             </button>
@@ -335,7 +335,7 @@ function ComboField({
       <Combobox<string> value={value ?? ""} onChange={onChange}>
         <div className="relative">
           <Combobox.Input
-            className="h-10 w-full rounded-md border px-3 text-sm"
+            className="customInput w-full"
             onChange={(e) => setQuery(e.target.value)}
             displayValue={(v: string) => v}
             placeholder={placeholder}

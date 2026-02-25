@@ -341,7 +341,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
 
   return (
     <form onSubmit={handleSubmit}>
-      <main className="flex justify-center ">
+      <main className="flex justify-center mb-20">
         <div className="flex w-full max-w-300 gap-5 ">
           <div className="md:flex-1 min-w-75 mr-[40] w-full lg:mr-0 ">
 
@@ -371,21 +371,21 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
             {shown(hidden, OrderFields.AddProductButton) && (
               <button
                 type="button"
-                className="my-8 w-full font-bold cursor-pointer border-2 border-logoblue text-logoblue py-3 px-4 rounded-xl hover:bg-logoblue hover:text-white"
+                className="customButtonEnabled h-12 my-8 w-full"
                 onClick={addCard}
               >
                 Add extra products
               </button>
             )}
 
-            <div>
+            <div className="customContainer">
               {shown(hidden, OrderFields.OrderNumber) && (
                 <>
                   <h1 className="font-bold py-2">Order number</h1>
                   <input
                     value={orderNumber}
                     onChange={(e) => setOrderNumber(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -396,7 +396,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full py-2 px-4 h-30 rounded-xl border"
+                    className="customInput w-full h-30"
                   />
                 </>
               )}
@@ -407,7 +407,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={modelNr}
                     onChange={(e) => setModelNr(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -418,7 +418,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={deliveryDate}
                     onChange={(e) => setDeliveryDate(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -429,7 +429,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <select
                     value={timeWindow}
                     onChange={(e) => setTimeWindow(e.target.value)}
-                    className="w-full py-2 px-2 rounded-xl border"
+                    className="customInput w-full"
                   >
                     <option value="">Choose</option>
                     <option value="10:00-16:00">10:00-16:00</option>
@@ -447,7 +447,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                     placeholder="Enter a location"
                   />
                 </>
@@ -459,7 +459,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={drivingDistance}
                     onChange={(e) => setDrivingDistance(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -470,7 +470,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -482,7 +482,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full rounded-xl border px-4 py-2 outline-none"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -494,7 +494,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                     type="tel"
                     value={phoneTwo}
                     onChange={(e) => setPhoneTwo(e.target.value)}
-                    className="w-full rounded-xl border px-4 py-2 outline-none"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -505,7 +505,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -516,7 +516,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={customerComments}
                     onChange={(e) => setCustomerComments(e.target.value)}
-                    className="w-full py-2 px-4 h-30 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -527,7 +527,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={floorNo}
                     onChange={(e) => setFloorNo(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -564,7 +564,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={cashierName}
                     onChange={(e) => setCashierName(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -576,7 +576,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                     type="tel"
                     value={cashierPhone}
                     onChange={(e) => setCashierPhone(e.target.value)}
-                    className="w-full rounded-xl border px-4 py-2 outline-none"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -587,7 +587,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <select
                     value={subcontractor}
                     onChange={(e) => setSubcontractor(e.target.value)}
-                    className="w-full py-2 px-2 rounded-xl border"
+                    className="customInput w-full"
                   >
                     <option value="">Choose</option>
                     <option>Otman Transport AS</option>
@@ -611,7 +611,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={driver}
                     onChange={(e) => setDriver(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -622,7 +622,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={secondDriver}
                     onChange={(e) => setSecondDriver(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -633,7 +633,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={driverInfo}
                     onChange={(e) => setDriverInfo(e.target.value)}
-                    className="w-full py-2 px-4 h-30 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -644,7 +644,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={licensePlate}
                     onChange={(e) => setLicensePlate(e.target.value)}
-                    className="w-full py-2 px-4 rounded-xl border"
+                    className="customInput w-full"
                   />
                 </>
               )}
@@ -655,7 +655,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <select
                     value={deviation}
                     onChange={(e) => setDeviation(e.target.value)}
-                    className="w-full py-2 px-2 rounded-xl border"
+                    className="customInput w-full"
                   >
                     <option value="">Choose</option>
                     <option>Deviation, missed trip; Customer not at home</option>
@@ -700,7 +700,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <input
                     value={statusNotes}
                     onChange={(e) => setStatusNotes(e.target.value)}
-                    className="w-full py-2 px-4 h-30 rounded-xl border"
+                    className="customInput w-full h-30"
                   />
                 </>
               )}
@@ -711,7 +711,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <select
                     value={changeCustomer}
                     onChange={(e) => setChangeCustomer(e.target.value)}
-                    className="w-full py-2 px-2 rounded-xl border"
+                    className="customInput w-full"
                   >
                     <option value="">Choose</option>
                     <option>Power this</option>
@@ -726,7 +726,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="w-full py-2 px-2 rounded-xl border"
+                    className="customInput w-full"
                   >
                     <option value="">Choose</option>
                     <option>Behandles</option>
@@ -761,7 +761,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
 
               {!hideSubmitButton && (
             <button
-              className="block w-full mb-20 mt-8 border-2 border-logoblue text-logoblue py-4 px-8 rounded-2xl cursor-pointer font-bold hover:bg-logoblue hover:text-white"
+              className="w-full customButtonEnabled h-12 mt-8"
               type="submit"
             >
               Submit

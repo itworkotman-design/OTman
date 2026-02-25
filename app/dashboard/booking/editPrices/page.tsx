@@ -250,8 +250,8 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
               onClick={() => setActiveTab(tab)}
               className={`mx-4 px-4 py-1 rounded-2xl border-2 border-logoblue font-semibold cursor-pointer transition-colors
                 ${activeTab === tab
-                  ? "bg-logoblue text-white"
-                  : "text-logoblue hover:bg-logoblue hover:text-white"
+                  ? "customButtonEnabled"
+                  : "customButtonDefault"
                 }`}
             >
               {tab}
@@ -263,7 +263,7 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
           {/* ── Toolbar ── */}
           <div className="justify-self-end">
             <button
-              className="btn bg-logoblue py-1 px-4 rounded-4xl mb-4 font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity"
+              className="customButtonEnabled my-4"
               onClick={addProduct}
             >
               Add Product

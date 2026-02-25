@@ -52,13 +52,14 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
   const totalExVat = Math.max(0, total - discount + plus);
   const vat = totalExVat * 0.25;
   const totalIncVat = totalExVat + vat;
+  
 
   return (
-    <section className="w-full border rounded-2xl px-4 max-h-[calc(100vh-9rem)] overflow-y-auto">
+    <section className="w-full customContainer rounded-2xl px-4 max-h-[calc(100vh-9rem)] overflow-y-auto bg-mainPrimary ">
       {/* TOP SECTION - Product breakdowns */}
-      <div className="border-b-2 py-4">
+      <div className="border-b-2 border-lineSecondary py-4">
         {productBreakdowns.length === 0 ? (
-          <p className="text-sm opacity-70">No products selected.</p>
+          <p className="text-sm opacity-30">No products selected.</p>
         ) : (
           productBreakdowns.map((product, productIdx) => {
             // Group by key, carrying priceOverride through
@@ -88,7 +89,7 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
                 <h1 className="font-bold text-md mb-2">{product.productName}</h1>
 
                 {lines.length === 0 ? (
-                  <p className="text-sm opacity-70 ml-2">No services selected for this product.</p>
+                  <p className="text-sm opacity-30 ml-2">No services selected for this product.</p>
                 ) : (
                   lines.map(({ item, qty, priceOverride }) => {
                     const price =
@@ -143,14 +144,14 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
               type="text"
               value={rabatt}
               onChange={(e) => setRabatt(e.target.value)}
-              className="w-full border ml-2 pl-2 h-8 rounded-md"
+              className="customInput w-full ml-2 h-8"
               placeholder="f.eks. 500"
             />
             <button
               id="btnBrukRabatt"
               type="button"
               disabled={!rabatt.trim()}
-              className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
+              className="ml-2 customButtonDefault h-8"
             >
               Bruk rabatt
             </button>
@@ -163,14 +164,14 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
               type="text"
               value={leggTil}
               onChange={(e) => setLegTil(e.target.value)}
-              className="w-full border ml-3 pl-2 h-8 rounded-md"
+              className="customInput w-full ml-3 h-8"
               placeholder="f.eks. 300"
             />
             <button
               id="btnLeggTil"
               type="button"
               disabled={!leggTil.trim()}
-              className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
+              className="ml-2 customButtonDefault h-8"
             >
               Legg til
             </button>
@@ -180,14 +181,14 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
             <button
               id="btnSummary"
               type="button"
-              className="w-full border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white"
+              className="customButtonDefault w-full"
             >
               Summary
             </button>
             <button
               id="btnSubcontractorSummary"
               type="button"
-              className="w-full ml-8 border-2 border-logoblue text-logoblue py-2 px-4 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white"
+              className="customButtonDefault w-full ml-8"
             >
               Subcontractor Summary
             </button>
@@ -198,13 +199,13 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
             <input
               id="subcontractorMinusInput"
               type="text"
-              className="w-full border ml-2 pl-2 h-8 rounded-md"
+              className="customInput w-full ml-2 h-8"
               placeholder="f.eks. 200"
             />
             <button
               type="button"
               disabled={!leggTil.trim()}
-              className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
+              className="ml-2 customButtonDefault h-8"
             >
               Legg til
             </button>
@@ -215,13 +216,13 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
             <input
               id="subcontractorPlusInput"
               type="text"
-              className="border w-full ml-5 pl-2 h-8 rounded-md"
+              className="customInput w-full ml-5 h-8"
               placeholder="f.eks. 200"
             />
             <button
               type="button"
               disabled={!leggTil.trim()}
-              className="whitespace-nowrap border-2 border-logoblue text-logoblue py-1 px-4 ml-2 rounded-xl font-bold hover:bg-logoblue cursor-pointer hover:text-white disabled:hover:bg-white disabled:hover:text-logoblue disabled:opacity-40 disabled:cursor-auto"
+              className="ml-2 customButtonDefault h-8 disabled:opacity-60"
             >
               Legg til
             </button>

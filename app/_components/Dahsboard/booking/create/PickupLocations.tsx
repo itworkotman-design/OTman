@@ -43,7 +43,7 @@ export function PickupLocations() {
           value={mainAddress}
           onChange={(e) => onMainChange(e.target.value)}
           placeholder="Enter a location"
-          className="w-full rounded-xl border px-4 py-2 mt-2 outline-none"
+          className="customInput w-full"
         />
       </div>
 
@@ -61,8 +61,8 @@ export function PickupLocations() {
           {pickups.map((p, idx) => (
             <div key={p.id} className="flex items-center gap-3 my-4">
                 <span className="w-20 text-md pl-2 font-semibold">Pickup</span>
-                <input value={p.value} onChange={(e) => updatePickup(p.id, e.target.value)} placeholder="Enter a location" className="flex-1 rounded-xl border px-4 py-3 outline-none"/>
-                <button type="button" onClick={() => removePickup(p.id)} className="grid h-9 w-9 place-items-center rounded-full border hover:bg-red-700 hover:text-white" aria-label={`Remove pickup ${idx + 1}`} >
+                <input value={p.value} onChange={(e) => updatePickup(p.id, e.target.value)} placeholder="Enter a location" className="flex-1 customInput w-full"/>
+                <button type="button" onClick={() => removePickup(p.id)} className="grid h-8 w-8 place-items-center rounded-full border hover:bg-red-700 hover:text-white cursor-pointer" aria-label={`Remove pickup ${idx + 1}`} >
                     −
                 </button>
             </div>
@@ -72,8 +72,7 @@ export function PickupLocations() {
             type="button"
             onClick={addPickup}
             disabled={additionalDisabled}
-            className="w-full rounded-xl border-2 border-logoblue text-logoblue px-4 py-3 font-bold hover:bg-logoblue hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-          >
+            className="customButtonDefault w-full h-10">
             Add additional pickup
           </button>
         </div>

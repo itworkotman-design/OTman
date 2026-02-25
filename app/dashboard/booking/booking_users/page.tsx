@@ -66,7 +66,7 @@ export default function UserPage() {
         <div className="justify-self-end">
           <button
             onClick={addUser}
-            className="btn bg-logoblue py-1 px-4 rounded-4xl mb-4 font-semibold text-white cursor-pointer hover:opacity-80 transition-opacity"
+            className="customButtonEnabled my-4"
           >
             Add User
           </button>
