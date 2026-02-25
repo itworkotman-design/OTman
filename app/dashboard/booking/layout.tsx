@@ -16,7 +16,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const closeSidebar = () => setSidebarOpen(false);
 
   return (
-    <div className="min-h-screen flex overflow-hidden">
+    <div className="min-h-screen flex overflow-x-clip">
       {/* Desktop sidebar */}
       <aside className="hidden lg:block w-75 shrink-0 z-10">
         <Sidebar onNavigate={() => {}} />
@@ -46,7 +46,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Main */}
-      <main className="flex-1 min-w-0 overflow-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
         <div className="flex">
           <button
             type="button"

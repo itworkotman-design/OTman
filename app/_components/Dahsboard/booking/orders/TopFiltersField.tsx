@@ -2,6 +2,8 @@
 
 import { Combobox } from "@headlessui/react";
 import {  useMemo, useState } from "react";
+import type { ReactNode } from "react";
+
 
 /* DATA FOR CLIENTS AND CONTRACTORS */
 const CLIENTS = ["Power Rud", "Power Ski", "Power Skullerud"];
@@ -134,7 +136,7 @@ export default function TopFilters({
 
   return (
     <section className="w-full">
-      <div className="max-w-[1000] border p-4 rounded-2xl">
+      <div className="w-full max-w-[1000] border p-4 rounded-2xl">
         {/* Status / Client / Subcontractor */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <Field label="Status">
@@ -178,22 +180,22 @@ export default function TopFilters({
 
         {/* Dates + Quick buttons */}
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="grid grid-cols-2 gap-3 md:col-span-2">
-            <Field label="From date">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2 min-w-0">
+            <Field  label="From date" className="min-w-0">
               <input
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="h-10 w-full rounded-md border px-3 text-sm"
+                className="block h-10 lg:w-full w-[calc(100%-26px)] min-w-0 box-border rounded-md border px-3 text-sm"
               />
             </Field>
 
-            <Field label="To date">
+            <Field label="To date" className="min-w-0">
               <input
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="h-10 w-full rounded-md border px-3 text-sm"
+                className="h-10 lg:w-full w-[calc(100%-26px)] rounded-md border px-3 text-sm"
               />
             </Field>
           </div>
@@ -297,13 +299,15 @@ export default function TopFilters({
 function Field({
   label,
   children,
+  className = "",
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
+  className?: string;
 }) {
   return (
-    <label className="block">
-      <div className="mb-1 text-xs font-medium text-neutral-600">{label}</div>
+    <label className={`block min-w-0 ${className}`}>
+      <span className="block mb-1 text-xs font-medium text-neutral-600">{label}</span>
       {children}
     </label>
   );
