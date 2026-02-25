@@ -13,7 +13,7 @@ export const Sidebar = ({ onNavigate }: { onNavigate: () => void }) => {
   const isActive = (href: string) => pathname === href;
 
   return (
-    <div className="w-full  pt-8 px-4 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.1),2px_0_4px_-1px_rgba(0,0,0,0.01)] bg-white">
+    <div className="w-full h-full pt-8 px-4 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.1),2px_0_4px_-1px_rgba(0,0,0,0.01)] bg-white">
       {/* Logo */}
       <div className="flex justify-center">
         <Image src="/Logo.png" alt="Logo" width={200} height={200} />

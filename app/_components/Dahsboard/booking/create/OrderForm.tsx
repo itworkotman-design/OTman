@@ -63,6 +63,8 @@ export type HiddenMask = number;
 function shown(hiddenMask: HiddenMask, flag: number) {
   return (hiddenMask & flag) === 0;
 }
+/*This is to seed from clicked row in booking archive */
+export type OrderFormInitialValues = Partial<Omit<OrderFormPayload, "cards" | "cardItems" | "cardDeliveryType" | "cardProducts">>;
 
 /* this is for filtering the form, add a category and the fields it hides, default is the full view.*/
 
@@ -184,6 +186,8 @@ export function OrderForm({
   hideDontSendEmail = false,
   dataset = "default",
   onSubmit,
+  initialValues = {},
+  hideSubmitButton = false,
 }: {
   /** Bitmask of OrderFields to hide. 0 = show everything (default). */
   hidden?: HiddenMask;
@@ -191,6 +195,8 @@ export function OrderForm({
   hideDontSendEmail?: boolean;
   dataset?: "default" | "power";
   onSubmit?: (payload: OrderFormPayload) => void;
+  initialValues?: OrderFormInitialValues;
+  hideSubmitButton?: boolean;
 }) {
   // --- product cards ---
   const [calcOpen, setCalcOpen] = useState(false);
@@ -279,41 +285,39 @@ const total = useMemo(() => {
 
   // --- form fields ---
 
-  const [orderNumber, setOrderNumber] = useState("");
-  const [description, setDescription] = useState("");
-  const [modelNr, setModelNr] = useState("");
-  const [deliveryDate, setDeliveryDate] = useState("");
-  const [timeWindow, setTimeWindow] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [drivingDistance, setDrivingDistance] = useState("");
+const [orderNumber, setOrderNumber]   = useState(initialValues.orderNumber   ?? "");
+const [description, setDescription]   = useState(initialValues.description   ?? "");
+const [modelNr, setModelNr]           = useState(initialValues.modelNr       ?? "");
+const [deliveryDate, setDeliveryDate] = useState(initialValues.deliveryDate  ?? "");
+const [timeWindow, setTimeWindow]     = useState(initialValues.timeWindow    ?? "");
+const [deliveryAddress, setDeliveryAddress] = useState(initialValues.deliveryAddress ?? "");
+const [drivingDistance, setDrivingDistance] = useState(initialValues.drivingDistance ?? "");
 
-  const [customerName, setCustomerName] = useState("");
-  const [phone, setPhone] = useState("+47 ");
-  const [phoneTwo, setPhoneTwo] = useState("+47 ");
-  const [email, setEmail] = useState("");
-  const [customerComments, setCustomerComments] = useState("");
+const [customerName, setCustomerName] = useState(initialValues.customerName ?? "");
+const [phone, setPhone]               = useState(initialValues.phone        ?? "+47 ");
+const [phoneTwo, setPhoneTwo]         = useState(initialValues.phoneTwo     ?? "+47 ");
+const [email, setEmail]               = useState(initialValues.email        ?? "");
+const [customerComments, setCustomerComments] = useState(initialValues.customerComments ?? "");
 
-  const [floorNo, setFloorNo] = useState("");
-  const [lift, setLift] = useState<"yes" | "no" | "">("");
+const [floorNo, setFloorNo]           = useState(initialValues.floorNo ?? "");
+const [lift, setLift]                 = useState<"yes" | "no" | "">(initialValues.lift ?? "");
 
-  const [cashierName, setCashierName] = useState("");
-  const [cashierPhone, setCashierPhone] = useState("+47 ");
+const [cashierName, setCashierName]   = useState(initialValues.cashierName  ?? "");
+const [cashierPhone, setCashierPhone] = useState(initialValues.cashierPhone ?? "+47 ");
 
-  const [subcontractor, setSubcontractor] = useState("");
-  const [driver, setDriver] = useState("");
-  const [secondDriver, setSecondDriver] = useState("");
-  const [driverInfo, setDriverInfo] = useState("");
-  const [licensePlate, setLicensePlate] = useState("");
+const [subcontractor, setSubcontractor] = useState(initialValues.subcontractor ?? "");
+const [driver, setDriver]               = useState(initialValues.driver         ?? "");
+const [secondDriver, setSecondDriver]   = useState(initialValues.secondDriver   ?? "");
+const [driverInfo, setDriverInfo]       = useState(initialValues.driverInfo     ?? "");
+const [licensePlate, setLicensePlate]   = useState(initialValues.licensePlate   ?? "");
 
-  const [deviation, setDeviation] = useState("");
-  const [feeExtraWork, setFeeExtraWork] = useState(false);
-  const [feeAddToOrder, setFeeAddToOrder] = useState(false);
-
-  const [statusNotes, setStatusNotes] = useState("");
-  const [changeCustomer, setChangeCustomer] = useState("");
-  const [status, setStatus] = useState("");
-
-  const [dontSendEmail, setDontSendEmail] = useState(false);
+const [deviation, setDeviation]         = useState(initialValues.deviation      ?? "");
+const [feeExtraWork, setFeeExtraWork]   = useState(initialValues.feeExtraWork   ?? false);
+const [feeAddToOrder, setFeeAddToOrder] = useState(initialValues.feeAddToOrder  ?? false);
+const [statusNotes, setStatusNotes]     = useState(initialValues.statusNotes    ?? "");
+const [changeCustomer, setChangeCustomer] = useState(initialValues.changeCustomer ?? "");
+const [status, setStatus]               = useState(initialValues.status         ?? "");
+const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  ?? false);
 
   // --- submit ---
   const handleSubmit = (e: React.FormEvent) => {
@@ -802,6 +806,14 @@ const total = useMemo(() => {
                 <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} adminView={dataset === "default"} />
               </div>
             </>
+          )}
+          {!hideSubmitButton && (
+            <button
+              className="block w-full mb-20 mt-8 border-2 ..."
+              type="submit"
+            >
+              Submit
+            </button>
           )}
         </div>
       </main>

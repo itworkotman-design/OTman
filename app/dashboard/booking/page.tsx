@@ -8,13 +8,15 @@ import TopFiltersField, {
 import { BookingFieldEditor } from "../../_components/Dahsboard/booking/orders/BookingFieldEditor";
 import { MessageSender } from "../../_components/Dahsboard/booking/orders/MessageSender";
 import { ArchiveTable } from "../../_components/Dahsboard/booking/orders/ArchiveTable";
+import { EditOrderModal } from "../../_components/Dahsboard/booking/orders/EditOrderModal";
+import type { OrderFormInitialValues } from "@/app/_components/Dahsboard/booking/create/OrderForm";
 
 import { ORDERS as MOCK_ORDERS } from "@/lib/_mockdb";
 import type { OrderRow, OrderStatus } from "@/lib/_mockdb";
 
 const DEFAULT_FILTERS: AppliedFilters = {
   status: "",
-  client: "",
+  customer: "",
   subcontractor: "",
   fromDate: "",
   toDate: "",
@@ -30,6 +32,34 @@ export default function AllOrders() {
   // applied filters + selection
   const [appliedFilters, setAppliedFilters] = useState<AppliedFilters>(DEFAULT_FILTERS);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  //Modal
+  const [editingOrder, setEditingOrder] = useState<OrderRow | null>(null);
+
+  // handler for the modal
+const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
+  setOrders((prev) =>
+    prev.map((o) =>
+      o.id === orderId
+        ? {
+            ...o,
+            orderNo:         data.orderNumber    ?? o.orderNo,
+            description:     data.description    ?? o.description,
+            deliveryDate:    data.deliveryDate   ?? o.deliveryDate,
+            timeWindow:      data.timeWindow     ?? o.timeWindow,
+            deliveryAddress: data.deliveryAddress ?? o.deliveryAddress,
+            name:            data.customerName   ?? o.name,
+            phone:           data.phone          ?? o.phone,
+            cashierName:     data.cashierName    ?? o.cashierName,
+            cashierPhone:    data.cashierPhone   ?? o.cashierPhone,
+            subcontractor:   data.subcontractor  ?? o.subcontractor,
+            driverInfo:      data.driverInfo     ?? o.driverInfo,
+            status:          (data.status as OrderRow["status"]) ?? o.status,
+          }
+        : o
+    )
+  );
+};
 
   // example employees
   const employees = [
@@ -128,7 +158,7 @@ export default function AllOrders() {
       <TopFiltersField
         key={[
           appliedFilters.status,
-          appliedFilters.client,
+          appliedFilters.customer,
           appliedFilters.subcontractor,
           appliedFilters.fromDate,
           appliedFilters.toDate,
@@ -164,6 +194,13 @@ export default function AllOrders() {
           selectedIds={selectedIds}
           onSelectedIdsChange={setSelectedIds}
           orders={orders}
+          onRowClick={(row) => setEditingOrder(row)}
+        />
+        <EditOrderModal
+          isOpen={!!editingOrder}
+          order={editingOrder}
+          onClose={() => setEditingOrder(null)}
+          onUpdate={handleUpdateOrder}
         />
       </div>
     </div>

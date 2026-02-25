@@ -22,7 +22,7 @@ export function ArchiveTable({
   const { rows, total } = useMemo(() => {
     const {
       status,
-      client,
+      customer,
       subcontractor,
       fromDate,
       toDate,
@@ -33,10 +33,12 @@ export function ArchiveTable({
 
     const q = search.trim().toLowerCase();
 
+    
+
     let filtered = orders.slice();
 
     if (status) filtered = filtered.filter((o) => o.status === status);
-    if (client) filtered = filtered.filter((o) => o.client === client);
+    if (customer) filtered = filtered.filter((o) => o.customer.toLowerCase() === customer.toLowerCase());
     if (subcontractor)
       filtered = filtered.filter((o) => o.subcontractor === subcontractor);
     if (fromDate)
@@ -52,13 +54,21 @@ export function ArchiveTable({
           o.orderNo.toLowerCase().includes(q) ||
           o.name.toLowerCase().includes(q) ||
           o.phone.toLowerCase().includes(q) ||
-          o.client.toLowerCase().includes(q) ||
+          o.customer.toLowerCase().includes(q) ||
           o.pickupAddress.toLowerCase().includes(q) ||
           o.deliveryAddress.toLowerCase().includes(q) ||
           productsText.includes(q)
         );
       });
     }
+    filtered.sort((a, b) => {
+      const aEmpty = !a.deliveryDate;
+      const bEmpty = !b.deliveryDate;
+      if (aEmpty && bEmpty) return 0;
+      if (aEmpty) return -1; // no date → floats to top
+      if (bEmpty) return 1;
+      return b.deliveryDate.localeCompare(a.deliveryDate); // newest first
+    });
 
     const total = filtered.length;
     const start = (page - 1) * rowsPerPage;
@@ -159,7 +169,8 @@ export function ArchiveTable({
               return (
                 <tr
                   key={r.id}
-                  className="hover:bg-neutral-50 divide-x divide-neutral-300"
+                  onClick={() => onRowClick?.(r)}
+                  className="hover:bg-neutral-50 divide-x divide-neutral-300 cursor-pointer"
                 >
                   <Td className="w-10">
                     <input
@@ -178,7 +189,7 @@ export function ArchiveTable({
                   </Td>
                   <Td className="whitespace-nowrap">{r.timeWindow}</Td>
 
-                  <Td>{r.client}</Td>
+                  <Td>{r.customer}</Td>
                   <Td className="whitespace-nowrap">{r.orderNo}</Td>
                   <Td>{r.name}</Td>
                   <Td className="whitespace-nowrap">{r.phone}</Td>

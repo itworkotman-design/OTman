@@ -11,7 +11,7 @@ const SUBCONTRACTORS = ["Sub A", "Sub B", "Sub C"];
 
 export type AppliedFilters = {
   status: string;
-  client: string;
+  customer: string;
   subcontractor: string;
   fromDate: string;
   toDate: string;
@@ -22,7 +22,7 @@ export type AppliedFilters = {
 
 const DEFAULT_FILTERS: AppliedFilters = {
   status: "",
-  client: "",
+  customer: "",
   subcontractor: "",
   fromDate: "",
   toDate: "",
@@ -43,7 +43,7 @@ export default function TopFilters({
 
   //Draft state
   const [status, setStatus] = useState(initialApplied.status);
-  const [client, setClient] = useState(initialApplied.client);
+  const [customer, setCustomer] = useState(initialApplied.customer);
   const [subcontractor, setSubcontractor] = useState(initialApplied.subcontractor);
   const [fromDate, setFromDate] = useState(initialApplied.fromDate);
   const [toDate, setToDate] = useState(initialApplied.toDate);
@@ -68,7 +68,7 @@ export default function TopFilters({
   const handleApply = () => {
     onApply({
       status,
-      client,
+      customer,
       subcontractor,
       fromDate,
       toDate,
@@ -80,7 +80,7 @@ export default function TopFilters({
 
   const handleReset = () => {
     setStatus(DEFAULT_FILTERS.status);
-    setClient(DEFAULT_FILTERS.client);
+    setCustomer(DEFAULT_FILTERS.customer);
     setSubcontractor(DEFAULT_FILTERS.subcontractor);
     setFromDate(DEFAULT_FILTERS.fromDate);
     setToDate(DEFAULT_FILTERS.toDate);
@@ -158,9 +158,9 @@ export default function TopFilters({
           </Field>
 
           <ComboField
-            label="Client"
-            value={client}
-            onChange={(val) => setClient(val || "")}
+            label="Customer"
+            value={customer}
+            onChange={(val) => setCustomer(val ?? "")}
             query={clientQuery}
             setQuery={setClientQuery}
             items={filteredClients}
@@ -332,7 +332,7 @@ function ComboField({
 }) {
   return (
     <Field label={label}>
-      <Combobox<string> value={value} onChange={onChange}>
+      <Combobox<string> value={value ?? ""} onChange={onChange}>
         <div className="relative">
           <Combobox.Input
             className="h-10 w-full rounded-md border px-3 text-sm"
