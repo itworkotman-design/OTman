@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 
 type Props = {
   open: boolean;
@@ -20,13 +19,14 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
   const isActive = (href: string) => pathname === href;
 
   return (
-    <div style={{ width }} className={`h-full bg-linePrimary ${open? `w-full`: `w-10`}`}>
+    <div style={{ width }} className={`h-full pb-10 lg:bg-linePrimary ${open? `w-full`: `w-10`}`}>
       <div className="pt-2 flex">
         <button onClick={() => onOpenChange(!open)} className="hover:text-textcolor ml-auto px-2 cursor-pointer">
-          <svg className="w-[28] h-[28] " aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-            <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M8.99994 10 7 11.9999l1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z"/>
-          </svg>
-
+          {open? 
+          <svg className="w-[28] h-[28] " aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M8.99994 10 7 11.9999l1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z"/></svg>
+            :
+          <svg className="w-[28] h-[28]" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z"/></svg>
+          }
         </button>
       </div>
         <div className={open? ``: `hidden`}>

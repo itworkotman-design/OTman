@@ -259,16 +259,15 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
           ))}
           </div>
         </div>
-        <div className="overflow-x-auto pl-[50] pr-[100]">
-          {/* ── Toolbar ── */}
-          <div className="justify-self-end">
+        <div className="justify-self-start">
             <button
-              className="customButtonEnabled my-4"
+              className="customButtonEnabled my-4 ml-[50]"
               onClick={addProduct}
             >
               Add Product
             </button>
             </div>
+        <div className="overflow-x-auto pl-[50] pr-[100]">
 
             {/* ── Main table ── */}
             <div className="overflow-visible">

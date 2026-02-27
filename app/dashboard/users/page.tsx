@@ -1,4 +1,6 @@
+"use client"
 import Image from "next/image";
+import { useState } from "react";
 
 type users=[
     {
@@ -16,7 +18,10 @@ const users = [
     {id: 1, name :"Ralfs Kolveits", img: "/logo.png", email: "r.kolveits@gmail.com", number: 93004023, role: "IT", online: true, lastSeen: "01.02.2026", enabled: true},
     {id: 2, name :"Janis Otmans", img: "/", email: "otmantrasnportAS@gmail.com", number: 99999999, role: "Owner", online: false, lastSeen: "00.00.0000", enabled: true}
 ]
-export default function userPage() {
+export default function UserPage() {
+    const [open, setOpen] = useState(false)
+    const [selectedUser, setSelectedUser] = useState<typeof users[number] | null>(null);
+    
     return(
     <>
     <div className="px-4">
@@ -37,7 +42,7 @@ export default function userPage() {
                 </div>
                 <div className="flex ml-auto"> 
                     <button className="customButtonDefault hover:bg-black/3! mr-2">Export</button>
-                    <button className="customButtonDefault">Add User</button>
+                    <button className="customButtonDefault" onClick={() => {setSelectedUser(null); setOpen(true);}}>Add User</button>
                 </div>
             </div>
             <table className="w-full border-y border-black/10">
@@ -83,7 +88,7 @@ export default function userPage() {
                     const rowMuted = !u.enabled ? "text-black/20" : "";
 
                     return (
-                        <tr key={u.id} className={`cursor-pointer border-b border-black/10 hover:bg-black/2 ${rowMuted} `} >
+                        <tr key={u.id} className={`cursor-pointer border-b border-black/10 hover:bg-black/2 ${rowMuted}`} onClick={()=> {setSelectedUser(u);setOpen(true)}} >
                             <td className="text-center"><input type="checkbox" className="h-4 w-4" aria-label={`Select booking ${u.id}`}/></td>
                             <td className="px-4 py-2 border-r border-black/3 text-textColorThird font-semibold flex whitespace-nowrap items-center"><div className="h-[28] w-[28] rounded-full overflow-hidden mr-2 bg-fuchsia-50"><Image src={u.img} alt="pic" width={50} height={50} className="inline"/></div>{u.name}</td>
                             <td className="px-4 py-2 border-r border-black/3 text-textColorThird font-semibold">{u.email}</td>

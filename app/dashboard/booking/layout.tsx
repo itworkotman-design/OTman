@@ -9,69 +9,42 @@ const SIDEBAR_OPEN = 300;
 const SIDEBAR_CLOSED = 44;
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [navOpen, setNavOpen] = useState(false);
 
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
 
-  const openSidebar = () => {
-    setSidebarOpen(true);
-    setNavOpen(false);
-  };
-  const closeSidebar = () => setSidebarOpen(false);
-
   return (
-    <div className="min-h-screen flex overflow-x-clip">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:block shrink-0 z-10">
+    <>
+    <div className="hidden lg:flex min-h-screen overflow-x-clip">
+      {/*PC*/}
+      <aside className="">
         <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW}/>
       </aside>
-
-      {/* Mobile sidebar drawer */}
-      <div
-        className={`lg:hidden fixed inset-0 z-50 ${sidebarOpen ? "" : "pointer-events-none"}`}
-        aria-hidden={!sidebarOpen}
-      >
-        <div
-          onClick={closeSidebar}
-          className={`absolute inset-0 bg-black/40 transition-opacity ${sidebarOpen ? "opacity-100" : "opacity-0"}`}
-        />
-        <div
-          className={`absolute left-0 top-0 h-full w-[82vw] max-w-xs bg-white shadow-xl transition-transform ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-          role="dialog"
-          aria-modal="true"
-        >
-
-          <div className="h-[calc(100%-52px)] overflow-auto">
-            <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW}/>
-          </div>
-        </div>
-      </div>
-
-      {/* Main */}
       <main className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
         <div className="flex">
-          <button
-            type="button"
-            onClick={openSidebar}
-            className="lg:hidden bg-white px-6 h-[60] text-md font-semibold shadow-md text-logoblue"
-          >
-            Menu
-          </button>
-
-          <NavbarBooking
-            open={navOpen}
-            onToggle={() => {
-              setNavOpen((p) => !p);
-              setSidebarOpen(false);
-            }}
-          />
+          <NavbarBooking open={navOpen} onToggle={() => {setNavOpen((p) => !p);setSidebarOpen(false);}}/>
         </div>
 
         <div className="w-full px-4">{children}</div>
       </main>
     </div>
+      {/*Phone*/}
+    <div className="relative lg:hidden">
+      <div className="fixed w-full z-10 ">
+        <div className="flex ">
+          <aside className={`bg-white shadow-md  ${sidebarOpen? "h-dvh" : "h-[60]"}`}>
+            <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW}/>
+          </aside>
+          <div className="flex grow">
+            <NavbarBooking open={navOpen} onToggle={() => {setNavOpen((p) => !p);setSidebarOpen(false);}}/>
+          </div>
+        </div>
+      </div>    
+      <main className="flex-1 min-w-0 overflow-y-auto overflow-x-clip pt-2">
+        <div className="w-full px-4 mt-[60]">{children}</div>
+      </main>
+    </div>
+    </>
   );
 }
