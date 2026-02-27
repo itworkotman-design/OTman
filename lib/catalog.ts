@@ -19,6 +19,10 @@ export type CategorySection = {
 };
 
 export async function getPublicCatalog(): Promise<CategorySection[]> {
+  if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes("localhost")) {
+    return [];
+  }
+
   const categories = await prisma.category.findMany({
     where: { isActive: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -42,5 +46,5 @@ export async function getPublicCatalog(): Promise<CategorySection[]> {
   });
 
   // Hide empty categories from the public surface (keeps UX clean)
-  return categories.filter((c ) => c.services.length > 0);
+  return categories.filter((c) => c.services.length > 0);
 }
