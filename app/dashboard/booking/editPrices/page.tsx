@@ -259,7 +259,7 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
           ))}
           </div>
         </div>
-        <div className="overflow-x-auto pr-[80]">
+        <div className="overflow-x-auto pl-[50] pr-[100]">
           {/* ── Toolbar ── */}
           <div className="justify-self-end">
             <button
@@ -356,11 +356,11 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
                                   type="button"
                                   title="Add option"
                                   className="
-                                    cursor-pointer absolute -left-11 top-1/2 -translate-y-1/2
+                                    absolute -left-11 top-1/2 -translate-y-1/2
                                     w-6 h-6 text-sm rounded-full bg-white
                                     border-2 border-logoblue font-bold
                                     opacity-0 group-hover:opacity-100 transition-opacity z-10
-                                    hover:text-white hover:bg-logoblue
+                                    hover:text-white hover:bg-logoblue cursor-pointer
                                   "
                                   onClick={() => addOption(productId)}
                                 >
@@ -420,9 +420,8 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
                             {hasPendingChanges && (
                               <button
                                 type="button"
-                                className="
-                                  cursor-pointer absolute right-[-80] top-1/2 -translate-y-1/2
-                                  px-3 py-1 rounded-full bg-logoblue text-white font-semibold
+                                className=" customButtonEnabled 
+                                  absolute right-[-100] top-1/2 -translate-y-1/2
                                 "
                                 onClick={() => commitRow(row)}
                               >

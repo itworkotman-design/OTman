@@ -74,7 +74,7 @@ export default function EditUserModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-5 lg:ml-75 bg-black/40 flex items-center justify-center">
+    <div className="fixed inset-0 z-5 bg-black/40 flex items-center justify-center">
       <div className="bg-white w-full max-w-3xl rounded-3xl shadow p-6">
         <div className="grid grid-cols-3 items-start">
           <div />
@@ -181,8 +181,8 @@ export default function EditUserModal({
                   setForm((p) => ({ ...p, active: !p.active })); // update UI immediately
                 }}
                 className={[
-                  "block w-40 py-1 rounded-2xl text-white font-semibold mb-3 cursor-pointer",
-                  form.active ? "bg-red-800" : "bg-green-700",
+                  "block w-40 mb-3 customButtonEnabled",
+                  form.active ? "bg-red-800!" : "bg-green-700!",
                 ].join(" ")}
               >
                 {form.active ? "Disable" : "Enable"}
@@ -192,14 +192,14 @@ export default function EditUserModal({
                 if (!confirm("Remove this user?")) return;
                 onRemove();
                 onClose();
-              }} className="block bg-red-800 w-40 py-1 rounded-2xl text-white font-semibold cursor-pointer">
+              }} className="block w-40 mb-3 customButtonEnabled bg-red-800!">
                 Remove
               </button>
             </div>
           </div>
 
           <div className="flex justify-center mt-10">
-            <button onClick={() => { onSave(form); onClose(); }} className="bg-logoblue text-white w-96 py-3 rounded-full font-semibold cursor-pointer" type="button">
+            <button onClick={() => { onSave(form); onClose(); }} className="w-96 customButtonEnabled" type="button">
               Save Changes
             </button>
           </div>

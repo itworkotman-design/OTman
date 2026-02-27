@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export const Sidebar = ({ onNavigate }: { onNavigate: () => void }) => {
+export const SidebarBooking = ({ onNavigate }: { onNavigate: () => void }) => {
   const pathname = usePathname();
 
   const linkBase =

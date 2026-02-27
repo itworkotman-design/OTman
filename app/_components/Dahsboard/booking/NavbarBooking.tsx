@@ -3,7 +3,7 @@ import Link from "next/link"
 import { useState } from "react";
 import { usePathname } from "next/navigation"
 
-export const Navbar = ({
+export const NavbarBooking = ({
   open,
   onToggle,
 }: {
@@ -37,16 +37,19 @@ function NavLinks({ isActive }: { isActive: (p: string) => boolean }) {
   return (
     <>
       <Link href="/dashboard/booking" className={`px-3 text-neutral-500 hover:text-textcolor ${isActive("/dashboard/booking") ? " text-logoblue! font-semibold" : ""}`}>
-        Booking
+        All orders
       </Link>
-      <Link href="/dashboard/users" className={`px-3 text-neutral-500 hover:text-textcolor ${isActive("/dashboard/users") ? "text-logoblue! font-semibold" : ""}`}>
-        Future : Users
+      <Link href="/dashboard/booking/create" className={`px-3 text-neutral-500 hover:text-textcolor ${isActive("/dashboard/users") ? "text-logoblue! font-semibold" : ""}`}>
+        Create order
       </Link>
-      <Link href="/dashboard/inventory" className={`px-3 text-neutral-500 hover:text-textcolor ${isActive("/dashboard/inventory") ? "text-logoblue! font-semibold" : ""}`}>
-        Future : Inventory
+      <Link href="/dashboard/booking/power" className={`px-3 text-neutral-500 hover:text-textcolor ${isActive("/dashboard/inventory") ? "text-logoblue! font-semibold" : ""}`}>
+        Power order
       </Link>
-      <Link href="/dashboard/legal" className={`px-3 text-neutral-500 hover:text-textcolor ${isActive("/dashboard/legal") ? "text-logoblue! font-semibold" : ""}`}>
-        Future : Legal
+      <Link href="/dashboard/booking/editPrices" className={`px-3 text-neutral-500 hover:text-textcolor ${isActive("/dashboard/legal") ? "text-logoblue! font-semibold" : ""}`}>
+        Edit prices
+      </Link>
+      <Link href="/dashboard/booking/booking_users" className={`px-3 text-neutral-500 hover:text-textcolor ${isActive("/dashboard/legal") ? "text-logoblue! font-semibold" : ""}`}>
+        Edit users
       </Link>
     </>
   );

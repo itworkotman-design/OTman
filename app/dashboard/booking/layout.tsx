@@ -2,12 +2,17 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Sidebar } from "../../_components/Dahsboard/booking/Sidebar";
-import { Navbar } from "@/app/_components/Dahsboard/Navbar";
+import  Sidebar  from "../../_components/Dahsboard/Sidebar";
+import { NavbarBooking } from "@/app/_components/Dahsboard/booking/NavbarBooking";
+
+const SIDEBAR_OPEN = 300;
+const SIDEBAR_CLOSED = 44;
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+
+  const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
 
   const openSidebar = () => {
     setSidebarOpen(true);
@@ -18,8 +23,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex overflow-x-clip">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-75 shrink-0 z-10">
-        <Sidebar onNavigate={() => {}} />
+      <aside className="hidden lg:block shrink-0 z-10">
+        <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW}/>
       </aside>
 
       {/* Mobile sidebar drawer */}
@@ -40,7 +45,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         >
 
           <div className="h-[calc(100%-52px)] overflow-auto">
-            <Sidebar onNavigate={closeSidebar} />
+            <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW}/>
           </div>
         </div>
       </div>
@@ -56,7 +61,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             Menu
           </button>
 
-          <Navbar
+          <NavbarBooking
             open={navOpen}
             onToggle={() => {
               setNavOpen((p) => !p);
