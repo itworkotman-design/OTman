@@ -19,22 +19,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <aside className="">
             <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW}/>
           </aside>
-          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-clip lg:pt-10">
-            <div className="w-full px-4">{children}</div>
+          <main className="lg:pt-10 w-full flex">
+            <div className="px-4 w-full">{children}</div>
           </main>
         </div>
           {/*Phone*/}
-        <div className="relative lg:hidden">
-          <div className="absolute w-full z-10 h-[60]">
-            <div className="flex ">
-              <aside className={`bg-white shadow-md  ${sidebarOpen? "h-full" : "h-[44]"}`}>
-                <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW}/>
-              </aside>
-
+        <div className="lg:hidden">
+          <div className="fixed w-full z-10">
+            <div className={`bg-white shadow-md w-full`}>
+              <div className={` ${sidebarOpen? "h-full pb-10": "ml-auto w-11"}`}>
+                <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={""}/>
+              </div>
             </div>
           </div>    
-          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
-            <div className="w-full px-4 mt-[60]">{children}</div>
+          <main className="overflow-x-clip">
+            <div className="w-full px-4 pt-[60]">{children}</div>
           </main>
         </div>
         </>

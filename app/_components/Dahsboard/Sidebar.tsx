@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 
 type Props = {
   open: boolean;
-  width: number;
+  width: number | string;
   onOpenChange: (v: boolean) => void;
 };
 
@@ -16,17 +16,22 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
   const linkBase =
     "block max-w-[400px] w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond";
 
-  const isActive = (href: string) => pathname === href;
+  const isActive = (href: string) => pathname.startsWith(href);
 
   return (
-    <div style={{ width }} className={`h-full pb-10 lg:bg-linePrimary ${open? `w-full`: `w-10`}`}>
-      <div className="pt-2 flex">
-        <button onClick={() => onOpenChange(!open)} className="hover:text-textcolor ml-auto px-2 cursor-pointer">
+    <div style={{ width }} className={`h-full lg:bg-linePrimary ${open? `w-full`: `w-10`}`}>
+      <div className="py-2 flex">
+        <button onClick={() => onOpenChange(!open)} className="hidden lg:block hover:text-textcolor ml-auto px-2 cursor-pointer">
           {open? 
           <svg className="w-[28] h-[28] " aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M8.99994 10 7 11.9999l1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z"/></svg>
             :
           <svg className="w-[28] h-[28]" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z"/></svg>
           }
+        </button>
+        <button onClick={() => onOpenChange(!open)} className="lg:hidden hover:text-textcolor ml-auto px-2 cursor-pointer">
+          <svg className="w-[28] h-[28]" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" strokeLinecap="round" strokeWidth="1" d="M5 7h14M5 12h14M5 17h14"/>
+          </svg>
         </button>
       </div>
         <div className={open? ``: `hidden`}>
@@ -38,9 +43,9 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
           <h1 className="py-1 mt-6 px-2 font-semibold text-sm text-textColorSecond border-b border-lineSecondary ">General</h1>
           <Link
             href=""
-            className={`${linkBase} ${
-              isActive("")
-                ? "bg-linePrimary"
+            className={`${linkBase} hidden ${
+              isActive("/dashboard/home")
+                ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
             }`}
           >
@@ -54,9 +59,9 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
           </Link>
           <Link
             href=""
-            className={`${linkBase} ${
-              isActive("")
-                ? "bg-linePrimary"
+            className={`${linkBase} hidden ${
+              isActive("/dashboard/notifications")
+                ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
             }`}
           >
@@ -74,7 +79,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             href="/dashboard/booking"
             className={`${linkBase} ${
               isActive("/dashboard/booking")
-                ? "bg-linePrimary"
+                ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
             }`}
           >
@@ -84,15 +89,15 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
                 <path d="m12.013 12.545 5.006-3.194-5.006-3.176 4.98-3.194L22 6.175l-5.007 3.194L22 12.562l-5.007 3.194-4.98-3.211Z"/>
               </svg>
 
-              Booking
+              Booking system
             </div>
           </Link>
 
           <Link
             href=""
-            className={`${linkBase} ${
-              isActive("")
-                ? "bg-linePrimary"
+            className={`${linkBase} hidden ${
+              isActive("/dashboard/connections")
+                ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
             }`}
           >
@@ -122,9 +127,9 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
           <Link
             href="/dashboard/booking/editPrices"
-            className={`${linkBase} ${
+            className={`${linkBase} hidden ${
               isActive("/dashboard/booking/editPrices")
-                ? "bg-linePrimary"
+                ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
             }`}
           >
