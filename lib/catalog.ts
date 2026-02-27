@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/db";
+import type { PricingMode } from "@prisma/client";
+
 
 export type ServiceCard = {
   id: string;
   title: string;
   description: string;
-  pricingMode: "FIXED" | "REQUEST";
+  pricingMode: PricingMode;
   priceCents: number | null;
   sortOrder: number;
 };
@@ -40,5 +42,5 @@ export async function getPublicCatalog(): Promise<CategorySection[]> {
   });
 
   // Hide empty categories from the public surface (keeps UX clean)
-  return categories.filter((c) => c.services.length > 0);
+  return categories.filter((c ) => c.services.length > 0);
 }
