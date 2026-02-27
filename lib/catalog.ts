@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/db";
-import type { PricingMode } from "@prisma/client";
+import type { $Enums } from "@prisma/client";
 
 
 export type ServiceCard = {
   id: string;
   title: string;
   description: string;
-  pricingMode: PricingMode;
+  pricingMode: $Enums.PricingMode;
   priceCents: number | null;
   sortOrder: number;
 };
