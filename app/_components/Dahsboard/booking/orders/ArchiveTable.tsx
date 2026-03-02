@@ -101,6 +101,17 @@ export function ArchiveTable({
     );
   };
 
+const STATUS_CLASSES: Record<string, string> = {
+  fail: "text-purple-700",
+  confirmed: "text-blue-500",
+  behandles: "text-orange-500",
+  active: "text-purple-500",
+  cancelled: "text-red-500",
+  completed: "text-green-500",
+  invoiced: "text-green-800",
+  betalt: "text-black/30",
+};
+
   return (
     <section>
       <div className="px-2 py-2 text-xs text-neutral-600">
@@ -126,7 +137,7 @@ export function ArchiveTable({
               <Th className="w-22.5">
                 Time <br /> window
               </Th>
-              <Th className="w-25">Customer</Th>
+              <Th className="w-25 to-purple-500">Customer</Th>
               <Th>Order no.</Th>
               <Th className="w-25">Name</Th>
               <Th>Phone</Th>
@@ -184,7 +195,7 @@ export function ArchiveTable({
                   </Td>
 
                   <Td className="whitespace-nowrap font-medium">{r.id}</Td>
-                  <Td>{r.status}</Td>
+                  <Td className={`font-bold ${STATUS_CLASSES[r.status] ?? ""}`}>{r.status}</Td>
                   <Td className="whitespace-nowrap">
                     {formatDate(r.deliveryDate)}
                   </Td>

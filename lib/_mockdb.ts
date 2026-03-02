@@ -4,6 +4,7 @@
 export type OrderStatus =
   | "inProgress"
   | "confirmed"
+  | "behandles"
   | "active"
   | "cancelled"
   | "fail"
@@ -54,7 +55,7 @@ export type OrderRow = {
 export const ORDERS: OrderRow[] = [
   {
   id: "13206",
-  status: "active",
+  status: "behandles",
   deliveryDate: "2026-03-03",
   timeWindow: "12:00 - 16:00",
   customer: "POWER Ski",
