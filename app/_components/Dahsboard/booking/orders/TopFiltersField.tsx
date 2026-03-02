@@ -146,7 +146,7 @@ export default function TopFilters({
               className="customInput w-full"
             >
               <option value="">All statuses</option>
-              <option value="inProgress">In progress</option>
+              <option value="behandles">Behandles</option>
               <option value="confirmed">Confirmed</option>
               <option value="active">Active</option>
               <option value="cancelled">Cancelled</option>

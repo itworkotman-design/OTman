@@ -2,7 +2,6 @@
 // Mock “database” for orders + a typed shape that matches your export columns.
 
 export type OrderStatus =
-  | "inProgress"
   | "confirmed"
   | "behandles"
   | "active"

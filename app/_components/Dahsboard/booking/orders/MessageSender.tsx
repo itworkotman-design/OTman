@@ -85,7 +85,7 @@ export function MessageSender({
         <button
           disabled={!canSendEmail}
           onClick={() => onSendEmail(employeeId, emailType === "custom" ? customMessage : emailType)}
-          className="customButtonEnabled h-10 disabled:bg-logoblue/60! disabled:cursor-auto!"
+          className="customButtonEnabled h-10 disabled:bg-logoblue/60! disabled:cursor-auto! mt-5"
         >
           Send email
         </button>

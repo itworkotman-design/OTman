@@ -75,7 +75,7 @@ const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
   const statusOptions = useMemo(
     () =>
       [
-        { value: "inProgress", label: "In progress" },
+        { value: "behandles", label: "Behandles" },
         { value: "confirmed", label: "Confirmed" },
         { value: "active", label: "Active" },
         { value: "cancelled", label: "Cancelled" },

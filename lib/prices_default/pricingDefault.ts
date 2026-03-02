@@ -8,6 +8,8 @@ export type PriceItem = {
   customerPrice: number;
   subcontractorPrice: number;
   active: boolean;
+  discountRaw?: string; // accepts "10%" or "250"
+  discountUntil?: string; // "YYYY-MM-DD" (from <input type="date" />)
 };
 
 export const PRICE_ITEMS_DEFAULT: PriceItem[] = [

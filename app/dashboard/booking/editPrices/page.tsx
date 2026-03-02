@@ -22,6 +22,10 @@ type PriceDrafts   = Record<string, Partial<PriceItem>>;
 type OptionDrafts  = Record<string, Partial<PriceOption>>;
 type ProductDrafts = Record<string, Partial<Product>>;
 
+type DiscountSpec =
+  | { kind: "percent"; value: number }
+  | { kind: "amount"; value: number };
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ID generation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,10 +72,52 @@ const DATASETS = {
   }
 } as const;
 
+//check wheter number or procentage
+function parseDiscount(raw?: string): DiscountSpec | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  if (!s) return null;
+
+  // "10%" => percent
+  if (s.endsWith("%")) {
+    const n = Number(s.slice(0, -1).trim());
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return { kind: "percent", value: n };
+  }
+
+  // "250" => amount
+  const n = Number(s);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return { kind: "amount", value: n };
+}
+
+//discount ends at end of selected daty
+function isDiscountActive(until?: string, now: Date = new Date()): boolean {
+  if (!until) return false;
+  const endOfDay = new Date(`${until}T23:59:59.999`);
+  return Number.isFinite(endOfDay.getTime()) && now <= endOfDay;
+}
+
+function applyDiscount(base: number, spec: DiscountSpec): number {
+  const b = Number.isFinite(base) ? base : 0;
+  let out =
+    spec.kind === "percent"
+      ? b * (1 - spec.value / 100)
+      : b - spec.value;
+
+  if (!Number.isFinite(out)) out = b;
+  return Math.max(0, out);
+}
+
+function formatMoney(n: number): string {
+  const x = Number.isFinite(n) ? n : 0;
+  return x.toFixed(2);
+}
+
 export default function EditPricesPage() {
 
 const [activeTab, setActiveTab] = useState<keyof typeof DATASETS>("default");
-
+const [nowTs, setNowTs] = useState(() => Date.now());
 const [products, setProducts] = useState<Product[]>(DATASETS.default.products as Product[]);
 const [optionRows, setOptionRows] = useState<PriceOption[]>(DATASETS.default.options);
 const [priceRows, setPriceRows] = useState<PriceItem[]>(DATASETS.default.prices);
@@ -84,6 +130,11 @@ const [productDrafts, setProductDrafts] = useState<ProductDrafts>({});
 // This keeps the "Update" button visible even when all fields are still empty (nothing is "dirty" yet, but the row still needs to be saved).
 const [newOptionIds,  setNewOptionIds]  = useState<Set<string>>(new Set());
 const [newProductIds, setNewProductIds] = useState<Set<string>>(new Set());
+
+useEffect(() => {
+  const t = window.setInterval(() => setNowTs(Date.now()), 30_000); // updates around midnight
+  return () => window.clearInterval(t);
+}, []);
 
     // Group options by product for rendering
     const groupedByProduct = useMemo(() => {
@@ -162,6 +213,8 @@ const addOption = (productId: string) => {
         customerPrice: 0,
         subcontractorPrice: 0,
         category: "install",
+        discountRaw: "",
+        discountUntil: "", 
         active: false
     };
 
@@ -194,6 +247,8 @@ const addProduct = () => {
         customerPrice: 0,
         subcontractorPrice: 0,
         category: "install",
+        discountRaw: "",
+        discountUntil: "",
         active: false
     };
     const newOption: PriceOption  = {
@@ -302,6 +357,20 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
 
                       // Merge committed + draft so inputs always show the latest value
                       const displayPrice  = { ...(committedPrice ?? {}), ...priceDraft };
+
+                      //Discounts
+                      const now = new Date(nowTs);
+                      const spec = parseDiscount(displayPrice.discountRaw as string | undefined);
+                      const activeDiscount = spec && isDiscountActive(displayPrice.discountUntil as string | undefined, now);
+
+                      const effectiveCustomer = activeDiscount
+                        ? applyDiscount((displayPrice.customerPrice as number) ?? 0, spec)
+                        : ((displayPrice.customerPrice as number) ?? 0);
+
+                      const effectiveSub = activeDiscount
+                        ? applyDiscount((displayPrice.subcontractorPrice as number) ?? 0, spec)
+                        : ((displayPrice.subcontractorPrice as number) ?? 0);
+
                       const displayOption = { ...committedOption,        ...optionDraft };
 
                       // Show "Update" if there are any pending changes OR the row is brand-new
@@ -317,8 +386,8 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
                         label:              "label"              in priceDraft,
                         customerPrice:      "customerPrice"      in priceDraft,
                         subcontractorPrice: "subcontractorPrice" in priceDraft,
-                        discount:           "discount"           in priceDraft,
-                        discountTime:       "discountTime"       in priceDraft,
+                        discountRaw:        "discountRaw"        in priceDraft,
+                        discountUntil:      "discountUntil"      in priceDraft,
                         active:             "active"             in optionDraft,
                         productLabel:       "label"              in productDraft,
                       };
@@ -378,20 +447,51 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
 
                           {/* ── Customer Price ── */}
                           <td>
-                            <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.customerPrice ? dirtyCellClass : ""}`} value={(displayPrice.customerPrice as number) ?? 0} onChange={(e) => onPriceChange(row.priceKey, "customerPrice", Number(e.target.value)) } />
+                            <div className="flex items-center">
+                              <input
+                                type="number"
+                                className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.customerPrice ? dirtyCellClass : ""}`}
+                                value={(displayPrice.customerPrice as number) ?? 0}
+                                onChange={(e) => onPriceChange(row.priceKey, "customerPrice", Number(e.target.value))}
+                              />
+                              {activeDiscount && (
+                                <span className="text-red-700 opacity-70 px-2">{formatMoney(effectiveCustomer)}</span>
+                              )}
+                            </div>
                           </td>
 
                           {/* ── Subcontractor Price ── */}
                           <td>
-                            <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.subcontractorPrice ? dirtyCellClass : ""}`} value={(displayPrice.subcontractorPrice as number) ?? 0} onChange={(e) => onPriceChange(row.priceKey, "subcontractorPrice", Number(e.target.value)) } />
+                            <div className="flex items-center">
+                              <input
+                                type="number"
+                                className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.subcontractorPrice ? dirtyCellClass : ""}`}
+                                value={(displayPrice.subcontractorPrice as number) ?? 0}
+                                onChange={(e) => onPriceChange(row.priceKey, "subcontractorPrice", Number(e.target.value))}
+                              />
+                              {activeDiscount && (
+                                <span className="text-red-700 opacity-70 px-2">{formatMoney(effectiveSub)}</span>
+                              )}
+                            </div>
                           </td>
-{/* ── Discount - have to make funcitoning── */}
+                          {/* ── Discount ── */}
                           <td>
-                            <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discount ? dirtyCellClass : ""}`} value={""} readOnly/>
+                            <input
+                              type="text"
+                              className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discountRaw ? dirtyCellClass : ""}`}
+                              placeholder='"%" or number'
+                              value={(displayPrice.discountRaw as string) ?? ""}
+                              onChange={(e) => onPriceChange(row.priceKey, "discountRaw", e.target.value)}
+                            />
                           </td>
-{/* ── Discount Time - have to make funcitoning ── */}
+                          {/* ── Discount Time ── */}
                           <td>
-                            <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discountTime ? dirtyCellClass : ""}`} value={""} readOnly/>
+                            <input
+                              type="date"
+                              className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discountUntil ? dirtyCellClass : ""}`}
+                              value={(displayPrice.discountUntil as string) ?? ""}
+                              onChange={(e) => onPriceChange(row.priceKey, "discountUntil", e.target.value)}
+                            />
                           </td>
 
                           {/* ── Active toggle + Update button ── */}
