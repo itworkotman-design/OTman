@@ -24,6 +24,7 @@ export default function UserPage() {
     const [users, setUsers] = useState<User[]>(initialUsers);
     const [open, setOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<typeof users[number] | null>(null);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
     
     return(
     <>
@@ -117,7 +118,7 @@ export default function UserPage() {
             <table className="w-full border-y border-black/10">
                 <thead>
                     <tr className="border-y border-black/10 bg-black/3 text-left text-textColorSecond">
-                        <th className="px-1 py-3 border-r border-black/3 font-medium whitespace-nowrap table-cell text-center"><input type="checkbox"  className="h-4 w-4" aria-label="Select all"/></th>
+                        <th className="px-1 py-3 border-r border-black/3 font-medium whitespace-nowrap table-cell text-center"><input checked={selectedIds.length === users.length && users.length > 0} onChange={(e) => {if (e.target.checked) {setSelectedIds(users.map((u) => u.id));} else {setSelectedIds([]);}}} onClick={(e) => e.stopPropagation()} type="checkbox"  className="h-4 w-4" aria-label="Select all"/></th>
                         <th className="px-4 py-3 border-r border-black/3 font-medium whitespace-nowrap">Full name</th>
                         <th className="px-4 py-3 border-r hidden min-[620]:table-cell border-black/3 font-medium whitespace-nowrap">
                             <div className="flex items-center"><svg className="w-[26] h-[26] mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 13h3.439a.991.991 0 0 1 .908.6 3.978 3.978 0 0 0 7.306 0 .99.99 0 0 1 .908-.6H20M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6M4 13l2-9h12l2 9"/></svg>
@@ -158,7 +159,7 @@ export default function UserPage() {
 
                     return (
                         <tr key={u.id} className={`cursor-pointer border-b border-black/10 hover:bg-black/2 ${rowMuted}`} onClick={()=> {setSelectedUser(u); setOpen(true)}} >
-                            <td className="text-center"><input type="checkbox" className="h-4 w-4" aria-label={`Select booking ${u.id}`}/></td>
+                            <td className="text-center"><input type="checkbox" className="h-4 w-4" onChange={(e) => {setSelectedIds((prev) =>e.target.checked ? [...prev, u.id] : prev.filter((id) => id !== u.id));}} checked={selectedIds.includes(u.id)} onClick={(e) => e.stopPropagation()} aria-label={`Select booking ${u.id}`}/></td>
                             <td className="px-4 py-2 border-r border-black/3 text-textColorThird font-semibold flex whitespace-nowrap items-center"><div className="h-[28] w-[28] rounded-full overflow-hidden mr-2 bg-fuchsia-50"><Image src={u.img === "/" ? "/logo.png" : u.img} alt="pic" width={50} height={50} className="inline"/></div>{u.name}</td>
                             <td className="px-4 py-2 hidden min-[620]:table-cell border-r border-black/3 text-textColorThird font-semibold">{u.email}</td>
                             <td className="px-4 py-2 hidden min-[740]:table-cell border-r border-black/3 text-textColorThird font-semibold">{u.number}</td>
