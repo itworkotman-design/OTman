@@ -41,20 +41,63 @@ export default function UserPage() {
                 initialValueRole={selectedUser?.role ?? "select"}
                 initialValueActive={selectedUser?.enabled ?? true}
                 onSave={(data) => {
-                    if (!selectedUser) return;
+                    if (selectedUser) {
+                    // edit existing
                     setUsers((prev) =>
-                    prev.map((u) => u.id === selectedUser.id ? {...u,name: data.name,email: data.email,number: data.number,role: data.role,enabled: data.active,}: u));
-                    setSelectedUser((u) =>u? { ...u, name: data.name, email: data.email, number: data.number, role: data.role, enabled: data.active,}: u);}}
-                onRemove={() => { if (!selectedUser) return; setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id)); setSelectedUser(null); setOpen(false); }}
+                        prev.map((u) => u.id === selectedUser.id ? {
+                                ...u,
+                                name: data.name,
+                                email: data.email,
+                                number: data.number,
+                                role: data.role,
+                                enabled: data.active,
+                            } : u ));
 
+                    setSelectedUser((u) => u ? {
+                            ...u,
+                            name: data.name,
+                            email: data.email,
+                            number: data.number,
+                            role: data.role,
+                            enabled: data.active,
+                            } : u);
+                        } else {
+                    // add new
+                        const newUser = {
+                            id: Date.now(),
+                            name: data.name,
+                            img: "/logo.png",
+                            email: data.email,
+                            number: data.number,
+                            role: data.role,
+                            online: false,
+                            lastSeen: "",
+                            enabled: data.active,
+                        };
+
+                    setUsers((prev) => [newUser, ...prev]);
+                    setSelectedUser(newUser);
+                    }
+
+                    setOpen(false);
+                }}
+                onRemove={() => {
+                    if (!selectedUser) return;
+                    setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
+                    setSelectedUser(null);
+                    setOpen(false);
+                }}
                 onToggleActive={() => {
                     if (!selectedUser) return;
+
                     setUsers((prev) =>
-                        prev.map((u) =>
-                            u.id === selectedUser.id ? { ...u, enabled: !u.enabled } : u));
-                            setSelectedUser((u) => (u ? { ...u, enabled: !u.enabled } : u));
+                    prev.map((u) =>
+                        u.id === selectedUser.id ? { ...u, enabled: !u.enabled } : u
+                    )
+                    );
+                    setSelectedUser((u) => (u ? { ...u, enabled: !u.enabled } : u));
                 }}
-            />
+                />
             <div className="shadow-xs pb-2 flex">
                 <div className=" whitespace-nowrap">
                     <select className="customInput mr-2 hover:bg-black/3 duration-200 cursor-pointer">Role
