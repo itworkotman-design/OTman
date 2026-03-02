@@ -57,20 +57,12 @@ const updateSelect =
     setForm((p) => ({ ...p, [key]: e.target.value }));
 
 
-// Lock body scroll while open
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
+
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-5 bg-black/40 flex items-center justify-center">
+    <div className="absolute top-60 lg:top-0 inset-0 z-5 bg-black/40 flex items-center justify-center">
       <div className="bg-white w-full max-w-[1000] rounded-lg p-6">
         <div className="grid grid-cols-3 items-start">
           <div />
@@ -83,7 +75,7 @@ const updateSelect =
         </div>
 
         <div className="mx-auto w-full max-w-[800]">
-          <div className="flex gap-10 mt-6">
+          <div className="lg:flex lg:gap-10 gap-2 mt-6">
             <div className="flex-1">
               <h2 className="pl-2 text-logoblue font-semibold pb-2">General</h2>
               <label className="block pb-2 pl-2">Name</label>
@@ -108,7 +100,7 @@ const updateSelect =
             </div>
           </div>
 
-          <div className="flex gap-10 mt-8">
+          <div className="lg:flex lg:gap-10 gap-2 mt-8">
           <div className="flex-1">
             <h2 className="pl-2 text-logoblue font-semibold pb-2">Permissions</h2>
             <label className="block pb-2 pl-2">Role</label>

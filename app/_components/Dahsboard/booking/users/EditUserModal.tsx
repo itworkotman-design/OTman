@@ -74,7 +74,7 @@ export default function EditUserModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-5 bg-black/40 flex items-center justify-center">
+    <div className="absolute top-120 lg:top-0 lg:fixed inset-0 z-5 bg-black/40 flex items-center justify-center">
       <div className="bg-white w-full max-w-3xl rounded-3xl shadow p-6">
         <div className="grid grid-cols-3 items-start">
           <div />
@@ -86,94 +86,58 @@ export default function EditUserModal({
           </button>
         </div>
 
-        <div className="mt-6 px-6">
+        <div className="mt-6 lg:px-6">
           <h2 className="pl-2 text-logoblue font-semibold pb-2">Information</h2>
+          <div className="flex lg:gap-10 gap-2">
+            <div className="flex-1">
+              <label className="block pb-2 pl-2">Name</label>
+                <input className="customInput w-full mb-2" value={form.name} onChange={updateField("name")} type="text" />
+              <label className="block pb-2 pl-2">Company</label>
+                <input className="customInput w-full mb-2" value={form.company} onChange={updateField("company")} type="text" />
+            </div>
+            <div className="flex-1">
+              <label className="block pb-2 pl-2">Email</label>
+                <input className="customInput w-full mb-2" value={form.email} onChange={updateField("email")} type="text" />
+              <label className="block pb-2 pl-2">Number</label>
+                <input className="customInput w-full mb-2 " value={form.number} onChange={updateField("number")} type="text" />
+            </div>
+            
+          </div>
+          <div>
+            <label className="block pb-2 pl-2">Info</label>
+              <textarea
+                className="customInput w-full mb-2 h-20 resize-none"
+                value={form.info}
+                onChange={updateField("info")}
+              />
+          </div>
+          
 
-          <table className="w-full table-fixed border-collapse">
-            <tbody>
-              <tr>
-                <td className="px-4 py-2 border border-black/20">Name</td>
-                <td className="border border-black/20">
-                  <input value={form.name} onChange={updateField("name")} className="w-full px-3 py-2 border-none outline-none focus:ring-0" />
-                </td>
-
-                <td className="px-4 py-2 border border-black/20">Company</td>
-                <td className="border border-black/20">
-                  <input value={form.company} onChange={updateField("company")} className="w-full px-3 py-2 border-none outline-none focus:ring-0" />
-                </td>
-              </tr>
-
-              <tr>
-                <td className="px-4 py-2 border border-black/20">Email</td>
-                <td className="border border-black/20">
-                  <input value={form.email} onChange={updateField("email")} className="w-full px-3 py-2 border-none outline-none focus:ring-0" />
-                </td>
-
-                <td className="px-4 py-2 border border-black/20">Number</td>
-                <td className="border border-black/20">
-                  <input value={form.number} onChange={updateField("number")} className="w-full px-3 py-2 border-none outline-none focus:ring-0" />
-                </td>
-              </tr>
-
-              <tr>
-                <td className="px-4 py-2 border border-black/20 align-top">
-                  Info
-                </td>
-                <td className="border border-black/20 align-top" colSpan={3}>
-                  <textarea ref={infoRef} value={form.info} onChange={(e) => { updateField("info")(e); requestAnimationFrame(autoGrow); }} rows={1} className="w-full px-3 py-2 resize-none overflow-hidden border-none outline-none focus:ring-0"/>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div className="grid grid-cols-2 gap-8 mt-6">
-            <div>
-              <h2 className="pl-2 text-logoblue font-semibold pb-2">
-                Permissions
-              </h2>
-
-              <table className="w-full table-fixed border-collapse">
-                <tbody>
-                  <tr>
-                    <td className="px-4 py-2 border border-black/20">Role</td>
-                    <td className="border border-black/20">
-                      <input value={form.role} onChange={updateField("role")} className="w-full px-3 py-2 border-none outline-none focus:ring-0"/>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-2 border border-black/20">Price List</td>
-                    <td className="border border-black/20">
-                      <input value={form.priceList} onChange={updateField("priceList")} className="w-full px-3 py-2 border-none outline-none focus:ring-0"/>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <h2 className="pl-2 text-logoblue font-semibold pb-2 pt-6">
-                Security
-              </h2>
-
-              <table className="w-full table-fixed border-collapse">
-                <tbody>
-                  <tr>
-                    <td className="px-4 py-2 border border-black/20">
-                      Password
-                    </td>
-                    <td className="border border-black/20">
-                      <input
-                        value="*******"
-                        readOnly
-                        className="w-full px-3 py-2 border-none outline-none focus:ring-0"
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <div className="mt-6">
+            <div className="flex lg:gap-10 gap-2">
+              <div className="flex-1">
+                <h2 className="pl-2 text-logoblue font-semibold pb-2">
+                  Permissions
+                </h2>
+                <label className="block pb-2 pl-2">Role</label>
+                  <input className="customInput w-full mb-2" value={form.role} onChange={updateField("role")} type="text" />
+                <label className="block pb-2 pl-2">Price List</label>
+                  <input className="customInput w-full mb-2" value={form.priceList} onChange={updateField("priceList")} type="text" />
+              </div>
+              <div className="flex-1">
+                <h2 className="pl-2 text-logoblue font-semibold pb-2">
+                  Security
+                </h2>
+                <label className="block pb-2 pl-2">Password</label>
+                  <input className="customInput w-full mb-2" value="********" readOnly />
+              </div>
+              
             </div>
 
-            <div className="ml-auto">
+            <div className="mt-6">
               <h2 className="pl-2 text-logoblue font-semibold pb-2">Manage</h2>
-              <button
+              <div className="flex lg:block lg:gap-10 gap-2 justify-between">
+                <button
                 type="button"
                 onClick={() => {
                   if (!confirm(form.active ? "Disable this user?" : "Enable this user?")) return;
@@ -195,6 +159,8 @@ export default function EditUserModal({
               }} className="block w-40 mb-3 customButtonEnabled bg-red-800!">
                 Remove
               </button>
+              </div>
+              
             </div>
           </div>
 

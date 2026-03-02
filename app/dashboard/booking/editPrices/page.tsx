@@ -243,7 +243,7 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
         </div>
         {/*DATASET Switch*/}
         <div id="activeTab" className="w-full">
-          <div className="max-w-[500] mx-auto flex justify-center">
+          <div className="max-w-[500] mx-auto flex justify-center mb-6">
             {(["default", "power"] as const).map((tab) => (
             <button
               key={tab}
@@ -259,30 +259,22 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
           ))}
           </div>
         </div>
-        <div className="justify-self-start">
-            <button
-              className="customButtonEnabled my-4 ml-[50]"
-              onClick={addProduct}
-            >
-              Add Product
-            </button>
-            </div>
-        <div className="overflow-x-auto pl-[50] pr-[100]">
+        <div className=" lg:pl-[50] lg:pr-[100]">
 
             {/* ── Main table ── */}
-            <div className="overflow-visible">
+            <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
               <table className="w-full table-fixed border border-black/10">
               <thead className="bg-gray-100">
                 <tr className="text-left">
                   <th className="w-64 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Product</th>
-                  <th className="hidden min-[1800]:table-cell w-26 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Label</th>
-                  <th className="hidden min-[700]:table-cell w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Code</th>
-                  <th className="hidden min-[1600]:table-cell w-60 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Description</th>
-                  <th className="hidden min-[600]:table-cell w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Customer Price</th>
-                  <th className="hidden min-[1200]:table-cell w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Subcontractor Price</th>
-                  <th className="hidden min-[1600]:table-cell w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Discount</th>
-                  <th className="hidden min-[1600]:table-cell w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Discount time</th>
-                  <th className="hidden min-[300]:table-cell w-22 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Active</th>
+                  <th className=" w-26 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Label</th>
+                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Code</th>
+                  <th className=" w-60 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Description</th>
+                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Customer Price</th>
+                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Subcontractor Price</th>
+                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Discount</th>
+                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Discount time</th>
+                  <th className=" w-28 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Active</th>
                 </tr>
               </thead>
 
@@ -370,40 +362,40 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
                           )}
 
                           {/* ── Option Label (read-only) ── */}
-                          <td className="hidden min-[1800]:table-cell">
+                          <td>
                             <input className="w-full py-2 px-2 hover:bg-black/2" value={`Install option: ${idx + 1}`} readOnly />
                           </td>
 
                           {/* ── Option Code ── */}
-                          <td className="hidden min-[700]:table-cell">
+                          <td>
                             <input className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.code ? dirtyCellClass : ""}`} placeholder="e.g. OPT-01" value={(displayPrice.code as string) ?? ""} onChange={(e) => onPriceChange(row.priceKey, "code", e.target.value)} />
                           </td>
 
                           {/* ── Description ── */}
-                          <td className="hidden min-[1600]:table-cell">
+                          <td>
                             <input className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.label ? dirtyCellClass : ""}`} placeholder="Description…" value={(displayPrice.label as string) ?? ""} onChange={(e) => onPriceChange(row.priceKey, "label", e.target.value)} />
                           </td>
 
                           {/* ── Customer Price ── */}
-                          <td className="hidden min-[600]:table-cell">
+                          <td>
                             <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.customerPrice ? dirtyCellClass : ""}`} value={(displayPrice.customerPrice as number) ?? 0} onChange={(e) => onPriceChange(row.priceKey, "customerPrice", Number(e.target.value)) } />
                           </td>
 
                           {/* ── Subcontractor Price ── */}
-                          <td className="hidden min-[1200]:table-cell">
+                          <td>
                             <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.subcontractorPrice ? dirtyCellClass : ""}`} value={(displayPrice.subcontractorPrice as number) ?? 0} onChange={(e) => onPriceChange(row.priceKey, "subcontractorPrice", Number(e.target.value)) } />
                           </td>
 {/* ── Discount - have to make funcitoning── */}
-                          <td className="hidden min-[1600]:table-cell">
+                          <td>
                             <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discount ? dirtyCellClass : ""}`} value={""} readOnly/>
                           </td>
 {/* ── Discount Time - have to make funcitoning ── */}
-                          <td className="hidden min-[1600]:table-cell">
+                          <td>
                             <input type="number" className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discountTime ? dirtyCellClass : ""}`} value={""} readOnly/>
                           </td>
 
                           {/* ── Active toggle + Update button ── */}
-                          <td className="hidden min-[300]:table-cell pr-2 relative">
+                          <td className="pr-2 relative">
                             <select
                               className={`w-full py-2 px-2 hover:bg-black/2 ${dirty.active ? dirtyCellClass : ""}`}
                               value={displayOption.active ? "active" : "disabled"}
@@ -436,7 +428,14 @@ const dirtyCellClass = "border-2 border-logoblue text-logoblue";
               })}
               </table>
             </div>
-          
+              <div className="justify-self-start">
+            <button
+              className="customButtonEnabled mt-4 mb-10"
+              onClick={addProduct}
+            >
+              Add Product
+            </button>
+            </div>
         </div>
       </div>
     </main>
