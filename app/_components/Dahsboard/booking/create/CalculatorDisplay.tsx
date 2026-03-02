@@ -137,7 +137,7 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
         </div>
         {adminView && (
         <div id="editModeCalculator">
-          <div className="mt-8 flex items-center">
+          <div className="mt-8 lg:flex items-center">
             <h1 className="whitespace-nowrap">Rabatt (uten MVA): </h1>
             <input
               id="rabattInput"
@@ -151,13 +151,13 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
               id="btnBrukRabatt"
               type="button"
               disabled={!rabatt.trim()}
-              className="ml-2 customButtonDefault h-8"
+              className="ml-2 customButtonDefault h-8 lg:mt-0 w-full lg:w-auto"
             >
               Bruk rabatt
             </button>
           </div>
 
-          <div className="mt-4 flex items-center">
+          <div className="mt-4 lg:flex items-center">
             <h1 className="whitespace-nowrap">Ekstra (uten MVA): </h1>
             <input
               id="ekstraRabattInput"
@@ -171,13 +171,13 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
               id="btnLeggTil"
               type="button"
               disabled={!leggTil.trim()}
-              className="ml-2 customButtonDefault h-8"
+              className="ml-2 customButtonDefault h-8 mt-2 lg:mt-0 w-full lg:w-auto "
             >
               Legg til
             </button>
           </div>
 
-          <div className="mt-8 flex justify-evenly">
+          <div className="mt-8 lg:flex justify-evenly">
             <button
               id="btnSummary"
               type="button"
@@ -188,13 +188,13 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
             <button
               id="btnSubcontractorSummary"
               type="button"
-              className="customButtonDefault w-full ml-8"
+              className="customButtonDefault w-full mt-4 lg:mt-0"
             >
               Subcontractor Summary
             </button>
           </div>
 
-          <div className="mt-8 flex items-center">
+          <div className="mt-8 lg:flex items-center">
             <h1 className="whitespace-nowrap">Subcontractor minus: </h1>
             <input
               id="subcontractorMinusInput"
@@ -205,13 +205,13 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
             <button
               type="button"
               disabled={!leggTil.trim()}
-              className="ml-2 customButtonDefault h-8"
+              className="ml-2 customButtonDefault h-8 mt-2 lg:mt-0 w-full lg:w-auto"
             >
               Legg til
             </button>
           </div>
 
-          <div className="mt-8 flex items-center">
+          <div className="mt-8 lg:flex items-center">
             <h1 className="whitespace-nowrap">Subcontractor plus: </h1>
             <input
               id="subcontractorPlusInput"
@@ -222,7 +222,7 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
             <button
               type="button"
               disabled={!leggTil.trim()}
-              className="ml-2 customButtonDefault h-8 disabled:opacity-60"
+              className="ml-2 customButtonDefault h-8 disabled:opacity-60 mt-2 lg:mt-0 w-full lg:w-auto"
             >
               Legg til
             </button>

@@ -343,7 +343,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
     <form onSubmit={handleSubmit}>
       <main className="flex justify-center mb-20">
         <div className="flex w-full max-w-300 gap-5 ">
-          <div className="md:flex-1 min-w-75 mr-[40] w-full lg:mr-0 ">
+          <div className="md:flex-1 mr-[40] w-full lg:mr-0 ">
 
             {/* Product Cards */}
             {shown(hidden, OrderFields.Products) &&
@@ -804,7 +804,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
               </div>
 
               {/* Desktop: normal flow */}
-              <div className="hidden lg:block flex-1 min-w-75">
+              <div className="hidden lg:block flex-1">
                 <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} adminView={dataset === "default"} />
               </div>
             </>
