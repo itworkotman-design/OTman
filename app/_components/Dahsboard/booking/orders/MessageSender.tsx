@@ -24,14 +24,15 @@ export function MessageSender({
 }: MessageSenderProps) {
   const [employeeId, setEmployeeId] = useState("");
   const [emailType, setEmailType] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
 
-  const canSendEmail = employeeId !== "" && emailType !== "";
+  const canSendEmail = employeeId !== "" && emailType !== "" && (emailType !== "custom" || customMessage.trim() !== "");;
   const canSendSMS = employeeId !== "";
 
   return (
     <section className="customContainer mt-4 max-w-250">
       {/* Top row */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] items-end">
+      <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] items-start">
         <div>
           <label className="mb-1 block text-xs font-medium text-textcolor">
             Recipient (employee)
@@ -65,10 +66,25 @@ export function MessageSender({
             <option value="custom">Custom</option>
           </select>
         </div>
+        {emailType === "custom" && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-textcolor">
+              Custom message
+            </label>
+
+            <textarea
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              rows={3}
+              className="customInput w-full resize-none"
+              placeholder="Write custom email message..."
+            />
+          </div>
+        )}
 
         <button
           disabled={!canSendEmail}
-          onClick={() => onSendEmail(employeeId, emailType)}
+          onClick={() => onSendEmail(employeeId, emailType === "custom" ? customMessage : emailType)}
           className="customButtonEnabled h-10 disabled:bg-logoblue/60! disabled:cursor-auto!"
         >
           Send email
