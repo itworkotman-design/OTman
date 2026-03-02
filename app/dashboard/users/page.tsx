@@ -1,24 +1,27 @@
 "use client"
 import Image from "next/image";
 import { useState } from "react";
+import UserModal from "@/app/_components/Dahsboard/users/UserModal";
 
-type users=[
-    {
-    id: number,
-    name : string,
-    img: string,
-    email: string,
-    number: number,
-    role: string,
-    online: boolean,
-    lastSeen:string,
-    enabled: boolean}
-]
-const users = [
-    {id: 1, name :"Ralfs Kolveits", img: "/logo.png", email: "r.kolveits@gmail.com", number: 93004023, role: "IT", online: true, lastSeen: "01.02.2026", enabled: true},
-    {id: 2, name :"Janis Otmans", img: "/", email: "otmantrasnportAS@gmail.com", number: 99999999, role: "Owner", online: false, lastSeen: "00.00.0000", enabled: true}
-]
+type User = {
+  id: number;
+  name: string;
+  img: string;
+  email: string;
+  number: number;
+  role: string;
+  online: boolean;
+  lastSeen: string;
+  enabled: boolean;
+};
+
+const initialUsers: User[] = [
+  { id: 1, name: "Ralfs Kolveits", img: "/logo.png", email: "r.kolveits@gmail.com", number: 93004023, role: "IT", online: true, lastSeen: "01.02.2026", enabled: true },
+  { id: 2, name: "Janis Otmans", img: "/logo.png", email: "otmantrasnportAS@gmail.com", number: 99999999, role: "Owner", online: false, lastSeen: "00.00.0000", enabled: false },
+];
+
 export default function UserPage() {
+    const [users, setUsers] = useState<User[]>(initialUsers);
     const [open, setOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<typeof users[number] | null>(null);
     
@@ -28,6 +31,30 @@ export default function UserPage() {
         <h1 className="text-2xl lg:text-4xl mb-20 font-semibold text-logoblue whitespace-nowrap">User management</h1>
 
         <div className="w-full ">
+            <UserModal
+                key={selectedUser?.id ?? "new"}
+                isOpen={open}
+                onClose={() => setOpen(false)}
+                initialValueName={selectedUser?.name ?? ""}
+                initialValueEmail={selectedUser?.email ?? ""}
+                initialValueNumber={selectedUser?.number ?? 0}
+                initialValueRole={selectedUser?.role ?? "select"}
+                initialValueActive={selectedUser?.enabled ?? true}
+                onSave={(data) => {
+                    if (!selectedUser) return;
+                    setUsers((prev) =>
+                    prev.map((u) => u.id === selectedUser.id ? {...u,name: data.name,email: data.email,number: data.number,role: data.role,enabled: data.active,}: u));
+                    setSelectedUser((u) =>u? { ...u, name: data.name, email: data.email, number: data.number, role: data.role, enabled: data.active,}: u);}}
+                onRemove={() => { if (!selectedUser) return; setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id)); setSelectedUser(null); setOpen(false); }}
+
+                onToggleActive={() => {
+                    if (!selectedUser) return;
+                    setUsers((prev) =>
+                        prev.map((u) =>
+                            u.id === selectedUser.id ? { ...u, enabled: !u.enabled } : u));
+                            setSelectedUser((u) => (u ? { ...u, enabled: !u.enabled } : u));
+                }}
+            />
             <div className="shadow-xs pb-2 flex">
                 <div className=" whitespace-nowrap">
                     <select className="customInput mr-2 hover:bg-black/3 duration-200 cursor-pointer">Role
@@ -87,9 +114,9 @@ export default function UserPage() {
                     const rowMuted = !u.enabled ? "text-black/20" : "";
 
                     return (
-                        <tr key={u.id} className={`cursor-pointer border-b border-black/10 hover:bg-black/2 ${rowMuted}`} onClick={()=> {setSelectedUser(u);setOpen(true)}} >
+                        <tr key={u.id} className={`cursor-pointer border-b border-black/10 hover:bg-black/2 ${rowMuted}`} onClick={()=> {setSelectedUser(u); setOpen(true)}} >
                             <td className="text-center"><input type="checkbox" className="h-4 w-4" aria-label={`Select booking ${u.id}`}/></td>
-                            <td className="px-4 py-2 border-r border-black/3 text-textColorThird font-semibold flex whitespace-nowrap items-center"><div className="h-[28] w-[28] rounded-full overflow-hidden mr-2 bg-fuchsia-50"><Image src={u.img} alt="pic" width={50} height={50} className="inline"/></div>{u.name}</td>
+                            <td className="px-4 py-2 border-r border-black/3 text-textColorThird font-semibold flex whitespace-nowrap items-center"><div className="h-[28] w-[28] rounded-full overflow-hidden mr-2 bg-fuchsia-50"><Image src={u.img === "/" ? "/logo.png" : u.img} alt="pic" width={50} height={50} className="inline"/></div>{u.name}</td>
                             <td className="px-4 py-2 hidden min-[620]:table-cell border-r border-black/3 text-textColorThird font-semibold">{u.email}</td>
                             <td className="px-4 py-2 hidden min-[740]:table-cell border-r border-black/3 text-textColorThird font-semibold">{u.number}</td>
                             <td className="px-4 py-2 hidden min-[840]:table-cell border-r border-black/3 text-textColorThird font-semibold">{u.role}</td>

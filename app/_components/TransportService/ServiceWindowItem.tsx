@@ -7,7 +7,7 @@ export type ServiceWindowItemProps = {
 
 export function ServiceWindowItem({ title, href }: ServiceWindowItemProps) {
   return (
-    <Link href={href} className="w-[240px] h-[240px] rounded-xl bg-white p-4 shadow-md flex flex-col">
+    <Link href={href} className="w-[240] h-[240] rounded-2xl bg-white p-4 shadow-md flex flex-col">
       {/* Icon */}
       <div className="flex-1 flex items-center justify-center">
         <div className="grid h-24 w-24 place-items-center rounded-lg border border-logoblue">

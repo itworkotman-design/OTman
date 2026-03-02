@@ -154,22 +154,12 @@ export function ServiceWindow({
   return (
     <section>
       <div className="w-full">
-        <div className="rounded-2xl bg-logoblue p-4 shadow-sm">
-          <h2 className="text-center text-2xl font-bold text-white">{title}</h2>
+        <div className="p-4 rounded-2xl bg-logoblue shadow-sm">
+          <h2 className="pb-4 lg:pb-0 text-center text-2xl font-bold text-white">{title}</h2>
 
           {/* MOBILE: centered carousel w/ peek + dots */}
-          <div className="mt-6 md:hidden">
-            <div
-              ref={scrollerRef}
-              className="
-                flex gap-6 overflow-x-auto pb-4
-                snap-x snap-mandatory
-                px-[10vw]
-                overscroll-x-contain
-                [-ms-overflow-style:none] [scrollbar-width:none]
-                [&::-webkit-scrollbar]:hidden
-              "
-            >
+          <div className="md:hidden">
+            <div ref={scrollerRef} className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[10vw] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ">
               {loopItems.map((item, idx) => (
                 <div key={`${item.href}-${idx}`} data-card className="shrink-0 snap-center">
                   <ServiceWindowItem {...item} />
@@ -179,7 +169,7 @@ export function ServiceWindow({
 
             {/* Pagination dots */}
             {isCarousel && (
-              <div className="mt-3 flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-2 pt-4">
                 {items.map((_, i) => (
                   <button
                     key={i}
