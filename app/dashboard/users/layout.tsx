@@ -8,7 +8,7 @@ const SIDEBAR_OPEN = 300;
 const SIDEBAR_CLOSED = 44;
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
 

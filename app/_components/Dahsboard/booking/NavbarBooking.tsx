@@ -1,15 +1,22 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLayoutEffect } from "react";
 
 export const NavbarBooking = ({
   open,
   onToggle,
+  onClose,
 }: {
   open: boolean;
   onToggle: () => void;
+  onClose: () => void;
 }) => {
   const pathname = usePathname();
+
+  useLayoutEffect(() => {
+    if (open) onClose();
+  }, [pathname]); // onClose is stable from setState, safe to omit
 
   const isExact = (path: string) => pathname === path;
   const isStarts = (path: string) => pathname.startsWith(path);
@@ -33,14 +40,14 @@ export const NavbarBooking = ({
           ].join(" ")}
         >
           <div className="flex flex-col items-start gap-8 text-xl mx-5">
-            <NavLinks isExact={isExact} isStarts={isStarts} />
+            <NavLinks isExact={isExact} isStarts={isStarts} onNavigate={onClose}/>
           </div>
         </div>
       </div>
 
       {/* Desktop */}
       <nav className="hidden lg:flex w-full lg:max-w-160 relative lg:left-1/2 lg:-translate-x-1/2 lg:py-4 lg:gap-6 shadow-md justify-center mb-8 rounded-b-2xl bg-white">
-        <NavLinks isExact={isExact} isStarts={isStarts} />
+        <NavLinks isExact={isExact} isStarts={isStarts} onNavigate={onClose} />
       </nav>
     </>
   );
@@ -49,9 +56,11 @@ export const NavbarBooking = ({
 function NavLinks({
   isExact,
   isStarts,
+  onNavigate,
 }: {
   isExact: (p: string) => boolean;
   isStarts: (p: string) => boolean;
+  onNavigate: () => void;
 }) {
   const base = "px-3 text-neutral-500 hover:text-textcolor";
   const active = "text-logoblue! font-semibold";
@@ -60,13 +69,15 @@ function NavLinks({
     <>
       <Link
         href="/dashboard/booking"
-        className={`${base} ${isExact("/dashboard/booking") ? active : ""}`}
+        onClick={onNavigate}
+        className={`${base}  ${isExact("/dashboard/booking") ? active : ""}`}
       >
         All orders
       </Link>
 
       <Link
         href="/dashboard/booking/create"
+        onClick={onNavigate}
         className={`${base} ${isStarts("/dashboard/booking/create") ? active : ""}`}
       >
         Create order
@@ -74,6 +85,7 @@ function NavLinks({
 
       <Link
         href="/dashboard/booking/power"
+        onClick={onNavigate}
         className={`${base} ${isStarts("/dashboard/booking/power") ? active : ""}`}
       >
         Power order
@@ -81,6 +93,7 @@ function NavLinks({
 
       <Link
         href="/dashboard/booking/editPrices"
+        onClick={onNavigate}
         className={`${base} ${isStarts("/dashboard/booking/editPrices") ? active : ""}`}
       >
         Edit prices
@@ -88,6 +101,7 @@ function NavLinks({
 
       <Link
         href="/dashboard/booking/booking_users"
+        onClick={onNavigate}
         className={`${base} ${isStarts("/dashboard/booking/booking_users") ? active : ""}`}
       >
         Edit users

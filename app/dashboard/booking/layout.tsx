@@ -9,7 +9,7 @@ const SIDEBAR_OPEN = 300;
 const SIDEBAR_CLOSED = 44;
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
@@ -23,7 +23,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </aside>
       <main className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
         <div className="flex">
-          <NavbarBooking open={navOpen} onToggle={() => {setNavOpen((p) => !p);setSidebarOpen(false);}}/>
+          <NavbarBooking open={navOpen} onToggle={() => {setNavOpen((p) => !p);setSidebarOpen(false);}} onClose={() => setNavOpen(false)}/>
         </div>
 
         <div className="w-full px-4">{children}</div>
@@ -37,7 +37,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW}/>
           </aside>
           <div className="flex grow">
-            <NavbarBooking open={navOpen} onToggle={() => {setNavOpen((p) => !p);setSidebarOpen(false);}}/>
+            <NavbarBooking open={navOpen} onToggle={() => {setNavOpen((p) => !p);setSidebarOpen(false);}} onClose={() => setNavOpen(false)}/>
           </div>
         </div>
       </div>    
