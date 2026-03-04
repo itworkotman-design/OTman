@@ -62,7 +62,7 @@ const updateSelect =
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-84 lg:top-0 inset-0 z-5 bg-black/40 flex items-center justify-center">
+    <div className="fixed inset-0 z-20 bg-black/40 flex items-center justify-center">
       <div className="bg-white w-full max-w-[1000] rounded-lg p-6">
         <div className="grid grid-cols-3 items-start">
           <div />
