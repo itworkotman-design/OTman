@@ -9,10 +9,12 @@ const SIDEBAR_OPEN = 300;
 const SIDEBAR_CLOSED = 44;
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpenPhone, setSidebarOpenPhone] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
+  const sidebarWPhone = sidebarOpenPhone ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
 
   return (
     <>
@@ -33,11 +35,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <div className="relative lg:hidden">
       <div className="fixed w-full z-10 ">
         <div className="flex ">
-          <aside className={`bg-white shadow-md  ${sidebarOpen? "h-dvh" : "h-[60]"}`}>
-            <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW}/>
+          <aside className={`bg-white shadow-md  ${sidebarOpenPhone? "h-dvh" : "h-[60]"}`}>
+            <Sidebar open={sidebarOpenPhone} onOpenChange={setSidebarOpenPhone} width={sidebarWPhone}/>
           </aside>
           <div className="flex grow">
-            <NavbarBooking open={navOpen} onToggle={() => {setNavOpen((p) => !p);setSidebarOpen(false);}} onClose={() => setNavOpen(false)}/>
+            <NavbarBooking open={navOpen} onToggle={() => {setNavOpen((p) => !p);setSidebarOpenPhone(false);}} onClose={() => setNavOpen(false)}/>
           </div>
         </div>
       </div>    

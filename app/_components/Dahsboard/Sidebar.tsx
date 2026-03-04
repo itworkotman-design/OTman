@@ -16,7 +16,10 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
   const linkBase =
     "block max-w-[400px] w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond";
 
-  const isActive = (href: string) => pathname.startsWith(href);
+const isActive = (href: string) => {
+  if (href === "/") return pathname === "/";
+  return pathname.startsWith(href);
+};
 
   return (
     <div style={{ width }} className={`h-full lg:bg-linePrimary ${open? `w-full`: `w-10`}`}>
@@ -84,10 +87,10 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             }`}
           >
             <div className="flex items-center">
-              <svg className="w-[24] h-[24] mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.013 6.175 7.006 9.369l5.007 3.194-5.007 3.193L2 12.545l5.006-3.193L2 6.175l5.006-3.194 5.007 3.194ZM6.981 17.806l5.006-3.193 5.006 3.193L11.987 21l-5.006-3.194Z"/>
-                <path d="m12.013 12.545 5.006-3.194-5.006-3.176 4.98-3.194L22 6.175l-5.007 3.194L22 12.562l-5.007 3.194-4.98-3.211Z"/>
-              </svg>
+              <svg className="w-[24] h-[24] mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M13 7h6l2 4m-8-4v8m0-8V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9h2m8 0H9m4 0h2m4 0h2v-4m0 0h-5m3.5 5.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Zm-10 0a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z"/>
+            </svg>
+
 
               Booking system
             </div>
@@ -137,6 +140,24 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
               <svg className="w-[24] h-[24] mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 20a16.405 16.405 0 0 1-5.092-5.804A16.694 16.694 0 0 1 5 6.666L12 4l7 2.667a16.695 16.695 0 0 1-1.908 7.529A16.406 16.406 0 0 1 12 20Z"/></svg>
               Security
           </div>
+          </Link>
+
+          <Link
+            href="/"
+            className={`${linkBase} ${
+              isActive("/")
+                ? "bg-linePrimary text-textcolor"
+                : "bg-transparent hover:bg-linePrimary"
+            }`}
+          >
+            <div className="flex items-center">
+              <svg className="w-[24] h-[24] mr-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="m4 12 8-8 8 8M6 10.5V19a1 1 0 0 0 1 1h3v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h3a1 1 0 0 0 1-1v-8.5"/>
+              </svg>
+
+              Website
+            </div>
+            
           </Link>
 
         </div>

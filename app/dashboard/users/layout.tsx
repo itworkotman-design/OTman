@@ -8,7 +8,8 @@ const SIDEBAR_OPEN = 300;
 const SIDEBAR_CLOSED = 44;
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpenPhone, setSidebarOpenPhone] = useState(false);
 
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
 
@@ -27,8 +28,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <div className="lg:hidden">
           <div className="fixed w-full z-10">
             <div className={`bg-white shadow-md w-full`}>
-              <div className={` ${sidebarOpen? "h-full pb-10": "ml-auto w-11"}`}>
-                <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={""}/>
+              <div className={` ${sidebarOpenPhone? "h-full pb-10": "ml-auto w-11"}`}>
+                <Sidebar open={sidebarOpenPhone} onOpenChange={setSidebarOpenPhone} width={""}/>
               </div>
             </div>
           </div>    
