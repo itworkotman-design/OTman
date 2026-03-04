@@ -30,12 +30,15 @@ export default function SiteLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
-    <Navbar/>
-    <main className="mx-auto w-full max-w-7xl px-5">
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+
+      <main className="mx-auto w-full max-w-7xl px-5 flex-1">
         {children}
-    </main>
-    <Footer/></>
+      </main>
+
+      <Footer />
+    </div>
 
   );
 }

@@ -112,7 +112,7 @@ export const Navbar = () => {
                     className={`
                       block px-3 py-6 md:py-0 text-lg md:text-sm
                       transition-colors duration-140
-                      ${isActive("/About")
+                      ${isActive("/kontakt")
                         ? "text-logoblue font-semibold"
                         : ""}
                     `}
@@ -127,7 +127,7 @@ export const Navbar = () => {
           {/*Grid Right*/}
           <div className="relative justify-self-end hidden md:block  md:justify-self-end items-center gap-4">
           <Link
-            href="/"
+            href="/kontakt"
             className={`
                 text-white! font-bold
                 flex items-center justify-center gap-4
