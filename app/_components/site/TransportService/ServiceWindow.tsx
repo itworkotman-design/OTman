@@ -154,7 +154,7 @@ export function ServiceWindow({
   return (
     <section>
       <div className="w-full">
-        <div className="p-4 rounded-2xl bg-logoblue shadow-sm">
+        <div className="p-4 rounded-2xl bg-logoblue">
           <h2 className="pb-4 lg:pb-0 text-center text-2xl font-bold text-white">{title}</h2>
 
           {/* MOBILE: centered carousel w/ peek + dots */}

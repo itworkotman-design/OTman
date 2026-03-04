@@ -37,11 +37,11 @@ body {
 }
 
 h1, h2, h3, h4, h5 , th, label {
-  font-family: var(--font-plus-jakarta), Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: plus-jakarta, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 p, ul, li, a, td {
-  font-family: var(--font-geist), Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: geist, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 @keyframes marquee {
