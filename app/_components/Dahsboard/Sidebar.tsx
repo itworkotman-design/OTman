@@ -46,7 +46,7 @@ const isActive = (href: string) => {
           <h1 className="py-1 mt-6 px-2 font-semibold text-sm text-textColorSecond border-b border-lineSecondary ">General</h1>
           <Link
             href=""
-            className={`${linkBase} hidden ${
+            className={`${linkBase}  ${
               isActive("/dashboard/home")
                 ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
@@ -62,7 +62,7 @@ const isActive = (href: string) => {
           </Link>
           <Link
             href=""
-            className={`${linkBase} hidden ${
+            className={`${linkBase}  ${
               isActive("/dashboard/notifications")
                 ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
@@ -98,7 +98,7 @@ const isActive = (href: string) => {
 
           <Link
             href=""
-            className={`${linkBase} hidden ${
+            className={`${linkBase}  ${
               isActive("/dashboard/connections")
                 ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
