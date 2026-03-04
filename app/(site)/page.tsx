@@ -5,10 +5,10 @@ import { StatsDisplay } from "../_components/TransportService/StatsDisplay"
 import { PartnersDisplay } from "../_components/TransportService/PartnersDisplay"
 
 const items = [
-  { title: "Collection & Pickup", href: "/services/collection-pickup" },
-  { title: "Package Delivery", href: "/services/package-delivery" },
-  { title: "Moving & Relocation", href: "/services/moving-relocation" },
-  { title: "Custom Transport", href: "/services/custom-transport" },
+  { title: "Collection & Pickup", href: "/services/collection-pickup", svg: "Service logos-01.svg" },
+  { title: "Package Delivery", href: "/services/package-delivery", svg: "Service logos-02.svg" },
+  { title: "Moving & Relocation", href: "/services/moving-relocation", svg: "Service logos-03.svg" },
+  { title: "Custom Transport", href: "/services/custom-transport", svg: "Service logos-04.svg" },
   // add more → it will scroll horizontally
 ];
 

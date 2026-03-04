@@ -162,7 +162,7 @@ export function ServiceWindow({
             <div ref={scrollerRef} className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[10vw] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ">
               {loopItems.map((item, idx) => (
                 <div key={`${item.href}-${idx}`} data-card className="shrink-0 snap-center">
-                  <ServiceWindowItem {...item} />
+                  <ServiceWindowItem {...item}  />
                 </div>
               ))}
             </div>
@@ -187,7 +187,7 @@ export function ServiceWindow({
           </div>
 
           {/* SM+ : grid */}
-          <div className="mt-6 hidden md:grid md:gap-6 grid-cols-3 lg:grid-cols-4 justify-items-center">
+          <div className="mt-4 hidden md:grid md:gap-6 grid-cols-3 lg:grid-cols-4 justify-items-center">
             {items.map((item) => (
               <ServiceWindowItem key={item.href} {...item} />
             ))}
