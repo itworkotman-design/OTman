@@ -71,6 +71,13 @@ export default function EditUserModal({
     autoGrow(); 
   }, [isOpen]);
 
+const updateRole =
+  (key: "role") => (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setForm((p) => ({ ...p, [key]: e.target.value }));
+  const updatePriceList =
+  (key: "priceList") => (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setForm((p) => ({ ...p, [key]: e.target.value }));
+
   if (!isOpen) return null;
 
   return (
@@ -120,9 +127,18 @@ export default function EditUserModal({
                   Permissions
                 </h2>
                 <label className="block pb-2 pl-2">Role</label>
-                  <input className="customInput w-full mb-2" value={form.role} onChange={updateField("role")} type="text" />
-                <label className="block pb-2 pl-2">Price List</label>
-                  <input className="customInput w-full mb-2" value={form.priceList} onChange={updateField("priceList")} type="text" />
+                <select className="customInput w-full mb-2" value={form.role} onChange={updateRole("role")} name="role" id="">
+                  <option value="select" disabled>select</option>
+                  <option value="admin">Admin</option>
+                  <option value="subcontractor">Subcontractor</option>
+                  <option value="power">Power</option>
+                </select>
+                <label className="block pb-2 pl-2">Price list</label>
+                <select className="customInput w-full mb-2" value={form.priceList} onChange={updatePriceList("priceList")} name="priceList" id="">
+                  <option value="select" disabled>select</option>
+                  <option value="default">default</option>
+                  <option value="power">Power</option>
+                </select>
               </div>
               <div className="flex-1">
                 <h2 className="pl-2 text-logoblue font-semibold pb-2">

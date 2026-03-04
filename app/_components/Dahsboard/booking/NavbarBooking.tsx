@@ -46,7 +46,7 @@ export const NavbarBooking = ({
       </div>
 
       {/* Desktop */}
-      <nav className="hidden lg:flex w-full lg:max-w-160 relative lg:left-1/2 lg:-translate-x-1/2 lg:py-4 lg:gap-6 shadow-md justify-center mb-8 rounded-b-2xl bg-white">
+      <nav className="hidden lg:flex w-full lg:max-w-220 relative lg:left-1/2 lg:-translate-x-1/2 lg:py-4 lg:gap-6 shadow-md justify-center mb-8 rounded-b-2xl bg-white">
         <NavLinks isExact={isExact} isStarts={isStarts} onNavigate={onClose} />
       </nav>
     </>
@@ -105,6 +105,13 @@ function NavLinks({
         className={`${base} ${isStarts("/dashboard/booking/booking_users") ? active : ""}`}
       >
         Edit users
+      </Link>
+      <Link
+        href="/dashboard/booking/subcontractor-history"
+        onClick={onNavigate}
+        className={`${base} ${isStarts("/dashboard/booking/subcontractor-history") ? active : ""}`}
+      >
+        Subcontractor view
       </Link>
     </>
   );
