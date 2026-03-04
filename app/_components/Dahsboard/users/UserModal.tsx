@@ -63,7 +63,7 @@ const updateSelect =
 
   return (
     <div className="fixed inset-0 z-20 bg-black/40 flex items-center justify-center">
-      <div className="bg-white w-full max-w-[1000] rounded-lg p-6">
+      <div className="bg-white w-full max-w-[1000px] rounded-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="grid grid-cols-3 items-start">
           <div />
           <h1 className="text-center font-semibold text-3xl text-logoblue">
