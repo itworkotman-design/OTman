@@ -36,7 +36,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
       </div>
         <div className={open? ``: `hidden`}>
           <div className="flex justify-center">
-          <Image src="/Logo.png" alt="Logo" width={200} height={200} />
+          <Image src="/LogoSVG.svg" alt="Logo" width={200} height={200} />
         </div>
 
         <div className="px-4">

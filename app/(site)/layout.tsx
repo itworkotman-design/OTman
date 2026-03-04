@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
-import { Navbar } from "../_components/Navbar"
-import { Footer } from '../_components/Footer'
+import { Navbar } from "../_components/site/Navbar"
+import { Footer } from '../_components/site/Footer'
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],

@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "app/_components/site/PersonItem.jsx"  ],
   "exclude": ["node_modules"]
 }
