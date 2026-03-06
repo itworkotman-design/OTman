@@ -65,11 +65,11 @@ export const Navbar = () => {
 
                 <li>
                   <Link
-                    href="/"
+                    href="/bil-utleie"
                     className={`
                       block px-3 py-6 md:py-0 text-lg md:text-sm
                       transition-colors duration-140
-                      ${isActive("/VehicleRental")
+                      ${isActive("/bil-utleie")
                         ? "text-logoblue font-bold"
                         : ""}
                     `}
