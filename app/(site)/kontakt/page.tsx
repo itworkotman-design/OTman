@@ -1,10 +1,12 @@
+import GoogleMap from "@/app/_components/site/GoogleMap";
+
 export default function Kontakt() {
   return (
     <>
-    <div className="lg:flex gap-10 my-10 lg:my-20"> 
-        <div className="text-lg text-logoblue font-semibold w-full flex-1 mb-16">
+    <div className="lg:flex pt-20 gap-10 items-center w-full"> 
+        <div className="text-lg text-logoblue font-semibold w-[340] mx-auto lg:w-full flex-1 flex flex-col justify-center mb-10 lg:mb-0">
             <h1 className="text-4xl lg:text-6xl mb-8 text-center">Contact us</h1>
-            <div className="justify-self-center lg:pl-30">
+            <div className=" lg:pl-30">
                 <div className="flex gap-4 mb-6 text-md lg:text-xl">
                     <svg className="w-8 h-8 " aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M7.978 4a2.553 2.553 0 0 0-1.926.877C4.233 6.7 3.699 8.751 4.153 10.814c.44 1.995 1.778 3.893 3.456 5.572 1.68 1.679 3.577 3.018 5.57 3.459 2.062.456 4.115-.073 5.94-1.885a2.556 2.556 0 0 0 .001-3.861l-1.21-1.21a2.689 2.689 0 0 0-3.802 0l-.617.618a.806.806 0 0 1-1.14 0l-1.854-1.855a.807.807 0 0 1 0-1.14l.618-.62a2.692 2.692 0 0 0 0-3.803l-1.21-1.211A2.555 2.555 0 0 0 7.978 4Z"/></svg>
                     <p>930 00 000</p>
@@ -20,7 +22,7 @@ export default function Kontakt() {
             </div>
         </div>
 
-        <div className="w-full lg:flex-1">
+        <div className="w-full lg:flex-1 flex flex-col justify-center">
             <form action="" method="post">
                 <div className="bg-logoblue rounded-2xl p-6 max-w-[480] mx-auto">
                     <h1 className="text-center text-white text-2xl pb-2">Contact form</h1>
@@ -48,6 +50,15 @@ export default function Kontakt() {
             </form>
         </div>
     </div>
+    <section className="my-20">
+        <h2 className="text-center text-4xl font-semibold text-logoblue mb-8">
+            Find us
+        </h2>
+
+        <div className="w-full h-[400] rounded-2xl overflow-hidden">
+            <GoogleMap/>
+        </div>
+    </section>
     </>
 )
 }

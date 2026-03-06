@@ -17,7 +17,7 @@ export const Navbar = () => {
         <div className="nav relative max-w-7xl px-[20] mx-auto grid grid-cols-2 md:grid-cols-3 items-center h-15 ">
           {/* Grid left - logo */}
           <Link href="/" className="justify-self-start">
-            <span className="text-sm text-heading font-semibold"><Image src="/LogoSVG.svg" width={116} height={50} alt="Logo"></Image></span>
+            <Image src="/LogoSVG.svg" width={116} height={50} alt="Logo" className="h-[50] w-auto"></Image>
           </Link>
 
           {/* Grid middle */}

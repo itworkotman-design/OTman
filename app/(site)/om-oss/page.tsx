@@ -6,7 +6,7 @@ export default function Kontakt() {
   return (
     <div className="">
       <section>
-        <div className="absolute left-0 w-full h-[400]">
+        <div className="absolute left-0 w-full h-[400] [clip-path:polygon(0_0,100%_0,100%_100%,0_85%)]">
 
             <Image
             src="/IMG-1.png"

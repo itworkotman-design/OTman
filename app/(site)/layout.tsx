@@ -34,7 +34,7 @@ export default function SiteLayout({
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <Link href="/dashboard/booking"><button className="absolute top-30 left-20 customButtonDefault " >Pagaidu poga uz dashboard</button></Link>
-      <main className="mx-auto w-full max-w-7xl px-5 flex-1">
+      <main className="mx-auto w-full max-w-7xl px-5 flex-1 flex flex-col">
         {children}
       </main>
 
