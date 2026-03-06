@@ -62,8 +62,8 @@ const updateSelect =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-20 bg-black/40 flex items-center justify-center">
-      <div className="bg-white w-full max-w-[1000] rounded-lg p-6 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+      <div className="customContainer bg-white w-full max-w-[1000]  max-h-[90vh] overflow-y-auto">
         <div className="grid grid-cols-3 items-start">
           <div />
           <h1 className="text-center font-semibold text-3xl text-logoblue whitespace-nowrap">
@@ -153,7 +153,7 @@ const updateSelect =
           </div>
           </div>
           <div className="flex justify-center mt-10">
-            <button onClick={() => { onSave(form); onClose(); }} className="w-96 customButtonEnabled" type="button">
+            <button onClick={() => { onSave(form); onClose(); }} className="w-96 customButtonEnabled h-10" type="button">
               Save Changes
             </button>
           </div>

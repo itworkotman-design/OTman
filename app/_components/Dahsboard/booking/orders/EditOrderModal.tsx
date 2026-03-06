@@ -35,7 +35,7 @@ export function EditOrderModal({ isOpen, order, onClose, onUpdate }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center backdrop-blur-sm">
       <div className="bg-white w-full max-w-6xl max-h-[90vh] rounded-3xl shadow-xl flex flex-col">
 
         {/* Header */}

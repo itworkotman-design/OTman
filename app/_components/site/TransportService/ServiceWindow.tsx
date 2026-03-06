@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ServiceWindowItem, type ServiceWindowItemProps } from "./ServiceWindowItem";
+import { ServiceModal } from "./ServiceModal";
 
 export function ServiceWindow({
   title = "Book a service",
@@ -13,21 +14,19 @@ export function ServiceWindow({
 }) {
   const isCarousel = items.length > 1;
 
-  // Build 3 copies for "infinite" feel; we start in the middle copy.
   const loopItems = useMemo(
     () => (isCarousel ? [...items, ...items, ...items] : items),
     [items, isCarousel]
   );
-  const base = items.length; // size of one copy
+  const base = items.length;
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
+  const [selectedService, setSelectedService] = useState<string | null>(null);
 
-  // Control flags/timers
   const isTeleportingRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Helper: compute stride between adjacent cards from DOM (handles gap + padding)
   const getStride = () => {
     const el = scrollerRef.current;
     if (!el) return 0;
@@ -36,20 +35,17 @@ export function ServiceWindow({
     return cards[1].offsetLeft - cards[0].offsetLeft;
   };
 
-  // Helper: run a scrollLeft change with snap & smooth disabled for one frame (no `any`)
   const doInstant = (el: HTMLElement, fn: () => void) => {
     const cs = getComputedStyle(el) as CSSStyleDeclaration & Partial<{ scrollBehavior: string }>;
     const prevSnap = cs.scrollSnapType || "";
     const prevBehavior = cs.scrollBehavior ?? "";
 
-    // Disable snapping & smoothing just for this operation
     el.style.setProperty("scroll-snap-type", "none");
     el.style.setProperty("scroll-behavior", "auto");
 
     fn();
 
     requestAnimationFrame(() => {
-      // Restore previous values (or clear inline overrides)
       if (prevSnap) el.style.setProperty("scroll-snap-type", prevSnap);
       else el.style.removeProperty("scroll-snap-type");
 
@@ -58,7 +54,6 @@ export function ServiceWindow({
     });
   };
 
-  // Jump to the middle copy on mount so you can scroll both ways.
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el || !isCarousel) return;
@@ -67,7 +62,6 @@ export function ServiceWindow({
       const stride = getStride();
       if (!stride) return;
 
-      // index = base (first item of middle copy)
       doInstant(el, () => {
         el.scrollLeft = stride * base;
       });
@@ -75,7 +69,6 @@ export function ServiceWindow({
     });
   }, [base, isCarousel]);
 
-  // Update active dot; teleport back to middle copy only AFTER scrolling goes idle.
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el || !isCarousel) return;
@@ -86,7 +79,6 @@ export function ServiceWindow({
       const cards = Array.from(el.querySelectorAll<HTMLElement>("[data-card]"));
       if (!cards.length) return;
 
-      // Find closest card to the visual center
       const center = el.scrollLeft + el.clientWidth / 2;
       let bestIdx = 0;
       let bestDist = Infinity;
@@ -103,15 +95,13 @@ export function ServiceWindow({
       const logical = ((bestIdx % base) + base) % base;
       if (logical !== active) setActive(logical);
 
-      // Restart idle debounce
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
       idleTimerRef.current = setTimeout(() => {
         const stride = getStride();
         if (!stride) return;
 
-        // Middle copy is [base, 2*base). Teleport only if outside.
         if (bestIdx < base || bestIdx >= 2 * base) {
-          const targetIdx = base + logical; // same item in middle copy
+          const targetIdx = base + logical;
           const target = cards[targetIdx];
           if (!target) return;
 
@@ -120,12 +110,11 @@ export function ServiceWindow({
             const left = target.offsetLeft - (el.clientWidth - target.offsetWidth) / 2;
             el.scrollLeft = left;
           });
-          // let layout settle one frame
           requestAnimationFrame(() => {
             isTeleportingRef.current = false;
           });
         }
-      }, 140); // tweakable: higher = more conservative, fewer teleports during momentum
+      }, 140);
     };
 
     el.addEventListener("scroll", handleScroll, { passive: true });
@@ -147,53 +136,71 @@ export function ServiceWindow({
     if (!target) return;
 
     const left = target.offsetLeft - (el.clientWidth - target.offsetWidth) / 2;
-    // user-initiated programmatic scroll should be smooth
     el.scrollTo({ left, behavior: "smooth" });
   };
 
   return (
-    <section>
-      <div className="w-full">
-        <div className="p-4 rounded-2xl bg-logoblue">
-          <h2 className="pb-4 lg:pb-0 text-center text-2xl font-bold text-white">{title}</h2>
+    <>
+      <section>
+        <div className="w-full">
+          <div className="p-4 rounded-2xl bg-logoblue">
+            <h2 className="pb-4 lg:pb-0 text-center text-2xl font-bold text-white">{title}</h2>
 
-          {/* MOBILE: centered carousel w/ peek + dots */}
-          <div className="md:hidden">
-            <div ref={scrollerRef} className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[10vw] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ">
-              {loopItems.map((item, idx) => (
-                <div key={`${item.href}-${idx}`} data-card className="shrink-0 snap-center">
-                  <ServiceWindowItem {...item}  />
-                </div>
-              ))}
-            </div>
-
-            {/* Pagination dots */}
-            {isCarousel && (
-              <div className="flex items-center justify-center gap-2 pt-4">
-                {items.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    aria-label={`Go to slide ${i + 1}`}
-                    onClick={() => scrollToLogical(i)}
-                    className={[
-                      "h-2 w-2 rounded-full transition",
-                      i === active ? "bg-white" : "bg-white/40 hover:bg-white/60",
-                    ].join(" ")}
-                  />
+            {/* MOBILE: centered carousel w/ peek + dots */}
+            <div className="md:hidden">
+              <div
+                ref={scrollerRef}
+                className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[10vw] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {loopItems.map((item, idx) => (
+                  <div key={`${item.title}-${idx}`} data-card className="shrink-0 snap-center">
+                    <ServiceWindowItem
+                      {...item}
+                      onClick={() => setSelectedService(item.title)}
+                    />
+                  </div>
                 ))}
               </div>
-            )}
-          </div>
 
-          {/* SM+ : grid */}
-          <div className="mt-4 hidden md:grid md:gap-6 grid-cols-3 lg:grid-cols-4 justify-items-center">
-            {items.map((item) => (
-              <ServiceWindowItem key={item.href} {...item} />
-            ))}
+              {/* Pagination dots */}
+              {isCarousel && (
+                <div className="flex items-center justify-center gap-2 pt-4">
+                  {items.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      aria-label={`Go to slide ${i + 1}`}
+                      onClick={() => scrollToLogical(i)}
+                      className={[
+                        "h-2 w-2 rounded-full transition",
+                        i === active ? "bg-white" : "bg-white/40 hover:bg-white/60",
+                      ].join(" ")}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* SM+ : grid */}
+            <div className="mt-4 hidden md:grid md:gap-6 grid-cols-3 lg:grid-cols-4 justify-items-center">
+              {items.map((item) => (
+                <ServiceWindowItem
+                  key={item.title}
+                  {...item}
+                  onClick={() => setSelectedService(item.title)}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {selectedService && (
+        <ServiceModal
+          service={selectedService}
+          onClose={() => setSelectedService(null)}
+        />
+      )}
+    </>
   );
 }

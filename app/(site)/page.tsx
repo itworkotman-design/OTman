@@ -1,15 +1,12 @@
-import { Suspense } from "react";
-import { CatalogSection, CatalogSectionSkeleton } from "../_components/CatalogSection";
 import { ServiceWindow } from "../_components/site/TransportService/ServiceWindow";
-import { StatsDisplay } from "../_components/site/TransportService/StatsDisplay"
-import { PartnersDisplay } from "../_components/site/TransportService/PartnersDisplay"
+import { StatsDisplay } from "../_components/site/TransportService/StatsDisplay";
+import { PartnersDisplay } from "../_components/site/TransportService/PartnersDisplay";
 
 const items = [
-  { title: "Collection & Pickup", href: "/services/collection-pickup", svg: "Service logos-01.svg" },
-  { title: "Package Delivery", href: "/services/package-delivery", svg: "Service logos-02.svg" },
-  { title: "Moving & Relocation", href: "/services/moving-relocation", svg: "Service logos-03.svg" },
-  { title: "Custom Transport", href: "/services/custom-transport", svg: "Service logos-04.svg" },
-  // add more → it will scroll horizontally
+  { title: "Collection & Pickup", svg: "Service logos-01.svg" },
+  { title: "Package Delivery", svg: "Service logos-02.svg" },
+  { title: "Moving & Relocation", svg: "Service logos-03.svg" },
+  { title: "Custom Transport", svg: "Service logos-04.svg" },
 ];
 
 export default function Home() {
@@ -24,11 +21,13 @@ export default function Home() {
       <ServiceWindow items={items} />
       <section className="py-10">
         <h3 className="text-center text-[20px] font-bold pb-2">Are you looking for a reliable transport partner?</h3>
-        <p className="text-center mx-auto w-full  max-w-200">From small packages to large projects – we take on everything.  Need help with moving? Need your car transported? Or do you have a package that needs to go out faster than lightning? We can handle it.</p>
+        <p className="text-center mx-auto w-full max-w-200">
+          From small packages to large projects – we take on everything. Need help with moving? Need your car
+          transported? Or do you have a package that needs to go out faster than lightning? We can handle it.
+        </p>
       </section>
-      <StatsDisplay/>
-       <PartnersDisplay/>
-
+      <StatsDisplay />
+      <PartnersDisplay />
     </>
   );
 }

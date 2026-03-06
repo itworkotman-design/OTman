@@ -81,7 +81,7 @@ const updateRole =
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-120 lg:top-0 lg:fixed inset-0 z-5 bg-black/40 flex items-center justify-center">
+    <div className="absolute top-120 lg:top-0 lg:fixed inset-0 z-5 bg-black/40 backdrop-blur-sm flex items-center justify-center">
       <div className="bg-white w-full max-w-3xl rounded-3xl shadow p-6">
         <div className="grid grid-cols-3 items-start">
           <div />
@@ -181,7 +181,7 @@ const updateRole =
           </div>
 
           <div className="flex justify-center mt-10">
-            <button onClick={() => { onSave(form); onClose(); }} className="w-96 customButtonEnabled" type="button">
+            <button onClick={() => { onSave(form); onClose(); }} className="w-96 customButtonEnabled h-10" type="button">
               Save Changes
             </button>
           </div>
