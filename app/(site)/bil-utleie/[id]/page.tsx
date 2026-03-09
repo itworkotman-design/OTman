@@ -35,7 +35,7 @@ export default async function VehicleDetailsPage({ params }: Props) {
         </h1>
       </div>
 
-      <div className="customContainer flex flex-col gap-10 mb-16">
+      <div className="lg:customContainer flex flex-col gap-10 mb-16">
         <div>
           <div className="mb-2">
             <Link href="/bil-utleie" className="text-center text-sm text-textcolor hover:text-logoblue transition">← Back to all vehicles</Link>
@@ -62,7 +62,7 @@ export default async function VehicleDetailsPage({ params }: Props) {
               <SpecRow label="Extra km price" value={`${extraKmPrice} kr/km`} />
             </div>
 
-            <div className="customContainer rounded-2xl p-6 border border-lineSecondary flex flex-col gap-4">
+            <div className="customContainer rounded-2xl p-6 flex flex-col gap-4">
               <div className="flex items-end gap-2">
                 <span className="text-textcolor">Price per day:</span>
                 <span className="text-logoblue text-4xl font-semibold leading-none">
@@ -70,7 +70,7 @@ export default async function VehicleDetailsPage({ params }: Props) {
                 </span>
                 <span className="text-textcolor">kr</span>
               </div>
-              <button className="customButtonEnabled w-full h-10">
+              <button className="customButtonEnabled lg:w-full h-10">
                 Order now
               </button>
             </div>

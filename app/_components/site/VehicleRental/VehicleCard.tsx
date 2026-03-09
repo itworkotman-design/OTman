@@ -103,13 +103,13 @@ const VehicleCard: React.FC<VehicleProps> = ({
             </div>
           </div>
         </div>
-        <Link href={`/bil-utleie/${id}`} className="customButtonDefault w-full h-10 flex items-center justify-center">
+        <Link href={`/bil-utleie/${id}`} className="customButtonDefault w-full  h-10 hidden lg:flex items-center justify-center">
             Order
           </Link>
       </div>
       <div className="relative lg:hidden order-3">
         <div className="relative lg:hidden order-3">
-          <Link href={`/bil-utleie/${id}`} className="customButtonDefault w-full h-10 flex items-center justify-center">
+          <Link href={`/bil-utleie/${id}`} className="customButtonDefault w-full h-10 flex lg:hidden items-center justify-center">
             Order
           </Link>
         </div>

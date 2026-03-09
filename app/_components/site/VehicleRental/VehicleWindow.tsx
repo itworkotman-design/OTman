@@ -90,13 +90,13 @@ export default function VehicleWindow() {
       </div>
 
       <div className="flex mb-4 items-end">
-        <div className="flex items-center gap-8 customContainer w-full">
-          <div>
+        <div className="flex flex-wrap lg:flex-row items-center gap-8 customContainer w-full">
+          <div className="w-full lg:w-auto">
             <label className="pr-2 text-textcolor">Car seats:</label>
             <select
               value={filters.seats}
               onChange={(e) => update("seats", e.target.value)}
-              className="px-2 customInput appearance-none"
+              className="px-2 customInput w-full lg:w-auto appearance-none"
             >
               <option value="0">Choose</option>
               <option value="1">2</option>
@@ -106,12 +106,12 @@ export default function VehicleWindow() {
             </select>
           </div>
 
-          <div>
+          <div className="w-full lg:w-auto">
             <label className="pr-2 text-textcolor">Fuel Type:</label>
             <select
               value={filters.fuelType}
               onChange={(e) => update("fuelType", e.target.value)}
-              className="px-2 customInput appearance-none"
+              className="px-2 customInput w-full lg:w-auto appearance-none"
             >
               <option value="0">Choose</option>
               <option value="1">Electric</option>
@@ -122,12 +122,12 @@ export default function VehicleWindow() {
             </select>
           </div>
 
-          <div>
+          <div className="w-full lg:w-auto">
             <label className="pr-2 text-textcolor">Car Type:</label>
             <select
               value={filters.vehicleType}
               onChange={(e) => update("vehicleType", e.target.value)}
-              className="px-2 customInput appearance-none"
+              className="px-2 customInput w-full lg:w-auto appearance-none"
             >
               <option value="0">Choose</option>
               <option value="1">Small car</option>
@@ -138,12 +138,12 @@ export default function VehicleWindow() {
             </select>
           </div>
 
-          <div>
+          <div className="w-full lg:w-auto">
             <label className="pr-2 text-textcolor">Gear box:</label>
             <select
               value={filters.gearbox}
               onChange={(e) => update("gearbox", e.target.value)}
-              className="px-2 customInput appearance-none"
+              className="px-2 customInput w-full lg:w-auto appearance-none"
             >
               <option value="0">Choose</option>
               <option value="1">Automatic</option>
