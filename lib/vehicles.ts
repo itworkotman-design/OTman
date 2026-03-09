@@ -4,9 +4,9 @@ export const vehicles: VehicleProps[] = [
   {
     id: 1,
     name: "VW Crafter 11m3",
-    imageUrl: "/images/vw-crafter.png",
+    imageUrl: "/Vehicle_default_crafter.jpg",
     images: [
-      "/images/vw-crafter.png",
+      "/Vehicle_default_crafter.jpg",
       "/images/vw-crafter-side.png",
       "/images/vw-crafter-interior.png",
       "/images/vw-crafter-cargo.png",
@@ -23,9 +23,9 @@ export const vehicles: VehicleProps[] = [
   {
     id: 2,
     name: "VW 2m3",
-    imageUrl: "/images/vw-crafter.png",
+    imageUrl: "/Vehicle_default_caddy.jpg",
     images: [
-      "/images/vw-crafter.png",
+      "/Vehicle_default_caddy.jpg",
       "/images/vw-crafter-side.png",
       "/images/vw-crafter-interior.png",
     ],
