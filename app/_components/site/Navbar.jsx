@@ -14,20 +14,15 @@ export const Navbar = () => {
   return (
     <>
       <nav className="w-full start-0 z-50 shadow-sm">
-        <div className="nav relative max-w-7xl px-[20] mx-auto grid grid-cols-2 md:grid-cols-3 items-center h-15 ">
+        <div className="nav relative max-w-7xl px-[20] mx-auto flex items-center h-15 ">
           {/* Grid left - logo */}
           <Link href="/" className="justify-self-start">
             <Image src="/LogoSVG.svg" width={116} height={50} alt="Logo" className="h-[50] w-auto"></Image>
           </Link>
 
           {/* Grid middle */}
-          <div className="relative justify-self-end md:justify-self-center flex items-center gap-4 md:w-150">
-            <button
-              onClick={() => setOpen((prev) => !prev)}
-              aria-expanded={open}
-              aria-controls="navbar-menu"
-              className="md:hidden"
-            >
+          <div className="flex items-center md:grow ml-auto ">
+            <button onClick={() => setOpen((prev) => !prev)} aria-expanded={open} aria-controls="navbar-menu" className="md:hidden ">
               <span className="sr-only">Open main menu</span>
               <svg className="w-8 h-8" viewBox="0 0 24 24">
                 <path
@@ -40,13 +35,7 @@ export const Navbar = () => {
             </button>
 
             {/* Collapse menu */}
-            <div
-              id="navbar-menu"
-              className={`${open ? "block" : "hidden"} 
-                absolute -right-5 top-full w-screen mt-3 
-                md:mt-0 md:static md:block md:w-auto  
-                md:border-t-0 border-t border-logoblue bg-white shadow-sm md:shadow-none`}
-            >
+            <div id="navbar-menu" className={`${open ? "block" : "hidden"} absolute right-0 top-full md:mt-0 md:static md:block md:w-auto w-full mx-auto md:border-t-0 border-t border-logoblue bg-white shadow-sm md:shadow-none`}>
               <ul className="flex flex-col gap-0 p-0 items-end md:flex-row md:gap-8 md:pr-4 md:border-b-0 pr-4">
                 <li>
                   <Link
@@ -62,7 +51,6 @@ export const Navbar = () => {
                     Transport Services
                   </Link>
                 </li>
-
                 <li>
                   <Link
                     href="/bil-utleie"
@@ -77,14 +65,13 @@ export const Navbar = () => {
                     Vehicle Rental
                   </Link>
                 </li>
-
                 <li>
                   <Link
-                    href="/"
+                    href="/manpower"
                     className={`
                       block px-3 py-6 md:py-0 text-lg md:text-sm
                       transition-colors duration-140
-                      ${isActive("/ManpoweRental")
+                      ${isActive("/manpower")
                         ? "text-logoblue font-bold"
                         : ""}
                     `}
@@ -104,6 +91,17 @@ export const Navbar = () => {
                     `}
                   >
                     About
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard/booking"
+                    className={`
+                      block px-3 py-6 md:py-0 text-lg md:text-sm
+                      transition-colors duration-140 text-pink-600
+                    `}
+                  >
+                    Dashboard
                   </Link>
                 </li>
                 <li className="block md:hidden">
