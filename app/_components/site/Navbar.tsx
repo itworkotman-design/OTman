@@ -5,6 +5,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import type { Locale, LocalizedText } from "@/lib/content/NavbarContent";
+import LanguageSwitcher from "@/app/_components/site/LanguageSwitcher";
 
 type NavLink = {
   id: string;
@@ -31,7 +32,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
   return (
     <nav className="w-full start-0 z-50 shadow-sm">
       <div className="nav relative max-w-7xl px-[20] mx-auto flex items-center h-15">
-        <Link href="/" className="justify-self-start">
+        <Link href={`/${locale}`} className="justify-self-start">
           <Image
             src="/LogoSVG.svg"
             width={116}
@@ -66,21 +67,24 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
             } absolute right-0 top-full md:mt-0 md:static md:block md:w-auto w-full mx-auto md:border-t-0 border-t border-logoblue bg-white shadow-sm md:shadow-none`}
           >
             <ul className="flex flex-col gap-0 p-0 items-end md:flex-row md:gap-8 md:pr-4 md:border-b-0 pr-4">
-              {content.links.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    href={link.href}
-                    className={`
-                      block px-3 py-6 md:py-0 text-lg md:text-sm
-                      transition-colors duration-140
-                      ${isActive(link.href) ? "text-logoblue font-bold" : ""}
-                    `}
-                  >
-                    {link.label[locale]}
-                  </Link>
-                </li>
-              ))}
+              {content.links.map((link) => {
+                const fullHref = `/${locale}${link.href}`;
 
+                return (
+                  <li key={link.id}>
+                    <Link
+                      href={fullHref}
+                      className={`
+                        block px-3 py-6 md:py-0 text-lg md:text-sm
+                        transition-colors duration-140
+                        ${isActive(fullHref) ? "text-logoblue font-bold" : ""}
+                      `}
+                    >
+                      {link.label[locale]}
+                    </Link>
+                  </li>
+                );
+              })}
               <li>
                 <Link
                   href="/dashboard/booking"
@@ -92,23 +96,27 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
 
               <li className="block md:hidden">
                 <Link
-                  href="/kontakt"
+                  href={`/${locale}/kontakt`}
                   className={`
                     block px-3 py-6 md:py-0 text-lg md:text-sm
                     transition-colors duration-140
-                    ${isActive("/kontakt") ? "text-logoblue font-bold" : ""}
+                    ${isActive(`/${locale}/kontakt`) ? "text-logoblue font-bold" : ""}
                   `}
                 >
                   {content.contactLabel[locale]}
                 </Link>
               </li>
+              <li className={`block md:hidden px-10 py-4 md:py-0 text-lg md:text-sm transition-colors duration-140 border-t border-logoblue`}>
+                <LanguageSwitcher />
+              </li>
             </ul>
           </div>
         </div>
 
-        <div className="relative justify-self-end hidden md:block md:justify-self-end items-center gap-4">
+        <div className="relative justify-self-end hidden md:flex items-center gap-4">
+          <LanguageSwitcher />
           <Link
-            href="/kontakt"
+            href={`/${locale}/kontakt`}
             className="text-white! font-bold flex items-center justify-center gap-4 bg-logoblue w-22.5 h-7.75 rounded-[26px] text-sm transition-colors duration-140"
           >
             {content.contactLabel[locale]}
