@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ServiceWindowItem, type ServiceWindowItemProps } from "./ServiceWindowItem";
+import { ServiceWindowItem } from "./ServiceWindowItem";
 import { ServiceModal } from "./ServiceModal";
 
 type Locale = "en" | "no";

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Navbar } from "../_components/site/Navbar"
+import { Navbar } from "@/app/_components/site/Navbar";
+import { navbarContent } from "@/lib/content/NavbarContent";
 import { Footer } from '../_components/site/Footer'
 
 export const metadata: Metadata = {
@@ -14,7 +15,7 @@ export default function SiteLayout({
 }>) {
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
+      <Navbar locale="no" content={navbarContent} />
       <main className="mx-auto w-full max-w-7xl px-5 flex-1 flex flex-col">
         {children}
       </main>
