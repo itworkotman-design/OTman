@@ -1,5 +1,6 @@
 import { PersonItem } from "@/app/_components/site/PersonItem";
 import { PartnersDisplay } from "@/app/_components/site/TransportService/PartnersDisplay";
+import { partnersContent } from "@/lib/content/PartnersContent";
 import Image from "next/image";
 
 export default function About() {
@@ -49,7 +50,7 @@ export default function About() {
                 </div>
             </div>
         </section>
-        <PartnersDisplay/>
+        <PartnersDisplay content={partnersContent} locale="no" />
     </div>
 )
 }
