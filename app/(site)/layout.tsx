@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Navbar } from "@/app/_components/site/Navbar";
 import { navbarContent } from "@/lib/content/NavbarContent";
 import { Footer } from '../_components/site/Footer'
+import { footerContent } from "@/lib/content/FooterContent";
 
 export const metadata: Metadata = {
   title: "Otman Transport",
@@ -19,8 +20,7 @@ export default function SiteLayout({
       <main className="mx-auto w-full max-w-7xl px-5 flex-1 flex flex-col">
         {children}
       </main>
-
-      <Footer />
+      <Footer locale="no" content={footerContent} />
     </div>
 
   );
