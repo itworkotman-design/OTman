@@ -5,20 +5,48 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ServiceWindowItem, type ServiceWindowItemProps } from "./ServiceWindowItem";
 import { ServiceModal } from "./ServiceModal";
 
+type Locale = "en" | "no";
+
+type LocalizedText = {
+  en: string;
+  no: string;
+};
+
+export type ServiceItem = {
+  id: string;
+  title: LocalizedText;
+  svg: string;
+};
+
+type ServiceWindowProps = {
+  title: LocalizedText;
+  items: ServiceItem[];
+  locale: Locale;
+};
+
 export function ServiceWindow({
-  title = "Book a service",
+  title,
   items,
-}: {
-  title?: string;
-  items: ServiceWindowItemProps[];
-}) {
+  locale,
+}: ServiceWindowProps) {
   const isCarousel = items.length > 1;
 
+const localizedItems = useMemo(
+  () =>
+    items.map((item) => ({
+      id: item.id,
+      title: item.title[locale],
+      svg: item.svg,
+    })),
+  [items, locale]
+);
+
   const loopItems = useMemo(
-    () => (isCarousel ? [...items, ...items, ...items] : items),
-    [items, isCarousel]
+    () => (isCarousel ? [...localizedItems, ...localizedItems, ...localizedItems] : localizedItems),
+    [localizedItems, isCarousel]
   );
-  const base = items.length;
+
+  const base = localizedItems.length;
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
@@ -82,6 +110,7 @@ export function ServiceWindow({
       const center = el.scrollLeft + el.clientWidth / 2;
       let bestIdx = 0;
       let bestDist = Infinity;
+
       for (let i = 0; i < cards.length; i++) {
         const c = cards[i];
         const cCenter = c.offsetLeft + c.offsetWidth / 2;
@@ -144,9 +173,10 @@ export function ServiceWindow({
       <section>
         <div className="w-full">
           <div className="p-4 rounded-2xl bg-logoblue">
-            <h2 className="pb-4 lg:pb-0 text-center text-2xl font-bold text-white">{title}</h2>
+            <h2 className="pb-4 lg:pb-0 text-center text-2xl font-bold text-white">
+              {title[locale]}
+            </h2>
 
-            {/* MOBILE: centered carousel w/ peek + dots */}
             <div className="md:hidden">
               <div
                 ref={scrollerRef}
@@ -162,10 +192,9 @@ export function ServiceWindow({
                 ))}
               </div>
 
-              {/* Pagination dots */}
               {isCarousel && (
                 <div className="flex items-center justify-center gap-2 pt-4">
-                  {items.map((_, i) => (
+                  {localizedItems.map((_, i) => (
                     <button
                       key={i}
                       type="button"
@@ -181,13 +210,13 @@ export function ServiceWindow({
               )}
             </div>
 
-            {/* SM+ : grid */}
             <div className="mt-4 hidden md:grid md:gap-6 grid-cols-3 lg:grid-cols-4 justify-items-center">
               {items.map((item) => (
                 <ServiceWindowItem
-                  key={item.title}
-                  {...item}
-                  onClick={() => setSelectedService(item.title)}
+                  key={item.id}
+                  title={item.title[locale]}
+                  svg={item.svg}
+                  onClick={() => setSelectedService(item.id)}
                 />
               ))}
             </div>

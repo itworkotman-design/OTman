@@ -12,7 +12,7 @@ const DEFAULT_FILTERS = {
   sort: "lowest",
 };
 
-export default function VehicleWindow() {
+export default function CarRentalPage() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [applied, setApplied] = useState(DEFAULT_FILTERS);
 
@@ -70,7 +70,7 @@ export default function VehicleWindow() {
   );
 
   return (
-    <div>
+    <div className="mt-10">
       {/* Filter bar */}
       <div className="flex mb-4 items-end">
         <div className="flex-1 text-lineSecondary items-end">
