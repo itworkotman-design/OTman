@@ -35,8 +35,11 @@ export default function Kontakt() {
         </section>
         <section>
             <div className="mx-auto px-6 my-20">
-                <h1 className="text-center text-4xl font-semibold text-logoblue mb-8">Our Team</h1>
-                <div className="grid grid-cols-3">
+                <h1 className="text-center text-4xl font-semibold text-logoblue mb-8">
+                    Our Team
+                </h1>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
                     <PersonItem src="/IMG-1.png" name="Janis Otmanis" position="Owner" email="janis@otman.no"/>
                     <PersonItem src="/IMG-1.png" name="Janis Otmanis" position="Owner" email="janis@otman.no"/>
                     <PersonItem src="/IMG-1.png" name="Janis Otmanis" position="Owner" email="janis@otman.no"/>
