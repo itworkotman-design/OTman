@@ -48,7 +48,7 @@ export default function GoogleMap() {
 
       if (cancelled || !mapRef.current) return;
 
-      const center = { lat: 59.9718, lng: 11.0493 };
+      const center = { lat: 60.0039, lng: 11.0405 };
 
       const map = new Map(mapRef.current, {
         center,
