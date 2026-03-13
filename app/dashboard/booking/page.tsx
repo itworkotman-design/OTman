@@ -67,8 +67,8 @@ const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
 
   // example employees
   const employees = [
-    { id: "1", name: "Janis Otmans" },
-    { id: "2", name: "Ralfs Kolveits" },
+    { id: "1", name: "Janis Otmans", email: "itworkotman@gmail.com" },
+    { id: "2", name: "Ralfs Kolveits", email: "r.kolveits@gmail.com" },
   ];
 
   /**
@@ -141,8 +141,30 @@ const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
   };
 
   /*Messages*/
-  const handleSendEmail = async (recipient: string, type: string) => {
-    console.log("Send email:", { recipient, type, selectedIds });
+  const handleSendEmail = async (recipientId: string, type: string) => {
+    const employee = employees.find((e) => e.id === recipientId);
+    if (!employee) return;
+
+    const selectedOrders = orders.filter((o) => selectedIds.includes(o.id));
+
+    const res = await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+      recipientName:  employee.name,
+      recipientEmail: employee.email,
+      type,
+      customMessage: type,
+      orders: selectedOrders,
+    }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+        alert("E-post sendt!");
+      } else {
+        console.error("Email error:", data.error);
+        alert("Noe gikk galt. Prøv igjen.");
+    }
   };
 
   const handleSendGSM = async (recipient: string) => {
@@ -150,12 +172,29 @@ const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
   };
 
   const handleCopySelected = () => {
-    console.log("Copy selected bookings:", selectedIds);
+    if (selectedIds.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to add a copy of ${selectedIds.length > 1 ? "these orders" : "this order"} to the order list?`
+    );
+
+    if (!confirmed) return;
+
+    const copies = orders
+      .filter((o) => selectedIds.includes(o.id))
+      .map((o) => ({
+        ...o,
+        //HAVE TO CHANGE LATER!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        id: `${o.id}-copy-`,
+      }));
+
+    setOrders((prev) => [...prev, ...copies]);
+    setSelectedIds([]);
   };
   
-const handleExportExcel = () => {
-  exportOrdersToExcel(orders.filter((r) => selectedIds.includes(r.id)));
-};
+  const handleExportExcel = () => {
+    exportOrdersToExcel(orders.filter((r) => selectedIds.includes(r.id)));
+  };
 
   return (
     <div>
