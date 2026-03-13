@@ -46,7 +46,7 @@ const isActive = (href: string) => {
           <h1 className="py-1 mt-6 px-2 font-semibold text-sm text-textColorSecond border-b border-lineSecondary ">General</h1>
           <Link
             href=""
-            className={`${linkBase}  ${
+            className={`${linkBase} hidden  ${
               isActive("/dashboard/home")
                 ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
@@ -62,7 +62,7 @@ const isActive = (href: string) => {
           </Link>
           <Link
             href=""
-            className={`${linkBase}  ${
+            className={`${linkBase} hidden  ${
               isActive("/dashboard/notifications")
                 ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
@@ -98,7 +98,7 @@ const isActive = (href: string) => {
 
           <Link
             href=""
-            className={`${linkBase}  ${
+            className={`${linkBase} hidden ${
               isActive("/dashboard/connections")
                 ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
@@ -155,7 +155,7 @@ const isActive = (href: string) => {
                 <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="m4 12 8-8 8 8M6 10.5V19a1 1 0 0 0 1 1h3v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h3a1 1 0 0 0 1-1v-8.5"/>
               </svg>
 
-              Website
+              Edit website
             </div>
             
           </Link>

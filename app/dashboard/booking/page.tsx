@@ -10,6 +10,7 @@ import { MessageSender } from "../../_components/Dahsboard/booking/orders/Messag
 import { ArchiveTable } from "../../_components/Dahsboard/booking/orders/ArchiveTable";
 import { EditOrderModal } from "../../_components/Dahsboard/booking/orders/EditOrderModal";
 import type { OrderFormInitialValues } from "@/app/_components/Dahsboard/booking/create/OrderForm";
+import { exportOrdersToExcel } from "@/lib/exportToExcel";
 
 import { ORDERS as MOCK_ORDERS } from "@/lib/_mockdb";
 import type { OrderRow, OrderStatus } from "@/lib/_mockdb";
@@ -24,6 +25,9 @@ const DEFAULT_FILTERS: AppliedFilters = {
   rowsPerPage: 5,
   page: 1,
 };
+
+
+
 
 export default function AllOrders() {
   // "DB" state for now (so updates rerender the table)
@@ -148,10 +152,10 @@ const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
   const handleCopySelected = () => {
     console.log("Copy selected bookings:", selectedIds);
   };
-
-  const handleExportExcel = () => {
-    console.log("Export selected to Excel:", selectedIds);
-  };
+  
+const handleExportExcel = () => {
+  exportOrdersToExcel(orders.filter((r) => selectedIds.includes(r.id)));
+};
 
   return (
     <div>
@@ -185,6 +189,7 @@ const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
         onSendEmail={(id, type) => handleSendEmail(id, type)}
         onSendGsm={(id) => handleSendGSM(id)}
         onCopySelected={handleCopySelected}
+        selectedCount={selectedIds.length}
         onExportExcel={handleExportExcel}
       />
 

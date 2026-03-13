@@ -12,7 +12,9 @@ type MessageSenderProps = {
   onSendEmail: (employeeId: string, type: string) => void | Promise<void>;
   onSendGsm: (employeeId: string) => void | Promise<void>;
   onCopySelected: () => void;
+  selectedCount: number;
   onExportExcel: () => void;
+
 };
 
 export function MessageSender({
@@ -21,13 +23,11 @@ export function MessageSender({
   onSendGsm,
   onCopySelected,
   onExportExcel,
+  selectedCount,
 }: MessageSenderProps) {
   const [employeeId, setEmployeeId] = useState("");
   const [emailType, setEmailType] = useState("");
   const [customMessage, setCustomMessage] = useState("");
-
-  const canSendEmail = employeeId !== "" && emailType !== "" && (emailType !== "custom" || customMessage.trim() !== "");;
-  const canSendSMS = employeeId !== "";
 
   return (
     <section className="customContainer mt-4 max-w-250">
@@ -83,7 +83,7 @@ export function MessageSender({
         )}
 
         <button
-          disabled={!canSendEmail}
+          disabled={selectedCount === 0}
           onClick={() => onSendEmail(employeeId, emailType === "custom" ? customMessage : emailType)}
           className="customButtonEnabled h-10 disabled:bg-logoblue/60! disabled:cursor-auto! mt-5"
         >
@@ -94,23 +94,25 @@ export function MessageSender({
       {/* Actions row */}
       <div className="mt-3 flex flex-wrap gap-2">
         <button
-          disabled={!canSendSMS}
+          disabled={selectedCount === 0}
           onClick={() => onSendGsm(employeeId)}
-          className="customButtonEnabled h-10 disabled:bg-logoblue/60! disabled:cursor-auto!"
+          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
         >
           Send to GSM
         </button>
 
         <button
           onClick={onCopySelected}
-          className="customButtonDefault h-10 disabled:bg-logoblue/60! disabled:cursor-auto!"
+          disabled={selectedCount === 0}
+          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
         >
           Copy selected
         </button>
 
         <button
           onClick={onExportExcel}
-          className="customButtonDefault h-10 disabled:bg-logoblue/60! disabled:cursor-auto!"
+          disabled={selectedCount === 0}
+          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
         >
           Export Excel
         </button>
