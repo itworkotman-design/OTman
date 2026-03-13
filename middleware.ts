@@ -7,25 +7,26 @@ const defaultLocale = "no";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ignore next internals and files
+  // Ignore Next internals, files, API, dashboard
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
+    pathname.startsWith("/dashboard") ||
     pathname.includes(".")
   ) {
     return NextResponse.next();
   }
 
-  // if already /en or /no, allow
+  // Allow already-localized routes
   const hasLocale = locales.some(
-    (locale) => pathname.startsWith(`/${locale}`)
+    (locale) => pathname === `/${locale}` || pathname.startsWith(`/${locale}/`)
   );
 
   if (hasLocale) {
     return NextResponse.next();
   }
 
-  // redirect / -> /no
+  // Redirect public routes to default locale
   const url = request.nextUrl.clone();
   url.pathname = `/${defaultLocale}${pathname}`;
 
