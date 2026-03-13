@@ -42,23 +42,32 @@ export default function AllOrders() {
 
   // handler for the modal
 const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
+  const now = new Date();
+  const lastEdited = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
   setOrders((prev) =>
     prev.map((o) =>
       o.id === orderId
         ? {
             ...o,
-            orderNo:         data.orderNumber    ?? o.orderNo,
-            description:     data.description    ?? o.description,
-            deliveryDate:    data.deliveryDate   ?? o.deliveryDate,
-            timeWindow:      data.timeWindow     ?? o.timeWindow,
-            deliveryAddress: data.deliveryAddress ?? o.deliveryAddress,
-            name:            data.customerName   ?? o.name,
-            phone:           data.phone          ?? o.phone,
-            cashierName:     data.cashierName    ?? o.cashierName,
-            cashierPhone:    data.cashierPhone   ?? o.cashierPhone,
-            subcontractor:   data.subcontractor  ?? o.subcontractor,
-            driverInfo:      data.driverInfo     ?? o.driverInfo,
-            status:          (data.status as OrderRow["status"]) ?? o.status,
+            lastEdited,
+            orderNo:            data.orderNumber       ?? o.orderNo,
+            description:        data.description       ?? o.description,
+            deliveryDate:       data.deliveryDate       ?? o.deliveryDate,
+            timeWindow:         data.timeWindow         ?? o.timeWindow,
+            deliveryAddress:    data.deliveryAddress    ?? o.deliveryAddress,
+            name:               data.customerName       ?? o.name,
+            phone:              data.phone              ?? o.phone,
+            cashierName:        data.cashierName        ?? o.cashierName,
+            cashierPhone:       data.cashierPhone       ?? o.cashierPhone,
+            subcontractor:      data.subcontractor      ?? o.subcontractor,
+            driverInfo:         data.driverInfo         ?? o.driverInfo,
+            status:             (data.status as OrderRow["status"]) ?? o.status,
+            cardItems:          data.cardItems          ?? o.cardItems,
+            cardDeliveryType:   data.cardDeliveryType   ?? o.cardDeliveryType,
+            cardProducts:       data.cardProducts       ?? o.cardProducts,
+            priceExVat:         data.priceExVat         ?? o.priceExVat,
+            priceSubcontractor: data.priceSubcontractor ?? o.priceSubcontractor,
           }
         : o
     )

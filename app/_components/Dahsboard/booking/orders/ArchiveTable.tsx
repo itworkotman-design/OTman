@@ -166,11 +166,10 @@ const STATUS_CLASSES: Record<string, string> = {
               </Th>
               <Th className="w-50">Driver info</Th>
               <Th>Order date</Th>
-              <Th>Last edited</Th>
-              <Th className="text-right">
-                Price ex <br /> VAT
-              </Th>
               <Th className="text-right">Subcontractor</Th>
+              <Th>Last edited</Th>
+              <Th className="text-right">Pris uten MVA</Th>
+              <Th className="text-right">Pris subcontractor</Th>
             </tr>
           </thead>
 
@@ -225,14 +224,13 @@ const STATUS_CLASSES: Record<string, string> = {
                   <Td>{r.driverInfo || "—"}</Td>
 
                   <Td>{formatDate(r.orderDate)}</Td>
-                  <Td>{r.lastEdited}</Td>
-
-                  <Td className="text-right">
-                    {formatMoney(r.priceExVat)}
-                  </Td>
                   <Td className="text-right">
                     {r.subcontractor || "—"}
                   </Td>
+                  <Td>{r.lastEdited}</Td>
+                  
+                  <Td className="text-right">{r.priceExVat} kr</Td>
+                  <Td className="text-right">{r.priceSubcontractor} kr</Td>
 
                   <td className="hidden">
                     <button

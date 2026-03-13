@@ -32,6 +32,9 @@ export function EditOrderModal({ isOpen, order, onClose, onUpdate }: Props) {
     subcontractor:   order.subcontractor,
     driverInfo:      order.driverInfo,
     status:          order.status,
+    cardItems:        order.cardItems,
+    cardDeliveryType: order.cardDeliveryType,
+    cardProducts:     order.cardProducts,
   };
 
   return (

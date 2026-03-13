@@ -5,19 +5,15 @@ import { ProductCard } from "@/app/_components/Dahsboard/booking/create/ProductC
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { CalculatorDisplay } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
 import { PRICE_ITEMS_DEFAULT } from "@/lib/prices_default/pricingDefault";
-import { PRICE_ITEMS_POWER} from "@/lib/prices_power/pricingPower";
+import { PRICE_ITEMS_POWER } from "@/lib/prices_power/pricingPower";
 import { PRODUCTS_DEFAULT } from "@/lib/prices_default/productsDefault";
 import type { DeliveryType, LineItem } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 
-/*Bitmap*/
 export const OrderFields = {
-  // sections
   Products:            1 << 0,
   AddProductButton:    1 << 1,
   PickupLocations:     1 << 2,
   Calculator:          1 << 3,
-
-  // order details
   OrderNumber:         1 << 4,
   Description:         1 << 5,
   ModelNr:             1 << 6,
@@ -25,30 +21,20 @@ export const OrderFields = {
   DeliveryTimeWindow:  1 << 8,
   DeliveryAddress:     1 << 9,
   DrivingDistance:     1 << 10,
-
-  // customer
   CustomerName:        1 << 11,
   CustomerPhone1:      1 << 12,
   CustomerPhone2:      1 << 13,
   CustomerEmail:       1 << 14,
   CustomerComments:    1 << 15,
-
-  // delivery details
   FloorNo:             1 << 16,
   Lift:                1 << 17,
-
-  // cashier
   CashierName:         1 << 18,
   CashierPhone:        1 << 19,
-
-  // ops
   Subcontractor:       1 << 20,
   Driver1:             1 << 21,
   Driver2:             1 << 22,
   DriverInfo:          1 << 23,
   LicensePlate:        1 << 24,
-
-  // misc
   Deviation:           1 << 25,
   FeeExtraWork:        1 << 26,
   FeeAddToOrder:       1 << 27,
@@ -63,10 +49,8 @@ export type HiddenMask = number;
 function shown(hiddenMask: HiddenMask, flag: number) {
   return (hiddenMask & flag) === 0;
 }
-/*This is to seed from clicked row in booking archive */
-export type OrderFormInitialValues = Partial<Omit<OrderFormPayload, "cards" | "cardItems" | "cardDeliveryType" | "cardProducts">>;
 
-/* this is for filtering the form, add a category and the fields it hides, default is the full view.*/
+export type OrderFormInitialValues = Partial<Omit<OrderFormPayload, never>>;
 
 export const OrderPresets = {
   CashierView:
@@ -84,7 +68,7 @@ export const OrderPresets = {
     OrderFields.FeeExtraWork   |
     OrderFields.FeeAddToOrder,
 
-    Power:
+  Power:
     OrderFields.OrderNumber        |
     OrderFields.DrivingDistance    |
     OrderFields.CustomerPhone2     |
@@ -107,10 +91,6 @@ export const OrderPresets = {
     OrderFields.Attachment,
 } as const;
 
-// ============================================================================
-// PRICING HELPERS
-// ============================================================================
-
 function codeToKey(code: string): string | null {
   return (
     PRICE_ITEMS_DEFAULT.find((i) => i.code === code)?.key ??
@@ -124,10 +104,6 @@ const DELIVERY_BASE_KEYS = new Set<string>(
     .map(codeToKey)
     .filter((x): x is string => Boolean(x))
 );
-
-// ============================================================================
-// TYPES
-// ============================================================================
 
 export type OrderFormPayload = {
   // products
@@ -175,11 +151,11 @@ export type OrderFormPayload = {
   changeCustomer: string;
   status: string;
   dontSendEmail: boolean;
-};
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
+  // pricing — computed by calculator
+  priceExVat: number;
+  priceSubcontractor: number;
+};
 
 export function OrderForm({
   hidden = 0,
@@ -189,24 +165,41 @@ export function OrderForm({
   initialValues = {},
   hideSubmitButton = false,
 }: {
-  /** Bitmask of OrderFields to hide. 0 = show everything (default). */
   hidden?: HiddenMask;
-  /** Separate boolean for DontSendEmail since JS bitmasks are 32-bit. */
   hideDontSendEmail?: boolean;
   dataset?: "default" | "power";
   onSubmit?: (payload: OrderFormPayload) => void;
   initialValues?: OrderFormInitialValues;
   hideSubmitButton?: boolean;
 }) {
-  // --- product cards ---
   const [calcOpen, setCalcOpen] = useState(false);
-  const [cards, setCards] = useState<number[]>([0]);
-  const nextCardId = useRef(1);
-  const [expanded, setExpanded] = useState<Record<number, boolean>>({ 0: true });
+
+  const initialCards =
+    initialValues.cardItems && Object.keys(initialValues.cardItems).length > 0
+      ? Object.keys(initialValues.cardItems).map(Number)
+      : [0];
+
+  const [cards, setCards] = useState<number[]>(initialCards);
+  const nextCardId = useRef(Math.max(...initialCards) + 1);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>(
+    Object.fromEntries(initialCards.map((id) => [id, true]))
+  );
   const [cardAmounts, setCardAmounts] = useState<Record<number, number>>({});
-  const [cardItems, setCardItems] = useState<Record<number, LineItem[]>>({});
-  const [cardDeliveryType, setCardDeliveryType] = useState<Record<number, DeliveryType>>({});
-  const [cardProducts, setCardProducts] = useState<Record<number, string | null>>({});
+  const [cardItems, setCardItems] = useState<Record<number, LineItem[]>>(
+    initialValues.cardItems ?? {}
+  );
+  const [cardDeliveryType, setCardDeliveryType] = useState<Record<number, DeliveryType>>(
+    initialValues.cardDeliveryType ?? {}
+  );
+  const [cardProducts, setCardProducts] = useState<Record<number, string | null>>(
+    initialValues.cardProducts ?? {}
+  );
+
+  // pricing from calculator
+  const [priceExVat, setPriceExVat] = useState<number>(initialValues.priceExVat ?? 0);
+  const [priceSubcontractor, setPriceSubcontractor] = useState<number>(
+    initialValues.priceSubcontractor ?? 0
+  );
 
   const canRemove = cards.length > 1;
 
@@ -216,7 +209,6 @@ export function OrderForm({
     setExpanded((prev) => {
       const collapsed: Record<number, boolean> = {};
       for (const k of Object.keys(prev)) collapsed[Number(k)] = false;
-      for (const c of cards) collapsed[c] = false;
       collapsed[id] = true;
       return collapsed;
     });
@@ -238,88 +230,101 @@ export function OrderForm({
     []
   );
 
-
   const productBreakdowns = useMemo(() => {
-  const xtraKey = codeToKey("XTRA");
+    const xtraKey = codeToKey("XTRA");
+    const deliveryTypes = ["Første trinn", "Innbæring", "Kun Installasjon/Montering"];
+    const firstDeliveryCardId =
+      cards.find((cardId) => deliveryTypes.includes(cardDeliveryType[cardId] ?? "")) ?? null;
 
-  // Pre-pass: find the first card with a delivery based type selected
-  const deliveryTypes = ["Første trinn", "Innbæring", "Kun Installasjon/Montering"];
-  const firstDeliveryCardId =
-    cards.find((cardId) => deliveryTypes.includes(cardDeliveryType[cardId] ?? "")) ?? null;
+    return cards
+      .map((cardId) => {
+        const productId = cardProducts[cardId];
+        const productName = productId
+          ? PRODUCTS_DEFAULT.find((p) => p.id === productId)?.label ?? "Unknown Product"
+          : "No product selected";
 
-  return cards
-    .map((cardId) => {
-      const productId = cardProducts[cardId];
-      const productName = productId
-        ? PRODUCTS_DEFAULT.find((p) => p.id === productId)?.label ?? "Unknown Product"
-        : "No product selected";
+        const rawItems = cardItems[cardId] ?? [];
+        const needsDeliveryBase = deliveryTypes.includes(cardDeliveryType[cardId] ?? "");
 
-      const rawItems = cardItems[cardId] ?? [];
-      const needsDeliveryBase = deliveryTypes.includes(cardDeliveryType[cardId] ?? "");
+        let items = [...rawItems];
 
-      let items = [...rawItems];
+        if (needsDeliveryBase && cardId !== firstDeliveryCardId) {
+          const existingXtra = rawItems.find((it) => it.key === xtraKey);
+          const inferredAmt = existingXtra ? existingXtra.qty + 1 : cardAmounts[cardId] ?? 1;
+          items = items.filter((it) => !DELIVERY_BASE_KEYS.has(it.key) && it.key !== xtraKey);
+          if (xtraKey) items = [{ key: xtraKey, qty: inferredAmt }, ...items];
+        }
 
-      if (needsDeliveryBase && cardId !== firstDeliveryCardId) {
-        const existingXtra = rawItems.find((it) => it.key === xtraKey);
-        const inferredAmt = existingXtra ? existingXtra.qty + 1 : cardAmounts[cardId] ?? 1;
+        return { productName, items };
+      })
+      .filter((b) => b.items.length > 0 || b.productName !== "No product selected");
+  }, [cards, cardProducts, cardItems, cardAmounts, cardDeliveryType]);
 
-        items = items.filter((it) => !DELIVERY_BASE_KEYS.has(it.key) && it.key !== xtraKey);
-        if (xtraKey) items = [{ key: xtraKey, qty: inferredAmt }, ...items];
-      }
+  const total = useMemo(() => {
+    return productBreakdowns.reduce((sum, product) => {
+      return sum + product.items.reduce((s, it) => {
+        const price = it.priceOverride !== undefined
+          ? it.priceOverride
+          : PRICE_ITEMS_DEFAULT.find((p) => p.key === it.key)?.customerPrice ?? 0;
+        return s + price * it.qty;
+      }, 0);
+    }, 0);
+  }, [productBreakdowns]);
 
-      return { productName, items };
-    }).filter((b) => b.items.length > 0 || b.productName !== "No product selected");
-}, [cards, cardProducts, cardItems, cardAmounts, cardDeliveryType]);
+  // Sync priceExVat from calculator total
+  // (discount/plus adjustments are handled inside CalculatorDisplay,
+  //  so we expose a callback for when they change)
 
-  // --- pricing ---
-const total = useMemo(() => {
+  const latestPriceExVat = useRef(total);
+  const latestPriceSubcontractor = useRef(0);
+  const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
+    latestPriceExVat.current = exVat;
+    latestPriceSubcontractor.current = subPrice;
+    setPriceExVat(exVat);
+    setPriceSubcontractor(subPrice);
+  }, []);
+
+  const subcontractorTotal = useMemo(() => {
   return productBreakdowns.reduce((sum, product) => {
     return sum + product.items.reduce((s, it) => {
       const price = it.priceOverride !== undefined
         ? it.priceOverride
-        : PRICE_ITEMS_DEFAULT.find((p) => p.key === it.key)?.customerPrice ?? 0;
+        : PRICE_ITEMS_DEFAULT.find((p) => p.key === it.key)?.subcontractorPrice ?? 0;
       return s + price * it.qty;
     }, 0);
   }, 0);
 }, [productBreakdowns]);
 
-  // --- form fields ---
+  // form fields
+  const [orderNumber, setOrderNumber]   = useState(initialValues.orderNumber   ?? "");
+  const [description, setDescription]   = useState(initialValues.description   ?? "");
+  const [modelNr, setModelNr]           = useState(initialValues.modelNr       ?? "");
+  const [deliveryDate, setDeliveryDate] = useState(initialValues.deliveryDate  ?? "");
+  const [timeWindow, setTimeWindow]     = useState(initialValues.timeWindow    ?? "");
+  const [deliveryAddress, setDeliveryAddress] = useState(initialValues.deliveryAddress ?? "");
+  const [drivingDistance, setDrivingDistance] = useState(initialValues.drivingDistance ?? "");
+  const [customerName, setCustomerName] = useState(initialValues.customerName ?? "");
+  const [phone, setPhone]               = useState(initialValues.phone        ?? "+47 ");
+  const [phoneTwo, setPhoneTwo]         = useState(initialValues.phoneTwo     ?? "+47 ");
+  const [email, setEmail]               = useState(initialValues.email        ?? "");
+  const [customerComments, setCustomerComments] = useState(initialValues.customerComments ?? "");
+  const [floorNo, setFloorNo]           = useState(initialValues.floorNo ?? "");
+  const [lift, setLift]                 = useState<"yes" | "no" | "">(initialValues.lift ?? "");
+  const [cashierName, setCashierName]   = useState(initialValues.cashierName  ?? "");
+  const [cashierPhone, setCashierPhone] = useState(initialValues.cashierPhone ?? "+47 ");
+  const [subcontractor, setSubcontractor] = useState(initialValues.subcontractor ?? "");
+  const [driver, setDriver]               = useState(initialValues.driver         ?? "");
+  const [secondDriver, setSecondDriver]   = useState(initialValues.secondDriver   ?? "");
+  const [driverInfo, setDriverInfo]       = useState(initialValues.driverInfo     ?? "");
+  const [licensePlate, setLicensePlate]   = useState(initialValues.licensePlate   ?? "");
+  const [deviation, setDeviation]         = useState(initialValues.deviation      ?? "");
+  const [feeExtraWork, setFeeExtraWork]   = useState(initialValues.feeExtraWork   ?? false);
+  const [feeAddToOrder, setFeeAddToOrder] = useState(initialValues.feeAddToOrder  ?? false);
+  const [statusNotes, setStatusNotes]     = useState(initialValues.statusNotes    ?? "");
+  const [changeCustomer, setChangeCustomer] = useState(initialValues.changeCustomer ?? "");
+  const [status, setStatus]               = useState(initialValues.status         ?? "");
+  const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  ?? false);
 
-const [orderNumber, setOrderNumber]   = useState(initialValues.orderNumber   ?? "");
-const [description, setDescription]   = useState(initialValues.description   ?? "");
-const [modelNr, setModelNr]           = useState(initialValues.modelNr       ?? "");
-const [deliveryDate, setDeliveryDate] = useState(initialValues.deliveryDate  ?? "");
-const [timeWindow, setTimeWindow]     = useState(initialValues.timeWindow    ?? "");
-const [deliveryAddress, setDeliveryAddress] = useState(initialValues.deliveryAddress ?? "");
-const [drivingDistance, setDrivingDistance] = useState(initialValues.drivingDistance ?? "");
-
-const [customerName, setCustomerName] = useState(initialValues.customerName ?? "");
-const [phone, setPhone]               = useState(initialValues.phone        ?? "+47 ");
-const [phoneTwo, setPhoneTwo]         = useState(initialValues.phoneTwo     ?? "+47 ");
-const [email, setEmail]               = useState(initialValues.email        ?? "");
-const [customerComments, setCustomerComments] = useState(initialValues.customerComments ?? "");
-
-const [floorNo, setFloorNo]           = useState(initialValues.floorNo ?? "");
-const [lift, setLift]                 = useState<"yes" | "no" | "">(initialValues.lift ?? "");
-
-const [cashierName, setCashierName]   = useState(initialValues.cashierName  ?? "");
-const [cashierPhone, setCashierPhone] = useState(initialValues.cashierPhone ?? "+47 ");
-
-const [subcontractor, setSubcontractor] = useState(initialValues.subcontractor ?? "");
-const [driver, setDriver]               = useState(initialValues.driver         ?? "");
-const [secondDriver, setSecondDriver]   = useState(initialValues.secondDriver   ?? "");
-const [driverInfo, setDriverInfo]       = useState(initialValues.driverInfo     ?? "");
-const [licensePlate, setLicensePlate]   = useState(initialValues.licensePlate   ?? "");
-
-const [deviation, setDeviation]         = useState(initialValues.deviation      ?? "");
-const [feeExtraWork, setFeeExtraWork]   = useState(initialValues.feeExtraWork   ?? false);
-const [feeAddToOrder, setFeeAddToOrder] = useState(initialValues.feeAddToOrder  ?? false);
-const [statusNotes, setStatusNotes]     = useState(initialValues.statusNotes    ?? "");
-const [changeCustomer, setChangeCustomer] = useState(initialValues.changeCustomer ?? "");
-const [status, setStatus]               = useState(initialValues.status         ?? "");
-const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  ?? false);
-
-  // --- submit ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit?.({
@@ -332,20 +337,17 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
       subcontractor, driver, secondDriver, driverInfo, licensePlate,
       deviation, feeExtraWork, feeAddToOrder,
       statusNotes, changeCustomer, status, dontSendEmail,
+      priceExVat:         latestPriceExVat.current,
+      priceSubcontractor: latestPriceSubcontractor.current,
     });
   };
 
-  // ============================================================================
-  // RENDER
-  // ============================================================================
-
   return (
-    <form onSubmit={handleSubmit}>
+    <form id="edit-order-form" onSubmit={handleSubmit}>
       <main className="flex justify-center mb-20">
-        <div className="flex w-full max-w-300 gap-5 ">
-          <div className="md:flex-1 mr-[40] w-full lg:mr-0 ">
+        <div className="flex w-full max-w-300 gap-5">
+          <div className="md:flex-1 mr-[40] w-full lg:mr-0">
 
-            {/* Product Cards */}
             {shown(hidden, OrderFields.Products) &&
               cards.map((id, index) => (
                 <ProductCard
@@ -353,6 +355,9 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   key={id}
                   cardId={id}
                   displayIndex={index + 1}
+                  initialProductId={initialValues.cardProducts?.[id] ?? null}
+                  initialDeliveryType={initialValues.cardDeliveryType?.[id]}
+                  initialItems={initialValues.cardItems?.[id]}
                   onChange={({ items, deliveryType, amount }) => {
                     setCardItems((prev) => ({ ...prev, [id]: items }));
                     setCardDeliveryType((prev) => ({ ...prev, [id]: deliveryType }));
@@ -369,11 +374,7 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
               ))}
 
             {shown(hidden, OrderFields.AddProductButton) && (
-              <button
-                type="button"
-                className="customButtonEnabled h-12 my-8 w-full"
-                onClick={addCard}
-              >
+              <button type="button" className="customButtonEnabled h-12 my-8 w-full" onClick={addCard}>
                 Add extra products
               </button>
             )}
@@ -382,55 +383,31 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
               {shown(hidden, OrderFields.OrderNumber) && (
                 <>
                   <h1 className="font-bold py-2">Order number</h1>
-                  <input
-                    value={orderNumber}
-                    onChange={(e) => setOrderNumber(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.Description) && (
                 <>
                   <h1 className="font-bold py-2">Description</h1>
-                  <input
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="customInput w-full h-30"
-                  />
+                  <input value={description} onChange={(e) => setDescription(e.target.value)} className="customInput w-full h-30" />
                 </>
               )}
-
               {shown(hidden, OrderFields.ModelNr) && (
                 <>
                   <h1 className="font-bold py-2">Model number</h1>
-                  <input
-                    value={modelNr}
-                    onChange={(e) => setModelNr(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={modelNr} onChange={(e) => setModelNr(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.DeliveryDate) && (
                 <>
                   <h1 className="font-bold py-2">Delivery date</h1>
-                  <input
-                    value={deliveryDate}
-                    onChange={(e) => setDeliveryDate(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.DeliveryTimeWindow) && (
                 <>
                   <h1 className="font-bold py-2">Delivery Time window</h1>
-                  <select
-                    value={timeWindow}
-                    onChange={(e) => setTimeWindow(e.target.value)}
-                    className="customInput w-full"
-                  >
+                  <select value={timeWindow} onChange={(e) => setTimeWindow(e.target.value)} className="customInput w-full">
                     <option value="">Choose</option>
                     <option value="10:00-16:00">10:00-16:00</option>
                     <option value="16:00-21:00">16:00-21:00</option>
@@ -438,157 +415,84 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   </select>
                 </>
               )}
-
               {shown(hidden, OrderFields.PickupLocations) && <PickupLocations />}
-
               {shown(hidden, OrderFields.DeliveryAddress) && (
                 <>
                   <h1 className="font-bold py-2">Delivery address</h1>
-                  <input
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    className="customInput w-full"
-                    placeholder="Enter a location"
-                  />
+                  <input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} className="customInput w-full" placeholder="Enter a location" />
                 </>
               )}
-
               {shown(hidden, OrderFields.DrivingDistance) && (
                 <>
                   <h1 className="font-bold py-2">Total driving distance</h1>
-                  <input
-                    value={drivingDistance}
-                    onChange={(e) => setDrivingDistance(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={drivingDistance} onChange={(e) => setDrivingDistance(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.CustomerName) && (
                 <>
                   <h1 className="font-bold py-2">Customer&apos;s name</h1>
-                  <input
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.CustomerPhone1) && (
                 <>
                   <h1 className="font-bold py-2">Customer&apos;s phone</h1>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.CustomerPhone2) && (
                 <>
                   <h1 className="font-bold py-2">Additional customer&apos;s phone</h1>
-                  <input
-                    type="tel"
-                    value={phoneTwo}
-                    onChange={(e) => setPhoneTwo(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input type="tel" value={phoneTwo} onChange={(e) => setPhoneTwo(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.CustomerEmail) && (
                 <>
                   <h1 className="font-bold py-2">Customer&apos;s email</h1>
-                  <input
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.CustomerComments) && (
                 <>
                   <h1 className="font-bold py-2">Customer comments</h1>
-                  <input
-                    value={customerComments}
-                    onChange={(e) => setCustomerComments(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={customerComments} onChange={(e) => setCustomerComments(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.FloorNo) && (
                 <>
                   <h1 className="font-bold py-2">Floor No.</h1>
-                  <input
-                    value={floorNo}
-                    onChange={(e) => setFloorNo(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={floorNo} onChange={(e) => setFloorNo(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.Lift) && (
                 <>
                   <h1 className="font-bold py-2">Lift</h1>
                   <label className="mr-4 inline-flex items-center gap-2">
-                    <input
-                      className="inline"
-                      type="radio"
-                      name="lift"
-                      checked={lift === "yes"}
-                      onChange={() => setLift("yes")}
-                    />
+                    <input className="inline" type="radio" name="lift" checked={lift === "yes"} onChange={() => setLift("yes")} />
                     <span>Yes</span>
                   </label>
                   <label className="inline-flex items-center gap-2">
-                    <input
-                      className="inline"
-                      type="radio"
-                      name="lift"
-                      checked={lift === "no"}
-                      onChange={() => setLift("no")}
-                    />
+                    <input className="inline" type="radio" name="lift" checked={lift === "no"} onChange={() => setLift("no")} />
                     <span>No</span>
                   </label>
                 </>
               )}
-
               {shown(hidden, OrderFields.CashierName) && (
                 <>
                   <h1 className="font-bold py-2">Cashier&apos;s name</h1>
-                  <input
-                    value={cashierName}
-                    onChange={(e) => setCashierName(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={cashierName} onChange={(e) => setCashierName(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.CashierPhone) && (
                 <>
                   <h1 className="font-bold py-2">Cashier&apos;s phone</h1>
-                  <input
-                    type="tel"
-                    value={cashierPhone}
-                    onChange={(e) => setCashierPhone(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input type="tel" value={cashierPhone} onChange={(e) => setCashierPhone(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.Subcontractor) && (
                 <>
                   <h1 className="font-bold py-2">Subcontractor</h1>
-                  <select
-                    value={subcontractor}
-                    onChange={(e) => setSubcontractor(e.target.value)}
-                    className="customInput w-full"
-                  >
+                  <select value={subcontractor} onChange={(e) => setSubcontractor(e.target.value)} className="customInput w-full">
                     <option value="">Choose</option>
                     <option>Otman Transport AS</option>
                     <option>Bahs Courier</option>
@@ -604,59 +508,34 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   </select>
                 </>
               )}
-
               {shown(hidden, OrderFields.Driver1) && (
                 <>
                   <h1 className="font-bold py-2">Driver</h1>
-                  <input
-                    value={driver}
-                    onChange={(e) => setDriver(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={driver} onChange={(e) => setDriver(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.Driver2) && (
                 <>
                   <h1 className="font-bold py-2">Second driver</h1>
-                  <input
-                    value={secondDriver}
-                    onChange={(e) => setSecondDriver(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={secondDriver} onChange={(e) => setSecondDriver(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.DriverInfo) && (
                 <>
                   <h1 className="font-bold py-2">Info for the driver</h1>
-                  <input
-                    value={driverInfo}
-                    onChange={(e) => setDriverInfo(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={driverInfo} onChange={(e) => setDriverInfo(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.LicensePlate) && (
                 <>
                   <h1 className="font-bold py-2">License plate</h1>
-                  <input
-                    value={licensePlate}
-                    onChange={(e) => setLicensePlate(e.target.value)}
-                    className="customInput w-full"
-                  />
+                  <input value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} className="customInput w-full" />
                 </>
               )}
-
               {shown(hidden, OrderFields.Deviation) && (
                 <>
                   <h1 className="font-bold py-2">Deviation</h1>
-                  <select
-                    value={deviation}
-                    onChange={(e) => setDeviation(e.target.value)}
-                    className="customInput w-full"
-                  >
+                  <select value={deviation} onChange={(e) => setDeviation(e.target.value)} className="customInput w-full">
                     <option value="">Choose</option>
                     <option>Deviation, missed trip; Customer not at home</option>
                     <option>Deviation, dead end; Customer cancelled</option>
@@ -669,65 +548,38 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   </select>
                 </>
               )}
-
               {shown(hidden, OrderFields.FeeExtraWork) && (
                 <div className="pt-2">
-                  <input
-                    type="checkbox"
-                    className="inline"
-                    checked={feeExtraWork}
-                    onChange={(e) => setFeeExtraWork(e.target.checked)}
-                  />
+                  <input type="checkbox" className="inline" checked={feeExtraWork} onChange={(e) => setFeeExtraWork(e.target.checked)} />
                   <p className="inline pl-2">Fee for extra work per started</p>
                 </div>
               )}
-
               {shown(hidden, OrderFields.FeeAddToOrder) && (
                 <div className="pt-2">
-                  <input
-                    type="checkbox"
-                    className="inline"
-                    checked={feeAddToOrder}
-                    onChange={(e) => setFeeAddToOrder(e.target.checked)}
-                  />
+                  <input type="checkbox" className="inline" checked={feeAddToOrder} onChange={(e) => setFeeAddToOrder(e.target.checked)} />
                   <p className="inline pl-2">Fee for adding to order</p>
                 </div>
               )}
-
               {shown(hidden, OrderFields.StatusNotes) && (
                 <>
                   <h1 className="font-bold py-2">Status notes</h1>
-                  <input
-                    value={statusNotes}
-                    onChange={(e) => setStatusNotes(e.target.value)}
-                    className="customInput w-full h-30"
-                  />
+                  <input value={statusNotes} onChange={(e) => setStatusNotes(e.target.value)} className="customInput w-full h-30" />
                 </>
               )}
-
               {shown(hidden, OrderFields.ChangeCustomer) && (
                 <>
                   <h1 className="font-bold py-2">Change customer</h1>
-                  <select
-                    value={changeCustomer}
-                    onChange={(e) => setChangeCustomer(e.target.value)}
-                    className="customInput w-full"
-                  >
+                  <select value={changeCustomer} onChange={(e) => setChangeCustomer(e.target.value)} className="customInput w-full">
                     <option value="">Choose</option>
                     <option>Power this</option>
                     <option>Power that</option>
                   </select>
                 </>
               )}
-
               {shown(hidden, OrderFields.Status) && (
                 <>
                   <h1 className="font-bold py-2">Status</h1>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="customInput w-full"
-                  >
+                  <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput w-full">
                     <option value="">Choose</option>
                     <option>Behandles</option>
                     <option>Bekreftet</option>
@@ -740,76 +592,64 @@ const [dontSendEmail, setDontSendEmail] = useState(initialValues.dontSendEmail  
                   </select>
                 </>
               )}
-
               {shown(hidden, OrderFields.Attachment) && (
                 <>
                   <h1 className="font-bold py-2">Attachment</h1>
-                  {/* plug in your file input later */}
                 </>
               )}
-
               {!hideDontSendEmail && (
                 <label className="flex items-center gap-2 py-2">
-                  <input
-                    type="checkbox"
-                    checked={dontSendEmail}
-                    onChange={(e) => setDontSendEmail(e.target.checked)}
-                  />
+                  <input type="checkbox" checked={dontSendEmail} onChange={(e) => setDontSendEmail(e.target.checked)} />
                   <span>Don&apos;t send email</span>
                 </label>
               )}
-
               {!hideSubmitButton && (
-            <button
-              className="w-full customButtonEnabled h-12 mt-8"
-              type="submit"
-            >
-              Submit
-            </button>
-          )}
+                <button className="w-full customButtonEnabled h-12 mt-8" type="submit">
+                  Submit
+                </button>
+              )}
             </div>
           </div>
 
           {shown(hidden, OrderFields.Calculator) && (
             <>
-              {/* Mobile: collapsed vertical rail -> expands */}
               <div className="lg:hidden fixed right-0 top-1/2 -translate-y-1/2 z-40">
                 {!calcOpen ? (
-                  <button
-                    type="button"
-                    onClick={() => setCalcOpen(true)}
+                  <button type="button" onClick={() => setCalcOpen(true)}
                     className="h-80 w-10 rounded-l-full bg-white shadow-xl border border-black/10 flex items-center justify-center"
-                    aria-label="Open calculator"
-                  >
-                    <span className="[writing-mode:vertical-rl] rotate-180 text-md font-semibold text-logoblue">
-                      Calculator
-                    </span>
+                    aria-label="Open calculator">
+                    <span className="[writing-mode:vertical-rl] rotate-180 text-md font-semibold text-logoblue">Calculator</span>
                   </button>
                 ) : (
                   <div className="flex flex-col bg-white overflow-auto border rounded-2xl shadow-xl">
-                    <button
-                      type="button"
-                      onClick={() => setCalcOpen(false)}
+                    <button type="button" onClick={() => setCalcOpen(false)}
                       className="rounded-4xl bg-logoblue text-sm font-semibold w-[80] h-[40] text-white text-center ml-auto mr-2 mt-2"
-                      aria-label="Close calculator"
-                    >
+                      aria-label="Close calculator">
                       Close
                     </button>
-
                     <div className="p-4">
-                      <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} adminView={dataset === "default"} />
+                      <CalculatorDisplay
+                        total={total}
+                        subcontractorTotal={subcontractorTotal}
+                        productBreakdowns={productBreakdowns}
+                        adminView={dataset === "default"}
+                        onPriceChange={handlePriceChange}
+                      />
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Desktop: normal flow */}
               <div className="hidden lg:block flex-1">
-                <CalculatorDisplay total={total} productBreakdowns={productBreakdowns} adminView={dataset === "default"} />
+                <CalculatorDisplay
+                  total={total}
+                  subcontractorTotal={subcontractorTotal}
+                  productBreakdowns={productBreakdowns}
+                  adminView={dataset === "default"}
+                  onPriceChange={handlePriceChange}
+                />
               </div>
             </>
           )}
-          
         </div>
       </main>
     </form>

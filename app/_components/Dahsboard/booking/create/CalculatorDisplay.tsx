@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { LineItem } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 import { PRICE_ITEMS_DEFAULT } from "@/lib/prices_default/pricingDefault";
 
@@ -34,25 +34,35 @@ type ProductBreakdown = {
 
 type Props = {
   total: number;
+  subcontractorTotal: number;
   productBreakdowns: ProductBreakdown[];
   adminView?: boolean;
+  onPriceChange?: (exVat: number, subcontractorPrice: number) => void;
 };
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function CalculatorDisplay({ total, productBreakdowns, adminView = false}: Props) {
+export function CalculatorDisplay({ total, subcontractorTotal, productBreakdowns, adminView = false, onPriceChange }: Props) {
   const [rabatt, setRabatt] = useState("");
   const [leggTil, setLegTil] = useState("");
+  const [subcontractorMinus, setSubcontractorMinus] = useState("");
+  const [subcontractorPlus, setSubcontractorPlus] = useState("");
 
   const discount = useMemo(() => parseNOK(rabatt), [rabatt]);
   const plus = useMemo(() => parseNOK(leggTil), [leggTil]);
+  const subMinus = useMemo(() => parseNOK(subcontractorMinus), [subcontractorMinus]);
+  const subPlus = useMemo(() => parseNOK(subcontractorPlus), [subcontractorPlus]);
 
   const totalExVat = Math.max(0, total - discount + plus);
   const vat = totalExVat * 0.25;
   const totalIncVat = totalExVat + vat;
-  
+  const subcontractorPrice = Math.max(0, subcontractorTotal - subMinus + subPlus);
+
+  useEffect(() => {
+    onPriceChange?.(totalExVat, subcontractorPrice);
+  }, [totalExVat, subcontractorPrice, onPriceChange]);
 
   return (
     <section className="w-full customContainer rounded-2xl px-4 max-h-[calc(100vh-9rem)] overflow-y-auto bg-mainPrimary ">
@@ -197,6 +207,8 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
           <div className="mt-8 lg:flex items-center">
             <h1 className="whitespace-nowrap">Subcontractor minus: </h1>
             <input
+              value={subcontractorMinus}
+              onChange={(e) => setSubcontractorMinus(e.target.value)}
               id="subcontractorMinusInput"
               type="text"
               className="customInput w-full ml-2 h-8"
@@ -214,6 +226,8 @@ export function CalculatorDisplay({ total, productBreakdowns, adminView = false}
           <div className="mt-8 lg:flex items-center">
             <h1 className="whitespace-nowrap">Subcontractor plus: </h1>
             <input
+              value={subcontractorPlus}
+              onChange={(e) => setSubcontractorPlus(e.target.value)}
               id="subcontractorPlusInput"
               type="text"
               className="customInput w-full ml-5 h-8"
