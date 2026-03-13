@@ -165,9 +165,9 @@ export async function POST(req: NextRequest) {
         },
         to: [{ name: recipientName, email: recipientEmail }],
         subject: type === "custom"
-          ? "Melding"
+          ? "Melding fra Otman Transport"
           : type === "prepare_orders"
-          ? "Klargjør bestillinger"
+          ? "Forbered bestillinger"
           : "Bekreftet for levering",
         htmlContent: html,
       }),
