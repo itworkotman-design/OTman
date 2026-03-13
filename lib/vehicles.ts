@@ -15,7 +15,7 @@ export const vehicles: VehicleProps[] = [
       "The VW Crafter 11m³ is our most popular large cargo van, ideal for moving furniture, equipment, or anything that needs serious space. With an 11 cubic metre load area, a full automatic gearbox, and a reliable diesel engine, this van handles long hauls and city runs equally well. Perfect for businesses and individuals who need a dependable workhorse without sacrificing comfort.",
     seats: 3,
     fuelType: "Diesel",
-    vehicleType: "Car",
+    vehicleType: "Van",
     gearbox: "Automatic",
     extraKmPrice: 4,
     pricePerDay: 540,

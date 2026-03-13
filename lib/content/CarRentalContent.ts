@@ -66,6 +66,79 @@ export const CarRentalContent = {
     van: {
         en: "Van",
         no: "Varebil"
-    }
+    },
+    automatic: {
+        en: "Automatic",
+        no: "Automatisk"
+    },
+    manual: {
+        en: "Manual",
+        no: "Manuell"
+    },
+    applyFilters: {
+        en: "Apply filters",
+        no: "Bruk filtre"
+    },
+    reset: {
+        en: "Reset",
+        no: "Tilbakestill"
+    },
+    noVehicleFound:{
+        en: "No vehicles match your filters",
+        no: "Ingen kjøretøy samsvarer med filtrene dine"
+    },
+     seats: {
+        en: "seats",
+        no: "seter"
+    },
+    extraKm: {
+        en: "per extra km",
+        no: "per ekstra km"
+    },
+    pricePerDay: {
+        en: "Price per day",
+        no: "Pris per dag"
+    },
+    order: {
+        en: "Order",
+        no: "Bestill"
+    },
+    backToVehicles: {
+        en: "← Back to all vehicles",
+        no: "← Tilbake til alle kjøretøy"
+    },
+    aboutVehicle: {
+        en: "About this vehicle",
+        no: "Om dette kjøretøyet"
+    },
+    specifications: {
+        en: "Specifications",
+        no: "Spesifikasjoner"
+    },
+    specSeats: {
+        en: "Seats",
+        no: "Seter"
+    },
+    specFuelType: {
+        en: "Fuel type",
+        no: "Drivstofftype"
+    },
+    specVehicleType: {
+        en: "Vehicle type",
+        no: "Kjøretøytype"
+    },
+    specGearbox: {
+        en: "Gearbox",
+        no: "Girkasse"
+    },
+    specExtraKm: {
+        en: "Extra km price",
+        no: "Ekstra km pris"
+    },
+    orderNow: {
+        en: "Order now",
+        no: "Bestill nå"
+    },
+
 
 }

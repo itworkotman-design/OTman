@@ -46,7 +46,6 @@ export default function CarRentalPage({content, locale}: PageTypes) {
     "2": "Family car",
     "3": "SUV",
     "4": "Van",
-    "5": "Cargo van",
   };
   const gearMap: Record<string, string> = {
     "1": "Automatic",
@@ -137,11 +136,10 @@ export default function CarRentalPage({content, locale}: PageTypes) {
               className="px-2 customInput w-full lg:w-auto appearance-none"
             >
               <option value="0">{content.choose[locale]}</option>
-              <option value="1">Small car</option>
-              <option value="2">Family car</option>
-              <option value="3">SUV</option>
-              <option value="4">Van</option>
-              <option value="5">Cargo van</option>
+              <option value="1">{content.smallCar[locale]}</option>
+              <option value="2">{content.familyCar[locale]}</option>
+              <option value="3">{content.suv[locale]}</option>
+              <option value="4">{content.van[locale]}</option>
             </select>
           </div>
 
@@ -153,17 +151,17 @@ export default function CarRentalPage({content, locale}: PageTypes) {
               className="px-2 customInput w-full lg:w-auto appearance-none"
             >
               <option value="0">{content.choose[locale]}</option>
-              <option value="1">Automatic</option>
-              <option value="2">Manual</option>
+              <option value="1">{content.automatic[locale]}</option>
+              <option value="2">{content.manual[locale]}</option>
             </select>
           </div>
 
           <div className="flex gap-4 ml-auto">
             <button onClick={applyFilters} className="customButtonEnabled">
-              Apply filters
+              {content.applyFilters[locale]}
             </button>
             <button onClick={reset} className="customButtonDefault">
-              Reset
+              {content.reset[locale]}
             </button>
           </div>
         </div>
@@ -173,11 +171,11 @@ export default function CarRentalPage({content, locale}: PageTypes) {
       <div className="flex flex-col items-center gap-10 w-full mb-10">
         {filtered.length > 0 ? (
           filtered.map((vehicle) => (
-            <VehicleCard key={vehicle.id} {...vehicle} />
+            <VehicleCard key={vehicle.id} {...vehicle} locale={locale} content={content} />
           ))
         ) : (
           <p className="text-textcolor py-20">
-            No vehicles match your filters.
+            {content.noVehicleFound[locale]}
           </p>
         )}
       </div>

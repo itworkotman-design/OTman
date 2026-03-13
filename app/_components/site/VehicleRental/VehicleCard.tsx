@@ -2,6 +2,7 @@
 import Image from "next/image";
 import React from "react";
 import Link from "next/link";
+import { CarRentalContent } from "@/lib/content/CarRentalContent";
 
 export interface VehicleProps {
   id: number;
@@ -17,7 +18,14 @@ export interface VehicleProps {
   pricePerDay: number;
 }
 
-const VehicleCard: React.FC<VehicleProps> = ({
+type Locale = "en" | "no";
+
+type VehicleCardProps = VehicleProps & {
+  locale: Locale;
+  content: typeof CarRentalContent;
+};
+
+const VehicleCard: React.FC<VehicleCardProps> = ({
   id,
   name,
   imageUrl,
@@ -27,25 +35,46 @@ const VehicleCard: React.FC<VehicleProps> = ({
   gearbox,
   extraKmPrice,
   pricePerDay,
+  locale,
+  content,
 }) => {
+
+  const fuelMap: Record<string, string> = {
+    Electric: content.electric[locale],
+    Diesel:   content.diesel[locale],
+    Petrol:   content.petrol[locale],
+    Hybrid:   content.hybrid[locale],
+    Gas:      content.gas[locale],
+  };
+
+  const typeMap: Record<string, string> = {
+    "Small car":  content.smallCar[locale],
+    "Family car": content.familyCar[locale],
+    SUV:          content.suv[locale],
+    Van:          content.van[locale],
+  };
+
+  const gearMap: Record<string, string> = {
+    Automatic: content.automatic[locale],
+    Manual:    content.manual[locale],
+  };
 
   const carTypeIcons = {
     Car: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="size-5"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>,
     Van: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="size-5"><path d="M13 6v5a1 1 0 0 0 1 1h6.102a1 1 0 0 1 .712.298l.898.91a1 1 0 0 1 .288.702V17a1 1 0 0 1-1 1h-3"/><path d="M5 18H3a1 1 0 0 1-1-1V8a2 2 0 0 1 2-2h12c1.1 0 2.1.8 2.4 1.8l1.176 4.2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
-  }
+  };
+
   const normalizedVehicleType = vehicleType.toLowerCase();
-  const selectedCarType =
-    normalizedVehicleType.includes("van") ? "Van" : "Car";
+  const selectedCarType = normalizedVehicleType.includes("van") ? "Van" : "Car";
 
   return (
     <div className="relative left-0 w-full flex flex-col lg:flex-row customContainer gap-4 lg:gap-10">
-      
-        <div className="relative w-full min-h-[250] lg:min-h-[400] lg:flex-1 order-2 lg:order-1 bg-amber-100 rounded-2xl overflow-hidden">
-          <Link href={`/bil-utleie/${id}`} className="absolute inset-0 block">
-            <Image src={imageUrl} fill alt="Vehicle img" className="object-cover" />
-          </Link>
-        </div>
-      
+
+      <div className="relative w-full min-h-[250] lg:min-h-[400] lg:flex-1 order-2 lg:order-1 bg-amber-100 rounded-2xl overflow-hidden">
+        <Link href={`/bil-utleie/${id}`} className="absolute inset-0 block">
+          <Image src={imageUrl} fill alt="Vehicle img" className="object-cover" />
+        </Link>
+      </div>
 
       <div className="flex flex-1 flex-col order-1 lg:order-2">
         <h2 className="text-logoblue text-center text-3xl font-semibold mb-10">
@@ -54,18 +83,18 @@ const VehicleCard: React.FC<VehicleProps> = ({
 
         <div className="lg:flex flex-1">
           <div className="flex-1">
-            <ul className="flex gap-4 lg: flex-wrap lg:block pb-10 lg:pb-0">
+            <ul className="flex gap-4 lg:flex-wrap lg:block pb-10 lg:pb-0">
               <li className="flex gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="size-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg>
-                <FeatureItem label={`${seats}`} />
+                <FeatureItem label={`${seats} ${content.seats[locale]}`} />
               </li>
               <li className="flex gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="size-5"><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0v-6.998a2 2 0 0 0-.59-1.42L18 5"/><path d="M14 21V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v16"/><path d="M2 21h13"/><path d="M3 9h11"/></svg>
-                <FeatureItem label={`${fuelType}`} />
+                <FeatureItem label={fuelMap[fuelType] ?? fuelType} />
               </li>
               <li className="flex gap-2">
                 <span>{carTypeIcons[selectedCarType]}</span>
-                <FeatureItem label={vehicleType} />
+                <FeatureItem label={typeMap[vehicleType] ?? vehicleType} />
               </li>
               <li className="flex gap-2">
                 <svg width="20" height="13" viewBox="-2 0 30 19" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg" className="size-5">
@@ -81,36 +110,37 @@ const VehicleCard: React.FC<VehicleProps> = ({
                   <line x1="15.5" y1="2.21387" x2="15.5" y2="16.9853"/>
                   <circle cx="15.7143" cy="1.71429" r="1.71429" />
                 </svg>
-                <FeatureItem label={gearbox} />
+                <FeatureItem label={gearMap[gearbox] ?? gearbox} />
               </li>
               <li className="flex gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="size-5"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
-                <FeatureItem label={`${extraKmPrice}kr per extra km`} />
+                <FeatureItem label={`${extraKmPrice}kr ${content.extraKm[locale]}`} />
               </li>
             </ul>
           </div>
 
           <div className="flex-1 flex justify-end items-end">
             <div className="flex items-center">
-              <span className="text-textcolor pr-4">Price per day:</span>
+              <span className="text-textcolor pr-4">{content.pricePerDay[locale]}:</span>
               <div className="flex items-end">
                 <span className="text-logoblue text-4xl font-semibold">
-              {pricePerDay}
-              </span>
-              <span className="text-textcolor pl-1">kr</span>
+                  {pricePerDay}
+                </span>
+                <span className="text-textcolor pl-1">kr</span>
               </div>
-              
             </div>
           </div>
         </div>
-        <Link href={`/bil-utleie/${id}`} className="customButtonDefault w-full  h-10 hidden lg:flex items-center justify-center">
-            Order
-          </Link>
+
+        <Link href={`/bil-utleie/${id}`} className="customButtonDefault w-full h-10 hidden lg:flex items-center justify-center">
+          {content.order[locale]}
+        </Link>
       </div>
+
       <div className="relative lg:hidden order-3">
         <div className="relative lg:hidden order-3">
           <Link href={`/bil-utleie/${id}`} className="customButtonDefault w-full h-10 flex lg:hidden items-center justify-center">
-            Order
+            {content.order[locale]}
           </Link>
         </div>
       </div>
@@ -119,7 +149,7 @@ const VehicleCard: React.FC<VehicleProps> = ({
 };
 
 const FeatureItem: React.FC<{ label: string }> = ({ label }) => (
-    <span className="text-textcolor">{label}</span>
+  <span className="text-textcolor">{label}</span>
 );
 
 export default VehicleCard;
