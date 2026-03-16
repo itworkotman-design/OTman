@@ -342,6 +342,14 @@ export function OrderForm({
     });
   };
 
+  //Logic for checking if delivery type is kun installation
+  const isInstallationOnly = useMemo(
+  () =>
+    cards.length > 0 &&
+    cards.every((id) => cardDeliveryType[id] === "Kun Installasjon/Montering"),
+  [cards, cardDeliveryType]
+);
+
   return (
     <form id="edit-order-form" onSubmit={handleSubmit}>
       <main className="flex justify-center mb-20">
@@ -415,7 +423,7 @@ export function OrderForm({
                   </select>
                 </>
               )}
-              {shown(hidden, OrderFields.PickupLocations) && <PickupLocations />}
+              {shown(hidden, OrderFields.PickupLocations) && <PickupLocations disabled={isInstallationOnly} overrideValue={isInstallationOnly ? "Product already at client" : undefined} defaultValue="Henteadresse"/>}
               {shown(hidden, OrderFields.DeliveryAddress) && (
                 <>
                   <h1 className="font-bold py-2">Delivery address</h1>

@@ -4,8 +4,16 @@ import { useMemo, useState } from "react";
 
 type Pickup = { id: string; value: string };
 
-export function PickupLocations() {
-  const [mainAddress, setMainAddress] = useState("");
+export function PickupLocations({
+  disabled = false,
+  overrideValue,
+  defaultValue = "",
+}: {
+  disabled?: boolean;
+  overrideValue?: string;
+  defaultValue?: string;
+}) {
+  const [mainAddress, setMainAddress] = useState(defaultValue);
   const [pickups, setPickups] = useState<Pickup[]>([]);
 
   const additionalDisabled = useMemo(
@@ -38,45 +46,48 @@ export function PickupLocations() {
   return (
     <div className="w-full py-2">
       <div>
-        <label className="font-bold">Henteadresse</label>
+        <label className="font-bold">Pickup address</label>
         <input
-          value={mainAddress}
-          onChange={(e) => onMainChange(e.target.value)}
+          value={disabled ? (overrideValue ?? "") : mainAddress}
+          onChange={(e) => !disabled && onMainChange(e.target.value)}
+          disabled={disabled}
           placeholder="Enter a location"
           className="customInput w-full"
         />
       </div>
+    
+      {!disabled && (
+        <div className="">
+          <div className="flex items-center justify-between py-2">
+            <label className="font-bold">Additional pickup locations</label>
+          </div>
 
-      <div className="">
-        <div className="flex items-center justify-between py-2">
-          <label className="font-bold">Additional pickup locations</label>
+          <div
+            className={[
+              "",
+              additionalDisabled ? "opacity-50 pointer-events-none " : "",
+            ].join(" ")}
+          >
+            {pickups.map((p, idx) => (
+              <div key={p.id} className="flex items-center gap-3 my-4">
+                  <span className="w-20 text-md pl-2 font-semibold">Pickup</span>
+                  <input value={p.value} onChange={(e) => updatePickup(p.id, e.target.value)} placeholder="Enter a location" className="flex-1 customInput w-full"/>
+                  <button type="button" onClick={() => removePickup(p.id)} className="grid h-8 w-8 place-items-center rounded-full border hover:bg-red-700 hover:text-white cursor-pointer" aria-label={`Remove pickup ${idx + 1}`} >
+                      −
+                  </button>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addPickup}
+              disabled={additionalDisabled}
+              className="customButtonDefault w-full h-10">
+              Add additional pickup
+            </button>
+          </div>
         </div>
-
-        <div
-          className={[
-            "",
-            additionalDisabled ? "opacity-50 pointer-events-none " : "",
-          ].join(" ")}
-        >
-          {pickups.map((p, idx) => (
-            <div key={p.id} className="flex items-center gap-3 my-4">
-                <span className="w-20 text-md pl-2 font-semibold">Pickup</span>
-                <input value={p.value} onChange={(e) => updatePickup(p.id, e.target.value)} placeholder="Enter a location" className="flex-1 customInput w-full"/>
-                <button type="button" onClick={() => removePickup(p.id)} className="grid h-8 w-8 place-items-center rounded-full border hover:bg-red-700 hover:text-white cursor-pointer" aria-label={`Remove pickup ${idx + 1}`} >
-                    −
-                </button>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            onClick={addPickup}
-            disabled={additionalDisabled}
-            className="customButtonDefault w-full h-10">
-            Add additional pickup
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
