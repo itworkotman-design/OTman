@@ -14,28 +14,24 @@ type ArchiveTableProps = {
   userView?: "admin" | "subcontractor";
 };
 
-const ALL_COLUMNS = [
-  { key: "status", label: "Status" },
-  { key: "deliveryDate", label: "Leveringsdato" },
-  { key: "timeWindow", label: "Tidsvindu for levering" },
-  { key: "customer", label: "Customer" },
-  { key: "orderNo", label: "Best.nr" },
-  { key: "pickupAddress", label: "Pickup Adresse" },
-  { key: "extraPickup", label: "Extra pickup" },
-  { key: "deliveryAddress", label: "Leveringsadresse" },
-  { key: "returnAddress", label: "Returadresse" },
-  { key: "products", label: "Produkter" },
-  { key: "deliveryType", label: "Leveringstype" },
-  { key: "assemblyReturn", label: "Montering/retur" },
-  { key: "description", label: "Beskrivelse" },
-  { key: "cashierName", label: "Kasserers navn" },
-  { key: "cashierPhone", label: "Kasserers telefon" },
-  { key: "customerNotes", label: "Kundenotater" },
-  { key: "driverInfo", label: "Driver" },
-  { key: "orderDate", label: "Bestillingsdato" },
-  { key: "totalPriceExVat", label: "TotalPris (uten MVA)" },
-];
+type ColumnDef = {
+  key: string;
+  label: React.ReactNode;
+  className?: string;
+  headerClassName?: string;
+  render: (row: OrderRow) => React.ReactNode;
+};
 
+const STATUS_CLASSES: Record<string, string> = {
+  fail: "text-purple-700",
+  confirmed: "text-blue-500",
+  behandles: "text-orange-500",
+  active: "text-purple-500",
+  cancelled: "text-red-500",
+  completed: "text-green-500",
+  invoiced: "text-green-800",
+  betalt: "text-black/30",
+};
 
 export function ArchiveTable({
   filters,
@@ -43,6 +39,8 @@ export function ArchiveTable({
   onSelectedIdsChange,
   orders,
   onRowClick,
+  visibleColumns,
+  userView = "admin",
 }: ArchiveTableProps) {
   const { rows, total } = useMemo(() => {
     const {
@@ -57,23 +55,30 @@ export function ArchiveTable({
     } = filters;
 
     const q = search.trim().toLowerCase();
-
-    
-
     let filtered = orders.slice();
 
     if (status) filtered = filtered.filter((o) => o.status === status);
-    if (customer) filtered = filtered.filter((o) => o.customer.toLowerCase() === customer.toLowerCase());
-    if (subcontractor)
+    if (customer) {
+      filtered = filtered.filter(
+        (o) => o.customer.toLowerCase() === customer.toLowerCase()
+      );
+    }
+    if (subcontractor) {
       filtered = filtered.filter((o) => o.subcontractor === subcontractor);
-    if (fromDate)
+    }
+    if (fromDate) {
       filtered = filtered.filter((o) => o.deliveryDate >= fromDate);
-    if (toDate)
+    }
+    if (toDate) {
       filtered = filtered.filter((o) => o.deliveryDate <= toDate);
+    }
 
     if (q) {
       filtered = filtered.filter((o) => {
-        const productsText = o.products.join(", ").toLowerCase();
+        const productsText = Array.isArray(o.products)
+          ? o.products.join(", ").toLowerCase()
+          : String(o.products ?? "").toLowerCase();
+
         return (
           o.id.toLowerCase().includes(q) ||
           o.orderNo.toLowerCase().includes(q) ||
@@ -86,13 +91,14 @@ export function ArchiveTable({
         );
       });
     }
+
     filtered.sort((a, b) => {
       const aEmpty = !a.deliveryDate;
       const bEmpty = !b.deliveryDate;
       if (aEmpty && bEmpty) return 0;
-      if (aEmpty) return -1; // no date → floats to top
+      if (aEmpty) return -1;
       if (bEmpty) return 1;
-      return b.deliveryDate.localeCompare(a.deliveryDate); // newest first
+      return b.deliveryDate.localeCompare(a.deliveryDate);
     });
 
     const total = filtered.length;
@@ -102,15 +108,220 @@ export function ArchiveTable({
     return { rows, total };
   }, [filters, orders]);
 
+  const allColumns: ColumnDef[] = [
+    {
+      key: "id",
+      label: "ID",
+      className: "whitespace-nowrap font-medium",
+      headerClassName: "w-15",
+      render: (r) => r.id,
+    },
+    {
+      key: "status",
+      label: "Status",
+      headerClassName: "w-20",
+      className: "",
+      render: (r) => (
+        <span className={`font-bold ${STATUS_CLASSES[r.status] ?? ""}`}>
+          {r.status}
+        </span>
+      ),
+    },
+    {
+      key: "deliveryDate",
+      label: "Leveringsdato",
+      headerClassName: "w-20",
+      className: "whitespace-nowrap",
+      render: (r) => formatDate(r.deliveryDate),
+    },
+    {
+      key: "timeWindow",
+      label: (
+        <>
+          Tidsvindu for
+          <br />
+          levering
+        </>
+      ),
+      headerClassName: "w-22.5",
+      className: "whitespace-nowrap",
+      render: (r) => r.timeWindow || "—",
+    },
+    {
+      key: "customer",
+      label: "Customer",
+      headerClassName: "w-25",
+      render: (r) => r.customer || "—",
+    },
+    {
+      key: "orderNo",
+      label: "Best.nr",
+      className: "whitespace-nowrap",
+      render: (r) => r.orderNo || "—",
+    },
+    {
+      key: "name",
+      label: "Name",
+      headerClassName: "w-25",
+      render: (r) => r.name || "—",
+    },
+    {
+      key: "phone",
+      label: "Phone",
+      className: "whitespace-nowrap",
+      render: (r) => r.phone || "—",
+    },
+    {
+      key: "pickupAddress",
+      label: (
+        <>
+          Pickup
+          <br />
+          Adresse
+        </>
+      ),
+      headerClassName: "w-25",
+      render: (r) => r.pickupAddress || "—",
+    },
+    {
+      key: "extraPickup",
+      label: (
+        <>
+          Extra
+          <br />
+          pickup
+        </>
+      ),
+      headerClassName: "w-25",
+      render: (r) => r.extraPickup || "—",
+    },
+    {
+      key: "deliveryAddress",
+      label: (
+        <>
+          Leverings
+          <br />
+          adresse
+        </>
+      ),
+      headerClassName: "w-25",
+      render: (r) => r.deliveryAddress || "—",
+    },
+    {
+      key: "returnAddress",
+      label: (
+        <>
+          Retur
+          <br />
+          adresse
+        </>
+      ),
+      headerClassName: "w-25",
+      render: (r) => r.returnAddress || "—",
+    },
+    {
+      key: "products",
+      label: "Produkter",
+      headerClassName: "w-50",
+      render: (r) =>
+        Array.isArray(r.products) ? r.products.join(", ") : r.products || "—",
+    },
+    {
+      key: "deliveryType",
+      label: (
+        <>
+          Leverings
+          <br />
+          type
+        </>
+      ),
+      render: (r) => r.deliveryType || "—",
+    },
+    {
+      key: "assemblyReturn",
+      label: "Montering/retur",
+      headerClassName: "w-50",
+      render: (r) => r.monitoringOrReturn || "—",
+    },
+    {
+      key: "description",
+      label: "Beskrivelse",
+      headerClassName: "w-50",
+      render: (r) => r.description || "—",
+    },
+    {
+      key: "cashierName",
+      label: "Kasserers navn",
+      render: (r) => r.cashierName || "—",
+    },
+    {
+      key: "cashierPhone",
+      label: "Kasserers telefon",
+      className: "whitespace-nowrap",
+      render: (r) => r.cashierPhone || "—",
+    },
+    {
+      key: "customerNotes",
+      label: (
+        <>
+          Kunden
+          <br />
+          otater
+        </>
+      ),
+      headerClassName: "max-w-50",
+      render: (r) => r.customerNotes || "—",
+    },
+    {
+      key: "driverInfo",
+      label: "Driver",
+      headerClassName: "w-50",
+      render: (r) => r.driverInfo || "—",
+    },
+    {
+      key: "orderDate",
+      label: "Bestillingsdato",
+      render: (r) => formatDate(r.orderDate),
+    },
+    {
+      key: "subcontractor",
+      label: "Subcontractor",
+      className: "text-right",
+      headerClassName: "text-right",
+      render: (r) => r.subcontractor || "—",
+    },
+    {
+      key: "lastEdited",
+      label: "Last edited",
+      render: (r) => r.lastEdited || "—",
+    },
+    {
+      key: "totalPriceExVat",
+      label: "TotalPris (uten MVA)",
+      className: "text-right whitespace-nowrap",
+      headerClassName: "text-right",
+      render: (r) => `${r.priceExVat ?? 0} kr`,
+    },
+    {
+      key: "priceSubcontractor",
+      label: "Pris subcontractor",
+      className: "text-right whitespace-nowrap",
+      headerClassName: "text-right",
+      render: (r) => `${r.priceSubcontractor ?? 0} kr`,
+    },
+  ];
+
+  const columnsToRender = visibleColumns?.length
+    ? allColumns.filter((col) => visibleColumns.includes(col.key))
+    : allColumns;
+
   const allChecked =
     rows.length > 0 && rows.every((r) => selectedIds.includes(r.id));
 
   const toggleAll = () => {
     if (allChecked) {
       const visible = new Set(rows.map((r) => r.id));
-      onSelectedIdsChange(
-        selectedIds.filter((id) => !visible.has(id))
-      );
+      onSelectedIdsChange(selectedIds.filter((id) => !visible.has(id)));
     } else {
       const next = new Set(selectedIds);
       rows.forEach((r) => next.add(r.id));
@@ -126,16 +337,7 @@ export function ArchiveTable({
     );
   };
 
-const STATUS_CLASSES: Record<string, string> = {
-  fail: "text-purple-700",
-  confirmed: "text-blue-500",
-  behandles: "text-orange-500",
-  active: "text-purple-500",
-  cancelled: "text-red-500",
-  completed: "text-green-500",
-  invoiced: "text-green-800",
-  betalt: "text-black/30",
-};
+  const showCheckboxes = userView === "admin";
 
   return (
     <section>
@@ -147,122 +349,54 @@ const STATUS_CLASSES: Record<string, string> = {
         <table className="w-full min-w-max table-auto border-collapse text-xs">
           <thead className="sticky top-0 z-10">
             <tr className="bg-logoblue text-white divide-x divide-neutral-300">
-              <Th className="w-10">
-                <input
-                  type="checkbox"
-                  checked={allChecked}
-                  onChange={toggleAll}
-                  className="h-4 w-4"
-                  aria-label="Select all"
-                />
-              </Th>
-              <Th className="w-15">ID</Th>
-              <Th className="w-20">Status</Th>
-              <Th className="w-20">Delivery date</Th>
-              <Th className="w-22.5">
-                Time <br /> window
-              </Th>
-              <Th className="w-25 to-purple-500">Customer</Th>
-              <Th>Order no.</Th>
-              <Th className="w-25">Name</Th>
-              <Th>Phone</Th>
-              <Th className="w-25">
-                Pickup <br /> address
-              </Th>
-              <Th className="w-25">
-                Extra <br /> pickup
-              </Th>
-              <Th className="w-25">
-                Delivery <br /> address
-              </Th>
-              <Th className="w-25">
-                Return <br /> address
-              </Th>
-              <Th className="w-50">Products</Th>
-              <Th>
-                Delivery <br /> type
-              </Th>
-              <Th className="w-50">Monitoring/ return</Th>
-              <Th className="w-50">Description</Th>
-              <Th>Cashier name</Th>
-              <Th>Cashier phone</Th>
-              <Th className="max-w-50">
-                Customer <br /> notes
-              </Th>
-              <Th className="w-50">Driver info</Th>
-              <Th>Order date</Th>
-              <Th className="text-right">Subcontractor</Th>
-              <Th>Last edited</Th>
-              <Th className="text-right">Pris uten MVA</Th>
-              <Th className="text-right">Pris subcontractor</Th>
+              {showCheckboxes && (
+                <Th className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={toggleAll}
+                    className="h-4 w-4"
+                    aria-label="Select all"
+                  />
+                </Th>
+              )}
+
+              {columnsToRender.map((col) => (
+                <Th key={col.key} className={col.headerClassName ?? ""}>
+                  {col.label}
+                </Th>
+              ))}
             </tr>
           </thead>
 
           <tbody className="divide-y divide-neutral-300">
             {rows.map((r) => {
               const checked = selectedIds.includes(r.id);
+
               return (
                 <tr
                   key={r.id}
-                  onClick={() => onRowClick?.(r)}
+                  onClick={() => onRowClick(r)}
                   className="hover:bg-neutral-50 divide-x divide-neutral-300 cursor-pointer"
                 >
-                  <Td className="w-10">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={() => toggleOne(r.id)}
-                      className="h-4 w-4"
-                      aria-label={`Select booking ${r.id}`}
-                    />
-                  </Td>
+                  {showCheckboxes && (
+                    <Td className="w-10">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleOne(r.id)}
+                        className="h-4 w-4"
+                        aria-label={`Select booking ${r.id}`}
+                      />
+                    </Td>
+                  )}
 
-                  <Td className="whitespace-nowrap font-medium">{r.id}</Td>
-                  <Td className={`font-bold ${STATUS_CLASSES[r.status] ?? ""}`}>{r.status}</Td>
-                  <Td className="whitespace-nowrap">
-                    {formatDate(r.deliveryDate)}
-                  </Td>
-                  <Td className="whitespace-nowrap">{r.timeWindow}</Td>
-
-                  <Td>{r.customer}</Td>
-                  <Td className="whitespace-nowrap">{r.orderNo}</Td>
-                  <Td>{r.name}</Td>
-                  <Td className="whitespace-nowrap">{r.phone}</Td>
-
-                  <Td>{r.pickupAddress}</Td>
-                  <Td>{r.extraPickup || "—"}</Td>
-                  <Td>{r.deliveryAddress}</Td>
-                  <Td>{r.returnAddress || "—"}</Td>
-
-                  <Td>{r.products.join(", ")}</Td>
-                  <Td>{r.deliveryType || "—"}</Td>
-                  <Td>{r.monitoringOrReturn || "—"}</Td>
-                  <Td>{r.description || "—"}</Td>
-
-                  <Td>{r.cashierName || "—"}</Td>
-                  <Td className="whitespace-nowrap">
-                    {r.cashierPhone || "—"}
-                  </Td>
-
-                  <Td>{r.customerNotes || "—"}</Td>
-                  <Td>{r.driverInfo || "—"}</Td>
-
-                  <Td>{formatDate(r.orderDate)}</Td>
-                  <Td className="text-right">
-                    {r.subcontractor || "—"}
-                  </Td>
-                  <Td>{r.lastEdited}</Td>
-                  
-                  <Td className="text-right">{r.priceExVat} kr</Td>
-                  <Td className="text-right">{r.priceSubcontractor} kr</Td>
-
-                  <td className="hidden">
-                    <button
-                      type="button"
-                      onClick={() => onRowClick?.(r)}
-                    />
-                  </td>
+                  {columnsToRender.map((col) => (
+                    <Td key={col.key} className={col.className ?? ""}>
+                      {col.render(r)}
+                    </Td>
+                  ))}
                 </tr>
               );
             })}
@@ -283,9 +417,7 @@ function Th({
   className?: string;
 }) {
   return (
-    <th
-      className={`px-2 py-3 text-center font-semibold whitespace-nowrap ${className}`}
-    >
+    <th className={`px-2 py-3 text-center font-semibold whitespace-nowrap ${className}`}>
       {children}
     </th>
   );
@@ -298,13 +430,9 @@ function Td({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <td className={`px-3 py-2 align-top ${className}`}>
-      {children}
-    </td>
-  );
+  return <td className={`px-3 py-2 align-top ${className}`}>{children}</td>;
 }
 
-function formatDate(iso: string) {
-  return iso;
+function formatDate(iso?: string) {
+  return iso || "—";
 }

@@ -46,10 +46,20 @@ const SUBCONTRACTOR_VISIBLE_COLUMNS = [
 ] as const;
 
 export default function AllOrders() {
+  const userView = "subcontractor";
+  const loggedInSubcontractor = "Sub A";
   const [orders, setOrders] = useState<OrderRow[]>(MOCK_ORDERS);
   const [appliedFilters, setAppliedFilters] = useState<AppliedFilters>(DEFAULT_FILTERS);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
+
+  const safeFilters =
+    userView === "subcontractor"
+      ? {
+          ...appliedFilters,
+          subcontractor: loggedInSubcontractor,
+        }
+      : appliedFilters;
 
   const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
     setOrders((prev) =>
@@ -87,25 +97,17 @@ export default function AllOrders() {
 
   return (
     <div>
-      <TopFiltersField
-        key={[
-          appliedFilters.status,
-          appliedFilters.customer,
-          appliedFilters.subcontractor,
-          appliedFilters.fromDate,
-          appliedFilters.toDate,
-          appliedFilters.search,
-          appliedFilters.rowsPerPage,
-          appliedFilters.page,
-        ].join("|")}
-        initialApplied={appliedFilters}
+    <TopFiltersField
+        initialApplied={safeFilters}
         onApply={handleApplyFilters}
         onReset={handleResetFilters}
+        userView={userView}
+        lockedSubcontractor={loggedInSubcontractor}
       />
 
       <div className="flex-1 overflow-auto py-4">
         <ArchiveTable
-          filters={appliedFilters}
+          filters={safeFilters}
           selectedIds={selectedIds}
           onSelectedIdsChange={setSelectedIds}
           orders={orders}

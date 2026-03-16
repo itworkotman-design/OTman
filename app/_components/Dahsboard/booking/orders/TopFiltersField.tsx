@@ -1,13 +1,20 @@
 "use client";
 
 import { Combobox } from "@headlessui/react";
-import {  useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-
 
 /* DATA FOR CLIENTS AND CONTRACTORS */
 const CLIENTS = ["Power Rud", "Power Ski", "Power Skullerud"];
 const SUBCONTRACTORS = ["Sub A", "Sub B", "Sub C"];
+
+type TopFiltersFieldProps = {
+  initialApplied: AppliedFilters;
+  onApply: (filters: AppliedFilters) => void;
+  onReset: () => void;
+  userView?: "admin" | "subcontractor";
+  lockedSubcontractor?: string;
+};
 
 export type AppliedFilters = {
   status: string;
@@ -17,7 +24,7 @@ export type AppliedFilters = {
   toDate: string;
   search: string;
   rowsPerPage: number;
-  page: number; // parent usually owns pagination; we set to 1 on apply/reset
+  page: number;
 };
 
 const DEFAULT_FILTERS: AppliedFilters = {
@@ -35,13 +42,9 @@ export default function TopFilters({
   initialApplied,
   onApply,
   onReset,
-}:{
-  initialApplied : AppliedFilters;
-  onApply: (filters: AppliedFilters) => void;
-  onReset: () => void;
-}) {
-
-  //Draft state
+  userView = "admin",
+  lockedSubcontractor,
+}: TopFiltersFieldProps) {
   const [status, setStatus] = useState(initialApplied.status);
   const [customer, setCustomer] = useState(initialApplied.customer);
   const [subcontractor, setSubcontractor] = useState(initialApplied.subcontractor);
@@ -50,7 +53,6 @@ export default function TopFilters({
   const [search, setSearch] = useState(initialApplied.search);
   const [rowsPerPage, setRowsPerPage] = useState<number>(initialApplied.rowsPerPage);
 
-  //UI only state
   const [clientQuery, setClientQuery] = useState("");
   const [subQuery, setSubQuery] = useState("");
 
@@ -64,24 +66,23 @@ export default function TopFilters({
     [subQuery]
   );
 
-  //Building a single object to send up
   const handleApply = () => {
     onApply({
       status,
       customer,
-      subcontractor,
+      subcontractor: userView === "subcontractor" ? lockedSubcontractor ?? subcontractor : subcontractor,
       fromDate,
       toDate,
       search,
       rowsPerPage,
       page: 1,
-    })
-  }
+    });
+  };
 
   const handleReset = () => {
     setStatus(DEFAULT_FILTERS.status);
     setCustomer(DEFAULT_FILTERS.customer);
-    setSubcontractor(DEFAULT_FILTERS.subcontractor);
+    setSubcontractor(userView === "subcontractor" ? lockedSubcontractor ?? "" : DEFAULT_FILTERS.subcontractor);
     setFromDate(DEFAULT_FILTERS.fromDate);
     setToDate(DEFAULT_FILTERS.toDate);
     setSearch(DEFAULT_FILTERS.search);
@@ -90,7 +91,7 @@ export default function TopFilters({
     setSubQuery("");
 
     onReset();
-  }
+  };
 
   const setToday = () => {
     const d = new Date();
@@ -115,7 +116,7 @@ export default function TopFilters({
 
   const setThisWeek = () => {
     const d = new Date();
-    const day = d.getDay(); // 0=Sun ... 6=Sat
+    const day = d.getDay();
     const diffToMonday = (day + 6) % 7;
     const monday = new Date(d);
     monday.setDate(d.getDate() - diffToMonday);
@@ -137,8 +138,11 @@ export default function TopFilters({
   return (
     <section className="w-full">
       <div className="customContainer w-full max-w-[1000]">
-        {/* Status / Client / Subcontractor */}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div
+          className={`grid grid-cols-1 gap-3 ${
+            userView === "subcontractor" ? "md:grid-cols-2" : "md:grid-cols-3"
+          }`}
+        >
           <Field label="Status">
             <select
               value={status}
@@ -167,21 +171,22 @@ export default function TopFilters({
             placeholder="Select client"
           />
 
-          <ComboField
-            label="Subcontractor"
-            value={subcontractor}
-            onChange={(val) => setSubcontractor(val || "")}
-            query={subQuery}
-            setQuery={setSubQuery}
-            items={filteredSubs}
-            placeholder="Select subcontractor"
-          />
+          {userView !== "subcontractor" && (
+            <ComboField
+              label="Subcontractor"
+              value={subcontractor}
+              onChange={(val) => setSubcontractor(val || "")}
+              query={subQuery}
+              setQuery={setSubQuery}
+              items={filteredSubs}
+              placeholder="Select subcontractor"
+            />
+          )}
         </div>
 
-        {/* Dates + Quick buttons */}
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2 min-w-0">
-            <Field  label="From date" className="min-w-0">
+            <Field label="From date" className="min-w-0">
               <input
                 type="date"
                 value={fromDate}
@@ -225,7 +230,6 @@ export default function TopFilters({
           </div>
         </div>
 
-        {/* Search + Rows per page + Actions */}
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
           <Field label="Search">
             <input
@@ -264,9 +268,7 @@ export default function TopFilters({
                     type="button"
                     onClick={() => setRowsPerPage(n)}
                     className={`customButtonDefault h-8 px-2! text-xs mx-auto ${
-                      rowsPerPage === n
-                        ? "customButtonDefault px-2!"
-                        : ""
+                      rowsPerPage === n ? "customButtonDefault px-2!" : ""
                     }`}
                   >
                     {n}
@@ -277,7 +279,7 @@ export default function TopFilters({
           </Field>
 
           <div className="flex items-end justify-end gap-2">
-            <button type="button" onClick={handleReset} className="customButtonDefault h-10 ">
+            <button type="button" onClick={handleReset} className="customButtonDefault h-10">
               Reset
             </button>
             <button
