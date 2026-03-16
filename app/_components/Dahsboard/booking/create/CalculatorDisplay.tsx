@@ -38,17 +38,52 @@ type Props = {
   productBreakdowns: ProductBreakdown[];
   adminView?: boolean;
   onPriceChange?: (exVat: number, subcontractorPrice: number) => void;
+  // ← NEW: controlled initial values
+  initialRabatt?: number;
+  initialLeggTil?: number;
+  initialSubcontractorMinus?: number;
+  initialSubcontractorPlus?: number;
+  // ← NEW: callback so parent can read current adjustment strings
+  onAdjustmentsChange?: (adjustments: {
+    rabatt: string;
+    leggTil: string;
+    subcontractorMinus: string;
+    subcontractorPlus: string;
+  }) => void;
 };
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function CalculatorDisplay({ total, subcontractorTotal, productBreakdowns, adminView = false, onPriceChange }: Props) {
-  const [rabatt, setRabatt] = useState("");
-  const [leggTil, setLegTil] = useState("");
-  const [subcontractorMinus, setSubcontractorMinus] = useState("");
-  const [subcontractorPlus, setSubcontractorPlus] = useState("");
+export function CalculatorDisplay({
+  total,
+  subcontractorTotal,
+  productBreakdowns,
+  adminView = false,
+  onPriceChange,
+  initialRabatt,
+  initialLeggTil,
+  initialSubcontractorMinus,
+  initialSubcontractorPlus,
+  onAdjustmentsChange,
+}: Props) {
+  const [rabatt, setRabatt] = useState(
+  initialRabatt != null && initialRabatt !== 0 ? String(initialRabatt) : ""
+);
+const [leggTil, setLegTil] = useState(
+  initialLeggTil != null && initialLeggTil !== 0 ? String(initialLeggTil) : ""
+);
+const [subcontractorMinus, setSubcontractorMinus] = useState(
+  initialSubcontractorMinus != null && initialSubcontractorMinus !== 0
+    ? String(initialSubcontractorMinus)
+    : ""
+);
+const [subcontractorPlus, setSubcontractorPlus] = useState(
+  initialSubcontractorPlus != null && initialSubcontractorPlus !== 0
+    ? String(initialSubcontractorPlus)
+    : ""
+);
 
   const discount = useMemo(() => parseNOK(rabatt), [rabatt]);
   const plus = useMemo(() => parseNOK(leggTil), [leggTil]);
@@ -62,7 +97,8 @@ export function CalculatorDisplay({ total, subcontractorTotal, productBreakdowns
 
   useEffect(() => {
     onPriceChange?.(totalExVat, subcontractorPrice);
-  }, [totalExVat, subcontractorPrice, onPriceChange]);
+    onAdjustmentsChange?.({ rabatt, leggTil, subcontractorMinus, subcontractorPlus });
+  }, [totalExVat, subcontractorPrice, rabatt, leggTil, subcontractorMinus, subcontractorPlus, onPriceChange, onAdjustmentsChange]);
 
   return (
     <section className="w-full customContainer rounded-2xl px-4 max-h-[calc(100vh-9rem)] overflow-y-auto bg-mainPrimary ">

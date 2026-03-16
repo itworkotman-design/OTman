@@ -155,6 +155,12 @@ export type OrderFormPayload = {
   // pricing — computed by calculator
   priceExVat: number;
   priceSubcontractor: number;
+
+  // pricing adjustments (raw strings so they round-trip exactly)
+  rabatt: string;
+  leggTil: string;
+  subcontractorMinus: string;
+  subcontractorPlus: string;
 };
 
 export function OrderForm({
@@ -200,6 +206,21 @@ export function OrderForm({
   const [, setPriceSubcontractor] = useState<number>(
     initialValues.priceSubcontractor ?? 0
   );
+
+  const [rabatt, setRabatt]                       = useState(initialValues.rabatt              ?? "");
+  const [leggTil, setLeggTil]                     = useState(initialValues.leggTil             ?? "");
+  const [subcontractorMinus, setSubcontractorMinus] = useState(initialValues.subcontractorMinus ?? "");
+  const [subcontractorPlus, setSubcontractorPlus]   = useState(initialValues.subcontractorPlus  ?? "");
+
+  const handleAdjustmentsChange = useCallback(
+  (adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => {
+    setRabatt(adj.rabatt);
+    setLeggTil(adj.leggTil);
+    setSubcontractorMinus(adj.subcontractorMinus);
+    setSubcontractorPlus(adj.subcontractorPlus);
+  },
+  []
+);
 
   const canRemove = cards.length > 1;
 
@@ -339,6 +360,10 @@ export function OrderForm({
       statusNotes, changeCustomer, status, dontSendEmail,
       priceExVat:         latestPriceExVat.current,
       priceSubcontractor: latestPriceSubcontractor.current,
+      rabatt,
+      leggTil,
+      subcontractorMinus,
+      subcontractorPlus,
     });
   };
 
@@ -642,6 +667,11 @@ export function OrderForm({
                         productBreakdowns={productBreakdowns}
                         adminView={dataset === "default"}
                         onPriceChange={handlePriceChange}
+                        initialRabatt={initialValues.rabatt ? parseFloat(initialValues.rabatt) : undefined}
+                        initialLeggTil={initialValues.leggTil ? parseFloat(initialValues.leggTil) : undefined}
+                        initialSubcontractorMinus={initialValues.subcontractorMinus ? parseFloat(initialValues.subcontractorMinus) : undefined}
+                        initialSubcontractorPlus={initialValues.subcontractorPlus ? parseFloat(initialValues.subcontractorPlus) : undefined}
+                        onAdjustmentsChange={handleAdjustmentsChange}
                       />
                     </div>
                   </div>
@@ -654,6 +684,11 @@ export function OrderForm({
                   productBreakdowns={productBreakdowns}
                   adminView={dataset === "default"}
                   onPriceChange={handlePriceChange}
+                  initialRabatt={initialValues.rabatt ? parseFloat(initialValues.rabatt) : undefined}
+                  initialLeggTil={initialValues.leggTil ? parseFloat(initialValues.leggTil) : undefined}
+                  initialSubcontractorMinus={initialValues.subcontractorMinus ? parseFloat(initialValues.subcontractorMinus) : undefined}
+                  initialSubcontractorPlus={initialValues.subcontractorPlus ? parseFloat(initialValues.subcontractorPlus) : undefined}
+                  onAdjustmentsChange={handleAdjustmentsChange}
                 />
               </div>
             </>

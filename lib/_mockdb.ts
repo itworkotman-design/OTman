@@ -45,6 +45,10 @@ export type OrderRow = {
   cardItems: Record<number, LineItem[]>;
   cardDeliveryType: Record<number, DeliveryType>;
   cardProducts: Record<number, string | null>;
+  rabatt?: number;
+  leggTil?: number;
+  subcontractorMinus?: number;
+  subcontractorPlus?: number;
 };
 
 export const ORDERS: OrderRow[] = [
@@ -82,6 +86,10 @@ export const ORDERS: OrderRow[] = [
         { key: "INSWASH1__montering_vaskemaskin_vatrom", qty: 1 },
       ],
     },
+    rabatt: 200,
+    leggTil: 23,
+    subcontractorMinus: 222,
+    subcontractorPlus: 222,
   },
   {
     id: "13207",

@@ -35,7 +35,13 @@ export function EditOrderModal({ isOpen, order, onClose, onUpdate }: Props) {
     cardItems:        order.cardItems,
     cardDeliveryType: order.cardDeliveryType,
     cardProducts:     order.cardProducts,
-  };
+    priceExVat:         order.priceExVat,
+    priceSubcontractor: order.priceSubcontractor,
+    rabatt:             order.rabatt            != null ? String(order.rabatt)            : "",
+    leggTil:            order.leggTil           != null ? String(order.leggTil)           : "",
+    subcontractorMinus: order.subcontractorMinus != null ? String(order.subcontractorMinus) : "",
+    subcontractorPlus:  order.subcontractorPlus  != null ? String(order.subcontractorPlus)  : "",
+};
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center backdrop-blur-sm">
