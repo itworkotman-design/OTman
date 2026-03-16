@@ -5,7 +5,7 @@ import { useState } from "react";
 import  Sidebar  from "@/app/_components/Dahsboard/Sidebar";
 
 const SIDEBAR_OPEN = 300;
-const SIDEBAR_CLOSED = 44;
+const SIDEBAR_CLOSED = 50;
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);

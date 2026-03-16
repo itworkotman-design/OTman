@@ -23,7 +23,7 @@ const isActive = (href: string) => {
 
   return (
     <div style={{ width }} className={`h-full lg:bg-linePrimary ${open? `w-full`: `w-10`}`}>
-      <div className="py-2 flex">
+      <div className="py-4 flex">
         <button onClick={() => onOpenChange(!open)} className="hidden lg:block hover:text-textcolor ml-auto px-2 cursor-pointer">
           {open? 
           <svg className="w-[28] h-[28] " aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M8.99994 10 7 11.9999l1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z"/></svg>
@@ -31,7 +31,7 @@ const isActive = (href: string) => {
           <svg className="w-[28] h-[28]" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z"/></svg>
           }
         </button>
-        <button onClick={() => onOpenChange(!open)} className="lg:hidden hover:text-textcolor ml-auto px-2 cursor-pointer">
+        <button onClick={() => onOpenChange(!open)} className="lg:hidden hover:text-textcolor mx-auto cursor-pointer">
           <svg className="w-[28] h-[28]" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
             <path stroke="currentColor" strokeLinecap="round" strokeWidth="1" d="M5 7h14M5 12h14M5 17h14"/>
           </svg>

@@ -6,7 +6,7 @@ import  Sidebar  from "../../_components/Dahsboard/Sidebar";
 import { NavbarBooking } from "@/app/_components/Dahsboard/booking/NavbarBooking";
 
 const SIDEBAR_OPEN = 300;
-const SIDEBAR_CLOSED = 44;
+const SIDEBAR_CLOSED = 50;
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);

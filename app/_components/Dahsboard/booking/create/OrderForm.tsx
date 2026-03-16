@@ -196,8 +196,8 @@ export function OrderForm({
   );
 
   // pricing from calculator
-  const [priceExVat, setPriceExVat] = useState<number>(initialValues.priceExVat ?? 0);
-  const [priceSubcontractor, setPriceSubcontractor] = useState<number>(
+  const [, setPriceExVat] = useState<number>(initialValues.priceExVat ?? 0);
+  const [, setPriceSubcontractor] = useState<number>(
     initialValues.priceSubcontractor ?? 0
   );
 

@@ -7,10 +7,35 @@ import type { OrderRow } from "@/lib/_mockdb";
 type ArchiveTableProps = {
   filters: AppliedFilters;
   selectedIds: string[];
-  onSelectedIdsChange: (next: string[]) => void;
+  onSelectedIdsChange: (ids: string[]) => void;
   orders: OrderRow[];
-  onRowClick?: (row: OrderRow) => void;
+  onRowClick: (row: OrderRow) => void;
+  visibleColumns?: readonly string[];
+  userView?: "admin" | "subcontractor";
 };
+
+const ALL_COLUMNS = [
+  { key: "status", label: "Status" },
+  { key: "deliveryDate", label: "Leveringsdato" },
+  { key: "timeWindow", label: "Tidsvindu for levering" },
+  { key: "customer", label: "Customer" },
+  { key: "orderNo", label: "Best.nr" },
+  { key: "pickupAddress", label: "Pickup Adresse" },
+  { key: "extraPickup", label: "Extra pickup" },
+  { key: "deliveryAddress", label: "Leveringsadresse" },
+  { key: "returnAddress", label: "Returadresse" },
+  { key: "products", label: "Produkter" },
+  { key: "deliveryType", label: "Leveringstype" },
+  { key: "assemblyReturn", label: "Montering/retur" },
+  { key: "description", label: "Beskrivelse" },
+  { key: "cashierName", label: "Kasserers navn" },
+  { key: "cashierPhone", label: "Kasserers telefon" },
+  { key: "customerNotes", label: "Kundenotater" },
+  { key: "driverInfo", label: "Driver" },
+  { key: "orderDate", label: "Bestillingsdato" },
+  { key: "totalPriceExVat", label: "TotalPris (uten MVA)" },
+];
+
 
 export function ArchiveTable({
   filters,
@@ -282,8 +307,4 @@ function Td({
 
 function formatDate(iso: string) {
   return iso;
-}
-
-function formatMoney(n: number) {
-  return n.toString();
 }
