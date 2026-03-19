@@ -40,7 +40,7 @@ export default function LoginPage() {
               />
             </div>
           <div className="flex items-center justify-between">
-            <Link href="/client-login" className="text-logoblue font-semibold"><i className="fa-solid fa-arrow-left text-sm"></i> back</Link>
+            <Link href="/login" className="text-logoblue font-semibold"><i className="fa-solid fa-arrow-left text-sm"></i> back</Link>
             <button
               type="submit"
               className="h-10 w-50 rounded-lg bg-logoblue text-lg font-semibold text-white hover:opacity-95 active:opacity-90 cursor-pointer"
