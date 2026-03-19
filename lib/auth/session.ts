@@ -1,7 +1,6 @@
-
 import { createHash } from "crypto";
-import { prisma } from "@/lib/db";
 import { UserStatus } from "@prisma/client";
+import { prisma } from "@/lib/db";
 
 export const SESSION_COOKIE = "sid";
 export const SESSION_DAYS = 30;
@@ -11,15 +10,19 @@ function isProd() {
 }
 
 export function setSessionCookie(
-  res: { cookies: { set: (options: {
-    name: string;
-    value: string;
-    httpOnly: boolean;
-    sameSite: "lax" | "strict" | "none";
-    secure: boolean;
-    path: string;
-    expires: Date;
-  }) => void } },
+  res: {
+    cookies: {
+      set: (options: {
+        name: string;
+        value: string;
+        httpOnly: boolean;
+        sameSite: "lax" | "strict" | "none";
+        secure: boolean;
+        path: string;
+        expires: Date;
+      }) => void;
+    };
+  },
   token: string,
   expiresAt: Date
 ) {
@@ -35,15 +38,19 @@ export function setSessionCookie(
 }
 
 export function clearSessionCookie(
-  res: { cookies: { set: (options: {
-    name: string;
-    value: string;
-    httpOnly: boolean;
-    sameSite: "lax" | "strict" | "none";
-    secure: boolean;
-    path: string;
-    expires: Date;
-  }) => void } }
+  res: {
+    cookies: {
+      set: (options: {
+        name: string;
+        value: string;
+        httpOnly: boolean;
+        sameSite: "lax" | "strict" | "none";
+        secure: boolean;
+        path: string;
+        expires: Date;
+      }) => void;
+    };
+  }
 ) {
   res.cookies.set({
     name: SESSION_COOKIE,
@@ -73,6 +80,9 @@ export type AuthenticatedSession = {
   email: string;
   userStatus: UserStatus;
   expiresAt: Date;
+  activeCompanyId: string | null;
+  activeCompanyName: string | null;
+  activeCompanySlug: string | null;
 };
 
 export async function getAuthenticatedSession(
@@ -96,6 +106,14 @@ export async function getAuthenticatedSession(
       id: true,
       userId: true,
       expiresAt: true,
+      activeCompanyId: true,
+      activeCompany: {
+        select: {
+          name: true,
+          slug: true,
+          status: true,
+        },
+      },
       user: {
         select: {
           email: true,
@@ -107,6 +125,11 @@ export async function getAuthenticatedSession(
 
   if (!session) return null;
   if (session.user.status !== "ACTIVE") return null;
+
+  const activeCompany =
+    session.activeCompany && session.activeCompany.status === "ACTIVE"
+      ? session.activeCompany
+      : null;
 
   prisma.session
     .updateMany({
@@ -121,6 +144,9 @@ export async function getAuthenticatedSession(
     email: session.user.email,
     userStatus: session.user.status,
     expiresAt: session.expiresAt,
+    activeCompanyId: activeCompany ? session.activeCompanyId : null,
+    activeCompanyName: activeCompany ? activeCompany.name : null,
+    activeCompanySlug: activeCompany ? activeCompany.slug : null,
   };
 }
 

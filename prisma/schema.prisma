@@ -77,9 +77,10 @@ model Company {
   slug   String?       @unique
   status CompanyStatus @default(ACTIVE)
 
-  memberships Membership[]
-  invites     Invite[]
-  authEvents  AuthEvent[]
+  memberships    Membership[]
+  invites        Invite[]
+  authEvents     AuthEvent[]
+  activeSessions Session[]     @relation("SessionActiveCompany")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -130,23 +131,26 @@ model Invite {
 }
 
 model Session {
-  id        String    @id @default(cuid())
-  userId    String
-  tokenHash String    @unique
-  expiresAt DateTime
-  revokedAt DateTime?
+  id              String    @id @default(cuid())
+  userId          String
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  activeCompanyId String?
 
   ipHash        String?
   userAgentHash String?
 
   lastSeenAt DateTime?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeCompany Company? @relation("SessionActiveCompany", fields: [activeCompanyId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId, expiresAt])
+  @@index([activeCompanyId])
 }
 
 model PasswordResetToken {

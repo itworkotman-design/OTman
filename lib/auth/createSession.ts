@@ -9,6 +9,7 @@ function sha256Hex(value: string): string {
 
 export async function createSession(params: {
   userId: string;
+  activeCompanyId?: string | null;
   ip?: string | null;
   userAgent?: string | null;
 }): Promise<{
@@ -26,6 +27,7 @@ export async function createSession(params: {
       userId: params.userId,
       tokenHash,
       expiresAt: sessionExpiresAt,
+      activeCompanyId: params.activeCompanyId ?? null,
       ipHash: params.ip ? sha256Hex(params.ip) : null,
       userAgentHash: params.userAgent ? sha256Hex(params.userAgent) : null,
     },

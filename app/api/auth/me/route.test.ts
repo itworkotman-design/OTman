@@ -44,13 +44,16 @@ describe("GET /api/auth/me", () => {
     expect(mocks.findManyMock).not.toHaveBeenCalled();
   });
 
-  it("returns 200 and user/session/memberships when session exists", async () => {
+  it("returns 200 and user/session/memberships with active tenant when session exists", async () => {
     const session = {
       sessionId: "session-1",
       userId: "user-1",
       email: "user@example.com",
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-1",
+      activeCompanyName: "Company One",
+      activeCompanySlug: "company-one",
     };
 
     mocks.getAuthenticatedSessionMock.mockResolvedValue(session);
@@ -96,6 +99,12 @@ describe("GET /api/auth/me", () => {
       session: {
         id: "session-1",
         expiresAt: "2030-01-01T00:00:00.000Z",
+        activeCompanyId: "company-1",
+      },
+      activeTenant: {
+        companyId: "company-1",
+        companyName: "Company One",
+        companySlug: "company-one",
       },
       memberships: [
         {
@@ -129,6 +138,66 @@ describe("GET /api/auth/me", () => {
           },
         },
       },
+    });
+  });
+
+  it("returns 200 with null activeTenant when no active company is selected", async () => {
+    const session = {
+      sessionId: "session-1",
+      userId: "user-1",
+      email: "user@example.com",
+      userStatus: "ACTIVE",
+      expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: null,
+      activeCompanyName: null,
+      activeCompanySlug: null,
+    };
+
+    mocks.getAuthenticatedSessionMock.mockResolvedValue(session);
+
+    mocks.findManyMock.mockResolvedValue([
+      {
+        companyId: "company-1",
+        role: "ADMIN",
+        status: "ACTIVE",
+        company: {
+          id: "company-1",
+          name: "Company One",
+          slug: "company-one",
+        },
+      },
+    ]);
+
+    const req = new Request("http://localhost/api/auth/me", {
+      method: "GET",
+    });
+
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      user: {
+        id: "user-1",
+        email: "user@example.com",
+        status: "ACTIVE",
+      },
+      session: {
+        id: "session-1",
+        expiresAt: "2030-01-01T00:00:00.000Z",
+        activeCompanyId: null,
+      },
+      activeTenant: null,
+      memberships: [
+        {
+          companyId: "company-1",
+          companyName: "Company One",
+          companySlug: "company-one",
+          role: "ADMIN",
+          status: "ACTIVE",
+        },
+      ],
     });
   });
 });
