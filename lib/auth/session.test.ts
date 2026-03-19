@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "crypto";
 import { UserStatus } from "@prisma/client";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   return {
@@ -80,6 +80,14 @@ describe("getAuthenticatedSession", () => {
         id: true,
         userId: true,
         expiresAt: true,
+        activeCompanyId: true,
+        activeCompany: {
+          select: {
+            name: true,
+            slug: true,
+            status: true,
+          },
+        },
         user: {
           select: {
             email: true,
@@ -102,6 +110,8 @@ describe("getAuthenticatedSession", () => {
       id: "session-1",
       userId: "user-1",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: null,
+      activeCompany: null,
       user: {
         email: "test@example.com",
         status: UserStatus.DISABLED,
@@ -114,7 +124,7 @@ describe("getAuthenticatedSession", () => {
     expect(mocks.updateManyMock).not.toHaveBeenCalled();
   });
 
-  it("returns the authenticated session and updates lastSeenAt for an ACTIVE user", async () => {
+  it("returns authenticated session with active tenant when company is ACTIVE", async () => {
     const expiresAt = new Date("2030-01-01T00:00:00.000Z");
     const req = new Request("http://localhost", {
       headers: {
@@ -126,6 +136,12 @@ describe("getAuthenticatedSession", () => {
       id: "session-1",
       userId: "user-1",
       expiresAt,
+      activeCompanyId: "company-1",
+      activeCompany: {
+        name: "Company One",
+        slug: "company-one",
+        status: "ACTIVE",
+      },
       user: {
         email: "test@example.com",
         status: UserStatus.ACTIVE,
@@ -140,12 +156,87 @@ describe("getAuthenticatedSession", () => {
       email: "test@example.com",
       userStatus: UserStatus.ACTIVE,
       expiresAt,
+      activeCompanyId: "company-1",
+      activeCompanyName: "Company One",
+      activeCompanySlug: "company-one",
     });
 
     expect(mocks.updateManyMock).toHaveBeenCalledTimes(1);
     expect(mocks.updateManyMock).toHaveBeenCalledWith({
       where: { id: "session-1" },
       data: { lastSeenAt: expect.any(Date) },
+    });
+  });
+
+  it("returns authenticated session with null active tenant when company is missing", async () => {
+    const expiresAt = new Date("2030-01-01T00:00:00.000Z");
+    const req = new Request("http://localhost", {
+      headers: {
+        cookie: `${SESSION_COOKIE}=valid-token`,
+      },
+    });
+
+    mocks.findFirstMock.mockResolvedValue({
+      id: "session-1",
+      userId: "user-1",
+      expiresAt,
+      activeCompanyId: null,
+      activeCompany: null,
+      user: {
+        email: "test@example.com",
+        status: UserStatus.ACTIVE,
+      },
+    });
+
+    const result = await getAuthenticatedSession(req);
+
+    expect(result).toEqual({
+      sessionId: "session-1",
+      userId: "user-1",
+      email: "test@example.com",
+      userStatus: UserStatus.ACTIVE,
+      expiresAt,
+      activeCompanyId: null,
+      activeCompanyName: null,
+      activeCompanySlug: null,
+    });
+  });
+
+  it("returns authenticated session with null active tenant when company is not ACTIVE", async () => {
+    const expiresAt = new Date("2030-01-01T00:00:00.000Z");
+    const req = new Request("http://localhost", {
+      headers: {
+        cookie: `${SESSION_COOKIE}=valid-token`,
+      },
+    });
+
+    mocks.findFirstMock.mockResolvedValue({
+      id: "session-1",
+      userId: "user-1",
+      expiresAt,
+      activeCompanyId: "company-1",
+      activeCompany: {
+        name: "Company One",
+        slug: "company-one",
+        status: "DISABLED",
+      },
+      user: {
+        email: "test@example.com",
+        status: UserStatus.ACTIVE,
+      },
+    });
+
+    const result = await getAuthenticatedSession(req);
+
+    expect(result).toEqual({
+      sessionId: "session-1",
+      userId: "user-1",
+      email: "test@example.com",
+      userStatus: UserStatus.ACTIVE,
+      expiresAt,
+      activeCompanyId: null,
+      activeCompanyName: null,
+      activeCompanySlug: null,
     });
   });
 
@@ -161,6 +252,12 @@ describe("getAuthenticatedSession", () => {
       id: "session-1",
       userId: "user-1",
       expiresAt,
+      activeCompanyId: "company-1",
+      activeCompany: {
+        name: "Company One",
+        slug: "company-one",
+        status: "ACTIVE",
+      },
       user: {
         email: "test@example.com",
         status: UserStatus.ACTIVE,
@@ -177,6 +274,9 @@ describe("getAuthenticatedSession", () => {
       email: "test@example.com",
       userStatus: UserStatus.ACTIVE,
       expiresAt,
+      activeCompanyId: "company-1",
+      activeCompanyName: "Company One",
+      activeCompanySlug: "company-one",
     });
 
     expect(mocks.updateManyMock).toHaveBeenCalledWith({

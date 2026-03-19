@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { getAuthenticatedSession } from "@/lib/auth/session";
 
 export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -36,7 +36,15 @@ export async function GET(req: Request) {
       session: {
         id: session.sessionId,
         expiresAt: session.expiresAt,
+        activeCompanyId: session.activeCompanyId,
       },
+      activeTenant: session.activeCompanyId
+        ? {
+            companyId: session.activeCompanyId,
+            companyName: session.activeCompanyName,
+            companySlug: session.activeCompanySlug,
+          }
+        : null,
       memberships: memberships.map((m) => ({
         companyId: m.companyId,
         companyName: m.company.name,

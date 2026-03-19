@@ -4,6 +4,7 @@ import { AuthEventType } from "@prisma/client";
 const mocks = vi.hoisted(() => {
   return {
     findUniqueMock: vi.fn(),
+    findManyMock: vi.fn(),
     verifyPasswordMock: vi.fn(),
     logAuthEventMock: vi.fn(),
     createSessionMock: vi.fn(),
@@ -17,6 +18,9 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     user: {
       findUnique: mocks.findUniqueMock,
+    },
+    membership: {
+      findMany: mocks.findManyMock,
     },
   },
 }));
@@ -52,6 +56,7 @@ describe("loginWithEmailPassword", () => {
     mocks.clearRateLimitMock.mockResolvedValue(undefined);
     mocks.incrementRateLimitMock.mockResolvedValue(undefined);
     mocks.logAuthEventMock.mockResolvedValue(undefined);
+    mocks.findManyMock.mockResolvedValue([]);
     mocks.createSessionMock.mockResolvedValue({
       sessionToken: "session-token",
       sessionExpiresAt: new Date("2030-01-01T00:00:00.000Z"),
@@ -73,6 +78,7 @@ describe("loginWithEmailPassword", () => {
 
     expect(result).toEqual({ ok: false, reason: "RATE_LIMITED" });
     expect(mocks.findUniqueMock).not.toHaveBeenCalled();
+    expect(mocks.findManyMock).not.toHaveBeenCalled();
     expect(mocks.incrementRateLimitMock).not.toHaveBeenCalled();
   });
 
@@ -106,13 +112,14 @@ describe("loginWithEmailPassword", () => {
     });
   });
 
-  it("returns success and clears the email bucket on valid credentials", async () => {
+  it("returns success and auto-selects tenant when exactly one active membership exists", async () => {
     mocks.findUniqueMock.mockResolvedValue({
       id: "user-1",
       passwordHash: "hashed-password",
       status: "ACTIVE",
     });
     mocks.verifyPasswordMock.mockResolvedValue(true);
+    mocks.findManyMock.mockResolvedValue([{ companyId: "company-1" }]);
 
     const result = await loginWithEmailPassword({
       email: "test@example.com",
@@ -126,10 +133,28 @@ describe("loginWithEmailPassword", () => {
       userId: "user-1",
       sessionToken: "session-token",
       sessionExpiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-1",
+    });
+
+    expect(mocks.findManyMock).toHaveBeenCalledWith({
+      where: {
+        userId: "user-1",
+        status: "ACTIVE",
+        company: {
+          status: "ACTIVE",
+        },
+      },
+      select: {
+        companyId: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
     });
 
     expect(mocks.createSessionMock).toHaveBeenCalledWith({
       userId: "user-1",
+      activeCompanyId: "company-1",
       ip: "127.0.0.1",
       userAgent: "vitest",
     });
@@ -137,12 +162,58 @@ describe("loginWithEmailPassword", () => {
     expect(mocks.logAuthEventMock).toHaveBeenCalledWith({
       type: AuthEventType.LOGIN_SUCCESS,
       userId: "user-1",
+      companyId: "company-1",
       ip: "127.0.0.1",
       userAgent: "vitest",
+      meta: { autoSelectedTenant: true },
     });
 
     expect(mocks.clearRateLimitMock).toHaveBeenCalledWith(
       "login:email:test@example.com"
     );
+  });
+
+  it("returns success with null activeCompanyId when multiple active memberships exist", async () => {
+    mocks.findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      passwordHash: "hashed-password",
+      status: "ACTIVE",
+    });
+    mocks.verifyPasswordMock.mockResolvedValue(true);
+    mocks.findManyMock.mockResolvedValue([
+      { companyId: "company-1" },
+      { companyId: "company-2" },
+    ]);
+
+    const result = await loginWithEmailPassword({
+      email: "test@example.com",
+      password: "correct-password",
+      ip: "127.0.0.1",
+      userAgent: "vitest",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      userId: "user-1",
+      sessionToken: "session-token",
+      sessionExpiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: null,
+    });
+
+    expect(mocks.createSessionMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      activeCompanyId: null,
+      ip: "127.0.0.1",
+      userAgent: "vitest",
+    });
+
+    expect(mocks.logAuthEventMock).toHaveBeenCalledWith({
+      type: AuthEventType.LOGIN_SUCCESS,
+      userId: "user-1",
+      companyId: null,
+      ip: "127.0.0.1",
+      userAgent: "vitest",
+      meta: { autoSelectedTenant: false },
+    });
   });
 });

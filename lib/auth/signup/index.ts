@@ -5,12 +5,12 @@ import { createSession } from "@/lib/auth/createSession";
 
 type SignupResult =
   | {
-      ok: true;
-      userId: string;
-      companyId: string;
-      sessionToken: string;
-      sessionExpiresAt: Date;
-    }
+    ok: true;
+    userId: string;
+    companyId: string;
+    sessionToken: string;
+    sessionExpiresAt: Date;
+  }
   | { ok: false; reason: "INVALID_INPUT" | "EMAIL_ALREADY_EXISTS" };
 
 export async function signupWithEmailPassword(params: {
@@ -84,6 +84,7 @@ export async function signupWithEmailPassword(params: {
 
     const session = await createSession({
       userId: result.userId,
+      activeCompanyId: result.companyId,
       ip: params.ip,
       userAgent: params.userAgent,
     });
