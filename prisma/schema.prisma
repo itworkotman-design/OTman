@@ -1,15 +1,214 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum CompanyStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  DISABLED
+  INVITED
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  USER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum AuthEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAIL
+  LOGOUT
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_SUCCESS
+  SESSION_REVOKED
+  INVITE_SENT
+  INVITE_ACCEPTED
+  INVITE_REVOKED
+  MEMBERSHIP_DISABLED
+  MEMBERSHIP_ENABLED
+  MEMBERSHIP_ROLE_CHANGED
+  USER_DISABLED
+  TENANT_SELECTED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  status       UserStatus @default(ACTIVE)
+
+  memberships Membership[]
+  sessions    Session[]
+  resetTokens PasswordResetToken[]
+  authEvents  AuthEvent[]
+  invitesSent Invite[]             @relation("InviteCreatedBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model Company {
+  id     String        @id @default(cuid())
+  name   String
+  slug   String?       @unique
+  status CompanyStatus @default(ACTIVE)
+
+  memberships Membership[]
+  invites     Invite[]
+  authEvents  AuthEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model Membership {
+  id        String           @id @default(cuid())
+  userId    String
+  companyId String
+  role      Role
+  status    MembershipStatus @default(ACTIVE)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, companyId])
+  @@index([companyId, status])
+  @@index([userId, status])
+}
+
+model Invite {
+  id        String       @id @default(cuid())
+  companyId String
+  email     String
+  role      Role         @default(USER)
+  status    InviteStatus @default(PENDING)
+
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+
+  createdByUserId String?
+  createdByUser   User?   @relation("InviteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status])
+  @@index([email, status])
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  ipHash        String?
+  userAgentHash String?
+
+  lastSeenAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, expiresAt])
+}
+
+model AuthEvent {
+  id   String        @id @default(cuid())
+  type AuthEventType
+
+  userId    String?
+  companyId String?
+
+  // Keep for failed login attempts where userId is unknown
+  email String?
+
+  ipHash        String?
+  userAgentHash String?
+
+  // Small metadata; never store secrets
+  meta Json?
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
+}
 
 enum PricingMode {
   FIXED
   REQUEST
+}
+
+enum RequestStatus {
+  NEW
+  CONFIRMED
+  REJECTED
+  CANCELLED
 }
 
 model Category {
@@ -41,16 +240,10 @@ model Service {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
+  requestItems RequestItem[]
+
   @@index([categoryId])
   @@index([isActive, sortOrder])
-  requestItems RequestItem[]
-}
-
-enum RequestStatus {
-  NEW
-  CONFIRMED
-  REJECTED
-  CANCELLED
 }
 
 model Request {
@@ -92,4 +285,3 @@ model RequestItem {
   @@index([requestId])
   @@index([serviceId])
 }
-
