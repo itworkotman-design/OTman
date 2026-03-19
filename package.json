@@ -7,7 +7,12 @@
     "postinstall": "prisma generate",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -16,10 +21,11 @@
     "@fortawesome/fontawesome-free": "^7.1.0",
     "@getbrevo/brevo": "^5.0.1",
     "@headlessui/react": "^2.2.9",
-    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.3.0",
+    "argon2": "^0.44.0",
     "next": "16.1.6",
-    "pg": "^8.18.0",
+    "pg": "^8.20.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "xlsx": "^0.18.5",
@@ -29,14 +35,16 @@
     "@tailwindcss/postcss": "^4",
     "@types/google.maps": "^3.58.1",
     "@types/node": "^20",
-    "@types/pg": "^8.16.0",
+    "@types/pg": "^8.11.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "prisma": "^7.3.0",
     "tailwindcss": "^4",
     "tsx": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }
