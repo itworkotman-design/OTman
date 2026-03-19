@@ -325,14 +325,14 @@ export function OrderForm({
   const [deliveryAddress, setDeliveryAddress] = useState(initialValues.deliveryAddress ?? "");
   const [drivingDistance, setDrivingDistance] = useState(initialValues.drivingDistance ?? "");
   const [customerName, setCustomerName] = useState(initialValues.customerName ?? "");
-  const [phone, setPhone]               = useState(initialValues.phone        ?? "+47 ");
-  const [phoneTwo, setPhoneTwo]         = useState(initialValues.phoneTwo     ?? "+47 ");
+  const [phone, setPhone] = useState(initialValues.phone ?? "");
+  const [phoneTwo, setPhoneTwo] = useState(initialValues.phoneTwo ?? "");
+  const [cashierPhone, setCashierPhone] = useState(initialValues.cashierPhone ?? "");
   const [email, setEmail]               = useState(initialValues.email        ?? "");
   const [customerComments, setCustomerComments] = useState(initialValues.customerComments ?? "");
   const [floorNo, setFloorNo]           = useState(initialValues.floorNo ?? "");
   const [lift, setLift]                 = useState<"yes" | "no" | "">(initialValues.lift ?? "");
   const [cashierName, setCashierName]   = useState(initialValues.cashierName  ?? "");
-  const [cashierPhone, setCashierPhone] = useState(initialValues.cashierPhone ?? "+47 ");
   const [subcontractor, setSubcontractor] = useState(initialValues.subcontractor ?? "");
   const [driver, setDriver]               = useState(initialValues.driver         ?? "");
   const [secondDriver, setSecondDriver]   = useState(initialValues.secondDriver   ?? "");
