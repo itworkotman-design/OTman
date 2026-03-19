@@ -1,9 +1,11 @@
 import CarRentalDetailsPage from "@/app/_components/site/pageComponents/CarRentalDetailsPage";
 
 type Props = {
-  params: Promise<{ id: string }>;
+  params: Promise<{ locale: "en" | "no"; id: string }>;
 };
 
-export default function Page({ params }: Props) {
-  return <CarRentalDetailsPage params={params}/>
+export default async function Page({ params }: Props) {
+  const resolvedParams = await params;
+
+  return <CarRentalDetailsPage params={resolvedParams} />;
 }

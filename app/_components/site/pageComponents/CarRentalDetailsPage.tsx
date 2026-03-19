@@ -7,11 +7,11 @@ import { CarRentalContent } from "@/lib/content/CarRentalContent";
 type Locale = "en" | "no";
 
 type Props = {
-  params: Promise<{ id: string; locale: Locale }>;
+  params: { id: string; locale: Locale };
 };
 
-export default async function CarRentalDetailsPage({ params }: Props) {
-  const { id, locale } = await params;
+export default function CarRentalDetailsPage({ params }: Props) {
+  const { id, locale } = params;
   const vehicle = vehicles.find((v) => v.id === Number(id));
 
   if (!vehicle) {
