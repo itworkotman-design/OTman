@@ -13,6 +13,9 @@ export async function GET(req: Request) {
     where: {
       userId: session.userId,
       status: "ACTIVE",
+      company: {
+        status: "ACTIVE",
+      },
     },
     include: {
       company: {
@@ -25,6 +28,22 @@ export async function GET(req: Request) {
     },
   });
 
+  const selectableMemberships = memberships.map((m) => ({
+    companyId: m.companyId,
+    companyName: m.company.name,
+    companySlug: m.company.slug,
+    role: m.role,
+    status: m.status,
+  }));
+
+  const activeMembership =
+    session.activeCompanyId === null
+      ? null
+      : selectableMemberships.find((m) => m.companyId === session.activeCompanyId) ?? null;
+
+  const requiresTenantSelection =
+    selectableMemberships.length > 1 && activeMembership === null;
+
   return NextResponse.json(
     {
       ok: true,
@@ -36,22 +55,17 @@ export async function GET(req: Request) {
       session: {
         id: session.sessionId,
         expiresAt: session.expiresAt,
-        activeCompanyId: session.activeCompanyId,
+        activeCompanyId: activeMembership?.companyId ?? null,
       },
-      activeTenant: session.activeCompanyId
+      requiresTenantSelection,
+      activeTenant: activeMembership
         ? {
-            companyId: session.activeCompanyId,
-            companyName: session.activeCompanyName,
-            companySlug: session.activeCompanySlug,
+            companyId: activeMembership.companyId,
+            companyName: activeMembership.companyName,
+            companySlug: activeMembership.companySlug,
           }
         : null,
-      memberships: memberships.map((m) => ({
-        companyId: m.companyId,
-        companyName: m.company.name,
-        companySlug: m.company.slug,
-        role: m.role,
-        status: m.status,
-      })),
+      memberships: selectableMemberships,
     },
     { status: 200 }
   );

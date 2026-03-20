@@ -21,18 +21,24 @@ export async function POST(req: Request) {
         );
     }
 
+    if (!session.activeCompanyId) {
+        return NextResponse.json(
+            { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+            { status: 409 }
+        );
+    }
+
     const body = await req.json().catch(() => null);
 
-    const companyId = typeof body?.companyId === "string" ? body.companyId : "";
     const email = typeof body?.email === "string" ? body.email : "";
-    const role = typeof body?.role === "string" ? body.role : "";   
+    const role = typeof body?.role === "string" ? body.role : "";
 
     const userAgent = req.headers.get("user-agent");
     const ip = getClientIp(req);
 
     const result = await createInvite({
         actorUserId: session.userId,
-        companyId,
+        companyId: session.activeCompanyId,
         email,
         role,
         ip,
