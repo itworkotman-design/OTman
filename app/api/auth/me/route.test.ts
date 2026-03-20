@@ -44,7 +44,7 @@ describe("GET /api/auth/me", () => {
     expect(mocks.findManyMock).not.toHaveBeenCalled();
   });
 
-  it("returns 200 and user/session/memberships with active tenant when session exists", async () => {
+  it("returns 200 with active tenant and no challenge when valid active tenant is selected", async () => {
     const session = {
       sessionId: "session-1",
       userId: "user-1",
@@ -101,6 +101,7 @@ describe("GET /api/auth/me", () => {
         expiresAt: "2030-01-01T00:00:00.000Z",
         activeCompanyId: "company-1",
       },
+      requiresTenantSelection: false,
       activeTenant: {
         companyId: "company-1",
         companyName: "Company One",
@@ -128,6 +129,9 @@ describe("GET /api/auth/me", () => {
       where: {
         userId: "user-1",
         status: "ACTIVE",
+        company: {
+          status: "ACTIVE",
+        },
       },
       include: {
         company: {
@@ -141,7 +145,85 @@ describe("GET /api/auth/me", () => {
     });
   });
 
-  it("returns 200 with null activeTenant when no active company is selected", async () => {
+  it("returns 200 with requiresTenantSelection true when multiple memberships exist and no active tenant is selected", async () => {
+    const session = {
+      sessionId: "session-1",
+      userId: "user-1",
+      email: "user@example.com",
+      userStatus: "ACTIVE",
+      expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: null,
+      activeCompanyName: null,
+      activeCompanySlug: null,
+    };
+
+    mocks.getAuthenticatedSessionMock.mockResolvedValue(session);
+
+    mocks.findManyMock.mockResolvedValue([
+      {
+        companyId: "company-1",
+        role: "ADMIN",
+        status: "ACTIVE",
+        company: {
+          id: "company-1",
+          name: "Company One",
+          slug: "company-one",
+        },
+      },
+      {
+        companyId: "company-2",
+        role: "USER",
+        status: "ACTIVE",
+        company: {
+          id: "company-2",
+          name: "Company Two",
+          slug: "company-two",
+        },
+      },
+    ]);
+
+    const req = new Request("http://localhost/api/auth/me", {
+      method: "GET",
+    });
+
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      user: {
+        id: "user-1",
+        email: "user@example.com",
+        status: "ACTIVE",
+      },
+      session: {
+        id: "session-1",
+        expiresAt: "2030-01-01T00:00:00.000Z",
+        activeCompanyId: null,
+      },
+      requiresTenantSelection: true,
+      activeTenant: null,
+      memberships: [
+        {
+          companyId: "company-1",
+          companyName: "Company One",
+          companySlug: "company-one",
+          role: "ADMIN",
+          status: "ACTIVE",
+        },
+        {
+          companyId: "company-2",
+          companyName: "Company Two",
+          companySlug: "company-two",
+          role: "USER",
+          status: "ACTIVE",
+        },
+      ],
+    });
+  });
+
+  it("returns 200 with no challenge when one membership exists and no active tenant is selected", async () => {
     const session = {
       sessionId: "session-1",
       userId: "user-1",
@@ -188,6 +270,7 @@ describe("GET /api/auth/me", () => {
         expiresAt: "2030-01-01T00:00:00.000Z",
         activeCompanyId: null,
       },
+      requiresTenantSelection: false,
       activeTenant: null,
       memberships: [
         {
@@ -195,6 +278,84 @@ describe("GET /api/auth/me", () => {
           companyName: "Company One",
           companySlug: "company-one",
           role: "ADMIN",
+          status: "ACTIVE",
+        },
+      ],
+    });
+  });
+
+  it("returns 200 with requiresTenantSelection true when session activeCompanyId is stale for a multi-company user", async () => {
+    const session = {
+      sessionId: "session-1",
+      userId: "user-1",
+      email: "user@example.com",
+      userStatus: "ACTIVE",
+      expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-stale",
+      activeCompanyName: "Stale Company",
+      activeCompanySlug: "stale-company",
+    };
+
+    mocks.getAuthenticatedSessionMock.mockResolvedValue(session);
+
+    mocks.findManyMock.mockResolvedValue([
+      {
+        companyId: "company-1",
+        role: "ADMIN",
+        status: "ACTIVE",
+        company: {
+          id: "company-1",
+          name: "Company One",
+          slug: "company-one",
+        },
+      },
+      {
+        companyId: "company-2",
+        role: "USER",
+        status: "ACTIVE",
+        company: {
+          id: "company-2",
+          name: "Company Two",
+          slug: "company-two",
+        },
+      },
+    ]);
+
+    const req = new Request("http://localhost/api/auth/me", {
+      method: "GET",
+    });
+
+    const res = await GET(req);
+
+    expect(res.status).toBe(200);
+
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      user: {
+        id: "user-1",
+        email: "user@example.com",
+        status: "ACTIVE",
+      },
+      session: {
+        id: "session-1",
+        expiresAt: "2030-01-01T00:00:00.000Z",
+        activeCompanyId: null,
+      },
+      requiresTenantSelection: true,
+      activeTenant: null,
+      memberships: [
+        {
+          companyId: "company-1",
+          companyName: "Company One",
+          companySlug: "company-one",
+          role: "ADMIN",
+          status: "ACTIVE",
+        },
+        {
+          companyId: "company-2",
+          companyName: "Company Two",
+          companySlug: "company-two",
+          role: "USER",
           status: "ACTIVE",
         },
       ],

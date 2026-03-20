@@ -27,6 +27,9 @@ describe("POST /api/auth/invites/create", () => {
             email: "owner@example.com",
             userStatus: "ACTIVE",
             expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+            activeCompanyId: "company-active",
+            activeCompanyName: "Active Company",
+            activeCompanySlug: "active-company",
         });
 
         mocks.createInviteMock.mockResolvedValue({ ok: true });
@@ -38,7 +41,6 @@ describe("POST /api/auth/invites/create", () => {
         const req = new Request("http://localhost/api/auth/invites/create", {
             method: "POST",
             body: JSON.stringify({
-                companyId: "company-1",
                 email: "user@example.com",
                 role: "USER",
             }),
@@ -55,6 +57,40 @@ describe("POST /api/auth/invites/create", () => {
         expect(mocks.createInviteMock).not.toHaveBeenCalled();
     });
 
+    it("returns 409 and TENANT_SELECTION_REQUIRED when session has no active tenant", async () => {
+        mocks.getAuthenticatedSessionMock.mockResolvedValueOnce({
+            sessionId: "session-1",
+            userId: "actor-1",
+            email: "owner@example.com",
+            userStatus: "ACTIVE",
+            expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+            activeCompanyId: null,
+            activeCompanyName: null,
+            activeCompanySlug: null,
+        });
+
+        const req = new Request("http://localhost/api/auth/invites/create", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                email: "user@example.com",
+                role: "USER",
+            }),
+        });
+
+        const res = await POST(req);
+
+        expect(res.status).toBe(409);
+        await expect(res.json()).resolves.toEqual({
+            ok: false,
+            reason: "TENANT_SELECTION_REQUIRED",
+        });
+
+        expect(mocks.createInviteMock).not.toHaveBeenCalled();
+    });
+
     it("returns 201 and ok true on success", async () => {
         const req = new Request("http://localhost/api/auth/invites/create", {
             method: "POST",
@@ -64,7 +100,7 @@ describe("POST /api/auth/invites/create", () => {
                 "x-forwarded-for": "203.0.113.10, 10.0.0.1",
             },
             body: JSON.stringify({
-                companyId: "company-1",
+                companyId: "company-body-ignored",
                 email: "user@example.com",
                 role: "ADMIN",
             }),
@@ -77,7 +113,7 @@ describe("POST /api/auth/invites/create", () => {
 
         expect(mocks.createInviteMock).toHaveBeenCalledWith({
             actorUserId: "actor-1",
-            companyId: "company-1",
+            companyId: "company-active",
             email: "user@example.com",
             role: "ADMIN",
             ip: "203.0.113.10",
@@ -97,7 +133,6 @@ describe("POST /api/auth/invites/create", () => {
                 "content-type": "application/json",
             },
             body: JSON.stringify({
-                companyId: "company-1",
                 email: "user@example.com",
                 role: "OWNER",
             }),
@@ -124,7 +159,6 @@ describe("POST /api/auth/invites/create", () => {
                 "content-type": "application/json",
             },
             body: JSON.stringify({
-                companyId: "",
                 email: "user@example.com",
                 role: "USER",
             }),
@@ -140,7 +174,6 @@ describe("POST /api/auth/invites/create", () => {
     });
 
     it("falls back to empty strings when json is malformed", async () => {
-
         mocks.createInviteMock.mockResolvedValueOnce({
             ok: false,
             reason: "INVALID_INPUT",
@@ -165,7 +198,7 @@ describe("POST /api/auth/invites/create", () => {
 
         expect(mocks.createInviteMock).toHaveBeenCalledWith({
             actorUserId: "actor-1",
-            companyId: "",
+            companyId: "company-active",
             email: "",
             role: "",
             ip: null,
@@ -201,7 +234,7 @@ describe("POST /api/auth/invites/create", () => {
 
         expect(mocks.createInviteMock).toHaveBeenCalledWith({
             actorUserId: "actor-1",
-            companyId: "",
+            companyId: "company-active",
             email: "",
             role: "",
             ip: null,
