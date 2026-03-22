@@ -27,6 +27,9 @@ describe("POST /api/auth/invites/[inviteId]/revoke", () => {
       email: "owner@example.com",
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-1",
+      activeCompanyName: "Company 1",
+      activeCompanySlug: "company-1",
     });
 
     mocks.revokeInviteMock.mockResolvedValue({ ok: true });
@@ -47,6 +50,35 @@ describe("POST /api/auth/invites/[inviteId]/revoke", () => {
     await expect(res.json()).resolves.toEqual({
       ok: false,
       reason: "UNAUTHORIZED",
+    });
+
+    expect(mocks.revokeInviteMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 and TENANT_SELECTION_REQUIRED when session has no active tenant", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValueOnce({
+      sessionId: "session-1",
+      userId: "actor-1",
+      email: "owner@example.com",
+      userStatus: "ACTIVE",
+      expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: null,
+      activeCompanyName: null,
+      activeCompanySlug: null,
+    });
+
+    const req = new Request("http://localhost/api/auth/invites/invite-1/revoke", {
+      method: "POST",
+    });
+
+    const res = await POST(req, {
+      params: Promise.resolve({ inviteId: "invite-1" }),
+    });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "TENANT_SELECTION_REQUIRED",
     });
 
     expect(mocks.revokeInviteMock).not.toHaveBeenCalled();

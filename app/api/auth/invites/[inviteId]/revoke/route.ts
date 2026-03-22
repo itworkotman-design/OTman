@@ -24,6 +24,13 @@ export async function POST(
     );
   }
 
+  if (!session.activeCompanyId) {
+    return NextResponse.json(
+      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+      { status: 409 }
+    );
+  }
+
   const { inviteId } = await context.params;
 
   const targetInviteId = typeof inviteId === "string" ? inviteId.trim() : "";
