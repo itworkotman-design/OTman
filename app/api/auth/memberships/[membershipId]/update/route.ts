@@ -3,7 +3,10 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
 import { prisma } from "@/lib/db";
 
-export async function PATCH(req: Request) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ membershipId: string }> }
+) {
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
@@ -35,9 +38,9 @@ export async function PATCH(req: Request) {
     );
   }
 
+  const { membershipId } = await params;
   const body = await req.json();
 
-  const membershipId = String(body.membershipId ?? "");
   const username =
     typeof body.username === "string" ? body.username.trim() || null : null;
   const email =
@@ -55,13 +58,6 @@ export async function PATCH(req: Request) {
   );
 }
 
-  if (!membershipId) {
-    return NextResponse.json(
-      { ok: false, reason: "MEMBERSHIP_ID_REQUIRED" },
-      { status: 400 }
-    );
-  }
-
   const targetMembership = await prisma.membership.findUnique({
     where: { id: membershipId },
     select: {
@@ -73,12 +69,16 @@ export async function PATCH(req: Request) {
     },
   });
 
-  if (!targetMembership || targetMembership.companyId !== session.activeCompanyId) {
-    return NextResponse.json(
-      { ok: false, reason: "NOT_FOUND" },
-      { status: 404 }
-    );
-  }
+  if (
+  !targetMembership ||
+  targetMembership.companyId !== session.activeCompanyId ||
+  targetMembership.status !== "ACTIVE"
+) {
+  return NextResponse.json(
+    { ok: false, reason: "NOT_FOUND" },
+    { status: 404 }
+  );
+}
 
   const canEditTarget =
     actorMembership.role === "OWNER" ||

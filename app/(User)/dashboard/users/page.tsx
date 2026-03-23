@@ -165,7 +165,6 @@ export default function UserPage() {
               headers: { "Content-Type": "application/json" },
               credentials: "include",
               body: JSON.stringify({
-                membershipId: selectedUser.id,
                 email: data.email,
                 username: data.username,
                 phoneNumber: data.phoneNumber,
