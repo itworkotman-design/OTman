@@ -3,6 +3,29 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
 import { prisma } from "@/lib/db";
 
+type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+
+function parseOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function parseEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed ? trimmed : null;
+}
+
+function parsePermissions(value: unknown): AppPermission[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(
+    (permission: unknown): permission is AppPermission =>
+      permission === "BOOKING_VIEW" || permission === "BOOKING_CREATE"
+  );
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ membershipId: string }> }
@@ -39,24 +62,28 @@ export async function PATCH(
   }
 
   const { membershipId } = await params;
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
 
-  const username =
-    typeof body.username === "string" ? body.username.trim() || null : null;
-  const email =
-    typeof body.email === "string" ? body.email.trim().toLowerCase() : null;
+  const username = parseOptionalString(body?.username);
+  const email = parseEmail(body?.email);
+  const phoneNumber = parseOptionalString(body?.phoneNumber);
+  const description = parseOptionalString(body?.description);
+  const permissions = parsePermissions(body?.permissions);
 
-  const phoneNumber =
-    typeof body.phoneNumber === "string" ? body.phoneNumber.trim() || null : null;
-  const description =
-    typeof body.description === "string" ? body.description.trim() || null : null;
+  if (!email) {
+    return NextResponse.json(
+      { ok: false, reason: "EMAIL_REQUIRED" },
+      { status: 400 }
+    );
+  }
 
-    if (!email) {
-  return NextResponse.json(
-    { ok: false, reason: "EMAIL_REQUIRED" },
-    { status: 400 }
-  );
-}
+  const normalizedPermissions = permissions.includes("BOOKING_CREATE")
+    ? (["BOOKING_VIEW", ...permissions] as AppPermission[])
+    : permissions;
+
+  const uniquePermissions = Array.from(
+    new Set(normalizedPermissions)
+  ) as AppPermission[];
 
   const targetMembership = await prisma.membership.findUnique({
     where: { id: membershipId },
@@ -70,15 +97,15 @@ export async function PATCH(
   });
 
   if (
-  !targetMembership ||
-  targetMembership.companyId !== session.activeCompanyId ||
-  targetMembership.status !== "ACTIVE"
-) {
-  return NextResponse.json(
-    { ok: false, reason: "NOT_FOUND" },
-    { status: 404 }
-  );
-}
+    !targetMembership ||
+    targetMembership.companyId !== session.activeCompanyId ||
+    targetMembership.status !== "ACTIVE"
+  ) {
+    return NextResponse.json(
+      { ok: false, reason: "NOT_FOUND" },
+      { status: 404 }
+    );
+  }
 
   const canEditTarget =
     actorMembership.role === "OWNER" ||
@@ -110,8 +137,23 @@ export async function PATCH(
       },
     });
 
+    await prisma.membershipPermission.deleteMany({
+      where: {
+        membershipId: targetMembership.id,
+      },
+    });
+
+    if (uniquePermissions.length > 0) {
+      await prisma.membershipPermission.createMany({
+        data: uniquePermissions.map((permission) => ({
+          membershipId: targetMembership.id,
+          permission,
+        })),
+      });
+    }
+
     return NextResponse.json({ ok: true, user }, { status: 200 });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { ok: false, reason: "UPDATE_FAILED" },
       { status: 400 }

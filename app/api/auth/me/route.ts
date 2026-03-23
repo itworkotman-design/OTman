@@ -25,6 +25,12 @@ export async function GET(req: Request) {
           slug: true,
         },
       },
+      //RALFS ADDED
+      permissions: {
+        select: {
+          permission: true,
+        },
+      },
     },
   });
 
@@ -34,6 +40,10 @@ export async function GET(req: Request) {
     companySlug: m.company.slug,
     role: m.role,
     status: m.status,
+    //RALFS ADDED
+    permissions: (m.permissions ?? []).map(
+  (p: { permission: "BOOKING_VIEW" | "BOOKING_CREATE" }) => p.permission
+),
   }));
 
   const activeMembership =

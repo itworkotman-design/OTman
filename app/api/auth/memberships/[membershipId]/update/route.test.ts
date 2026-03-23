@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => {
     getActiveMembershipMock: vi.fn(),
     findUniqueMock: vi.fn(),
     userUpdateMock: vi.fn(),
+    membershipPermissionDeleteManyMock: vi.fn(),
+    membershipPermissionCreateManyMock: vi.fn(),
   };
 });
 
@@ -25,6 +27,10 @@ vi.mock("@/lib/db", () => ({
     user: {
       update: mocks.userUpdateMock,
     },
+    membershipPermission: {
+      deleteMany: mocks.membershipPermissionDeleteManyMock,
+      createMany: mocks.membershipPermissionCreateManyMock,
+    },
   },
 }));
 
@@ -42,6 +48,9 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       description: "Updated description",
       status: "ACTIVE",
     });
+
+    mocks.membershipPermissionDeleteManyMock.mockResolvedValue({ count: 0 });
+    mocks.membershipPermissionCreateManyMock.mockResolvedValue({ count: 0 });
   });
 
   it("returns 401 and UNAUTHORIZED when no session exists", async () => {
@@ -157,6 +166,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       companyId: "c1",
       role: "USER",
       status: "ACTIVE",
+      permissions: [],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/m2/update", {
@@ -198,6 +208,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       companyId: "c1",
       role: "OWNER",
       status: "ACTIVE",
+      permissions: [],
     });
 
     mocks.findUniqueMock.mockResolvedValue(null);
@@ -240,6 +251,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       companyId: "c1",
       role: "OWNER",
       status: "ACTIVE",
+      permissions: [],
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -288,6 +300,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       companyId: "c1",
       role: "ADMIN",
       status: "ACTIVE",
+      permissions: [],
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -336,6 +349,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       companyId: "c1",
       role: "OWNER",
       status: "ACTIVE",
+      permissions: [],
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -353,6 +367,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         username: "updateduser",
         phoneNumber: "12345678",
         description: "Updated description",
+        permissions: ["BOOKING_VIEW"],
       }),
     });
 
@@ -389,6 +404,21 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         description: true,
         status: true,
       },
+    });
+
+    expect(mocks.membershipPermissionDeleteManyMock).toHaveBeenCalledWith({
+      where: {
+        membershipId: "m2",
+      },
+    });
+
+    expect(mocks.membershipPermissionCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        {
+          membershipId: "m2",
+          permission: "BOOKING_VIEW",
+        },
+      ],
     });
   });
 
@@ -407,6 +437,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       companyId: "c1",
       role: "ADMIN",
       status: "ACTIVE",
+      permissions: [],
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -424,6 +455,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         username: "updateduser",
         phoneNumber: "12345678",
         description: "Updated description",
+        permissions: ["BOOKING_VIEW", "BOOKING_CREATE"],
       }),
     });
 
@@ -460,6 +492,25 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         description: true,
         status: true,
       },
+    });
+
+    expect(mocks.membershipPermissionDeleteManyMock).toHaveBeenCalledWith({
+      where: {
+        membershipId: "m2",
+      },
+    });
+
+    expect(mocks.membershipPermissionCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        {
+          membershipId: "m2",
+          permission: "BOOKING_VIEW",
+        },
+        {
+          membershipId: "m2",
+          permission: "BOOKING_CREATE",
+        },
+      ],
     });
   });
 });

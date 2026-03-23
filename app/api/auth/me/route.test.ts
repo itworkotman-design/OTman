@@ -114,6 +114,7 @@ describe("GET /api/auth/me", () => {
           companySlug: "company-one",
           role: "ADMIN",
           status: "ACTIVE",
+          permissions: [],
         },
         {
           companyId: "company-2",
@@ -121,6 +122,7 @@ describe("GET /api/auth/me", () => {
           companySlug: "company-two",
           role: "USER",
           status: "ACTIVE",
+          permissions: [],
         },
       ],
     });
@@ -141,6 +143,11 @@ describe("GET /api/auth/me", () => {
             slug: true,
           },
         },
+        permissions: {
+      select: {
+        permission: true,
+      },
+    },
       },
     });
   });
@@ -211,6 +218,7 @@ describe("GET /api/auth/me", () => {
           companySlug: "company-one",
           role: "ADMIN",
           status: "ACTIVE",
+          permissions: [],
         },
         {
           companyId: "company-2",
@@ -218,6 +226,7 @@ describe("GET /api/auth/me", () => {
           companySlug: "company-two",
           role: "USER",
           status: "ACTIVE",
+          permissions: [],
         },
       ],
     });
@@ -279,6 +288,7 @@ describe("GET /api/auth/me", () => {
           companySlug: "company-one",
           role: "ADMIN",
           status: "ACTIVE",
+          permissions: [],
         },
       ],
     });
@@ -350,6 +360,7 @@ describe("GET /api/auth/me", () => {
           companySlug: "company-one",
           role: "ADMIN",
           status: "ACTIVE",
+          permissions: [],
         },
         {
           companyId: "company-2",
@@ -357,6 +368,7 @@ describe("GET /api/auth/me", () => {
           companySlug: "company-two",
           role: "USER",
           status: "ACTIVE",
+          permissions: [],
         },
       ],
     });

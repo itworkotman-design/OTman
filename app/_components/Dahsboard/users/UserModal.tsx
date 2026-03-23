@@ -8,6 +8,7 @@ import {
   getSaveButtonLabel,
   makeFieldUpdater,
   makeSelectUpdater,
+  makePermissionToggler,
 } from "@/lib/users/userModal";
 
 export default function UserModal({
@@ -36,8 +37,12 @@ export default function UserModal({
   makeFieldUpdater(key, setForm);
   const updateSelect = (key: "role" | "priceList") =>
     makeSelectUpdater(key, setForm);
+  //For View / Create permission
+  const togglePermission = makePermissionToggler(setForm);
 
   if (!isOpen) return null;
+
+  
 
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -85,7 +90,26 @@ export default function UserModal({
                 <option value="ADMIN">Admin</option>
                 <option value="USER">User</option>
               </select>
+              <label className="block pl-2 pb-2">Access</label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.permissions.includes("BOOKING_VIEW")}
+                  onChange={() => togglePermission("BOOKING_VIEW")}
+                  disabled={!canEditTarget}
+                />
+                Booking view
+              </label>
 
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.permissions.includes("BOOKING_CREATE")}
+                  onChange={() => togglePermission("BOOKING_CREATE")}
+                  disabled={!canEditTarget}
+                />
+                Booking create
+              </label>
               <label className="block pl-2 pb-2">Price list</label>
               <select className="customInput mb-6 w-full" value={form.priceList} onChange={updateSelect("priceList")} name="priceList" disabled={!canEditTarget}>
                 <option value="DEFAULT">DEFAULT</option>

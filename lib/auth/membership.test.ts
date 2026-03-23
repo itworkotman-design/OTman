@@ -42,6 +42,11 @@ describe("getActiveMembership", () => {
         companyId: true,
         role: true,
         status: true,
+        permissions: {
+          select: {
+            permission: true,
+          },
+        },
       },
     });
   });
@@ -64,6 +69,7 @@ describe("getActiveMembership", () => {
       companyId: "company-1",
       role: "ADMIN",
       status: "ACTIVE",
+      permissions: [],
     });
   });
 });

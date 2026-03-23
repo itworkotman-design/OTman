@@ -44,6 +44,11 @@ export async function GET(req: Request) {
       role: true,
       status: true,
       createdAt: true,
+      permissions: {
+        select: {
+          permission: true,
+        },
+      },
       user: {
         select: {
           id: true,

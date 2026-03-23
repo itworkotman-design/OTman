@@ -36,6 +36,11 @@ enum InviteStatus {
   EXPIRED
 }
 
+enum Permission {
+  BOOKING_VIEW
+  BOOKING_CREATE
+}
+
 enum AuthEventType {
   LOGIN_SUCCESS
   LOGIN_FAIL
@@ -98,6 +103,8 @@ model Membership {
   role      Role
   status    MembershipStatus @default(ACTIVE)
 
+  permissions MembershipPermission[]
+
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -107,6 +114,19 @@ model Membership {
   @@unique([userId, companyId])
   @@index([companyId, status])
   @@index([userId, status])
+}
+
+model MembershipPermission {
+  id           String     @id @default(cuid())
+  membershipId String
+  permission   Permission
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([membershipId, permission])
+  @@index([permission])
 }
 
 model Invite {

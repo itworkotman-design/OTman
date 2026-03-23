@@ -3,6 +3,8 @@ import type { Role, PriceList } from "@/lib/users/types";
 
 export type { Role, PriceList };
 
+export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+
 export interface UserFormData {
   username: string;
   email: string;
@@ -11,6 +13,7 @@ export interface UserFormData {
   active: boolean;
   description: string;
   priceList: PriceList;
+  permissions: AppPermission[];
 }
 
 export interface UserModalProps {
@@ -25,6 +28,7 @@ export interface UserModalProps {
   initialValueDescription: string;
   initialValueRole: string;
   initialValueActive: boolean;
+  initialValuePermissions?: AppPermission[];
   actorRole: Role;
   targetRole: Role;
 }
@@ -38,6 +42,7 @@ export function buildInitialForm(props: UserModalProps): UserFormData {
     role: props.initialValueRole || "USER",
     active: props.initialValueActive,
     priceList: "DEFAULT",
+    permissions: props.initialValuePermissions ?? ["BOOKING_VIEW"],
   };
 }
 
@@ -89,4 +94,21 @@ export function makeSelectUpdater(
       ...prev,
       [key]: key === "priceList" ? (e.target.value as PriceList) : e.target.value,
     }));
+}
+
+export function makePermissionToggler(
+  setForm: React.Dispatch<React.SetStateAction<UserFormData>>
+) {
+  return (permission: AppPermission) => {
+    setForm((prev) => {
+      const exists = prev.permissions.includes(permission);
+
+      return {
+        ...prev,
+        permissions: exists
+          ? prev.permissions.filter((p) => p !== permission)
+          : [...prev.permissions, permission],
+      };
+    });
+  };
 }

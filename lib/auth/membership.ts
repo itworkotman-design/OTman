@@ -1,10 +1,14 @@
 import { prisma } from "@/lib/db";
+//RALFS ADDED
+export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
 
 export type ActiveMembership = {
     userId: string;
     companyId: string;
     role: "OWNER" | "ADMIN" | "USER";
     status: "ACTIVE";
+    //RALFS ADDED
+    permissions: AppPermission[];
 };
 
 export async function getActiveMembership(params: {
@@ -22,6 +26,12 @@ export async function getActiveMembership(params: {
             companyId: true,
             role: true,
             status: true,
+            //RALFS ADDED
+            permissions: {
+                select: {
+                permission: true,
+                },
+            },
         },
     });
 
@@ -32,5 +42,8 @@ export async function getActiveMembership(params: {
         companyId: membership.companyId,
         role: membership.role,
         status: "ACTIVE",
+        permissions: (membership.permissions ?? []).map(
+      (p: { permission: AppPermission }) => p.permission
+    ),
     };
 }
