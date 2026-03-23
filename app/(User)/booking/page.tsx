@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { useCurrentUser } from "@/lib/users/useCurrentUser";
 
 import TopFiltersField, {
   type AppliedFilters,
-} from "@/app/_components/Dahsboard/booking/orders/TopFiltersField"
+} from "@/app/_components/Dahsboard/booking/orders/TopFiltersField";
 import { ArchiveTable } from "@/app/_components/Dahsboard/booking/orders/ArchiveTable";
 import { SubcontractorOrderModal } from "@/app/_components/Dahsboard/booking/orders/SubcontractorOrderModal";
 import type { OrderFormInitialValues } from "@/app/_components/Dahsboard/booking/create/OrderForm";
 
 import { ORDERS as MOCK_ORDERS } from "@/lib/_mockdb";
 import type { OrderRow } from "@/lib/_mockdb";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEFAULT_FILTERS: AppliedFilters = {
   status: "",
@@ -45,9 +48,16 @@ const SUBCONTRACTOR_VISIBLE_COLUMNS = [
   "totalPriceExVat",
 ] as const;
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function AllOrders() {
-  const userView = "subcontractor";
+  const currentUser = useCurrentUser();
+
+  // TODO: derive userView and loggedInSubcontractor from currentUser
+  // once the backend exposes subcontractor identity on the session/membership.
+  const userView = "subcontractor" as const;
   const loggedInSubcontractor = "Sub A";
+
   const [orders, setOrders] = useState<OrderRow[]>(MOCK_ORDERS);
   const [appliedFilters, setAppliedFilters] = useState<AppliedFilters>(DEFAULT_FILTERS);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -55,10 +65,7 @@ export default function AllOrders() {
 
   const safeFilters =
     userView === "subcontractor"
-      ? {
-          ...appliedFilters,
-          subcontractor: loggedInSubcontractor,
-        }
+      ? { ...appliedFilters, subcontractor: loggedInSubcontractor }
       : appliedFilters;
 
   const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
@@ -95,9 +102,11 @@ export default function AllOrders() {
     setSelectedIds([]);
   };
 
+  if (!currentUser) return null;
+
   return (
     <div>
-    <TopFiltersField
+      <TopFiltersField
         initialApplied={safeFilters}
         onApply={handleApplyFilters}
         onReset={handleResetFilters}
