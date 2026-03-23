@@ -4,10 +4,9 @@ import type { NextRequest } from "next/server";
 const locales = ["en", "no"];
 const defaultLocale = "no";
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-  // Ignore Next internals, files, API, dashboard
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
@@ -17,12 +16,12 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/accept-invite") ||
     pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/select-company") ||
     pathname.includes(".")
   ) {
     return NextResponse.next();
   }
 
-  // Allow already-localized routes
   const hasLocale = locales.some(
     (locale) => pathname === `/${locale}` || pathname.startsWith(`/${locale}/`)
   );
@@ -31,8 +30,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect public routes to default locale
-  const url = request.nextUrl.clone();
+  const url = req.nextUrl.clone();
   url.pathname = `/${defaultLocale}${pathname}`;
 
   return NextResponse.redirect(url);

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type Props = {
   open: boolean;
@@ -12,6 +13,18 @@ type Props = {
 
 
 export default function Sidebar({ open, width, onOpenChange }: Props) {
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/auth/me", {
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.ok) {
+          setEmail(data.user.email);
+        }
+      });
+  }, []);
   const pathname = usePathname();
 
   //logout
@@ -56,11 +69,14 @@ const isActive = (href: string) => {
         </div>
 
         <div className="px-4">
+          <div className="flex py-1 mt-6 px-2 text-logoblue">
+            <h1 className="mx-auto">{email}</h1>
+          </div>
           <h1 className="py-1 mt-6 px-2 font-semibold text-sm text-textColorSecond border-b border-lineSecondary ">General</h1>
           <Link
-            href=""
-            className={`${linkBase} hidden  ${
-              isActive("/dashboard/home")
+            href="/dashboard"
+            className={`${linkBase}  ${
+              isActive("/dashboard")
                 ? "bg-linePrimary text-textcolor"
                 : "bg-transparent hover:bg-linePrimary"
             }`}

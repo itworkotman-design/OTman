@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type Props = {
   open: boolean;
@@ -12,6 +13,19 @@ type Props = {
 
 
 export default function UserNavbar({ open, width, onOpenChange }: Props) {
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/auth/me", {
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.ok) {
+          setEmail(data.user.email);
+        }
+      });
+  }, []);
+
   const pathname = usePathname();
 
   //logout
@@ -36,6 +50,7 @@ const isActive = (href: string) => {
 
   return (
     <div style={{ width }} className={`h-full lg:bg-linePrimary ${open? `w-full`: `w-10`}`}>
+      
       <div className="py-4 flex">
         <button onClick={() => onOpenChange(!open)} className="hidden lg:block hover:text-textcolor ml-auto px-2 cursor-pointer">
           {open? 
@@ -54,9 +69,12 @@ const isActive = (href: string) => {
           <div className="flex justify-center">
           <Image src="/LogoSVG.svg" alt="Logo" width={200} height={200} />
         </div>
+          
+        <div className="px-4">    
 
-        <div className="px-4">         
-
+          <div className="flex py-1 mt-6 pb-6 px-2 border-b border-lineSecondary text-logoblue">
+            <h1 className="mx-auto">{email}</h1>
+          </div>
           <Link
             href="/booking"
             className={`${linkBase} ${
