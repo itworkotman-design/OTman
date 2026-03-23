@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 
 type Props = {
   isOpen: boolean;
@@ -12,11 +11,11 @@ type Props = {
     number: number;
     role: string;
     active: boolean;
+    description: string;
+    priceList: "DEFAULT" | "POWER";
   }) => void;
-
   onRemove: () => void;
   onToggleActive: () => void;
-
   initialValueName: string;
   initialValueEmail: string;
   initialValueNumber: number;
@@ -36,124 +35,202 @@ export default function UserModal({
   initialValueRole,
   initialValueActive,
 }: Props) {
-  const [form, setForm] = useState(() => ({
-  name: initialValueName,
-  email: initialValueEmail,
-  number: initialValueNumber,
-  role: initialValueRole,
-  active: initialValueActive,
-}));
+  const [form, setForm] = useState({
+    name: initialValueName,
+    email: initialValueEmail,
+    number: initialValueNumber,
+    role: initialValueRole || "USER",
+    active: initialValueActive,
+    description: "",
+    priceList: "DEFAULT" as "DEFAULT" | "POWER",
+  });
 
-  
-  //updating the text fields
-const updateField =
-  (key: keyof typeof form) =>(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => 
-    {setForm((prev) => ({ ...prev, [key]: e.target.value }))};
-const updateNumber =
-  (key: "number") => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((p) => ({ ...p, [key]: Number(e.target.value) }));
-const updateSelect =
-  (key: "role") => (e: React.ChangeEvent<HTMLSelectElement>) =>
-    setForm((p) => ({ ...p, [key]: e.target.value }));
+  const updateField =
+    (key: "name" | "email" | "description") =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    };
 
+  const updateNumber =
+    (key: "number") => (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm((prev) => ({ ...prev, [key]: Number(e.target.value) || 0 }));
 
-
+  const updateSelect =
+    (key: "role" | "priceList") => (e: React.ChangeEvent<HTMLSelectElement>) =>
+      setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm flex items-center justify-center">
-      <div className="customContainer bg-white w-full max-w-[1000]  max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="customContainer max-h-[90vh] w-full max-w-[1000px] overflow-y-auto bg-white">
         <div className="grid grid-cols-3 items-start">
           <div />
-          <h1 className="text-center font-semibold text-3xl text-logoblue whitespace-nowrap">
+          <h1 className="whitespace-nowrap text-center text-3xl font-semibold text-logoblue">
             Edit User
           </h1>
-          <button className="ml-auto bg-logoblue text-white w-8 h-8 rounded-full font-bold grid place-items-center cursor-pointer" onClick={onClose} type="button" >
+          <button
+            className="ml-auto grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-logoblue font-bold text-white"
+            onClick={onClose}
+            type="button"
+          >
             <span className="-translate-y-px">x</span>
           </button>
         </div>
 
-        <div className="mx-auto w-full max-w-[800]">
-          <div className="lg:flex lg:gap-10 gap-2 mt-6">
+        <div className="mx-auto w-full max-w-[800px]">
+          <div className="mt-6 gap-8 lg:flex lg:gap-10">
             <div className="flex-1">
-              <h2 className="pl-2 text-logoblue font-semibold pb-2">General</h2>
-              <label className="block pb-2 pl-2">Name</label>
-                <input className="customInput w-full mb-2" value={form.name} onChange={updateField("name")} type="text" />
-              <label className="block pb-2 pl-2">Email</label>
-                <input className="customInput w-full mb-2" value={form.email} onChange={updateField("email")} type="text" />
-              <label className="block pb-2 pl-2">Number</label>
-                <input className="customInput w-full mb-2" value={form.number} onChange={updateNumber("number")} type="number" />
-            </div>
-            <div className="flex-1">
-              <h2 className="pl-2 text-logoblue font-semibold pb-2">Avatar</h2>
-              <div className="border border-lineSecondary p-6">
-                <div className="w-[200] h-[200] bg-red-200 rounded-full mx-auto overflow-hidden">
-                  <Image src="/" alt="img"  width="200" height="200"></Image>
-                </div>
-                <div className="justify-self-center mt-8">
-                  <button className="customButtonDefault">Upload picture</button>
-                </div>
-                
-              </div>
-              
-            </div>
-          </div>
+              <h2 className="pl-2 pb-2 font-semibold text-logoblue">General</h2>
 
-          <div className="lg:flex lg:gap-10 gap-2 mt-8">
-          <div className="flex-1">
-            <h2 className="pl-2 text-logoblue font-semibold pb-2">Permissions</h2>
-            <label className="block pb-2 pl-2">Role</label>
-              <select className="customInput w-full mb-2" value={form.role} onChange={updateSelect("role")} name="role" id="">
-                <option value="select" disabled>select</option>
-                <option value="administration">Administration</option>
-                <option value="legal">Legal</option>
-                <option value="sales">Sales</option>
-                <option value="IT">IT</option>
-                <option value="Owner">Owner</option>
+              <label className="block pl-2 pb-2">Name</label>
+              <input
+                className="customInput mb-2 w-full"
+                value={form.name}
+                onChange={updateField("name")}
+                type="text"
+              />
+
+              <label className="block pl-2 pb-2">Email</label>
+              <input
+                className="customInput mb-2 w-full"
+                value={form.email}
+                onChange={updateField("email")}
+                type="text"
+              />
+
+              <label className="block pl-2 pb-2">Number</label>
+              <input
+                className="customInput mb-2 w-full"
+                value={form.number || ""}
+                onChange={updateNumber("number")}
+                type="number"
+              />
+
+              <label className="block pl-2 pb-2">Description</label>
+              <textarea
+                className="customInput mb-2 min-h-[120px] w-full resize-y"
+                value={form.description}
+                onChange={updateField("description")}
+                placeholder="Description"
+              />
+            </div>
+
+            <div className="flex-1">
+              <h2 className="pl-2 pb-2 font-semibold text-logoblue">
+                Permissions
+              </h2>
+
+              <label className="block pl-2 pb-2">Role</label>
+              <select
+                className="customInput mb-4 w-full"
+                value={form.role}
+                onChange={updateSelect("role")}
+                name="role"
+              >
+                <option value="OWNER">Owner</option>
+                <option value="ADMIN">Admin</option>
+                <option value="USER">User</option>
               </select>
-            <h2 className="pl-2 text-logoblue font-semibold pb-2">Security</h2>
-            <label className="block pb-2 pl-2">Password</label>
-              <input className="customInput w-full mb-4" type="text" value={"********"} readOnly/>
+
+              <label className="block pl-2 pb-2">Price list</label>
+              <select
+                className="customInput mb-6 w-full"
+                value={form.priceList}
+                onChange={updateSelect("priceList")}
+                name="priceList"
+              >
+                <option value="DEFAULT">DEFAULT</option>
+                <option value="POWER">POWER</option>
+              </select>
+
+              <h2 className="pl-2 pb-2 font-semibold text-logoblue">
+                Security
+              </h2>
+
+              <label className="block pl-2 pb-2">Password</label>
+              <input
+                className="customInput mb-4 w-full"
+                type="text"
+                value="********"
+                readOnly
+              />
+
               <div className="flex gap-4">
-                <button className="customButtonDefault">Send reset link</button>
-                <button className="customButtonDefault">Edit password</button>
-              </div>  
-          </div>
-          <div className="flex-1">
-            
-              <div className="mt-4 ">
-                <h2 className="text-logoblue font-semibold pb-2">Manage</h2>
+                <button type="button" className="customButtonDefault" disabled>
+                  Send reset link
+                </button>
+                <button type="button" className="customButtonDefault" disabled>
+                  Edit password
+                </button>
+              </div>
+
+              <div className="mt-8">
+                <h2 className="pb-2 font-semibold text-logoblue">Manage</h2>
+
+                <div className="mb-4 rounded-lg border border-lineSecondary p-4">
+                  <div className="mb-2 text-sm text-textColorSecond">
+                    Current status
+                  </div>
+                  <div
+                    className={`font-semibold ${
+                      form.active ? "text-green-700" : "text-red-700"
+                    }`}
+                  >
+                    {form.active ? "Active" : "Disabled"}
+                  </div>
+                </div>
+
                 <div className="flex gap-4">
                   <button
-                  type="button"
-                  onClick={() => {
-                    if (!confirm(form.active ? "Disable this user?" : "Enable this user?")) return;
-                    setForm((p) => ({ ...p, active: !p.active }));
-                    onToggleActive();
-                    
-                  }}
-                  className={[
-                    "w-40 mb-3 customButtonEnabled",
-                    form.active ? "bg-red-800!" : "bg-green-700!",
-                  ].join(" ")}
+                    type="button"
+                    onClick={() => {
+                      if (
+                        !confirm(
+                          form.active
+                            ? "Disable this user?"
+                            : "Enable this user?"
+                        )
+                      ) {
+                        return;
+                      }
+
+                      setForm((prev) => ({ ...prev, active: !prev.active }));
+                      onToggleActive();
+                    }}
+                    className={[
+                      "mb-3 w-40 customButtonEnabled",
+                      form.active ? "bg-red-800!" : "bg-green-700!",
+                    ].join(" ")}
                   >
                     {form.active ? "Disable" : "Enable"}
                   </button>
-                  <button onClick={() => {
-                    if (!confirm("Remove this user?")) return;
-                    onRemove();
-                    onClose();
-                  }} className="w-40 mb-3 customButtonEnabled bg-red-800!">
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!confirm("Remove this user?")) return;
+                      onRemove();
+                      onClose();
+                    }}
+                    className="mb-3 w-40 customButtonEnabled bg-red-800!"
+                  >
                     Remove
                   </button>
                 </div>
-                
+              </div>
             </div>
           </div>
-          </div>
-          <div className="flex justify-center mt-10">
-            <button onClick={() => { onSave(form); onClose(); }} className="w-96 customButtonEnabled h-10" type="button">
+
+          <div className="mt-10 flex justify-center">
+            <button
+              onClick={() => {
+                onSave(form);
+                onClose();
+              }}
+              className="customButtonEnabled h-10 w-96"
+              type="button"
+            >
               Save Changes
             </button>
           </div>
