@@ -63,6 +63,37 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
     expect(mocks.logAuthEventMock).not.toHaveBeenCalled();
   });
 
+  it("returns 409 and TENANT_SELECTION_REQUIRED when session has no active tenant", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      sessionId: "session-1",
+      userId: "user-1",
+      email: "admin@example.com",
+      userStatus: "ACTIVE",
+      expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: null,
+      activeCompanyName: null,
+      activeCompanySlug: null,
+    });
+
+    const req = new Request("http://localhost/api/auth/memberships/membership-2/enable", {
+      method: "POST",
+    });
+
+    const res = await POST(req, {
+      params: Promise.resolve({ membershipId: "membership-2" }),
+    });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "TENANT_SELECTION_REQUIRED",
+    });
+
+    expect(mocks.findUniqueMock).not.toHaveBeenCalled();
+    expect(mocks.updateManyMock).not.toHaveBeenCalled();
+    expect(mocks.logAuthEventMock).not.toHaveBeenCalled();
+  });
+
   it("returns 404 and MEMBERSHIP_NOT_FOUND when target membership does not exist", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       sessionId: "session-1",
@@ -70,6 +101,9 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
       email: "admin@example.com",
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-1",
+      activeCompanyName: "Company 1",
+      activeCompanySlug: "company-1",
     });
 
     mocks.findUniqueMock.mockResolvedValue(null);
@@ -100,6 +134,9 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
       email: "admin@example.com",
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-1",
+      activeCompanyName: "Company 1",
+      activeCompanySlug: "company-1",
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -136,6 +173,9 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
       email: "admin@example.com",
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-1",
+      activeCompanyName: "Company 1",
+      activeCompanySlug: "company-1",
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -178,6 +218,9 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
       email: "user@example.com",
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-1",
+      activeCompanyName: "Company 1",
+      activeCompanySlug: "company-1",
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -220,6 +263,9 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
       email: "admin@example.com",
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-1",
+      activeCompanyName: "Company 1",
+      activeCompanySlug: "company-1",
     });
 
     mocks.findUniqueMock.mockResolvedValue({

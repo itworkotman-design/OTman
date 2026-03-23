@@ -89,6 +89,11 @@ This module must be:
 - [x] Role assignment during first-user signup (OWNER)
 - [x] Multi-membership model in `/api/auth/me`
 - [ ] Tenant selection challenge for multi-company users
+  - `/api/auth/me` now returns `requiresTenantSelection` when a multi-company user has no valid active tenant
+  - `POST /api/auth/invites/create` now returns `409 TENANT_SELECTION_REQUIRED` when no active tenant is selected
+  - `POST /api/auth/invites/[inviteId]/revoke` now returns `409 TENANT_SELECTION_REQUIRED` when no active tenant is selected
+  - `POST /api/auth/memberships/[membershipId]/disable` now returns `409 TENANT_SELECTION_REQUIRED` when no active tenant is selected
+  - `POST /api/auth/memberships/[membershipId]/enable` now returns `409 TENANT_SELECTION_REQUIRED` when no active tenant is selected
 - [x] Active tenant selection / persistence
 - [ ] Authenticated “create another company” flow
 

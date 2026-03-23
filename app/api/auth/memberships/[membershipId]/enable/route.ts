@@ -18,6 +18,13 @@ export async function POST(
     );
   }
 
+  if (!session.activeCompanyId) {
+    return NextResponse.json(
+      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+      { status: 409 }
+    );
+  }
+
   const { membershipId } = await context.params;
 
   const targetMembershipId =
