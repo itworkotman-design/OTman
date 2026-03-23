@@ -84,35 +84,12 @@ function NavLinks({
       </Link>
 
       <Link
-        href="/dashboard/booking/power"
-        onClick={onNavigate}
-        className={`${base} ${isStarts("/dashboard/booking/power") ? active : ""}`}
-      >
-        Power order
-      </Link>
-
-      <Link
         href="/dashboard/booking/editPrices"
         onClick={onNavigate}
         className={`${base} ${isStarts("/dashboard/booking/editPrices") ? active : ""}`}
       >
         Edit prices
       </Link>
-
-      <Link
-        href="/dashboard/booking/booking_users"
-        onClick={onNavigate}
-        className={`${base} ${isStarts("/dashboard/booking/booking_users") ? active : ""}`}
-      >
-        Edit users
-      </Link>
-      <Link
-        href="/dashboard/booking/subcontractor-history"
-        onClick={onNavigate}
-        className={`${base} ${isStarts("/dashboard/booking/subcontractor-history") ? active : ""}`}
-      >
-        Subcontractor view
-      </Link>
-    </>
+  </>
   );
 }

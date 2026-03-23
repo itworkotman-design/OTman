@@ -60,7 +60,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
       : pathname.startsWith(href);
 
   const linkBase =
-    "block max-w-[400px] w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond";
+    "flex w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-right md:text-left";
 
   const linkClass = (href: string) =>
     `${linkBase} ${
@@ -89,7 +89,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
         {/* Mobile toggle */}
         <button
           onClick={() => onOpenChange(!open)}
-          className="mx-auto cursor-pointer hover:text-textcolor lg:hidden"
+          className="ml-auto cursor-pointer hover:text-textcolor lg:hidden"
         >
           <Icon path={ICONS.hamburger} />
         </button>
@@ -105,15 +105,15 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
             <h1 className="mx-auto">{currentUser?.email ?? ""}</h1>
           </div>
 
-          <Link href="/booking" className={linkClass("/booking")}>
-            <div className="flex items-center">
+          <Link href="/booking" className={linkClass("/booking") + ` justify-end lg:justify-start`}>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.booking} />
               Orders
             </div>
           </Link>
 
-          <Link href="/booking/create" className={linkClass("/booking/create")}>
-            <div className="flex items-center">
+          <Link href="/booking/create" className={linkClass("/booking/create") + ` justify-end lg:justify-start`}>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.createOrder} />
               Create Order
             </div>
@@ -122,7 +122,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
           <button
             type="button"
             onClick={handleLogout}
-            className={`${linkBase} cursor-pointer text-left hover:bg-linePrimary`}
+            className={`${linkBase} mt-10 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
           >
             <div className="flex items-center">Log out</div>
           </button>

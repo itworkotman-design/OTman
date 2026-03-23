@@ -72,7 +72,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
       : pathname.startsWith(href);
 
   const linkBase =
-    "block max-w-[400px] w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond";
+    "flex w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-right md:text-left";
 
   const linkClass = (href: string) =>
     `${linkBase} ${
@@ -101,7 +101,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
         {/* Mobile toggle */}
         <button
           onClick={() => onOpenChange(!open)}
-          className="mx-auto cursor-pointer hover:text-textcolor lg:hidden"
+          className="ml-auto cursor-pointer hover:text-textcolor lg:hidden"
         >
           <Icon path={ICONS.hamburger} />
         </button>
@@ -117,33 +117,33 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             <h1 className="mx-auto">{currentUser?.email ?? ""}</h1>
           </div>
 
-          <h1 className="mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond">
+          <h1 className="text-right lg:text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond">
             General
           </h1>
 
           <Link href="/dashboard" className={linkClass("/dashboard")}>
-            <div className="flex items-center">
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.home} />
               Home
             </div>
           </Link>
 
           <Link href="/dashboard/booking" className={linkClass("/dashboard/booking")}>
-            <div className="flex items-center">
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.booking} />
               Booking system
             </div>
           </Link>
 
           <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
-            <div className="flex items-center">
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.users} />
               User management
             </div>
           </Link>
 
-          <Link href="/" className={linkClass("/")}>
-            <div className="flex items-center">
+          <Link href="/" className={linkClass("/") +` hidden`}>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.home} />
               Edit website
             </div>
@@ -152,9 +152,9 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
           <button
             type="button"
             onClick={handleLogout}
-            className={`${linkBase} cursor-pointer text-left hover:bg-linePrimary`}
+            className={`${linkBase} mt-20 cursor-pointer text-left hover:bg-linePrimary`}
           >
-            <div className="flex items-center">Log out</div>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">Log out</div>
           </button>
         </div>
       </div>

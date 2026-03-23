@@ -56,6 +56,9 @@ enum AuthEventType {
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
+  username     String?    @unique
+  phoneNumber  String?
+  description  String?
   passwordHash String
   status       UserStatus @default(ACTIVE)
 
