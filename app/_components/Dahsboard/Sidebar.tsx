@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 type Props = {
   open: boolean;
@@ -10,8 +10,21 @@ type Props = {
   onOpenChange: (v: boolean) => void;
 };
 
+
 export default function Sidebar({ open, width, onOpenChange }: Props) {
   const pathname = usePathname();
+
+  //logout
+  const router = useRouter();
+  async function handleLogout() {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+  });
+
+    router.push("/login");
+    router.refresh();
+  }
 
   const linkBase =
     "block max-w-[400px] w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond";
@@ -159,6 +172,18 @@ const isActive = (href: string) => {
             </div>
             
           </Link>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={`${linkBase} text-left cursor-pointer ${
+              "bg-transparent hover:bg-linePrimary"
+            }`}
+          >
+            <div className="flex items-center">
+              Log out
+            </div>
+          </button>
 
         </div>
       </div>

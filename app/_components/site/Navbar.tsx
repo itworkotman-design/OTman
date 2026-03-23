@@ -87,7 +87,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
               })}
               <li>
                 <Link
-                  href="/dashboard/booking"
+                  href="/login"
                   className="block px-3 py-6 md:py-0 text-lg md:text-sm transition-colors duration-140 text-pink-600"
                 >
                   {content.dashboardLabel[locale]}
