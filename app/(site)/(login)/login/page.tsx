@@ -101,7 +101,7 @@ export default function LoginPage() {
         <section className="w-full max-w-[420]">
           <div className="mb-8 flex justify-center sm:mb-10">
             <Image
-              src="/logo.png"
+              src="/logoSvg.svg"
               alt="Otman Transport"
               width={260}
               height={120}
