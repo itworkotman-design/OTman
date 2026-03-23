@@ -1,14 +1,12 @@
 import React from "react";
 import type { Role, PriceList } from "@/lib/users/types";
 
-// ─── UI-specific types ────────────────────────────────────────────────────────
-
 export type { Role, PriceList };
 
 export interface UserFormData {
-  name: string;
+  username: string;
   email: string;
-  number: number;
+  phoneNumber: string;
   role: string;
   active: boolean;
   description: string;
@@ -21,30 +19,27 @@ export interface UserModalProps {
   onSave: (data: UserFormData) => void;
   onRemove: () => void;
   onToggleActive: () => void;
-  initialValueName: string;
+  initialValueUsername: string;
   initialValueEmail: string;
-  initialValueNumber: number;
+  initialValuePhoneNumber: string;
+  initialValueDescription: string;
   initialValueRole: string;
   initialValueActive: boolean;
   actorRole: Role;
   targetRole: Role;
 }
 
-// ─── Initial form state ───────────────────────────────────────────────────────
-
 export function buildInitialForm(props: UserModalProps): UserFormData {
   return {
-    name: props.initialValueName,
-    email: props.initialValueEmail,
-    number: props.initialValueNumber,
+    username: props.initialValueUsername ?? "",
+    email: props.initialValueEmail ?? "",
+    phoneNumber: props.initialValuePhoneNumber ?? "",
+    description: props.initialValueDescription ?? "",
     role: props.initialValueRole || "USER",
     active: props.initialValueActive,
-    description: "",
     priceList: "DEFAULT",
   };
 }
-
-// ─── Permission helpers ───────────────────────────────────────────────────────
 
 export function getPermissions(
   actorRole: Role,
@@ -77,22 +72,12 @@ export function getSaveButtonLabel(
   return "Save Changes";
 }
 
-// ─── Form field updaters ──────────────────────────────────────────────────────
-
 export function makeFieldUpdater(
-  key: "name" | "email" | "description",
+  key: "username" | "email" | "phoneNumber" | "description",
   setForm: React.Dispatch<React.SetStateAction<UserFormData>>
 ) {
   return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
-}
-
-export function makeNumberUpdater(
-  key: "number",
-  setForm: React.Dispatch<React.SetStateAction<UserFormData>>
-) {
-  return (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [key]: Number(e.target.value) || 0 }));
 }
 
 export function makeSelectUpdater(
@@ -100,5 +85,8 @@ export function makeSelectUpdater(
   setForm: React.Dispatch<React.SetStateAction<UserFormData>>
 ) {
   return (e: React.ChangeEvent<HTMLSelectElement>) =>
-    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    setForm((prev) => ({
+      ...prev,
+      [key]: key === "priceList" ? (e.target.value as PriceList) : e.target.value,
+    }));
 }

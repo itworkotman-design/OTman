@@ -15,6 +15,9 @@ export type PriceList = "DEFAULT" | "POWER";
 export type MembershipUser = {
   id: string;
   email: string;
+  username: string | null;
+  phoneNumber: string | null;
+  description: string | null;
   status: UserStatus;
 };
 

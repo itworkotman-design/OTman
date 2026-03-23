@@ -56,7 +56,10 @@ export default function UserPage() {
       const q = query.trim().toLowerCase();
       const queryOk =
         !q ||
+        (u.user.username ?? "").toLowerCase().includes(q) ||
         u.user.email.toLowerCase().includes(q) ||
+        (u.user.phoneNumber ?? "").toLowerCase().includes(q) ||
+        (u.user.description ?? "").toLowerCase().includes(q) ||
         u.role.toLowerCase().includes(q) ||
         u.id.toLowerCase().includes(q);
       return roleOk && queryOk;
@@ -127,9 +130,10 @@ export default function UserPage() {
           onClose={() => setOpen(false)}
           actorRole={currentUserRole}
           targetRole={selectedUser?.role ?? "USER"}
-          initialValueName={selectedUser?.user.email ?? ""}
+          initialValueUsername={selectedUser?.user.username ?? ""}
           initialValueEmail={selectedUser?.user.email ?? ""}
-          initialValueNumber={0}
+          initialValuePhoneNumber={selectedUser?.user.phoneNumber ?? ""}
+          initialValueDescription={selectedUser?.user.description ?? ""}
           initialValueRole={selectedUser?.role ?? "USER"}
           initialValueActive={selectedUser ? selectedUser.status === "ACTIVE" : true}
           onSave={async (data) => {
@@ -138,7 +142,10 @@ export default function UserPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify({ email: data.email, role: data.role }),
+                body: JSON.stringify({
+                  email: data.email,
+                  role: data.role,
+                }),
               });
 
               const result = await res.json().catch(() => null);
@@ -149,10 +156,39 @@ export default function UserPage() {
               }
 
               await loadUsers();
+              setOpen(false);
               return;
             }
 
-            changeRole(selectedUser, data.role as Role);
+            const profileRes = await fetch(`/api/auth/memberships/${selectedUser.id}/update`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                membershipId: selectedUser.id,
+                email: data.email,
+                username: data.username,
+                phoneNumber: data.phoneNumber,
+                description: data.description,
+              }),
+            });
+
+            const profileResult = await profileRes.json().catch(() => null);
+
+            if (!profileRes.ok || !profileResult?.ok) {
+              alert(profileResult?.reason || "Failed to update user");
+              return;
+            }
+
+            if (selectedUser.role !== data.role) {
+              await changeRole(selectedUser, data.role as Role);
+              return;
+            }
+
+            await loadUsers();
+            router.refresh();
+            setOpen(false);
+            setSelectedUser(null);
           }}
           onRemove={() => {
             if (!selectedUser) return;
@@ -192,7 +228,7 @@ export default function UserPage() {
             >
               Add User
             </button>
-            <button className="customButtonDefault hidden hover:bg-black/3! lg:block">
+            <button className="customButtonDefault hidden hover:bg-black/3! lg:block " disabled>
               Export
             </button>
           </div>
@@ -223,10 +259,12 @@ export default function UserPage() {
                       aria-label="Select all"
                     />
                   </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">User</th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Username</th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Email</th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Number</th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Description</th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Role</th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Membership</th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Price List</th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">User status</th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Created</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium">Active</th>
@@ -253,12 +291,30 @@ export default function UserPage() {
                         aria-label={`Select user ${u.id}`}
                       />
                     </td>
-                    <td className="flex items-center whitespace-nowrap border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">{u.user.email}</td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">{u.user.email}</td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">{u.role}</td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">{u.status}</td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">{u.user.status}</td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">{new Date(u.createdAt).toLocaleDateString()}</td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      {u.user.username || "-"}
+                    </td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      {u.user.email}
+                    </td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      {u.user.phoneNumber || "-"}
+                    </td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird max-w-[220] truncate">
+                      {u.user.description || "-"}
+                    </td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      {u.role}
+                    </td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      -
+                    </td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      -
+                    </td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      {new Date(u.createdAt).toLocaleDateString()}
+                    </td>
                     <td className={`px-4 py-2 font-semibold text-textColorThird ${u.status !== "ACTIVE" ? "text-red-600" : ""}`}>
                       {u.status === "ACTIVE" ? "Active" : "Disabled"}
                     </td>

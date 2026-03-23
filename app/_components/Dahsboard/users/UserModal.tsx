@@ -7,7 +7,6 @@ import {
   getPermissions,
   getSaveButtonLabel,
   makeFieldUpdater,
-  makeNumberUpdater,
   makeSelectUpdater,
 } from "@/lib/users/userModal";
 
@@ -33,9 +32,8 @@ export default function UserModal({
     isCreateMode
   );
 
-  const updateField = (key: "name" | "email" | "description") =>
-    makeFieldUpdater(key, setForm);
-  const updateNumber = () => makeNumberUpdater("number", setForm);
+  const updateField = (key: "username" | "email" | "phoneNumber" | "description") =>
+  makeFieldUpdater(key, setForm);
   const updateSelect = (key: "role" | "priceList") =>
     makeSelectUpdater(key, setForm);
 
@@ -58,23 +56,23 @@ export default function UserModal({
           </button>
         </div>
 
-        <div className="mx-auto w-full max-w-[800px]">
+        <div className="mx-auto w-full max-w-[800]">
           <div className="mt-6 gap-8 lg:flex lg:gap-10">
             {/* ── General ── */}
             <div className="flex-1">
               <h2 className="pl-2 pb-2 font-semibold text-logoblue">General</h2>
 
-              <label className="block pl-2 pb-2">Name</label>
-              <input className="customInput mb-2 w-full" value={form.name} onChange={updateField("name")} type="text" disabled={!canEditTarget} />
+              <label className="block pl-2 pb-2">Username</label>
+              <input className="customInput mb-2 w-full" value={form.username || ""} onChange={updateField("username")} type="text" disabled={!canEditTarget} />
 
               <label className="block pl-2 pb-2">Email</label>
               <input className="customInput mb-2 w-full" value={form.email} onChange={updateField("email")} type="text" disabled={!canEditTarget} />
 
               <label className="block pl-2 pb-2">Number</label>
-              <input className="customInput mb-2 w-full" value={form.number || ""} onChange={updateNumber()} type="number" disabled={!canEditTarget} />
+              <input className="customInput mb-2 w-full" value={form.phoneNumber || ""} onChange={updateField("phoneNumber")} type="text" disabled={!canEditTarget} />
 
               <label className="block pl-2 pb-2">Description</label>
-              <textarea className="customInput mb-2 min-h-[120px] w-full resize-y" value={form.description} onChange={updateField("description")} placeholder="Description" disabled={!canEditTarget} />
+              <textarea className="customInput mb-2 min-h-[120] w-full resize-y" value={form.description} onChange={updateField("description")} placeholder="Description" disabled={!canEditTarget} />
             </div>
 
             {/* ── Permissions & Security ── */}
@@ -140,7 +138,7 @@ export default function UserModal({
 
           <div className="mt-10 flex justify-center">
             <button
-              onClick={() => { onSave(form); onClose(); }}
+              onClick={() => { onSave(form); }}
               className="customButtonEnabled h-10 w-96"
               type="button"
               disabled={!canEditTarget}

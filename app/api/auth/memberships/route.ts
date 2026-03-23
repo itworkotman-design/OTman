@@ -48,6 +48,9 @@ export async function GET(req: Request) {
         select: {
           id: true,
           email: true,
+          username: true,
+          phoneNumber: true,
+          description: true,
           status: true,
         },
       },
