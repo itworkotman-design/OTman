@@ -1,5 +1,5 @@
-// app/login/page.tsx
-"use client"
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -7,36 +7,39 @@ import { useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>){
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    try{
+    try {
       const loginRes = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         credentials: "include",
         body: JSON.stringify({
-          email,
+          email: email.trim(),
           password,
         }),
       });
 
       const loginData = await loginRes.json().catch(() => null);
 
-      if(!loginRes.ok){
-        if(loginData?.reason === "RATE_LIMITED"){
-          setError("Too many login attempts. Try again later.")
-        }else{
-          setError("Invalid email or password.")
+      if (!loginRes.ok) {
+        if (loginData?.reason === "RATE_LIMITED") {
+          setError("Too many login attempts. Try again later.");
+        } else if (loginData?.reason === "USER_DISABLED") {
+          setError("This user account is disabled.");
+        } else {
+          setError("Invalid email or password.");
         }
         return;
       }
@@ -46,48 +49,57 @@ export default function LoginPage() {
         credentials: "include",
       });
 
-      const meData = await meRes.json().catch(()=> null);
+      const meData = await meRes.json().catch(() => null);
 
-      if(!meRes.ok || !meData?.ok){
+      if (!meRes.ok || !meData?.ok) {
         setError("Session could not be verified.");
         return;
       }
-      if(meData.requiresTenantSelection){
+
+      if (meData.requiresTenantSelection) {
         router.push("/select-company");
         return;
       }
-      const activeCompanyId = meData?.session?.activeCompanyId;
 
-      const activeMembership = meData?.memberships?.find(
-        (m: { companyId: string; role: string }) => m.companyId === activeCompanyId
-      );
+      const memberships = Array.isArray(meData.memberships) ? meData.memberships : [];
+      const activeCompanyId = meData?.session?.activeCompanyId ?? null;
+
+      const activeMembership =
+        activeCompanyId === null
+          ? null
+          : memberships.find(
+              (m: { companyId: string; role: string }) =>
+                m.companyId === activeCompanyId
+            ) ?? null;
 
       if (!activeMembership) {
-        router.push("/login");
+        if (memberships.length === 1) {
+          router.push("/select-company");
+          return;
+        }
+
+        setError("No active company could be selected for this account.");
         return;
       }
 
       if (activeMembership.role === "USER") {
         router.push("/booking");
-        router.refresh();
         return;
       }
+
       router.push("/dashboard");
-      router.refresh();
-    } catch{
-      setError("Something went wrong. Please try again.")
-    } finally{
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
     }
   }
-  
+
   return (
     <main className="w-full">
       <div className="mx-auto flex justify-center mt-30 px-4">
         <section className="w-full max-w-[420]">
-          {/* Logo */}
           <div className="mb-8 flex justify-center sm:mb-10">
-            {/* Replace with your logo path or component */}
             <Image
               src="/logo.png"
               alt="Otman Transport"
@@ -98,10 +110,12 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Form */}
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
-              <label htmlFor="email" className="text-[20px] pl-2 font-semibold text-logoblue">
+              <label
+                htmlFor="email"
+                className="text-[20px] pl-2 font-semibold text-logoblue"
+              >
                 Username / E-mail
               </label>
               <input
@@ -117,7 +131,10 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="password" className="text-[20px] pl-2 font-semibold text-logoblue">
+              <label
+                htmlFor="password"
+                className="text-[20px] pl-2 font-semibold text-logoblue"
+              >
                 Password
               </label>
               <input
@@ -132,16 +149,14 @@ export default function LoginPage() {
               />
             </div>
 
-            {error ? (
-              <p className="text-sm text-red-600">{error}</p>
-            ) : null}
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
             <button
               type="submit"
               disabled={loading}
-              className="h-10 w-full rounded-lg bg-logoblue text-lg font-semibold text-white hover:opacity-95 active:opacity-90 cursor-pointer"
+              className="h-10 w-full rounded-lg bg-logoblue text-lg font-semibold text-white hover:opacity-95 active:opacity-90 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
             >
-            {loading ? "Logging in..." : "Log in"}
+              {loading ? "Logging in..." : "Log in"}
             </button>
 
             <div className="text-center">

@@ -16,6 +16,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/accept-invite") ||
+    pathname.startsWith("/reset-password") ||
     pathname.includes(".")
   ) {
     return NextResponse.next();

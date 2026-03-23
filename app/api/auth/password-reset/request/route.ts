@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requestPasswordReset } from "@/lib/auth/passwordResetRequest";
+//RALFS ADDED
+import { initAuth } from "@/lib/auth/init";
 
 function getClientIp(req: Request): string | null {
   const xff = req.headers.get("x-forwarded-for");
@@ -11,6 +13,9 @@ function getClientIp(req: Request): string | null {
 }
 
 export async function POST(req: Request) {
+  //RALFS ADDED
+  initAuth();
+
   const body = await req.json().catch(() => null);
 
   const email = typeof body?.email === "string" ? body.email : "";
