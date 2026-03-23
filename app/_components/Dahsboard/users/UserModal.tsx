@@ -35,6 +35,7 @@ export default function UserModal({
   initialValueRole,
   initialValueActive,
 }: Props) {
+  const isCreateMode = !initialValueEmail;
   const [form, setForm] = useState({
     name: initialValueName,
     email: initialValueEmail,
@@ -67,7 +68,7 @@ export default function UserModal({
         <div className="grid grid-cols-3 items-start">
           <div />
           <h1 className="whitespace-nowrap text-center text-3xl font-semibold text-logoblue">
-            Edit User
+            {isCreateMode ? "Add User" : "Edit User"}
           </h1>
           <button
             className="ml-auto grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-logoblue font-bold text-white"
@@ -152,7 +153,7 @@ export default function UserModal({
               <input
                 className="customInput mb-4 w-full"
                 type="text"
-                value="********"
+                value={isCreateMode ? "Will be set by invited user" : "********"}
                 readOnly
               />
 
@@ -164,7 +165,7 @@ export default function UserModal({
                   Edit password
                 </button>
               </div>
-
+{!isCreateMode && (
               <div className="mt-8">
                 <h2 className="pb-2 font-semibold text-logoblue">Manage</h2>
 
@@ -180,7 +181,7 @@ export default function UserModal({
                     {form.active ? "Active" : "Disabled"}
                   </div>
                 </div>
-
+                  
                 <div className="flex gap-4">
                   <button
                     type="button"
@@ -218,7 +219,7 @@ export default function UserModal({
                     Remove
                   </button>
                 </div>
-              </div>
+              </div>)}
             </div>
           </div>
 
@@ -231,7 +232,7 @@ export default function UserModal({
               className="customButtonEnabled h-10 w-96"
               type="button"
             >
-              Save Changes
+              {isCreateMode ? "Send Invite" : "Save Changes"}
             </button>
           </div>
         </div>

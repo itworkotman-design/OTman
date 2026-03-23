@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try{
-      const loginRes = await fetch("api/auth/login", {
+      const loginRes = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -54,6 +54,22 @@ export default function LoginPage() {
       }
       if(meData.requiresTenantSelection){
         router.push("/select-company");
+        return;
+      }
+      const activeCompanyId = meData?.session?.activeCompanyId;
+
+      const activeMembership = meData?.memberships?.find(
+        (m: { companyId: string; role: string }) => m.companyId === activeCompanyId
+      );
+
+      if (!activeMembership) {
+        router.push("/login");
+        return;
+      }
+
+      if (activeMembership.role === "USER") {
+        router.push("/booking");
+        router.refresh();
         return;
       }
       router.push("/dashboard");

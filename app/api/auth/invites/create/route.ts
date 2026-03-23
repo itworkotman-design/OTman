@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { createInvite } from "@/lib/auth/inviteCreate";
+//RALFS ADDED
+import { ensureInviteDeliveryRegistered } from "@/lib/auth/registerInviteDelivery";
 
 function getClientIp(req: Request): string | null {
     const xff = req.headers.get("x-forwarded-for");
@@ -12,6 +14,8 @@ function getClientIp(req: Request): string | null {
 }
 
 export async function POST(req: Request) {
+    //RALFS ADDED
+    ensureInviteDeliveryRegistered();
     const session = await getAuthenticatedSession(req);
 
     if (!session) {

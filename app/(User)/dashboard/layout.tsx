@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
 
-export default async function UserLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -17,7 +17,7 @@ export default async function UserLayout({
     redirect("/login");
   }
 
-  const req = new Request(`${protocol}://${host}/app`, {
+  const req = new Request(`${protocol}://${host}/dashboard`, {
     headers: requestHeaders,
   });
 
@@ -28,7 +28,7 @@ export default async function UserLayout({
   }
 
   if (!session.activeCompanyId) {
-    redirect("/login");
+    redirect("/booking");
   }
 
   const membership = await getActiveMembership({
@@ -38,6 +38,10 @@ export default async function UserLayout({
 
   if (!membership) {
     redirect("/login");
+  }
+
+  if (membership.role === "USER") {
+    redirect("/booking");
   }
 
   return <>{children}</>;

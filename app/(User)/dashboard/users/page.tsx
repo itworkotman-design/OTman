@@ -133,33 +133,50 @@ export default function UserPage() {
 
       <div className="w-full">
         <UserModal
-          key={selectedUser?.id ?? "new"}
-          isOpen={open}
-          onClose={() => setOpen(false)}
-          initialValueName={selectedUser?.user.email ?? ""}
-          initialValueEmail={selectedUser?.user.email ?? ""}
-          initialValueNumber={0}
-          initialValueRole={selectedUser?.role ?? "USER"}
-          initialValueActive={selectedUser?.status === "ACTIVE"}
-          onSave={(data) => {
-            if (!selectedUser) return;
+            key={selectedUser?.id ?? "new"}
+            isOpen={open}
+            onClose={() => setOpen(false)}
+            initialValueName={selectedUser?.user.email ?? ""}
+            initialValueEmail={selectedUser?.user.email ?? ""}
+            initialValueNumber={0}
+            initialValueRole={selectedUser?.role ?? "USER"}
+            initialValueActive={selectedUser ? selectedUser.status === "ACTIVE" : true}
+            onSave={async (data) => {
+                if (!selectedUser) {
+                    const res = await fetch("/api/auth/invites/create", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                    body: JSON.stringify({
+                        email: data.email,
+                        role: data.role,
+                    }),
+                    });
 
-            console.log("Saved modal data:", {
-              membershipId: selectedUser.id,
-              ...data,
-            });
+                    const result = await res.json().catch(() => null);
 
-            changeRole(selectedUser, data.role as "OWNER" | "ADMIN" | "USER");
-          }}
-          onRemove={() => {
-            if (!selectedUser) return;
-            alert("Remove user is not connected to backend yet.");
-          }}
-          onToggleActive={() => {
-            if (!selectedUser) return;
-            toggleMembership(selectedUser);
-          }}
-        />
+                    if (!res.ok || !result?.ok) {
+                    alert(result?.reason || "Failed to create invite");
+                    return;
+                    }
+
+                    await loadUsers();
+                    return;
+                }
+
+                changeRole(selectedUser, data.role as "OWNER" | "ADMIN" | "USER");
+                }}
+            onRemove={() => {
+                if (!selectedUser) return;
+                alert("Remove user is not connected to backend yet.");
+            }}
+            onToggleActive={() => {
+                if (!selectedUser) return;
+                toggleMembership(selectedUser);
+            }}
+            />
 
         <div className="shadow-xs flex pb-2">
           <div className="whitespace-nowrap">
@@ -182,11 +199,21 @@ export default function UserPage() {
             />
           </div>
 
-          <div className="ml-auto flex">
-            <button className="customButtonDefault mr-2 hidden hover:bg-black/3! lg:block">
-              Export
+          <div className="ml-auto flex gap-2">
+            <button
+                className="customButtonDefault"
+                onClick={() => {
+                setSelectedUser(null);
+                setOpen(true);
+                }}
+            >
+                Add User
             </button>
-          </div>
+
+            <button className="customButtonDefault hidden hover:bg-black/3! lg:block">
+                Export
+            </button>
+            </div>
         </div>
 
         {loading ? (
