@@ -1,6 +1,6 @@
 "use client";
 
-import type { User } from "@/app/dashboard/booking/booking_users/_types/user.ts";
+import type { User } from "@/app/(User)/dashboard/booking/booking_users/_types/user";
 
 export function UserTable({
   users,

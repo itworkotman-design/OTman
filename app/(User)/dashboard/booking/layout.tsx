@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import  Sidebar  from "../../_components/Dahsboard/Sidebar";
+import  Sidebar  from "../../../_components/Dahsboard/Sidebar";
 import { NavbarBooking } from "@/app/_components/Dahsboard/booking/NavbarBooking";
 
 const SIDEBAR_OPEN = 300;
