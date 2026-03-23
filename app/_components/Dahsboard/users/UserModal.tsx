@@ -21,6 +21,8 @@ type Props = {
   initialValueNumber: number;
   initialValueRole: string;
   initialValueActive: boolean;
+  actorRole: "OWNER" | "ADMIN" | "USER";
+  targetRole: "OWNER" | "ADMIN" | "USER";
 };
 
 export default function UserModal({
@@ -34,8 +36,11 @@ export default function UserModal({
   initialValueNumber,
   initialValueRole,
   initialValueActive,
+  actorRole,
+  targetRole,
 }: Props) {
   const isCreateMode = !initialValueEmail;
+
   const [form, setForm] = useState({
     name: initialValueName,
     email: initialValueEmail,
@@ -61,6 +66,20 @@ export default function UserModal({
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   if (!isOpen) return null;
+
+  const isActorOwner = actorRole === "OWNER";
+  const isActorAdmin = actorRole === "ADMIN";
+  const isTargetOwner = targetRole === "OWNER";
+
+  const canEditTarget =
+    isCreateMode ||
+    isActorOwner ||
+    (isActorAdmin && targetRole === "USER");
+
+  const canDisableOrRemove =
+    !isCreateMode &&
+    ((isActorOwner && !isTargetOwner) ||
+      (isActorAdmin && targetRole === "USER"));
 
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -90,6 +109,7 @@ export default function UserModal({
                 value={form.name}
                 onChange={updateField("name")}
                 type="text"
+                disabled={!canEditTarget}
               />
 
               <label className="block pl-2 pb-2">Email</label>
@@ -98,6 +118,7 @@ export default function UserModal({
                 value={form.email}
                 onChange={updateField("email")}
                 type="text"
+                disabled={!canEditTarget}
               />
 
               <label className="block pl-2 pb-2">Number</label>
@@ -106,6 +127,7 @@ export default function UserModal({
                 value={form.number || ""}
                 onChange={updateNumber("number")}
                 type="number"
+                disabled={!canEditTarget}
               />
 
               <label className="block pl-2 pb-2">Description</label>
@@ -114,6 +136,7 @@ export default function UserModal({
                 value={form.description}
                 onChange={updateField("description")}
                 placeholder="Description"
+                disabled={!canEditTarget}
               />
             </div>
 
@@ -128,8 +151,9 @@ export default function UserModal({
                 value={form.role}
                 onChange={updateSelect("role")}
                 name="role"
+                disabled={!canEditTarget}
               >
-                <option value="OWNER">Owner</option>
+                {isActorOwner && <option value="OWNER">Owner</option>}
                 <option value="ADMIN">Admin</option>
                 <option value="USER">User</option>
               </select>
@@ -140,6 +164,7 @@ export default function UserModal({
                 value={form.priceList}
                 onChange={updateSelect("priceList")}
                 name="priceList"
+                disabled={!canEditTarget}
               >
                 <option value="DEFAULT">DEFAULT</option>
                 <option value="POWER">POWER</option>
@@ -155,71 +180,80 @@ export default function UserModal({
                 type="text"
                 value={isCreateMode ? "Will be set by invited user" : "********"}
                 readOnly
+                disabled={!canEditTarget}
               />
 
               <div className="flex gap-4">
-                <button type="button" className="customButtonDefault" disabled>
+                <button
+                  type="button"
+                  className="customButtonDefault"
+                  disabled={!canEditTarget}
+                >
                   Send reset link
                 </button>
-                <button type="button" className="customButtonDefault" disabled>
+                <button
+                  type="button"
+                  className="customButtonDefault"
+                  disabled={!canEditTarget}
+                >
                   Edit password
                 </button>
               </div>
-{!isCreateMode && (
-              <div className="mt-8">
-                <h2 className="pb-2 font-semibold text-logoblue">Manage</h2>
 
-                <div className="mb-4 rounded-lg border border-lineSecondary p-4">
-                  <div className="mb-2 text-sm text-textColorSecond">
-                    Current status
+              {canDisableOrRemove && (
+                <div className="mt-8">
+                  <h2 className="pb-2 font-semibold text-logoblue">Manage</h2>
+
+                  <div className="mb-4 rounded-lg border border-lineSecondary p-4">
+                    <div className="mb-2 text-sm text-textColorSecond">
+                      Current status
+                    </div>
+                    <div
+                      className={`font-semibold ${
+                        form.active ? "text-green-700" : "text-red-700"
+                      }`}
+                    >
+                      {form.active ? "Active" : "Disabled"}
+                    </div>
                   </div>
-                  <div
-                    className={`font-semibold ${
-                      form.active ? "text-green-700" : "text-red-700"
-                    }`}
-                  >
-                    {form.active ? "Active" : "Disabled"}
+
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          !confirm(
+                            form.active
+                              ? "Disable this user?"
+                              : "Enable this user?"
+                          )
+                        ) {
+                          return;
+                        }
+                        onToggleActive();
+                      }}
+                      className={[
+                        "mb-3 w-40 customButtonEnabled",
+                        form.active ? "bg-red-800!" : "bg-green-700!",
+                      ].join(" ")}
+                    >
+                      {form.active ? "Disable" : "Enable"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!confirm("Remove this user?")) return;
+                        onRemove();
+                        onClose();
+                      }}
+                      className="mb-3 w-40 customButtonEnabled bg-red-800!"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
-                  
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (
-                        !confirm(
-                          form.active
-                            ? "Disable this user?"
-                            : "Enable this user?"
-                        )
-                      ) {
-                        return;
-                      }
-
-                      setForm((prev) => ({ ...prev, active: !prev.active }));
-                      onToggleActive();
-                    }}
-                    className={[
-                      "mb-3 w-40 customButtonEnabled",
-                      form.active ? "bg-red-800!" : "bg-green-700!",
-                    ].join(" ")}
-                  >
-                    {form.active ? "Disable" : "Enable"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!confirm("Remove this user?")) return;
-                      onRemove();
-                      onClose();
-                    }}
-                    className="mb-3 w-40 customButtonEnabled bg-red-800!"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>)}
+              )}
             </div>
           </div>
 
@@ -231,8 +265,13 @@ export default function UserModal({
               }}
               className="customButtonEnabled h-10 w-96"
               type="button"
+              disabled={!canEditTarget}
             >
-              {isCreateMode ? "Send Invite" : "Save Changes"}
+              {isCreateMode
+                ? "Send Invite"
+                : !canEditTarget
+                  ? "You cannot edit this user"
+                  : "Save Changes"}
             </button>
           </div>
         </div>

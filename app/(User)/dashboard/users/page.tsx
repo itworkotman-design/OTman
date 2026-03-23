@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import UserModal from "@/app/_components/Dahsboard/users/UserModal";
+import { useRouter } from "next/navigation";
 
 type MembershipUser = {
   id: string;
@@ -18,6 +19,7 @@ type Membership = {
 };
 
 export default function UserPage() {
+  const [currentUserRole, setCurrentUserRole] = useState<"OWNER" | "ADMIN" | "USER">("USER");
   const [users, setUsers] = useState<Membership[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Membership | null>(null);
@@ -26,6 +28,8 @@ export default function UserPage() {
   const [query, setQuery] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const router = useRouter();
 
   async function loadUsers() {
     try {
@@ -43,8 +47,30 @@ export default function UserPage() {
         setError(data?.reason || "Failed to load users");
         return;
       }
-
       setUsers(data.memberships);
+
+      const meRes = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      const meData = await meRes.json().catch(() => null);
+
+      if (meRes.ok && meData?.ok) {
+        const activeCompanyId = meData?.session?.activeCompanyId;
+
+        const activeMembership = meData?.memberships?.find(
+          (m: { companyId: string; role: "OWNER" | "ADMIN" | "USER" }) =>
+            m.companyId === activeCompanyId
+        );
+
+        if (activeMembership) {
+          setCurrentUserRole(activeMembership.role);
+        } else {
+          setCurrentUserRole("USER");
+        }
+
+      }
     } catch {
       setError("Failed to load users");
     } finally {
@@ -78,8 +104,8 @@ export default function UserPage() {
   async function toggleMembership(target: Membership) {
     const route =
       target.status === "ACTIVE"
-        ? `/api/auth/membership/${target.id}/disable`
-        : `/api/auth/membership/${target.id}/enable`;
+        ? `/api/auth/memberships/${target.id}/disable`
+        : `/api/auth/memberships/${target.id}/enable`;
 
     const res = await fetch(route, {
       method: "POST",
@@ -92,8 +118,17 @@ export default function UserPage() {
       alert(data?.reason || "Failed to update user");
       return;
     }
+    setSelectedUser((prev) =>
+    prev
+      ? {
+          ...prev,
+          status: prev.status === "ACTIVE" ? "DISABLED" : "ACTIVE",
+        }
+      : prev
+  );
 
     await loadUsers();
+    router.refresh();
     setOpen(false);
     setSelectedUser(null);
   }
@@ -102,7 +137,7 @@ export default function UserPage() {
     target: Membership,
     nextRole: "OWNER" | "ADMIN" | "USER"
   ) {
-    const res = await fetch(`/api/auth/membership/${target.id}/role`, {
+    const res = await fetch(`/api/auth/memberships/${target.id}/role`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -120,7 +155,12 @@ export default function UserPage() {
       return;
     }
 
+    setSelectedUser((prev) =>
+    prev ? { ...prev, role: nextRole } : prev
+  );
+
     await loadUsers();
+    router.refresh();
     setOpen(false);
     setSelectedUser(null);
   }
@@ -136,6 +176,8 @@ export default function UserPage() {
             key={selectedUser?.id ?? "new"}
             isOpen={open}
             onClose={() => setOpen(false)}
+            actorRole={currentUserRole}
+            targetRole={selectedUser?.role ?? "USER"}
             initialValueName={selectedUser?.user.email ?? ""}
             initialValueEmail={selectedUser?.user.email ?? ""}
             initialValueNumber={0}
