@@ -44,6 +44,7 @@ export async function GET(req: Request) {
       role: true,
       status: true,
       createdAt: true,
+      priceListId: true,
       permissions: {
         select: {
           permission: true,

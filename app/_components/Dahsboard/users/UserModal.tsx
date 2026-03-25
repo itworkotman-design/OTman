@@ -35,7 +35,7 @@ export default function UserModal({
 
   const updateField = (key: "username" | "email" | "phoneNumber" | "description") =>
   makeFieldUpdater(key, setForm);
-  const updateSelect = (key: "role" | "priceList") =>
+  const updateSelect = (key: "role" | "priceListId") =>
     makeSelectUpdater(key, setForm);
   //For View / Create permission
   const togglePermission = makePermissionToggler(setForm);
@@ -68,24 +68,56 @@ export default function UserModal({
               <h2 className="pl-2 pb-2 font-semibold text-logoblue">General</h2>
 
               <label className="block pl-2 pb-2">Username</label>
-              <input className="customInput mb-2 w-full" value={form.username || ""} onChange={updateField("username")} type="text" disabled={!canEditTarget} />
+              <input
+                className="customInput mb-2 w-full"
+                value={form.username || ""}
+                onChange={updateField("username")}
+                type="text"
+                disabled={!canEditTarget}
+              />
 
               <label className="block pl-2 pb-2">Email</label>
-              <input className="customInput mb-2 w-full" value={form.email} onChange={updateField("email")} type="text" disabled={!canEditTarget} />
+              <input
+                className="customInput mb-2 w-full"
+                value={form.email}
+                onChange={updateField("email")}
+                type="text"
+                disabled={!canEditTarget}
+              />
 
               <label className="block pl-2 pb-2">Number</label>
-              <input className="customInput mb-2 w-full" value={form.phoneNumber || ""} onChange={updateField("phoneNumber")} type="text" disabled={!canEditTarget} />
+              <input
+                className="customInput mb-2 w-full"
+                value={form.phoneNumber || ""}
+                onChange={updateField("phoneNumber")}
+                type="text"
+                disabled={!canEditTarget}
+              />
 
               <label className="block pl-2 pb-2">Description</label>
-              <textarea className="customInput mb-2 min-h-[120] w-full resize-y" value={form.description} onChange={updateField("description")} placeholder="Description" disabled={!canEditTarget} />
+              <textarea
+                className="customInput mb-2 min-h-[120] w-full resize-y"
+                value={form.description}
+                onChange={updateField("description")}
+                placeholder="Description"
+                disabled={!canEditTarget}
+              />
             </div>
 
             {/* ── Permissions & Security ── */}
             <div className="flex-1">
-              <h2 className="pl-2 pb-2 font-semibold text-logoblue">Permissions</h2>
+              <h2 className="pl-2 pb-2 font-semibold text-logoblue">
+                Permissions
+              </h2>
 
               <label className="block pl-2 pb-2">Role</label>
-              <select className="customInput mb-4 w-full" value={form.role} onChange={updateSelect("role")} name="role" disabled={!canEditTarget}>
+              <select
+                className="customInput mb-4 w-full"
+                value={form.role}
+                onChange={updateSelect("role")}
+                name="role"
+                disabled={!canEditTarget}
+              >
                 {isActorOwner && <option value="OWNER">Owner</option>}
                 <option value="ADMIN">Admin</option>
                 <option value="USER">User</option>
@@ -111,19 +143,52 @@ export default function UserModal({
                 Booking create
               </label>
               <label className="block pl-2 pb-2">Price list</label>
-              <select className="customInput mb-6 w-full" value={form.priceList} onChange={updateSelect("priceList")} name="priceList" disabled={!canEditTarget}>
-                <option value="DEFAULT">DEFAULT</option>
-                <option value="POWER">POWER</option>
+              <select
+                className="customInput mb-6 w-full"
+                value={form.priceListId || ""}
+                onChange={updateSelect("priceListId")}
+                name="priceList"
+                disabled={!canEditTarget}
+              >
+                <option value="">No price list</option>
+
+                {props.priceLists?.map((pl) => (
+                  <option key={pl.id} value={pl.id}>
+                    {pl.name}
+                  </option>
+                ))}
               </select>
 
-              <h2 className="pl-2 pb-2 font-semibold text-logoblue">Security</h2>
+              <h2 className="pl-2 pb-2 font-semibold text-logoblue">
+                Security
+              </h2>
 
               <label className="block pl-2 pb-2">Password</label>
-              <input className="customInput mb-4 w-full" type="text" value={isCreateMode ? "Will be set by invited user" : "********"} readOnly disabled={!canEditTarget} />
+              <input
+                className="customInput mb-4 w-full"
+                type="text"
+                value={
+                  isCreateMode ? "Will be set by invited user" : "********"
+                }
+                readOnly
+                disabled={!canEditTarget}
+              />
 
               <div className="flex gap-4">
-                <button type="button" className="customButtonDefault" disabled={!canEditTarget}>Send reset link</button>
-                <button type="button" className="customButtonDefault" disabled={!canEditTarget}>Edit password</button>
+                <button
+                  type="button"
+                  className="customButtonDefault"
+                  disabled={!canEditTarget}
+                >
+                  Send reset link
+                </button>
+                <button
+                  type="button"
+                  className="customButtonDefault"
+                  disabled={!canEditTarget}
+                >
+                  Edit password
+                </button>
               </div>
 
               {/* ── Manage ── */}
@@ -132,8 +197,12 @@ export default function UserModal({
                   <h2 className="pb-2 font-semibold text-logoblue">Manage</h2>
 
                   <div className="mb-4 rounded-lg border border-lineSecondary p-4">
-                    <div className="mb-2 text-sm text-textColorSecond">Current status</div>
-                    <div className={`font-semibold ${form.active ? "text-green-700" : "text-red-700"}`}>
+                    <div className="mb-2 text-sm text-textColorSecond">
+                      Current status
+                    </div>
+                    <div
+                      className={`font-semibold ${form.active ? "text-green-700" : "text-red-700"}`}
+                    >
                       {form.active ? "Active" : "Disabled"}
                     </div>
                   </div>
@@ -141,15 +210,32 @@ export default function UserModal({
                   <div className="flex gap-4">
                     <button
                       type="button"
-                      onClick={() => { if (!confirm(form.active ? "Disable this user?" : "Enable this user?")) return; onToggleActive(); }}
-                      className={["mb-3 w-40 customButtonEnabled", form.active ? "bg-red-800!" : "bg-green-700!"].join(" ")}
+                      onClick={() => {
+                        if (
+                          !confirm(
+                            form.active
+                              ? "Disable this user?"
+                              : "Enable this user?",
+                          )
+                        )
+                          return;
+                        onToggleActive();
+                      }}
+                      className={[
+                        "mb-3 w-40 customButtonEnabled",
+                        form.active ? "bg-red-800!" : "bg-green-700!",
+                      ].join(" ")}
                     >
                       {form.active ? "Disable" : "Enable"}
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => { if (!confirm("Remove this user?")) return; onRemove(); onClose(); }}
+                      onClick={() => {
+                        if (!confirm("Remove this user?")) return;
+                        onRemove();
+                        onClose();
+                      }}
                       className="mb-3 w-40 customButtonEnabled bg-red-800!"
                     >
                       Remove
@@ -162,7 +248,9 @@ export default function UserModal({
 
           <div className="mt-10 flex justify-center">
             <button
-              onClick={() => { onSave(form); }}
+              onClick={() => {
+                onSave(form);
+              }}
               className="customButtonEnabled h-10 w-96"
               type="button"
               disabled={!canEditTarget}

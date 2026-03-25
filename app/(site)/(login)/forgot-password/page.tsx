@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
         <section className="w-full max-w-[420]">
           <div className="flex justify-center">
             <Image
-              src="/logoSvg.svg"
+              src="/logoSVG.svg"
               alt="Otman Transport"
               width={260}
               height={120}
@@ -68,7 +68,8 @@ export default function ForgotPasswordPage() {
 
           {success ? (
             <p className="text-sm text-green-700 rounded-lg border border-green-200 bg-green-50 p-3">
-              If an account exists for that email, reset instructions have been sent.
+              If an account exists for that email, reset instructions have been
+              sent.
             </p>
           ) : (
             <form className="space-y-4" onSubmit={handleSubmit}>

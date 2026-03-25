@@ -68,6 +68,10 @@ export async function PATCH(
   const email = parseEmail(body?.email);
   const phoneNumber = parseOptionalString(body?.phoneNumber);
   const description = parseOptionalString(body?.description);
+  const priceListId =
+    typeof body?.priceListId === "string" && body.priceListId.trim()
+      ? body.priceListId.trim()
+      : null;
   const permissions = parsePermissions(body?.permissions);
 
   if (!email) {
@@ -137,6 +141,13 @@ export async function PATCH(
       },
     });
 
+    await prisma.membership.update({
+      where: { id: targetMembership.id },
+      data: {
+        priceListId,
+      },
+    });
+    
     await prisma.membershipPermission.deleteMany({
       where: {
         membershipId: targetMembership.id,

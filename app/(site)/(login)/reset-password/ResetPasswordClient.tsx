@@ -89,7 +89,7 @@ export default function ResetPasswordClient() {
         <section className="w-full max-w-[420]">
           <div className="flex justify-center">
             <Image
-              src="/logo.png"
+              src="/logoSVG.svg"
               alt="Otman Transport"
               width={260}
               height={120}
@@ -149,7 +149,9 @@ export default function ResetPasswordClient() {
                 />
               </div>
 
-              {error ? <p className="text-sm text-red-600 px-1">{error}</p> : null}
+              {error ? (
+                <p className="text-sm text-red-600 px-1">{error}</p>
+              ) : null}
 
               <div className="flex items-center justify-between">
                 <Link href="/login" className="text-logoblue font-semibold">

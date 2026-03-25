@@ -7,6 +7,7 @@ import type { Role, Membership } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 
 export default function UserPage() {
+  
   const currentUser = useCurrentUser();
   const currentUserRole = currentUser?.role ?? "USER";
 
@@ -18,7 +19,16 @@ export default function UserPage() {
   const [query, setQuery] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [priceLists, setPriceLists] = useState([]);
 
+  useEffect(() => {
+    fetch("/api/products/pricelists")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok) setPriceLists(data.priceLists);
+      });
+  }, []);
+  
   const router = useRouter();
 
   async function loadUsers() {
@@ -116,7 +126,7 @@ export default function UserPage() {
     setOpen(false);
     setSelectedUser(null);
   }
-
+console.log("priceLists in parent", priceLists);
   return (
     <div className="mx-auto max-w-[1500]">
       <h1 className="mb-20 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
@@ -135,7 +145,11 @@ export default function UserPage() {
           initialValuePhoneNumber={selectedUser?.user.phoneNumber ?? ""}
           initialValueDescription={selectedUser?.user.description ?? ""}
           initialValueRole={selectedUser?.role ?? "USER"}
-          initialValueActive={selectedUser ? selectedUser.status === "ACTIVE" : true}
+          initialValueActive={
+            selectedUser ? selectedUser.status === "ACTIVE" : true
+          }
+          priceLists={priceLists}
+          initialPriceListId={selectedUser?.priceListId ?? null}
           onSave={async (data) => {
             if (!selectedUser) {
               const res = await fetch("/api/auth/invites/create", {
@@ -144,7 +158,11 @@ export default function UserPage() {
                 credentials: "include",
                 body: JSON.stringify({
                   email: data.email,
-                  role: data.role,
+                  username: data.username,
+                  phoneNumber: data.phoneNumber,
+                  description: data.description,
+                  priceListId: data.priceListId ?? null,
+                  permissions: data.permissions,
                 }),
               });
 
@@ -160,17 +178,21 @@ export default function UserPage() {
               return;
             }
 
-            const profileRes = await fetch(`/api/auth/memberships/${selectedUser.id}/update`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              credentials: "include",
-              body: JSON.stringify({
-                email: data.email,
-                username: data.username,
-                phoneNumber: data.phoneNumber,
-                description: data.description,
-              }),
-            });
+            const profileRes = await fetch(
+              `/api/auth/memberships/${selectedUser.id}/update`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                  email: data.email,
+                  username: data.username,
+                  phoneNumber: data.phoneNumber,
+                  description: data.description,
+                  priceListId: data.priceListId ?? null,
+                }),
+              },
+            );
 
             const profileResult = await profileRes.json().catch(() => null);
 
@@ -223,11 +245,17 @@ export default function UserPage() {
           <div className="ml-auto flex gap-2">
             <button
               className="customButtonDefault"
-              onClick={() => { setSelectedUser(null); setOpen(true); }}
+              onClick={() => {
+                setSelectedUser(null);
+                setOpen(true);
+              }}
             >
               Add User
             </button>
-            <button className="customButtonDefault hidden hover:bg-black/3! lg:block " disabled>
+            <button
+              className="customButtonDefault hidden hover:bg-black/3! lg:block "
+              disabled
+            >
               Export
             </button>
           </div>
@@ -247,9 +275,13 @@ export default function UserPage() {
                       checked={allVisibleSelected}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+                          setSelectedIds((prev) =>
+                            Array.from(new Set([...prev, ...visibleIds])),
+                          );
                         } else {
-                          setSelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+                          setSelectedIds((prev) =>
+                            prev.filter((id) => !visibleIds.includes(id)),
+                          );
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
@@ -258,15 +290,33 @@ export default function UserPage() {
                       aria-label="Select all"
                     />
                   </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Username</th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Email</th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Number</th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Description</th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Role</th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Price List</th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">User status</th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Created</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium">Active</th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                    Username
+                  </th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                    Email
+                  </th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                    Number
+                  </th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                    Description
+                  </th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                    Role
+                  </th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                    Price List
+                  </th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                    User status
+                  </th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                    Created
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium">
+                    Active
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -274,7 +324,10 @@ export default function UserPage() {
                   <tr
                     key={u.id}
                     className="cursor-pointer border-b border-black/10 hover:bg-black/2"
-                    onClick={() => { setSelectedUser(u); setOpen(true); }}
+                    onClick={() => {
+                      setSelectedUser(u);
+                      setOpen(true);
+                    }}
                   >
                     <td className="text-center">
                       <input
@@ -282,7 +335,9 @@ export default function UserPage() {
                         className="h-4 w-4"
                         onChange={(e) => {
                           setSelectedIds((prev) =>
-                            e.target.checked ? [...prev, u.id] : prev.filter((id) => id !== u.id)
+                            e.target.checked
+                              ? [...prev, u.id]
+                              : prev.filter((id) => id !== u.id),
                           );
                         }}
                         checked={selectedIds.includes(u.id)}
@@ -314,7 +369,9 @@ export default function UserPage() {
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
-                    <td className={`px-4 py-2 font-semibold text-textColorThird ${u.status !== "ACTIVE" ? "text-red-600" : ""}`}>
+                    <td
+                      className={`px-4 py-2 font-semibold text-textColorThird ${u.status !== "ACTIVE" ? "text-red-600" : ""}`}
+                    >
                       {u.status === "ACTIVE" ? "Active" : "Disabled"}
                     </td>
                   </tr>

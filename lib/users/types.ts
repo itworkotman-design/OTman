@@ -27,4 +27,5 @@ export type Membership = {
   status: MembershipStatus;
   createdAt: string;
   user: MembershipUser;
+  priceListId: string | null;
 };

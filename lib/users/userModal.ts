@@ -1,7 +1,7 @@
 import React from "react";
-import type { Role, PriceList } from "@/lib/users/types";
+import type { Role } from "@/lib/users/types";
 
-export type { Role, PriceList };
+export type { Role };
 
 export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
 
@@ -12,7 +12,7 @@ export interface UserFormData {
   role: string;
   active: boolean;
   description: string;
-  priceList: PriceList;
+  priceListId: string | null;
   permissions: AppPermission[];
 }
 
@@ -31,6 +31,8 @@ export interface UserModalProps {
   initialValuePermissions?: AppPermission[];
   actorRole: Role;
   targetRole: Role;
+  priceLists?: { id: string; name: string }[];
+  initialPriceListId?: string | null;
 }
 
 export function buildInitialForm(props: UserModalProps): UserFormData {
@@ -41,7 +43,7 @@ export function buildInitialForm(props: UserModalProps): UserFormData {
     description: props.initialValueDescription ?? "",
     role: props.initialValueRole || "USER",
     active: props.initialValueActive,
-    priceList: "DEFAULT",
+    priceListId: props.initialPriceListId ?? null,
     permissions: props.initialValuePermissions ?? ["BOOKING_VIEW"],
   };
 }
@@ -86,13 +88,13 @@ export function makeFieldUpdater(
 }
 
 export function makeSelectUpdater(
-  key: "role" | "priceList",
-  setForm: React.Dispatch<React.SetStateAction<UserFormData>>
+  key: "role" | "priceListId",
+  setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
 ) {
   return (e: React.ChangeEvent<HTMLSelectElement>) =>
     setForm((prev) => ({
       ...prev,
-      [key]: key === "priceList" ? (e.target.value as PriceList) : e.target.value,
+      [key]: key === "priceListId" ? e.target.value || null : e.target.value,
     }));
 }
 

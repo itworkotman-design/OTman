@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     userUpdateMock: vi.fn(),
     membershipPermissionDeleteManyMock: vi.fn(),
     membershipPermissionCreateManyMock: vi.fn(),
+    membershipUpdateMock: vi.fn(),
   };
 });
 
@@ -23,6 +24,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     membership: {
       findUnique: mocks.findUniqueMock,
+      update: mocks.membershipUpdateMock,
     },
     user: {
       update: mocks.userUpdateMock,
