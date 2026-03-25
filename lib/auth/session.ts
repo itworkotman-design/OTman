@@ -78,6 +78,8 @@ export type AuthenticatedSession = {
   sessionId: string;
   userId: string;
   email: string;
+  //RALFS ADDED
+  username: string | null;
   userStatus: UserStatus;
   expiresAt: Date;
   activeCompanyId: string | null;
@@ -117,6 +119,8 @@ export async function getAuthenticatedSession(
       user: {
         select: {
           email: true,
+          //RALFS ADDED
+          username: true,
           status: true,
         },
       },
@@ -142,6 +146,7 @@ export async function getAuthenticatedSession(
     sessionId: session.id,
     userId: session.userId,
     email: session.user.email,
+    username: session.user.username,
     userStatus: session.user.status,
     expiresAt: session.expiresAt,
     activeCompanyId: activeCompany ? session.activeCompanyId : null,

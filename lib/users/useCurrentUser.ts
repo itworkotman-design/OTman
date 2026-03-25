@@ -5,6 +5,7 @@ import type { Role } from "@/lib/users/types";
 
 export type CurrentUser = {
   email: string;
+  username: string;
   role: Role;
   activeCompanyId: string | null;
 };
@@ -26,6 +27,7 @@ export function useCurrentUser(): CurrentUser | null {
 
         setCurrentUser({
           email: data.user.email,
+          username: data.user.username,
           role: activeMembership?.role ?? "USER",
           activeCompanyId,
         });

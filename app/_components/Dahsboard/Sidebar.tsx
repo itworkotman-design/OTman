@@ -114,7 +114,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
         <div className="px-4">
           <div className="mt-6 flex px-2 py-1 text-logoblue">
-            <h1 className="mx-auto">{currentUser?.email ?? ""}</h1>
+            <h1 className="mx-auto">{currentUser?.username ?? "error"}</h1>
           </div>
 
           <h1 className="text-right lg:text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond">

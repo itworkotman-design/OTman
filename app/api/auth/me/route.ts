@@ -60,6 +60,8 @@ export async function GET(req: Request) {
       user: {
         id: session.userId,
         email: session.email,
+        //RALFS ADDED
+        username: session.username,
         status: session.userStatus,
       },
       session: {
