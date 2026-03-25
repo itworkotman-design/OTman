@@ -91,6 +91,7 @@ describe("getAuthenticatedSession", () => {
         user: {
           select: {
             email: true,
+            username: true,
             status: true,
           },
         },
