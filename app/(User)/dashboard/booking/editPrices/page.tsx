@@ -1,541 +1,580 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import type React from "react";
-import { useMemo, useState, useEffect } from "react";
-//default
-import { PRODUCTS_DEFAULT } from "@/lib/prices_default/productsDefault";
-import { PRICE_OPTIONS_DEFAULT } from "@/lib/prices_default/priceOptionsDefault";
-import { PRICE_ITEMS_DEFAULT } from "@/lib/prices_default/pricingDefault";
-import type { PriceItem } from "@/lib/prices_default/pricingDefault";
-import type { PriceOption } from "@/lib/prices_default/priceOptionsDefault";
-//power
-import { PRODUCTS_POWER } from "@/lib/prices_power/productsPower";
-import { PRICE_OPTIONS_POWER } from "@/lib/prices_power/priceOptionsPower";
-import { PRICE_ITEMS_POWER } from "@/lib/prices_power/pricingPower";
+import { useEffect, useMemo, useState } from "react";
 
-type Product = { id: string | number; label: string };
-
-// Draft maps hold unsaved edits, keyed by their respective IDs.
-// Nothing is committed to main state until the user presses "Update".
-type PriceDrafts   = Record<string, Partial<PriceItem>>;
-type OptionDrafts  = Record<string, Partial<PriceOption>>;
-type ProductDrafts = Record<string, Partial<Product>>;
-
-type DiscountSpec =
-  | { kind: "percent"; value: number }
-  | { kind: "amount"; value: number };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ID generation
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Returns a unique string ID based on the current timestamp + random suffix. */
-const newId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-
-// If the new value equals the committed value the field is removed (no change to track), and if the entry becomes empty the entry itself is removed, causing the "Update" button to disappear automatically.
-function setDraftField<T extends object>(
-  setDrafts: React.Dispatch<React.SetStateAction<Record<string, Partial<T>>>>,
-  draftKey: string,
-  field: keyof T,
-  newValue: T[keyof T],
-  committedValue: T[keyof T] | undefined
-) {
-  setDrafts((prev) => {
-    const entry = { ...(prev[draftKey] ?? {}) } as Partial<T>;
-
-    if (newValue === committedValue) {
-      delete entry[field];
-    } else {
-      entry[field] = newValue;
-    }
-
-    if (Object.keys(entry).length === 0) {
-      const { [draftKey]: _, ...rest } = prev;
-      return rest as Record<string, Partial<T>>;
-    }
-
-    return { ...prev, [draftKey]: entry };
-  });
-}
-//This is used to store which files for what category selected
-const DATASETS = {
-  default: {
-    products: PRODUCTS_DEFAULT,
-    options: PRICE_OPTIONS_DEFAULT,
-    prices: PRICE_ITEMS_DEFAULT,
-  },
-  power: {
-    products: PRODUCTS_POWER,
-    options: PRICE_OPTIONS_POWER,
-    prices: PRICE_ITEMS_POWER,
-  }
-} as const;
-
-//check wheter number or procentage
-function parseDiscount(raw?: string): DiscountSpec | null {
-  if (!raw) return null;
-  const s = raw.trim();
-  if (!s) return null;
-
-  // "10%" => percent
-  if (s.endsWith("%")) {
-    const n = Number(s.slice(0, -1).trim());
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return { kind: "percent", value: n };
-  }
-
-  // "250" => amount
-  const n = Number(s);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return { kind: "amount", value: n };
-}
-
-//discount ends at end of selected daty
-function isDiscountActive(until?: string, now: Date = new Date()): boolean {
-  if (!until) return false;
-  const endOfDay = new Date(`${until}T23:59:59.999`);
-  return Number.isFinite(endOfDay.getTime()) && now <= endOfDay;
-}
-
-function applyDiscount(base: number, spec: DiscountSpec): number {
-  const b = Number.isFinite(base) ? base : 0;
-  let out =
-    spec.kind === "percent"
-      ? b * (1 - spec.value / 100)
-      : b - spec.value;
-
-  if (!Number.isFinite(out)) out = b;
-  return Math.max(0, out);
-}
-
-function formatMoney(n: number): string {
-  const x = Number.isFinite(n) ? n : 0;
-  return x.toFixed(2);
-}
-
-export default function EditPricesPage() {
-
-const [activeTab, setActiveTab] = useState<keyof typeof DATASETS>("default");
-const [nowTs, setNowTs] = useState(() => Date.now());
-const [products, setProducts] = useState<Product[]>(DATASETS.default.products as Product[]);
-const [optionRows, setOptionRows] = useState<PriceOption[]>(DATASETS.default.options);
-const [priceRows, setPriceRows] = useState<PriceItem[]>(DATASETS.default.prices);
-// ── Draft (pending) state ────────────────────────────────────────────────
-const [priceDrafts,   setPriceDrafts]   = useState<PriceDrafts>({});
-const [optionDrafts,  setOptionDrafts]  = useState<OptionDrafts>({});
-const [productDrafts, setProductDrafts] = useState<ProductDrafts>({});
-
-// Track which rows are brand-new (never been committed).
-// This keeps the "Update" button visible even when all fields are still empty (nothing is "dirty" yet, but the row still needs to be saved).
-const [newOptionIds,  setNewOptionIds]  = useState<Set<string>>(new Set());
-const [newProductIds, setNewProductIds] = useState<Set<string>>(new Set());
-
-useEffect(() => {
-  const t = window.setInterval(() => setNowTs(Date.now()), 30_000); // updates around midnight
-  return () => window.clearInterval(t);
-}, []);
-
-    // Group options by product for rendering
-    const groupedByProduct = useMemo(() => {
-        const map = new Map<string, PriceOption[]>();
-        for (const option of optionRows) {
-        const key = String(option.productId);
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(option);
-        }
-        return Array.from(map.entries());
-    }, [optionRows]);
-
-    // Draft field change handlers
-
-    const onPriceChange = <K extends keyof PriceItem>(priceKey: string, field: K, value: PriceItem[K]) => {
-      const committed = priceRows.find((p) => p.key === priceKey);
-      setDraftField(setPriceDrafts, priceKey, field, value, committed?.[field]);
-    };
-
-    const onOptionChange = <K extends keyof PriceOption>(
-        optionId: string,
-        field: K,
-        value: PriceOption[K],
-        committed: PriceOption
-    ) => {setDraftField(setOptionDrafts, optionId, field, value, committed[field]);};
-
-    const onProductLabelChange = (productId: string, value: string, committed: Product) => {setDraftField(setProductDrafts, productId, "label", value, committed.label);};
-
-  // Commit (save) a row
-
-    //Merges all pending drafts for a row into the committed state, then clears those drafts. Also commits the parent product name if it has a draft.
-    const commitRow = (row: PriceOption) => {
-    const optionId  = String(row.id);
-    const productId = String(row.productId);
-
-    const pricePatch   = priceDrafts[row.priceKey];
-    const optionPatch  = optionDrafts[optionId];
-    const productPatch = productDrafts[productId];
-
-    if (pricePatch) {
-      setPriceRows((prev) =>
-        prev.map((p) => (p.key === row.priceKey ? { ...p, ...pricePatch } : p))
-      );
-      setPriceDrafts(({ [row.priceKey]: _, ...rest }) => rest);
-    }
-
-    if (optionPatch) {
-      setOptionRows((prev) =>
-        prev.map((o) => (String(o.id) === optionId ? { ...o, ...optionPatch } : o))
-      );
-      setOptionDrafts(({ [optionId]: _, ...rest }) => rest);
-    }
-
-    // Commit product name change when saving any row of that product
-    if (productPatch) {
-      setProducts((prev) =>
-        prev.map((p) => (String(p.id) === productId ? { ...p, ...productPatch } : p))
-      );
-      setProductDrafts(({ [productId]: _, ...rest }) => rest);
-    }
-
-    // This row is no longer "new" once saved
-    setNewOptionIds((prev)  => { const s = new Set(prev); s.delete(optionId);  return s; });
-    setNewProductIds((prev) => { const s = new Set(prev); s.delete(productId); return s; });
-  };
-
-  // Add Option
-const addOption = (productId: string) => {
-    const optionId = newId();
-    const priceKey = newId();
-
-    const newPriceItem: PriceItem = {
-        key: priceKey,
-        code: "",
-        label: "",
-        customerPrice: 0,
-        subcontractorPrice: 0,
-        category: "install",
-        discountRaw: "",
-        discountUntil: "", 
-        active: false
-    };
-
-    const newOption: PriceOption = {
-        id: optionId,
-        productId: productId,
-        priceKey: priceKey,
-        active: true,
-        kind: "install"
-    };
-
-    setPriceRows((prev)  => [...prev, newPriceItem]);
-    setOptionRows((prev) => [...prev, newOption]);
-
-    // Mark as new so "Update" stays visible even with empty fields
-    setNewOptionIds((prev) => new Set(prev).add(optionId));
+type PriceListSummary = {
+  id: string;
+  name: string;
+  code: string;
 };
 
-  // Add Product
-const addProduct = () => {
-    const productId = newId();
-    const optionId  = newId();
-    const priceKey  = newId();
+type PriceListItem = {
+  id: string;
+  productId: string;
+  productInstallationOptionId: string;
+  productName: string;
+  productCode: string;
+  installationOptionName: string;
+  installationOptionCode: string;
+  title: string | null;
+  description: string | null;
+  sortOrder: number;
+  customerPrice: string;
+  subcontractorPrice: string;
+  isActive: boolean;
+};
 
-    const newProduct: Product     = { id: productId, label: "" };
-    const newPriceItem: PriceItem = {
-        key: priceKey,
-        code: "",
-        label: "",
-        customerPrice: 0,
-        subcontractorPrice: 0,
-        category: "install",
-        discountRaw: "",
-        discountUntil: "",
-        active: false
-    };
-    const newOption: PriceOption  = {
-        id: optionId,
-        productId: productId,
-        priceKey: priceKey,
-        active: true,
-        kind: "install"
-    };
+type EditableRow = PriceListItem & {
+  saving?: boolean;
+  saved?: boolean;
+  error?: string | null;
+};
 
-    setProducts((prev)   => [...prev, newProduct]);
-    setPriceRows((prev)  => [...prev, newPriceItem]);
-    setOptionRows((prev) => [...prev, newOption]);
+type PriceListData = {
+  id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  isActive: boolean;
+  items: PriceListItem[];
+};
 
-    // Mark both product and option as new
-    setNewOptionIds((prev)  => new Set(prev).add(String(optionId)));
-    setNewProductIds((prev) => new Set(prev).add(String(productId)));
-  };
+export default function EditPricesPage() {
+  const [activeTab, setActiveTab] = useState<"default" | "power">("default");
+  const [priceLists, setPriceLists] = useState<PriceListSummary[]>([]);
+  const [priceList, setPriceList] = useState<PriceListData | null>(null);
+  const [rows, setRows] = useState<EditableRow[]>([]);
+  const [originalRows, setOriginalRows] = useState<
+    Record<string, PriceListItem>
+  >({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-useEffect(() => {
-    const dataset = DATASETS[activeTab];
-    console.log("Switching to:", activeTab);
-    console.log("options count:", dataset.options.length);
-    console.log("prices count:", dataset.prices.length);
-    console.log("first option:", dataset.options[0]);
-    console.log("first price:", dataset.prices[0]);
+  const activePriceListSummary = useMemo(() => {
+    const targetCode = activeTab === "default" ? "DEFAULT" : "POWER";
+    return priceLists.find((item) => item.code === targetCode) ?? null;
+  }, [activeTab, priceLists]);
 
-  setProducts(dataset.products as Product[]);
-  setOptionRows(dataset.options);
-  setPriceRows(dataset.prices);
+  useEffect(() => {
+    async function loadPriceLists() {
+      try {
+        setLoading(true);
+        setError(null);
 
-  setPriceDrafts({});
-  setOptionDrafts({});
-  setProductDrafts({});
-  setNewOptionIds(new Set());
-  setNewProductIds(new Set());
-}, [activeTab]);
+        const res = await fetch("/api/products/pricelists", {
+          cache: "no-store",
+        });
 
-const dirtyCellClass = "border-2 border-logoblue text-logoblue";
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          setError(data.reason ?? "Failed to load price lists");
+          setPriceLists([]);
+          return;
+        }
+
+        setPriceLists(data.priceLists ?? []);
+      } catch {
+        setError("Something went wrong while loading price lists");
+        setPriceLists([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadPriceLists();
+  }, []);
+
+  useEffect(() => {
+    async function loadActivePriceList() {
+      if (!activePriceListSummary) {
+        setPriceList(null);
+        setRows([]);
+        setOriginalRows({});
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch(
+          `/api/products/pricelists/${activePriceListSummary.id}`,
+          { cache: "no-store" },
+        );
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          setError(data.reason ?? "Failed to load price list");
+          setPriceList(null);
+          setRows([]);
+          setOriginalRows({});
+          return;
+        }
+
+        setPriceList(data.priceList);
+        setRows(data.priceList.items);
+
+        const originals = data.priceList.items.reduce(
+          (acc: Record<string, PriceListItem>, item: PriceListItem) => {
+            acc[item.id] = item;
+            return acc;
+          },
+          {},
+        );
+
+        setOriginalRows(originals);
+      } catch {
+        setError("Something went wrong while loading price list");
+        setPriceList(null);
+        setRows([]);
+        setOriginalRows({});
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadActivePriceList();
+  }, [activePriceListSummary]);
+
+  function updateRow(itemId: string, patch: Partial<EditableRow>) {
+    setRows((current) =>
+      current.map((row) =>
+        row.id === itemId
+          ? {
+              ...row,
+              ...patch,
+              saved: false,
+              error: null,
+            }
+          : row,
+      ),
+    );
+  }
+
+  function isDirty(row: EditableRow) {
+    const original = originalRows[row.id];
+    if (!original) return false;
+
+    return (
+      row.customerPrice !== original.customerPrice ||
+      row.subcontractorPrice !== original.subcontractorPrice ||
+      row.isActive !== original.isActive
+    );
+  }
+
+  async function saveRow(itemId: string) {
+    const row = rows.find((item) => item.id === itemId);
+    if (!row) return;
+
+    if (!row.customerPrice.trim()) {
+      updateRow(itemId, { error: "Customer price is required" });
+      return;
+    }
+
+    if (!row.subcontractorPrice.trim()) {
+      updateRow(itemId, { error: "Subcontractor price is required" });
+      return;
+    }
+
+    const customerNumber = Number(row.customerPrice);
+    const subcontractorNumber = Number(row.subcontractorPrice);
+
+    if (!Number.isFinite(customerNumber) || customerNumber < 0) {
+      updateRow(itemId, { error: "Invalid customer price" });
+      return;
+    }
+
+    if (!Number.isFinite(subcontractorNumber) || subcontractorNumber < 0) {
+      updateRow(itemId, { error: "Invalid subcontractor price" });
+      return;
+    }
+
+    try {
+      updateRow(itemId, { saving: true, error: null, saved: false });
+
+      const res = await fetch(`/api/products/pricelists/items/${itemId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customerPrice: row.customerPrice,
+          subcontractorPrice: row.subcontractorPrice,
+          isActive: row.isActive,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        updateRow(itemId, {
+          saving: false,
+          saved: false,
+          error: data.reason ?? "Failed to update row",
+        });
+        return;
+      }
+
+      setRows((current) =>
+        current.map((item) =>
+          item.id === itemId
+            ? {
+                ...data.item,
+                saving: false,
+                saved: true,
+                error: null,
+              }
+            : item,
+        ),
+      );
+
+      setOriginalRows((current) => ({
+        ...current,
+        [itemId]: data.item,
+      }));
+
+      setTimeout(() => {
+        setRows((current) =>
+          current.map((item) =>
+            item.id === itemId ? { ...item, saved: false } : item,
+          ),
+        );
+      }, 1800);
+    } catch {
+      updateRow(itemId, {
+        saving: false,
+        saved: false,
+        error: "Something went wrong",
+      });
+    }
+  }
+
+  const grouped = useMemo(() => {
+    return Object.values(
+      rows.reduce(
+        (acc, item) => {
+          const key = item.productId;
+
+          if (!acc[key]) {
+            acc[key] = {
+              productId: item.productId,
+              productName: item.productName,
+              productCode: item.productCode,
+              items: [],
+            };
+          }
+
+          acc[key].items.push(item);
+          return acc;
+        },
+        {} as Record<
+          string,
+          {
+            productId: string;
+            productName: string;
+            productCode: string;
+            items: EditableRow[];
+          }
+        >,
+      ),
+    );
+  }, [rows]);
+
+  if (loading) {
+    return (
+      <main className="w-full">
+        <div className="mx-auto max-w-[1800] p-6 text-center">Loading...</div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="w-full">
+        <div className="mx-auto max-w-[1800] p-6 text-center text-red-600">
+          {error}
+        </div>
+      </main>
+    );
+  }
+
+  async function addOptionToProduct(productId: string) {
+    if (!priceList) return;
+
+    try {
+      const res = await fetch(
+        `/api/products/pricelists/${priceList.id}/products/${productId}/add-option`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            installationOptionCode: "INSTALL",
+          }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        alert(data.reason ?? "Failed to add option");
+        return;
+      }
+
+      const newItem = data.item as PriceListItem;
+
+      setRows((current) => {
+        const exists = current.some((item) => item.id === newItem.id);
+        if (exists) return current;
+        return [...current, newItem];
+      });
+
+      setOriginalRows((current) => ({
+        ...current,
+        [newItem.id]: newItem,
+      }));
+    } catch {
+      alert("Something went wrong while adding option");
+    }
+  }
 
   return (
-    <main className=" w-full">
+    <main className="w-full">
       <div className="mx-auto max-w-[1800]">
-        {/*Title*/}
         <div className="mb-20">
-          <h1 className="text-2xl font-bold text-center text-logoblue">Edit Prices</h1>
+          <h1 className="text-2xl font-bold text-center text-logoblue">
+            Edit Prices
+          </h1>
         </div>
-        {/*DATASET Switch*/}
+
         <div id="activeTab" className="w-full">
           <div className="max-w-[500] mx-auto flex justify-center mb-6">
-            {(["default", "power"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`mx-4 px-4 py-1 rounded-2xl border-2 border-logoblue font-semibold cursor-pointer transition-colors
-                ${activeTab === tab
-                  ? "customButtonEnabled"
-                  : "customButtonDefault"
-                }`}
-            >
-              {tab}
-            </button>
-          ))}
+            {(["default", "power"] as const).map((tab) => {
+              const tabCode = tab === "default" ? "DEFAULT" : "POWER";
+              const exists = priceLists.some((item) => item.code === tabCode);
+
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  disabled={!exists}
+                  className={`mx-4 px-4 py-1 rounded-2xl border-2 border-logoblue font-semibold transition-colors ${
+                    activeTab === tab
+                      ? "bg-logoblue text-white"
+                      : "bg-white text-logoblue"
+                  } ${exists ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                >
+                  {tab}
+                </button>
+              );
+            })}
           </div>
         </div>
-        <div className=" lg:pl-[50] lg:pr-[100]">
 
-            {/* ── Main table ── */}
-            <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
-              <table className="w-full table-fixed border border-black/10">
+        <div className="lg:pl-[50] lg:pr-[100]">
+          <div className="mb-4 text-center">
+            <h2 className="text-lg font-semibold text-logoblue">
+              {priceList?.name ?? "Price List"}
+            </h2>
+            <p className="text-sm text-black/60">{priceList?.code}</p>
+          </div>
+
+          <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
+            <table className="w-full table-fixed border border-black/10">
               <thead className="bg-gray-100">
                 <tr className="text-left">
-                  <th className="w-64 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Product</th>
-                  <th className=" w-26 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Label</th>
-                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Option Code</th>
-                  <th className=" w-60 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Description</th>
-                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Customer Price</th>
-                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Subcontractor Price</th>
-                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Discount</th>
-                  <th className=" w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Discount time</th>
-                  <th className=" w-28 px-4 py-4 border bg-logoblue text-white font-semibold text-center">Active</th>
+                  <th className="w-64 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                    Product
+                  </th>
+                  <th className="w-26 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                    Option Label
+                  </th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                    Option Code
+                  </th>
+                  <th className="w-60 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                    Description
+                  </th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                    Customer Price
+                  </th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                    Subcontractor Price
+                  </th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                    Discount
+                  </th>
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                    Discount time
+                  </th>
+                  <th className="w-28 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                    Active
+                  </th>
                 </tr>
               </thead>
 
+              {grouped.map((group) =>
+                group.items.map((item, index) => (
+                  <tbody key={item.id} className="group">
+                    <tr className="group relative align-middle border-b-2 border-logoblue">
+                      {index === 0 && (
+                        <td
+                          rowSpan={group.items.length}
+                          className="border-r border-logoblue/50 font-medium align-center relative before:content-[''] before:absolute before:top-0 before:bottom-0 before:left-[-100] before:w-[200] before:bg-transparent"
+                        >
+                          <div className="flex flex-col gap-3 p-3">
+                            <input
+                              className="w-full text-center py-1 px-2 rounded focus:outline-none hover:bg-black/5"
+                              value={group.productName}
+                              readOnly
+                            />
 
-              {/* One <tbody> per product, with a thick bottom border between groups */}
-              {groupedByProduct.map(([productId, options]) => {
-                const product        = products.find((p) => String(p.id) === productId);
-                const isNewProduct   = newProductIds.has(productId);
-                const productDraft   = productDrafts[productId] ?? {};
-                const displayProduct = { ...(product ?? { id: productId, label: "" }), ...productDraft };
-
-                return (
-                  <tbody key={productId} className="group">
-                    {options.map((row, idx) => {
-                      const optionId = String(row.id);
-                      const isNewRow = newOptionIds.has(optionId) || isNewProduct;
-
-                      // Committed data for this row
-                      const committedPrice  = priceRows.find((p) => p.key === row.priceKey);
-                      const committedOption = row;
-
-                      // Pending drafts for this row
-                      const priceDraft  = priceDrafts[row.priceKey] ?? {};
-                      const optionDraft = optionDrafts[optionId]    ?? {};
-
-                      // Merge committed + draft so inputs always show the latest value
-                      const displayPrice  = { ...(committedPrice ?? {}), ...priceDraft };
-
-                      //Discounts
-                      const now = new Date(nowTs);
-                      const spec = parseDiscount(displayPrice.discountRaw as string | undefined);
-                      const activeDiscount = spec && isDiscountActive(displayPrice.discountUntil as string | undefined, now);
-
-                      const effectiveCustomer = activeDiscount
-                        ? applyDiscount((displayPrice.customerPrice as number) ?? 0, spec)
-                        : ((displayPrice.customerPrice as number) ?? 0);
-
-                      const effectiveSub = activeDiscount
-                        ? applyDiscount((displayPrice.subcontractorPrice as number) ?? 0, spec)
-                        : ((displayPrice.subcontractorPrice as number) ?? 0);
-
-                      const displayOption = { ...committedOption,        ...optionDraft };
-
-                      // Show "Update" if there are any pending changes OR the row is brand-new
-                      const hasPendingChanges =
-                        Object.keys(priceDraft).length   > 0 ||
-                        Object.keys(optionDraft).length  > 0 ||
-                        Object.keys(productDraft).length > 0 ||
-                        isNewRow;
-
-                      // Per-cell dirty flags — only highlight cells that actually changed
-                      const dirty = {
-                        code:               "code"               in priceDraft,
-                        label:              "label"              in priceDraft,
-                        customerPrice:      "customerPrice"      in priceDraft,
-                        subcontractorPrice: "subcontractorPrice" in priceDraft,
-                        discountRaw:        "discountRaw"        in priceDraft,
-                        discountUntil:      "discountUntil"      in priceDraft,
-                        active:             "active"             in optionDraft,
-                        productLabel:       "label"              in productDraft,
-                      };
-
-                      return (
-                        <tr key={row.id} className={`group relative align-middle ${ idx === options.length - 1 ? "border-b-2 border-logoblue" : "border-b border-black/10" }`} >
-                          {/* ── Product cell (only on the first option row; spans all option rows) ── */}
-                          {idx === 0 && (
-                            <td className="border-r border-logoblue/50 font-medium align-center relative before:content-[''] before:absolute before:top-0 before:bottom-0 before:left-[-100] before:w-[200] before:bg-transparent" rowSpan={options.length}>
-                              <div className="flex flex-col gap-3 p-3">
-                                <input
-                                  className={`w-full text-center py-1 px-2 rounded focus:outline-none hover:bg-black/5 ${
-                                    dirty.productLabel || isNewProduct
-                                      ? dirtyCellClass
-                                      : "border border-transparent"
-                                  }`}
-                                  placeholder="Product name…"
-                                  value={displayProduct.label}
-                                  onChange={(e) =>
-                                    product && onProductLabelChange(productId, e.target.value, product)
-                                  }
-                                />
-
-                                {/* "+" button: appears on row-group hover, adds a new blank option */}
-                                <button
-                                  type="button"
-                                  title="Add option"
-                                  className="
+                            <button
+                              type="button"
+                              title="Add option"
+                              onClick={() =>
+                                addOptionToProduct(group.productId)
+                              }
+                              className="
                                     absolute -left-11 top-1/2 -translate-y-1/2
                                     w-6 h-6 text-sm rounded-full bg-white
                                     border-2 border-logoblue font-bold
                                     opacity-0 group-hover:opacity-100 transition-opacity z-10
                                     hover:text-white hover:bg-logoblue cursor-pointer
-                                  "
-                                  onClick={() => addOption(productId)}
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </td>
-                          )}
-
-                          {/* ── Option Label (read-only) ── */}
-                          <td>
-                            <input className="w-full py-2 px-2 hover:bg-black/2" value={`Install option: ${idx + 1}`} readOnly />
-                          </td>
-
-                          {/* ── Option Code ── */}
-                          <td>
-                            <input className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.code ? dirtyCellClass : ""}`} placeholder="e.g. OPT-01" value={(displayPrice.code as string) ?? ""} onChange={(e) => onPriceChange(row.priceKey, "code", e.target.value)} />
-                          </td>
-
-                          {/* ── Description ── */}
-                          <td>
-                            <input className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.label ? dirtyCellClass : ""}`} placeholder="Description…" value={(displayPrice.label as string) ?? ""} onChange={(e) => onPriceChange(row.priceKey, "label", e.target.value)} />
-                          </td>
-
-                          {/* ── Customer Price ── */}
-                          <td>
-                            <div className="flex items-center">
-                              <input
-                                type="number"
-                                className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.customerPrice ? dirtyCellClass : ""}`}
-                                value={(displayPrice.customerPrice as number) ?? 0}
-                                onChange={(e) => onPriceChange(row.priceKey, "customerPrice", Number(e.target.value))}
-                              />
-                              {activeDiscount && (
-                                <span className="text-red-700 opacity-70 px-2">{formatMoney(effectiveCustomer)}</span>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* ── Subcontractor Price ── */}
-                          <td>
-                            <div className="flex items-center">
-                              <input
-                                type="number"
-                                className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.subcontractorPrice ? dirtyCellClass : ""}`}
-                                value={(displayPrice.subcontractorPrice as number) ?? 0}
-                                onChange={(e) => onPriceChange(row.priceKey, "subcontractorPrice", Number(e.target.value))}
-                              />
-                              {activeDiscount && (
-                                <span className="text-red-700 opacity-70 px-2">{formatMoney(effectiveSub)}</span>
-                              )}
-                            </div>
-                          </td>
-                          {/* ── Discount ── */}
-                          <td>
-                            <input
-                              type="text"
-                              className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discountRaw ? dirtyCellClass : ""}`}
-                              placeholder='"%" or number'
-                              value={(displayPrice.discountRaw as string) ?? ""}
-                              onChange={(e) => onPriceChange(row.priceKey, "discountRaw", e.target.value)}
-                            />
-                          </td>
-                          {/* ── Discount Time ── */}
-                          <td>
-                            <input
-                              type="date"
-                              className={`w-full py-2 px-2 hover:bg-black/2 focus:outline-none ${dirty.discountUntil ? dirtyCellClass : ""}`}
-                              value={(displayPrice.discountUntil as string) ?? ""}
-                              onChange={(e) => onPriceChange(row.priceKey, "discountUntil", e.target.value)}
-                            />
-                          </td>
-
-                          {/* ── Active toggle + Update button ── */}
-                          <td className="pr-2 relative">
-                            <select
-                              className={`w-full py-2 px-2 hover:bg-black/2 ${dirty.active ? dirtyCellClass : ""}`}
-                              value={displayOption.active ? "active" : "disabled"}
-                              onChange={(e) =>
-                                onOptionChange(optionId, "active", e.target.value === "active", committedOption)
-                              }
-                            >
-                              <option value="active">Active</option>
-                              <option value="disabled">Disabled</option>
-                            </select>
-
-                            {/* "Update" button */}
-                            {hasPendingChanges && (
-                              <button
-                                type="button"
-                                className=" customButtonEnabled 
-                                  absolute right-[-100] top-1/2 -translate-y-1/2
                                 "
-                                onClick={() => commitRow(row)}
-                              >
-                                Update
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                      )}
+
+                      <td>
+                        <input
+                          className="w-full py-2 px-2 hover:bg-black/2"
+                          value={item.title ?? item.installationOptionName}
+                          readOnly
+                        />
+                      </td>
+
+                      <td>
+                        <input
+                          className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                          value={item.installationOptionCode}
+                          readOnly
+                        />
+                      </td>
+
+                      <td>
+                        <input
+                          className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                          value={item.description ?? ""}
+                          readOnly
+                        />
+                      </td>
+
+                      <td>
+                        <div className="flex items-center">
+                          <input
+                            type="number"
+                            step="1"
+                            min="0"
+                            className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                            value={item.customerPrice}
+                            onChange={(e) =>
+                              updateRow(item.id, {
+                                customerPrice: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      </td>
+
+                      <td>
+                        <div className="flex items-center">
+                          <input
+                            type="number"
+                            step="1"
+                            min="0"
+                            className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                            value={item.subcontractorPrice}
+                            onChange={(e) =>
+                              updateRow(item.id, {
+                                subcontractorPrice: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      </td>
+
+                      <td>
+                        <input
+                          type="text"
+                          className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                          placeholder='"%" or number'
+                        />
+                      </td>
+
+                      <td>
+                        <input
+                          type="date"
+                          className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                        />
+                      </td>
+
+                      <td className="pr-2 relative">
+                        <select
+                          className="w-full py-2 px-2 hover:bg-black/2"
+                          value={item.isActive ? "active" : "disabled"}
+                          onChange={(e) =>
+                            updateRow(item.id, {
+                              isActive: e.target.value === "active",
+                            })
+                          }
+                        >
+                          <option value="active">Active</option>
+                          <option value="disabled">Disabled</option>
+                        </select>
+
+                        {isDirty(item) && (
+                          <button
+                            type="button"
+                            onClick={() => saveRow(item.id)}
+                            disabled={item.saving}
+                            className="customButtonEnabled absolute right-[-100] top-1/2 -translate-y-1/2"
+                          >
+                            {item.saving ? "Saving..." : "Update"}
+                          </button>
+                        )}
+
+                        {!isDirty(item) && item.saved && (
+                          <span className="absolute right-[-95] top-1/2 -translate-y-1/2 text-sm text-green-600 font-medium">
+                            Saved
+                          </span>
+                        )}
+
+                        {!isDirty(item) && item.error && (
+                          <span className="absolute right-[-140] top-1/2 -translate-y-1/2 text-sm text-red-600 font-medium">
+                            {item.error}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
                   </tbody>
-                );
-              })}
-              </table>
-            </div>
-              <div className="justify-self-start">
-            <button
-              className="customButtonEnabled mt-4 mb-10"
-              onClick={addProduct}
-            >
+                )),
+              )}
+            </table>
+          </div>
+
+          <div className="justify-self-start">
+            <button className="customButtonEnabled mt-4 mb-10">
               Add Product
             </button>
-            </div>
+          </div>
         </div>
       </div>
     </main>
