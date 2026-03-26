@@ -147,21 +147,37 @@ export async function DELETE(
     );
   }
 
+  const productOptionId = existing.productOptionId;
+  const productId = existing.productOption.productId;
+
   await prisma.$transaction(async (tx) => {
     await tx.priceListItem.delete({
       where: { id: itemId },
     });
 
     await tx.productOption.delete({
-      where: { id: existing.productOptionId },
+      where: { id: productOptionId },
     });
+
+    const remainingOptions = await tx.productOption.count({
+      where: {
+        productId,
+      },
+    });
+
+    if (remainingOptions === 0) {
+      await tx.product.delete({
+        where: { id: productId },
+      });
+    }
   });
 
   return NextResponse.json(
     {
       ok: true,
       deletedItemId: itemId,
-      deletedProductOptionId: existing.productOptionId,
+      deletedProductOptionId: productOptionId,
+      deletedProductId: productId,
     },
     { status: 200 },
   );

@@ -11,6 +11,8 @@ type Body = {
   description?: string | null;
   category?: string | null;
   productName?: string;
+  discountAmount?: string | number | null;
+  discountEndsAt?: string | null;
 };
 
 function parseNokToCents(value: string | number): number | null {
@@ -39,6 +41,41 @@ function parseOptionalString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function parseOptionalDate(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  return parsed;
+}
+
+function toDateInputValue(value: Date | null) {
+  if (!value) return null;
+  return value.toISOString().slice(0, 10);
+}
+
+function getEffectiveCustomerPriceCents(item: {
+  customerPriceCents: number;
+  discountAmountCents: number | null;
+  discountEndsAt: Date | null;
+}) {
+  const now = new Date();
+
+  const hasActiveDiscount =
+    item.discountAmountCents !== null &&
+    item.discountEndsAt !== null &&
+    item.discountEndsAt.getTime() > now.getTime();
+
+  if (!hasActiveDiscount) {
+    return item.customerPriceCents;
+  }
+
+  return Math.max(0, item.customerPriceCents - item.discountAmountCents!);
 }
 
 export async function PATCH(
@@ -78,6 +115,8 @@ export async function PATCH(
   const priceListItemData: {
     customerPriceCents?: number;
     subcontractorPriceCents?: number;
+    discountAmountCents?: number | null;
+    discountEndsAt?: Date | null;
     isActive?: boolean;
   } = {};
 
@@ -105,6 +144,27 @@ export async function PATCH(
     }
 
     priceListItemData.subcontractorPriceCents = cents;
+  }
+
+  if (body.discountAmount !== undefined) {
+    if (body.discountAmount === null || body.discountAmount === "") {
+      priceListItemData.discountAmountCents = null;
+    } else {
+      const cents = parseNokToCents(body.discountAmount);
+
+      if (cents === null) {
+        return NextResponse.json(
+          { ok: false, reason: "INVALID_DISCOUNT_AMOUNT" },
+          { status: 400 },
+        );
+      }
+
+      priceListItemData.discountAmountCents = cents;
+    }
+  }
+
+  if (body.discountEndsAt !== undefined) {
+    priceListItemData.discountEndsAt = parseOptionalDate(body.discountEndsAt);
   }
 
   if (typeof body.isActive === "boolean") {
@@ -159,6 +219,22 @@ export async function PATCH(
     category?: string | null;
   } = {};
 
+  if (optionCode !== undefined) {
+    productOptionData.code = optionCode;
+  }
+
+  if (optionLabel !== undefined) {
+    productOptionData.label = optionLabel;
+  }
+
+  if (body.description !== undefined) {
+    productOptionData.description = parseOptionalString(body.description);
+  }
+
+  if (body.category !== undefined) {
+    productOptionData.category = parseOptionalString(body.category);
+  }
+
   const productData: {
     name?: string;
   } = {};
@@ -177,23 +253,14 @@ export async function PATCH(
     productData.name = productName;
   }
 
-  if (optionCode !== undefined) {
-    productOptionData.code = optionCode;
-  }
-
-  if (optionLabel !== undefined) {
-    productOptionData.label = optionLabel;
-  }
-
-  if (body.description !== undefined) {
-    productOptionData.description = parseOptionalString(body.description);
-  }
-
-  if (body.category !== undefined) {
-    productOptionData.category = parseOptionalString(body.category);
-  }
-
   const updated = await prisma.$transaction(async (tx) => {
+    if (Object.keys(productData).length > 0) {
+      await tx.product.update({
+        where: { id: existing.productOption.productId },
+        data: productData,
+      });
+    }
+
     if (Object.keys(productOptionData).length > 0) {
       await tx.productOption.update({
         where: { id: existing.productOption.id },
@@ -205,13 +272,6 @@ export async function PATCH(
       await tx.priceListItem.update({
         where: { id: itemId },
         data: priceListItemData,
-      });
-    }
-
-    if (Object.keys(productData).length > 0) {
-      await tx.product.update({
-        where: { id: existing.productOption.productId },
-        data: productData,
       });
     }
 
@@ -234,6 +294,12 @@ export async function PATCH(
     );
   }
 
+  const effectiveCustomerPriceCents = getEffectiveCustomerPriceCents({
+    customerPriceCents: updated.customerPriceCents,
+    discountAmountCents: updated.discountAmountCents,
+    discountEndsAt: updated.discountEndsAt,
+  });
+
   return NextResponse.json(
     {
       ok: true,
@@ -250,6 +316,12 @@ export async function PATCH(
         sortOrder: updated.productOption.sortOrder,
         customerPrice: centsToNokString(updated.customerPriceCents),
         subcontractorPrice: centsToNokString(updated.subcontractorPriceCents),
+        discountAmount:
+          updated.discountAmountCents === null
+            ? ""
+            : centsToNokString(updated.discountAmountCents),
+        discountEndsAt: toDateInputValue(updated.discountEndsAt),
+        effectiveCustomerPrice: centsToNokString(effectiveCustomerPriceCents),
         isActive: updated.isActive,
       },
     },

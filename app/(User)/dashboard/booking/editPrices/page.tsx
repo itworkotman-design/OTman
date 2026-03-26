@@ -11,16 +11,19 @@ type PriceListSummary = {
 type PriceListItem = {
   id: string;
   productId: string;
-  productInstallationOptionId: string;
+  productOptionId: string;
   productName: string;
   productCode: string;
-  optionLabel: string;
   optionCode: string;
-  title: string | null;
+  optionLabel: string;
   description: string | null;
+  category: string | null;
   sortOrder: number;
   customerPrice: string;
   subcontractorPrice: string;
+  discountAmount: string;
+  discountEndsAt: string | null;
+  effectiveCustomerPrice: string;
   isActive: boolean;
 };
 
@@ -164,7 +167,10 @@ export default function EditPricesPage() {
       row.isActive !== original.isActive ||
       row.optionCode !== original.optionCode ||
       row.optionLabel !== original.optionLabel ||
-      (row.description ?? "") !== (original.description ?? "")
+      (row.description ?? "") !== (original.description ?? "") ||
+      (row.category ?? "") !== (original.category ?? "") ||
+      (row.discountAmount ?? "") !== (original.discountAmount ?? "") ||
+      (row.discountEndsAt ?? "") !== (original.discountEndsAt ?? "")
     );
   }
 
@@ -182,6 +188,8 @@ export default function EditPricesPage() {
       ),
     );
   }
+
+  
 
 
 
@@ -256,6 +264,12 @@ export default function EditPricesPage() {
         subcontractorPrice: row.subcontractorPrice,
         isActive: row.isActive,
         productName: row.productName,
+        optionCode: row.optionCode,
+        optionLabel: row.optionLabel,
+        description: row.description,
+        category: row.category,
+        discountAmount: row.discountAmount,
+        discountEndsAt: row.discountEndsAt,
       };
 
       if (row.optionCode !== undefined) body.optionCode = row.optionCode;
@@ -500,193 +514,217 @@ export default function EditPricesPage() {
 
               {grouped.map((group) => (
                 <tbody key={group.productId} className="group">
-                  {group.items.map((item, index) => (
-                    <tr
-                      key={item.id}
-                      className="group relative align-middle border-b-2 border-logoblue/50"
-                    >
-                      {index === 0 && (
-                        <td
-                          rowSpan={group.items.length}
-                          className="border-r border-logoblue/50 font-medium align-center relative before:content-[''] before:absolute before:top-0 before:bottom-0 before:left-[-100] before:w-[200] before:bg-transparent"
-                        >
-                          <div className="flex flex-col gap-3 p-3">
-                            <input
-                              className="w-full text-center py-1 px-2 rounded focus:outline-none hover:bg-black/5"
-                              value={group.productName}
-                              onChange={(e) =>
-                                updateProductRows(item.productId, {
-                                  productName: e.target.value,
-                                })
-                              }
-                            />
+                  {group.items.map((item, index) => {
+              const discountActive =
+                item.discountAmount &&
+                item.discountEndsAt &&
+                new Date(item.discountEndsAt) > new Date();
 
-                            <button
-                              type="button"
-                              title="Add option"
-                              onClick={() => addOption(group.productId)}
-                              className="
+              return (
+                <tr
+                  key={item.id}
+                  className="group relative align-middle border-b-2 border-logoblue/50"
+                >
+                  {index === 0 && (
+                    <td
+                      rowSpan={group.items.length}
+                      className="border-r border-logoblue/50 font-medium align-center relative before:content-[''] before:absolute before:top-0 before:bottom-0 before:left-[-100] before:w-[200] before:bg-transparent"
+                    >
+                      <div className="flex flex-col gap-3 p-3">
+                        <input
+                          className="w-full text-center py-1 px-2 rounded focus:outline-none hover:bg-black/5"
+                          value={group.productName}
+                          onChange={(e) =>
+                            updateProductRows(item.productId, {
+                              productName: e.target.value,
+                            })
+                          }
+                        />
+
+                        <button
+                          type="button"
+                          title="Add option"
+                          onClick={() => addOption(group.productId)}
+                          className="
                   absolute -left-11 top-1/2 -translate-y-1/2
                   w-6 h-6 text-sm rounded-full bg-white
                   border-2 border-logoblue font-bold
                   opacity-0 group-hover:opacity-100 transition-opacity z-10
                   hover:text-white hover:bg-logoblue cursor-pointer
                 "
-                            >
-                              +
-                            </button>
-                          </div>
-                        </td>
-                      )}
-
-                      <td>
-                        <input
-                          className="w-full py-2 px-2 hover:bg-black/2"
-                          value={item.optionLabel}
-                          onChange={(e) =>
-                            updateRow(item.id, { optionLabel: e.target.value })
-                          }
-                        />
-                      </td>
-
-                      <td>
-                        <input
-                          className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
-                          value={item.optionCode}
-                          onChange={(e) =>
-                            updateRow(item.id, {
-                              optionCode: e.target.value
-                                .toUpperCase()
-                                .replace(/\s/g, ""),
-                            })
-                          }
-                        />
-                      </td>
-
-                      <td>
-                        <input
-                          className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
-                          value={item.description ?? ""}
-                          onChange={(e) =>
-                            updateRow(item.id, { description: e.target.value })
-                          }
-                        />
-                      </td>
-
-                      <td>
-                        <div className="flex items-center">
-                          <input
-                            type="number"
-                            step="1"
-                            min="0"
-                            className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
-                            value={item.customerPrice}
-                            onChange={(e) =>
-                              updateRow(item.id, {
-                                customerPrice: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </td>
-
-                      <td>
-                        <div className="flex items-center">
-                          <input
-                            type="number"
-                            step="1"
-                            min="0"
-                            className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
-                            value={item.subcontractorPrice}
-                            onChange={(e) =>
-                              updateRow(item.id, {
-                                subcontractorPrice: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </td>
-
-                      <td>
-                        <input
-                          type="text"
-                          className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
-                          placeholder='"%" or number'
-                        />
-                      </td>
-
-                      <td>
-                        <input
-                          type="date"
-                          className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
-                        />
-                      </td>
-
-                      <td className="relative">
-                        <select
-                          className="w-full py-2 px-2 hover:bg-black/2"
-                          value={item.isActive ? "active" : "disabled"}
-                          onChange={(e) =>
-                            updateRow(item.id, {
-                              isActive: e.target.value === "active",
-                            })
-                          }
                         >
-                          <option value="active">Active</option>
-                          <option value="disabled">Disabled</option>
-                        </select>
-                      </td>
-                      <td className="align-middle">
-                        <div className="flex justify-between items-center w-full">
-                          {/* LEFT */}
-                          <div className="flex items-center gap-2 relative">
-                            {isDirty(item) && (
-                              <button
-                                type="button"
-                                onClick={() => saveRow(item.id)}
-                                disabled={item.saving}
-                                className="customButtonEnabled"
-                              >
-                                {item.saving ? "Saving..." : "Update"}
-                              </button>
-                            )}
+                          +
+                        </button>
+                      </div>
+                    </td>
+                  )}
 
-                            {!isDirty(item) && item.saved && (
-                              <span className="text-sm text-green-600 font-medium">
-                                Saved
-                              </span>
-                            )}
+                    <td>
+                      <input
+                        value={`Option ${index + 1}`}
+                        readOnly
+                        className="w-full py-2 px-2 hover:bg-black/2"
+                      />
+                    </td>
 
-                            {!isDirty(item) && item.error && (
-                              <span className="text-sm text-red-600 font-medium">
-                                {item.error}
-                              </span>
-                            )}
-                          </div>
 
-                          {/* RIGHT */}
-                          <div className="flex items-center">
-                            <button
-                              type="button"
-                              onClick={() => deleteRow(item.id)}
-                              className="
+                  <td>
+                    <input
+                      className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                      value={item.optionCode}
+                      onChange={(e) =>
+                        updateRow(item.id, {
+                          optionCode: e.target.value
+                            .toUpperCase()
+                            .replace(/\s/g, ""),
+                        })
+                      }
+                    />
+                  </td>
+
+                  <td>
+                    <input
+                      className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                      value={item.description ?? ""}
+                      onChange={(e) =>
+                        updateRow(item.id, { description: e.target.value })
+                      }
+                    />
+                  </td>
+
+                  <td>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none text-center"
+                        value={item.customerPrice}
+                        onChange={(e) =>
+                          updateRow(item.id, {
+                            customerPrice: e.target.value,
+                          })
+                        }
+                      />
+
+                      {discountActive && (
+                        <div className="text-sm mt-1 flex gap-2 items-center">
+                          <span className="text-red-600 font-semibold">
+                            {item.effectiveCustomerPrice}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  <td>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                        value={item.subcontractorPrice}
+                        onChange={(e) =>
+                          updateRow(item.id, {
+                            subcontractorPrice: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </td>
+
+                  <td>
+                    <input
+                      type="text"
+                      className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                      value={item.discountAmount}
+                      onChange={(e) =>
+                        updateRow(item.id, {
+                          discountAmount: e.target.value,
+                        })
+                      }
+                      placeholder='"%" or number'
+                    />
+                  </td>
+
+                  <td>
+                    <input
+                      type="date"
+                      className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                      value={item.discountEndsAt ?? ""}
+                      onChange={(e) =>
+                        updateRow(item.id, {
+                          discountEndsAt: e.target.value || null,
+                        })
+                      }
+                    />
+                  </td>
+
+                  <td className="relative">
+                    <select
+                      className="w-full py-2 px-2 hover:bg-black/2"
+                      value={item.isActive ? "active" : "disabled"}
+                      onChange={(e) =>
+                        updateRow(item.id, {
+                          isActive: e.target.value === "active",
+                        })
+                      }
+                    >
+                      <option value="active">Active</option>
+                      <option value="disabled">Disabled</option>
+                    </select>
+                  </td>
+                  <td className="align-middle">
+                    <div className="flex justify-between items-center w-full">
+                      {/* LEFT */}
+                      <div className="flex items-center gap-2 relative">
+                        {isDirty(item) && (
+                          <button
+                            type="button"
+                            onClick={() => saveRow(item.id)}
+                            disabled={item.saving}
+                            className="customButtonEnabled"
+                          >
+                            {item.saving ? "Saving..." : "Update"}
+                          </button>
+                        )}
+
+                        {!isDirty(item) && item.saved && (
+                          <span className="text-sm text-green-600 font-medium">
+                            Saved
+                          </span>
+                        )}
+
+                        {!isDirty(item) && item.error && (
+                          <span className="text-sm text-red-600 font-medium">
+                            {item.error}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* RIGHT */}
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => deleteRow(item.id)}
+                          className="
           px-3 py-1 rounded-md border border-red-600 text-red-600
           hover:bg-red-600 hover:text-white transition-colors
-          opacity-0 group-hover:opacity-100
+          opacity-0 group-hover:opacity-100 cursor-pointer
         "
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              );})}
                 </tbody>
-              ))}
+                ))}
             </table>
           </div>
-
           <div className="justify-self-start">
             <button
               onClick={addProduct}

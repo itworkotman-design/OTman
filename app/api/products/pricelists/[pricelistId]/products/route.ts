@@ -45,7 +45,7 @@ export async function POST(
   const optionLabel =
     typeof body.optionLabel === "string" && body.optionLabel.trim()
       ? body.optionLabel.trim()
-      : "New option";
+      : "Option: ";
 
   const result = await prisma.$transaction(async (tx) => {
     const product = await tx.product.create({
