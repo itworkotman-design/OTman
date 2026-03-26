@@ -117,3 +117,52 @@ export async function PATCH(
     { status: 200 },
   );
 }
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ itemId: string }> },
+) {
+  const session = await getAuthenticatedSession(req);
+
+  if (!session) {
+    return NextResponse.json(
+      { ok: false, reason: "UNAUTHORIZED" },
+      { status: 401 },
+    );
+  }
+
+  const { itemId } = await params;
+
+  const existing = await prisma.priceListItem.findUnique({
+    where: { id: itemId },
+    include: {
+      productOption: true,
+    },
+  });
+
+  if (!existing) {
+    return NextResponse.json(
+      { ok: false, reason: "NOT_FOUND" },
+      { status: 404 },
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.priceListItem.delete({
+      where: { id: itemId },
+    });
+
+    await tx.productOption.delete({
+      where: { id: existing.productOptionId },
+    });
+  });
+
+  return NextResponse.json(
+    {
+      ok: true,
+      deletedItemId: itemId,
+      deletedProductOptionId: existing.productOptionId,
+    },
+    { status: 200 },
+  );
+}

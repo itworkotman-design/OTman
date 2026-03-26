@@ -14,8 +14,8 @@ type PriceListItem = {
   productInstallationOptionId: string;
   productName: string;
   productCode: string;
-  installationOptionName: string;
-  installationOptionCode: string;
+  optionLabel: string;
+  optionCode: string;
   title: string | null;
   description: string | null;
   sortOrder: number;
@@ -158,98 +158,33 @@ export default function EditPricesPage() {
     if (!original) return false;
 
     return (
+      row.productName !== original.productName ||
       row.customerPrice !== original.customerPrice ||
       row.subcontractorPrice !== original.subcontractorPrice ||
-      row.isActive !== original.isActive
+      row.isActive !== original.isActive ||
+      row.optionCode !== original.optionCode ||
+      row.optionLabel !== original.optionLabel ||
+      (row.description ?? "") !== (original.description ?? "")
     );
   }
 
-  async function saveRow(itemId: string) {
-    const row = rows.find((item) => item.id === itemId);
-    if (!row) return;
-
-    if (!row.customerPrice.trim()) {
-      updateRow(itemId, { error: "Customer price is required" });
-      return;
-    }
-
-    if (!row.subcontractorPrice.trim()) {
-      updateRow(itemId, { error: "Subcontractor price is required" });
-      return;
-    }
-
-    const customerNumber = Number(row.customerPrice);
-    const subcontractorNumber = Number(row.subcontractorPrice);
-
-    if (!Number.isFinite(customerNumber) || customerNumber < 0) {
-      updateRow(itemId, { error: "Invalid customer price" });
-      return;
-    }
-
-    if (!Number.isFinite(subcontractorNumber) || subcontractorNumber < 0) {
-      updateRow(itemId, { error: "Invalid subcontractor price" });
-      return;
-    }
-
-    try {
-      updateRow(itemId, { saving: true, error: null, saved: false });
-
-      const res = await fetch(`/api/products/pricelists/items/${itemId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          customerPrice: row.customerPrice,
-          subcontractorPrice: row.subcontractorPrice,
-          isActive: row.isActive,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        updateRow(itemId, {
-          saving: false,
-          saved: false,
-          error: data.reason ?? "Failed to update row",
-        });
-        return;
-      }
-
-      setRows((current) =>
-        current.map((item) =>
-          item.id === itemId
-            ? {
-                ...data.item,
-                saving: false,
-                saved: true,
-                error: null,
-              }
-            : item,
-        ),
-      );
-
-      setOriginalRows((current) => ({
-        ...current,
-        [itemId]: data.item,
-      }));
-
-      setTimeout(() => {
-        setRows((current) =>
-          current.map((item) =>
-            item.id === itemId ? { ...item, saved: false } : item,
-          ),
-        );
-      }, 1800);
-    } catch {
-      updateRow(itemId, {
-        saving: false,
-        saved: false,
-        error: "Something went wrong",
-      });
-    }
+  function updateProductRows(productId: string, patch: Partial<EditableRow>) {
+    setRows((current) =>
+      current.map((row) =>
+        row.productId === productId
+          ? {
+              ...row,
+              ...patch,
+              saved: false,
+              error: null,
+            }
+          : row,
+      ),
+    );
   }
+
+
+
 
   const grouped = useMemo(() => {
     return Object.values(
@@ -300,47 +235,197 @@ export default function EditPricesPage() {
     );
   }
 
-  async function addOptionToProduct(productId: string) {
+    async function saveRow(itemId: string) {
+      const row = rows.find((item) => item.id === itemId);
+
+      if (!row) return;
+
+      if (!row.customerPrice.trim()) {
+        updateRow(itemId, { error: "Customer price is required" });
+        return;
+      }
+
+      if (!row.subcontractorPrice.trim()) {
+        updateRow(itemId, { error: "Subcontractor price is required" });
+        return;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const body: any = {
+        customerPrice: row.customerPrice,
+        subcontractorPrice: row.subcontractorPrice,
+        isActive: row.isActive,
+        productName: row.productName,
+      };
+
+      if (row.optionCode !== undefined) body.optionCode = row.optionCode;
+      if (row.optionLabel !== undefined) body.optionLabel = row.optionLabel;
+      if (row.description !== undefined) body.description = row.description;
+
+      const customerNumber = Number(row.customerPrice);
+      const subcontractorNumber = Number(row.subcontractorPrice);
+
+      if (!Number.isFinite(customerNumber) || customerNumber < 0) {
+        updateRow(itemId, { error: "Invalid customer price" });
+        return;
+      }
+
+      if (!Number.isFinite(subcontractorNumber) || subcontractorNumber < 0) {
+        updateRow(itemId, { error: "Invalid subcontractor price" });
+        return;
+      }
+
+      try {
+        updateRow(itemId, { saving: true, error: null, saved: false });
+
+        const res = await fetch(
+          `/api/products/pricelists/items/${itemId}/full`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+          },
+        );
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          updateRow(itemId, {
+            saving: false,
+            saved: false,
+            error: data.reason ?? "Failed to update row",
+          });
+          return;
+        }
+
+        setRows((current) =>
+          current.map((item) =>
+            item.id === itemId
+              ? {
+                  ...data.item,
+                  saving: false,
+                  saved: true,
+                  error: null,
+                }
+              : item,
+          ),
+        );
+
+        setOriginalRows((current) => ({
+          ...current,
+          [itemId]: data.item,
+        }));
+
+        setTimeout(() => {
+          setRows((current) =>
+            current.map((item) =>
+              item.id === itemId ? { ...item, saved: false } : item,
+            ),
+          );
+        }, 1800);
+      } catch {
+        updateRow(itemId, {
+          saving: false,
+          saved: false,
+          error: "Something went wrong",
+        });
+      }
+    }
+
+  async function addOption(productId: string) {
     if (!priceList) return;
 
-    try {
-      const res = await fetch(
-        `/api/products/pricelists/${priceList.id}/products/${productId}/add-option`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            installationOptionCode: "INSTALL",
-          }),
+    const res = await fetch(
+      `/api/products/pricelists/${priceList.id}/products/${productId}/options`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          label: "Option :",
+        }),
+      },
+    );
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      alert("Failed to create option");
+      return;
+    }
+
+    const newItem = data.item;
+
+    setRows((prev) => [...prev, newItem]);
+
+    setOriginalRows((prev) => ({
+      ...prev,
+      [newItem.id]: newItem,
+    }));
+  }
+
+  async function deleteRow(itemId: string) {
+    const confirmed = window.confirm("Delete this option?");
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/products/pricelists/items/${itemId}`, {
+        method: "DELETE",
+      });
 
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        alert(data.reason ?? "Failed to add option");
+        alert(data.reason ?? "Failed to delete row");
         return;
       }
 
-      const newItem = data.item as PriceListItem;
+      setRows((current) => current.filter((item) => item.id !== itemId));
 
-      setRows((current) => {
-        const exists = current.some((item) => item.id === newItem.id);
-        if (exists) return current;
-        return [...current, newItem];
+      setOriginalRows((current) => {
+        const next = { ...current };
+        delete next[itemId];
+        return next;
       });
-
-      setOriginalRows((current) => ({
-        ...current,
-        [newItem.id]: newItem,
-      }));
     } catch {
-      alert("Something went wrong while adding option");
+      alert("Something went wrong while deleting");
     }
   }
 
+  async function addProduct() {
+    if (!priceList) return;
+
+    const res = await fetch(
+      `/api/products/pricelists/${priceList.id}/products`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      alert("Failed to create product");
+      return;
+    }
+
+    const newItem = data.item;
+
+    setRows((prev) => [...prev, newItem]);
+
+    setOriginalRows((prev) => ({
+      ...prev,
+      [newItem.id]: newItem,
+    }));
+  }
+
+  
   return (
     <main className="w-full">
       <div className="mx-auto max-w-[1800]">
@@ -375,14 +460,7 @@ export default function EditPricesPage() {
           </div>
         </div>
 
-        <div className="lg:pl-[50] lg:pr-[100]">
-          <div className="mb-4 text-center">
-            <h2 className="text-lg font-semibold text-logoblue">
-              {priceList?.name ?? "Price List"}
-            </h2>
-            <p className="text-sm text-black/60">{priceList?.code}</p>
-          </div>
-
+        <div className="lg:pl-[50] lg:pr-[200]">
           <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
             <table className="w-full table-fixed border border-black/10">
               <thead className="bg-gray-100">
@@ -411,16 +489,22 @@ export default function EditPricesPage() {
                   <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                     Discount time
                   </th>
-                  <th className="w-28 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                  <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                     Active
+                  </th>
+                  <th className="w-40 px-4 py-4 border bg-white text-logoBlue font-semibold text-center">
+                    Update
                   </th>
                 </tr>
               </thead>
 
-              {grouped.map((group) =>
-                group.items.map((item, index) => (
-                  <tbody key={item.id} className="group">
-                    <tr className="group relative align-middle border-b-2 border-logoblue">
+              {grouped.map((group) => (
+                <tbody key={group.productId} className="group">
+                  {group.items.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className="group relative align-middle border-b-2 border-logoblue/50"
+                    >
                       {index === 0 && (
                         <td
                           rowSpan={group.items.length}
@@ -430,22 +514,24 @@ export default function EditPricesPage() {
                             <input
                               className="w-full text-center py-1 px-2 rounded focus:outline-none hover:bg-black/5"
                               value={group.productName}
-                              readOnly
+                              onChange={(e) =>
+                                updateProductRows(item.productId, {
+                                  productName: e.target.value,
+                                })
+                              }
                             />
 
                             <button
                               type="button"
                               title="Add option"
-                              onClick={() =>
-                                addOptionToProduct(group.productId)
-                              }
+                              onClick={() => addOption(group.productId)}
                               className="
-                                    absolute -left-11 top-1/2 -translate-y-1/2
-                                    w-6 h-6 text-sm rounded-full bg-white
-                                    border-2 border-logoblue font-bold
-                                    opacity-0 group-hover:opacity-100 transition-opacity z-10
-                                    hover:text-white hover:bg-logoblue cursor-pointer
-                                "
+                  absolute -left-11 top-1/2 -translate-y-1/2
+                  w-6 h-6 text-sm rounded-full bg-white
+                  border-2 border-logoblue font-bold
+                  opacity-0 group-hover:opacity-100 transition-opacity z-10
+                  hover:text-white hover:bg-logoblue cursor-pointer
+                "
                             >
                               +
                             </button>
@@ -456,16 +542,24 @@ export default function EditPricesPage() {
                       <td>
                         <input
                           className="w-full py-2 px-2 hover:bg-black/2"
-                          value={item.title ?? item.installationOptionName}
-                          readOnly
+                          value={item.optionLabel}
+                          onChange={(e) =>
+                            updateRow(item.id, { optionLabel: e.target.value })
+                          }
                         />
                       </td>
 
                       <td>
                         <input
                           className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
-                          value={item.installationOptionCode}
-                          readOnly
+                          value={item.optionCode}
+                          onChange={(e) =>
+                            updateRow(item.id, {
+                              optionCode: e.target.value
+                                .toUpperCase()
+                                .replace(/\s/g, ""),
+                            })
+                          }
                         />
                       </td>
 
@@ -473,7 +567,9 @@ export default function EditPricesPage() {
                         <input
                           className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
                           value={item.description ?? ""}
-                          readOnly
+                          onChange={(e) =>
+                            updateRow(item.id, { description: e.target.value })
+                          }
                         />
                       </td>
 
@@ -526,7 +622,7 @@ export default function EditPricesPage() {
                         />
                       </td>
 
-                      <td className="pr-2 relative">
+                      <td className="relative">
                         <select
                           className="w-full py-2 px-2 hover:bg-black/2"
                           value={item.isActive ? "active" : "disabled"}
@@ -539,39 +635,63 @@ export default function EditPricesPage() {
                           <option value="active">Active</option>
                           <option value="disabled">Disabled</option>
                         </select>
+                      </td>
+                      <td className="align-middle">
+                        <div className="flex justify-between items-center w-full">
+                          {/* LEFT */}
+                          <div className="flex items-center gap-2 relative">
+                            {isDirty(item) && (
+                              <button
+                                type="button"
+                                onClick={() => saveRow(item.id)}
+                                disabled={item.saving}
+                                className="customButtonEnabled"
+                              >
+                                {item.saving ? "Saving..." : "Update"}
+                              </button>
+                            )}
 
-                        {isDirty(item) && (
-                          <button
-                            type="button"
-                            onClick={() => saveRow(item.id)}
-                            disabled={item.saving}
-                            className="customButtonEnabled absolute right-[-100] top-1/2 -translate-y-1/2"
-                          >
-                            {item.saving ? "Saving..." : "Update"}
-                          </button>
-                        )}
+                            {!isDirty(item) && item.saved && (
+                              <span className="text-sm text-green-600 font-medium">
+                                Saved
+                              </span>
+                            )}
 
-                        {!isDirty(item) && item.saved && (
-                          <span className="absolute right-[-95] top-1/2 -translate-y-1/2 text-sm text-green-600 font-medium">
-                            Saved
-                          </span>
-                        )}
+                            {!isDirty(item) && item.error && (
+                              <span className="text-sm text-red-600 font-medium">
+                                {item.error}
+                              </span>
+                            )}
+                          </div>
 
-                        {!isDirty(item) && item.error && (
-                          <span className="absolute right-[-140] top-1/2 -translate-y-1/2 text-sm text-red-600 font-medium">
-                            {item.error}
-                          </span>
-                        )}
+                          {/* RIGHT */}
+                          <div className="flex items-center">
+                            <button
+                              type="button"
+                              onClick={() => deleteRow(item.id)}
+                              className="
+          px-3 py-1 rounded-md border border-red-600 text-red-600
+          hover:bg-red-600 hover:text-white transition-colors
+          opacity-0 group-hover:opacity-100
+        "
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
                       </td>
                     </tr>
-                  </tbody>
-                )),
-              )}
+                  ))}
+                </tbody>
+              ))}
             </table>
           </div>
 
           <div className="justify-self-start">
-            <button className="customButtonEnabled mt-4 mb-10">
+            <button
+              onClick={addProduct}
+              className="customButtonEnabled mt-4 mb-10"
+            >
               Add Product
             </button>
           </div>
