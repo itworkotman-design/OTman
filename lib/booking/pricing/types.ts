@@ -1,0 +1,71 @@
+export type DeliveryType =
+  | ""
+  | "Første trinn"
+  | "Innbæring"
+  | "Kun Installasjon/Montering"
+  | "Kun retur";
+
+export type ProductCardLineItem =
+  | {
+      kind: "deliveryType";
+      code: DeliveryType;
+      qty: number;
+      unitPrice: number;
+    }
+  | {
+      kind: "productOption";
+      productOptionId: string;
+      qty: number;
+      priceOverride?: number;
+    };
+
+export type ProductBreakdown = {
+  productName: string;
+  items: ProductCardLineItem[];
+};
+
+export type PriceLookup = Record<
+  string,
+  {
+    label: string;
+    customerPrice: number;
+    subcontractorPrice: number;
+  }
+>;
+
+export type CalculatorAdjustments = {
+  rabatt: string;
+  leggTil: string;
+  subcontractorMinus: string;
+  subcontractorPlus: string;
+};
+
+export type CalculatorTotals = {
+  subtotalExVat: number;
+  discount: number;
+  extra: number;
+  totalExVat: number;
+  vat: number;
+  totalIncVat: number;
+  subcontractorBase: number;
+  subcontractorMinus: number;
+  subcontractorPlus: number;
+  subcontractorTotal: number;
+};
+
+export type CalculatedLine = {
+  label: string;
+  qty: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+export type CalculatedBreakdown = {
+  productName: string;
+  lines: CalculatedLine[];
+};
+
+export type CalculatorResult = {
+  breakdowns: CalculatedBreakdown[];
+  totals: CalculatorTotals;
+};

@@ -47,26 +47,28 @@ type Props = {
 function extractFromItems(
   items: LineItem[],
   priceItems: { code: string; key: string }[],
-  options: { id: string; priceKey: string; kind: string }[]
+  options: { id: string; priceKey: string; kind: string }[],
 ) {
-  const findKey = (code: string) => priceItems.find((p) => p.code === code)?.key;
+  const findKey = (code: string) =>
+    priceItems.find((p) => p.code === code)?.key;
 
-  const deliveryKey  = findKey("DELIVERY");
-  const indoorKey    = findKey("INDOOR");
+  const deliveryKey = findKey("DELIVERY");
+  const indoorKey = findKey("INDOOR");
   const monteringKey = findKey("MONTERING");
-  const returnKey    = findKey("RETURN");
-  const xtraKey      = findKey("XTRA");
+  const returnKey = findKey("RETURN");
+  const xtraKey = findKey("XTRA");
 
   const keys = items.map((i) => i.key);
 
   let deliveryType: DeliveryType = "";
-  if (deliveryKey  && keys.includes(deliveryKey))    deliveryType = "Første trinn";
-  if (indoorKey    && keys.includes(indoorKey))      deliveryType = "Innbæring";
-  if (monteringKey && keys.includes(monteringKey))   deliveryType = "Kun Installasjon/Montering";
-  if (returnKey    && keys.includes(returnKey))      deliveryType = "Kun retur";
+  if (deliveryKey && keys.includes(deliveryKey)) deliveryType = "Første trinn";
+  if (indoorKey && keys.includes(indoorKey)) deliveryType = "Innbæring";
+  if (monteringKey && keys.includes(monteringKey))
+    deliveryType = "Kun Installasjon/Montering";
+  if (returnKey && keys.includes(returnKey)) deliveryType = "Kun retur";
 
   const baseKeys = new Set(
-    [deliveryKey, indoorKey, monteringKey, returnKey, xtraKey].filter(Boolean)
+    [deliveryKey, indoorKey, monteringKey, returnKey, xtraKey].filter(Boolean),
   );
 
   const installOptionIds = options
@@ -78,11 +80,14 @@ function extractFromItems(
     .map((o) => o.id);
 
   const returnOption = options.find(
-    (o) => o.kind === "return" && o.id !== "global_demont" && keys.includes(o.priceKey)
+    (o) =>
+      o.kind === "return" &&
+      o.id !== "global_demont" &&
+      keys.includes(o.priceKey),
   );
 
   const demontOption = options.find(
-    (o) => o.id === "global_demont" && keys.includes(o.priceKey)
+    (o) => o.id === "global_demont" && keys.includes(o.priceKey),
   );
 
   // Amount is inferred from XTRA qty + 1 (since XTRA = extra items beyond the first)
@@ -92,7 +97,8 @@ function extractFromItems(
   // PALLET special product state
   const palletOpt = options.find((o) => o.kind === "install");
   const extraPalletEnabled = !!(palletOpt && keys.includes(palletOpt.priceKey));
-  const extraPalletQty = items.find((i) => i.key === palletOpt?.priceKey)?.qty ?? 1;
+  const extraPalletQty =
+    items.find((i) => i.key === palletOpt?.priceKey)?.qty ?? 1;
 
   // ETTER special product state
   const etterOpt = options.find((o) => o.kind === "install");
@@ -133,8 +139,8 @@ export function ProductCard({
   initialDeliveryType,
   initialItems,
 }: Props) {
-
-  const { products, priceItems, getActiveOptions, getPriceDetails } = getDataset(dataset);
+  const { products, priceItems, getActiveOptions, getPriceDetails } =
+    getDataset(dataset);
 
   /**
    * Computes initial UI state from saved LineItems on first render.
@@ -142,61 +148,98 @@ export function ProductCard({
    */
   const seeded = (() => {
     if (!initialItems?.length) return null;
-    return extractFromItems(initialItems, priceItems, getActiveOptions(initialProductId ?? null));
+    return extractFromItems(
+      initialItems,
+      priceItems,
+      getActiveOptions(initialProductId ?? null),
+    );
   })();
 
   console.log("initialItems", initialItems);
   console.log("seeded", seeded);
-  console.log("priceItems INDOOR key", priceItems.find(p => p.code === "INDOOR")?.key);
+  console.log(
+    "priceItems INDOOR key",
+    priceItems.find((p) => p.code === "INDOOR")?.key,
+  );
   console.log("seeded.deliveryType", seeded?.deliveryType);
-  console.log("initialItems keys", initialItems?.map(i => i.key));
+  console.log(
+    "initialItems keys",
+    initialItems?.map((i) => i.key),
+  );
 
-  const [productId, setProductId] = useState<string | null>(initialProductId ?? null);
+  const [productId, setProductId] = useState<string | null>(
+    initialProductId ?? null,
+  );
   // Then use seeded directly in useState:
   const [deliveryType, setDeliveryType] = useState<DeliveryType>(
-    seeded?.deliveryType ?? initialDeliveryType ?? ""
+    seeded?.deliveryType ?? initialDeliveryType ?? "",
   );
-  const [selectedInstallOptionIds, setSelectedInstallOptionIds] = useState<string[]>(
-    seeded?.installOptionIds ?? []
-  );
+  const [selectedInstallOptionIds, setSelectedInstallOptionIds] = useState<
+    string[]
+  >(seeded?.installOptionIds ?? []);
   const [returnOptionId, setReturnOptionId] = useState<string | null>(
-    seeded?.returnOptionId ?? null
+    seeded?.returnOptionId ?? null,
   );
   const [amount, setAmount] = useState<number>(seeded?.amount ?? 1);
-  const [selectedExtraOptionIds, setSelectedExtraOptionIds] = useState<string[]>(
-    seeded?.extraOptionIds ?? []
+  const [selectedExtraOptionIds, setSelectedExtraOptionIds] = useState<
+    string[]
+  >(seeded?.extraOptionIds ?? []);
+  const [demontEnabled, setDemontEnabled] = useState(
+    seeded?.demontEnabled ?? false,
   );
-  const [demontEnabled, setDemontEnabled] = useState(seeded?.demontEnabled ?? false);
-  const [extraPalletEnabled, setExtraPalletEnabled] = useState(seeded?.extraPalletEnabled ?? false);
-  const [extraPalletQty, setExtraPalletQty] = useState<number>(seeded?.extraPalletQty ?? 1);
-  const [etterEnabled, setEtterEnabled] = useState(seeded?.etterEnabled ?? false);
+  const [extraPalletEnabled, setExtraPalletEnabled] = useState(
+    seeded?.extraPalletEnabled ?? false,
+  );
+  const [extraPalletQty, setExtraPalletQty] = useState<number>(
+    seeded?.extraPalletQty ?? 1,
+  );
+  const [etterEnabled, setEtterEnabled] = useState(
+    seeded?.etterEnabled ?? false,
+  );
   const [etterQty, setEtterQty] = useState<number>(seeded?.etterQty ?? 1);
   const [selectedTimeOptionIds, setSelectedTimeOptionIds] = useState<string[]>(
-    seeded?.selectedTimeOptionIds ?? []
+    seeded?.selectedTimeOptionIds ?? [],
   );
   const [extraTimeHours, setExtraTimeHours] = useState<number>(0.5);
 
-  
-
-  const options = useMemo(() => getActiveOptions(productId), [productId, getActiveOptions]);
-  const installOptions  = useMemo(() => options.filter((o) => o.kind === "install"),  [options]);
-  const returnOptions   = useMemo(() => options.filter((o) => o.kind === "return"),   [options]);
-  const extraOptions    = useMemo(() => options.filter((o) => o.kind === "extra"),    [options]);
-  const demontOption    = useMemo(() => returnOptions.find((o) => o.id === "global_demont"), [returnOptions]);
-  const returnTripOptions = useMemo(() => returnOptions.filter((o) => o.id !== "global_demont"), [returnOptions]);
+  const options = useMemo(
+    () => getActiveOptions(productId),
+    [productId, getActiveOptions],
+  );
+  const installOptions = useMemo(
+    () => options.filter((o) => o.kind === "install"),
+    [options],
+  );
+  const returnOptions = useMemo(
+    () => options.filter((o) => o.kind === "return"),
+    [options],
+  );
+  const extraOptions = useMemo(
+    () => options.filter((o) => o.kind === "extra"),
+    [options],
+  );
+  const demontOption = useMemo(
+    () => returnOptions.find((o) => o.id === "global_demont"),
+    [returnOptions],
+  );
+  const returnTripOptions = useMemo(
+    () => returnOptions.filter((o) => o.id !== "global_demont"),
+    [returnOptions],
+  );
 
   const isPALLET = productId === "PALLET";
-  const isETTER  = productId === "ETTER";
-  const isTIME   = productId === "TIME";
+  const isETTER = productId === "ETTER";
+  const isTIME = productId === "TIME";
   const hideDeliveryAndReturn = isPALLET || isETTER || isTIME;
-
 
   /**
    * Resets all card state when the user selects a different product.
    * Skips reset on initial mount and when reverting to the seeded product
    * to avoid wiping pre-populated values from an existing order.
    */
- const prevProductId = useRef<string | null | undefined>(initialProductId ?? null);
+  const prevProductId = useRef<string | null | undefined>(
+    initialProductId ?? null,
+  );
   useEffect(() => {
     if (prevProductId.current === productId) return;
     prevProductId.current = productId;
@@ -353,13 +396,29 @@ export function ProductCard({
    * Triggers recalculation of the calculator total on every selection change.
    */
   useEffect(() => {
-    onChange({ items: buildItems(), deliveryType, amount: clampInt(amount, 1) });
+    onChange({
+      items: buildItems(),
+      deliveryType,
+      amount: clampInt(amount, 1),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, deliveryType, selectedInstallOptionIds, returnOptionId, amount,
-      selectedExtraOptionIds, demontEnabled, extraPalletEnabled, extraPalletQty,
-      etterEnabled, etterQty, selectedTimeOptionIds, extraTimeHours]);
+  }, [
+    productId,
+    deliveryType,
+    selectedInstallOptionIds,
+    returnOptionId,
+    amount,
+    selectedExtraOptionIds,
+    demontEnabled,
+    extraPalletEnabled,
+    extraPalletQty,
+    etterEnabled,
+    etterQty,
+    selectedTimeOptionIds,
+    extraTimeHours,
+  ]);
 
-      /**
+  /**
    * Updates both local productId state and notifies the parent
    * of the product change via the onProductChange callback.
    */
@@ -370,7 +429,7 @@ export function ProductCard({
 
   const shownCardNumber = displayIndex ?? cardId + 1;
   const productLabel = productId
-    ? products.find((p) => p.id === productId)?.label ?? "Velg"
+    ? (products.find((p) => p.id === productId)?.label ?? "Velg")
     : "Velg";
 
   return (
@@ -381,7 +440,9 @@ export function ProductCard({
         disabled={disableRemove}
         className={
           "absolute top-3 right-3 text-white text-xs font-bold px-2 py-1 rounded-2xl " +
-          (disableRemove ? "cursor-not-allowed" : "bg-red-500/20 hover:bg-red-600 cursor-pointer")
+          (disableRemove
+            ? "cursor-not-allowed"
+            : "bg-red-500/20 hover:bg-red-600 cursor-pointer")
         }
       >
         X
@@ -396,37 +457,55 @@ export function ProductCard({
           <div className="w-6 h-6 bg-logoblue text-white font-semibold flex items-center justify-center rounded-2xl mr-2">
             <span>{shownCardNumber}</span>
           </div>
-          <h1 className="items-center font-semibold text-logoblue text-md">{productLabel}</h1>
+          <h1 className="items-center font-semibold text-logoblue text-md">
+            {productLabel}
+          </h1>
         </div>
       </button>
 
       {isExpanded && (
         <div>
-          <h1 className="font-semibold mb-2 text-lg text-textcolor">Velg produkt</h1>
+          <h1 className="font-semibold mb-2 text-lg text-textcolor">
+            Velg produkt
+          </h1>
           <select
             className="customInput w-full"
             value={productId ?? ""}
             onChange={(e) => handleProductSelect(e.target.value || null)}
           >
-            <option value="" disabled>Choose</option>
-            {products.filter((p) => p.active).map((p) => (
-              <option key={p.id} value={p.id}>{p.label}</option>
-            ))}
+            <option value="" disabled>
+              Choose
+            </option>
+            {products
+              .filter((p) => p.active)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
           </select>
 
           {!hideDeliveryAndReturn && (
             <>
-              <h1 className="font-semibold text-lg text-textcolor my-2">Velg leveringstype</h1>
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                Velg leveringstype
+              </h1>
               <select
                 className="customInput w-full"
                 value={deliveryType}
-                onChange={(e) => setDeliveryType(e.target.value as DeliveryType)}
+                onChange={(e) =>
+                  setDeliveryType(e.target.value as DeliveryType)
+                }
                 disabled={!productId}
               >
-                <option value="" disabled>Velg</option>
+                <option value="" disabled>
+                  Velg
+                </option>
                 <option value="Første trinn">Første trinn</option>
                 <option value="Innbæring">Innbæring</option>
-                <option value="Kun Installasjon/Montering">Kun Installasjon/Montering</option>
+                <option value="Kun Installasjon/Montering">
+                  Kun Installasjon/Montering
+                </option>
                 <option value="Kun retur">Kun retur</option>
               </select>
             </>
@@ -448,8 +527,12 @@ export function ProductCard({
                 <>
                   <h1 className="font-bold my-2">Antall ekstra paller</h1>
                   <input
-                    type="number" min={1} value={extraPalletQty}
-                    onChange={(e) => setExtraPalletQty(Number(e.target.value) || 1)}
+                    type="number"
+                    min={1}
+                    value={extraPalletQty}
+                    onChange={(e) =>
+                      setExtraPalletQty(Number(e.target.value) || 1)
+                    }
                     className="customInput w-full"
                   />
                 </>
@@ -461,16 +544,24 @@ export function ProductCard({
             <>
               <h1 className="font-bold my-2">Ettermontering</h1>
               <label className="block">
-                <input className="inline mr-2" type="checkbox"
-                  checked={etterEnabled} onChange={(e) => setEtterEnabled(e.target.checked)} />
+                <input
+                  className="inline mr-2"
+                  type="checkbox"
+                  checked={etterEnabled}
+                  onChange={(e) => setEtterEnabled(e.target.checked)}
+                />
                 <span className="inline">Snekker/ Rørlegger (Timearbeid)</span>
               </label>
               {etterEnabled && (
                 <>
                   <h1 className="font-bold my-2">Mengde</h1>
-                  <input type="number" min={1} value={etterQty}
+                  <input
+                    type="number"
+                    min={1}
+                    value={etterQty}
                     onChange={(e) => setEtterQty(Number(e.target.value) || 1)}
-                    className="customInput w-full" />
+                    className="customInput w-full"
+                  />
                 </>
               )}
             </>
@@ -480,50 +571,78 @@ export function ProductCard({
             <>
               <h1 className="font-bold my-2">Timepris</h1>
               {installOptions.length === 0 ? (
-                <p className="text-sm opacity-70">Ingen tidsalternativer for dette produktet.</p>
+                <p className="text-sm opacity-70">
+                  Ingen tidsalternativer for dette produktet.
+                </p>
               ) : (
                 installOptions.map((opt) => {
                   const priceDetails = getPriceDetails(opt.priceKey);
                   return (
                     <label key={opt.id} className="block">
-                      <input className="inline mr-2" type="checkbox"
+                      <input
+                        className="inline mr-2"
+                        type="checkbox"
                         checked={selectedTimeOptionIds.includes(opt.id)}
                         onChange={(e) => {
                           setSelectedTimeOptionIds((prev) =>
-                            e.target.checked ? [...prev, opt.id] : prev.filter((x) => x !== opt.id)
+                            e.target.checked
+                              ? [...prev, opt.id]
+                              : prev.filter((x) => x !== opt.id),
                           );
-                        }} />
-                      <span className="inline">{priceDetails?.label ?? "Unknown option"}</span>
+                        }}
+                      />
+                      <span className="inline">
+                        {priceDetails?.label ?? "Unknown option"}
+                      </span>
                     </label>
                   );
                 })
               )}
               <h1 className="font-bold my-2">Mengde av EXTRA tid</h1>
-              <input type="number" min={0.5} step={0.5} value={extraTimeHours}
-                onChange={(e) => setExtraTimeHours(Number(e.target.value) || 0.5)}
-                className="customInput w-full" />
+              <input
+                type="number"
+                min={0.5}
+                step={0.5}
+                value={extraTimeHours}
+                onChange={(e) =>
+                  setExtraTimeHours(Number(e.target.value) || 0.5)
+                }
+                className="customInput w-full"
+              />
             </>
           )}
 
           {!hideDeliveryAndReturn &&
-            (deliveryType === "Kun Installasjon/Montering" || deliveryType === "Innbæring") && (
+            (deliveryType === "Kun Installasjon/Montering" ||
+              deliveryType === "Innbæring") && (
               <>
-                <h1 className="font-semibold text-lg text-textcolor my-2">Installasjonsmuligheter</h1>
+                <h1 className="font-semibold text-lg text-textcolor my-2">
+                  Installasjonsmuligheter
+                </h1>
                 {installOptions.length === 0 ? (
-                  <p className="text-sm opacity-70">Ingen installasjonsalternativer for dette produktet</p>
+                  <p className="text-sm opacity-70">
+                    Ingen installasjonsalternativer for dette produktet
+                  </p>
                 ) : (
                   installOptions.map((opt) => {
                     const priceDetails = getPriceDetails(opt.priceKey);
                     return (
                       <label key={opt.id} className="block">
-                        <input className="inline mr-2" type="checkbox"
+                        <input
+                          className="inline mr-2"
+                          type="checkbox"
                           checked={selectedInstallOptionIds.includes(opt.id)}
                           onChange={(e) => {
                             setSelectedInstallOptionIds((prev) =>
-                              e.target.checked ? [...prev, opt.id] : prev.filter((x) => x !== opt.id)
+                              e.target.checked
+                                ? [...prev, opt.id]
+                                : prev.filter((x) => x !== opt.id),
                             );
-                          }} />
-                        <span className="inline">{priceDetails?.label ?? "Unknown option"}</span>
+                          }}
+                        />
+                        <span className="inline">
+                          {priceDetails?.label ?? "Unknown option"}
+                        </span>
                       </label>
                     );
                   })
@@ -533,14 +652,20 @@ export function ProductCard({
 
           {!hideDeliveryAndReturn && deliveryType === "Innbæring" && (
             <>
-              <h1 className="font-semibold text-lg text-textcolor my-2">Utpakking / Demontering</h1>
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                Utpakking / Demontering
+              </h1>
               {demontOption && (
                 <label className="block">
-                  <input className="inline mr-2" type="checkbox"
+                  <input
+                    className="inline mr-2"
+                    type="checkbox"
                     checked={demontEnabled}
-                    onChange={(e) => setDemontEnabled(e.target.checked)} />
+                    onChange={(e) => setDemontEnabled(e.target.checked)}
+                  />
                   <span className="inline">
-                    {getPriceDetails(demontOption.priceKey)?.label ?? "Demontering"}
+                    {getPriceDetails(demontOption.priceKey)?.label ??
+                      "Demontering"}
                   </span>
                 </label>
               )}
@@ -549,13 +674,18 @@ export function ProductCard({
               ) : (
                 extraOptions.map((opt) => (
                   <label key={opt.id} className="block">
-                    <input className="inline mr-2" type="checkbox"
+                    <input
+                      className="inline mr-2"
+                      type="checkbox"
                       checked={selectedExtraOptionIds.includes(opt.id)}
                       onChange={(e) => {
                         setSelectedExtraOptionIds((prev) =>
-                          e.target.checked ? [...prev, opt.id] : prev.filter((x) => x !== opt.id)
+                          e.target.checked
+                            ? [...prev, opt.id]
+                            : prev.filter((x) => x !== opt.id),
                         );
-                      }} />
+                      }}
+                    />
                     <span className="inline">
                       {getPriceDetails(opt.priceKey)?.label ?? "Unknown option"}
                     </span>
@@ -567,20 +697,31 @@ export function ProductCard({
 
           {!hideDeliveryAndReturn && (
             <>
-              <h1 className="font-semibold text-lg text-textcolor my-2">Return</h1>
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                Return
+              </h1>
               {returnTripOptions.length === 0 ? (
-                <p className="text-sm opacity-70">No return options for this product.</p>
+                <p className="text-sm opacity-70">
+                  No return options for this product.
+                </p>
               ) : (
                 returnTripOptions.map((opt) => {
                   const priceDetails = getPriceDetails(opt.priceKey);
                   return (
                     <label key={opt.id} className="block my-1">
-                      <input className="inline mr-2" type="checkbox"
+                      <input
+                        className="inline mr-2"
+                        type="checkbox"
                         checked={returnOptionId === opt.id}
                         onChange={() =>
-                          setReturnOptionId((prev) => (prev === opt.id ? null : opt.id))
-                        } />
-                      <span className="inline">{priceDetails?.label ?? "Unknown option"}</span>
+                          setReturnOptionId((prev) =>
+                            prev === opt.id ? null : opt.id,
+                          )
+                        }
+                      />
+                      <span className="inline">
+                        {priceDetails?.label ?? "Unknown option"}
+                      </span>
                     </label>
                   );
                 })
@@ -590,10 +731,16 @@ export function ProductCard({
 
           {!hideDeliveryAndReturn && (
             <>
-              <h1 className="font-semibold text-lg text-textcolor my-2">Product amount</h1>
-              <input type="number" min={1} value={amount}
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                Product amount
+              </h1>
+              <input
+                type="number"
+                min={1}
+                value={amount}
                 onChange={(e) => setAmount(Number(e.target.value) || 1)}
-                className="customInput w-full" />
+                className="customInput w-full"
+              />
             </>
           )}
         </div>
