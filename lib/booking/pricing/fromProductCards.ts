@@ -3,39 +3,28 @@ import type {
   SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_TYPE_PRICES } from "@/lib/booking/deliveryTypes";
+import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import type {
   ProductBreakdown,
   ProductCardLineItem,
 } from "@/lib/booking/pricing/types";
-import { findXtraOptionId } from "./priceLookup";
-import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
-
-function isDeliveryTypeWithExtraAmount(deliveryType: string) {
-  return (
-    deliveryType === DELIVERY_TYPES.FIRST_STEP ||
-    deliveryType === DELIVERY_TYPES.INDOOR ||
-    deliveryType === DELIVERY_TYPES.INSTALL_ONLY
-  );
-}
+import {
+  isDeliveryTypeWithExtraAmount,
+  showsInstallOptions,
+  showsReturnOptions,
+  showsExtraCheckboxes,
+  shouldPriceReturnOption,
+} from "@/lib/booking/pricing/rules";
 
 function buildItemsForCard(
   card: SavedProductCard,
-  catalogProducts: CatalogProduct[],
+  product: CatalogProduct,
 ): ProductCardLineItem[] {
   const items: ProductCardLineItem[] = [];
   const amount = Math.max(1, card.amount);
-  const xtraOptionId = findXtraOptionId(catalogProducts);
-
-  const showInstallOptions =
-    card.deliveryType === "Innbæring" ||
-    card.deliveryType === "Kun Installasjon/Montering";
-
-  const showReturnOptions =
-    card.deliveryType === "Innbæring" ||
-    card.deliveryType === "Kun Installasjon/Montering" ||
-    card.deliveryType === "Kun retur";
-
-  const showExtras = card.deliveryType === "Innbæring";
+  const showInstallOptions = showsInstallOptions(card.deliveryType);
+  const showReturnOptions = showsReturnOptions(card.deliveryType);
+  const showExtras = showsExtraCheckboxes(card.deliveryType);
 
   if (card.deliveryType) {
     items.push({
@@ -45,16 +34,18 @@ function buildItemsForCard(
       unitPrice: DELIVERY_TYPE_PRICES[card.deliveryType] ?? 0,
     });
 
-    if (
-      isDeliveryTypeWithExtraAmount(card.deliveryType) &&
-      amount > 1 &&
-      xtraOptionId
-    ) {
-      items.push({
-        kind: "productOption",
-        productOptionId: xtraOptionId,
-        qty: amount - 1,
-      });
+    if (isDeliveryTypeWithExtraAmount(card.deliveryType) && amount > 1) {
+      const xtraOption = product.options.find(
+        (o) => (o.code ?? "").trim().toUpperCase() === OPTION_CODES.XTRA,
+      );
+
+      if (xtraOption) {
+        items.push({
+          kind: "productOption",
+          productOptionId: xtraOption.id,
+          qty: amount - 1,
+        });
+      }
     }
   }
 
@@ -79,11 +70,27 @@ function buildItemsForCard(
   }
 
   if (showReturnOptions && card.selectedReturnOptionId) {
-    items.push({
-      kind: "productOption",
-      productOptionId: card.selectedReturnOptionId,
-      qty: amount,
-    });
+    const selectedReturn = product.options.find(
+      (o) => o.id === card.selectedReturnOptionId,
+    );
+
+    if (shouldPriceReturnOption(card.deliveryType)) {
+      items.push({
+        kind: "productOption",
+        productOptionId: card.selectedReturnOptionId,
+        qty: amount,
+      });
+    } else {
+      items.push({
+        kind: "info",
+        label:
+          selectedReturn?.description ||
+          selectedReturn?.label ||
+          selectedReturn?.code ||
+          "Return",
+        qty: amount,
+      });
+    }
   }
 
   return items;
@@ -104,7 +111,7 @@ export function buildProductBreakdowns(
     return [
       {
         productName: product.label,
-        items: buildItemsForCard(card, catalogProducts),
+        items: buildItemsForCard(card, product),
       },
     ];
   });

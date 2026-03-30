@@ -5,7 +5,7 @@ import {
   SavedProductCard,
   createEmptyProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import type { CatalogProduct } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import type { CatalogProduct, CatalogSpecialOption } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/ProductCardNew";
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplayNew";
@@ -16,7 +16,7 @@ import {
   shown,
   type HiddenMask,
 } from "@/app/_components/Dahsboard/booking/create/orderFields";
-import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
+import { DELIVERY_TYPES } from "@/lib/booking/constants";
 
 export type OrderFormPayload = {
   productCards: SavedProductCard[];
@@ -87,6 +87,9 @@ export default function CreatePage({
   const [expandedCardId, setExpandedCardId] = useState<number | null>(0);
 
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<
+    CatalogSpecialOption[]
+  >([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -147,13 +150,16 @@ export default function CreatePage({
         if (!res.ok || !data.ok) {
           setCatalogError(data.reason ?? "Failed to load catalog");
           setCatalogProducts([]);
+          setCatalogSpecialOptions([]);
           return;
         }
 
         setCatalogProducts(data.products ?? []);
+        setCatalogSpecialOptions(data.specialOptions ?? []);
       } catch {
         setCatalogError("Failed to load catalog");
         setCatalogProducts([]);
+        setCatalogSpecialOptions([]);
       } finally {
         setCatalogLoading(false);
       }
@@ -190,13 +196,18 @@ export default function CreatePage({
   }, []);
 
   const productBreakdowns = useMemo(
-    () => buildProductBreakdowns(productCards, catalogProducts),
-    [productCards, catalogProducts],
+    () =>
+      buildProductBreakdowns(
+        productCards,
+        catalogProducts,
+        catalogSpecialOptions,
+      ),
+    [productCards, catalogProducts, catalogSpecialOptions],
   );
 
   const priceLookup = useMemo(
-    () => buildPriceLookup(catalogProducts),
-    [catalogProducts],
+    () => buildPriceLookup(catalogProducts, catalogSpecialOptions),
+    [catalogProducts, catalogSpecialOptions],
   );
 
   const isInstallationOnly = useMemo(
@@ -289,6 +300,7 @@ export default function CreatePage({
                   displayIndex={index + 1}
                   value={card}
                   catalogProducts={catalogProducts}
+                  catalogSpecialOptions={catalogSpecialOptions}
                   loading={catalogLoading}
                   error={catalogError}
                   onChange={(next) => updateProductCard(card.cardId, next)}

@@ -41,6 +41,18 @@ export type CatalogProduct = {
   options: CatalogOption[];
 };
 
+export type CatalogSpecialOption = {
+  id: string;
+  type: "return" | "xtra";
+  code: string;
+  label: string | null;
+  description: string | null;
+  customerPrice: string;
+  subcontractorPrice: string;
+  effectiveCustomerPrice: string;
+  active: boolean;
+};
+
 export function createEmptyProductCard(cardId: number): SavedProductCard {
   return {
     cardId,

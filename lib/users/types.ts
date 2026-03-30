@@ -28,4 +28,5 @@ export type Membership = {
   createdAt: string;
   user: MembershipUser;
   priceListId: string | null;
+  permissions: { permission: "BOOKING_VIEW" | "BOOKING_CREATE" }[];
 };

@@ -1,3 +1,4 @@
+// app/_components/Dahsboard/users/UserModal.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -24,29 +25,39 @@ export default function UserModal({
   const isCreateMode = !props.initialValueEmail;
 
   const [form, setForm] = useState(() =>
-    buildInitialForm({ isOpen, onClose, onSave, onRemove, onToggleActive, actorRole, targetRole, ...props })
+    buildInitialForm({
+      isOpen,
+      onClose,
+      onSave,
+      onRemove,
+      onToggleActive,
+      actorRole,
+      targetRole,
+      ...props,
+    }),
   );
+
 
   const { isActorOwner, canEditTarget, canDisableOrRemove } = getPermissions(
     actorRole,
     targetRole,
-    isCreateMode
+    isCreateMode,
   );
 
-  const updateField = (key: "username" | "email" | "phoneNumber" | "description") =>
-  makeFieldUpdater(key, setForm);
+  const updateField = (
+    key: "username" | "email" | "phoneNumber" | "description",
+  ) => makeFieldUpdater(key, setForm);
+
   const updateSelect = (key: "role" | "priceListId") =>
     makeSelectUpdater(key, setForm);
-  //For View / Create permission
+
   const togglePermission = makePermissionToggler(setForm);
 
   if (!isOpen) return null;
 
-  
-
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="customContainer max-h-[90vh] w-full max-w-[1000px] overflow-y-auto bg-white">
+      <div className="customContainer max-h-[90vh] w-full max-w-[1000] overflow-y-auto bg-white">
         <div className="grid grid-cols-3 items-start">
           <div />
           <h1 className="whitespace-nowrap text-center text-3xl font-semibold text-logoblue">
@@ -63,7 +74,6 @@ export default function UserModal({
 
         <div className="mx-auto w-full max-w-[800]">
           <div className="mt-6 gap-8 lg:flex lg:gap-10">
-            {/* ── General ── */}
             <div className="flex-1">
               <h2 className="pl-2 pb-2 font-semibold text-logoblue">General</h2>
 
@@ -104,7 +114,6 @@ export default function UserModal({
               />
             </div>
 
-            {/* ── Permissions & Security ── */}
             <div className="flex-1">
               <h2 className="pl-2 pb-2 font-semibold text-logoblue">
                 Permissions
@@ -122,6 +131,7 @@ export default function UserModal({
                 <option value="ADMIN">Admin</option>
                 <option value="USER">User</option>
               </select>
+
               <label className="block pl-2 pb-2">Access</label>
               <label className="flex items-center gap-2">
                 <input
@@ -142,6 +152,7 @@ export default function UserModal({
                 />
                 Booking create
               </label>
+
               <label className="block pl-2 pb-2">Price list</label>
               <select
                 className="customInput mb-6 w-full"
@@ -191,7 +202,6 @@ export default function UserModal({
                 </button>
               </div>
 
-              {/* ── Manage ── */}
               {canDisableOrRemove && (
                 <div className="mt-8">
                   <h2 className="pb-2 font-semibold text-logoblue">Manage</h2>
@@ -217,8 +227,9 @@ export default function UserModal({
                               ? "Disable this user?"
                               : "Enable this user?",
                           )
-                        )
+                        ) {
                           return;
+                        }
                         onToggleActive();
                       }}
                       className={[
@@ -231,10 +242,13 @@ export default function UserModal({
 
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         if (!confirm("Remove this user?")) return;
-                        onRemove();
-                        onClose();
+
+                        const ok = await onRemove();
+                        if (ok) {
+                          onClose();
+                        }
                       }}
                       className="mb-3 w-40 customButtonEnabled bg-red-800!"
                     >

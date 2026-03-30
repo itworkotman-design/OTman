@@ -54,6 +54,17 @@ export function calculateBookingPricing(params: {
         continue;
       }
 
+      if (item.kind === "info") {
+        lines.push({
+          label: item.label,
+          qty: item.qty,
+          unitPrice: 0,
+          lineTotal: 0,
+        });
+
+        continue;
+      }
+
       const lookup = priceLookup[item.productOptionId];
       if (!lookup) continue;
 
@@ -70,6 +81,7 @@ export function calculateBookingPricing(params: {
 
       lines.push({
         label: lookup.label,
+        code: lookup.code,
         qty: item.qty,
         unitPrice,
         lineTotal,

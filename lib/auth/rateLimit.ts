@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 
-export const LOGIN_EMAIL_LIMIT = 5;
+export const LOGIN_EMAIL_LIMIT = 50;
 export const LOGIN_IP_LIMIT = 20;
 export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 export const PASSWORD_RESET_EMAIL_LIMIT = 3;

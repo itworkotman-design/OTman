@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { getEffectivePrice } from "@/lib/products/discounts";
 
 type Body = {
   customerPrice?: string | number;
@@ -57,25 +58,6 @@ function parseOptionalDate(value: unknown): Date | null {
 function toDateInputValue(value: Date | null) {
   if (!value) return null;
   return value.toISOString().slice(0, 10);
-}
-
-function getEffectiveCustomerPriceCents(item: {
-  customerPriceCents: number;
-  discountAmountCents: number | null;
-  discountEndsAt: Date | null;
-}) {
-  const now = new Date();
-
-  const hasActiveDiscount =
-    item.discountAmountCents !== null &&
-    item.discountEndsAt !== null &&
-    item.discountEndsAt.getTime() > now.getTime();
-
-  if (!hasActiveDiscount) {
-    return item.customerPriceCents;
-  }
-
-  return Math.max(0, item.customerPriceCents - item.discountAmountCents!);
 }
 
 export async function PATCH(
@@ -294,9 +276,9 @@ export async function PATCH(
     );
   }
 
-  const effectiveCustomerPriceCents = getEffectiveCustomerPriceCents({
-    customerPriceCents: updated.customerPriceCents,
-    discountAmountCents: updated.discountAmountCents,
+  const effectiveCustomerPriceCents = getEffectivePrice({
+    basePrice: updated.customerPriceCents,
+    discountAmount: updated.discountAmountCents,
     discountEndsAt: updated.discountEndsAt,
   });
 

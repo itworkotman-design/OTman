@@ -1,3 +1,4 @@
+// lib/users/userModal.ts
 import React from "react";
 import type { Role } from "@/lib/users/types";
 
@@ -19,9 +20,9 @@ export interface UserFormData {
 export interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: UserFormData) => void;
-  onRemove: () => void;
-  onToggleActive: () => void;
+  onSave: (data: UserFormData) => void | Promise<void>;
+  onRemove: () => boolean | Promise<boolean>;
+  onToggleActive: () => void | Promise<void>;
   initialValueUsername: string;
   initialValueEmail: string;
   initialValuePhoneNumber: string;
@@ -51,16 +52,14 @@ export function buildInitialForm(props: UserModalProps): UserFormData {
 export function getPermissions(
   actorRole: Role,
   targetRole: Role,
-  isCreateMode: boolean
+  isCreateMode: boolean,
 ) {
   const isActorOwner = actorRole === "OWNER";
   const isActorAdmin = actorRole === "ADMIN";
   const isTargetOwner = targetRole === "OWNER";
 
   const canEditTarget =
-    isCreateMode ||
-    isActorOwner ||
-    (isActorAdmin && targetRole === "USER");
+    isCreateMode || isActorOwner || (isActorAdmin && targetRole === "USER");
 
   const canDisableOrRemove =
     !isCreateMode &&
@@ -72,7 +71,7 @@ export function getPermissions(
 
 export function getSaveButtonLabel(
   isCreateMode: boolean,
-  canEditTarget: boolean
+  canEditTarget: boolean,
 ) {
   if (isCreateMode) return "Send Invite";
   if (!canEditTarget) return "You cannot edit this user";
@@ -81,7 +80,7 @@ export function getSaveButtonLabel(
 
 export function makeFieldUpdater(
   key: "username" | "email" | "phoneNumber" | "description",
-  setForm: React.Dispatch<React.SetStateAction<UserFormData>>
+  setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
 ) {
   return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
@@ -99,7 +98,7 @@ export function makeSelectUpdater(
 }
 
 export function makePermissionToggler(
-  setForm: React.Dispatch<React.SetStateAction<UserFormData>>
+  setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
 ) {
   return (permission: AppPermission) => {
     setForm((prev) => {

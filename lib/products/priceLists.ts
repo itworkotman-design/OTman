@@ -5,6 +5,11 @@ export async function getPriceListById(priceListId: string) {
     where: { id: priceListId },
     include: {
       items: {
+        orderBy: [
+          { productOption: { product: { name: "asc" } } },
+          { productOption: { sortOrder: "asc" } },
+          { productOption: { code: "asc" } },
+        ],
         include: {
           productOption: {
             include: {
@@ -12,20 +17,9 @@ export async function getPriceListById(priceListId: string) {
             },
           },
         },
-        orderBy: [
-          {
-            productOption: {
-              product: {
-                sortOrder: "asc",
-              },
-            },
-          },
-          {
-            productOption: {
-              sortOrder: "asc",
-            },
-          },
-        ],
+      },
+      specialOptions: {
+        orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { code: "asc" }],
       },
     },
   });

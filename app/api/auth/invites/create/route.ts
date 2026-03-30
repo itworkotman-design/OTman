@@ -1,67 +1,88 @@
+// app/api/auth/invites/create/route.ts
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { createInvite } from "@/lib/auth/inviteCreate";
-//RALFS ADDED
 import { ensureInviteDeliveryRegistered } from "@/lib/auth/registerInviteDelivery";
 
+type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+
 function getClientIp(req: Request): string | null {
-    const xff = req.headers.get("x-forwarded-for");
-    if (xff) {
-        const first = xff.split(",")[0]?.trim();
-        return first || null;
-    }
-    return null;
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    return first || null;
+  }
+  return null;
+}
+
+function parsePermissions(value: unknown): AppPermission[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(
+    (permission: unknown): permission is AppPermission =>
+      permission === "BOOKING_VIEW" || permission === "BOOKING_CREATE",
+  );
 }
 
 export async function POST(req: Request) {
-    //RALFS ADDED
-    ensureInviteDeliveryRegistered();
-    const session = await getAuthenticatedSession(req);
+  ensureInviteDeliveryRegistered();
 
-    if (!session) {
-        return NextResponse.json(
-            { ok: false, reason: "UNAUTHORIZED" },
-            { status: 401 }
-        );
-    }
+  const session = await getAuthenticatedSession(req);
 
-    if (!session.activeCompanyId) {
-        return NextResponse.json(
-            { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-            { status: 409 }
-        );
-    }
+  if (!session) {
+    return NextResponse.json(
+      { ok: false, reason: "UNAUTHORIZED" },
+      { status: 401 },
+    );
+  }
 
-    const body = await req.json().catch(() => null);
+  if (!session.activeCompanyId) {
+    return NextResponse.json(
+      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+      { status: 409 },
+    );
+  }
 
-    const email = typeof body?.email === "string" ? body.email : "";
-    const role = typeof body?.role === "string" ? body.role : "";
+  const body = await req.json().catch(() => null);
 
-    const userAgent = req.headers.get("user-agent");
-    const ip = getClientIp(req);
+  const email = typeof body?.email === "string" ? body.email : "";
+  const role = typeof body?.role === "string" ? body.role : "";
+  const username = typeof body?.username === "string" ? body.username : "";
+  const phoneNumber =
+    typeof body?.phoneNumber === "string" ? body.phoneNumber : "";
+  const description =
+    typeof body?.description === "string" ? body.description : "";
+  const priceListId =
+    typeof body?.priceListId === "string" ? body.priceListId : null;
+  const permissions = parsePermissions(body?.permissions);
 
-    const result = await createInvite({
-        actorUserId: session.userId,
-        companyId: session.activeCompanyId,
-        email,
-        role,
-        ip,
-        userAgent,
-    });
+  const userAgent = req.headers.get("user-agent");
+  const ip = getClientIp(req);
 
-    if (!result.ok) {
-        const status =
-            result.reason === "FORBIDDEN"
-                ? 403
-                : result.reason === "INVALID_INPUT"
-                    ? 400
-                    : 400;
+  const result = await createInvite({
+    actorUserId: session.userId,
+    companyId: session.activeCompanyId,
+    email,
+    role,
+    username,
+    phoneNumber,
+    description,
+    priceListId,
+    permissions,
+    ip,
+    userAgent,
+  });
 
-        return NextResponse.json(
-            { ok: false, reason: result.reason },
-            { status }
-        );
-    }
+  if (!result.ok) {
+    const status =
+      result.reason === "FORBIDDEN"
+        ? 403
+        : result.reason === "INVALID_INPUT"
+          ? 400
+          : 400;
 
-    return NextResponse.json({ ok: true }, { status: 201 });
+    return NextResponse.json({ ok: false, reason: result.reason }, { status });
+  }
+
+  return NextResponse.json({ ok: true }, { status: 201 });
 }

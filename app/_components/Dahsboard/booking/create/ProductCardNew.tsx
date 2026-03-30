@@ -7,6 +7,14 @@ import {
   OPTION_CODES,
   OPTION_CATEGORIES,
 } from "@/lib/booking/constants";
+import {
+  isInstallOption,
+  isReturnOption,
+  isExtraCheckboxOption,
+  showsInstallOptions,
+  showsReturnOptions,
+  showsExtraCheckboxes,
+} from "@/lib/booking/pricing/rules";
 
 type Props = {
   cardId: number;
@@ -95,29 +103,20 @@ function isExtraOption(
   return c === "extra";
 }
 
-const installOptions = options.filter((o) =>isInstallOption(o.category, o.code),);
+const installOptions = options.filter((o) =>
+  isInstallOption(o.category, o.code),
+);
 
-const extraOptions = options.filter((o) => {
-  const code = (o.code ?? "").trim().toUpperCase();
-  return code === OPTION_CODES.UNPACKING || code === OPTION_CODES.DEMONT;
-});
+const extraOptions = options.filter((o) => isExtraCheckboxOption(o.code));
 
 const returnOptions = options.filter((o) => isReturnOption(o.category, o.code));
 
+const showInstallOptions = showsInstallOptions(value.deliveryType);
+const showReturnOptions = showsReturnOptions(value.deliveryType);
+const showExtras = showsExtraCheckboxes(value.deliveryType);
 
   const showDeliveryType = !!value.productId;
   const showAmount = !!value.productId;
-
-  const showInstallOptions =
-    value.deliveryType === DELIVERY_TYPES.INDOOR ||
-    value.deliveryType === DELIVERY_TYPES.INSTALL_ONLY;
-
-  const showReturnOptions =
-    value.deliveryType === DELIVERY_TYPES.INDOOR ||
-    value.deliveryType === DELIVERY_TYPES.INSTALL_ONLY ||
-    value.deliveryType === DELIVERY_TYPES.RETURN_ONLY;
-
-  const showExtras = value.deliveryType === DELIVERY_TYPES.INDOOR;
 
   function update(partial: Partial<SavedProductCard>) {
     onChange({

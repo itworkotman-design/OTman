@@ -7,12 +7,25 @@ function parsePrice(value: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function buildOptionLabel(option: CatalogProduct["options"][number]) {
-  const base = option.description?.trim() || option.label.trim();
-  const code = option.code?.trim();
+function cleanLabel(
+  description: string | null | undefined,
+  fallback: string | null | undefined,
+  code: string | null | undefined,
+) {
+  const raw = (description ?? fallback ?? "").trim();
+  const normalizedCode = (code ?? "").trim();
 
-  if (!code) return base;
-  return `${base} (${code})`;
+  if (!raw) return "";
+
+  if (!normalizedCode) return raw;
+
+  const escapedCode = normalizedCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  return raw
+    .replace(new RegExp(`\\(${escapedCode}\\)`, "gi"), "")
+    .replace(new RegExp(`\\b${escapedCode}\\b`, "gi"), "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 export function findReturnOptions(catalogProducts: CatalogProduct[]) {
@@ -56,7 +69,8 @@ export function buildPriceLookup(
   for (const product of catalogProducts) {
     for (const option of product.options) {
       lookup[option.id] = {
-        label: buildOptionLabel(option),
+        label: cleanLabel(option.description, option.label, option.code),
+        code: option.code,
         customerPrice: parsePrice(option.effectiveCustomerPrice),
         subcontractorPrice: parsePrice(option.subcontractorPrice),
       };

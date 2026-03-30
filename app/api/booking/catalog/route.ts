@@ -2,28 +2,15 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
 import { prisma } from "@/lib/db";
+import { getEffectivePrice } from "@/lib/products/discounts";
 
 function centsToNokString(cents: number) {
   return Math.round(cents / 100).toString();
 }
 
-function getEffectiveCustomerPriceCents(item: {
-  customerPriceCents: number;
-  discountAmountCents: number | null;
-  discountEndsAt: Date | null;
-}) {
-  const now = new Date();
-
-  const hasActiveDiscount =
-    item.discountAmountCents !== null &&
-    item.discountEndsAt !== null &&
-    item.discountEndsAt.getTime() > now.getTime();
-
-  if (!hasActiveDiscount) {
-    return item.customerPriceCents;
-  }
-
-  return Math.max(0, item.customerPriceCents - item.discountAmountCents!);
+function toDateInputValue(value: Date | null) {
+  if (!value) return null;
+  return value.toISOString().slice(0, 10);
 }
 
 export async function GET(req: Request) {
@@ -97,6 +84,12 @@ export async function GET(req: Request) {
           },
         ],
       },
+      specialOptions: {
+        where: {
+          isActive: true,
+        },
+        orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { code: "asc" }],
+      },
     },
   });
 
@@ -117,7 +110,7 @@ export async function GET(req: Request) {
       options: Array<{
         id: string;
         code: string;
-        label: string;
+        label: string | null;
         description: string | null;
         category: string | null;
         customerPrice: string;
@@ -141,9 +134,9 @@ export async function GET(req: Request) {
       });
     }
 
-    const effectiveCustomerPriceCents = getEffectiveCustomerPriceCents({
-      customerPriceCents: item.customerPriceCents,
-      discountAmountCents: item.discountAmountCents,
+    const effectiveCustomerPriceCents = getEffectivePrice({
+      basePrice: item.customerPriceCents,
+      discountAmount: item.discountAmountCents,
       discountEndsAt: item.discountEndsAt,
     });
 
@@ -160,12 +153,42 @@ export async function GET(req: Request) {
     });
   }
 
+  const specialOptions = priceList.specialOptions.map((option) => {
+    const customerPriceNumber = Number(option.customerPrice);
+    const discountAmountNumber =
+      option.discountAmount === null ? null : Number(option.discountAmount);
+
+    const effectiveCustomerPrice = getEffectivePrice({
+      basePrice: customerPriceNumber,
+      discountAmount:
+        discountAmountNumber !== null && Number.isFinite(discountAmountNumber)
+          ? discountAmountNumber
+          : null,
+      discountEndsAt: option.discountEndsAt,
+    });
+
+    return {
+      id: option.id,
+      type: option.type.toLowerCase(),
+      code: option.code,
+      label: option.label,
+      description: option.description,
+      customerPrice: String(option.customerPrice),
+      subcontractorPrice: String(option.subcontractorPrice),
+      discountAmount: option.discountAmount ?? "",
+      discountEndsAt: toDateInputValue(option.discountEndsAt),
+      effectiveCustomerPrice: String(effectiveCustomerPrice),
+      active: option.isActive,
+    };
+  });
+
   return NextResponse.json(
     {
       ok: true,
       priceListId: priceList.id,
       priceListCode: priceList.code,
       products: Array.from(productMap.values()),
+      specialOptions,
     },
     { status: 200 },
   );

@@ -8,6 +8,7 @@ import type {
   ProductBreakdown,
 } from "@/lib/booking/pricing/types";
 
+
 function formatNOK(n: number) {
   return `${n.toFixed(2)} NOK`;
 }
@@ -107,6 +108,13 @@ export function CalculatorDisplayNew({
                           x{formatQty(line.qty)}
                         </span>
                       )}
+
+                      {line.code && (
+                        <span className="text-logoblue mr-1">
+                          ({line.code})
+                        </span>
+                      )}
+
                       {line.label}
                     </h1>
 

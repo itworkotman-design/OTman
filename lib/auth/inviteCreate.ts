@@ -1,3 +1,4 @@
+// lib/auth/inviteCreate.ts
 import { AuthEventType, Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getActiveMembership } from "@/lib/auth/membership";
@@ -7,17 +8,49 @@ import { deliverInvite } from "@/lib/auth/inviteDelivery";
 
 const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+
 type CreateInviteResult =
   | { ok: true }
   | { ok: false; reason: "INVALID_INPUT" | "FORBIDDEN" };
 
 const ALLOWED_ROLES = new Set<Role>(["OWNER", "ADMIN", "USER"]);
 
+function normalizeOptionalString(
+  value: string | null | undefined,
+): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizePermissions(
+  value: AppPermission[] | undefined,
+): AppPermission[] {
+  const list = Array.isArray(value) ? value : [];
+
+  const filtered: AppPermission[] = list.filter(
+    (permission): permission is AppPermission =>
+      permission === "BOOKING_VIEW" || permission === "BOOKING_CREATE",
+  );
+
+  const withDependencies: AppPermission[] = filtered.includes("BOOKING_CREATE")
+    ? ["BOOKING_VIEW", ...filtered]
+    : filtered;
+
+  return Array.from(new Set(withDependencies)) as AppPermission[];
+}
+
 export async function createInvite(params: {
   actorUserId: string;
   companyId: string;
   email: string;
   role: string;
+  username?: string | null;
+  phoneNumber?: string | null;
+  description?: string | null;
+  priceListId?: string | null;
+  permissions?: AppPermission[];
   ip?: string | null;
   userAgent?: string | null;
 }): Promise<CreateInviteResult> {
@@ -25,7 +58,18 @@ export async function createInvite(params: {
   const nextRole = params.role.trim() as Role;
   const companyId = params.companyId.trim();
 
-  if (!params.actorUserId || !companyId || !email || !ALLOWED_ROLES.has(nextRole)) {
+  const username = normalizeOptionalString(params.username);
+  const phoneNumber = normalizeOptionalString(params.phoneNumber);
+  const description = normalizeOptionalString(params.description);
+  const priceListId = normalizeOptionalString(params.priceListId);
+  const permissions = normalizePermissions(params.permissions);
+
+  if (
+    !params.actorUserId ||
+    !companyId ||
+    !email ||
+    !ALLOWED_ROLES.has(nextRole)
+  ) {
     return { ok: false, reason: "INVALID_INPUT" };
   }
 
@@ -40,6 +84,17 @@ export async function createInvite(params: {
 
   if (actorMembership.role === "ADMIN" && nextRole === "OWNER") {
     return { ok: false, reason: "FORBIDDEN" };
+  }
+
+  if (priceListId) {
+    const priceList = await prisma.priceList.findUnique({
+      where: { id: priceListId },
+      select: { id: true },
+    });
+
+    if (!priceList) {
+      return { ok: false, reason: "INVALID_INPUT" };
+    }
   }
 
   const token = generateInviteToken();
@@ -59,17 +114,33 @@ export async function createInvite(params: {
       },
     });
 
-    await tx.invite.create({
+    const invite = await tx.invite.create({
       data: {
         companyId,
         email,
         role: nextRole,
+        username,
+        phoneNumber,
+        description,
+        priceListId,
         status: "PENDING",
         tokenHash,
         expiresAt,
         createdByUserId: params.actorUserId,
       },
+      select: {
+        id: true,
+      },
     });
+
+    if (permissions.length > 0) {
+      await tx.invitePermission.createMany({
+        data: permissions.map((permission) => ({
+          inviteId: invite.id,
+          permission,
+        })),
+      });
+    }
   });
 
   await deliverInvite({
@@ -87,6 +158,10 @@ export async function createInvite(params: {
     meta: {
       invitedEmail: email,
       role: nextRole,
+      username,
+      phoneNumber,
+      priceListId,
+      permissions,
     },
   });
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { OPTION_CATEGORIES, OPTION_CODES } from "@/lib/booking/constants";
+import { isReturnOption, isXtraOption } from "@/lib/booking/pricing/rules";
 
 type PriceListSummary = {
   id: string;
@@ -11,14 +12,14 @@ type PriceListSummary = {
 
 type PriceListItem = {
   id: string;
-  productId: string;
-  productOptionId: string;
-  productName: string;
-  productCode: string;
+  productId?: string;
+  productOptionId?: string;
+  productName?: string;
+  productCode?: string;
   optionCode: string;
-  optionLabel: string;
+  optionLabel?: string | null;
   description: string | null;
-  category: string | null;
+  category?: string | null;
   sortOrder: number;
   customerPrice: string;
   subcontractorPrice: string;
@@ -26,7 +27,9 @@ type PriceListItem = {
   discountEndsAt: string | null;
   effectiveCustomerPrice: string;
   isActive: boolean;
+  type?: string;
 };
+
 
 type EditableRow = PriceListItem & {
   saving?: boolean;
@@ -41,11 +44,8 @@ type PriceListData = {
   description: string | null;
   isActive: boolean;
   items: PriceListItem[];
+  specialOptions: PriceListItem[];
 };
-
-function normalize(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase();
-}
 
 function isReturnRow(
   item: Pick<
@@ -53,21 +53,7 @@ function isReturnRow(
     "category" | "optionCode" | "optionLabel" | "description"
   >,
 ) {
-  const category = normalize(item.category);
-  const code = normalize(item.optionCode);
-  const label = normalize(item.optionLabel);
-  const description = normalize(item.description);
-
-  return (
-    category === OPTION_CATEGORIES.RETURN ||
-    category === "retur" ||
-    code.includes("return") ||
-    code.includes("retur") ||
-    label.includes("return") ||
-    label.includes("retur") ||
-    description.includes("return") ||
-    description.includes("retur")
-  );
+  return isReturnOption(item.category, item.optionCode);
 }
 
 function isXtraRow(
@@ -76,17 +62,7 @@ function isXtraRow(
     "category" | "optionCode" | "optionLabel" | "description"
   >,
 ) {
-  const category = normalize(item.category);
-  const code = normalize(item.optionCode);
-  const label = normalize(item.optionLabel);
-  const description = normalize(item.description);
-
-  return (
-    category === OPTION_CATEGORIES.XTRA ||
-    code.includes(OPTION_CODES.XTRA.toLowerCase()) ||
-    label.includes(OPTION_CODES.XTRA.toLowerCase()) ||
-    description.includes(OPTION_CODES.XTRA.toLowerCase())
-  );
+  return isXtraOption(item.category, item.optionCode);
 }
 
 export default function EditPricesPage() {
@@ -105,87 +81,95 @@ export default function EditPricesPage() {
     return priceLists.find((item) => item.code === targetCode) ?? null;
   }, [activeTab, priceLists]);
 
-  useEffect(() => {
-    async function loadPriceLists() {
-      try {
-        setLoading(true);
-        setError(null);
+ useEffect(() => {
+   async function loadPriceLists() {
+     try {
+       setLoading(true);
+       setError(null);
 
-        const res = await fetch("/api/products/pricelists", {
-          cache: "no-store",
-        });
+       const res = await fetch("/api/products/pricelists", {
+         cache: "no-store",
+       });
 
-        const data = await res.json();
+       const data = await res.json();
 
-        if (!res.ok || !data.ok) {
-          setError(data.reason ?? "Failed to load price lists");
-          setPriceLists([]);
-          return;
-        }
+       if (!res.ok || !data.ok) {
+         setError(data.reason ?? "Failed to load price lists");
+         setPriceLists([]);
+         return;
+       }
 
-        setPriceLists(data.priceLists ?? []);
-      } catch {
-        setError("Something went wrong while loading price lists");
-        setPriceLists([]);
-      } finally {
-        setLoading(false);
-      }
+       setPriceLists(data.priceLists ?? []);
+     } catch {
+       setError("Something went wrong while loading price lists");
+       setPriceLists([]);
+     } finally {
+       setLoading(false);
+     }
+   }
+
+   loadPriceLists();
+ }, []);
+
+
+useEffect(() => {
+  async function loadActivePriceList() {
+    if (!activePriceListSummary) {
+      setPriceList(null);
+      setRows([]);
+      setOriginalRows({});
+      return;
     }
 
-    loadPriceLists();
-  }, []);
+    try {
+      setLoading(true);
+      setError(null);
 
-  useEffect(() => {
-    async function loadActivePriceList() {
-      if (!activePriceListSummary) {
+      const res = await fetch(
+        `/api/products/pricelists/${activePriceListSummary.id}`,
+        { cache: "no-store" },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        setError(data.reason ?? "Failed to load price list");
         setPriceList(null);
         setRows([]);
         setOriginalRows({});
         return;
       }
 
-      try {
-        setLoading(true);
-        setError(null);
+      setPriceList(data.priceList);
 
-        const res = await fetch(
-          `/api/products/pricelists/${activePriceListSummary.id}`,
-          { cache: "no-store" },
-        );
+      const combinedRows: EditableRow[] = [
+        ...(data.priceList.items ?? []),
+        ...(data.priceList.specialOptions ?? []),
+      ];
 
-        const data = await res.json();
+      setRows(combinedRows);
 
-        if (!res.ok || !data.ok) {
-          setError(data.reason ?? "Failed to load price list");
-          setPriceList(null);
-          setRows([]);
-          setOriginalRows({});
-          return;
-        }
+      const originals = combinedRows.reduce(
+        (acc: Record<string, PriceListItem>, item: PriceListItem) => {
+          acc[item.id] = item;
+          return acc;
+        },
+        {},
+      );
 
-        setPriceList(data.priceList);
-        setRows(data.priceList.items);
-
-        const originals = data.priceList.items.reduce(
-          (acc: Record<string, PriceListItem>, item: PriceListItem) => {
-            acc[item.id] = item;
-            return acc;
-          },
-          {},
-        );
-
-        setOriginalRows(originals);
-      } catch {
-        setError("Something went wrong while loading price list");
-        setPriceList(null);
-        setRows([]);
-        setOriginalRows({});
-      } finally {
-        setLoading(false);
-      }
+      setOriginalRows(originals);
+    } catch {
+      setError("Something went wrong while loading price list");
+      setPriceList(null);
+      setRows([]);
+      setOriginalRows({});
+    } finally {
+      setLoading(false);
     }
-    loadActivePriceList();
-  }, [activePriceListSummary]);
+  }
+
+  loadActivePriceList();
+}, [activePriceListSummary]);
 
   function updateRow(itemId: string, patch: Partial<EditableRow>) {
     setRows((current) =>
@@ -205,7 +189,7 @@ export default function EditPricesPage() {
   function updateProductRows(productId: string, patch: Partial<EditableRow>) {
     setRows((current) =>
       current.map((row) =>
-        row.productId === productId
+        row.productId != null && row.productId === productId
           ? {
               ...row,
               ...patch,
@@ -242,6 +226,10 @@ export default function EditPricesPage() {
     const isReturn = isReturnRow(row);
     const isXtra = isXtraRow(row);
     const isSpecialRow = isReturn || isXtra;
+
+    const url = isSpecialRow
+      ? `/api/products/pricelists/special-options/${itemId}`
+      : `/api/products/pricelists/items/${itemId}/full`;
 
     if (!row.customerPrice.trim()) {
       updateRow(itemId, { error: "Customer price is required" });
@@ -285,7 +273,7 @@ export default function EditPricesPage() {
     try {
       updateRow(itemId, { saving: true, error: null, saved: false });
 
-      const res = await fetch(`/api/products/pricelists/items/${itemId}/full`, {
+      const res = await fetch(url, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -376,50 +364,39 @@ export default function EditPricesPage() {
   async function addSpecialOption(type: "return" | "xtra") {
     if (!priceList) return;
 
-    const fallbackProductId =
-      rows.find((row) => normalize(row.productId) !== "")?.productId ?? null;
-
-    if (!fallbackProductId) {
-      alert("Create at least one product first");
-      return;
-    }
-
-    const defaults =
-      type === "return"
-        ? {
-            label: "Return option",
-            optionCode: "RETURN",
-            category: "return",
-            description: "Return option",
-            productName: "Return",
-          }
-        : {
-            label: "XTRA option",
-            optionCode: "XTRA",
-            category: "xtra",
-            description: "Extra amount option",
-            productName: "XTRA",
-          };
-
     const res = await fetch(
-      `/api/products/pricelists/${priceList.id}/products/${fallbackProductId}/options`,
+      `/api/products/pricelists/${priceList.id}/special-options`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(defaults),
+        body: JSON.stringify({ type }),
       },
     );
 
-    const data = await res.json();
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
 
-    if (!res.ok || !data.ok) {
-      alert(`Failed to create ${type} option`);
+    if (!res.ok || !data?.ok) {
+      alert(data?.reason ?? `Failed to create ${type} option`);
       return;
     }
 
-    const newItem = data.item;
+    const newItem: EditableRow = {
+      ...data.item,
+      category:
+        data.item.type === "return"
+          ? OPTION_CATEGORIES.RETURN
+          : data.item.type === "xtra"
+            ? OPTION_CATEGORIES.XTRA
+            : (data.item.category ?? null),
+      productId: undefined,
+      productOptionId: undefined,
+      productName: undefined,
+      productCode: undefined,
+      optionLabel: data.item.label ?? null,
+    };
 
     setRows((prev) => [...prev, newItem]);
 
@@ -428,13 +405,21 @@ export default function EditPricesPage() {
       [newItem.id]: newItem,
     }));
   }
-
   async function deleteRow(itemId: string) {
     const confirmed = window.confirm("Delete this option?");
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`/api/products/pricelists/items/${itemId}`, {
+      const item = rows.find((row) => row.id === itemId);
+      if (!item) return;
+
+      const isSpecialRow = isReturnRow(item) || isXtraRow(item);
+
+      const url = isSpecialRow
+        ? `/api/products/pricelists/special-options/${itemId}`
+        : `/api/products/pricelists/items/${itemId}`;
+
+      const res = await fetch(url, {
         method: "DELETE",
       });
 
@@ -499,36 +484,38 @@ export default function EditPricesPage() {
 
   const xtraRows = useMemo(() => rows.filter((row) => isXtraRow(row)), [rows]);
 
-  const groupedProducts = useMemo(() => {
-    return Object.values(
-      normalRows.reduce(
-        (acc, item) => {
-          const key = item.productId;
+const groupedProducts = useMemo(() => {
+  return Object.values(
+    normalRows.reduce(
+      (acc, item) => {
+        if (!item.productId) return acc;
 
-          if (!acc[key]) {
-            acc[key] = {
-              productId: item.productId,
-              productName: item.productName,
-              productCode: item.productCode,
-              items: [],
-            };
-          }
+        const key = item.productId;
 
-          acc[key].items.push(item);
-          return acc;
-        },
-        {} as Record<
-          string,
-          {
-            productId: string;
-            productName: string;
-            productCode: string;
-            items: EditableRow[];
-          }
-        >,
-      ),
-    );
-  }, [normalRows]);
+        if (!acc[key]) {
+          acc[key] = {
+            productId: item.productId,
+            productName: item.productName ?? "",
+            productCode: item.productCode ?? "",
+            items: [],
+          };
+        }
+
+        acc[key].items.push(item);
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          productId: string;
+          productName: string;
+          productCode: string;
+          items: EditableRow[];
+        }
+      >,
+    ),
+  );
+}, [normalRows]);
 
   if (loading) {
     return (
@@ -653,7 +640,7 @@ export default function EditPricesPage() {
                                   className="w-full text-center py-1 px-2 rounded focus:outline-none hover:bg-black/5"
                                   value={group.productName}
                                   onChange={(e) =>
-                                    updateProductRows(item.productId, {
+                                    updateProductRows(group.productId, {
                                       productName: e.target.value,
                                     })
                                   }

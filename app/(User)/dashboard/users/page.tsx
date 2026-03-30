@@ -1,3 +1,4 @@
+// app/(User)/dashboard/users/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -7,10 +8,9 @@ import type { Role, Membership } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 
 export default function UserPage() {
-  
   const currentUser = useCurrentUser();
   const currentUserRole = currentUser?.role ?? "USER";
-
+  const [modalKey, setModalKey] = useState(0);
   const [users, setUsers] = useState<Membership[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Membership | null>(null);
@@ -19,7 +19,11 @@ export default function UserPage() {
   const [query, setQuery] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [priceLists, setPriceLists] = useState([]);
+  const [priceLists, setPriceLists] = useState<{ id: string; name: string }[]>(
+    [],
+  );
+
+  const router = useRouter();
 
   useEffect(() => {
     fetch("/api/products/pricelists")
@@ -28,8 +32,6 @@ export default function UserPage() {
         if (data.ok) setPriceLists(data.priceLists);
       });
   }, []);
-  
-  const router = useRouter();
 
   async function loadUsers() {
     try {
@@ -72,6 +74,7 @@ export default function UserPage() {
         (u.user.description ?? "").toLowerCase().includes(q) ||
         u.role.toLowerCase().includes(q) ||
         u.id.toLowerCase().includes(q);
+
       return roleOk && queryOk;
     });
   }, [users, roleFilter, query]);
@@ -86,7 +89,11 @@ export default function UserPage() {
         ? `/api/auth/memberships/${target.id}/disable`
         : `/api/auth/memberships/${target.id}/enable`;
 
-    const res = await fetch(route, { method: "POST", credentials: "include" });
+    const res = await fetch(route, {
+      method: "POST",
+      credentials: "include",
+    });
+
     const data = await res.json().catch(() => null);
 
     if (!res.ok || !data?.ok) {
@@ -95,7 +102,12 @@ export default function UserPage() {
     }
 
     setSelectedUser((prev) =>
-      prev ? { ...prev, status: prev.status === "ACTIVE" ? "DISABLED" : "ACTIVE" } : prev
+      prev
+        ? {
+            ...prev,
+            status: prev.status === "ACTIVE" ? "DISABLED" : "ACTIVE",
+          }
+        : prev,
     );
 
     await loadUsers();
@@ -126,7 +138,9 @@ export default function UserPage() {
     setOpen(false);
     setSelectedUser(null);
   }
-console.log("priceLists in parent", priceLists);
+
+  
+
   return (
     <div className="mx-auto max-w-[1500]">
       <h1 className="mb-20 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
@@ -135,9 +149,12 @@ console.log("priceLists in parent", priceLists);
 
       <div className="w-full">
         <UserModal
-          key={selectedUser?.id ?? "new"}
+          key={`${selectedUser?.id ?? "new"}-${modalKey}`}
           isOpen={open}
-          onClose={() => setOpen(false)}
+          onClose={() => {
+            setOpen(false);
+            setSelectedUser(null);
+          }}
           actorRole={currentUserRole}
           targetRole={selectedUser?.role ?? "USER"}
           initialValueUsername={selectedUser?.user.username ?? ""}
@@ -148,9 +165,15 @@ console.log("priceLists in parent", priceLists);
           initialValueActive={
             selectedUser ? selectedUser.status === "ACTIVE" : true
           }
+          initialValuePermissions={
+            selectedUser?.permissions?.map((p) => p.permission) ?? [
+              "BOOKING_VIEW",
+            ]
+          }
           priceLists={priceLists}
           initialPriceListId={selectedUser?.priceListId ?? null}
           onSave={async (data) => {
+            console.log("CREATE USER MODAL DATA", data);
             if (!selectedUser) {
               const res = await fetch("/api/auth/invites/create", {
                 method: "POST",
@@ -158,6 +181,7 @@ console.log("priceLists in parent", priceLists);
                 credentials: "include",
                 body: JSON.stringify({
                   email: data.email,
+                  role: data.role,
                   username: data.username,
                   phoneNumber: data.phoneNumber,
                   description: data.description,
@@ -190,6 +214,7 @@ console.log("priceLists in parent", priceLists);
                   phoneNumber: data.phoneNumber,
                   description: data.description,
                   priceListId: data.priceListId ?? null,
+                  permissions: data.permissions,
                 }),
               },
             );
@@ -211,9 +236,29 @@ console.log("priceLists in parent", priceLists);
             setOpen(false);
             setSelectedUser(null);
           }}
-          onRemove={() => {
-            if (!selectedUser) return;
-            alert("Remove user is not connected to backend yet.");
+          onRemove={async () => {
+            if (!selectedUser) return false;
+
+            const res = await fetch(
+              `/api/auth/memberships/${selectedUser.id}/remove`,
+              {
+                method: "POST",
+                credentials: "include",
+              },
+            );
+
+            const result = await res.json().catch(() => null);
+
+            if (!res.ok || !result?.ok) {
+              alert(result?.reason || "Failed to remove user");
+              return false;
+            }
+
+            await loadUsers();
+            router.refresh();
+            setOpen(false);
+            setSelectedUser(null);
+            return true;
           }}
           onToggleActive={() => {
             if (!selectedUser) return;
@@ -247,13 +292,15 @@ console.log("priceLists in parent", priceLists);
               className="customButtonDefault"
               onClick={() => {
                 setSelectedUser(null);
+                setModalKey((prev) => prev + 1);
                 setOpen(true);
               }}
             >
               Add User
             </button>
+
             <button
-              className="customButtonDefault hidden hover:bg-black/3! lg:block "
+              className="customButtonDefault hidden hover:bg-black/3! lg:block"
               disabled
             >
               Export
@@ -290,6 +337,7 @@ console.log("priceLists in parent", priceLists);
                       aria-label="Select all"
                     />
                   </th>
+
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
                     Username
                   </th>
@@ -319,6 +367,7 @@ console.log("priceLists in parent", priceLists);
                   </th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredUsers.map((u) => (
                   <tr
@@ -326,6 +375,7 @@ console.log("priceLists in parent", priceLists);
                     className="cursor-pointer border-b border-black/10 hover:bg-black/2"
                     onClick={() => {
                       setSelectedUser(u);
+                      setModalKey((prev) => prev + 1);
                       setOpen(true);
                     }}
                   >
@@ -345,6 +395,7 @@ console.log("priceLists in parent", priceLists);
                         aria-label={`Select user ${u.id}`}
                       />
                     </td>
+
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {u.user.username || "-"}
                     </td>
@@ -354,23 +405,27 @@ console.log("priceLists in parent", priceLists);
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {u.user.phoneNumber || "-"}
                     </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird max-w-[220] truncate">
+                    <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {u.user.description || "-"}
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {u.role}
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      -
+                      {priceLists.find((pl) => pl.id === u.priceListId)?.name ||
+                        "-"}
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      -
+                      {u.permissions?.map((p) => p.permission).join(", ") ||
+                        "-"}
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
                     <td
-                      className={`px-4 py-2 font-semibold text-textColorThird ${u.status !== "ACTIVE" ? "text-red-600" : ""}`}
+                      className={`px-4 py-2 font-semibold text-textColorThird ${
+                        u.status !== "ACTIVE" ? "text-red-600" : ""
+                      }`}
                     >
                       {u.status === "ACTIVE" ? "Active" : "Disabled"}
                     </td>

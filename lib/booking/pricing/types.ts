@@ -17,6 +17,11 @@ export type ProductCardLineItem =
       productOptionId: string;
       qty: number;
       priceOverride?: number;
+    }
+  | {
+      kind: "info";
+      label: string;
+      qty: number;
     };
 
 export type ProductBreakdown = {
@@ -28,6 +33,7 @@ export type PriceLookup = Record<
   string,
   {
     label: string;
+    code?: string;
     customerPrice: number;
     subcontractorPrice: number;
   }
@@ -55,6 +61,7 @@ export type CalculatorTotals = {
 
 export type CalculatedLine = {
   label: string;
+  code?: string;
   qty: number;
   unitPrice: number;
   lineTotal: number;

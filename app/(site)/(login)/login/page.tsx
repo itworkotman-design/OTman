@@ -61,16 +61,18 @@ export default function LoginPage() {
         return;
       }
 
-      const memberships = Array.isArray(meData.memberships) ? meData.memberships : [];
+      const memberships = Array.isArray(meData.memberships)
+        ? meData.memberships
+        : [];
       const activeCompanyId = meData?.session?.activeCompanyId ?? null;
 
       const activeMembership =
         activeCompanyId === null
           ? null
-          : memberships.find(
+          : (memberships.find(
               (m: { companyId: string; role: string }) =>
-                m.companyId === activeCompanyId
-            ) ?? null;
+                m.companyId === activeCompanyId,
+            ) ?? null);
 
       if (!activeMembership) {
         if (memberships.length === 1) {
@@ -116,13 +118,13 @@ export default function LoginPage() {
                 htmlFor="email"
                 className="text-[20px] pl-2 font-semibold text-logoblue"
               >
-                Username / E-mail
+                E-mail
               </label>
               <input
                 id="email"
                 required
                 name="email"
-                type="text"
+                type="email"
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
