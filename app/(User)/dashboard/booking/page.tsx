@@ -9,7 +9,6 @@ import { BookingFieldEditor } from "../../../_components/Dahsboard/booking/order
 import { MessageSender } from "../../../_components/Dahsboard/booking/orders/MessageSender";
 import { ArchiveTable } from "../../../_components/Dahsboard/booking/orders/ArchiveTable";
 import { EditOrderModal } from "../../../_components/Dahsboard/booking/orders/EditOrderModal";
-import type { OrderFormInitialValues } from "@/app/_components/Dahsboard/booking/create/OrderForm";
 import { exportOrdersToExcel } from "@/lib/exportToExcel";
 
 import { ORDERS as MOCK_ORDERS } from "@/lib/_mockdb";

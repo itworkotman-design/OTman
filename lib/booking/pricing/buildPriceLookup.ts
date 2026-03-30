@@ -8,6 +8,7 @@ export function buildPriceLookup(products: CatalogProduct[]): PriceLookup {
     for (const option of product.options) {
       lookup[option.id] = {
         label: option.description || option.label,
+        code: option.code,
         customerPrice: Number(option.effectiveCustomerPrice || 0),
         subcontractorPrice: Number(option.subcontractorPrice || 0),
       };

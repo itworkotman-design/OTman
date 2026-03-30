@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { isSubcontractorPermissions } from "@/lib/users/userAccess";
+import { isSubcontractorAccess } from "@/lib/users/access";
 import type { AppPermission } from "@/lib/users/types";
 
 export async function GET(req: Request) {
@@ -55,7 +55,7 @@ export async function GET(req: Request) {
         (p) => p.permission,
       ) as AppPermission[];
 
-      return isSubcontractorPermissions(permissions);
+      return isSubcontractorAccess(permissions);
     })
     .map((membership) => ({
       id: membership.id,

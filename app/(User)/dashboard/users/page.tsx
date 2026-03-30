@@ -6,7 +6,7 @@ import UserModal from "@/app/_components/Dahsboard/users/UserModal";
 import { useRouter } from "next/navigation";
 import type { Role, Membership } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
-import { getAccessLabel } from "@/lib/users/userAccess";
+import { getAccessLabel } from "@/lib/users/access";
 
 export default function UserPage() {
   const currentUser = useCurrentUser();
@@ -140,10 +140,9 @@ export default function UserPage() {
     setSelectedUser(null);
   }
 
-  
-console.log("currentUser", currentUser);
-console.log("currentUserRole", currentUserRole);
-console.log("selectedUser", selectedUser);
+  console.log("currentUser", currentUser);
+  console.log("currentUserRole", currentUserRole);
+  console.log("selectedUser", selectedUser);
   return (
     <div className="mx-auto max-w-[1500]">
       <h1 className="mb-20 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">

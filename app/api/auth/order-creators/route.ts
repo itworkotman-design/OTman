@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { isOrderCreatorPermissions } from "@/lib/users/userAccess";
+import { isOrderCreatorAccess } from "@/lib/users/access";
 import type { AppPermission } from "@/lib/users/types";
 
 export async function GET(req: Request) {
@@ -55,7 +55,7 @@ export async function GET(req: Request) {
         (p) => p.permission,
       ) as AppPermission[];
 
-      return isOrderCreatorPermissions(permissions);
+      return isOrderCreatorAccess(permissions);
     })
     .map((membership) => ({
       id: membership.id,

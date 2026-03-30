@@ -31,3 +31,9 @@ export type Membership = {
   priceListId: string | null;
   permissions: { permission: AppPermission }[];
 };
+
+export type UserOption = {
+  id: string;
+  name: string;
+  email: string;
+};

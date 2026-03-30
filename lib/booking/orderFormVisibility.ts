@@ -1,11 +1,10 @@
-import { getAccessTypeFromRoleAndPermissions } from "@/lib/users/userAccess";
-import type { AppPermission, Role } from "@/lib/users/types";
-
 import {
   OrderFields,
   type HiddenMask,
   type OrderFieldValue,
 } from "@/app/_components/Dahsboard/booking/create/orderFields";
+import { getUserAccessType } from "@/lib/users/access";
+import type { AppPermission, Role } from "@/lib/users/types";
 
 function hide(...fields: OrderFieldValue[]): HiddenMask {
   return fields.reduce((mask, field) => mask | field, 0);
@@ -15,14 +14,12 @@ export function getCreateOrderHiddenMask(
   role: Role,
   permissions: AppPermission[],
 ): HiddenMask {
-  const accessType = getAccessTypeFromRoleAndPermissions(role, permissions);
+  const accessType = getUserAccessType(role, permissions);
 
-  // Admin + Owner => show everything
-  if (role === "ADMIN" || role === "OWNER" || accessType === null) {
+  if (accessType === "FULL_ACCESS") {
     return 0;
   }
 
-  // Order creator => hide admin-only fields
   if (accessType === "ORDER_CREATOR") {
     return hide(
       OrderFields.Subcontractor,
@@ -37,8 +34,6 @@ export function getCreateOrderHiddenMask(
     );
   }
 
-  // Subcontractor should normally not create orders,
-  // but if they somehow reach this page, hide admin-only fields too.
   return hide(
     OrderFields.Subcontractor,
     OrderFields.Driver1,

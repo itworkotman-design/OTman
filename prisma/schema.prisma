@@ -89,6 +89,7 @@ model Company {
   invites        Invite[]
   authEvents     AuthEvent[]
   activeSessions Session[]    @relation("SessionActiveCompany")
+  orders         Order[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -108,8 +109,9 @@ model Membership {
   priceListId String?
   priceList   PriceList? @relation(fields: [priceListId], references: [id], onDelete: SetNull)
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdOrders Order[] @relation("OrderCreatedByMembership")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -433,4 +435,109 @@ model PriceListSpecialOption {
 
   @@unique([priceListId, type, code])
   @@index([priceListId, type])
+}
+
+model Order {
+  id                    String   @id @default(cuid())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  companyId             String
+  createdByMembershipId String
+
+  orderNumber           String?
+  description           String?
+  modelNr               String?
+
+  deliveryDate          String?
+  timeWindow            String?
+
+  pickupAddress         String?
+  extraPickupAddress    String[]
+  deliveryAddress       String?
+  returnAddress         String?
+  drivingDistance       String?
+
+  customerName          String?
+  phone                 String?
+  phoneTwo              String?
+  email                 String?
+  customerComments      String?
+
+  floorNo               String?
+  lift                  String?
+
+  cashierName           String?
+  cashierPhone          String?
+
+  subcontractorId       String?
+  subcontractor         String?
+
+  driver                String?
+  secondDriver          String?
+  driverInfo            String?
+  licensePlate          String?
+
+  deviation             String?
+  feeExtraWork          Boolean  @default(false)
+  feeAddToOrder         Boolean  @default(false)
+  statusNotes           String?
+  changeCustomerId      String?
+  changeCustomer        String?
+  status                String?
+  dontSendEmail         Boolean  @default(false)
+
+  priceExVat            Int      @default(0)
+  priceSubcontractor    Int      @default(0)
+
+  rabatt                String?
+  leggTil               String?
+  subcontractorMinus    String?
+  subcontractorPlus     String?
+
+  productsSummary       String?
+  deliveryTypeSummary   String?
+  servicesSummary       String?
+
+  productCardsSnapshot  Json?
+
+  company               Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByMembership   Membership  @relation("OrderCreatedByMembership", fields: [createdByMembershipId], references: [id], onDelete: Restrict)
+  items                 OrderItem[]
+
+  @@index([companyId, createdAt])
+  @@index([status])
+  @@index([deliveryDate])
+}
+
+model OrderItem {
+  id                      String   @id @default(cuid())
+  createdAt               DateTime @default(now())
+
+  orderId                 String
+
+  cardId                  Int
+  productId               String?
+  productCode             String?
+  productName             String?
+
+  deliveryType            String?
+
+  itemType                String
+  optionId                String?
+  optionCode              String?
+  optionLabel             String?
+
+  quantity                Float    @default(1)
+
+  customerPriceCents      Int?
+  subcontractorPriceCents Int?
+
+  rawData                 Json?
+
+  order                   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([optionId])
 }

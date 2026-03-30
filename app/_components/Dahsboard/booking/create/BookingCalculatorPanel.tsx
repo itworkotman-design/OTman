@@ -1,0 +1,81 @@
+"use client";
+
+import React from "react";
+import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplayNew";
+import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
+import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
+
+type Props = {
+  calcOpen: boolean;
+  setCalcOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  productBreakdowns: ReturnType<typeof buildProductBreakdowns>;
+  priceLookup: ReturnType<typeof buildPriceLookup>;
+  adminView: boolean;
+  onPriceChange: (exVat: number, subPrice: number) => void;
+  onAdjustmentsChange: (adj: {
+    rabatt: string;
+    leggTil: string;
+    subcontractorMinus: string;
+    subcontractorPlus: string;
+  }) => void;
+};
+
+export default function BookingCalculatorPanel({
+  calcOpen,
+  setCalcOpen,
+  productBreakdowns,
+  priceLookup,
+  adminView,
+  onPriceChange,
+  onAdjustmentsChange,
+}: Props) {
+  return (
+    <>
+      <div className="lg:hidden fixed right-0 top-1/2 -translate-y-1/2 z-40">
+        {!calcOpen ? (
+          <button
+            type="button"
+            onClick={() => setCalcOpen(true)}
+            className="h-80 w-10 rounded-l-full bg-white shadow-xl border border-black/10 flex items-center justify-center"
+            aria-label="Open calculator"
+          >
+            <span className="[writing-mode:vertical-rl] rotate-180 text-md font-semibold text-logoblue">
+              Calculator
+            </span>
+          </button>
+        ) : (
+          <div className="flex flex-col bg-white overflow-auto border rounded-2xl shadow-xl">
+            <button
+              type="button"
+              onClick={() => setCalcOpen(false)}
+              className="rounded-4xl bg-logoblue text-sm font-semibold w-[80] h-[40] text-white text-center ml-auto mr-2 mt-2"
+              aria-label="Close calculator"
+            >
+              Close
+            </button>
+
+            <div className="p-4">
+              <CalculatorDisplayNew
+                productBreakdowns={productBreakdowns}
+                priceLookup={priceLookup}
+                adminView={adminView}
+                onPriceChange={onPriceChange}
+                onAdjustmentsChange={onAdjustmentsChange}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="hidden lg:block flex-1">
+        <CalculatorDisplayNew
+          productBreakdowns={productBreakdowns}
+          priceLookup={priceLookup}
+          adminView={adminView}
+          onPriceChange={onPriceChange}
+          onAdjustmentsChange={onAdjustmentsChange}
+        />
+      </div>
+    </>
+  );
+}
