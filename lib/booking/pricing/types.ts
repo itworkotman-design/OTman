@@ -33,7 +33,7 @@ export type PriceLookup = Record<
   string,
   {
     label: string;
-    code?: string;
+    code: string;
     customerPrice: number;
     subcontractorPrice: number;
   }

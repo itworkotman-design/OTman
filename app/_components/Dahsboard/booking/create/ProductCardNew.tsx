@@ -1,15 +1,15 @@
 "use client";
+
 import { useMemo } from "react";
 import type { DeliveryType } from "@/lib/booking/pricing/types";
-import type { SavedProductCard, CatalogProduct } from "./_types/productCard";
-import {
-  DELIVERY_TYPES,
-  OPTION_CODES,
-  OPTION_CATEGORIES,
-} from "@/lib/booking/constants";
+import type {
+  SavedProductCard,
+  CatalogProduct,
+  CatalogSpecialOption,
+} from "./_types/productCard";
+import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import {
   isInstallOption,
-  isReturnOption,
   isExtraCheckboxOption,
   showsInstallOptions,
   showsReturnOptions,
@@ -21,6 +21,7 @@ type Props = {
   displayIndex?: number;
   value: SavedProductCard;
   catalogProducts: CatalogProduct[];
+  catalogSpecialOptions: CatalogSpecialOption[];
   loading?: boolean;
   error?: string | null;
   onChange: (value: SavedProductCard) => void;
@@ -35,6 +36,7 @@ export function ProductCardNew({
   displayIndex,
   value,
   catalogProducts,
+  catalogSpecialOptions,
   loading,
   error,
   onChange,
@@ -50,70 +52,29 @@ export function ProductCardNew({
 
   const options = selectedProduct?.options ?? [];
 
-function normalized(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase();
-}
-
-function isReturnOption(
-  category: string | null | undefined,
-  code: string | null | undefined,
-) {
-  const c = normalized(category);
-  const x = normalized(code);
-
-  return (
-    c === OPTION_CATEGORIES.RETURN ||
-    c === OPTION_CATEGORIES.RETURN ||
-    x.includes(OPTION_CATEGORIES.RETURN) ||
-    x.includes(OPTION_CATEGORIES.RETURN)
+  const installOptions = options.filter((o) =>
+    isInstallOption(o.category, o.code),
   );
-}
 
-function isXtraOption(
-  category: string | null | undefined,
-  code: string | null | undefined,
-) {
-  const c = normalized(category);
-  const x = normalized(code);
 
-  return c === OPTION_CATEGORIES.XTRA || x.includes(OPTION_CATEGORIES.XTRA);
-}
 
-function isInstallOption(
-  category: string | null | undefined,
-  code: string | null | undefined,
-) {
-  const c = normalized(category);
-
-  if (isReturnOption(category, code)) return false;
-  if (isXtraOption(category, code)) return false;
-
-  return c === OPTION_CATEGORIES.INSTALL;
-}
-
-function isExtraOption(
-  category: string | null | undefined,
-  code: string | null | undefined,
-) {
-  const c = normalized(category);
-
-  if (isReturnOption(category, code)) return false;
-  if (isXtraOption(category, code)) return false;
-
-  return c === "extra";
-}
-
-const installOptions = options.filter((o) =>
-  isInstallOption(o.category, o.code),
+const productExtraOptions = options.filter((o) =>
+  isExtraCheckboxOption(o.code),
 );
 
-const extraOptions = options.filter((o) => isExtraCheckboxOption(o.code));
+const specialExtraServiceOptions = catalogSpecialOptions.filter(
+  (o) => o.active && o.type === "extra_service",
+);
 
-const returnOptions = options.filter((o) => isReturnOption(o.category, o.code));
+const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
 
-const showInstallOptions = showsInstallOptions(value.deliveryType);
-const showReturnOptions = showsReturnOptions(value.deliveryType);
-const showExtras = showsExtraCheckboxes(value.deliveryType);
+  const returnOptions = catalogSpecialOptions.filter(
+    (o) => o.active && o.type === "return",
+  );
+
+  const showInstallOptions = showsInstallOptions(value.deliveryType);
+  const showReturnOptions = showsReturnOptions(value.deliveryType);
+  const showExtras = showsExtraCheckboxes(value.deliveryType);
 
   const showDeliveryType = !!value.productId;
   const showAmount = !!value.productId;
@@ -125,24 +86,24 @@ const showExtras = showsExtraCheckboxes(value.deliveryType);
     });
   }
 
- function handleProductSelect(newProductId: string | null) {
-   onChange({
-     ...value,
-     productId: newProductId,
-     deliveryType: "",
-     amount: 1,
-     selectedInstallOptionIds: [],
-     selectedExtraOptionIds: [],
-     selectedReturnOptionId: null,
-     demontEnabled: false,
-     selectedTimeOptionIds: [],
-     extraTimeHours: 0.5,
-     extraPalletEnabled: false,
-     extraPalletQty: 1,
-     etterEnabled: false,
-     etterQty: 1,
-   });
- }
+  function handleProductSelect(newProductId: string | null) {
+    onChange({
+      ...value,
+      productId: newProductId,
+      deliveryType: "",
+      amount: 1,
+      selectedInstallOptionIds: [],
+      selectedExtraOptionIds: [],
+      selectedReturnOptionId: null,
+      demontEnabled: false,
+      selectedTimeOptionIds: [],
+      extraTimeHours: 0.5,
+      extraPalletEnabled: false,
+      extraPalletQty: 1,
+      etterEnabled: false,
+      etterQty: 1,
+    });
+  }
 
   function toggleOption(
     optionId: string,
@@ -157,9 +118,6 @@ const showExtras = showsExtraCheckboxes(value.deliveryType);
         : [...current, optionId],
     });
   }
-
-
-
 
   const shownCardNumber = displayIndex ?? cardId + 1;
   const productLabel = selectedProduct?.label ?? "Velg";
@@ -275,7 +233,7 @@ const showExtras = showsExtraCheckboxes(value.deliveryType);
                       }
                     />
                     <span className="inline">
-                      {opt.description || opt.label}
+                      {opt.description || opt.label || opt.code}
                     </span>
                   </label>
                 ))
@@ -302,7 +260,7 @@ const showExtras = showsExtraCheckboxes(value.deliveryType);
                       }
                     />
                     <span className="inline">
-                      {opt.description || opt.label}
+                      {opt.description || opt.label || opt.code}
                     </span>
                   </label>
                 ))
@@ -317,7 +275,7 @@ const showExtras = showsExtraCheckboxes(value.deliveryType);
               </h1>
               {returnOptions.length === 0 ? (
                 <p className="text-sm opacity-70">
-                  No return options for this product.
+                  No return options available.
                 </p>
               ) : (
                 returnOptions.map((opt) => (
@@ -336,7 +294,7 @@ const showExtras = showsExtraCheckboxes(value.deliveryType);
                       }
                     />
                     <span className="inline">
-                      {opt.description || opt.label}
+                      {opt.description || opt.label || opt.code}
                     </span>
                   </label>
                 ))

@@ -6,6 +6,7 @@ import UserModal from "@/app/_components/Dahsboard/users/UserModal";
 import { useRouter } from "next/navigation";
 import type { Role, Membership } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
+import { getAccessLabel } from "@/lib/users/userAccess";
 
 export default function UserPage() {
   const currentUser = useCurrentUser();
@@ -140,7 +141,9 @@ export default function UserPage() {
   }
 
   
-
+console.log("currentUser", currentUser);
+console.log("currentUserRole", currentUserRole);
+console.log("selectedUser", selectedUser);
   return (
     <div className="mx-auto max-w-[1500]">
       <h1 className="mb-20 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
@@ -357,7 +360,7 @@ export default function UserPage() {
                     Price List
                   </th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    User status
+                    Access
                   </th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
                     Created
@@ -416,8 +419,10 @@ export default function UserPage() {
                         "-"}
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {u.permissions?.map((p) => p.permission).join(", ") ||
-                        "-"}
+                      {getAccessLabel(
+                        u.role,
+                        u.permissions?.map((p) => p.permission) ?? [],
+                      ) || "-"}
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {new Date(u.createdAt).toLocaleDateString()}

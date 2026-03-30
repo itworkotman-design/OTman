@@ -159,9 +159,31 @@ export async function GET(
 
           return {
             id: option.id,
+
+            // important for edit page classification
             type: option.type.toLowerCase(),
+            category:
+              option.type.toLowerCase() === "return"
+                ? "return"
+                : option.type.toLowerCase() === "xtra"
+                  ? "xtra"
+                  : option.type.toLowerCase() === "extra_service"
+                    ? "extra_service"
+                    : option.type.toLowerCase(),
+
+            // important for edit page row shape
             code: option.code,
+            optionCode: option.code,
+
             label: option.label,
+            optionLabel: option.label,
+
+            // keep product fields empty for special rows
+            productId: undefined,
+            productOptionId: undefined,
+            productName: undefined,
+            productCode: undefined,
+
             description: option.description,
             sortOrder: option.sortOrder,
             customerPrice: String(option.customerPrice),

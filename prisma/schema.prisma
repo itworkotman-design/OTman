@@ -409,6 +409,7 @@ model PriceList {
 enum SpecialOptionType {
   RETURN
   XTRA
+  EXTRA_SERVICE
 }
 
 model PriceListSpecialOption {

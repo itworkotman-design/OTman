@@ -30,7 +30,6 @@ type PriceListItem = {
   type?: string;
 };
 
-
 type EditableRow = PriceListItem & {
   saving?: boolean;
   saved?: boolean;
@@ -50,19 +49,43 @@ type PriceListData = {
 function isReturnRow(
   item: Pick<
     EditableRow,
-    "category" | "optionCode" | "optionLabel" | "description"
+    | "type"
+    | "productId"
+    | "category"
+    | "optionCode"
+    | "optionLabel"
+    | "description"
   >,
 ) {
-  return isReturnOption(item.category, item.optionCode);
+  return !item.productId && item.type === "return";
 }
 
 function isXtraRow(
   item: Pick<
     EditableRow,
-    "category" | "optionCode" | "optionLabel" | "description"
+    | "type"
+    | "productId"
+    | "category"
+    | "optionCode"
+    | "optionLabel"
+    | "description"
   >,
 ) {
-  return isXtraOption(item.category, item.optionCode);
+  return !item.productId && item.type === "xtra";
+}
+
+function isExtraServiceRow(
+  item: Pick<
+    EditableRow,
+    | "type"
+    | "productId"
+    | "category"
+    | "optionCode"
+    | "optionLabel"
+    | "description"
+  >,
+) {
+  return !item.productId && item.type === "extra_service";
 }
 
 export default function EditPricesPage() {
@@ -81,95 +104,94 @@ export default function EditPricesPage() {
     return priceLists.find((item) => item.code === targetCode) ?? null;
   }, [activeTab, priceLists]);
 
- useEffect(() => {
-   async function loadPriceLists() {
-     try {
-       setLoading(true);
-       setError(null);
+  useEffect(() => {
+    async function loadPriceLists() {
+      try {
+        setLoading(true);
+        setError(null);
 
-       const res = await fetch("/api/products/pricelists", {
-         cache: "no-store",
-       });
+        const res = await fetch("/api/products/pricelists", {
+          cache: "no-store",
+        });
 
-       const data = await res.json();
+        const data = await res.json();
 
-       if (!res.ok || !data.ok) {
-         setError(data.reason ?? "Failed to load price lists");
-         setPriceLists([]);
-         return;
-       }
+        if (!res.ok || !data.ok) {
+          setError(data.reason ?? "Failed to load price lists");
+          setPriceLists([]);
+          return;
+        }
 
-       setPriceLists(data.priceLists ?? []);
-     } catch {
-       setError("Something went wrong while loading price lists");
-       setPriceLists([]);
-     } finally {
-       setLoading(false);
-     }
-   }
-
-   loadPriceLists();
- }, []);
-
-
-useEffect(() => {
-  async function loadActivePriceList() {
-    if (!activePriceListSummary) {
-      setPriceList(null);
-      setRows([]);
-      setOriginalRows({});
-      return;
+        setPriceLists(data.priceLists ?? []);
+      } catch {
+        setError("Something went wrong while loading price lists");
+        setPriceLists([]);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    try {
-      setLoading(true);
-      setError(null);
+    loadPriceLists();
+  }, []);
 
-      const res = await fetch(
-        `/api/products/pricelists/${activePriceListSummary.id}`,
-        { cache: "no-store" },
-      );
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        setError(data.reason ?? "Failed to load price list");
+  useEffect(() => {
+    async function loadActivePriceList() {
+      if (!activePriceListSummary) {
         setPriceList(null);
         setRows([]);
         setOriginalRows({});
         return;
       }
 
-      setPriceList(data.priceList);
+      try {
+        setLoading(true);
+        setError(null);
 
-      const combinedRows: EditableRow[] = [
-        ...(data.priceList.items ?? []),
-        ...(data.priceList.specialOptions ?? []),
-      ];
+        const res = await fetch(
+          `/api/products/pricelists/${activePriceListSummary.id}`,
+          { cache: "no-store" },
+        );
 
-      setRows(combinedRows);
+        const data = await res.json();
 
-      const originals = combinedRows.reduce(
-        (acc: Record<string, PriceListItem>, item: PriceListItem) => {
-          acc[item.id] = item;
-          return acc;
-        },
-        {},
-      );
+        if (!res.ok || !data.ok) {
+          setError(data.reason ?? "Failed to load price list");
+          setPriceList(null);
+          setRows([]);
+          setOriginalRows({});
+          return;
+        }
 
-      setOriginalRows(originals);
-    } catch {
-      setError("Something went wrong while loading price list");
-      setPriceList(null);
-      setRows([]);
-      setOriginalRows({});
-    } finally {
-      setLoading(false);
+        setPriceList(data.priceList);
+
+        const combinedRows: EditableRow[] = [
+          ...(data.priceList.items ?? []),
+          ...(data.priceList.specialOptions ?? []),
+        ];
+
+        setRows(combinedRows);
+
+        const originals = combinedRows.reduce(
+          (acc: Record<string, PriceListItem>, item: PriceListItem) => {
+            acc[item.id] = item;
+            return acc;
+          },
+          {},
+        );
+
+        setOriginalRows(originals);
+      } catch {
+        setError("Something went wrong while loading price list");
+        setPriceList(null);
+        setRows([]);
+        setOriginalRows({});
+      } finally {
+        setLoading(false);
+      }
     }
-  }
 
-  loadActivePriceList();
-}, [activePriceListSummary]);
+    loadActivePriceList();
+  }, [activePriceListSummary]);
 
   function updateRow(itemId: string, patch: Partial<EditableRow>) {
     setRows((current) =>
@@ -205,7 +227,8 @@ useEffect(() => {
     const original = originalRows[row.id];
     if (!original) return false;
 
-    const isSpecialRow = isReturnRow(row) || isXtraRow(row);
+    const isSpecialRow =
+      isReturnRow(row) || isXtraRow(row) || isExtraServiceRow(row);
 
     return (
       (!isSpecialRow && row.productName !== original.productName) ||
@@ -225,7 +248,8 @@ useEffect(() => {
 
     const isReturn = isReturnRow(row);
     const isXtra = isXtraRow(row);
-    const isSpecialRow = isReturn || isXtra;
+    const isExtraService = isExtraServiceRow(row);
+    const isSpecialRow = isReturn || isXtra || isExtraService;
 
     const url = isSpecialRow
       ? `/api/products/pricelists/special-options/${itemId}`
@@ -263,10 +287,12 @@ useEffect(() => {
       discountAmount: row.discountAmount,
       discountEndsAt: row.discountEndsAt,
       category: isReturn
-        ? OPTION_CATEGORIES.RETURN
+        ? "return"
         : isXtra
-          ? OPTION_CATEGORIES.XTRA
-          : row.category,
+          ? "xtra"
+          : isExtraService
+            ? "extra_service"
+            : row.category,
       ...(isSpecialRow ? {} : { productName: row.productName }),
     };
 
@@ -292,11 +318,28 @@ useEffect(() => {
         return;
       }
 
+      const nextItem: EditableRow = isSpecialRow
+        ? {
+            ...data.item,
+            category: isReturn ? "return" : isXtra ? "xtra" : "extra_service",
+            optionCode:
+              data.item.optionCode ?? data.item.code ?? row.optionCode,
+            optionLabel:
+              data.item.optionLabel ?? data.item.label ?? row.optionLabel,
+            productId: undefined,
+            productOptionId: undefined,
+            productName: undefined,
+            productCode: undefined,
+          }
+        : {
+            ...data.item,
+          };
+
       setRows((current) =>
         current.map((item) =>
           item.id === itemId
             ? {
-                ...data.item,
+                ...nextItem,
                 saving: false,
                 saved: true,
                 error: null,
@@ -307,7 +350,7 @@ useEffect(() => {
 
       setOriginalRows((current) => ({
         ...current,
-        [itemId]: data.item,
+        [itemId]: nextItem,
       }));
 
       setTimeout(() => {
@@ -361,7 +404,8 @@ useEffect(() => {
       [newItem.id]: newItem,
     }));
   }
-  async function addSpecialOption(type: "return" | "xtra") {
+
+  async function addSpecialOption(type: "return" | "xtra" | "extra_service") {
     if (!priceList) return;
 
     const res = await fetch(
@@ -405,6 +449,7 @@ useEffect(() => {
       [newItem.id]: newItem,
     }));
   }
+
   async function deleteRow(itemId: string) {
     const confirmed = window.confirm("Delete this option?");
     if (!confirmed) return;
@@ -413,7 +458,8 @@ useEffect(() => {
       const item = rows.find((row) => row.id === itemId);
       if (!item) return;
 
-      const isSpecialRow = isReturnRow(item) || isXtraRow(item);
+      const isSpecialRow =
+        isReturnRow(item) || isXtraRow(item) || isExtraServiceRow(item);
 
       const url = isSpecialRow
         ? `/api/products/pricelists/special-options/${itemId}`
@@ -473,50 +519,61 @@ useEffect(() => {
   }
 
   const normalRows = useMemo(
-    () => rows.filter((row) => !isReturnRow(row) && !isXtraRow(row)),
+    () =>
+      rows.filter(
+        (row) =>
+          !isReturnRow(row) && !isXtraRow(row) && !isExtraServiceRow(row),
+      ),
     [rows],
   );
 
   const returnRows = useMemo(
-    () => rows.filter((row) => isReturnRow(row) && !isXtraRow(row)),
+    () => rows.filter((row) => isReturnRow(row)),
     [rows],
   );
 
   const xtraRows = useMemo(() => rows.filter((row) => isXtraRow(row)), [rows]);
 
-const groupedProducts = useMemo(() => {
-  return Object.values(
-    normalRows.reduce(
-      (acc, item) => {
-        if (!item.productId) return acc;
-
-        const key = item.productId;
-
-        if (!acc[key]) {
-          acc[key] = {
-            productId: item.productId,
-            productName: item.productName ?? "",
-            productCode: item.productCode ?? "",
-            items: [],
-          };
-        }
-
-        acc[key].items.push(item);
-        return acc;
-      },
-      {} as Record<
-        string,
-        {
-          productId: string;
-          productName: string;
-          productCode: string;
-          items: EditableRow[];
-        }
-      >,
-    ),
+  const extraServiceRows = useMemo(
+    () => rows.filter((row) => isExtraServiceRow(row)),
+    [rows],
   );
-}, [normalRows]);
 
+  const groupedProducts = useMemo(() => {
+    return Object.values(
+      normalRows.reduce(
+        (acc, item) => {
+          if (!item.productId) return acc;
+
+          const key = item.productId;
+
+          if (!acc[key]) {
+            acc[key] = {
+              productId: item.productId,
+              productName: item.productName ?? "",
+              productCode: item.productCode ?? "",
+              items: [],
+            };
+          }
+
+          acc[key].items.push(item);
+          return acc;
+        },
+        {} as Record<
+          string,
+          {
+            productId: string;
+            productName: string;
+            productCode: string;
+            items: EditableRow[];
+          }
+        >,
+      ),
+    );
+  }, [normalRows]);
+
+  const hasAutomaticXtra = xtraRows.length > 0;
+  
   if (loading) {
     return (
       <main className="w-full">
@@ -1050,14 +1107,248 @@ const groupedProducts = useMemo(() => {
 
           <section className="mt-10">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-logoblue">XTRA Options</h2>
+              <h2 className="text-xl font-bold text-logoblue">
+                Extra Services
+              </h2>
               <button
                 type="button"
-                onClick={() => addSpecialOption("xtra")}
+                onClick={() => addSpecialOption("extra_service")}
                 className="customButtonEnabled"
               >
                 Add Option
               </button>
+            </div>
+
+            <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
+              <table className="w-full table-fixed border border-black/10">
+                <thead className="bg-gray-100">
+                  <tr className="text-left">
+                    <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                      Option Code
+                    </th>
+                    <th className="w-60 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                      Description
+                    </th>
+                    <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                      Category
+                    </th>
+                    <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                      Customer Price
+                    </th>
+                    <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                      Subcontractor Price
+                    </th>
+                    <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                      Discount
+                    </th>
+                    <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                      Discount time
+                    </th>
+                    <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                      Active
+                    </th>
+                    <th className="w-40 px-4 py-4 border bg-white text-logoBlue font-semibold text-center">
+                      Update
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {extraServiceRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={11}
+                        className="px-4 py-6 text-center text-black/50"
+                      >
+                        No extra services found.
+                      </td>
+                    </tr>
+                  ) : (
+                    extraServiceRows.map((item) => {
+                      const discountActive =
+                        item.discountAmount &&
+                        item.discountEndsAt &&
+                        new Date(item.discountEndsAt) > new Date();
+
+                      return (
+                        <tr
+                          key={item.id}
+                          className="group relative align-middle border-b border-logoblue/20"
+                        >
+                          <td>
+                            <input
+                              className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                              value={item.optionCode ?? ""}
+                              onChange={(e) =>
+                                updateRow(item.id, {
+                                  optionCode: e.target.value
+                                    .toUpperCase()
+                                    .replace(/\s/g, ""),
+                                })
+                              }
+                            />
+                          </td>
+
+                          <td>
+                            <input
+                              className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                              value={item.description ?? ""}
+                              onChange={(e) =>
+                                updateRow(item.id, {
+                                  description: e.target.value,
+                                })
+                              }
+                            />
+                          </td>
+
+                          <td>
+                            <div className="flex items-center justify-center">
+                              <p>Extra service</p>
+                            </div>
+                          </td>
+
+                          <td>
+                            <div className="flex items-center">
+                              <input
+                                type="number"
+                                step="1"
+                                min="0"
+                                className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none text-center"
+                                value={item.customerPrice ?? ""}
+                                onChange={(e) =>
+                                  updateRow(item.id, {
+                                    customerPrice: e.target.value,
+                                  })
+                                }
+                              />
+                              {discountActive && (
+                                <div className="text-sm mt-1 flex gap-2 items-center">
+                                  <span className="text-red-600 font-semibold">
+                                    {item.effectiveCustomerPrice}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          <td>
+                            <input
+                              type="number"
+                              step="1"
+                              min="0"
+                              className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                              value={item.subcontractorPrice ?? ""}
+                              onChange={(e) =>
+                                updateRow(item.id, {
+                                  subcontractorPrice: e.target.value,
+                                })
+                              }
+                            />
+                          </td>
+
+                          <td>
+                            <input
+                              type="text"
+                              className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                              value={item.discountAmount ?? ""}
+                              onChange={(e) =>
+                                updateRow(item.id, {
+                                  discountAmount: e.target.value,
+                                })
+                              }
+                              placeholder='"%" or number'
+                            />
+                          </td>
+
+                          <td>
+                            <input
+                              type="date"
+                              className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                              value={item.discountEndsAt ?? ""}
+                              onChange={(e) =>
+                                updateRow(item.id, {
+                                  discountEndsAt: e.target.value || null,
+                                })
+                              }
+                            />
+                          </td>
+
+                          <td>
+                            <select
+                              className="w-full py-2 px-2 hover:bg-black/2"
+                              value={item.isActive ? "active" : "disabled"}
+                              onChange={(e) =>
+                                updateRow(item.id, {
+                                  isActive: e.target.value === "active",
+                                })
+                              }
+                            >
+                              <option value="active">Active</option>
+                              <option value="disabled">Disabled</option>
+                            </select>
+                          </td>
+
+                          <td className="align-middle">
+                            <div className="flex justify-between items-center w-full">
+                              <div className="flex items-center gap-2 relative">
+                                {isDirty(item) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => saveRow(item.id)}
+                                    disabled={item.saving}
+                                    className="customButtonEnabled"
+                                  >
+                                    {item.saving ? "Saving..." : "Update"}
+                                  </button>
+                                )}
+
+                                {!isDirty(item) && item.saved && (
+                                  <span className="text-sm text-green-600 font-medium">
+                                    Saved
+                                  </span>
+                                )}
+
+                                {!isDirty(item) && item.error && (
+                                  <span className="text-sm text-red-600 font-medium">
+                                    {item.error}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center">
+                                <button
+                                  type="button"
+                                  onClick={() => deleteRow(item.id)}
+                                  className="px-3 py-1 rounded-md border border-red-600 text-red-600 hover:bg-red-600 hover:text-white transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="mt-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-logoblue">
+                Automatic XTRA
+              </h2>
+              {!hasAutomaticXtra && (
+  <button
+    type="button"
+    onClick={() => addSpecialOption("xtra")}
+    className="customButtonEnabled"
+  >
+    Add Automatic XTRA
+  </button>
+)}
             </div>
 
             <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
@@ -1101,7 +1392,7 @@ const groupedProducts = useMemo(() => {
                         colSpan={11}
                         className="px-4 py-6 text-center text-black/50"
                       >
-                        No XTRA options found.
+                        No automatic XTRA option found.
                       </td>
                     </tr>
                   ) : (
@@ -1257,13 +1548,6 @@ const groupedProducts = useMemo(() => {
                               </div>
 
                               <div className="flex items-center">
-                                <button
-                                  type="button"
-                                  onClick={() => deleteRow(item.id)}
-                                  className="px-3 py-1 rounded-md border border-red-600 text-red-600 hover:bg-red-600 hover:text-white transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
-                                >
-                                  Delete
-                                </button>
                               </div>
                             </div>
                           </td>

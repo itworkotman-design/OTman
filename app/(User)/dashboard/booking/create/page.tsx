@@ -5,7 +5,10 @@ import {
   SavedProductCard,
   createEmptyProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import type { CatalogProduct, CatalogSpecialOption } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import type {
+  CatalogProduct,
+  CatalogSpecialOption,
+} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/ProductCardNew";
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplayNew";
@@ -41,6 +44,7 @@ export type OrderFormPayload = {
   cashierName: string;
   cashierPhone: string;
 
+  subcontractorId: string;
   subcontractor: string;
   driver: string;
   secondDriver: string;
@@ -51,6 +55,7 @@ export type OrderFormPayload = {
   feeExtraWork: boolean;
   feeAddToOrder: boolean;
   statusNotes: string;
+  changeCustomerId: string;
   changeCustomer: string;
   status: string;
   dontSendEmail: boolean;
@@ -70,6 +75,12 @@ type Props = {
   dataset?: "default" | "power";
   hideSubmitButton?: boolean;
   onSubmit?: (payload: OrderFormPayload) => void;
+};
+
+type UserOption = {
+  id: string;
+  name: string;
+  email: string;
 };
 
 export default function CreatePage({
@@ -106,6 +117,8 @@ export default function CreatePage({
   const [modelNr, setModelNr] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [timeWindow, setTimeWindow] = useState("");
+  const [customTimeFrom, setCustomTimeFrom] = useState("");
+  const [customTimeTo, setCustomTimeTo] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [drivingDistance, setDrivingDistance] = useState("");
 
@@ -121,7 +134,11 @@ export default function CreatePage({
   const [cashierName, setCashierName] = useState("");
   const [cashierPhone, setCashierPhone] = useState("");
 
-  const [subcontractor, setSubcontractor] = useState("");
+  const [subcontractorId, setSubcontractorId] = useState("");
+  const [subcontractorOptions, setSubcontractorOptions] = useState<
+    UserOption[]
+  >([]);
+  const [subcontractorLoading, setSubcontractorLoading] = useState(false);
   const [driver, setDriver] = useState("");
   const [secondDriver, setSecondDriver] = useState("");
   const [driverInfo, setDriverInfo] = useState("");
@@ -131,7 +148,11 @@ export default function CreatePage({
   const [feeExtraWork, setFeeExtraWork] = useState(false);
   const [feeAddToOrder, setFeeAddToOrder] = useState(false);
   const [statusNotes, setStatusNotes] = useState("");
-  const [changeCustomer, setChangeCustomer] = useState("");
+  const [changeCustomerId, setChangeCustomerId] = useState("");
+  const [changeCustomerOptions, setChangeCustomerOptions] = useState<
+    UserOption[]
+  >([]);
+  const [changeCustomerLoading, setChangeCustomerLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [dontSendEmail, setDontSendEmail] = useState(false);
 
@@ -166,6 +187,64 @@ export default function CreatePage({
     }
 
     loadCatalog();
+  }, []);
+
+  //loading Subcontractors
+  useEffect(() => {
+    async function loadSubcontractors() {
+      try {
+        setSubcontractorLoading(true);
+
+        const res = await fetch("/api/auth/subcontractors", {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data?.ok) {
+          setSubcontractorOptions([]);
+          return;
+        }
+
+        setSubcontractorOptions(data.subcontractors ?? []);
+      } catch {
+        setSubcontractorOptions([]);
+      } finally {
+        setSubcontractorLoading(false);
+      }
+    }
+
+    loadSubcontractors();
+  }, []);
+
+  //loading Order creators
+  useEffect(() => {
+    async function loadOrderCreators() {
+      try {
+        setChangeCustomerLoading(true);
+
+        const res = await fetch("/api/auth/order-creators", {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data?.ok) {
+          setChangeCustomerOptions([]);
+          return;
+        }
+
+        setChangeCustomerOptions(data.orderCreators ?? []);
+      } catch {
+        setChangeCustomerOptions([]);
+      } finally {
+        setChangeCustomerLoading(false);
+      }
+    }
+
+    loadOrderCreators();
   }, []);
 
   const updateProductCard = useCallback(
@@ -213,9 +292,37 @@ export default function CreatePage({
   const isInstallationOnly = useMemo(
     () =>
       productCards.length > 0 &&
-      productCards.every((card) => card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY),
+      productCards.every(
+        (card) => card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY,
+      ),
     [productCards],
   );
+
+  const isReturnOnly = useMemo(
+    () =>
+      productCards.length > 0 &&
+      productCards.every(
+        (card) => card.deliveryType === DELIVERY_TYPES.RETURN_ONLY,
+      ),
+    [productCards],
+  );
+
+  const selectedSubcontractor = useMemo(
+    () => subcontractorOptions.find((option) => option.id === subcontractorId),
+    [subcontractorId, subcontractorOptions],
+  );
+
+  const selectedChangeCustomer = useMemo(
+    () =>
+      changeCustomerOptions.find((option) => option.id === changeCustomerId),
+    [changeCustomerId, changeCustomerOptions],
+  );
+
+  useEffect(() => {
+    if (isReturnOnly) {
+      setDeliveryAddress("");
+    }
+  }, [isReturnOnly]);
 
   const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
     setPriceExVat(exVat);
@@ -240,6 +347,13 @@ export default function CreatePage({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const finalTimeWindow =
+      timeWindow === "custom"
+        ? customTimeFrom && customTimeTo
+          ? `${customTimeFrom}-${customTimeTo}`
+          : ""
+        : timeWindow;
+
     onSubmit?.({
       productCards,
 
@@ -247,7 +361,7 @@ export default function CreatePage({
       description,
       modelNr,
       deliveryDate,
-      timeWindow,
+      timeWindow: finalTimeWindow,
       deliveryAddress,
       drivingDistance,
 
@@ -263,7 +377,8 @@ export default function CreatePage({
       cashierName,
       cashierPhone,
 
-      subcontractor,
+      subcontractorId,
+      subcontractor: selectedSubcontractor?.name ?? "",
       driver,
       secondDriver,
       driverInfo,
@@ -273,7 +388,8 @@ export default function CreatePage({
       feeExtraWork,
       feeAddToOrder,
       statusNotes,
-      changeCustomer,
+      changeCustomerId,
+      changeCustomer: selectedChangeCustomer?.name ?? "",
       status,
       dontSendEmail,
 
@@ -363,6 +479,7 @@ export default function CreatePage({
                 <>
                   <h1 className="font-bold py-2">Delivery date</h1>
                   <input
+                    type="date"
                     value={deliveryDate}
                     onChange={(e) => setDeliveryDate(e.target.value)}
                     className="customInput w-full"
@@ -375,22 +492,60 @@ export default function CreatePage({
                   <h1 className="font-bold py-2">Delivery Time window</h1>
                   <select
                     value={timeWindow}
-                    onChange={(e) => setTimeWindow(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setTimeWindow(value);
+
+                      if (value !== "custom") {
+                        setCustomTimeFrom("");
+                        setCustomTimeTo("");
+                      }
+                    }}
                     className="customInput w-full"
                   >
                     <option value="">Choose</option>
                     <option value="10:00-16:00">10:00-16:00</option>
                     <option value="16:00-21:00">16:00-21:00</option>
-                    <option value="contact">Contact client</option>
+                    <option value="custom">Custom</option>
                   </select>
+
+                  {timeWindow === "custom" && (
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <h2 className="font-bold py-2">From</h2>
+                        <input
+                          type="time"
+                          step="60"
+                          lang="no"
+                          value={customTimeFrom}
+                          onChange={(e) => setCustomTimeFrom(e.target.value)}
+                          className="customInput w-full"
+                        />
+                      </div>
+
+                      <div>
+                        <h2 className="font-bold py-2">To</h2>
+                        <input
+                          type="time"
+                          step="60"
+                          lang="no"
+                          value={customTimeFrom}
+                          onChange={(e) => setCustomTimeTo(e.target.value)}
+                          className="customInput w-full"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
               {shown(hidden, OrderFields.PickupLocations) && (
                 <PickupLocations
-                  disabled={isInstallationOnly}
+                  disabled={isInstallationOnly || isReturnOnly}
                   overrideValue={
-                    isInstallationOnly ? "Product already at client" : undefined
+                    isInstallationOnly || isReturnOnly
+                      ? "Product already at client"
+                      : undefined
                   }
                   defaultValue="Henteadresse"
                 />
@@ -398,13 +553,14 @@ export default function CreatePage({
 
               {shown(hidden, OrderFields.DeliveryAddress) && (
                 <>
-                  <h1 className="font-bold py-2">Delivery address</h1>
+                  {" "}
+                  <h1 className="font-bold py-2">Delivery address</h1>{" "}
                   <input
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
                     className="customInput w-full"
                     placeholder="Enter a location"
-                  />
+                  />{" "}
                 </>
               )}
 
@@ -542,22 +698,20 @@ export default function CreatePage({
                 <>
                   <h1 className="font-bold py-2">Subcontractor</h1>
                   <select
-                    value={subcontractor}
-                    onChange={(e) => setSubcontractor(e.target.value)}
+                    value={subcontractorId}
+                    onChange={(e) => setSubcontractorId(e.target.value)}
                     className="customInput w-full"
+                    disabled={subcontractorLoading}
                   >
-                    <option value="">Choose</option>
-                    <option>Otman Transport AS</option>
-                    <option>Bahs Courier</option>
-                    <option>Nordline AS</option>
-                    <option>Tastanovas Grocery Store</option>
-                    <option>Viken Trotting Sport Tanha</option>
-                    <option>Levitis Transport</option>
-                    <option>Arnosan AS</option>
-                    <option>Stombergas Transport</option>
-                    <option>Construction Service Vaicuss</option>
-                    <option>New subcontractor 1</option>
-                    <option>New subcontractor 2</option>
+                    <option value="">
+                      {subcontractorLoading ? "Loading..." : "Choose"}
+                    </option>
+
+                    {subcontractorOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
                   </select>
                 </>
               )}
@@ -672,13 +826,20 @@ export default function CreatePage({
                 <>
                   <h1 className="font-bold py-2">Change customer</h1>
                   <select
-                    value={changeCustomer}
-                    onChange={(e) => setChangeCustomer(e.target.value)}
+                    value={changeCustomerId}
+                    onChange={(e) => setChangeCustomerId(e.target.value)}
                     className="customInput w-full"
+                    disabled={changeCustomerLoading}
                   >
-                    <option value="">Choose</option>
-                    <option>Power this</option>
-                    <option>Power that</option>
+                    <option value="">
+                      {changeCustomerLoading ? "Loading..." : "Choose"}
+                    </option>
+
+                    {changeCustomerOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
                   </select>
                 </>
               )}
@@ -732,55 +893,53 @@ export default function CreatePage({
             </div>
           </div>
 
-          {shown(hidden, OrderFields.Calculator) && (
-            <>
-              <div className="lg:hidden fixed right-0 top-1/2 -translate-y-1/2 z-40">
-                {!calcOpen ? (
+          <>
+            <div className="lg:hidden fixed right-0 top-1/2 -translate-y-1/2 z-40">
+              {!calcOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setCalcOpen(true)}
+                  className="h-80 w-10 rounded-l-full bg-white shadow-xl border border-black/10 flex items-center justify-center"
+                  aria-label="Open calculator"
+                >
+                  <span className="[writing-mode:vertical-rl] rotate-180 text-md font-semibold text-logoblue">
+                    Calculator
+                  </span>
+                </button>
+              ) : (
+                <div className="flex flex-col bg-white overflow-auto border rounded-2xl shadow-xl">
                   <button
                     type="button"
-                    onClick={() => setCalcOpen(true)}
-                    className="h-80 w-10 rounded-l-full bg-white shadow-xl border border-black/10 flex items-center justify-center"
-                    aria-label="Open calculator"
+                    onClick={() => setCalcOpen(false)}
+                    className="rounded-4xl bg-logoblue text-sm font-semibold w-[80] h-[40] text-white text-center ml-auto mr-2 mt-2"
+                    aria-label="Close calculator"
                   >
-                    <span className="[writing-mode:vertical-rl] rotate-180 text-md font-semibold text-logoblue">
-                      Calculator
-                    </span>
+                    Close
                   </button>
-                ) : (
-                  <div className="flex flex-col bg-white overflow-auto border rounded-2xl shadow-xl">
-                    <button
-                      type="button"
-                      onClick={() => setCalcOpen(false)}
-                      className="rounded-4xl bg-logoblue text-sm font-semibold w-[80] h-[40] text-white text-center ml-auto mr-2 mt-2"
-                      aria-label="Close calculator"
-                    >
-                      Close
-                    </button>
 
-                    <div className="p-4">
-                      <CalculatorDisplayNew
-                        productBreakdowns={productBreakdowns}
-                        priceLookup={priceLookup}
-                        adminView={dataset === "default"}
-                        onPriceChange={handlePriceChange}
-                        onAdjustmentsChange={handleAdjustmentsChange}
-                      />
-                    </div>
+                  <div className="p-4">
+                    <CalculatorDisplayNew
+                      productBreakdowns={productBreakdowns}
+                      priceLookup={priceLookup}
+                      adminView={dataset === "default"}
+                      onPriceChange={handlePriceChange}
+                      onAdjustmentsChange={handleAdjustmentsChange}
+                    />
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+            </div>
 
-              <div className="hidden lg:block flex-1">
-                <CalculatorDisplayNew
-                  productBreakdowns={productBreakdowns}
-                  priceLookup={priceLookup}
-                  adminView={dataset === "default"}
-                  onPriceChange={handlePriceChange}
-                  onAdjustmentsChange={handleAdjustmentsChange}
-                />
-              </div>
-            </>
-          )}
+            <div className="hidden lg:block flex-1">
+              <CalculatorDisplayNew
+                productBreakdowns={productBreakdowns}
+                priceLookup={priceLookup}
+                adminView={dataset === "default"}
+                onPriceChange={handlePriceChange}
+                onAdjustmentsChange={handleAdjustmentsChange}
+              />
+            </div>
+          </>
         </div>
       </main>
     </form>

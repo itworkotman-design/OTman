@@ -1,10 +1,7 @@
-// lib/users/userModal.ts
 import React from "react";
-import type { Role } from "@/lib/users/types";
+import type { Role, AppPermission } from "@/lib/users/types";
 
-export type { Role };
-
-export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+export type { Role, AppPermission };
 
 export interface UserFormData {
   username: string;
@@ -97,19 +94,20 @@ export function makeSelectUpdater(
     }));
 }
 
-export function makePermissionToggler(
-  setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
-) {
-  return (permission: AppPermission) => {
-    setForm((prev) => {
-      const exists = prev.permissions.includes(permission);
+export type UserAccessType = "SUBCONTRACTOR" | "ORDER_CREATOR";
 
-      return {
-        ...prev,
-        permissions: exists
-          ? prev.permissions.filter((p) => p !== permission)
-          : [...prev.permissions, permission],
-      };
-    });
-  };
+export function getAccessTypeFromPermissions(
+  permissions: AppPermission[],
+): UserAccessType {
+  return permissions.includes("BOOKING_CREATE")
+    ? "ORDER_CREATOR"
+    : "SUBCONTRACTOR";
+}
+
+export function getPermissionsFromAccessType(
+  accessType: UserAccessType,
+): AppPermission[] {
+  return accessType === "ORDER_CREATOR"
+    ? ["BOOKING_VIEW", "BOOKING_CREATE"]
+    : ["BOOKING_VIEW"];
 }

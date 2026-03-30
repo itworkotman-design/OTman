@@ -75,10 +75,14 @@ export async function GET(req: Request) {
             companyId: activeMembership.companyId,
             companyName: activeMembership.companyName,
             companySlug: activeMembership.companySlug,
+            //RALFS ADDED
+            role: activeMembership.role,
+            status: activeMembership.status,
+            permissions: activeMembership.permissions,
           }
         : null,
       memberships: selectableMemberships,
     },
-    { status: 200 }
+    { status: 200 },
   );
 }

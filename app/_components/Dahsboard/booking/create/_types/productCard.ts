@@ -43,7 +43,7 @@ export type CatalogProduct = {
 
 export type CatalogSpecialOption = {
   id: string;
-  type: "return" | "xtra";
+  type: "return" | "xtra" | "extra_service";
   code: string;
   label: string | null;
   description: string | null;

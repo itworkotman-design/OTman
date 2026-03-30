@@ -1,38 +1,50 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import type { Role } from "@/lib/users/types";
+import type { AppPermission, Role } from "@/lib/users/types";
 
 export type CurrentUser = {
+  id: string;
   email: string;
   username: string;
   role: Role;
-  activeCompanyId: string | null;
+  permissions: AppPermission[];
 };
 
-export function useCurrentUser(): CurrentUser | null {
+export function useCurrentUser() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!data?.ok) return;
+    async function loadMe() {
+      try {
+        const res = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
 
-        const activeCompanyId = data.session?.activeCompanyId ?? null;
-        const activeMembership = data.memberships?.find(
-          (m: { companyId: string; role: Role }) =>
-            m.companyId === activeCompanyId
-        );
+        const data = await res.json().catch(() => null);
+
+        console.log("ME res.ok", res.ok);
+        console.log("ME data", data);
+
+        if (!res.ok || !data?.ok) {
+          setCurrentUser(null);
+          return;
+        }
 
         setCurrentUser({
-          email: data.user.email,
-          username: data.user.username,
-          role: activeMembership?.role ?? "USER",
-          activeCompanyId,
+          id: data.user?.id ?? "",
+          email: data.user?.email ?? "",
+          username: data.user?.username ?? "",
+          role: (data.activeTenant?.role ?? "USER") as Role,
+          permissions: data.activeTenant?.permissions ?? [],
         });
-      })
-      .catch(() => null);
+      } catch (error) {
+        console.error("Failed loading current user", error);
+        setCurrentUser(null);
+      }
+    }
+
+    loadMe();
   }, []);
 
   return currentUser;

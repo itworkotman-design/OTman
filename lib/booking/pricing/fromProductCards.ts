@@ -1,5 +1,6 @@
 import type {
   CatalogProduct,
+  CatalogSpecialOption,
   SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_TYPE_PRICES } from "@/lib/booking/deliveryTypes";
@@ -16,9 +17,29 @@ import {
   shouldPriceReturnOption,
 } from "@/lib/booking/pricing/rules";
 
+function findXtraSpecialOption(catalogSpecialOptions: CatalogSpecialOption[]) {
+  return (
+    catalogSpecialOptions.find((o) => o.active && o.type === "xtra") ?? null
+  );
+}
+
+function findSelectedReturnSpecialOption(
+  catalogSpecialOptions: CatalogSpecialOption[],
+  selectedReturnOptionId: string | null,
+) {
+  if (!selectedReturnOptionId) return null;
+
+  return (
+    catalogSpecialOptions.find(
+      (o) => o.active && o.type === "return" && o.id === selectedReturnOptionId,
+    ) ?? null
+  );
+}
+
 function buildItemsForCard(
   card: SavedProductCard,
   product: CatalogProduct,
+  catalogSpecialOptions: CatalogSpecialOption[],
 ): ProductCardLineItem[] {
   const items: ProductCardLineItem[] = [];
   const amount = Math.max(1, card.amount);
@@ -35,9 +56,7 @@ function buildItemsForCard(
     });
 
     if (isDeliveryTypeWithExtraAmount(card.deliveryType) && amount > 1) {
-      const xtraOption = product.options.find(
-        (o) => (o.code ?? "").trim().toUpperCase() === OPTION_CODES.XTRA,
-      );
+      const xtraOption = findXtraSpecialOption(catalogSpecialOptions);
 
       if (xtraOption) {
         items.push({
@@ -70,23 +89,28 @@ function buildItemsForCard(
   }
 
   if (showReturnOptions && card.selectedReturnOptionId) {
-    const selectedReturn = product.options.find(
-      (o) => o.id === card.selectedReturnOptionId,
+    const selectedReturn = findSelectedReturnSpecialOption(
+      catalogSpecialOptions,
+      card.selectedReturnOptionId,
     );
+
+    if (!selectedReturn) {
+      return items;
+    }
 
     if (shouldPriceReturnOption(card.deliveryType)) {
       items.push({
         kind: "productOption",
-        productOptionId: card.selectedReturnOptionId,
+        productOptionId: selectedReturn.id,
         qty: amount,
       });
     } else {
       items.push({
         kind: "info",
         label:
-          selectedReturn?.description ||
-          selectedReturn?.label ||
-          selectedReturn?.code ||
+          selectedReturn.description ||
+          selectedReturn.label ||
+          selectedReturn.code ||
           "Return",
         qty: amount,
       });
@@ -99,6 +123,7 @@ function buildItemsForCard(
 export function buildProductBreakdowns(
   cards: SavedProductCard[],
   catalogProducts: CatalogProduct[],
+  catalogSpecialOptions: CatalogSpecialOption[],
 ): ProductBreakdown[] {
   return cards.flatMap((card) => {
     if (!card.productId) return [];
@@ -111,7 +136,7 @@ export function buildProductBreakdowns(
     return [
       {
         productName: product.label,
-        items: buildItemsForCard(card, product),
+        items: buildItemsForCard(card, product, catalogSpecialOptions),
       },
     ];
   });

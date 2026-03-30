@@ -1,7 +1,8 @@
 // app/_components/Dahsboard/users/UserModal.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+
 import {
   UserModalProps,
   buildInitialForm,
@@ -9,7 +10,9 @@ import {
   getSaveButtonLabel,
   makeFieldUpdater,
   makeSelectUpdater,
-  makePermissionToggler,
+  getAccessTypeFromPermissions,
+  getPermissionsFromAccessType,
+  type UserAccessType,
 } from "@/lib/users/userModal";
 
 export default function UserModal({
@@ -48,10 +51,36 @@ export default function UserModal({
     key: "username" | "email" | "phoneNumber" | "description",
   ) => makeFieldUpdater(key, setForm);
 
-  const updateSelect = (key: "role" | "priceListId") =>
-    makeSelectUpdater(key, setForm);
+  const updatePriceList = makeSelectUpdater("priceListId", setForm);
 
-  const togglePermission = makePermissionToggler(setForm);
+  const updateRole = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextRole = e.target.value;
+
+    setForm((prev) => ({
+      ...prev,
+      role: nextRole,
+      permissions:
+        nextRole === "ADMIN" || nextRole === "OWNER"
+          ? ["BOOKING_VIEW", "BOOKING_CREATE"]
+          : prev.permissions.includes("BOOKING_CREATE")
+            ? ["BOOKING_VIEW", "BOOKING_CREATE"]
+            : ["BOOKING_VIEW"],
+    }));
+  };
+
+  const accessType = getAccessTypeFromPermissions(form.permissions);
+
+  const updateAccessType = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as UserAccessType;
+
+    setForm((prev) => ({
+      ...prev,
+      permissions: getPermissionsFromAccessType(value),
+    }));
+  };
+
+  const shouldShowAccessSelector = form.role === "USER";
+
 
   if (!isOpen) return null;
 
@@ -123,7 +152,7 @@ export default function UserModal({
               <select
                 className="customInput mb-4 w-full"
                 value={form.role}
-                onChange={updateSelect("role")}
+                onChange={updateRole}
                 name="role"
                 disabled={!canEditTarget}
               >
@@ -132,32 +161,26 @@ export default function UserModal({
                 <option value="USER">User</option>
               </select>
 
-              <label className="block pl-2 pb-2">Access</label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.permissions.includes("BOOKING_VIEW")}
-                  onChange={() => togglePermission("BOOKING_VIEW")}
-                  disabled={!canEditTarget}
-                />
-                Booking view
-              </label>
-
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.permissions.includes("BOOKING_CREATE")}
-                  onChange={() => togglePermission("BOOKING_CREATE")}
-                  disabled={!canEditTarget}
-                />
-                Booking create
-              </label>
+              {shouldShowAccessSelector && (
+                <>
+                  <label className="block pl-2 pb-2">Access</label>
+                  <select
+                    className="customInput mb-4 w-full"
+                    value={accessType}
+                    onChange={updateAccessType}
+                    disabled={!canEditTarget}
+                  >
+                    <option value="SUBCONTRACTOR">Subcontractor</option>
+                    <option value="ORDER_CREATOR">Order creator</option>
+                  </select>
+                </>
+              )}
 
               <label className="block pl-2 pb-2">Price list</label>
               <select
                 className="customInput mb-6 w-full"
                 value={form.priceListId || ""}
-                onChange={updateSelect("priceListId")}
+                onChange={updatePriceList}
                 name="priceList"
                 disabled={!canEditTarget}
               >

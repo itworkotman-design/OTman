@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
-function normalizeType(value: unknown): "RETURN" | "XTRA" | null {
+function normalizeType(
+  value: unknown,
+): "RETURN" | "XTRA" | "EXTRA_SERVICE" | null {
   if (typeof value !== "string") return null;
 
   const v = value.trim().toLowerCase();
 
   if (v === "return") return "RETURN";
   if (v === "xtra") return "XTRA";
+  if (v === "extra_service") return "EXTRA_SERVICE";
 
   return null;
 }
@@ -21,7 +24,7 @@ function parseOptionalString(value: unknown): string | null {
 
 async function buildUniqueSpecialOptionCode(params: {
   priceListId: string;
-  type: "RETURN" | "XTRA";
+  type: "RETURN" | "XTRA" | "EXTRA_SERVICE";
   preferredCode: string;
 }) {
   const { priceListId, type, preferredCode } = params;
@@ -83,9 +86,9 @@ export async function POST(
     );
   }
 
-  const preferredCode =
-    parseOptionalString(body?.code)?.toUpperCase() ??
-    (type === "RETURN" ? "RETURN" : "XTRA");
+const preferredCode =
+  parseOptionalString(body?.code)?.toUpperCase() ??
+  (type === "RETURN" ? "RETURN" : type === "XTRA" ? "XTRA" : "EXTRASERVICE");
 
   const code = await buildUniqueSpecialOptionCode({
     priceListId: pricelistId,
@@ -93,12 +96,17 @@ export async function POST(
     preferredCode,
   });
 
-  const label =
-    parseOptionalString(body?.label) ?? (type === "RETURN" ? "Return" : "XTRA");
+const label =
+  parseOptionalString(body?.label) ??
+  (type === "RETURN" ? "Return" : type === "XTRA" ? "XTRA" : "Extra service");
 
-  const description =
-    parseOptionalString(body?.description) ??
-    (type === "RETURN" ? "Return option" : "Extra amount option");
+const description =
+  parseOptionalString(body?.description) ??
+  (type === "RETURN"
+    ? "Return option"
+    : type === "XTRA"
+      ? "Extra amount option"
+      : "Extra service");
 
   const priceList = await prisma.priceList.findUnique({
     where: { id: pricelistId },
