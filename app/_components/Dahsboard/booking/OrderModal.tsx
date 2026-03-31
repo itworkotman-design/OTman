@@ -14,13 +14,25 @@ type Props = {
   orderId: string | null;
   open: boolean;
   onClose: () => void;
+  onSaved?: () => void;
+  canDelete?: boolean;
+  onDeleted?: () => void;
 };
 
-export default function OrderModal({ orderId, open, onClose }: Props) {
+export default function OrderModal({
+  orderId,
+  open,
+  onClose,
+  onSaved,
+  canDelete = false,
+  onDeleted,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // Ensure we're on the client before portaling into document.body
   useEffect(() => {
@@ -86,6 +98,39 @@ export default function OrderModal({ orderId, open, onClose }: Props) {
     if (!res.ok || !data?.ok) {
       throw new Error(data?.reason || "Failed to update order");
     }
+
+    // 👇 ADD THIS HERE
+    onSaved?.();
+    onClose();
+  }
+
+  async function handleDelete() {
+    if (!orderId || deleteLoading) return;
+    if (!confirm("Delete this order?")) return;
+
+    try {
+      setDeleteLoading(true);
+      setDeleteError("");
+
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setDeleteError(data?.reason || "Failed to delete order");
+        return;
+      }
+
+      onDeleted?.();
+      onClose();
+    } catch {
+      setDeleteError("Failed to delete order");
+    } finally {
+      setDeleteLoading(false);
+    }
   }
 
   if (!open || !mounted) return null;
@@ -129,6 +174,23 @@ export default function OrderModal({ orderId, open, onClose }: Props) {
                 initialValues={order ?? undefined}
               />
             )}
+            <div className="mt-10">
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleteLoading}
+                  className="customButtonDefault h-10 bg-red-600! text-white! disabled:opacity-50!"
+                >
+                  {deleteLoading ? "Deleting..." : "Delete order"}
+                </button>
+              )}
+              {deleteError ? (
+                <div className="mt-2 text-sm font-medium text-red-600">
+                  {deleteError}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

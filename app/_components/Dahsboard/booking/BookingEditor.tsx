@@ -63,8 +63,9 @@ export type OrderFormPayload = {
   feeExtraWork: boolean;
   feeAddToOrder: boolean;
   statusNotes: string;
-  changeCustomerId: string;
-  changeCustomer: string;
+  customerMembershipId: string;
+  customerLabel: string;
+  priceListId?: string;
   status: string;
   dontSendEmail: boolean;
 
@@ -172,8 +173,8 @@ export default function BookingEditor({
   const [statusNotes, setStatusNotes] = useState(
     initialValues?.statusNotes ?? "",
   );
-  const [changeCustomerId, setChangeCustomerId] = useState(
-    initialValues?.changeCustomerId ?? "",
+  const [customerMembershipId, setCustomerMembershipId] = useState(
+    initialValues?.customerMembershipId ?? "",
   );
   const [status, setStatus] = useState(initialValues?.status ?? "");
   const [dontSendEmail, setDontSendEmail] = useState(
@@ -221,7 +222,15 @@ export default function BookingEditor({
         setCatalogLoading(true);
         setCatalogError(null);
 
-        const res = await fetch("/api/booking/catalog", {
+        const catalogUrl = initialValues?.priceListId
+          ? `/api/booking/catalog?priceListId=${encodeURIComponent(initialValues.priceListId)}`
+          : "/api/booking/catalog";
+
+          if (!initialValues?.priceListId) {
+            console.warn("Order missing priceListId, using fallback catalog");
+          }
+
+        const res = await fetch(catalogUrl, {
           cache: "no-store",
         });
 
@@ -246,7 +255,7 @@ export default function BookingEditor({
     }
 
     loadCatalog();
-  }, []);
+  }, [initialValues?.priceListId]);
 
   useEffect(() => {
     if (!initialValues) return;
@@ -287,7 +296,7 @@ export default function BookingEditor({
     setFeeExtraWork(initialValues.feeExtraWork ?? false);
     setFeeAddToOrder(initialValues.feeAddToOrder ?? false);
     setStatusNotes(initialValues.statusNotes ?? "");
-    setChangeCustomerId(initialValues.changeCustomerId ?? "");
+    setCustomerMembershipId(initialValues.customerMembershipId ?? "");
     setStatus(initialValues.status ?? "");
     setDontSendEmail(initialValues.dontSendEmail ?? false);
     setPickupAddress(initialValues.pickupAddress ?? "");
@@ -407,10 +416,12 @@ export default function BookingEditor({
     [subcontractorId, subcontractorOptions],
   );
 
-  const selectedChangeCustomer = useMemo(
+  const selectedCustomer = useMemo(
     () =>
-      changeCustomerOptions.find((option) => option.id === changeCustomerId),
-    [changeCustomerId, changeCustomerOptions],
+      changeCustomerOptions.find(
+        (option) => option.id === customerMembershipId,
+      ),
+    [customerMembershipId, changeCustomerOptions],
   );
 
   const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
@@ -521,8 +532,8 @@ export default function BookingEditor({
       feeExtraWork,
       feeAddToOrder,
       statusNotes,
-      changeCustomerId,
-      changeCustomer: selectedChangeCustomer?.name ?? "",
+      customerMembershipId,
+      customerLabel: selectedCustomer?.name ?? "",
       status,
       dontSendEmail,
 
@@ -666,8 +677,8 @@ export default function BookingEditor({
             setFeeAddToOrder={setFeeAddToOrder}
             statusNotes={statusNotes}
             setStatusNotes={setStatusNotes}
-            changeCustomerId={changeCustomerId}
-            setChangeCustomerId={setChangeCustomerId}
+            customerMembershipId={customerMembershipId}
+            setCustomerMembershipId={setCustomerMembershipId}
             status={status}
             setStatus={setStatus}
             dontSendEmail={dontSendEmail}
@@ -677,7 +688,6 @@ export default function BookingEditor({
 
         <div className="hidden lg:block lg:w-[420] lg:shrink-0">
           <div className="sticky top-4">
-            
             <BookingCalculatorPanel
               calcOpen={calcOpen}
               setCalcOpen={setCalcOpen}
@@ -687,7 +697,7 @@ export default function BookingEditor({
               onPriceChange={handlePriceChange}
               onAdjustmentsChange={handleAdjustmentsChange}
               sidebarMode
-            /> 
+            />
           </div>
         </div>
 

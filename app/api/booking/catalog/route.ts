@@ -30,6 +30,9 @@ export async function GET(req: Request) {
     );
   }
 
+    const { searchParams } = new URL(req.url);
+    const requestedPriceListId = searchParams.get("priceListId");
+
   const membership = await getActiveMembership({
     userId: session.userId,
     companyId: session.activeCompanyId,
@@ -42,15 +45,19 @@ export async function GET(req: Request) {
     );
   }
 
-  if (!membership.priceListId) {
-    return NextResponse.json(
-      { ok: false, reason: "PRICE_LIST_NOT_ASSIGNED" },
-      { status: 409 },
-    );
-  }
+ const effectivePriceListId = requestedPriceListId || membership.priceListId;
+
+ if (!effectivePriceListId) {
+   return NextResponse.json(
+     { ok: false, reason: "PRICE_LIST_NOT_ASSIGNED" },
+     { status: 409 },
+   );
+ }
+
+
 
   const priceList = await prisma.priceList.findUnique({
-    where: { id: membership.priceListId },
+    where: { id: effectivePriceListId },
     include: {
       items: {
         where: {

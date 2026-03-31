@@ -120,10 +120,8 @@ export async function POST(req: Request) {
     data: {
       companyId: session.activeCompanyId,
       createdByMembershipId: membership.id,
-      priceListId: membership.priceListId ?? null,
 
       customerMembershipId,
-
       customerLabel,
       customerName,
 

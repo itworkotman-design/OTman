@@ -3,77 +3,78 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import OrderModal from "@/app/_components/Dahsboard/booking/OrderModal";
+import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
+import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
+import type {
+  BookingArchiveFilters,
+  BookingArchiveOption,
+  OrderRow,
+} from "@/app/_components/Dahsboard/booking/archive/types";
+import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
+import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
+import BulkUpdateBar from "@/app/_components/Dahsboard/booking/archive/BulkUpdateBar";
+import SelectionActionBar from "@/app/_components/Dahsboard/booking/archive/SelectionActionBar";
 
-type OrderRow = {
+type FilterOptionApiItem = {
   id: string;
-  status: string;
-  statusNotes: string;
-  deliveryDate: string;
-  timeWindow: string;
-  customerName: string;
-  orderNumber: string;
-  phone: string;
-  pickupAddress: string;
-  extraPickupAddress: string[];
-  deliveryAddress: string;
-  productsSummary: string;
-  deliveryTypeSummary: string;
-  servicesSummary: string;
-  description: string;
-  cashierName: string;
-  cashierPhone: string;
-  customerComments: string;
-  driverInfo: string;
-  subcontractor: string;
-  driver: string;
-  createdAt: string;
-  updatedAt: string;
-  priceExVat: number;
-  priceSubcontractor: number;
-  createdBy: string;
+  name: string;
 };
-
-function formatCell(value: string | null | undefined) {
-  if (!value || !value.trim()) return "-";
-  return value;
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "-";
-  return new Date(value).toLocaleString();
-}
-
-function formatMoney(value: number | null | undefined) {
-  if (typeof value !== "number") return "-";
-  return `NOK ${value}`;
-}
 
 export default function BookingPage() {
   const currentUser = useCurrentUser();
-  const role = currentUser?.role ?? "USER";
-
-  const viewMode = useMemo(() => {
-    const permissions = currentUser?.permissions ?? [];
-
-    if (role === "OWNER" || role === "ADMIN") return "ADMIN";
-    if (permissions.includes("BOOKING_CREATE")) return "ORDER_CREATOR";
-    return "SUBCONTRACTOR";
-  }, [role, currentUser?.permissions]);
+  const access = useMemo(
+    () => getBookingArchiveAccess(currentUser),
+    [currentUser],
+  );
 
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+
+  const [appliedFilters, setAppliedFilters] = useState<BookingArchiveFilters>(
+    DEFAULT_BOOKING_ARCHIVE_FILTERS,
+  );
+
+  const [sortBy, setSortBy] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  async function loadOrders() {
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+
+  const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>(
+    [],
+  );
+  const [creators, setCreators] = useState<BookingArchiveOption[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+  const [customerActionLoading, setCustomerActionLoading] = useState(false);
+  const [customerActionError, setCustomerActionError] = useState("");
+
+  async function loadOrders(filters: BookingArchiveFilters = appliedFilters) {
     try {
       setLoading(true);
       setError("");
 
-      const res = await fetch("/api/orders", {
+      const params = new URLSearchParams();
+
+      if (filters.status) params.set("status", filters.status);
+      if (filters.subcontractorId)
+        params.set("subcontractorId", filters.subcontractorId);
+      if (filters.customerMembershipId)
+        params.set("customerMembershipId", filters.customerMembershipId);
+      if (filters.fromDate) params.set("fromDate", filters.fromDate);
+      if (filters.toDate) params.set("toDate", filters.toDate);
+      if (filters.search) params.set("search", filters.search);
+
+      if (sortBy) params.set("sortBy", sortBy);
+      params.set("sortOrder", sortOrder);
+
+      params.set("page", String(filters.page));
+      params.set("rowsPerPage", String(filters.rowsPerPage));
+
+      const res = await fetch(`/api/orders?${params.toString()}`, {
         method: "GET",
         credentials: "include",
         cache: "no-store",
@@ -82,48 +83,249 @@ export default function BookingPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
-        setError(data?.reason || "Failed to load orders");
+        setError("Failed to load orders");
+        setOrders([]);
+        setSelectedOrderIds([]);
         return;
       }
 
-      setOrders(data.orders ?? []);
+      const nextOrders = data.orders ?? [];
+      setOrders(nextOrders);
+
+      setSelectedOrderIds((prev) =>
+        prev.filter((id) =>
+          nextOrders.some((order: OrderRow) => order.id === id),
+        ),
+      );
     } catch {
       setError("Failed to load orders");
+      setOrders([]);
+      setSelectedOrderIds([]);
     } finally {
       setLoading(false);
     }
   }
 
+  async function loadFilterOptions() {
+    try {
+      const [subsRes, creatorsRes] = await Promise.all([
+        fetch("/api/auth/subcontractors", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch("/api/auth/order-creators", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ]);
+
+      const subsData = await subsRes.json().catch(() => null);
+      const creatorsData = await creatorsRes.json().catch(() => null);
+
+      if (subsRes.ok && subsData?.ok) {
+        setSubcontractors(
+          (subsData.subcontractors ?? []).map((item: FilterOptionApiItem) => ({
+            id: item.id,
+            label: item.name,
+          })),
+        );
+      }
+
+      if (creatorsRes.ok && creatorsData?.ok) {
+        setCreators(
+          (creatorsData.orderCreators ?? []).map(
+            (item: FilterOptionApiItem) => ({
+              id: item.id,
+              label: item.name,
+            }),
+          ),
+        );
+      }
+    } catch {
+      setSubcontractors([]);
+      setCreators([]);
+    }
+  }
+
+  async function handleBulkApply(payload: {
+    status?: string;
+    subcontractorId?: string;
+  }): Promise<boolean> {
+    if (selectedOrderIds.length === 0) return false;
+
+    try {
+      setBulkLoading(true);
+      setBulkError("");
+      setError("");
+
+      const res = await fetch("/api/orders/bulk", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+          ...payload,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setBulkError(data?.reason || "Failed to bulk update orders");
+        return false;
+      }
+
+      setSelectedOrderIds([]);
+      await loadOrders(appliedFilters);
+      return true;
+    } catch {
+      setBulkError("Failed to bulk update orders");
+      return false;
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  async function handleSendSelectedEmail(payload: {
+    customerMembershipId: string;
+    emailType: "prepare_orders" | "confirmed_delivery" | "custom";
+    customMessage?: string;
+  }): Promise<boolean> {
+    if (!payload.customerMembershipId || selectedOrderIds.length === 0)
+      return false;
+
+    try {
+      setCustomerActionLoading(true);
+      setCustomerActionError("");
+
+      const res = await fetch("/api/orders/send-selected-email", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+          customerMembershipId: payload.customerMembershipId,
+          emailType: payload.emailType,
+          customMessage: payload.customMessage,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      console.log("send-selected-email response", res.status, data);
+
+      if (!res.ok || !data?.ok) {
+        setCustomerActionError(data?.reason || "Failed to send email");
+        return false;
+      }
+
+      setSelectedOrderIds([]);
+      return true;
+
+      return true;
+    } catch {
+      setCustomerActionError("Failed to send email");
+      return false;
+    } finally {
+      setCustomerActionLoading(false);
+    }
+  }
+
+  async function handleSendSelectedToGsm(
+    customerMembershipId: string,
+  ): Promise<void> {
+    if (!customerMembershipId || selectedOrderIds.length === 0) return;
+
+    // TODO: connect real GSM route later
+    console.log("Send selected to GSM", {
+      orderIds: selectedOrderIds,
+      customerMembershipId,
+    });
+  }
+
+ async function handleCopySelected() {
+   if (selectedOrderIds.length === 0) return;
+
+   try {
+     setCustomerActionLoading(true);
+     setCustomerActionError("");
+
+     const res = await fetch("/api/orders/duplicate", {
+       method: "POST",
+       credentials: "include",
+       headers: {
+         "Content-Type": "application/json",
+       },
+       body: JSON.stringify({
+         orderIds: selectedOrderIds,
+       }),
+     });
+
+     const data = await res.json().catch(() => null);
+
+     if (!res.ok || !data?.ok) {
+       setCustomerActionError(data?.reason || "Failed to copy selected orders");
+       return;
+     }
+
+     setSelectedOrderIds([]);
+     await loadOrders(appliedFilters);
+   } catch {
+     setCustomerActionError("Failed to copy selected orders");
+   } finally {
+     setCustomerActionLoading(false);
+   }
+ }
+  function handleExportSelected() {
+    if (selectedOrderIds.length === 0) return;
+
+    // TODO: connect real export later
+    console.log("Export selected orders", selectedOrderIds);
+  }
+
   useEffect(() => {
-    loadOrders();
+    void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
+    void loadFilterOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredOrders = useMemo(() => {
-    const q = query.trim().toLowerCase();
+  function handleApplyFilters(next: BookingArchiveFilters) {
+    setAppliedFilters(next);
+    void loadOrders(next);
+  }
 
-    return orders.filter((order) => {
-      const statusOk = !statusFilter || order.status === statusFilter;
+  function handleResetFilters() {
+    setAppliedFilters(DEFAULT_BOOKING_ARCHIVE_FILTERS);
+    void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
+  }
 
-      const queryOk =
-        !q ||
-        order.id.toLowerCase().includes(q) ||
-        order.orderNumber.toLowerCase().includes(q) ||
-        order.customerName.toLowerCase().includes(q) ||
-        order.phone.toLowerCase().includes(q) ||
-        order.pickupAddress.toLowerCase().includes(q) ||
-        order.deliveryAddress.toLowerCase().includes(q) ||
-        order.productsSummary.toLowerCase().includes(q) ||
-        order.createdBy.toLowerCase().includes(q);
-
-      return statusOk && queryOk;
-    });
-  }, [orders, query, statusFilter]);
-
-  const availableStatuses = useMemo(() => {
-    return Array.from(
-      new Set(orders.map((order) => order.status).filter(Boolean)),
+  function handleToggleOrder(orderId: string) {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId)
+        ? prev.filter((id) => id !== orderId)
+        : [...prev, orderId],
     );
-  }, [orders]);
+  }
+
+  function handleToggleAllVisible() {
+    const visibleIds = orders.map((order) => order.id);
+
+    setSelectedOrderIds((prev) => {
+      const allSelected =
+        visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+
+      if (allSelected) {
+        return prev.filter((id) => !visibleIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...visibleIds]));
+    });
+  }
+
+  const canBulkSelect = access.viewMode === "ADMIN";
 
   return (
     <div className="mx-auto max-w-[1600]">
@@ -131,34 +333,74 @@ export default function BookingPage() {
         Booking orders
       </h1>
 
-      <div className="shadow-xs flex flex-wrap gap-2 pb-4">
-        <select
-          className="customInput cursor-pointer duration-200 hover:bg-black/3"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="">Status</option>
-          {availableStatuses.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
-
-        <input
-          className="customInput w-72"
-          placeholder="Search order, customer, phone, address"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+      <div className="flex flex-col gap-3 pb-4">
+        <BookingFilters
+          initialApplied={appliedFilters}
+          access={access}
+          subcontractors={subcontractors}
+          creators={creators}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+          onRefresh={() => void loadOrders(appliedFilters)}
         />
+      </div>
 
-        <button
-          type="button"
-          className="customButtonDefault ml-auto"
-          onClick={loadOrders}
-        >
-          Refresh
-        </button>
+      {access.viewMode === "ADMIN" && (
+        <div className="max-w-[1000]">
+          <BulkUpdateBar
+            selectedCount={selectedOrderIds.length}
+            subcontractors={subcontractors}
+            onApply={handleBulkApply}
+            onClear={() => setSelectedOrderIds([])}
+            loading={bulkLoading}
+            error={bulkError}
+          />
+
+          <SelectionActionBar
+            customers={creators}
+            selectedCount={selectedOrderIds.length}
+            onSendEmail={handleSendSelectedEmail}
+            onSendGsm={handleSendSelectedToGsm}
+            onCopySelected={handleCopySelected}
+            onExportExcel={handleExportSelected}
+            loading={customerActionLoading}
+            error={customerActionError}
+          />
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2 my-4">
+        <div className="text-sm text-textColorThird my-2">
+          {canBulkSelect ? `${selectedOrderIds.length} selected` : ""}
+        </div>
+        <div className="flex items-center gap-2 justify-end">
+          <select
+            className="customInput cursor-pointer w-48"
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              void loadOrders();
+            }}
+          >
+            <option value="">Sort</option>
+            <option value="deliveryDate">Delivery date</option>
+            <option value="price">Price</option>
+            <option value="status">Status</option>
+          </select>
+
+          <button
+            type="button"
+            className="customButtonDefault"
+            onClick={() => {
+              setSortOrder((prev) => {
+                const next = prev === "asc" ? "desc" : "asc";
+                setTimeout(() => void loadOrders(), 0);
+                return next;
+              });
+            }}
+          >
+            {sortOrder === "asc" ? "↑ Asc" : "↓ Desc"}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -166,361 +408,33 @@ export default function BookingPage() {
       ) : error ? (
         <div className="py-6 text-red-600">{error}</div>
       ) : (
-        <div className="w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
-          <table className="w-full border-y border-black/10 text-sm">
-            <thead>
-              <tr className="border-y border-black/10 bg-black/3 text-left text-textColorSecond">
-                {viewMode === "ADMIN" && (
-                  <>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      ID
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Status
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Leveringsdato
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Tidsvindu
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Customer
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Best.nr
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Navn
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Telefon
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Pickup Adresse
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Extra pickup
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Leveringsadresse
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Produkter
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Leveringstype
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Montering/retur
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Beskrivelse
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Kasserers navn
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Kasserers telefon
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Kundenotater
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Driver info
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Bestillingsdato
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Sist redigert
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Pris uten MVA
-                    </th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">
-                      Pris Subcontractor
-                    </th>
-                  </>
-                )}
-
-                {viewMode === "SUBCONTRACTOR" && (
-                  <>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Status
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Leveringsdato
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Tidsvindu
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Customer
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Best.nr
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Pickup Adresse
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Extra pickup
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Leveringsadresse
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Produkter
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Leveringstype
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Montering/retur
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Beskrivelse
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Kasserers navn
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Kasserers telefon
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Kundenotater
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Driver
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Bestillingsdato
-                    </th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">
-                      TotalPris
-                    </th>
-                  </>
-                )}
-
-                {viewMode === "ORDER_CREATOR" && (
-                  <>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Status
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Status notater
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Bestillings nr
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Kundens navn
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Kundens telefon
-                    </th>
-                    <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                      Leveringsdato
-                    </th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">
-                      Pris uten MVA
-                    </th>
-                  </>
-                )}
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredOrders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="cursor-pointer border-b border-black/10 hover:bg-black/2"
-                  onClick={() => {
-                    setSelectedOrderId(order.id);
-                    setModalOpen(true);
-                  }}
-                >
-                  {viewMode === "ADMIN" && (
-                    <>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.id)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.status)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.deliveryDate)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.timeWindow)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.createdBy)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.orderNumber)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.customerName)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.phone)}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.pickupAddress)}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {order.extraPickupAddress.length > 0
-                          ? order.extraPickupAddress.join(", ")
-                          : "-"}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.deliveryAddress)}
-                      </td>
-                      <td className="max-w-[200] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.productsSummary)}
-                      </td>
-                      <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.deliveryTypeSummary)}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.servicesSummary)}
-                      </td>
-                      <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.description)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.cashierName)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.cashierPhone)}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.customerComments)}
-                      </td>
-                      <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.driverInfo)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatDateTime(order.createdAt)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatDateTime(order.updatedAt)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatMoney(order.priceExVat)}
-                      </td>
-                      <td className="px-4 py-2 font-semibold text-textColorThird">
-                        {formatMoney(order.priceSubcontractor)}
-                      </td>
-                    </>
-                  )}
-
-                  {viewMode === "SUBCONTRACTOR" && (
-                    <>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.status)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.deliveryDate)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.timeWindow)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.createdBy)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.orderNumber)}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.pickupAddress)}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {order.extraPickupAddress.length > 0
-                          ? order.extraPickupAddress.join(", ")
-                          : "-"}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.deliveryAddress)}
-                      </td>
-                      <td className="max-w-[200] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.productsSummary)}
-                      </td>
-                      <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.deliveryTypeSummary)}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.servicesSummary)}
-                      </td>
-                      <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.description)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.cashierName)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.cashierPhone)}
-                      </td>
-                      <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.customerComments)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.driver)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatDateTime(order.createdAt)}
-                      </td>
-                      <td className="px-4 py-2 font-semibold text-textColorThird">
-                        {formatMoney(order.priceExVat)}
-                      </td>
-                    </>
-                  )}
-
-                  {viewMode === "ORDER_CREATOR" && (
-                    <>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.status)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.statusNotes)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.orderNumber)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.customerName)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.phone)}
-                      </td>
-                      <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                        {formatCell(order.deliveryDate)}
-                      </td>
-                      <td className="px-4 py-2 font-semibold text-textColorThird">
-                        {formatMoney(order.priceExVat)}
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredOrders.length === 0 && (
-            <div className="py-8 text-center text-textColorThird">
-              No orders found
-            </div>
-          )}
-        </div>
+        <BookingArchiveTable
+          orders={orders}
+          viewMode={access.viewMode}
+          onRowClick={(orderId) => {
+            setSelectedOrderId(orderId);
+            setModalOpen(true);
+          }}
+          selectable={canBulkSelect}
+          selectedOrderIds={selectedOrderIds}
+          onToggleOrder={handleToggleOrder}
+          onToggleAllVisible={handleToggleAllVisible}
+        />
       )}
+
       <OrderModal
         orderId={selectedOrderId}
         open={modalOpen}
         onClose={() => {
           setModalOpen(false);
           setSelectedOrderId(null);
+        }}
+        onSaved={() => void loadOrders(appliedFilters)}
+        canDelete={access.viewMode === "ADMIN"}
+        onDeleted={() => {
+          setModalOpen(false);
+          setSelectedOrderId(null);
+          void loadOrders(appliedFilters);
         }}
       />
     </div>

@@ -88,8 +88,8 @@ type Props = {
   setFeeAddToOrder: React.Dispatch<React.SetStateAction<boolean>>;
   statusNotes: string;
   setStatusNotes: React.Dispatch<React.SetStateAction<string>>;
-  changeCustomerId: string;
-  setChangeCustomerId: React.Dispatch<React.SetStateAction<string>>;
+  customerMembershipId: string;
+  setCustomerMembershipId: React.Dispatch<React.SetStateAction<string>>;
   status: string;
   setStatus: React.Dispatch<React.SetStateAction<string>>;
   dontSendEmail: boolean;
@@ -171,8 +171,8 @@ export default function OrderFieldsForm({
   setFeeAddToOrder,
   statusNotes,
   setStatusNotes,
-  changeCustomerId,
-  setChangeCustomerId,
+  customerMembershipId,
+  setCustomerMembershipId,
   status,
   setStatus,
   dontSendEmail,
@@ -551,8 +551,8 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">Change customer</h1>
           <select
-            value={changeCustomerId}
-            onChange={(e) => setChangeCustomerId(e.target.value)}
+            value={customerMembershipId}
+            onChange={(e) => setCustomerMembershipId(e.target.value)}
             className="customInput w-full"
             disabled={changeCustomerLoading}
           >
@@ -592,7 +592,26 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.Attachment) && (
         <>
-          <h1 className="font-bold py-2">Attachment</h1>
+          <div className="mt-2">
+            <label className="font-bold py-2">Attachments</label>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="customButtonDefault h-10"
+                onClick={() => {
+                  // later: open file picker
+                  alert("Attachment upload coming next");
+                }}
+              >
+                Add attachment
+              </button>
+
+              <span className="text-xs text-textColorThird">
+                (Images will be supported)
+              </span>
+            </div>
+          </div>
         </>
       )}
 

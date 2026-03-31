@@ -1,135 +1,258 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
+import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
+import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
+import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadOnlyOrderModal";
+import type {
+  BookingArchiveFilters,
+  BookingArchiveOption,
+  OrderRow,
+} from "@/app/_components/Dahsboard/booking/archive/types";
+import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
+import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 
-import TopFiltersField, {
-  type AppliedFilters,
-} from "@/app/_components/Dahsboard/booking/orders/TopFiltersField";
-import { ArchiveTable } from "@/app/_components/Dahsboard/booking/orders/ArchiveTable";
-import { SubcontractorOrderModal } from "@/app/_components/Dahsboard/booking/orders/SubcontractorOrderModal";
-
-import { ORDERS as MOCK_ORDERS } from "@/lib/_mockdb";
-import type { OrderRow } from "@/lib/_mockdb";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const DEFAULT_FILTERS: AppliedFilters = {
-  status: "",
-  customer: "",
-  subcontractor: "Sub A",
-  fromDate: "",
-  toDate: "",
-  search: "",
-  rowsPerPage: 10,
-  page: 1,
+type FilterOptionApiItem = {
+  id: string;
+  name: string;
 };
 
-const SUBCONTRACTOR_VISIBLE_COLUMNS = [
-  "status",
-  "deliveryDate",
-  "timeWindow",
-  "customer",
-  "orderNo",
-  "pickupAddress",
-  "extraPickup",
-  "deliveryAddress",
-  "returnAddress",
-  "products",
-  "deliveryType",
-  "assemblyReturn",
-  "description",
-  "cashierName",
-  "cashierPhone",
-  "customerNotes",
-  "driverInfo",
-  "orderDate",
-  "totalPriceExVat",
-] as const;
+type OrdersResponse = {
+  ok: boolean;
+  orders?: OrderRow[];
+  reason?: string;
+};
 
-// ─── Component ────────────────────────────────────────────────────────────────
+type SubcontractorsResponse = {
+  ok: boolean;
+  subcontractors?: FilterOptionApiItem[];
+};
 
-export default function AllOrders() {
+type OrderCreatorsResponse = {
+  ok: boolean;
+  orderCreators?: FilterOptionApiItem[];
+};
+
+export default function BookingPage() {
   const currentUser = useCurrentUser();
+  const access = useMemo(
+    () => getBookingArchiveAccess(currentUser),
+    [currentUser],
+  );
 
-  // TODO: derive userView and loggedInSubcontractor from currentUser
-  // once the backend exposes subcontractor identity on the session/membership.
-  const userView = "subcontractor" as const;
-  const loggedInSubcontractor = "Sub A";
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [orders, setOrders] = useState<OrderRow[]>(MOCK_ORDERS);
-  const [appliedFilters, setAppliedFilters] = useState<AppliedFilters>(DEFAULT_FILTERS);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
+  const [appliedFilters, setAppliedFilters] = useState<BookingArchiveFilters>(
+    DEFAULT_BOOKING_ARCHIVE_FILTERS,
+  );
 
-  const safeFilters =
-    userView === "subcontractor"
-      ? { ...appliedFilters, subcontractor: loggedInSubcontractor }
-      : appliedFilters;
+  const [sortBy, setSortBy] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  const handleUpdateOrder = (orderId: string, data: OrderFormInitialValues) => {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              orderNo: data.orderNumber ?? o.orderNo,
-              description: data.description ?? o.description,
-              deliveryDate: data.deliveryDate ?? o.deliveryDate,
-              timeWindow: data.timeWindow ?? o.timeWindow,
-              deliveryAddress: data.deliveryAddress ?? o.deliveryAddress,
-              name: data.customerName ?? o.name,
-              phone: data.phone ?? o.phone,
-              cashierName: data.cashierName ?? o.cashierName,
-              cashierPhone: data.cashierPhone ?? o.cashierPhone,
-              subcontractor: data.subcontractor ?? o.subcontractor,
-              driverInfo: data.driverInfo ?? o.driverInfo,
-              status: (data.status as OrderRow["status"]) ?? o.status,
-            }
-          : o
-      )
-    );
-  };
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  const handleApplyFilters = (next: AppliedFilters) => {
+  const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>(
+    [],
+  );
+  const [creators, setCreators] = useState<BookingArchiveOption[]>([]);
+
+  async function loadOrders(filters: BookingArchiveFilters = appliedFilters) {
+    try {
+      setLoading(true);
+      setError("");
+
+      const params = new URLSearchParams();
+
+      if (filters.status) params.set("status", filters.status);
+      if (filters.subcontractorId) {
+        params.set("subcontractorId", filters.subcontractorId);
+      }
+      if (filters.customerMembershipId) {
+        params.set("customerMembershipId", filters.customerMembershipId);
+      }
+      if (filters.fromDate) params.set("fromDate", filters.fromDate);
+      if (filters.toDate) params.set("toDate", filters.toDate);
+      if (filters.search) params.set("search", filters.search);
+
+      if (sortBy) params.set("sortBy", sortBy);
+      params.set("sortOrder", sortOrder);
+
+      params.set("page", String(filters.page));
+      params.set("rowsPerPage", String(filters.rowsPerPage));
+
+      const res = await fetch(`/api/orders?${params.toString()}`, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = (await res
+        .json()
+        .catch(() => null)) as OrdersResponse | null;
+
+      if (!res.ok || !data?.ok) {
+        setError(data?.reason || "Failed to load orders");
+        setOrders([]);
+        return;
+      }
+
+      setOrders(data.orders ?? []);
+    } catch {
+      setError("Failed to load orders");
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadFilterOptions() {
+    try {
+      const [subsRes, creatorsRes] = await Promise.all([
+        fetch("/api/auth/subcontractors", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch("/api/auth/order-creators", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ]);
+
+      const subsData = (await subsRes
+        .json()
+        .catch(() => null)) as SubcontractorsResponse | null;
+      const creatorsData = (await creatorsRes
+        .json()
+        .catch(() => null)) as OrderCreatorsResponse | null;
+
+      if (subsRes.ok && subsData?.ok) {
+        setSubcontractors(
+          (subsData.subcontractors ?? []).map((item) => ({
+            id: item.id,
+            label: item.name,
+          })),
+        );
+      } else {
+        setSubcontractors([]);
+      }
+
+      if (creatorsRes.ok && creatorsData?.ok) {
+        setCreators(
+          (creatorsData.orderCreators ?? []).map((item) => ({
+            id: item.id,
+            label: item.name,
+          })),
+        );
+      } else {
+        setCreators([]);
+      }
+    } catch {
+      setSubcontractors([]);
+      setCreators([]);
+    }
+  }
+
+  useEffect(() => {
+    void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
+    void loadFilterOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleApplyFilters(next: BookingArchiveFilters) {
     setAppliedFilters(next);
-    setSelectedIds([]);
-  };
+    void loadOrders(next);
+  }
 
-  const handleResetFilters = () => {
-    setAppliedFilters(DEFAULT_FILTERS);
-    setSelectedIds([]);
-  };
+  function handleResetFilters() {
+    setAppliedFilters(DEFAULT_BOOKING_ARCHIVE_FILTERS);
+    void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
+  }
 
   if (!currentUser) return null;
 
   return (
-    <div>
-      <TopFiltersField
-        initialApplied={safeFilters}
-        onApply={handleApplyFilters}
-        onReset={handleResetFilters}
-        userView={userView}
-        lockedSubcontractor={loggedInSubcontractor}
-      />
+    <div className="mx-auto max-w-[1600]">
+      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
+        Booking orders
+      </h1>
 
-      <div className="flex-1 overflow-auto py-4">
-        <ArchiveTable
-          filters={safeFilters}
-          selectedIds={selectedIds}
-          onSelectedIdsChange={setSelectedIds}
-          orders={orders}
-          onRowClick={(row) => setSelectedOrder(row)}
-          visibleColumns={SUBCONTRACTOR_VISIBLE_COLUMNS}
-          userView="subcontractor"
+      <div className="flex flex-col gap-3 pb-4">
+        <BookingFilters
+          initialApplied={appliedFilters}
+          access={access}
+          subcontractors={subcontractors}
+          creators={creators}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+          onRefresh={() => void loadOrders(appliedFilters)}
         />
 
-        <SubcontractorOrderModal
-          isOpen={!!selectedOrder}
-          order={selectedOrder}
-          onClose={() => setSelectedOrder(null)}
-        />
+        <div className="flex items-center justify-end gap-2">
+          <select
+            className="customInput w-48 cursor-pointer"
+            value={sortBy}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setTimeout(() => void loadOrders(), 0);
+            }}
+          >
+            <option value="">Sort</option>
+            <option value="deliveryDate">Delivery date</option>
+            <option value="price">Price</option>
+            <option value="status">Status</option>
+          </select>
+
+          <button
+            type="button"
+            className="customButtonDefault"
+            onClick={() => {
+              setSortOrder((prev) => {
+                const next = prev === "asc" ? "desc" : "asc";
+                setTimeout(() => void loadOrders(), 0);
+                return next;
+              });
+            }}
+          >
+            {sortOrder === "asc" ? "↑ Asc" : "↓ Desc"}
+          </button>
+        </div>
       </div>
+
+      {loading ? (
+        <div className="py-6 text-textColorThird">Loading orders...</div>
+      ) : error ? (
+        <div className="py-6 text-red-600">{error}</div>
+      ) : (
+        <BookingArchiveTable
+          orders={orders}
+          viewMode={access.viewMode}
+          onRowClick={(orderId) => {
+            setSelectedOrderId(orderId);
+            setModalOpen(true);
+          }}
+          selectable={false}
+          selectedOrderIds={[]}
+          onToggleOrder={() => {}}
+          onToggleAllVisible={() => {}}
+        />
+      )}
+
+      <ReadOnlyOrderModal
+        open={modalOpen}
+        order={
+          selectedOrderId
+            ? (orders.find((order) => order.id === selectedOrderId) ?? null)
+            : null
+        }
+        onClose={() => {
+          setModalOpen(false);
+          setSelectedOrderId(null);
+        }}
+      />
     </div>
   );
 }

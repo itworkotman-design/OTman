@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { canEditOrders } from "@/lib/users/orderAccess";
+import {
+  optionalBoolean,
+  optionalString,
+  safeNumber,
+} from "@/lib/orders/normalizeOrderInput";
+import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
+import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
+import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
+import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import type { AppPermission } from "@/lib/users/types";
 
 export async function GET(
   req: Request,
@@ -31,6 +43,7 @@ export async function GET(
     },
     select: {
       id: true,
+      priceListId: true,
       productCardsSnapshot: true,
       orderNumber: true,
       description: true,
@@ -42,6 +55,7 @@ export async function GET(
       deliveryAddress: true,
       drivingDistance: true,
       customerName: true,
+      customerLabel: true,
       phone: true,
       phoneTwo: true,
       email: true,
@@ -50,7 +64,7 @@ export async function GET(
       lift: true,
       cashierName: true,
       cashierPhone: true,
-      subcontractorId: true,
+      subcontractorMembershipId: true,
       subcontractor: true,
       driver: true,
       secondDriver: true,
@@ -60,8 +74,6 @@ export async function GET(
       feeExtraWork: true,
       feeAddToOrder: true,
       statusNotes: true,
-      changeCustomerId: true,
-      changeCustomer: true,
       status: true,
       dontSendEmail: true,
       priceExVat: true,
@@ -84,6 +96,7 @@ export async function GET(
     ok: true,
     order: {
       id: order.id,
+      priceListId: order.priceListId ?? "",
       productCards: Array.isArray(order.productCardsSnapshot)
         ? order.productCardsSnapshot
         : [],
@@ -97,6 +110,8 @@ export async function GET(
       deliveryAddress: order.deliveryAddress ?? "",
       drivingDistance: order.drivingDistance ?? "",
       customerName: order.customerName ?? "",
+      customerLabel: order.customerLabel ?? "",
+      customer: order.customerLabel ?? "",
       phone: order.phone ?? "",
       phoneTwo: order.phoneTwo ?? "",
       email: order.email ?? "",
@@ -105,7 +120,7 @@ export async function GET(
       lift: order.lift ?? "",
       cashierName: order.cashierName ?? "",
       cashierPhone: order.cashierPhone ?? "",
-      subcontractorId: order.subcontractorId ?? "",
+      subcontractorMembershipId: order.subcontractorMembershipId ?? "",
       subcontractor: order.subcontractor ?? "",
       driver: order.driver ?? "",
       secondDriver: order.secondDriver ?? "",
@@ -115,8 +130,6 @@ export async function GET(
       feeExtraWork: order.feeExtraWork,
       feeAddToOrder: order.feeAddToOrder,
       statusNotes: order.statusNotes ?? "",
-      changeCustomerId: order.changeCustomerId ?? "",
-      changeCustomer: order.changeCustomer ?? "",
       status: order.status ?? "",
       dontSendEmail: order.dontSendEmail,
       priceExVat: order.priceExVat,
@@ -149,69 +162,261 @@ export async function PATCH(
     );
   }
 
+  const membership = await prisma.membership.findFirst({
+    where: {
+      userId: session.userId,
+      companyId: session.activeCompanyId,
+      status: "ACTIVE",
+    },
+    select: {
+      id: true,
+      role: true,
+      priceListId: true,
+      permissions: {
+        select: {
+          permission: true,
+        },
+      },
+    },
+  });
+
+  if (!membership) {
+    return NextResponse.json(
+      { ok: false, reason: "FORBIDDEN" },
+      { status: 403 },
+    );
+  }
+
+  const permissions = membership.permissions.map(
+    (p): AppPermission => p.permission,
+  );
+
+  if (!canEditOrders(membership.role, permissions)) {
+    return NextResponse.json(
+      { ok: false, reason: "FORBIDDEN" },
+      { status: 403 },
+    );
+  }
+
   const { orderId } = await params;
   const body = await req.json().catch(() => null);
 
-  if (!body || !Array.isArray(body.productCards)) {
+  if (
+    !body ||
+    !Array.isArray(body.productCards) ||
+    body.productCards.length === 0
+  ) {
     return NextResponse.json(
-      { ok: false, reason: "INVALID_PAYLOAD" },
+      { ok: false, reason: "INVALID_PRODUCT_CARDS" },
       { status: 400 },
     );
   }
 
-  await prisma.order.updateMany({
+  const existingOrder = await prisma.order.findFirst({
     where: {
       id: orderId,
       companyId: session.activeCompanyId,
     },
-    data: {
-      productCardsSnapshot: body.productCards,
-      orderNumber: body.orderNumber ?? "",
-      description: body.description ?? "",
-      modelNr: body.modelNr ?? "",
-      deliveryDate: body.deliveryDate ?? "",
-      timeWindow: body.timeWindow ?? "",
-      pickupAddress: body.pickupAddress ?? "",
-      extraPickupAddress: Array.isArray(body.extraPickupAddress)
-        ? body.extraPickupAddress
-        : [],
-      deliveryAddress: body.deliveryAddress ?? "",
-      drivingDistance: body.drivingDistance ?? "",
-      customerName: body.customerName ?? "",
-      phone: body.phone ?? "",
-      phoneTwo: body.phoneTwo ?? "",
-      email: body.email ?? "",
-      customerComments: body.customerComments ?? "",
-      floorNo: body.floorNo ?? "",
-      lift: body.lift ?? "",
-      cashierName: body.cashierName ?? "",
-      cashierPhone: body.cashierPhone ?? "",
-      subcontractorId: body.subcontractorId ?? "",
-      subcontractor: body.subcontractor ?? "",
-      driver: body.driver ?? "",
-      secondDriver: body.secondDriver ?? "",
-      driverInfo: body.driverInfo ?? "",
-      licensePlate: body.licensePlate ?? "",
-      deviation: body.deviation ?? "",
-      feeExtraWork: !!body.feeExtraWork,
-      feeAddToOrder: !!body.feeAddToOrder,
-      statusNotes: body.statusNotes ?? "",
-      changeCustomerId: body.changeCustomerId ?? "",
-      changeCustomer: body.changeCustomer ?? "",
-      status: body.status ?? "",
-      dontSendEmail: !!body.dontSendEmail,
-      priceExVat: body.priceExVat ?? 0,
-      priceSubcontractor: body.priceSubcontractor ?? 0,
-      rabatt: body.rabatt ?? "",
-      leggTil: body.leggTil ?? "",
-      subcontractorMinus: body.subcontractorMinus ?? "",
-      subcontractorPlus: body.subcontractorPlus ?? "",
+    select: {
+      id: true,
     },
   });
 
-  await prisma.orderItem.deleteMany({
-    where: { orderId },
+  if (!existingOrder) {
+    return NextResponse.json(
+      { ok: false, reason: "NOT_FOUND" },
+      { status: 404 },
+    );
+  }
+
+  const productCards = body.productCards as SavedProductCard[];
+
+  const catalog = await getBookingCatalog(membership.priceListId ?? null);
+
+  const summaries = buildOrderSummaries(
+    productCards,
+    catalog.products,
+    catalog.specialOptions,
+  );
+
+  const builtItems = buildOrderItemsFromCards(
+    productCards,
+    catalog.products,
+    catalog.specialOptions,
+  );
+
+  await prisma.$transaction(async (tx) => {
+    await tx.order.update({
+      where: {
+        id: orderId,
+      },
+      data: {
+        orderNumber: optionalString(body.orderNumber),
+        description: optionalString(body.description),
+        modelNr: optionalString(body.modelNr),
+
+        deliveryDate: optionalString(body.deliveryDate),
+        timeWindow: optionalString(body.timeWindow),
+
+        pickupAddress: optionalString(body.pickupAddress),
+        extraPickupAddress: Array.isArray(body.extraPickupAddress)
+          ? body.extraPickupAddress
+              .filter(
+                (value: unknown): value is string => typeof value === "string",
+              )
+              .map((value: string) => value.trim())
+              .filter(Boolean)
+          : [],
+        deliveryAddress: optionalString(body.deliveryAddress),
+        drivingDistance: optionalString(body.drivingDistance),
+
+        customerMembershipId: optionalString(body.customerMembershipId),
+        customerLabel: optionalString(body.customerLabel),
+        customerName: optionalString(body.customerName),
+        phone: optionalString(body.phone),
+        phoneTwo: optionalString(body.phoneTwo),
+        email: optionalString(body.email),
+
+        customerComments: optionalString(body.customerComments),
+
+        floorNo: optionalString(body.floorNo),
+        lift: optionalString(body.lift),
+
+        cashierName: optionalString(body.cashierName),
+        cashierPhone: optionalString(body.cashierPhone),
+
+        subcontractorMembershipId: optionalString(body.subcontractorId),
+        subcontractor: optionalString(body.subcontractor),
+
+        driver: optionalString(body.driver),
+        secondDriver: optionalString(body.secondDriver),
+        driverInfo: optionalString(body.driverInfo),
+        licensePlate: optionalString(body.licensePlate),
+
+        deviation: optionalString(body.deviation),
+        feeExtraWork: optionalBoolean(body.feeExtraWork),
+        feeAddToOrder: optionalBoolean(body.feeAddToOrder),
+        statusNotes: optionalString(body.statusNotes),
+        status: optionalString(body.status),
+        dontSendEmail: optionalBoolean(body.dontSendEmail),
+
+        priceExVat: Math.round(safeNumber(body.priceExVat)),
+        priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
+
+        rabatt: optionalString(body.rabatt),
+        leggTil: optionalString(body.leggTil),
+        subcontractorMinus: optionalString(body.subcontractorMinus),
+        subcontractorPlus: optionalString(body.subcontractorPlus),
+
+        productsSummary: summaries.productsSummary,
+        deliveryTypeSummary: summaries.deliveryTypeSummary,
+        servicesSummary: summaries.servicesSummary,
+
+        productCardsSnapshot: productCards as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    await tx.orderItem.deleteMany({
+      where: {
+        orderId,
+      },
+    });
+
+    for (const item of builtItems) {
+      await tx.orderItem.create({
+        data: {
+          orderId,
+          cardId: item.cardId,
+          productId: item.productId,
+          productCode: item.productCode,
+          productName: item.productName,
+          deliveryType: item.deliveryType,
+          itemType: item.itemType,
+          optionId: item.optionId,
+          optionCode: item.optionCode,
+          optionLabel: item.optionLabel,
+          quantity: item.quantity,
+          customerPriceCents: item.customerPriceCents,
+          subcontractorPriceCents: item.subcontractorPriceCents,
+          rawData: item.rawData
+            ? (item.rawData as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
+        },
+      });
+    }
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    orderId,
+  });
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ orderId: string }> },
+) {
+  const session = await getAuthenticatedSession(req);
+
+  if (!session) {
+    return NextResponse.json(
+      { ok: false, reason: "UNAUTHORIZED" },
+      { status: 401 },
+    );
+  }
+
+  if (!session.activeCompanyId) {
+    return NextResponse.json(
+      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+      { status: 409 },
+    );
+  }
+
+  const membership = await prisma.membership.findFirst({
+    where: {
+      userId: session.userId,
+      companyId: session.activeCompanyId,
+      status: "ACTIVE",
+    },
+    select: {
+      role: true,
+    },
+  });
+
+  if (!membership) {
+    return NextResponse.json(
+      { ok: false, reason: "FORBIDDEN" },
+      { status: 403 },
+    );
+  }
+
+  const isAdminOrOwner =
+    membership.role === "OWNER" || membership.role === "ADMIN";
+
+  if (!isAdminOrOwner) {
+    return NextResponse.json(
+      { ok: false, reason: "FORBIDDEN" },
+      { status: 403 },
+    );
+  }
+
+  const { orderId } = await params;
+
+  const result = await prisma.order.deleteMany({
+    where: {
+      id: orderId,
+      companyId: session.activeCompanyId,
+    },
+  });
+
+  if (result.count === 0) {
+    return NextResponse.json(
+      { ok: false, reason: "ORDER_NOT_FOUND" },
+      { status: 404 },
+    );
+  }
+
+  return NextResponse.json({
+    ok: true,
+  });
 }
