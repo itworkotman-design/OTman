@@ -25,10 +25,13 @@ export default function AddressAutocompleteInput({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
+useEffect(() => {
+  setQuery(value);
+  setOpen(false);
+  setHasInteracted(false);
+}, [value]);
 
   useEffect(() => {
     if (disabled) {
@@ -39,11 +42,11 @@ export default function AddressAutocompleteInput({
 
     const trimmed = query.trim();
 
-    if (trimmed.length < 3) {
-      setResults([]);
-      setOpen(false);
-      return;
-    }
+   if (!hasInteracted || trimmed.length < 3) {
+     setResults([]);
+     setOpen(false);
+     return;
+   }
 
     const controller = new AbortController();
 
@@ -102,8 +105,14 @@ export default function AddressAutocompleteInput({
         value={query}
         onChange={(e) => {
           const next = e.target.value;
+          setHasInteracted(true);
           setQuery(next);
           onChange(next);
+        }}
+        onFocus={() => {
+          if (query.trim().length >= 3) {
+            setHasInteracted(true);
+          }
         }}
         disabled={disabled}
         placeholder={placeholder}

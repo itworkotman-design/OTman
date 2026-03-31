@@ -18,6 +18,7 @@ type Props = {
     subcontractorMinus: string;
     subcontractorPlus: string;
   }) => void;
+  sidebarMode?: boolean;
 };
 
 export default function BookingCalculatorPanel({
@@ -28,6 +29,7 @@ export default function BookingCalculatorPanel({
   adminView,
   onPriceChange,
   onAdjustmentsChange,
+  sidebarMode = false,
 }: Props) {
   return (
     <>
@@ -44,36 +46,38 @@ export default function BookingCalculatorPanel({
             </span>
           </button>
         ) : (
-          <div className="flex flex-col bg-white overflow-auto border rounded-2xl shadow-xl">
+          <div className="flex max-h-[85vh] w-[min(92vw,420px)] flex-col overflow-hidden rounded-2xl border bg-white shadow-xl">
             <button
               type="button"
               onClick={() => setCalcOpen(false)}
-              className="rounded-4xl bg-logoblue text-sm font-semibold w-[80] h-[40] text-white text-center ml-auto mr-2 mt-2"
+              className="rounded-4xl bg-logoblue text-sm font-semibold w-[80] h-[40] text-white text-center ml-auto mr-2 mt-2 shrink-0"
               aria-label="Close calculator"
             >
               Close
             </button>
 
-            <div className="p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <CalculatorDisplayNew
                 productBreakdowns={productBreakdowns}
                 priceLookup={priceLookup}
                 adminView={adminView}
                 onPriceChange={onPriceChange}
                 onAdjustmentsChange={onAdjustmentsChange}
+                sidebarMode={false}
               />
             </div>
           </div>
         )}
       </div>
 
-      <div className="hidden lg:block flex-1">
+      <div className="hidden lg:block w-full">
         <CalculatorDisplayNew
           productBreakdowns={productBreakdowns}
           priceLookup={priceLookup}
           adminView={adminView}
           onPriceChange={onPriceChange}
           onAdjustmentsChange={onAdjustmentsChange}
+          sidebarMode={sidebarMode}
         />
       </div>
     </>

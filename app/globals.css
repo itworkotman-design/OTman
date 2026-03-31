@@ -26,6 +26,11 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
 html {
   overflow-y: scroll;
   scrollbar-gutter: stable;

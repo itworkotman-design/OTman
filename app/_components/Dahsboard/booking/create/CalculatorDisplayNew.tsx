@@ -28,6 +28,7 @@ type Props = {
   initialSubcontractorMinus?: number;
   initialSubcontractorPlus?: number;
   onAdjustmentsChange?: (adjustments: CalculatorAdjustments) => void;
+  sidebarMode?: boolean;
 };
 
 export function CalculatorDisplayNew({
@@ -40,6 +41,7 @@ export function CalculatorDisplayNew({
   initialSubcontractorMinus,
   initialSubcontractorPlus,
   onAdjustmentsChange,
+  sidebarMode = false,
 }: Props) {
   const [rabatt, setRabatt] = useState(
     initialRabatt != null && initialRabatt !== 0 ? String(initialRabatt) : "",
@@ -86,7 +88,12 @@ export function CalculatorDisplayNew({
   }, [result, adjustments, onPriceChange, onAdjustmentsChange]);
 
   return (
-    <section className="w-full customContainer rounded-2xl px-4 max-h-[calc(100vh-9rem)] overflow-y-auto bg-mainPrimary">
+    <section
+      className={[
+        "w-full customContainer rounded-2xl px-4 bg-mainPrimary",
+        sidebarMode ? "max-h-[calc(100vh-10rem)] overflow-y-auto" : "",
+      ].join(" ")}
+    >
       <div className="border-b-2 border-lineSecondary py-4">
         {result.breakdowns.length === 0 ? (
           <p className="text-sm opacity-30">No products selected.</p>

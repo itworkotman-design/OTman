@@ -32,13 +32,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-[60px] bg-white">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-[60] bg-white">
         <div className="relative h-full w-full">
           {/* Mobile overlay sidebar */}
           <div className="absolute top-0 left-0 z-50">
             <aside
               className={`bg-white shadow-md ${
-                sidebarOpenPhone ? "h-dvh" : "h-[60px]"
+                sidebarOpenPhone ? "h-dvh" : "h-[60]"
               }`}
               style={{ width: `${sidebarWPhone}px` }}
             >
