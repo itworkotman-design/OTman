@@ -175,7 +175,7 @@ export default function BookingPage() {
   if (!currentUser) return null;
 
   return (
-    <div className="mx-auto max-w-[1600]">
+    <div className="w-full">
       <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
         Booking orders
       </h1>
@@ -222,24 +222,28 @@ export default function BookingPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="py-6 text-textColorThird">Loading orders...</div>
-      ) : error ? (
-        <div className="py-6 text-red-600">{error}</div>
-      ) : (
-        <BookingArchiveTable
-          orders={orders}
-          viewMode={access.viewMode}
-          onRowClick={(orderId) => {
-            setSelectedOrderId(orderId);
-            setModalOpen(true);
-          }}
-          selectable={false}
-          selectedOrderIds={[]}
-          onToggleOrder={() => {}}
-          onToggleAllVisible={() => {}}
-        />
-      )}
+      <div className="">
+        <div className=" max-w-[4000px]">
+          {loading ? (
+            <div className="py-6 text-textColorThird">Loading orders...</div>
+          ) : error ? (
+            <div className="py-6 text-red-600">{error}</div>
+          ) : (
+            <BookingArchiveTable
+              orders={orders}
+              viewMode={access.viewMode}
+              onRowClick={(orderId) => {
+                setSelectedOrderId(orderId);
+                setModalOpen(true);
+              }}
+              selectable={false}
+              selectedOrderIds={[]}
+              onToggleOrder={() => {}}
+              onToggleAllVisible={() => {}}
+            />
+          )}
+        </div>
+      </div>
 
       <ReadOnlyOrderModal
         open={modalOpen}

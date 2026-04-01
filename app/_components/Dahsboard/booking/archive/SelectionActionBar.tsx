@@ -1,17 +1,18 @@
+// app/_components/Dahsboard/booking/archive/SelectionActionBar.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BookingArchiveOption } from "./types";
 
 type EmailType = "prepare_orders" | "confirmed_delivery" | "custom" | "";
 
 type Props = {
-  customers: BookingArchiveOption[];
+  customers: (BookingArchiveOption & { email?: string | null })[];
   selectedCount: number;
   onSendEmail: (payload: {
-    customerMembershipId: string;
-    emailType: Exclude<EmailType, "">;
-    customMessage?: string;
+    to: string;
+    subject: string;
+    message?: string;
   }) => void | Promise<boolean>;
   onSendGsm: (customerMembershipId: string) => void | Promise<void>;
   onCopySelected: () => void | Promise<void>;
@@ -36,8 +37,40 @@ export default function SelectionActionBar({
   const [successFlash, setSuccessFlash] = useState(false);
 
   const disabled = selectedCount === 0 || loading;
+
+  const selectedCustomer = useMemo(
+    () => customers.find((item) => item.id === customerMembershipId),
+    [customers, customerMembershipId],
+  );
+
+  const subject = useMemo(() => {
+    switch (emailType) {
+      case "prepare_orders":
+        return "Forbered bestillinger";
+      case "confirmed_delivery":
+        return "Bekreftet for levering";
+      case "custom":
+        return "Melding om bestillinger";
+      default:
+        return "";
+    }
+  }, [emailType]);
+
+  const message = useMemo(() => {
+    switch (emailType) {
+      case "prepare_orders":
+        return "Hei,\n\nSe valgte bestillinger nedenfor.";
+      case "confirmed_delivery":
+        return "Hei,\n\nFølgende bestillinger er bekreftet for levering.";
+      case "custom":
+        return customMessage.trim();
+      default:
+        return "";
+    }
+  }, [emailType, customMessage]);
+
   const canSendEmail =
-    !!customerMembershipId &&
+    !!selectedCustomer?.email &&
     !!emailType &&
     (emailType !== "custom" || !!customMessage.trim());
 
@@ -52,12 +85,12 @@ export default function SelectionActionBar({
   }, [successFlash]);
 
   async function handleSendEmailClick() {
-    if (!canSendEmail || disabled) return;
+    if (!canSendEmail || disabled || !selectedCustomer?.email) return;
 
     const ok = await onSendEmail({
-      customerMembershipId,
-      emailType: emailType as Exclude<EmailType, "">,
-      customMessage: emailType === "custom" ? customMessage.trim() : undefined,
+      to: selectedCustomer.email,
+      subject,
+      message: message || undefined,
     });
 
     if (!ok) return;

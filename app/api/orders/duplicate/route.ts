@@ -126,6 +126,7 @@ export async function POST(req: Request) {
         data: {
           companyId: sourceOrder.companyId,
           createdByMembershipId: sourceOrder.createdByMembershipId,
+          lastEditedByMembershipId: null,
           customerMembershipId: sourceOrder.customerMembershipId,
           priceListId: sourceOrder.priceListId,
 

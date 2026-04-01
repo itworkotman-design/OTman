@@ -103,6 +103,9 @@ export default function BookingEditor({
       ? initialValues.productCards
       : [createEmptyProductCard(0)],
   );
+  const [customerLabel, setCustomerLabel] = useState(
+    initialValues?.customerLabel ?? "",
+  );
   const [expandedCardId, setExpandedCardId] = useState<number | null>(0);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
   const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<
@@ -285,7 +288,7 @@ export default function BookingEditor({
         ? initialValues.productCards[0].cardId
         : 0,
     );
-
+    setCustomerLabel(initialValues.customerLabel ?? "");
     setOrderNumber(initialValues.orderNumber ?? "");
     setDescription(initialValues.description ?? "");
     setModelNr(initialValues.modelNr ?? "");
@@ -435,8 +438,8 @@ export default function BookingEditor({
     () =>
       changeCustomerOptions.find(
         (option) => option.id === customerMembershipId,
-      ),
-    [customerMembershipId, changeCustomerOptions],
+      ) || (customerLabel ? { id: "", name: customerLabel } : undefined),
+    [customerMembershipId, changeCustomerOptions, customerLabel],
   );
 
   const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
@@ -657,7 +660,7 @@ export default function BookingEditor({
       feeAddToOrder,
       statusNotes,
       customerMembershipId,
-      customerLabel: selectedCustomer?.name ?? "",
+      customerLabel,
       status,
       dontSendEmail,
 
@@ -702,7 +705,6 @@ export default function BookingEditor({
       }
 
       setAttachments([]);
-      
     } catch {
       setSubmitError("Failed to save order");
     } finally {
@@ -810,6 +812,8 @@ export default function BookingEditor({
             setCashierPhone={setCashierPhone}
             subcontractorId={subcontractorId}
             setSubcontractorId={setSubcontractorId}
+            customerLabel={customerLabel}
+            setCustomerLabel={setCustomerLabel}
             driver={driver}
             setDriver={setDriver}
             secondDriver={secondDriver}

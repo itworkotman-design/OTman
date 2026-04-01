@@ -49,6 +49,8 @@ type Props = {
     React.SetStateAction<{ id: string; value: string }[]>
   >;
 
+  customerLabel: string;
+  setCustomerLabel: React.Dispatch<React.SetStateAction<string>>;
   customerName: string;
   setCustomerName: React.Dispatch<React.SetStateAction<string>>;
   phone: string;
@@ -91,6 +93,8 @@ type Props = {
   setStatusNotes: React.Dispatch<React.SetStateAction<string>>;
   customerMembershipId: string;
   setCustomerMembershipId: React.Dispatch<React.SetStateAction<string>>;
+  customerLabel: string;
+  setCustomerLabel: React.Dispatch<React.SetStateAction<string>>;
   status: string;
   setStatus: React.Dispatch<React.SetStateAction<string>>;
   dontSendEmail: boolean;
@@ -154,6 +158,8 @@ export default function OrderFieldsForm({
   customerComments,
   setCustomerComments,
 
+  customerLabel,
+  setCustomerLabel,
   floorNo,
   setFloorNo,
   lift,
@@ -569,7 +575,15 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">Change customer</h1>
           <select
             value={customerMembershipId}
-            onChange={(e) => setCustomerMembershipId(e.target.value)}
+            onChange={(e) => {
+              const id = e.target.value;
+              setCustomerMembershipId(id);
+
+              const selected = changeCustomerOptions.find((o) => o.id === id);
+              if (selected) {
+                setCustomerLabel(selected.name);
+              }
+            }}
             className="customInput w-full"
             disabled={changeCustomerLoading}
           >

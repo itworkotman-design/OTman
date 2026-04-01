@@ -54,8 +54,18 @@ async function reserveNextOrderNumber(companyId: string): Promise<number> {
 export async function POST(req: Request) {
   const session = await getAuthenticatedSession(req);
 
-  if (!session || !session.activeCompanyId) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+  if (!session) {
+    return NextResponse.json(
+      { ok: false, reason: "UNAUTHORIZED" },
+      { status: 401 },
+    );
+  }
+
+  if (!session.activeCompanyId) {
+    return NextResponse.json(
+      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+      { status: 409 },
+    );
   }
 
   const membership = await prisma.membership.findFirst({
@@ -68,30 +78,87 @@ export async function POST(req: Request) {
       id: true,
       role: true,
       priceListId: true,
-      user: { select: { username: true, email: true } },
-      permissions: { select: { permission: true } },
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
+      permissions: {
+        select: {
+          permission: true,
+        },
+      },
     },
   });
 
-  if (!membership) return NextResponse.json({ ok: false }, { status: 403 });
+  if (!membership) {
+    return NextResponse.json(
+      { ok: false, reason: "FORBIDDEN" },
+      { status: 403 },
+    );
+  }
 
   const permissions = membership.permissions.map(
     (p): AppPermission => p.permission,
   );
 
   if (!canCreateOrders(membership.role, permissions)) {
-    return NextResponse.json({ ok: false }, { status: 403 });
+    return NextResponse.json(
+      { ok: false, reason: "FORBIDDEN" },
+      { status: 403 },
+    );
   }
 
   const body = await req.json().catch(() => null);
 
-  if (!body?.productCards?.length) {
-    return NextResponse.json({ ok: false }, { status: 400 });
+  if (
+    !body ||
+    !Array.isArray(body.productCards) ||
+    body.productCards.length === 0
+  ) {
+    return NextResponse.json(
+      { ok: false, reason: "INVALID_PRODUCT_CARDS" },
+      { status: 400 },
+    );
   }
 
   const productCards = body.productCards as SavedProductCard[];
 
-  const catalog = await getBookingCatalog(membership.priceListId ?? null);
+  const isAdminOrOwner =
+    membership.role === "OWNER" || membership.role === "ADMIN";
+
+  const customerMembershipId =
+    optionalString(body.customerMembershipId) || membership.id;
+
+  const customerLabel =
+    optionalString(body.customerLabel) ||
+    membership.user.username ||
+    membership.user.email;
+
+  const customerName = optionalString(body.customerName);
+
+  // Important:
+  // For admin-created orders, use the selected customer's pricelist if possible.
+  let effectivePriceListId = membership.priceListId ?? null;
+
+  if (isAdminOrOwner && customerMembershipId) {
+    const selectedCustomerMembership = await prisma.membership.findFirst({
+      where: {
+        id: customerMembershipId,
+        companyId: session.activeCompanyId,
+        status: "ACTIVE",
+      },
+      select: {
+        priceListId: true,
+      },
+    });
+
+    effectivePriceListId =
+      selectedCustomerMembership?.priceListId ?? membership.priceListId ?? null;
+  }
+
+  const catalog = await getBookingCatalog(effectivePriceListId);
 
   const summaries = buildOrderSummaries(
     productCards,
@@ -99,45 +166,111 @@ export async function POST(req: Request) {
     catalog.specialOptions,
   );
 
-  const isAdmin = membership.role === "OWNER" || membership.role === "ADMIN";
+  const builtItems = buildOrderItemsFromCards(
+    productCards,
+    catalog.products,
+    catalog.specialOptions,
+  );
 
-  const customerMembershipId = isAdmin
-    ? optionalString(body.customerMembershipId)
-    : membership.id;
-
-  const customerLabel = isAdmin
-    ? optionalString(body.customerLabel)
-    : membership.user.username || membership.user.email;
-
-  const nextOrderNumber = await reserveNextOrderNumber(session.activeCompanyId);
+  const nextDisplayId = await reserveNextOrderNumber(session.activeCompanyId);
 
   const order = await prisma.order.create({
     data: {
       companyId: session.activeCompanyId,
       createdByMembershipId: membership.id,
-      priceListId: membership.priceListId ?? null,
+      lastEditedByMembershipId: null,
+      priceListId: effectivePriceListId,
 
       customerMembershipId,
       customerLabel,
-      customerName: optionalString(body.customerName),
+      customerName,
 
-      displayId: nextOrderNumber,
+      displayId: nextDisplayId,
       orderNumber: optionalString(body.orderNumber),
-      status: optionalString(body.status) || "behandles",
+
+      description: optionalString(body.description),
+      modelNr: optionalString(body.modelNr),
 
       deliveryDate: optionalString(body.deliveryDate),
       timeWindow: optionalString(body.timeWindow),
 
       pickupAddress: optionalString(body.pickupAddress),
+      extraPickupAddress: Array.isArray(body.extraPickupAddress)
+        ? body.extraPickupAddress
+            .filter(
+              (value: unknown): value is string => typeof value === "string",
+            )
+            .map((value: string) => value.trim())
+            .filter(Boolean)
+        : [],
       deliveryAddress: optionalString(body.deliveryAddress),
+      returnAddress: optionalString(body.returnAddress),
+      drivingDistance: optionalString(body.drivingDistance),
+
+      phone: optionalString(body.phone),
+      phoneTwo: optionalString(body.phoneTwo),
+      email: optionalString(body.email),
+      customerComments: optionalString(body.customerComments),
+
+      floorNo: optionalString(body.floorNo),
+      lift: optionalString(body.lift),
+
+      cashierName: optionalString(body.cashierName),
+      cashierPhone: optionalString(body.cashierPhone),
+
+      subcontractorMembershipId: optionalString(body.subcontractorId),
+      subcontractor: optionalString(body.subcontractor),
+
+      driver: optionalString(body.driver),
+      secondDriver: optionalString(body.secondDriver),
+      driverInfo: optionalString(body.driverInfo),
+      licensePlate: optionalString(body.licensePlate),
+
+      deviation: optionalString(body.deviation),
+      feeExtraWork: optionalBoolean(body.feeExtraWork),
+      feeAddToOrder: optionalBoolean(body.feeAddToOrder),
+      statusNotes: optionalString(body.statusNotes),
+      status: optionalString(body.status) || "behandles",
+      dontSendEmail: optionalBoolean(body.dontSendEmail),
 
       priceExVat: Math.round(safeNumber(body.priceExVat)),
+      priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
+
+      rabatt: optionalString(body.rabatt),
+      leggTil: optionalString(body.leggTil),
+      subcontractorMinus: optionalString(body.subcontractorMinus),
+      subcontractorPlus: optionalString(body.subcontractorPlus),
 
       productsSummary: summaries.productsSummary,
+      deliveryTypeSummary: summaries.deliveryTypeSummary,
+      servicesSummary: summaries.servicesSummary,
 
       productCardsSnapshot: productCards as unknown as Prisma.InputJsonValue,
     },
   });
+
+  if (builtItems.length > 0) {
+    await prisma.orderItem.createMany({
+      data: builtItems.map((item) => ({
+        orderId: order.id,
+        cardId: item.cardId,
+        productId: item.productId,
+        productCode: item.productCode,
+        productName: item.productName,
+        deliveryType: item.deliveryType,
+        itemType: item.itemType,
+        optionId: item.optionId,
+        optionCode: item.optionCode,
+        optionLabel: item.optionLabel,
+        quantity: item.quantity,
+        customerPriceCents: item.customerPriceCents,
+        subcontractorPriceCents: item.subcontractorPriceCents,
+        rawData: item.rawData
+          ? (item.rawData as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+      })),
+    });
+  }
 
   const pending = await prisma.pendingOrderAttachment.findMany({
     where: { sessionId: session.userId },
@@ -358,8 +491,19 @@ export async function GET(req: Request) {
       priceExVat: true,
       priceSubcontractor: true,
       createdByMembershipId: true,
+      lastEditedByMembershipId: true,
       customerMembershipId: true,
       createdByMembership: {
+        select: {
+          user: {
+            select: {
+              username: true,
+              email: true,
+            },
+          },
+        },
+      },
+      lastEditedByMembership: {
         select: {
           user: {
             select: {
@@ -406,12 +550,17 @@ export async function GET(req: Request) {
       priceExVat: order.priceExVat,
       priceSubcontractor: order.priceSubcontractor,
       createdByMembershipId: order.createdByMembershipId,
+      lastEditedByMembershipId: order.lastEditedByMembershipId ?? "",
       customerMembershipId: order.customerMembershipId ?? "",
       createdBy:
         order.createdByMembership.user.username ||
         order.createdByMembership.user.email ||
         "",
-    })),
+      lastEditedBy:
+        order.lastEditedByMembership?.user.username ||
+        order.lastEditedByMembership?.user.email ||
+        "",
+    } )),
     page,
     rowsPerPage,
   });

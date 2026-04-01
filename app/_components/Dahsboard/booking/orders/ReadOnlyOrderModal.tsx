@@ -27,6 +27,8 @@ type Props = {
     createdAt: string;
     updatedAt: string;
     priceExVat: number;
+    createdBy?: string;
+    lastEditedBy?: string;
   } | null;
   onClose: () => void;
 };
@@ -216,6 +218,14 @@ export default function ReadOnlyOrderModal({ open, order, onClose }: Props) {
           <p>
             <span className="font-semibold">Statusnotater:</span>{" "}
             {formatCell(order.statusNotes)}
+          </p>
+          <p>
+            <span className="font-semibold">Opprettet av:</span>{" "}
+            {formatCell(order.createdBy)}
+          </p>
+          <p>
+            <span className="font-semibold">Sist redigert av:</span>{" "}
+            {formatCell(order.lastEditedBy)}
           </p>
         </div>
 

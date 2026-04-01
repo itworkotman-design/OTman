@@ -18,6 +18,7 @@ import SelectionActionBar from "@/app/_components/Dahsboard/booking/archive/Sele
 type FilterOptionApiItem = {
   id: string;
   name: string;
+  email?: string | null;
 };
 
 export default function BookingPage() {
@@ -137,6 +138,7 @@ export default function BookingPage() {
             (item: FilterOptionApiItem) => ({
               id: item.id,
               label: item.name,
+              email: item.email ?? "",
             }),
           ),
         );
@@ -188,51 +190,48 @@ export default function BookingPage() {
     }
   }
 
-  async function handleSendSelectedEmail(payload: {
-    customerMembershipId: string;
-    emailType: "prepare_orders" | "confirmed_delivery" | "custom";
-    customMessage?: string;
-  }): Promise<boolean> {
-    if (!payload.customerMembershipId || selectedOrderIds.length === 0)
+async function handleSendSelectedEmail(payload: {
+  to: string;
+  subject: string;
+  message?: string;
+}): Promise<boolean> {
+  if (!payload.to || selectedOrderIds.length === 0) return false;
+
+  try {
+    setCustomerActionLoading(true);
+    setCustomerActionError("");
+
+    const res = await fetch("/api/orders/send-selected-email", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        orderIds: selectedOrderIds,
+        to: payload.to,
+        subject: payload.subject,
+        message: payload.message,
+      }),
+    });
+
+    const data = await res.json().catch(() => null);
+    console.log("send-selected-email response", res.status, data);
+
+    if (!res.ok || !data?.ok) {
+      setCustomerActionError(data?.reason || "Failed to send email");
       return false;
-
-    try {
-      setCustomerActionLoading(true);
-      setCustomerActionError("");
-
-      const res = await fetch("/api/orders/send-selected-email", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderIds: selectedOrderIds,
-          customerMembershipId: payload.customerMembershipId,
-          emailType: payload.emailType,
-          customMessage: payload.customMessage,
-        }),
-      });
-
-      const data = await res.json().catch(() => null);
-      console.log("send-selected-email response", res.status, data);
-
-      if (!res.ok || !data?.ok) {
-        setCustomerActionError(data?.reason || "Failed to send email");
-        return false;
-      }
-
-      setSelectedOrderIds([]);
-      return true;
-
-      return true;
-    } catch {
-      setCustomerActionError("Failed to send email");
-      return false;
-    } finally {
-      setCustomerActionLoading(false);
     }
+
+    setSelectedOrderIds([]);
+    return true;
+  } catch {
+    setCustomerActionError("Failed to send email");
+    return false;
+  } finally {
+    setCustomerActionLoading(false);
   }
+}
 
   async function handleSendSelectedToGsm(
     customerMembershipId: string,
@@ -246,39 +245,41 @@ export default function BookingPage() {
     });
   }
 
- async function handleCopySelected() {
-   if (selectedOrderIds.length === 0) return;
+  async function handleCopySelected() {
+    if (selectedOrderIds.length === 0) return;
 
-   try {
-     setCustomerActionLoading(true);
-     setCustomerActionError("");
+    try {
+      setCustomerActionLoading(true);
+      setCustomerActionError("");
 
-     const res = await fetch("/api/orders/duplicate", {
-       method: "POST",
-       credentials: "include",
-       headers: {
-         "Content-Type": "application/json",
-       },
-       body: JSON.stringify({
-         orderIds: selectedOrderIds,
-       }),
-     });
+      const res = await fetch("/api/orders/duplicate", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+        }),
+      });
 
-     const data = await res.json().catch(() => null);
+      const data = await res.json().catch(() => null);
 
-     if (!res.ok || !data?.ok) {
-       setCustomerActionError(data?.reason || "Failed to copy selected orders");
-       return;
-     }
+      if (!res.ok || !data?.ok) {
+        setCustomerActionError(
+          data?.reason || "Failed to copy selected orders",
+        );
+        return;
+      }
 
-     setSelectedOrderIds([]);
-     await loadOrders(appliedFilters);
-   } catch {
-     setCustomerActionError("Failed to copy selected orders");
-   } finally {
-     setCustomerActionLoading(false);
-   }
- }
+      setSelectedOrderIds([]);
+      await loadOrders(appliedFilters);
+    } catch {
+      setCustomerActionError("Failed to copy selected orders");
+    } finally {
+      setCustomerActionLoading(false);
+    }
+  }
   function handleExportSelected() {
     if (selectedOrderIds.length === 0) return;
 
@@ -328,7 +329,7 @@ export default function BookingPage() {
   const canBulkSelect = access.viewMode === "ADMIN";
 
   return (
-    <div className="mx-auto max-w-[1600]">
+    <div className="w-full">
       <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
         Booking orders
       </h1>
@@ -368,59 +369,63 @@ export default function BookingPage() {
           />
         </div>
       )}
-      <div className="flex items-center justify-between gap-2 my-4">
-        <div className="text-sm text-textColorThird my-2">
-          {canBulkSelect ? `${selectedOrderIds.length} selected` : ""}
-        </div>
-        <div className="flex items-center gap-2 justify-end">
-          <select
-            className="customInput cursor-pointer w-48"
-            value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value);
-              void loadOrders();
-            }}
-          >
-            <option value="">Sort</option>
-            <option value="deliveryDate">Delivery date</option>
-            <option value="price">Price</option>
-            <option value="status">Status</option>
-          </select>
+      <div className="overflow-x-auto">
+        <div className=" max-w-[4000px]">
+          <div className="flex items-center justify-between gap-2 my-4">
+            <div className="text-sm text-textColorThird my-2">
+              {canBulkSelect ? `${selectedOrderIds.length} selected` : ""}
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <select
+                className="customInput cursor-pointer w-48"
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  void loadOrders();
+                }}
+              >
+                <option value="">Sort</option>
+                <option value="deliveryDate">Delivery date</option>
+                <option value="price">Price</option>
+                <option value="status">Status</option>
+              </select>
 
-          <button
-            type="button"
-            className="customButtonDefault"
-            onClick={() => {
-              setSortOrder((prev) => {
-                const next = prev === "asc" ? "desc" : "asc";
-                setTimeout(() => void loadOrders(), 0);
-                return next;
-              });
-            }}
-          >
-            {sortOrder === "asc" ? "↑ Asc" : "↓ Desc"}
-          </button>
+              <button
+                type="button"
+                className="customButtonDefault"
+                onClick={() => {
+                  setSortOrder((prev) => {
+                    const next = prev === "asc" ? "desc" : "asc";
+                    setTimeout(() => void loadOrders(), 0);
+                    return next;
+                  });
+                }}
+              >
+                {sortOrder === "asc" ? "↑ Asc" : "↓ Desc"}
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="py-6 text-textColorThird">Loading orders...</div>
+          ) : error ? (
+            <div className="py-6 text-red-600">{error}</div>
+          ) : (
+            <BookingArchiveTable
+              orders={orders}
+              viewMode={access.viewMode}
+              onRowClick={(orderId) => {
+                setSelectedOrderId(orderId);
+                setModalOpen(true);
+              }}
+              selectable={canBulkSelect}
+              selectedOrderIds={selectedOrderIds}
+              onToggleOrder={handleToggleOrder}
+              onToggleAllVisible={handleToggleAllVisible}
+            />
+          )}
         </div>
       </div>
-
-      {loading ? (
-        <div className="py-6 text-textColorThird">Loading orders...</div>
-      ) : error ? (
-        <div className="py-6 text-red-600">{error}</div>
-      ) : (
-        <BookingArchiveTable
-          orders={orders}
-          viewMode={access.viewMode}
-          onRowClick={(orderId) => {
-            setSelectedOrderId(orderId);
-            setModalOpen(true);
-          }}
-          selectable={canBulkSelect}
-          selectedOrderIds={selectedOrderIds}
-          onToggleOrder={handleToggleOrder}
-          onToggleAllVisible={handleToggleAllVisible}
-        />
-      )}
 
       <OrderModal
         orderId={selectedOrderId}

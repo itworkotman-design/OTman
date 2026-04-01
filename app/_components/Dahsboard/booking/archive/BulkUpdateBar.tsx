@@ -58,12 +58,12 @@ export default function BulkUpdateBar({
 
   return (
     <section className="customContainer mt-3">
-      <div className="grid items-end gap-3 md:grid-cols-[180px_1fr_1fr_auto_auto]">
+      <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_1fr_auto_auto]">
         <div>
           <label className="mb-1 block text-xs font-medium text-textColorThird">
             Selected
           </label>
-          <div className="customInput flex items-center">{selectedCount}</div>
+          <div className="customInput flex h-10 w-[60px] items-center justify-center text-center">{selectedCount}</div>
         </div>
 
         <div>

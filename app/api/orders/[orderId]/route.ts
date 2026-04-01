@@ -44,6 +44,7 @@ export async function GET(
     select: {
       id: true,
       priceListId: true,
+      customerMembershipId: true,
       productCardsSnapshot: true,
       orderNumber: true,
       description: true,
@@ -82,6 +83,17 @@ export async function GET(
       leggTil: true,
       subcontractorMinus: true,
       subcontractorPlus: true,
+      lastEditedByMembershipId: true,
+      lastEditedByMembership: {
+        select: {
+          user: {
+            select: {
+              username: true,
+              email: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -97,6 +109,7 @@ export async function GET(
     order: {
       id: order.id,
       priceListId: order.priceListId ?? "",
+      customerMembershipId: order.customerMembershipId ?? "",
       productCards: Array.isArray(order.productCardsSnapshot)
         ? order.productCardsSnapshot
         : [],
@@ -138,6 +151,14 @@ export async function GET(
       leggTil: order.leggTil ?? "",
       subcontractorMinus: order.subcontractorMinus ?? "",
       subcontractorPlus: order.subcontractorPlus ?? "",
+      createdBy:
+        order.createdByMembership?.user.username ||
+        order.createdByMembership?.user.email ||
+        "",
+      lastEditedBy:
+        order.lastEditedByMembership?.user.username ||
+        order.lastEditedByMembership?.user.email ||
+        "",
     },
   });
 }
@@ -219,6 +240,9 @@ export async function PATCH(
     },
     select: {
       id: true,
+      priceListId: true,
+      customerMembershipId: true,
+      customerLabel: true,
     },
   });
 
@@ -231,13 +255,17 @@ export async function PATCH(
 
   const productCards = body.productCards as SavedProductCard[];
 
-  const catalog = await getBookingCatalog(membership.priceListId ?? null);
+  const catalog = await getBookingCatalog(
+    existingOrder.priceListId ?? membership.priceListId ?? null,
+  );
 
   const summaries = buildOrderSummaries(
     productCards,
     catalog.products,
     catalog.specialOptions,
   );
+
+  console.log("PATCH SUMMARIES", summaries);
 
   const builtItems = buildOrderItemsFromCards(
     productCards,
@@ -270,8 +298,14 @@ export async function PATCH(
         deliveryAddress: optionalString(body.deliveryAddress),
         drivingDistance: optionalString(body.drivingDistance),
 
-        customerMembershipId: optionalString(body.customerMembershipId),
-        customerLabel: optionalString(body.customerLabel),
+        customerMembershipId:
+          optionalString(body.customerMembershipId) ||
+          existingOrder.customerMembershipId,
+
+        lastEditedByMembershipId: membership.id,
+
+        customerLabel:
+          optionalString(body.customerLabel) || existingOrder.customerLabel,
         customerName: optionalString(body.customerName),
         phone: optionalString(body.phone),
         phoneTwo: optionalString(body.phoneTwo),

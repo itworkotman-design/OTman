@@ -24,7 +24,18 @@ function formatCell(value: string | number | null | undefined) {
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "-";
-  return new Date(value).toLocaleString();
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString("no-NO", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 function formatMoney(value: number | null | undefined) {
@@ -37,28 +48,28 @@ function getStatusStyle(status: string | null | undefined) {
 
   switch (key) {
     case "behandles":
-      return { color: "#b45309", backgroundColor: "#fef3c7" }; // dark orange
+      return { color: "#b45309", backgroundColor: "#fef3c7" };
     case "bekreftet":
     case "confirmed":
-      return { color: "#0f766e", backgroundColor: "#cffafe" }; // dark cyan
+      return { color: "#0f766e", backgroundColor: "#cffafe" };
     case "aktiv":
     case "active":
-      return { color: "#5b21b6", backgroundColor: "#ede9fe" }; // dark purple
+      return { color: "#5b21b6", backgroundColor: "#ede9fe" };
     case "kanselert":
     case "cancelled":
     case "canceled":
-      return { color: "#ea580c", backgroundColor: "#ffedd5" }; // orange
+      return { color: "#ea580c", backgroundColor: "#ffedd5" };
     case "fail":
-      return { color: "#7c3aed", backgroundColor: "#ede9fe" }; // purple
+      return { color: "#7c3aed", backgroundColor: "#ede9fe" };
     case "ferdig":
     case "completed":
-      return { color: "#15803d", backgroundColor: "#dcfce7" }; // green
+      return { color: "#15803d", backgroundColor: "#dcfce7" };
     case "fakturet":
     case "invoiced":
-      return { color: "#064e3b", backgroundColor: "#d1fae5" }; // green/cyan mix
+      return { color: "#064e3b", backgroundColor: "#d1fae5" };
     case "betalt":
     case "paid":
-      return { color: "#6b7280", backgroundColor: "#f3f4f6" }; // light gray
+      return { color: "#6b7280", backgroundColor: "#f3f4f6" };
     default:
       return { color: "inherit", backgroundColor: "transparent" };
   }
@@ -79,6 +90,22 @@ function formatStatusCell(value: string | null | undefined) {
   );
 }
 
+// Wraps any td content so it scrolls vertically if it exceeds 100px,
+// while the row itself stays at natural height determined by the tallest cell.
+function Cell({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`max-h-[100px] overflow-y-auto ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 export default function BookingArchiveTable({
   orders,
   viewMode,
@@ -93,8 +120,8 @@ export default function BookingArchiveTable({
     orders.every((order) => selectedOrderIds.includes(order.id));
 
   return (
-    <div className="w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
-      <table className="w-full border-y border-black/10 text-sm">
+    <div className="w-full max-w-full lg:max-w-[calc(100vw-300px)] mb-10 max-h-[1000px] overflow-x-auto overflow-y-auto [-webkit-overflow-scrolling:touch]">
+      <table className="w-full min-w-[1200px] max-w-[4000px] border-y border-black/10 text-sm">
         <thead>
           <tr className="border-y border-black/10 bg-black/3 text-left text-textColorSecond">
             {selectable && (
@@ -113,79 +140,76 @@ export default function BookingArchiveTable({
 
             {viewMode === "ADMIN" && (
               <>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   ID
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Status
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Leveringsdato
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Tidsvindu
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Customer
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Best.nr
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Navn
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Telefon
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Pickup Adresse
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Extra pickup
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Leveringsadresse
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
                   Produkter
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
                   Leveringstype
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[300] min-w-[300px] border-black/3 px-4 py-3 font-medium">
                   Montering/retur
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Beskrivelse
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Kasserers navn
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Kasserers telefon
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Kundenotater
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Driver info
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Subcontractor
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                  Opprettet av
-                </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Bestillingsdato
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Sist redigert
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Pris uten MVA
                 </th>
-                <th className="whitespace-nowrap px-4 py-3 font-medium">
+                <th className="whitespace-nowrap px-2 py-3 font-medium">
                   Pris Subcontractor
                 </th>
               </>
@@ -193,61 +217,61 @@ export default function BookingArchiveTable({
 
             {viewMode === "SUBCONTRACTOR" && (
               <>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Status
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Leveringsdato
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Tidsvindu
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Customer
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Best.nr
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Pickup Adresse
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Extra pickup
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Leveringsadresse
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
                   Produkter
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
                   Leveringstype
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
                   Montering/retur
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Beskrivelse
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Kasserers navn
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Kasserers telefon
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Kundenotater
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Driver
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Opprettet av
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Bestillingsdato
                 </th>
-                <th className="whitespace-nowrap px-4 py-3 font-medium">
+                <th className="whitespace-nowrap px-2 py-3 font-medium">
                   TotalPris
                 </th>
               </>
@@ -255,25 +279,25 @@ export default function BookingArchiveTable({
 
             {viewMode === "ORDER_CREATOR" && (
               <>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Status
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Status notater
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Bestillings nr
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Kundens navn
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Kundens telefon
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Leveringsdato
                 </th>
-                <th className="whitespace-nowrap px-4 py-3 font-medium">
+                <th className="whitespace-nowrap px-2 py-3 font-medium">
                   Pris uten MVA
                 </th>
               </>
@@ -312,172 +336,183 @@ export default function BookingArchiveTable({
 
               {viewMode === "ADMIN" && (
                 <>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.displayId)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.displayId)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatStatusCell(order.status)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatStatusCell(order.status)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.deliveryDate)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.deliveryDate)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.timeWindow)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.timeWindow)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.customerLabel)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.customerLabel)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.orderNumber)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.orderNumber)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.customerName)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.customerName)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.phone)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.phone)}</Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.pickupAddress)}
+                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.pickupAddress)}</Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {order.extraPickupAddress.length > 0
-                      ? order.extraPickupAddress.join(", ")
-                      : "-"}
+                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>
+                      {order.extraPickupAddress.length > 0
+                        ? order.extraPickupAddress.join(", ")
+                        : "-"}
+                    </Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.deliveryAddress)}
+                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.deliveryAddress)}</Cell>
                   </td>
-                  <td className="max-w-[200] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.productsSummary)}
+                  <td className="w-[220] min-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell className=" wrap-break-word">
+                      {formatCell(order.productsSummary)}
+                    </Cell>
                   </td>
-                  <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.deliveryTypeSummary)}
+                  <td className="w-[220px] min-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell className="whitespace-normal break-words">
+                      {formatCell(order.deliveryTypeSummary)}
+                    </Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.servicesSummary)}
+                  <td className="w-[300px] min-w-[300px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell className="whitespace-normal break-words">
+                      {formatCell(order.servicesSummary)}
+                    </Cell>
                   </td>
-                  <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.description)}
+                  <td className="max-w-[180px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.description)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.cashierName)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.cashierName)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.cashierPhone)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.cashierPhone)}</Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.customerComments)}
+                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.customerComments)}</Cell>
                   </td>
-                  <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.driverInfo)}
+                  <td className="max-w-[180px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.driverInfo)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.subcontractor)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.subcontractor)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.createdBy)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatDateTime(order.createdAt)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatDateTime(order.createdAt)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>
+                      {order.lastEditedBy
+                        ? `${formatDateTime(order.updatedAt)} (${order.lastEditedBy})`
+                        : "-"}
+                    </Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatDateTime(order.updatedAt)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatMoney(order.priceExVat)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatMoney(order.priceExVat)}
-                  </td>
-                  <td className="px-4 py-2 font-semibold text-textColorThird">
-                    {formatMoney(order.priceSubcontractor)}
+                  <td className="px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatMoney(order.priceSubcontractor)}</Cell>
                   </td>
                 </>
               )}
 
               {viewMode === "SUBCONTRACTOR" && (
                 <>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatStatusCell(order.status)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatStatusCell(order.status)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.deliveryDate)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.deliveryDate)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.timeWindow)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.timeWindow)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.customerName)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.customerName)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.orderNumber)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.orderNumber)}</Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.pickupAddress)}
+                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.pickupAddress)}</Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {order.extraPickupAddress.length > 0
-                      ? order.extraPickupAddress.join(", ")
-                      : "-"}
+                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>
+                      {order.extraPickupAddress.length > 0
+                        ? order.extraPickupAddress.join(", ")
+                        : "-"}
+                    </Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.deliveryAddress)}
+                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.deliveryAddress)}</Cell>
                   </td>
-                  <td className="max-w-[200] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.productsSummary)}
+                  <td className="w-[220] min-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.productsSummary)}</Cell>
                   </td>
-                  <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.deliveryTypeSummary)}
+                  <td className="w-[220px] min-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.deliveryTypeSummary)}</Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.servicesSummary)}
+                  <td className="w-[300px] min-w-[300px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.servicesSummary)}</Cell>
                   </td>
-                  <td className="max-w-[180] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.description)}
+                  <td className="max-w-[180px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.description)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.cashierName)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.cashierName)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.cashierPhone)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.cashierPhone)}</Cell>
                   </td>
-                  <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.customerComments)}
+                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.customerComments)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.driver)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.driver)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.createdBy)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.createdBy)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatDateTime(order.createdAt)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatDateTime(order.createdAt)}</Cell>
                   </td>
-                  <td className="px-4 py-2 font-semibold text-textColorThird">
-                    {formatMoney(order.priceExVat)}
+                  <td className="px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatMoney(order.priceExVat)}</Cell>
                   </td>
                 </>
               )}
 
               {viewMode === "ORDER_CREATOR" && (
                 <>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatStatusCell(order.status)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatStatusCell(order.status)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.statusNotes)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.statusNotes)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.orderNumber)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.orderNumber)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.customerName)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.customerName)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.phone)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.phone)}</Cell>
                   </td>
-                  <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.deliveryDate)}
+                  <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatCell(order.deliveryDate)}</Cell>
                   </td>
-                  <td className="px-4 py-2 font-semibold text-textColorThird">
-                    {formatMoney(order.priceExVat)}
+                  <td className="px-2 py-2 font-semibold text-textColorThird">
+                    <Cell>{formatMoney(order.priceExVat)}</Cell>
                   </td>
                 </>
               )}

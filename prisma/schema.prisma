@@ -109,9 +109,10 @@ model Membership {
   priceListId String?
   priceList   PriceList? @relation(fields: [priceListId], references: [id], onDelete: SetNull)
 
-  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdOrders Order[] @relation("OrderCreatedByMembership")
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company          Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdOrders    Order[] @relation("OrderCreatedByMembership")
+  ordersLastEdited Order[] @relation("OrderLastEditedByMembership")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -450,7 +451,7 @@ model Order {
   customerMembershipId String?
   priceListId          String?
 
-  displayId Int
+  displayId   Int
   orderNumber String?
   description String?
   modelNr     String?
@@ -510,6 +511,9 @@ model Order {
   createdByMembership Membership @relation("OrderCreatedByMembership", fields: [createdByMembershipId], references: [id], onDelete: Restrict)
 
   customerMembership Membership? @relation(fields: [customerMembershipId], references: [id])
+
+  lastEditedByMembershipId String?
+  lastEditedByMembership   Membership? @relation("OrderLastEditedByMembership", fields: [lastEditedByMembershipId], references: [id], onDelete: SetNull)
 
   items            OrderItem[]
   orderAttachments OrderAttachment[]
@@ -582,8 +586,7 @@ model PendingOrderAttachment {
 }
 
 model CompanyOrderCounter {
-    companyId String @id 
-    nextNumber Int 
-    updatedAt DateTime @updatedAt
+  companyId  String   @id
+  nextNumber Int
+  updatedAt  DateTime @updatedAt
 }
-

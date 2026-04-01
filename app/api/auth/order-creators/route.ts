@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { isOrderCreatorAccess } from "@/lib/users/access";
-import type { AppPermission } from "@/lib/users/types";
+import { hasFullAccess, isOrderCreatorAccess } from "@/lib/users/access";
+import type { AppPermission, Role } from "@/lib/users/types";
 
 export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -24,7 +24,6 @@ export async function GET(req: Request) {
   const memberships = await prisma.membership.findMany({
     where: {
       companyId: session.activeCompanyId,
-      role: "USER",
       status: "ACTIVE",
       user: {
         status: "ACTIVE",
@@ -55,6 +54,7 @@ export async function GET(req: Request) {
         (p) => p.permission,
       ) as AppPermission[];
 
+      if (hasFullAccess(membership.role as Role)) return true;
       return isOrderCreatorAccess(permissions);
     })
     .map((membership) => ({

@@ -60,5 +60,6 @@ export type OrderRow = {
   priceSubcontractor: number;
   customerMembershipId: string;
   createdBy: string;
+  lastEditedBy: string;
   subcontractor: string;
 };
