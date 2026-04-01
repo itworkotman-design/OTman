@@ -3,7 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
+import FeatureRequestModal from "@/app/_components/Dahsboard/FeatureRequestModal";
 
 type Props = {
   open: boolean;
@@ -66,6 +68,8 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
   const pathname = usePathname();
   const router = useRouter();
 
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+
   const isActive = (href: string) =>
     href === "/dashboard"
       ? pathname === "/dashboard"
@@ -88,7 +92,10 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
   }
 
   return (
-    <div style={{ width }} className={`h-full lg:bg-linePrimary ${open ? "w-full" : "w-10"}`}>
+    <div
+      style={{ width }}
+      className={`h-full lg:bg-linePrimary ${open ? "w-full" : "w-10"}`}
+    >
       <div className="flex py-4">
         {/* Desktop toggle */}
         <button
@@ -128,21 +135,27 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             </div>
           </Link>
 
-          <Link href="/dashboard/booking" className={linkClass("/dashboard/booking")}>
+          <Link
+            href="/dashboard/booking"
+            className={linkClass("/dashboard/booking")}
+          >
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.booking} />
               Booking system
             </div>
           </Link>
 
-          <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
+          <Link
+            href="/dashboard/users"
+            className={linkClass("/dashboard/users")}
+          >
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.users} />
               User management
             </div>
           </Link>
 
-          <Link href="/" className={linkClass("/") +` hidden`}>
+          <Link href="/" className={linkClass("/") + ` hidden`}>
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.home} />
               Edit website
@@ -151,13 +164,33 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => setRequestModalOpen(true)}
             className={`${linkBase} mt-20 cursor-pointer text-left hover:bg-linePrimary`}
           >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">Log out</div>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+              Request new function
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={`${linkBase} mt-2 cursor-pointer text-left hover:bg-linePrimary`}
+          >
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+              Log out
+            </div>
           </button>
         </div>
       </div>
+
+      <FeatureRequestModal
+        open={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        onSubmit={(payload) => {
+          console.log("Feature request submitted", payload);
+        }}
+      />
     </div>
   );
 }

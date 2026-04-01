@@ -176,7 +176,7 @@ export default function BookingEditor({
   const [customerMembershipId, setCustomerMembershipId] = useState(
     initialValues?.customerMembershipId ?? "",
   );
-  const [status, setStatus] = useState(initialValues?.status ?? "");
+  const [status, setStatus] = useState(initialValues?.status ?? "behandles");
   const [dontSendEmail, setDontSendEmail] = useState(
     initialValues?.dontSendEmail ?? false,
   );
@@ -214,6 +214,21 @@ export default function BookingEditor({
   const currentUser = useCurrentUser();
   const role = currentUser?.role ?? "USER";
   const permissions = (currentUser?.permissions ?? []) as AppPermission[];
+  //Attachments
+  const [attachments, setAttachments] = useState<
+    {
+      id: string;
+      filename: string;
+      mimeType: string;
+      sizeBytes: number;
+      url: string;
+    }[]
+  >([]);
+  const [attachmentsUploading, setAttachmentsUploading] = useState(false);
+  const [attachmentsError, setAttachmentsError] = useState("");
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>(
+    [],
+  );
   const { effectiveHidden, effectiveHideDontSendEmail } =
     getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
   useEffect(() => {
@@ -226,9 +241,9 @@ export default function BookingEditor({
           ? `/api/booking/catalog?priceListId=${encodeURIComponent(initialValues.priceListId)}`
           : "/api/booking/catalog";
 
-          if (!initialValues?.priceListId) {
-            console.warn("Order missing priceListId, using fallback catalog");
-          }
+        if (!initialValues?.priceListId) {
+          console.warn("Order missing priceListId, using fallback catalog");
+        }
 
         const res = await fetch(catalogUrl, {
           cache: "no-store",
@@ -465,9 +480,118 @@ export default function BookingEditor({
     console.log("Created order:", data.orderId);
   }
 
+  // Attachments
+  const existingOrderId = initialValues?.id ?? null;
+
+  async function handleUploadAttachment(file: File) {
+    if (attachments.length >= 10) {
+      setAttachmentsError("Max 10 attachments allowed");
+      return;
+    }
+    try {
+      setAttachmentsUploading(true);
+      setAttachmentsError("");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const url = existingOrderId
+        ? `/api/orders/${existingOrderId}/attachments`
+        : "/api/orders/pending-attachments";
+
+      const res = await fetch(url, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setAttachmentsError(data?.reason || "Upload failed");
+        return;
+      }
+
+      setAttachments((prev) => [data.attachment, ...prev]);
+    } catch {
+      setAttachmentsError("Upload failed");
+    } finally {
+      setAttachmentsUploading(false);
+    }
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (existingOrderId) {
+      setDeletedAttachmentIds((prev) =>
+        prev.includes(attachmentId) ? prev : [...prev, attachmentId],
+      );
+      setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
+      return;
+    }
+
+    try {
+      setAttachmentsError("");
+
+      const res = await fetch(
+        `/api/orders/pending-attachments/${attachmentId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setAttachmentsError(data?.reason || "Delete failed");
+        return;
+      }
+
+      setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
+    } catch {
+      setAttachmentsError("Delete failed");
+    }
+  }
+
+  useEffect(() => {
+    async function loadAttachments() {
+      try {
+        setAttachments([]);
+        setAttachmentsError("");
+        setDeletedAttachmentIds([]);
+
+        const url = existingOrderId
+          ? `/api/orders/${existingOrderId}/attachments`
+          : "/api/orders/pending-attachments";
+
+        const res = await fetch(url, {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (res.ok && data?.ok) {
+          setAttachments(data.attachments ?? []);
+          return;
+        }
+
+        setAttachments([]);
+      } catch {
+        setAttachments([]);
+      }
+    }
+
+    void loadAttachments();
+  }, [existingOrderId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError("");
+    if (saving) return;
+    if (attachmentsUploading) {
+      setSubmitError("Wait for attachments to finish uploading");
+      return;
+    }
 
     if (productCards.length === 0) {
       setSubmitError("At least one product is required");
@@ -554,6 +678,31 @@ export default function BookingEditor({
       } else {
         await handleCreateOrder(payload);
       }
+      if (existingOrderId && deletedAttachmentIds.length > 0) {
+        const deleteResults = await Promise.all(
+          deletedAttachmentIds.map((attachmentId) =>
+            fetch(`/api/orders/attachments/${attachmentId}`, {
+              method: "DELETE",
+              credentials: "include",
+            }).catch(() => null),
+          ),
+        );
+
+        const deleteFailed = deleteResults.some((res) => !res || !res.ok);
+
+        if (deleteFailed) {
+          setAttachmentsError("Some attachments could not be deleted.");
+        } else {
+          setDeletedAttachmentIds([]);
+          setAttachmentsError("");
+        }
+      } else {
+        setDeletedAttachmentIds([]);
+        setAttachmentsError("");
+      }
+
+      setAttachments([]);
+      
     } catch {
       setSubmitError("Failed to save order");
     } finally {
@@ -683,6 +832,11 @@ export default function BookingEditor({
             setStatus={setStatus}
             dontSendEmail={dontSendEmail}
             setDontSendEmail={setDontSendEmail}
+            attachments={attachments}
+            attachmentsUploading={attachmentsUploading}
+            attachmentsError={attachmentsError}
+            onUploadAttachment={handleUploadAttachment}
+            onDeleteAttachment={handleDeleteAttachment}
           />
         </div>
 

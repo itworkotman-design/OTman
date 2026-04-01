@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN     "displayId" INTEGER,
+ALTER COLUMN "orderNumber" DROP NOT NULL,
+ALTER COLUMN "orderNumber" SET DATA TYPE TEXT;

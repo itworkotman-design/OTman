@@ -15,8 +15,10 @@ type BookingArchiveTableProps = {
   onToggleAllVisible?: () => void;
 };
 
-function formatCell(value: string | null | undefined) {
-  if (!value || !value.trim()) return "-";
+function formatCell(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "number") return String(value);
+  if (!value.trim()) return "-";
   return value;
 }
 
@@ -28,6 +30,53 @@ function formatDateTime(value: string | null | undefined) {
 function formatMoney(value: number | null | undefined) {
   if (typeof value !== "number") return "-";
   return `NOK ${value}`;
+}
+
+function getStatusStyle(status: string | null | undefined) {
+  const key = (status ?? "").toString().trim().toLowerCase();
+
+  switch (key) {
+    case "behandles":
+      return { color: "#b45309", backgroundColor: "#fef3c7" }; // dark orange
+    case "bekreftet":
+    case "confirmed":
+      return { color: "#0f766e", backgroundColor: "#cffafe" }; // dark cyan
+    case "aktiv":
+    case "active":
+      return { color: "#5b21b6", backgroundColor: "#ede9fe" }; // dark purple
+    case "kanselert":
+    case "cancelled":
+    case "canceled":
+      return { color: "#ea580c", backgroundColor: "#ffedd5" }; // orange
+    case "fail":
+      return { color: "#7c3aed", backgroundColor: "#ede9fe" }; // purple
+    case "ferdig":
+    case "completed":
+      return { color: "#15803d", backgroundColor: "#dcfce7" }; // green
+    case "fakturet":
+    case "invoiced":
+      return { color: "#064e3b", backgroundColor: "#d1fae5" }; // green/cyan mix
+    case "betalt":
+    case "paid":
+      return { color: "#6b7280", backgroundColor: "#f3f4f6" }; // light gray
+    default:
+      return { color: "inherit", backgroundColor: "transparent" };
+  }
+}
+
+function formatStatusCell(value: string | null | undefined) {
+  const cell = formatCell(value);
+  if (cell === "-") return cell;
+
+  return (
+    <span
+      className="inline-block rounded px-2 py-0.5 text-xs font-semibold"
+      style={getStatusStyle(value)}
+      title={value ?? ""}
+    >
+      {cell}
+    </span>
+  );
 }
 
 export default function BookingArchiveTable({
@@ -264,10 +313,10 @@ export default function BookingArchiveTable({
               {viewMode === "ADMIN" && (
                 <>
                   <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.id)}
+                    {formatCell(order.displayId)}
                   </td>
                   <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.status)}
+                    {formatStatusCell(order.status)}
                   </td>
                   <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                     {formatCell(order.deliveryDate)}
@@ -346,7 +395,7 @@ export default function BookingArchiveTable({
               {viewMode === "SUBCONTRACTOR" && (
                 <>
                   <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.status)}
+                    {formatStatusCell(order.status)}
                   </td>
                   <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                     {formatCell(order.deliveryDate)}
@@ -410,7 +459,7 @@ export default function BookingArchiveTable({
               {viewMode === "ORDER_CREATOR" && (
                 <>
                   <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                    {formatCell(order.status)}
+                    {formatStatusCell(order.status)}
                   </td>
                   <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                     {formatCell(order.statusNotes)}

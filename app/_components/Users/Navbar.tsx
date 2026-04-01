@@ -3,7 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
+import FeatureRequestModal from "@/app/_components/Dahsboard/FeatureRequestModal";
 
 type Props = {
   open: boolean;
@@ -54,10 +56,10 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
   const pathname = usePathname();
   const router = useRouter();
 
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+
   const isActive = (href: string) =>
-    href === "/booking"
-      ? pathname === "/booking"
-      : pathname.startsWith(href);
+    href === "/booking" ? pathname === "/booking" : pathname.startsWith(href);
 
   const linkBase =
     "flex w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-right md:text-left";
@@ -76,7 +78,10 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
   }
 
   return (
-    <div style={{ width }} className={`h-full lg:bg-linePrimary ${open ? "w-full" : "w-10"}`}>
+    <div
+      style={{ width }}
+      className={`h-full lg:bg-linePrimary ${open ? "w-full" : "w-10"}`}
+    >
       <div className="flex py-4">
         {/* Desktop toggle */}
         <button
@@ -102,17 +107,27 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
 
         <div className="px-4">
           <div className="mt-6 flex border-b border-lineSecondary px-2 py-1 pb-6 text-logoblue">
-            <h1 className="mx-auto">{currentUser?.email ?? ""}</h1>
+            <h1 className="mx-auto">
+              {currentUser?.username ?? currentUser?.email ?? ""}
+            </h1>
           </div>
 
-          <Link href="/booking" className={linkClass("/booking") + ` justify-end lg:justify-start`}>
+          <Link
+            href="/booking"
+            className={linkClass("/booking") + ` justify-end lg:justify-start`}
+          >
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.booking} />
               Orders
             </div>
           </Link>
 
-          <Link href="/booking/create" className={linkClass("/booking/create") + ` justify-end lg:justify-start`}>
+          <Link
+            href="/booking/create"
+            className={
+              linkClass("/booking/create") + ` justify-end lg:justify-start`
+            }
+          >
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.createOrder} />
               Create Order
@@ -121,13 +136,29 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
 
           <button
             type="button"
-            onClick={handleLogout}
-            className={`${linkBase} mt-10 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
+            onClick={() => setRequestModalOpen(true)}
+            className={`${linkBase} mt-2 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
           >
-            <div className="flex items-center">Log out</div>
+            Request new function
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={`${linkBase} mt-2 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
+          >
+            Log out
           </button>
         </div>
       </div>
+
+      <FeatureRequestModal
+        open={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        onSubmit={(payload) => {
+          console.log("Feature request submitted", payload);
+        }}
+      />
     </div>
   );
 }

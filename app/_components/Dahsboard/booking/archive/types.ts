@@ -32,6 +32,7 @@ export type BookingArchiveOption = {
 
 export type OrderRow = {
   id: string;
+  displayId: number;
   status: string;
   statusNotes: string;
   deliveryDate: string;

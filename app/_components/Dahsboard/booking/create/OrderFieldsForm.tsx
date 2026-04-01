@@ -9,6 +9,7 @@ import {
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { UserOption } from "@/lib/users/types";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
+import OrderAttachmentsSection from "@/app/_components/Dahsboard/booking/create/OrderAttachmentsSection";
 
 type Props = {
   hidden: HiddenMask;
@@ -94,6 +95,17 @@ type Props = {
   setStatus: React.Dispatch<React.SetStateAction<string>>;
   dontSendEmail: boolean;
   setDontSendEmail: React.Dispatch<React.SetStateAction<boolean>>;
+  attachments: {
+    id: string;
+    filename: string;
+    mimeType: string;
+    sizeBytes: number;
+    url: string;
+  }[];
+  attachmentsUploading: boolean;
+  attachmentsError: string;
+  onUploadAttachment: (file: File) => void | Promise<void>;
+  onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
 };
 
 export default function OrderFieldsForm({
@@ -177,6 +189,11 @@ export default function OrderFieldsForm({
   setStatus,
   dontSendEmail,
   setDontSendEmail,
+  attachments,
+  attachmentsUploading,
+  attachmentsError,
+  onUploadAttachment,
+  onDeleteAttachment,
 }: Props) {
   return (
     <div className="customContainer">
@@ -596,20 +613,13 @@ export default function OrderFieldsForm({
             <label className="font-bold py-2">Attachments</label>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="customButtonDefault h-10"
-                onClick={() => {
-                  // later: open file picker
-                  alert("Attachment upload coming next");
-                }}
-              >
-                Add attachment
-              </button>
-
-              <span className="text-xs text-textColorThird">
-                (Images will be supported)
-              </span>
+              <OrderAttachmentsSection
+                attachments={attachments}
+                uploading={attachmentsUploading}
+                error={attachmentsError}
+                onUpload={onUploadAttachment}
+                onDelete={onDeleteAttachment}
+              />
             </div>
           </div>
         </>

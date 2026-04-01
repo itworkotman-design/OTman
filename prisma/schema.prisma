@@ -431,24 +431,26 @@ model PriceListSpecialOption {
   isActive           Boolean           @default(true)
   sortOrder          Int               @default(0)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  attachments OrderAttachment[]
 
   @@unique([priceListId, type, code])
   @@index([priceListId, type])
 }
 
 model Order {
-  id        String   @id @default(cuid())
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id String @id @default(cuid())
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
   companyId             String
   createdByMembershipId String
 
   customerMembershipId String?
-  priceListId           String?
+  priceListId          String?
 
+  displayId Int
   orderNumber String?
   description String?
   modelNr     String?
@@ -476,19 +478,19 @@ model Order {
   cashierPhone String?
 
   subcontractorMembershipId String?
-  subcontractor   String?
+  subcontractor             String?
 
   driver       String?
   secondDriver String?
   driverInfo   String?
   licensePlate String?
 
-  deviation        String?
-  feeExtraWork     Boolean @default(false)
-  feeAddToOrder    Boolean @default(false)
-  statusNotes      String?
-  status           String?
-  dontSendEmail    Boolean @default(false)
+  deviation     String?
+  feeExtraWork  Boolean @default(false)
+  feeAddToOrder Boolean @default(false)
+  statusNotes   String?
+  status        String?
+  dontSendEmail Boolean @default(false)
 
   priceExVat         Int @default(0)
   priceSubcontractor Int @default(0)
@@ -509,7 +511,8 @@ model Order {
 
   customerMembership Membership? @relation(fields: [customerMembershipId], references: [id])
 
-  items OrderItem[]
+  items            OrderItem[]
+  orderAttachments OrderAttachment[]
 
   @@index([companyId, createdAt])
   @@index([status])
@@ -549,3 +552,38 @@ model OrderItem {
   @@index([productId])
   @@index([optionId])
 }
+
+model OrderAttachment {
+  id          String   @id @default(cuid())
+  orderId     String
+  filename    String
+  mimeType    String?
+  sizeBytes   Int?
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  order                    Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  priceListSpecialOption   PriceListSpecialOption? @relation(fields: [priceListSpecialOptionId], references: [id])
+  priceListSpecialOptionId String?
+
+  @@index([orderId, createdAt])
+}
+
+model PendingOrderAttachment {
+  id          String   @id @default(cuid())
+  sessionId   String
+  filename    String
+  mimeType    String?
+  sizeBytes   Int?
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
+model CompanyOrderCounter {
+    companyId String @id 
+    nextNumber Int 
+    updatedAt DateTime @updatedAt
+}
+

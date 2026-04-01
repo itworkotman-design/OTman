@@ -10,6 +10,10 @@ import { canCreateOrders } from "@/lib/users/orderAccess";
 import type { AppPermission } from "@/lib/users/types";
 import { OrderFields } from "@/app/_components/Dahsboard/booking/create/orderFields";
 
+const HIDE_FOR_CREATOR =
+  OrderFields.FeeExtraWork |
+  OrderFields.FeeAddToOrder |
+  OrderFields.ChangeCustomer;
 
 export default function BookingCreatePage() {
   const router = useRouter();
@@ -22,39 +26,35 @@ export default function BookingCreatePage() {
     return canCreateOrders(role, permissions);
   }, [role, permissions]);
 
-  const [submitting, setSubmitting] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
   const [submitError, setSubmitError] = useState("");
-
-  
+  const [successMessage, setSuccessMessage] = useState("");
 
   async function handleCreateOrder(payload: OrderFormPayload) {
     setSubmitError("");
-    setSubmitting(true);
 
-    try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
+    const res = await fetch("/api/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
 
-      const data = await res.json().catch(() => null);
+    const data = await res.json().catch(() => null);
 
-      if (!res.ok || !data?.ok) {
-        setSubmitError(data?.reason || "Failed to create order");
-        return;
-      }
-
-      router.push("/booking");
-      router.refresh();
-    } catch {
-      setSubmitError("Failed to create order");
-    } finally {
-      setSubmitting(false);
+    if (!res.ok || !data?.ok) {
+      setSubmitError(data?.reason || "Failed to create order");
+      return;
     }
+
+    setSuccessMessage(`Order created (${data.displayId ?? data.orderId})`);
+    setEditorKey((prev) => prev + 1);
+
+    window.setTimeout(() => {
+      setSuccessMessage("");
+    }, 3000);
   }
 
   if (!currentUser) {
@@ -78,26 +78,33 @@ export default function BookingCreatePage() {
     );
   }
 
-const HIDE_FOR_CREATOR =
-  OrderFields.FeeExtraWork |
-  OrderFields.FeeAddToOrder |
-  OrderFields.ChangeCustomer;
-
   return (
     <div className="mx-auto max-w-[1600px]">
+      <div className="mb-8 flex items-center justify-between gap-3">
+        <div>
+          <h1 className="whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
+            Create booking
+          </h1>
+        </div>
+      </div>
+
+      {successMessage ? (
+        <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
+          {successMessage}
+        </div>
+      ) : null}
+
       {submitError ? (
         <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-red-600">
           {submitError}
         </div>
       ) : null}
 
-      {submitting ? (
-        <div className="mb-5 rounded-xl border border-black/10 bg-white p-4 text-textColorThird">
-          Saving order...
-        </div>
-      ) : null}
-
-      <BookingEditor hidden={HIDE_FOR_CREATOR} onSubmit={handleCreateOrder} />
+      <BookingEditor
+        key={editorKey}
+        hidden={HIDE_FOR_CREATOR}
+        onSubmit={handleCreateOrder}
+      />
     </div>
   );
 }

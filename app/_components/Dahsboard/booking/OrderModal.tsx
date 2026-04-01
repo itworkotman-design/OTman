@@ -10,6 +10,7 @@ type OrderDetails = OrderFormPayload & {
   id: string;
 };
 
+
 type Props = {
   orderId: string | null;
   open: boolean;
@@ -69,7 +70,28 @@ export default function OrderModal({
       }
     }
 
-    loadOrder();
+    async function loadAttachments() {
+      if (!orderId) return;
+
+      try {
+        const res = await fetch(`/api/orders/${orderId}/attachments`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (res.ok && data?.ok) {
+          setAttachments(data.attachments ?? []);
+        }
+      } catch {}
+    }
+
+    async function loadData() {
+      await Promise.all([loadOrder(), loadAttachments()]);
+    }
+
+    loadData();
   }, [open, orderId]);
 
   useEffect(() => {
@@ -133,6 +155,7 @@ export default function OrderModal({
     }
   }
 
+
   if (!open || !mounted) return null;
 
   // createPortal renders directly into document.body, escaping any parent
@@ -156,7 +179,7 @@ export default function OrderModal({
             <button
               type="button"
               onClick={onClose}
-              className="grid h-9 w-9 place-items-center rounded-full bg-logoblue text-white"
+              className="grid h-9 w-9 place-items-center rounded-full bg-logoblue text-white cursor-pointer"
             >
               ×
             </button>

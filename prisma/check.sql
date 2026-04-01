@@ -1,0 +1,1 @@
+SELECT COUNT(*) FROM "Order" WHERE "orderNumber" IS NULL;

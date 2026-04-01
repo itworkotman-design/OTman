@@ -3,6 +3,36 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 
+async function reserveNextOrderNumber(companyId: string): Promise<number> {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.companyOrderCounter.findUnique({
+      where: { companyId },
+    });
+
+    if (!existing) {
+      await tx.companyOrderCounter.create({
+        data: {
+          companyId,
+          nextNumber: 20001,
+        },
+      });
+
+      return 20000;
+    }
+
+    const reserved = existing.nextNumber;
+
+    await tx.companyOrderCounter.update({
+      where: { companyId },
+      data: {
+        nextNumber: existing.nextNumber + 1,
+      },
+    });
+
+    return reserved;
+  });
+}
+
 export async function POST(req: Request) {
   const session = await getAuthenticatedSession(req);
 
@@ -88,13 +118,23 @@ export async function POST(req: Request) {
 
   await prisma.$transaction(async (tx) => {
     for (const sourceOrder of sourceOrders) {
+      const reservedDisplayId = await reserveNextOrderNumber(
+        session.activeCompanyId!,
+      );
+
       const newOrder = await tx.order.create({
         data: {
           companyId: sourceOrder.companyId,
           createdByMembershipId: sourceOrder.createdByMembershipId,
           customerMembershipId: sourceOrder.customerMembershipId,
+          priceListId: sourceOrder.priceListId,
 
+          displayId: reservedDisplayId,
           orderNumber: sourceOrder.orderNumber,
+
+          customerLabel: sourceOrder.customerLabel,
+          customerName: sourceOrder.customerName,
+
           description: sourceOrder.description,
           modelNr: sourceOrder.modelNr,
 
@@ -107,7 +147,6 @@ export async function POST(req: Request) {
           returnAddress: sourceOrder.returnAddress,
           drivingDistance: sourceOrder.drivingDistance,
 
-          customerName: sourceOrder.customerName,
           phone: sourceOrder.phone,
           phoneTwo: sourceOrder.phoneTwo,
           email: sourceOrder.email,

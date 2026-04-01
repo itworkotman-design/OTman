@@ -21,21 +21,41 @@ function parsePositiveInt(value: string | null, fallback: number) {
   return Math.max(1, Math.floor(n));
 }
 
+async function reserveNextOrderNumber(companyId: string): Promise<number> {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.companyOrderCounter.findUnique({
+      where: { companyId },
+    });
+
+    if (!existing) {
+      await tx.companyOrderCounter.create({
+        data: {
+          companyId,
+          nextNumber: 20001,
+        },
+      });
+
+      return 20000;
+    }
+
+    const reserved = existing.nextNumber;
+
+    await tx.companyOrderCounter.update({
+      where: { companyId },
+      data: {
+        nextNumber: existing.nextNumber + 1,
+      },
+    });
+
+    return reserved;
+  });
+}
+
 export async function POST(req: Request) {
   const session = await getAuthenticatedSession(req);
 
-  if (!session) {
-    return NextResponse.json(
-      { ok: false, reason: "UNAUTHORIZED" },
-      { status: 401 },
-    );
-  }
-
-  if (!session.activeCompanyId) {
-    return NextResponse.json(
-      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-      { status: 409 },
-    );
+  if (!session || !session.activeCompanyId) {
+    return NextResponse.json({ ok: false }, { status: 401 });
   }
 
   const membership = await prisma.membership.findFirst({
@@ -48,49 +68,25 @@ export async function POST(req: Request) {
       id: true,
       role: true,
       priceListId: true,
-      user: {
-        select: {
-          username: true,
-          email: true,
-        },
-      },
-      permissions: {
-        select: {
-          permission: true,
-        },
-      },
+      user: { select: { username: true, email: true } },
+      permissions: { select: { permission: true } },
     },
   });
 
-  if (!membership) {
-    return NextResponse.json(
-      { ok: false, reason: "FORBIDDEN" },
-      { status: 403 },
-    );
-  }
+  if (!membership) return NextResponse.json({ ok: false }, { status: 403 });
 
   const permissions = membership.permissions.map(
     (p): AppPermission => p.permission,
   );
 
   if (!canCreateOrders(membership.role, permissions)) {
-    return NextResponse.json(
-      { ok: false, reason: "FORBIDDEN" },
-      { status: 403 },
-    );
+    return NextResponse.json({ ok: false }, { status: 403 });
   }
 
   const body = await req.json().catch(() => null);
 
-  if (
-    !body ||
-    !Array.isArray(body.productCards) ||
-    body.productCards.length === 0
-  ) {
-    return NextResponse.json(
-      { ok: false, reason: "INVALID_PRODUCT_CARDS" },
-      { status: 400 },
-    );
+  if (!body?.productCards?.length) {
+    return NextResponse.json({ ok: false }, { status: 400 });
   }
 
   const productCards = body.productCards as SavedProductCard[];
@@ -103,18 +99,17 @@ export async function POST(req: Request) {
     catalog.specialOptions,
   );
 
-  const isAdminOrOwner =
-    membership.role === "OWNER" || membership.role === "ADMIN";
+  const isAdmin = membership.role === "OWNER" || membership.role === "ADMIN";
 
-  const customerMembershipId = isAdminOrOwner
+  const customerMembershipId = isAdmin
     ? optionalString(body.customerMembershipId)
     : membership.id;
 
-  const customerLabel = isAdminOrOwner
+  const customerLabel = isAdmin
     ? optionalString(body.customerLabel)
     : membership.user.username || membership.user.email;
 
-  const customerName = optionalString(body.customerName);
+  const nextOrderNumber = await reserveNextOrderNumber(session.activeCompanyId);
 
   const order = await prisma.order.create({
     data: {
@@ -123,104 +118,51 @@ export async function POST(req: Request) {
       priceListId: membership.priceListId ?? null,
 
       customerMembershipId,
-
       customerLabel,
-      customerName,
+      customerName: optionalString(body.customerName),
 
+      displayId: nextOrderNumber,
       orderNumber: optionalString(body.orderNumber),
-      description: optionalString(body.description),
-      modelNr: optionalString(body.modelNr),
+      status: optionalString(body.status) || "behandles",
 
       deliveryDate: optionalString(body.deliveryDate),
       timeWindow: optionalString(body.timeWindow),
 
       pickupAddress: optionalString(body.pickupAddress),
-      extraPickupAddress: Array.isArray(body.extraPickupAddress)
-        ? body.extraPickupAddress
-            .filter(
-              (value: unknown): value is string => typeof value === "string",
-            )
-            .map((value: string) => value.trim())
-            .filter(Boolean)
-        : [],
       deliveryAddress: optionalString(body.deliveryAddress),
-      returnAddress: optionalString(body.returnAddress),
-      drivingDistance: optionalString(body.drivingDistance),
-
-      phone: optionalString(body.phone),
-      phoneTwo: optionalString(body.phoneTwo),
-      email: optionalString(body.email),
-      customerComments: optionalString(body.customerComments),
-
-      floorNo: optionalString(body.floorNo),
-      lift: optionalString(body.lift),
-
-      cashierName: optionalString(body.cashierName),
-      cashierPhone: optionalString(body.cashierPhone),
-
-      subcontractorMembershipId: optionalString(body.subcontractorId),
-      subcontractor: optionalString(body.subcontractor),
-
-      driver: optionalString(body.driver),
-      secondDriver: optionalString(body.secondDriver),
-      driverInfo: optionalString(body.driverInfo),
-      licensePlate: optionalString(body.licensePlate),
-
-      deviation: optionalString(body.deviation),
-      feeExtraWork: optionalBoolean(body.feeExtraWork),
-      feeAddToOrder: optionalBoolean(body.feeAddToOrder),
-      statusNotes: optionalString(body.statusNotes),
-      status: optionalString(body.status),
-      dontSendEmail: optionalBoolean(body.dontSendEmail),
 
       priceExVat: Math.round(safeNumber(body.priceExVat)),
-      priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
-
-      rabatt: optionalString(body.rabatt),
-      leggTil: optionalString(body.leggTil),
-      subcontractorMinus: optionalString(body.subcontractorMinus),
-      subcontractorPlus: optionalString(body.subcontractorPlus),
 
       productsSummary: summaries.productsSummary,
-      deliveryTypeSummary: summaries.deliveryTypeSummary,
-      servicesSummary: summaries.servicesSummary,
 
       productCardsSnapshot: productCards as unknown as Prisma.InputJsonValue,
     },
   });
 
-  const builtItems = buildOrderItemsFromCards(
-    productCards,
-    catalog.products,
-    catalog.specialOptions,
-  );
+  const pending = await prisma.pendingOrderAttachment.findMany({
+    where: { sessionId: session.userId },
+  });
 
-  for (const item of builtItems) {
-    await prisma.orderItem.create({
+  for (const a of pending) {
+    await prisma.orderAttachment.create({
       data: {
         orderId: order.id,
-        cardId: item.cardId,
-        productId: item.productId,
-        productCode: item.productCode,
-        productName: item.productName,
-        deliveryType: item.deliveryType,
-        itemType: item.itemType,
-        optionId: item.optionId,
-        optionCode: item.optionCode,
-        optionLabel: item.optionLabel,
-        quantity: item.quantity,
-        customerPriceCents: item.customerPriceCents,
-        subcontractorPriceCents: item.subcontractorPriceCents,
-        rawData: item.rawData
-          ? (item.rawData as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
+        filename: a.filename,
+        mimeType: a.mimeType,
+        sizeBytes: a.sizeBytes,
+        storagePath: a.storagePath,
       },
     });
   }
 
+  await prisma.pendingOrderAttachment.deleteMany({
+    where: { sessionId: session.userId },
+  });
+
   return NextResponse.json({
     ok: true,
     orderId: order.id,
+    displayId: order.displayId,
   });
 }
 
@@ -339,6 +281,9 @@ export async function GET(req: Request) {
       {
         OR: [
           { id: { contains: search, mode: "insensitive" } },
+          ...(Number.isFinite(Number(search))
+            ? [{ displayId: Number(search) }]
+            : []),
           { orderNumber: { contains: search, mode: "insensitive" } },
           { customerLabel: { contains: search, mode: "insensitive" } },
           { customerName: { contains: search, mode: "insensitive" } },
@@ -384,6 +329,7 @@ export async function GET(req: Request) {
     take: rowsPerPage,
     select: {
       id: true,
+      displayId: true,
       status: true,
       statusNotes: true,
       deliveryDate: true,
@@ -430,6 +376,7 @@ export async function GET(req: Request) {
     ok: true,
     orders: orders.map((order) => ({
       id: order.id,
+      displayId: order.displayId ?? 0,
       status: order.status ?? "",
       statusNotes: order.statusNotes ?? "",
       deliveryDate: order.deliveryDate ?? "",

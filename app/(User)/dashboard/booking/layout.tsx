@@ -22,7 +22,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Desktop sidebar */}
       <aside
         className="hidden lg:block fixed top-0 left-0 z-30 h-screen"
-        style={{ width: `${sidebarW}px` }}
+        style={{ width: sidebarW }}
       >
         <Sidebar
           open={sidebarOpen}
@@ -40,7 +40,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               className={`bg-white shadow-md ${
                 sidebarOpenPhone ? "h-dvh" : "h-[60]"
               }`}
-              style={{ width: `${sidebarWPhone}px` }}
+              style={{ width: sidebarWPhone }}
             >
               <Sidebar
                 open={sidebarOpenPhone}
@@ -68,8 +68,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <div
         className="hidden lg:block fixed top-0 right-0 z-20"
         style={{
-          left: `${sidebarW}px`,
-          height: `${TOPBAR_HEIGHT}px`,
+          left: sidebarW,
+          height: TOPBAR_HEIGHT,
         }}
       >
         <NavbarBooking
