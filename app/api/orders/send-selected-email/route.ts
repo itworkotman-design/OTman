@@ -221,7 +221,7 @@ export async function POST(req: Request) {
       ? body.recipientName.trim()
       : "kunde";
 
-const greetingName = recipientName;
+  const greetingName = recipientName;
 
   const htmlBody = `
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;max-width:900px;margin:0 auto;">
@@ -236,7 +236,26 @@ const greetingName = recipientName;
       ${orders.map((order) => formatOrderBlockHtml(order)).join("")}
 
       <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;">
-        <p style="margin:0 0 16px 0;">For å se bestillingen din, logg inn.</p>
+        <p style="margin:0 0 10px 0;">
+          For å se bestillingen din:
+        </p>
+
+        <div style="margin:10px 0 20px 0;">
+          <a href="https://otman.no/login"
+            style="
+              display:inline-block;
+              background-color:#273097;
+              color:#ffffff;
+              padding:12px 20px;
+              text-decoration:none;
+              font-weight:600;
+              border-radius:6px;
+              font-family:Arial,Helvetica,sans-serif;
+              font-size:14px;
+            ">
+            Logg inn
+          </a>
+        </div>
 
         <p style="margin:0 0 16px 0;">
           Med vennlig hilsen,<br/>
