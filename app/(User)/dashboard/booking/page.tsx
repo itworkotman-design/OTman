@@ -14,6 +14,7 @@ import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 import BulkUpdateBar from "@/app/_components/Dahsboard/booking/archive/BulkUpdateBar";
 import SelectionActionBar from "@/app/_components/Dahsboard/booking/archive/SelectionActionBar";
+import { exportOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
 
 type FilterOptionApiItem = {
   id: string;
@@ -190,50 +191,50 @@ export default function BookingPage() {
     }
   }
 
-async function handleSendSelectedEmail(payload: {
-  to: string;
-  subject: string;
-  message?: string;
-  recipientName?: string;
-}): Promise<boolean> {
-  if (!payload.to || selectedOrderIds.length === 0) return false;
+  async function handleSendSelectedEmail(payload: {
+    to: string;
+    subject: string;
+    message?: string;
+    recipientName?: string;
+  }): Promise<boolean> {
+    if (!payload.to || selectedOrderIds.length === 0) return false;
 
-  try {
-    setCustomerActionLoading(true);
-    setCustomerActionError("");
+    try {
+      setCustomerActionLoading(true);
+      setCustomerActionError("");
 
-    const res = await fetch("/api/orders/send-selected-email", {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        orderIds: selectedOrderIds,
-        to: payload.to,
-        subject: payload.subject,
-        message: payload.message,
-        recipientName: payload.recipientName,
-      }),
-    });
+      const res = await fetch("/api/orders/send-selected-email", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+          to: payload.to,
+          subject: payload.subject,
+          message: payload.message,
+          recipientName: payload.recipientName,
+        }),
+      });
 
-    const data = await res.json().catch(() => null);
-    console.log("send-selected-email response", res.status, data);
+      const data = await res.json().catch(() => null);
+      console.log("send-selected-email response", res.status, data);
 
-    if (!res.ok || !data?.ok) {
-      setCustomerActionError(data?.reason || "Failed to send email");
+      if (!res.ok || !data?.ok) {
+        setCustomerActionError(data?.reason || "Failed to send email");
+        return false;
+      }
+
+      setSelectedOrderIds([]);
+      return true;
+    } catch {
+      setCustomerActionError("Failed to send email");
       return false;
+    } finally {
+      setCustomerActionLoading(false);
     }
-
-    setSelectedOrderIds([]);
-    return true;
-  } catch {
-    setCustomerActionError("Failed to send email");
-    return false;
-  } finally {
-    setCustomerActionLoading(false);
   }
-}
 
   async function handleSendSelectedToGsm(
     customerMembershipId: string,
@@ -282,11 +283,15 @@ async function handleSendSelectedEmail(payload: {
       setCustomerActionLoading(false);
     }
   }
+
   function handleExportSelected() {
     if (selectedOrderIds.length === 0) return;
 
-    // TODO: connect real export later
-    console.log("Export selected orders", selectedOrderIds);
+    exportOrdersToExcel({
+      rows: orders,
+      selectedIds: selectedOrderIds,
+      viewMode: access.viewMode,
+    });
   }
 
   useEffect(() => {
@@ -372,7 +377,7 @@ async function handleSendSelectedEmail(payload: {
         </div>
       )}
       <div className="overflow-x-auto">
-        <div className=" max-w-[4000px]">
+        <div className=" max-w-[4000]">
           <div className="flex items-center justify-between gap-2 my-4">
             <div className="text-sm text-textColorThird my-2">
               {canBulkSelect ? `${selectedOrderIds.length} selected` : ""}
