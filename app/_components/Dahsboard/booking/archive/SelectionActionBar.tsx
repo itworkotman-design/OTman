@@ -13,6 +13,7 @@ type Props = {
     to: string;
     subject: string;
     message?: string;
+    recipientName?: string;
   }) => void | Promise<boolean>;
   onSendGsm: (customerMembershipId: string) => void | Promise<void>;
   onCopySelected: () => void | Promise<void>;
@@ -91,6 +92,7 @@ export default function SelectionActionBar({
       to: selectedCustomer.email,
       subject,
       message: message || undefined,
+      recipientName: selectedCustomer.label
     });
 
     if (!ok) return;

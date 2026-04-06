@@ -3,15 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
-import type { AppPermission } from "@/lib/users/types";
-// Adjust this import to your actual email helper:
 import { sendEmail } from "@/lib/email/sendEmail";
-
-function optionalString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
+import type { AppPermission } from "@/lib/users/types";
 
 function escapeHtml(value: string) {
   return value
@@ -22,88 +15,81 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-function formatOrderBlock(order: {
-  id: string;
-  displayId?: number | null;
-  orderNumber?: string | null;
-  customerLabel?: string | null;
-  customerName?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  deliveryDate?: string | null;
-  timeWindow?: string | null;
-  pickupAddress?: string | null;
-  deliveryAddress?: string | null;
-  productsSummary?: string | null;
-  servicesSummary?: string | null;
-  description?: string | null;
-  status?: string | null;
-}) {
-  const lines = [
-    order.displayId ? `Order ID: ${order.displayId}` : null,
-    order.orderNumber ? `Order number: ${order.orderNumber}` : null,
-    order.customerLabel ? `Customer: ${order.customerLabel}` : null,
-    order.customerName ? `Customer name: ${order.customerName}` : null,
-    order.email ? `Email: ${order.email}` : null,
-    order.phone ? `Phone: ${order.phone}` : null,
-    order.deliveryDate ? `Delivery date: ${order.deliveryDate}` : null,
-    order.timeWindow ? `Time window: ${order.timeWindow}` : null,
-    order.pickupAddress ? `Pickup address: ${order.pickupAddress}` : null,
-    order.deliveryAddress ? `Delivery address: ${order.deliveryAddress}` : null,
-    order.productsSummary ? `Products: ${order.productsSummary}` : null,
-    order.servicesSummary ? `Services: ${order.servicesSummary}` : null,
-    order.status ? `Status: ${order.status}` : null,
-    order.description ? `Description: ${order.description}` : null,
-  ].filter(Boolean) as string[];
+function formatPriceNok(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "";
+  return `NOK ${value.toLocaleString("nb-NO")}`;
+}
 
-  return lines.join("\n");
+function formatDateNorwegian(value?: string | null) {
+  if (!value) return "";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+function formatTimeWindow(value?: string | null) {
+  if (!value) return "";
+  return value.replace("-", " - ");
+}
+
+function tableRow(label: string, value?: string | null) {
+  if (!value) return "";
+  return `
+    <tr>
+      <td style="padding:10px 12px;border:1px solid #dbe3f0;background:#f8fafc;font-weight:700;width:220px;vertical-align:top;">
+        ${escapeHtml(label)}
+      </td>
+      <td style="padding:10px 12px;border:1px solid #dbe3f0;vertical-align:top;">
+        ${escapeHtml(value)}
+      </td>
+    </tr>
+  `;
 }
 
 function formatOrderBlockHtml(order: {
-  displayId?: number | null;
   orderNumber?: string | null;
-  customerLabel?: string | null;
-  customerName?: string | null;
-  email?: string | null;
-  phone?: string | null;
   deliveryDate?: string | null;
   timeWindow?: string | null;
+  customerLabel?: string | null;
+  customerName?: string | null;
+  phone?: string | null;
   pickupAddress?: string | null;
+  extraPickupAddress?: string[] | null;
   deliveryAddress?: string | null;
+  returnAddress?: string | null;
   productsSummary?: string | null;
-  servicesSummary?: string | null;
-  description?: string | null;
-  status?: string | null;
+  cashierName?: string | null;
+  priceExVat?: number | null;
 }) {
-  const rows = [
-    order.displayId ? ["Order ID", String(order.displayId)] : null,
-    order.orderNumber ? ["Order number", order.orderNumber] : null,
-    order.customerLabel ? ["Customer", order.customerLabel] : null,
-    order.customerName ? ["Customer name", order.customerName] : null,
-    order.email ? ["Email", order.email] : null,
-    order.phone ? ["Phone", order.phone] : null,
-    order.deliveryDate ? ["Delivery date", order.deliveryDate] : null,
-    order.timeWindow ? ["Time window", order.timeWindow] : null,
-    order.pickupAddress ? ["Pickup address", order.pickupAddress] : null,
-    order.deliveryAddress ? ["Delivery address", order.deliveryAddress] : null,
-    order.productsSummary ? ["Products", order.productsSummary] : null,
-    order.servicesSummary ? ["Services", order.servicesSummary] : null,
-    order.status ? ["Status", order.status] : null,
-    order.description ? ["Description", order.description] : null,
-  ].filter(Boolean) as [string, string][];
+  const extraPickupAddress =
+    Array.isArray(order.extraPickupAddress) &&
+    order.extraPickupAddress.length > 0
+      ? order.extraPickupAddress.join(", ")
+      : "";
 
   return `
-    <div style="margin-bottom:24px;padding:16px;border:1px solid #e5e7eb;border-radius:12px;">
-      ${rows
-        .map(
-          ([label, value]) => `
-            <div style="margin-bottom:8px;">
-              <strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}
-            </div>
-          `,
-        )
-        .join("")}
-    </div>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="border-collapse:collapse;margin:0 0 24px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;">
+      <tr>
+        <td colspan="2" style="padding:12px 14px;background:#273097;color:#ffffff;font-weight:700;font-size:15px;">
+          Bestilling
+        </td>
+      </tr>
+
+      ${tableRow("Leveringsdato", formatDateNorwegian(order.deliveryDate))}
+      ${tableRow("Tidsvindu for levering", formatTimeWindow(order.timeWindow))}
+      ${tableRow("Customer", order.customerLabel)}
+      ${tableRow("Power Bilagsnummer", order.orderNumber)}
+      ${tableRow("Kundens Navn", order.customerName)}
+      ${tableRow("Kundens Telefon", order.phone)}
+      ${tableRow("Henteadresse", order.pickupAddress)}
+      ${tableRow("Ekstra hentesteder", extraPickupAddress)}
+      ${tableRow("Leveringsadresse", order.deliveryAddress)}
+      ${tableRow("Returadresse", order.returnAddress)}
+      ${tableRow("Produkter", order.productsSummary)}
+      ${tableRow("Kasserers navn", order.cashierName)}
+      ${tableRow("Pris uten MVA", formatPriceNok(order.priceExVat))}
+    </table>
   `;
 }
 
@@ -131,17 +117,10 @@ export async function POST(req: Request) {
       status: "ACTIVE",
     },
     select: {
-      id: true,
       role: true,
       permissions: {
         select: {
           permission: true,
-        },
-      },
-      user: {
-        select: {
-          email: true,
-          username: true,
         },
       },
     },
@@ -174,9 +153,20 @@ export async function POST(req: Request) {
       )
     : [];
 
-  const to = optionalString(body?.to);
-  const subject = optionalString(body?.subject) ?? "Selected orders";
-  const message = optionalString(body?.message);
+  const to =
+    typeof body?.to === "string" && body.to.trim().length > 0
+      ? body.to.trim()
+      : "";
+
+  const subject =
+    typeof body?.subject === "string" && body.subject.trim().length > 0
+      ? body.subject.trim()
+      : "Valgte bestillinger";
+
+  const message =
+    typeof body?.message === "string" && body.message.trim().length > 0
+      ? body.message.trim()
+      : "";
 
   if (orderIds.length === 0) {
     return NextResponse.json(
@@ -199,20 +189,19 @@ export async function POST(req: Request) {
     },
     select: {
       id: true,
-      displayId: true,
       orderNumber: true,
-      customerLabel: true,
-      customerName: true,
-      email: true,
-      phone: true,
       deliveryDate: true,
       timeWindow: true,
+      customerLabel: true,
+      customerName: true,
+      phone: true,
       pickupAddress: true,
+      extraPickupAddress: true,
       deliveryAddress: true,
+      returnAddress: true,
       productsSummary: true,
-      servicesSummary: true,
-      description: true,
-      status: true,
+      cashierName: true,
+      priceExVat: true,
     },
     orderBy: {
       createdAt: "desc",
@@ -226,23 +215,43 @@ export async function POST(req: Request) {
     );
   }
 
-  const textBody = [
-    message ?? null,
-    orders
-      .map((order) => formatOrderBlock(order))
-      .join("\n\n--------------------\n\n"),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const recipientName =
+    typeof body?.recipientName === "string" &&
+    body.recipientName.trim().length > 0
+      ? body.recipientName.trim()
+      : "kunde";
+
+const greetingName = recipientName;
 
   const htmlBody = `
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;max-width:900px;margin:0 auto;">
+      <p style="margin:0 0 16px 0;">Hei ${escapeHtml(greetingName)},</p>
+
       ${
         message
-          ? `<p style="margin-bottom:20px;">${escapeHtml(message)}</p>`
+          ? `<p style="margin:0 0 20px 0;">${escapeHtml(message)}</p>`
           : ""
       }
+
       ${orders.map((order) => formatOrderBlockHtml(order)).join("")}
+
+      <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;">
+        <p style="margin:0 0 16px 0;">For å se bestillingen din, logg inn.</p>
+
+        <p style="margin:0 0 16px 0;">
+          Med vennlig hilsen,<br/>
+          Otman Transport AS | otman.no<br/>
+          +47 402 84 977 | bestilling@otman.no
+        </p>
+
+        <div style="margin-top:12px;">
+          <img
+            src="https://otman.no/wp-content/uploads/2023/12/logo-removebg.png"
+            alt="Otman Transport Logo"
+            style="display:block;max-height:48px;width:auto;"
+          />
+        </div>
+      </div>
     </div>
   `;
 

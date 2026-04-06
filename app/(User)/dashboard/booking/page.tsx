@@ -194,6 +194,7 @@ async function handleSendSelectedEmail(payload: {
   to: string;
   subject: string;
   message?: string;
+  recipientName?: string;
 }): Promise<boolean> {
   if (!payload.to || selectedOrderIds.length === 0) return false;
 
@@ -212,6 +213,7 @@ async function handleSendSelectedEmail(payload: {
         to: payload.to,
         subject: payload.subject,
         message: payload.message,
+        recipientName: payload.recipientName,
       }),
     });
 
