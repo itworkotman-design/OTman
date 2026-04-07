@@ -88,10 +88,18 @@ function isExtraServiceRow(
   return !item.productId && item.type === "extra_service";
 }
 
+
+
 export default function EditPricesPage() {
-  const [activeTab, setActiveTab] = useState<"default" | "power">("default");
+  const [selectedPriceListId, setSelectedPriceListId] = useState<string | null>(
+    null,
+  );
   const [priceLists, setPriceLists] = useState<PriceListSummary[]>([]);
   const [priceList, setPriceList] = useState<PriceListData | null>(null);
+  const [creatingPriceList, setCreatingPriceList] = useState(false);
+  const [editingPriceList, setEditingPriceList] = useState(false);
+  const [editingPriceListName, setEditingPriceListName] = useState("");
+  const [renamingPriceList, setRenamingPriceList] = useState(false);
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [originalRows, setOriginalRows] = useState<
     Record<string, PriceListItem>
@@ -100,9 +108,20 @@ export default function EditPricesPage() {
   const [error, setError] = useState<string | null>(null);
 
   const activePriceListSummary = useMemo(() => {
-    const targetCode = activeTab === "default" ? "DEFAULT" : "POWER";
-    return priceLists.find((item) => item.code === targetCode) ?? null;
-  }, [activeTab, priceLists]);
+    if (!priceLists.length) return null;
+
+    if (selectedPriceListId) {
+      const selected = priceLists.find(
+        (item) => item.id === selectedPriceListId,
+      );
+      if (selected) return selected;
+    }
+
+    return priceLists[0] ?? null;
+  }, [priceLists, selectedPriceListId]);
+
+  const canEditActivePriceList =
+    !!activePriceListSummary && activePriceListSummary.code !== "DEFAULT";
 
   useEffect(() => {
     async function loadPriceLists() {
@@ -122,7 +141,20 @@ export default function EditPricesPage() {
           return;
         }
 
-        setPriceLists(data.priceLists ?? []);
+        const nextPriceLists = data.priceLists ?? [];
+
+        setPriceLists(nextPriceLists);
+
+        setSelectedPriceListId((current) => {
+          if (
+            current &&
+            nextPriceLists.some((item: PriceListSummary) => item.id === current)
+          ) {
+            return current;
+          }
+
+          return nextPriceLists[0]?.id ?? null;
+        });
       } catch {
         setError("Something went wrong while loading price lists");
         setPriceLists([]);
@@ -240,6 +272,106 @@ export default function EditPricesPage() {
       (row.discountAmount ?? "") !== (original.discountAmount ?? "") ||
       (row.discountEndsAt ?? "") !== (original.discountEndsAt ?? "")
     );
+  }
+
+  function startEditingPriceList() {
+    if (!activePriceListSummary || activePriceListSummary.code === "DEFAULT") {
+      return;
+    }
+
+    setEditingPriceListName(activePriceListSummary.name);
+    setEditingPriceList(true);
+  }
+
+  function cancelEditingPriceList() {
+    setEditingPriceList(false);
+    setEditingPriceListName("");
+  }
+
+  async function savePriceListName() {
+    if (!activePriceListSummary || renamingPriceList) return;
+
+    const nextName = editingPriceListName.trim();
+
+    if (!nextName) {
+      alert("Name is required");
+      return;
+    }
+
+    try {
+      setRenamingPriceList(true);
+
+      const res = await fetch(
+        `/api/products/pricelists/${activePriceListSummary.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: nextName,
+          }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        alert(data.reason ?? "Failed to rename pricelist");
+        return;
+      }
+
+      setPriceLists((current) =>
+        current.map((item) =>
+          item.id === data.priceList.id
+            ? {
+                ...item,
+                name: data.priceList.name,
+                code: data.priceList.code,
+              }
+            : item,
+        ),
+      );
+
+      setEditingPriceList(false);
+      setEditingPriceListName("");
+    } catch {
+      alert("Something went wrong while renaming pricelist");
+    } finally {
+      setRenamingPriceList(false);
+    }
+  }
+
+  async function createPriceList() {
+    if (!priceList || creatingPriceList) return;
+
+    try {
+      setCreatingPriceList(true);
+
+      const res = await fetch("/api/products/pricelists", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sourcePriceListId: priceList.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        alert(data.reason ?? "Failed to create pricelist");
+        return;
+      }
+
+      setPriceLists((current) => [...current, data.priceList]);
+      setSelectedPriceListId(data.priceList.id);
+    } catch {
+      alert("Something went wrong while creating pricelist");
+    } finally {
+      setCreatingPriceList(false);
+    }
   }
 
   async function saveRow(itemId: string) {
@@ -573,7 +705,7 @@ export default function EditPricesPage() {
   }, [normalRows]);
 
   const hasAutomaticXtra = xtraRows.length > 0;
-  
+
   if (loading) {
     return (
       <main className="w-full">
@@ -602,27 +734,76 @@ export default function EditPricesPage() {
         </div>
 
         <div id="activeTab" className="w-full">
-          <div className="max-w-[500] mx-auto flex justify-center mb-6">
-            {(["default", "power"] as const).map((tab) => {
-              const tabCode = tab === "default" ? "DEFAULT" : "POWER";
-              const exists = priceLists.some((item) => item.code === tabCode);
+          <div className="max-w-[900] mx-auto flex justify-center items-center gap-3 mb-6 flex-wrap">
+            {priceLists.map((item) => {
+              const isActive = activePriceListSummary?.id === item.id;
 
               return (
                 <button
-                  key={tab}
+                  key={item.id}
                   type="button"
-                  onClick={() => setActiveTab(tab)}
-                  disabled={!exists}
-                  className={`mx-4 px-4 py-1 rounded-2xl border-2 border-logoblue font-semibold transition-colors ${
-                    activeTab === tab
-                      ? "bg-logoblue text-white"
+                  onClick={() => setSelectedPriceListId(item.id)}
+                  className={`customButtonDefault ${
+                    isActive
+                      ? "bg-logoblue text-white!"
                       : "bg-white text-logoblue"
-                  } ${exists ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                  }`}
                 >
-                  {tab}
+                  {item.name}
                 </button>
               );
             })}
+
+            <button
+              type="button"
+              onClick={createPriceList}
+              disabled={!priceList || creatingPriceList}
+              className="customButtonDefault px-2.5!"
+              title="Add pricelist"
+            >
+              {creatingPriceList ? "…" : "+"}
+            </button>
+            {activePriceListSummary && canEditActivePriceList && (
+              <div className="flex justify-center">
+                {!editingPriceList ? (
+                  <button
+                    type="button"
+                    onClick={startEditingPriceList}
+                    className="customButtonDefault"
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      value={editingPriceListName}
+                      onChange={(e) => setEditingPriceListName(e.target.value)}
+                      className="customInput"
+                      placeholder="Pricelist name"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={savePriceListName}
+                      disabled={renamingPriceList}
+                      className="customButtonEnabled"
+                    >
+                      {renamingPriceList ? "Saving..." : "Save"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={cancelEditingPriceList}
+                      disabled={renamingPriceList}
+                      className="customButtonDefault"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1341,14 +1522,14 @@ export default function EditPricesPage() {
                 Automatic XTRA
               </h2>
               {!hasAutomaticXtra && (
-  <button
-    type="button"
-    onClick={() => addSpecialOption("xtra")}
-    className="customButtonEnabled"
-  >
-    Add Automatic XTRA
-  </button>
-)}
+                <button
+                  type="button"
+                  onClick={() => addSpecialOption("xtra")}
+                  className="customButtonEnabled"
+                >
+                  Add Automatic XTRA
+                </button>
+              )}
             </div>
 
             <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
@@ -1461,7 +1642,7 @@ export default function EditPricesPage() {
                                 </div>
                               )}
                             </div>
-                          </td >
+                          </td>
 
                           <td>
                             <input
@@ -1547,8 +1728,7 @@ export default function EditPricesPage() {
                                 )}
                               </div>
 
-                              <div className="flex items-center">
-                              </div>
+                              <div className="flex items-center"></div>
                             </div>
                           </td>
                         </tr>

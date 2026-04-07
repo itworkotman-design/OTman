@@ -113,7 +113,6 @@ export default function ManpowerRentalPage({ content, locale }: PageProps) {
       description: formData.description.trim(),
     };
 
-    console.log("Manpower rental payload:", payload);
   };
 
   return (

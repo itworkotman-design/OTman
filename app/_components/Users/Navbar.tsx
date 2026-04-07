@@ -160,7 +160,6 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
         open={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
         onSubmit={(payload) => {
-          console.log("Feature request submitted", payload);
         }}
       />
     </div>

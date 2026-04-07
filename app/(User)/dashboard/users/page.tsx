@@ -140,9 +140,6 @@ export default function UserPage() {
     setSelectedUser(null);
   }
 
-  console.log("currentUser", currentUser);
-  console.log("currentUserRole", currentUserRole);
-  console.log("selectedUser", selectedUser);
   return (
     <div className="mx-auto max-w-[1500]">
       <h1 className="mb-20 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
@@ -175,7 +172,6 @@ export default function UserPage() {
           priceLists={priceLists}
           initialPriceListId={selectedUser?.priceListId ?? null}
           onSave={async (data) => {
-            console.log("CREATE USER MODAL DATA", data);
             if (!selectedUser) {
               const res = await fetch("/api/auth/invites/create", {
                 method: "POST",

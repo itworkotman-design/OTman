@@ -122,7 +122,6 @@ export function ServiceModal({ service, onClose }: ServiceModalProps) {
       service: service.trim(),
     };
 
-    console.log("Service request payload:", payload);
 
     onClose();
   };

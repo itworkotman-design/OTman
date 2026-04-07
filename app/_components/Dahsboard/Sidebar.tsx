@@ -188,7 +188,6 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
         open={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
         onSubmit={(payload) => {
-          console.log("Feature request submitted", payload);
         }}
       />
     </div>

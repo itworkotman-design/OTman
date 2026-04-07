@@ -199,3 +199,81 @@ export async function GET(
     { status: 200 },
   );
 }
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ pricelistId: string }> },
+) {
+  const session = await getAuthenticatedSession(req);
+
+  if (!session) {
+    return NextResponse.json(
+      { ok: false, reason: "UNAUTHORIZED" },
+      { status: 401 },
+    );
+  }
+
+  try {
+    const { pricelistId } = await params;
+    const body = await req.json().catch(() => null);
+
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+
+    if (!name) {
+      return NextResponse.json(
+        { ok: false, reason: "NAME_REQUIRED" },
+        { status: 400 },
+      );
+    }
+
+    const existing = await prisma.priceList.findUnique({
+      where: { id: pricelistId },
+      select: {
+        id: true,
+        code: true,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { ok: false, reason: "NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+
+    if (existing.code === "DEFAULT") {
+      return NextResponse.json(
+        { ok: false, reason: "DEFAULT_NOT_EDITABLE" },
+        { status: 400 },
+      );
+    }
+
+    const updated = await prisma.priceList.update({
+      where: { id: pricelistId },
+      data: {
+        name,
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        priceList: updated,
+      },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error("Rename pricelist failed:", error);
+
+    return NextResponse.json(
+      { ok: false, reason: "UPDATE_FAILED" },
+      { status: 500 },
+    );
+  }
+}
+

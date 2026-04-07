@@ -113,8 +113,6 @@ export default function ContactPage({ content, locale }: PageProps) {
       phone: formData.phone.trim(),
       message: formData.message.trim(),
     };
-
-    console.log("Contact form payload:", payload);
   };
 
   return (
