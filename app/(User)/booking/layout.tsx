@@ -12,7 +12,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [sidebarOpenPhone, setSidebarOpenPhone] = useState(false);
 
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
-  const sidebarWPhone = sidebarOpenPhone ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
 
   return (
     <>

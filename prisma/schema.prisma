@@ -505,6 +505,14 @@ model Order {
   deliveryTypeSummary String?
   servicesSummary     String?
 
+  gsmOrderId         String?
+  gsmExternalId      String?
+  gsmLastTaskState   String?
+  gsmSyncStatus      String?  
+  gsmSentAt          DateTime?
+  gsmLastWebhookAt   DateTime?
+  gsmLastSyncedAt    DateTime?
+
   productCardsSnapshot Json?
 
   company             Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -517,12 +525,18 @@ model Order {
 
   items            OrderItem[]
   orderAttachments OrderAttachment[]
+  gsmTasks         OrderGsmTask[]
+  gsmWebhookEvents GsmWebhookEvent[]
 
   @@index([companyId, createdAt])
   @@index([status])
   @@index([deliveryDate])
   @@index([customerMembershipId])
   @@index([subcontractorMembershipId])
+  @@unique([companyId, displayId])
+  @@index([gsmOrderId])
+  @@index([gsmExternalId])
+  @@index([gsmSyncStatus])
 }
 
 model OrderItem {
@@ -557,6 +571,53 @@ model OrderItem {
   @@index([optionId])
 }
 
+model OrderGsmTask {
+  id            String   @id @default(cuid())
+  orderId       String
+  gsmTaskId     String   @unique
+  gsmOrderId    String?
+  category      String?
+  reference     String?
+  state         String?
+  address       String?
+  completedAt   DateTime?
+  lastWebhookAt DateTime?
+  lastSyncedAt  DateTime?
+  rawPayload    Json?
+
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([gsmOrderId])
+  @@index([state])
+}
+
+model GsmWebhookEvent {
+  id             String   @id @default(cuid())
+  gsmRequestId   String?
+  gsmTaskId      String?
+  gsmOrderId     String?
+  topic          String?
+  eventType      String?
+  orderId        String?
+  processed      Boolean  @default(false)
+  processingError String?
+  payload        Json
+  receivedAt     DateTime @default(now())
+  processedAt    DateTime?
+
+  order          Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([gsmRequestId])
+  @@index([gsmTaskId])
+  @@index([gsmOrderId])
+  @@index([orderId])
+  @@index([processed, receivedAt])
+}
+
 model OrderAttachment {
   id          String   @id @default(cuid())
   orderId     String
@@ -565,6 +626,9 @@ model OrderAttachment {
   sizeBytes   Int?
   storagePath String
   createdAt   DateTime @default(now())
+  source        String?
+  gsmTaskId     String?
+  gsmDocumentId String?
 
   order                    Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   priceListSpecialOption   PriceListSpecialOption? @relation(fields: [priceListSpecialOptionId], references: [id])

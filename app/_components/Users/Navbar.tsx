@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import FeatureRequestModal from "@/app/_components/Dahsboard/FeatureRequestModal";
+import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 
 type Props = {
   open: boolean;
@@ -53,6 +54,7 @@ function Icon({ path }: { path: string }) {
 
 export default function UserNavbar({ open, width, onOpenChange }: Props) {
   const currentUser = useCurrentUser();
+  const access = getBookingArchiveAccess(currentUser);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -122,24 +124,26 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
             </div>
           </Link>
 
-          <Link
-            href="/booking/create"
-            className={
-              linkClass("/booking/create") + ` justify-end lg:justify-start`
-            }
-          >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
-              <Icon path={ICONS.createOrder} />
-              Create Order
-            </div>
-          </Link>
+          {access.canCreate && (
+            <Link
+              href="/booking/create"
+              className={
+                linkClass("/booking/create") + ` justify-end lg:justify-start`
+              }
+            >
+              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+                <Icon path={ICONS.createOrder} />
+                Create Order
+              </div>
+            </Link>
+          )}
 
           <button
             type="button"
             onClick={() => setRequestModalOpen(true)}
             className={`${linkBase} mt-2 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
           >
-            Request new function
+            Request new function / bug fix
           </button>
 
           <button

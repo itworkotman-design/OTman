@@ -118,6 +118,11 @@ describe("POST /api/auth/invites/create", () => {
             role: "ADMIN",
             ip: "203.0.113.10",
             userAgent: "vitest-agent",
+            description: "",
+            permissions: [],
+            phoneNumber: "",
+            priceListId: null,
+            username: "",
         });
     });
 
@@ -203,6 +208,11 @@ describe("POST /api/auth/invites/create", () => {
             role: "",
             ip: null,
             userAgent: "vitest-agent",
+            description: "",
+            permissions: [],
+            phoneNumber: "",
+            priceListId: null,
+            username: "",
         });
     });
 
@@ -239,6 +249,11 @@ describe("POST /api/auth/invites/create", () => {
             role: "",
             ip: null,
             userAgent: null,
+            description: "",
+            permissions: [],
+            phoneNumber: "",
+            priceListId: null,
+            username: "",
         });
     });
 });

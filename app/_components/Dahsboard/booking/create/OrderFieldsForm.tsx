@@ -93,8 +93,6 @@ type Props = {
   setStatusNotes: React.Dispatch<React.SetStateAction<string>>;
   customerMembershipId: string;
   setCustomerMembershipId: React.Dispatch<React.SetStateAction<string>>;
-  customerLabel: string;
-  setCustomerLabel: React.Dispatch<React.SetStateAction<string>>;
   status: string;
   setStatus: React.Dispatch<React.SetStateAction<string>>;
   dontSendEmail: boolean;
@@ -115,7 +113,6 @@ type Props = {
 export default function OrderFieldsForm({
   hidden,
   hideDontSendEmail,
-  isInstallationOnly,
   isReturnOnly,
   hideSubmitButton,
   subcontractorLoading,
@@ -158,7 +155,6 @@ export default function OrderFieldsForm({
   customerComments,
   setCustomerComments,
 
-  customerLabel,
   setCustomerLabel,
   floorNo,
   setFloorNo,

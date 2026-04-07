@@ -1461,7 +1461,7 @@ export default function EditPricesPage() {
                                 </div>
                               )}
                             </div>
-                          </td>
+                          </td >
 
                           <td>
                             <input

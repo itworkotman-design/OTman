@@ -84,7 +84,9 @@ type Props = {
   dataset?: "default" | "power";
   hideSubmitButton?: boolean;
   onSubmit?: (payload: OrderFormPayload) => void | Promise<void>;
-  initialValues?: Partial<OrderFormPayload>;
+  initialValues?: Partial<OrderFormPayload> & {
+    id?: string;
+  };
 };
 
 export default function BookingEditor({
@@ -434,14 +436,6 @@ export default function BookingEditor({
     [subcontractorId, subcontractorOptions],
   );
 
-  const selectedCustomer = useMemo(
-    () =>
-      changeCustomerOptions.find(
-        (option) => option.id === customerMembershipId,
-      ) || (customerLabel ? { id: "", name: customerLabel } : undefined),
-    [customerMembershipId, changeCustomerOptions, customerLabel],
-  );
-
   const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
     setPriceExVat(exVat);
     setPriceSubcontractor(subPrice);
@@ -480,7 +474,6 @@ export default function BookingEditor({
       throw new Error(data?.reason || "Failed to create order");
     }
 
-    console.log("Created order:", data.orderId);
   }
 
   // Attachments
@@ -711,15 +704,6 @@ export default function BookingEditor({
       setSaving(false);
     }
   };
-  console.log("STATE CHECK", {
-    productCards,
-    orderNumber,
-    deliveryDate,
-    pickupAddress,
-    deliveryAddress,
-    customerName,
-    priceExVat,
-  });
 
   return (
     <form onSubmit={handleSubmit} className="w-full">

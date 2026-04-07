@@ -168,7 +168,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             className={`${linkBase} mt-20 cursor-pointer text-left hover:bg-linePrimary`}
           >
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
-              Request new function
+              Request new function / bug fix
             </div>
           </button>
 

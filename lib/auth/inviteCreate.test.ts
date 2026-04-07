@@ -221,6 +221,13 @@ describe("createInvite", () => {
         tokenHash: "hashed-invite-token",
         expiresAt: expect.any(Date),
         createdByUserId: "actor-1",
+        username: null,
+        phoneNumber: null,
+        description: null,
+        priceListId: null,
+      },
+      select: {
+        id: true,
       },
     });
 
@@ -239,6 +246,10 @@ describe("createInvite", () => {
       meta: {
         invitedEmail: "test@example.com",
         role: "ADMIN",
+        username: null,
+        phoneNumber: null,
+        priceListId: null,
+        permissions: [],
       },
     });
   });

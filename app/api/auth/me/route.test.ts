@@ -106,6 +106,9 @@ describe("GET /api/auth/me", () => {
         companyId: "company-1",
         companyName: "Company One",
         companySlug: "company-one",
+        permissions: [],
+        role: "ADMIN",
+        status: "ACTIVE",
       },
       memberships: [
         {

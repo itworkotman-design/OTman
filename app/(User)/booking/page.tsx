@@ -223,7 +223,7 @@ export default function BookingPage() {
       </div>
 
       <div className="">
-        <div className=" max-w-[4000px]">
+        <div className=" max-w-[4000]">
           {loading ? (
             <div className="py-6 text-textColorThird">Loading orders...</div>
           ) : error ? (

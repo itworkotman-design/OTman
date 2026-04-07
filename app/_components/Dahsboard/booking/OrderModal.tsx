@@ -34,6 +34,7 @@ export default function OrderModal({
   const [mounted, setMounted] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  
 
   // Ensure we're on the client before portaling into document.body
   useEffect(() => {
@@ -70,25 +71,9 @@ export default function OrderModal({
       }
     }
 
-    async function loadAttachments() {
-      if (!orderId) return;
-
-      try {
-        const res = await fetch(`/api/orders/${orderId}/attachments`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        const data = await res.json().catch(() => null);
-
-        if (res.ok && data?.ok) {
-          setAttachments(data.attachments ?? []);
-        }
-      } catch {}
-    }
 
     async function loadData() {
-      await Promise.all([loadOrder(), loadAttachments()]);
+      await Promise.all([loadOrder()]);
     }
 
     loadData();

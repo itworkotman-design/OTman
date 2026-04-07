@@ -53,6 +53,7 @@ export default function BookingPage() {
   const [bulkError, setBulkError] = useState("");
   const [customerActionLoading, setCustomerActionLoading] = useState(false);
   const [customerActionError, setCustomerActionError] = useState("");
+  const [gsmResendAvailable, setGsmResendAvailable] = useState(false);
 
   async function loadOrders(filters: BookingArchiveFilters = appliedFilters) {
     try {
@@ -219,7 +220,6 @@ export default function BookingPage() {
       });
 
       const data = await res.json().catch(() => null);
-      console.log("send-selected-email response", res.status, data);
 
       if (!res.ok || !data?.ok) {
         setCustomerActionError(data?.reason || "Failed to send email");
@@ -236,16 +236,74 @@ export default function BookingPage() {
     }
   }
 
-  async function handleSendSelectedToGsm(
-    customerMembershipId: string,
-  ): Promise<void> {
-    if (!customerMembershipId || selectedOrderIds.length === 0) return;
+  async function handleSendSelectedToGsm(force = false): Promise<boolean> {
+    if (selectedOrderIds.length === 0) return false;
 
-    // TODO: connect real GSM route later
-    console.log("Send selected to GSM", {
-      orderIds: selectedOrderIds,
-      customerMembershipId,
-    });
+    try {
+      setCustomerActionLoading(true);
+      setCustomerActionError("");
+      setGsmResendAvailable(false);
+
+      const res = await fetch("/api/orders/send-to-gsm", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+          force,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setCustomerActionError(data?.reason || "Failed to send to GSM");
+        return false;
+      }
+
+      const results = Array.isArray(data.results) ? data.results : [];
+      const successCount = results.filter(
+        (item: { ok: boolean }) => item.ok,
+      ).length;
+
+      const alreadySentCount = results.filter(
+        (item: { error?: string }) => item.error === "ALREADY_SENT_TO_GSM",
+      ).length;
+
+      const failedCount = results.filter(
+        (item: { ok: boolean; error?: string }) =>
+          !item.ok && item.error !== "ALREADY_SENT_TO_GSM",
+      ).length;
+
+      if (
+        alreadySentCount > 0 &&
+        successCount === 0 &&
+        failedCount === 0 &&
+        !force
+      ) {
+        setCustomerActionError(
+          `${alreadySentCount} selected order(s) were already sent to GSM.`,
+        );
+        setGsmResendAvailable(true);
+        return false;
+      }
+
+      if (successCount > 0) {
+        setSelectedOrderIds([]);
+        await loadOrders(appliedFilters);
+        return true;
+      }
+
+      setCustomerActionError("No orders were sent to GSM");
+      return false;
+    } catch {
+      setCustomerActionError("Failed to send to GSM");
+      return false;
+    } finally {
+      setCustomerActionLoading(false);
+    }
   }
 
   async function handleCopySelected() {
@@ -368,7 +426,9 @@ export default function BookingPage() {
             customers={creators}
             selectedCount={selectedOrderIds.length}
             onSendEmail={handleSendSelectedEmail}
-            onSendGsm={handleSendSelectedToGsm}
+            onSendGsm={() => handleSendSelectedToGsm(false)}
+            onResendGsm={() => handleSendSelectedToGsm(true)}
+            showResendGsm={gsmResendAvailable}
             onCopySelected={handleCopySelected}
             onExportExcel={handleExportSelected}
             loading={customerActionLoading}

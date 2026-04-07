@@ -47,6 +47,7 @@ describe("getActiveMembership", () => {
             permission: true,
           },
         },
+        priceListId: true,
       },
     });
   });

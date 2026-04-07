@@ -44,7 +44,7 @@ export default function FeatureRequestModal({
       onSubmit?.(payload);
 
       // optional API call placeholder (backend schema to be implemented by user)
-      await fetch("/api/feature-requests", {
+      await fetch("/api/feature-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -1,4 +1,4 @@
-// app/_components/Dahsboard/booking/archive/SelectionActionBar.tsx
+// path: app/_components/Dahsboard/booking/archive/SelectionActionBar.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -15,7 +15,9 @@ type Props = {
     message?: string;
     recipientName?: string;
   }) => void | Promise<boolean>;
-  onSendGsm: (customerMembershipId: string) => void | Promise<void>;
+  onSendGsm: () => void | Promise<boolean>;
+  onResendGsm?: () => void | Promise<boolean>;
+  showResendGsm?: boolean;
   onCopySelected: () => void | Promise<void>;
   onExportExcel: () => void | Promise<void>;
   loading?: boolean;
@@ -27,6 +29,8 @@ export default function SelectionActionBar({
   selectedCount,
   onSendEmail,
   onSendGsm,
+  onResendGsm,
+  showResendGsm = false,
   onCopySelected,
   onExportExcel,
   loading = false,
@@ -36,6 +40,7 @@ export default function SelectionActionBar({
   const [emailType, setEmailType] = useState<EmailType>("");
   const [customMessage, setCustomMessage] = useState("");
   const [successFlash, setSuccessFlash] = useState(false);
+  const [gsmSuccessFlash, setGsmSuccessFlash] = useState(false);
 
   const disabled = selectedCount === 0 || loading;
 
@@ -85,6 +90,16 @@ export default function SelectionActionBar({
     return () => window.clearTimeout(t);
   }, [successFlash]);
 
+  useEffect(() => {
+    if (!gsmSuccessFlash) return;
+
+    const t = window.setTimeout(() => {
+      setGsmSuccessFlash(false);
+    }, 1600);
+
+    return () => window.clearTimeout(t);
+  }, [gsmSuccessFlash]);
+
   async function handleSendEmailClick() {
     if (!canSendEmail || disabled || !selectedCustomer?.email) return;
 
@@ -92,7 +107,7 @@ export default function SelectionActionBar({
       to: selectedCustomer.email,
       subject,
       message: message || undefined,
-      recipientName: selectedCustomer.label
+      recipientName: selectedCustomer.label,
     });
 
     if (!ok) return;
@@ -100,6 +115,15 @@ export default function SelectionActionBar({
     setSuccessFlash(true);
     setEmailType("");
     setCustomMessage("");
+  }
+
+  async function handleSendGsmClick() {
+    if (disabled) return;
+
+    const ok = await onSendGsm();
+    if (!ok) return;
+
+    setGsmSuccessFlash(true);
   }
 
   return (
@@ -173,11 +197,19 @@ export default function SelectionActionBar({
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={disabled || !customerMembershipId}
-          onClick={() => onSendGsm(customerMembershipId)}
-          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
+          disabled={disabled}
+          onClick={handleSendGsmClick}
+          className={`h-10 disabled:opacity-50! disabled:cursor-auto! ${
+            gsmSuccessFlash
+              ? "customButtonEnabled bg-green-600!"
+              : "customButtonDefault"
+          }`}
         >
-          Send to GSM
+          {loading
+            ? "Sending..."
+            : gsmSuccessFlash
+              ? "Sent to GSM"
+              : "Send to GSM"}
         </button>
 
         <button
@@ -199,8 +231,26 @@ export default function SelectionActionBar({
         </button>
       </div>
 
+      {gsmSuccessFlash ? (
+        <div className="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
+          Selected orders were sent to GSM.
+        </div>
+      ) : null}
+
       {error ? (
-        <div className="mt-3 text-sm font-medium text-red-600">{error}</div>
+        <div className="mt-3 flex items-center gap-3 text-sm font-medium text-red-600">
+          <span>{error}</span>
+
+          {showResendGsm && onResendGsm ? (
+            <button
+              type="button"
+              onClick={() => void onResendGsm()}
+              className="customButtonDefault h-8"
+            >
+              Resend anyway
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

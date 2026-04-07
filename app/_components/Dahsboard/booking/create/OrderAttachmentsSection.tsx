@@ -1,3 +1,4 @@
+// path: app/_components/Dahsboard/booking/create/OrderAttachmentsSection.tsx
 "use client";
 
 type AttachmentItem = {
@@ -17,6 +18,14 @@ type Props = {
   onDelete?: (attachmentId: string) => void | Promise<void>;
 };
 
+function isImage(file: AttachmentItem) {
+  return file.mimeType.startsWith("image/");
+}
+
+function isPdf(file: AttachmentItem) {
+  return file.mimeType === "application/pdf";
+}
+
 export default function OrderAttachmentsSection({
   attachments,
   uploading,
@@ -34,7 +43,7 @@ export default function OrderAttachmentsSection({
       <div className="mb-3 flex items-center gap-2 customButtonDefault w-30">
         <input
           type="file"
-          accept="image/*"
+          accept="image/*,.pdf,application/pdf"
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) void onUpload(file);
@@ -52,18 +61,51 @@ export default function OrderAttachmentsSection({
           {attachments.map((file) => (
             <div
               key={file.id}
-              className="relative overflow-hidden rounded border"
+              className="relative overflow-hidden rounded border bg-white"
             >
-              <img
-                src={file.url}
-                alt={file.filename}
-                className="h-24 w-full object-cover"
-              />
+              {isImage(file) ? (
+                <a href={file.url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={file.url}
+                    alt={file.filename}
+                    className="h-24 w-full object-cover hover:opacity-80"
+                  />
+                </a>
+              ) : isPdf(file) ? (
+                <div className="flex h-24 w-full items-center justify-center bg-gray-100 px-2 text-center text-sm font-medium text-logoblue">
+                  PDF
+                </div>
+              ) : (
+                <div className="flex h-24 w-full items-center justify-center bg-gray-100 px-2 text-center text-sm font-medium text-textColorThird">
+                  File
+                </div>
+              )}
 
-              <div className="px-2 py-1">
-                <div className="truncate text-xs">{file.filename}</div>
+              <div className="px-2 py-2">
+                <div className="truncate text-xs font-medium">
+                  {file.filename}
+                </div>
                 <div className="text-[11px] text-textColorThird">
                   {(file.sizeBytes / 1024).toFixed(1)} KB
+                </div>
+
+                <div className="mt-2 flex gap-3 text-[11px]">
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-logoblue underline"
+                  >
+                    Open
+                  </a>
+
+                  <a
+                    href={file.url}
+                    download={file.filename}
+                    className="text-textColorThird underline"
+                  >
+                    Download
+                  </a>
                 </div>
               </div>
 
