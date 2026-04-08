@@ -31,6 +31,7 @@ export async function GET(req: Request) {
     },
     select: {
       id: true,
+      role: true,
       user: {
         select: {
           email: true,
