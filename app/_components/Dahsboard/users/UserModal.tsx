@@ -1,7 +1,7 @@
 // app/_components/Dahsboard/users/UserModal.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 import {
   UserModalProps,

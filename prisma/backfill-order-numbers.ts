@@ -20,7 +20,7 @@ async function main() {
     if (order.orderNumber == null) {
       await prisma.order.update({
         where: { id: order.id },
-        data: { orderNumber: next },
+        data: { orderNumber: String(next) },
       });
     }
 
