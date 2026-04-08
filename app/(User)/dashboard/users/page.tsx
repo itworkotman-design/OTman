@@ -373,6 +373,10 @@ export default function UserPage() {
                     className={`cursor-pointer border-b border-black/10 hover:bg-black/2 ${
                       u.status !== "ACTIVE" ? "opacity-50" : ""
                     }`}
+                    onClick={() => {
+                      setSelectedUser(u);
+                      setOpen(true);
+                    }}
                   >
                     <td className="text-center">
                       <input

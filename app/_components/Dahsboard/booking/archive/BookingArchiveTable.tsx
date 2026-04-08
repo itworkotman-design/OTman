@@ -100,7 +100,7 @@ function Cell({
   className?: string;
 }) {
   return (
-    <div className={`max-h-[100px] overflow-y-auto ${className}`}>
+    <div className={`max-h-[100] overflow-y-auto ${className}`}>
       {children}
     </div>
   );
@@ -120,8 +120,8 @@ export default function BookingArchiveTable({
     orders.every((order) => selectedOrderIds.includes(order.id));
 
   return (
-    <div className="w-full max-w-full lg:max-w-[calc(100vw-300px)] mb-10 max-h-[1000px] overflow-x-auto overflow-y-auto [-webkit-overflow-scrolling:touch]">
-      <table className="w-full min-w-[1200px] max-w-[4000px] border-y border-black/10 text-sm">
+    <div className="w-full max-w-full lg:max-w-[calc(100vw-300px)] mb-10 max-h-[1000] overflow-x-auto overflow-y-auto [-webkit-overflow-scrolling:touch]">
+      <table className="w-full min-w-[1200] max-w-[4000] border-y border-black/10 text-sm">
         <thead>
           <tr className="border-y border-black/10 bg-black/3 text-left text-textColorSecond">
             {selectable && (
@@ -164,22 +164,22 @@ export default function BookingArchiveTable({
                 <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Telefon
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
                   Pickup Adresse
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
                   Extra pickup
                 </th>
-                <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
                   Leveringsadresse
                 </th>
-                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
                   Produkter
                 </th>
-                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
                   Leveringstype
                 </th>
-                <th className="whitespace-nowrap border-r w-[300] min-w-[300px] border-black/3 px-4 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[300] min-w-[300] border-black/3 px-4 py-3 font-medium">
                   Montering/retur
                 </th>
                 <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
@@ -241,13 +241,13 @@ export default function BookingArchiveTable({
                 <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                   Leveringsadresse
                 </th>
-                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
                   Produkter
                 </th>
-                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
                   Leveringstype
                 </th>
-                <th className="whitespace-nowrap border-r w-[220] min-w-[220px] border-black/3 px-2 py-3 font-medium">
+                <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
                   Montering/retur
                 </th>
                 <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
@@ -360,35 +360,35 @@ export default function BookingArchiveTable({
                   <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.phone)}</Cell>
                   </td>
-                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.pickupAddress)}</Cell>
                   </td>
-                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>
                       {order.extraPickupAddress.length > 0
                         ? order.extraPickupAddress.join(", ")
                         : "-"}
                     </Cell>
                   </td>
-                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.deliveryAddress)}</Cell>
                   </td>
-                  <td className="w-[220] min-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="w-[220] min-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell className=" wrap-break-word">
                       {formatCell(order.productsSummary)}
                     </Cell>
                   </td>
-                  <td className="w-[220px] min-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                    <Cell className="whitespace-normal break-words">
+                  <td className="w-[220] min-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell className="whitespace-normal wrap-break-word">
                       {formatCell(order.deliveryTypeSummary)}
                     </Cell>
                   </td>
-                  <td className="w-[300px] min-w-[300px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                    <Cell className="whitespace-normal break-words">
+                  <td className="w-[300p min-w-[300] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                    <Cell className="whitespace-normal wrap-break-word">
                       {formatCell(order.servicesSummary)}
                     </Cell>
                   </td>
-                  <td className="max-w-[180px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[180] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.description)}</Cell>
                   </td>
                   <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
@@ -397,10 +397,10 @@ export default function BookingArchiveTable({
                   <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.cashierPhone)}</Cell>
                   </td>
-                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.customerComments)}</Cell>
                   </td>
-                  <td className="max-w-[180px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[180] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.driverInfo)}</Cell>
                   </td>
                   <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
@@ -442,29 +442,29 @@ export default function BookingArchiveTable({
                   <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.orderNumber)}</Cell>
                   </td>
-                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.pickupAddress)}</Cell>
                   </td>
-                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>
                       {order.extraPickupAddress.length > 0
                         ? order.extraPickupAddress.join(", ")
                         : "-"}
                     </Cell>
                   </td>
-                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.deliveryAddress)}</Cell>
                   </td>
-                  <td className="w-[220] min-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="w-[220] min-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.productsSummary)}</Cell>
                   </td>
-                  <td className="w-[220px] min-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="w-[220] min-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.deliveryTypeSummary)}</Cell>
                   </td>
-                  <td className="w-[300px] min-w-[300px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="w-[300] min-w-[300] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.servicesSummary)}</Cell>
                   </td>
-                  <td className="max-w-[180px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[180] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.description)}</Cell>
                   </td>
                   <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
@@ -473,7 +473,7 @@ export default function BookingArchiveTable({
                   <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.cashierPhone)}</Cell>
                   </td>
-                  <td className="max-w-[220px] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                     <Cell>{formatCell(order.customerComments)}</Cell>
                   </td>
                   <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">

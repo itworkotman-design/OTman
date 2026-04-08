@@ -442,7 +442,23 @@ export async function GET(req: Request) {
     ];
   }
 
-  const orderBy: Prisma.OrderOrderByWithRelationInput = (() => {
+  const orderBy:
+    | Prisma.OrderOrderByWithRelationInput
+    | Prisma.OrderOrderByWithRelationInput[] = (() => {
+    if (!sortBy) {
+      return [
+        {
+          deliveryDate: {
+            sort: "desc",
+            nulls: "first",
+          },
+        },
+        {
+          createdAt: "desc",
+        },
+      ];
+    }
+
     switch (sortBy) {
       case "deliveryDate":
         return { deliveryDate: sortOrder };

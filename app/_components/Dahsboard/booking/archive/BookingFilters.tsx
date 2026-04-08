@@ -142,27 +142,37 @@ export default function BookingFilters({
           </Field>
 
           {access.canFilterCustomer && (
-            <ComboField
-              label="Kunde"
-              value={customerMembershipId}
-              onChange={(val) => setCustomerMembershipId(val ?? "")}
-              query={customerQuery}
-              setQuery={setCustomerQuery}
-              items={filteredCustomers}
-              placeholder="Alle kunder"
-            />
+            <Field label="Kunde">
+              <select
+                value={customerMembershipId}
+                onChange={(e) => setCustomerMembershipId(e.target.value)}
+                className="customInput w-full"
+              >
+                <option value="">Alle kunder</option>
+                {creators.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
           )}
 
           {access.canFilterSubcontractor && (
-            <ComboField
-              label="Subcontractor"
-              value={subcontractorId}
-              onChange={(val) => setSubcontractorId(val ?? "")}
-              query={subQuery}
-              setQuery={setSubQuery}
-              items={filteredSubs}
-              placeholder="All subcontractors"
-            />
+            <Field label="Subcontractor">
+              <select
+                value={subcontractorId}
+                onChange={(e) => setSubcontractorId(e.target.value)}
+                className="customInput w-full"
+              >
+                <option value="">All subcontractors</option>
+                {subcontractors.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
           )}
         </div>
 

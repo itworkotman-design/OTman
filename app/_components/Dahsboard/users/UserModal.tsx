@@ -1,7 +1,7 @@
 // app/_components/Dahsboard/users/UserModal.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 import {
   UserModalProps,
@@ -39,8 +39,23 @@ export default function UserModal({
       ...props,
     }),
   );
-  const [sendingReset, setSendingReset] = useState(false);
+  useEffect(() => {
+    if (!isOpen) return;
 
+    setForm(
+      buildInitialForm({
+        isOpen,
+        onClose,
+        onSave,
+        onRemove,
+        onToggleActive,
+        actorRole,
+        targetRole,
+        ...props,
+      }),
+    );
+  }, [isOpen, actorRole, targetRole, props]);
+  const [sendingReset, setSendingReset] = useState(false);
 
   const { isActorOwner, canEditTarget, canDisableOrRemove } = getPermissions(
     actorRole,
