@@ -84,6 +84,16 @@ export async function GET(
       subcontractorMinus: true,
       subcontractorPlus: true,
       lastEditedByMembershipId: true,
+      createdByMembership: {
+        select: {
+          user: {
+            select: {
+              username: true,
+              email: true,
+            },
+          },
+        },
+      },
       lastEditedByMembership: {
         select: {
           user: {

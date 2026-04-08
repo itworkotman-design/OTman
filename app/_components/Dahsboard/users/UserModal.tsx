@@ -39,6 +39,7 @@ export default function UserModal({
       ...props,
     }),
   );
+  const [sendingReset, setSendingReset] = useState(false);
 
 
   const { isActorOwner, canEditTarget, canDisableOrRemove } = getPermissions(
@@ -81,6 +82,37 @@ export default function UserModal({
 
   const shouldShowAccessSelector = form.role === "USER";
 
+  async function handleSendReset() {
+    if (!form.email) {
+      alert("User has no email");
+      return;
+    }
+
+    try {
+      setSendingReset(true);
+
+      const res = await fetch("/api/auth/password-reset/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: form.email }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        alert(data?.reason || "Failed to send reset link");
+        return;
+      }
+
+      alert("Reset link sent");
+    } catch {
+      alert("Something went wrong");
+    } finally {
+      setSendingReset(false);
+    }
+  }
 
   if (!isOpen) return null;
 
@@ -212,13 +244,14 @@ export default function UserModal({
                 <button
                   type="button"
                   className="customButtonDefault"
-                  disabled={!canEditTarget}
+                  disabled={!canEditTarget || isCreateMode || sendingReset}
+                  onClick={handleSendReset}
                 >
-                  Send reset link
+                  {sendingReset ? "Sending..." : "Send reset link"}
                 </button>
                 <button
                   type="button"
-                  className="customButtonDefault"
+                  className="customButtonDefault hidden"
                   disabled={!canEditTarget}
                 >
                   Edit password

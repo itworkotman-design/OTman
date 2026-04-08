@@ -141,7 +141,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
           <button
             type="button"
             onClick={() => setRequestModalOpen(true)}
-            className={`${linkBase} mt-2 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
+            className={`${linkBase} mt-20 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
           >
             Request new function / bug fix
           </button>

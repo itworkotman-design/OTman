@@ -370,12 +370,9 @@ export default function UserPage() {
                 {filteredUsers.map((u) => (
                   <tr
                     key={u.id}
-                    className="cursor-pointer border-b border-black/10 hover:bg-black/2"
-                    onClick={() => {
-                      setSelectedUser(u);
-                      setModalKey((prev) => prev + 1);
-                      setOpen(true);
-                    }}
+                    className={`cursor-pointer border-b border-black/10 hover:bg-black/2 ${
+                      u.status !== "ACTIVE" ? "opacity-50" : ""
+                    }`}
                   >
                     <td className="text-center">
                       <input
