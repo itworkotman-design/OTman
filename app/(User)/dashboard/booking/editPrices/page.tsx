@@ -514,18 +514,20 @@ export default function EditPricesPage() {
       current
         ? {
             ...current,
-            customSections: [
-              ...current.customSections,
-              {
-                id: createDraftId("section"),
-                title: "",
-                usePrices: false,
-                options: [
+                customSections: [
+                  ...current.customSections,
                   {
-                    id: createDraftId("option"),
-                    label: "",
-                    price: "0",
-                  },
+                    id: createDraftId("section"),
+                    title: "",
+                    usePrices: false,
+                    allowMultiple: true,
+                    options: [
+                      {
+                        id: createDraftId("option"),
+                        code: "",
+                        label: "",
+                        price: "0",
+                      },
                 ],
               },
             ],
@@ -581,6 +583,7 @@ export default function EditPricesPage() {
                       ...section.options,
                       {
                         id: createDraftId("option"),
+                        code: "",
                         label: "",
                         price: "0",
                       },
@@ -2184,7 +2187,7 @@ export default function EditPricesPage() {
 
       {editingProductGroup && productSettingsDraft && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-5xl rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4">
               <h2 className="text-lg font-bold text-logoblue">
                 Edit - {editingProductGroup.productName || "Unnamed product"}
@@ -2308,16 +2311,45 @@ export default function EditPricesPage() {
                             <span className="text-sm">Use prices</span>
                           </label>
 
+                          <label className="flex items-center gap-2 customContainer">
+                            <input
+                              type="checkbox"
+                              checked={section.allowMultiple}
+                              onChange={(e) =>
+                                updateCustomSection(section.id, {
+                                  allowMultiple: e.target.checked,
+                                })
+                              }
+                              className="customInput h-4 w-4"
+                            />
+                            <span className="text-sm">Allow multiple selections</span>
+                          </label>
+
                           <div className="space-y-2">
                             {section.options.map((option) => (
                               <div
                                 key={option.id}
                                 className={
                                   section.usePrices
-                                    ? "grid grid-cols-1 gap-2 sm:grid-cols-[1fr_110px_auto]"
-                                    : "grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]"
+                                    ? "grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_110px_auto]"
+                                    : "grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_auto]"
                                 }
                               >
+                                <input
+                                  type="text"
+                                  value={option.code}
+                                  onChange={(e) =>
+                                    updateCustomSectionOption(
+                                      section.id,
+                                      option.id,
+                                      {
+                                        code: e.target.value,
+                                      },
+                                    )
+                                  }
+                                  className="customInput w-full"
+                                  placeholder="Code (optional)"
+                                />
                                 <input
                                   type="text"
                                   value={option.label}

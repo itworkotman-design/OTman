@@ -103,7 +103,7 @@ function appendCustomSectionItems(
 
       items.push({
         kind: "customPrice",
-        code: section.title,
+        code: option.code || section.title,
         label: option.label,
         qty,
         unitPrice: Number(option.price) || 0,

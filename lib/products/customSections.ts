@@ -1,5 +1,6 @@
 export type ProductCustomSectionOption = {
   id: string;
+  code: string;
   label: string;
   price: string;
 };
@@ -8,6 +9,7 @@ export type ProductCustomSection = {
   id: string;
   title: string;
   usePrices: boolean;
+  allowMultiple: boolean;
   options: ProductCustomSectionOption[];
 };
 
@@ -47,6 +49,7 @@ export function normalizeProductCustomSections(
         id?: unknown;
         title?: unknown;
         usePrices?: unknown;
+        allowMultiple?: unknown;
         options?: unknown;
       };
 
@@ -57,6 +60,7 @@ export function normalizeProductCustomSections(
 
               const rawOption = option as {
                 id?: unknown;
+                code?: unknown;
                 label?: unknown;
                 price?: unknown;
               };
@@ -65,6 +69,7 @@ export function normalizeProductCustomSections(
                 id:
                   toNonEmptyString(rawOption.id) ||
                   createId("option", optionIndex),
+                code: toNonEmptyString(rawOption.code),
                 label: toNonEmptyString(rawOption.label),
                 price: toPriceString(rawOption.price),
               };
@@ -81,6 +86,10 @@ export function normalizeProductCustomSections(
           toNonEmptyString(rawSection.id) || createId("section", sectionIndex),
         title: toNonEmptyString(rawSection.title),
         usePrices: !!rawSection.usePrices,
+        allowMultiple:
+          rawSection.allowMultiple === undefined
+            ? true
+            : !!rawSection.allowMultiple,
         options: normalizedOptions,
       };
     })

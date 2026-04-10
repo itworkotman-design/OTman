@@ -215,10 +215,16 @@ export function ProductCardNew({
 
         return {
           ...selection,
-          optionIds:
-            section?.options
-              .filter((option) => selection.optionIds.includes(option.id))
-              .map((option) => option.id) ?? [],
+          optionIds: (() => {
+            const validOptionIds =
+              section?.options
+                .filter((option) => selection.optionIds.includes(option.id))
+                .map((option) => option.id) ?? [];
+
+            return section?.allowMultiple === false
+              ? validOptionIds.slice(0, 1)
+              : validOptionIds;
+          })(),
         };
       },
     );
@@ -308,13 +314,17 @@ export function ProductCardNew({
   }
 
   function toggleCustomSectionOption(sectionId: string, optionId: string) {
+    const section = customSections.find((item) => item.id === sectionId);
     const existingSelection = value.customSectionSelections.find(
       (selection) => selection.sectionId === sectionId,
     );
     const currentOptionIds = existingSelection?.optionIds ?? [];
-    const nextOptionIds = currentOptionIds.includes(optionId)
-      ? currentOptionIds.filter((id) => id !== optionId)
-      : [...currentOptionIds, optionId];
+    const nextOptionIds =
+      section?.allowMultiple === false
+        ? [optionId]
+        : currentOptionIds.includes(optionId)
+          ? currentOptionIds.filter((id) => id !== optionId)
+          : [...currentOptionIds, optionId];
 
     if (!existingSelection && nextOptionIds.length > 0) {
       update({
@@ -584,7 +594,8 @@ export function ProductCardNew({
                   <label key={option.id} className="block my-1">
                     <input
                       className="inline mr-2"
-                      type="checkbox"
+                      type={section.allowMultiple ? "checkbox" : "radio"}
+                      name={`custom-section-${value.cardId}-${section.id}`}
                       checked={getSelectedCustomSectionOptionIds(section.id).includes(
                         option.id,
                       )}
@@ -593,8 +604,8 @@ export function ProductCardNew({
                       }
                     />
                     <span className="inline">
+                      {option.code ? `(${option.code}) ` : ""}
                       {option.label}
-                      {section.usePrices ? ` (${option.price} NOK)` : ""}
                     </span>
                   </label>
                 ))}

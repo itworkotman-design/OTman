@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   getActiveMembershipMock: vi.fn(),
   findUniqueMock: vi.fn(),
+  queryRawMock: vi.fn(),
   getEffectivePriceMock: vi.fn(),
 }));
 
@@ -17,6 +18,7 @@ vi.mock("@/lib/auth/membership", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $queryRaw: mocks.queryRawMock,
     priceList: {
       findUnique: mocks.findUniqueMock,
     },
@@ -79,6 +81,22 @@ describe("GET /api/booking/catalog", () => {
       id: "membership-1",
       priceListId: "membership-price-list",
     });
+    mocks.queryRawMock.mockResolvedValue([
+      {
+        id: "product-1",
+        productType: "PHYSICAL",
+        allowDeliveryTypes: true,
+        allowInstallOptions: true,
+        allowReturnOptions: true,
+        allowExtraServices: true,
+        allowDemont: true,
+        allowQuantity: true,
+        allowPeopleCount: false,
+        allowHoursInput: false,
+        autoXtraPerPallet: false,
+        customSections: [],
+      },
+    ]);
     mocks.findUniqueMock.mockResolvedValue({
       id: "price-list-1",
       code: "PL-1",
@@ -100,6 +118,16 @@ describe("GET /api/booking/catalog", () => {
               code: "PROD-1",
               name: "Moving van",
               isActive: true,
+              productType: "PHYSICAL",
+              allowDeliveryTypes: true,
+              allowInstallOptions: true,
+              allowReturnOptions: true,
+              allowExtraServices: true,
+              allowDemont: true,
+              allowQuantity: true,
+              allowPeopleCount: false,
+              allowHoursInput: false,
+              autoXtraPerPallet: false,
             },
           },
         },
@@ -135,6 +163,17 @@ describe("GET /api/booking/catalog", () => {
           code: "PROD-1",
           label: "Moving van",
           active: true,
+          productType: "PHYSICAL",
+          allowDeliveryTypes: true,
+          allowInstallOptions: true,
+          allowReturnOptions: true,
+          allowExtraServices: true,
+          allowDemont: true,
+          allowQuantity: true,
+          allowPeopleCount: false,
+          allowHoursInput: false,
+          autoXtraPerPallet: false,
+          customSections: [],
           options: [
             {
               id: "option-1",

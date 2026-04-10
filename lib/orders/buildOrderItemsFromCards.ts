@@ -292,7 +292,7 @@ export function buildOrderItemsFromCards(
             product?.allowDeliveryTypes && card.deliveryType ? card.deliveryType : null,
           itemType: "EXTRA_OPTION",
           optionId: option.id,
-          optionCode: section.title || null,
+          optionCode: option.code || section.title || null,
           optionLabel: option.label,
           quantity: section.usePrices ? amount : 1,
           customerPriceCents: section.usePrices
@@ -300,7 +300,7 @@ export function buildOrderItemsFromCards(
             : null,
           subcontractorPriceCents: 0,
           rawData: {
-            code: section.title || null,
+            code: option.code || section.title || null,
             label: option.label,
             description: `${section.title}: ${option.label}`,
           },
