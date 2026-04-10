@@ -131,7 +131,7 @@ function buildProductSettingsDefaults(
         allowInstallOptions: true,
         allowReturnOptions: true,
         allowExtraServices: true,
-        allowDemont: true,
+        allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput: false,
         autoXtraPerPallet: false,
@@ -148,7 +148,6 @@ const PRODUCT_SETTING_FIELDS: Array<{
     | "allowInstallOptions"
     | "allowReturnOptions"
     | "allowExtraServices"
-    | "allowDemont"
     | "allowHoursInput"
     | "autoXtraPerPallet"
   >;
@@ -159,7 +158,6 @@ const PRODUCT_SETTING_FIELDS: Array<{
   { key: "allowInstallOptions", label: "Install options" },
   { key: "allowReturnOptions", label: "Return options" },
   { key: "allowExtraServices", label: "Utpakking / Demontering" },
-  { key: "allowDemont", label: "Demont" },
   { key: "allowHoursInput", label: "Hours input" },
   { key: "autoXtraPerPallet", label: "Automatic pallet XTRA" },
 ];
@@ -393,7 +391,7 @@ export default function EditPricesPage() {
       allowInstallOptions: row.allowInstallOptions ?? true,
       allowReturnOptions: row.allowReturnOptions ?? true,
       allowExtraServices: row.allowExtraServices ?? true,
-      allowDemont: row.allowDemont ?? true,
+      allowDemont: false,
       allowPeopleCount: false,
       allowHoursInput: row.allowHoursInput ?? false,
       autoXtraPerPallet:
@@ -433,6 +431,7 @@ export default function EditPricesPage() {
           },
           body: JSON.stringify({
             ...productSettingsDraft,
+            allowDemont: false,
             allowPeopleCount: false,
             customSections: normalizeProductCustomSections(
               productSettingsDraft.customSections,
@@ -465,7 +464,7 @@ export default function EditPricesPage() {
         allowExtraServices:
           data.item.allowExtraServices ??
           productSettingsDraft.allowExtraServices,
-        allowDemont: data.item.allowDemont ?? productSettingsDraft.allowDemont,
+        allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput:
           data.item.allowHoursInput ?? productSettingsDraft.allowHoursInput,
