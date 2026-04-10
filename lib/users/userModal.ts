@@ -18,7 +18,6 @@ export interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: UserFormData) => void | Promise<void>;
-  onRemove: () => boolean | Promise<boolean>;
   onToggleActive: () => void | Promise<void>;
   initialValueUsername: string;
   initialValueEmail: string;
@@ -70,12 +69,12 @@ export function getPermissions(
   const canEditTarget =
     isCreateMode || isActorOwner || (isActorAdmin && targetRole === "USER");
 
-  const canDisableOrRemove =
+  const canToggleActive =
     !isCreateMode &&
     ((isActorOwner && !isTargetOwner) ||
       (isActorAdmin && targetRole === "USER"));
 
-  return { isActorOwner, isActorAdmin, canEditTarget, canDisableOrRemove };
+  return { isActorOwner, isActorAdmin, canEditTarget, canToggleActive };
 }
 
 export function getSaveButtonLabel(

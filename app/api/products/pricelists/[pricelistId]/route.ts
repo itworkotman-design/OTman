@@ -161,6 +161,7 @@ export async function GET(
               productConfig?.allowHoursInput ?? product.allowHoursInput,
             autoXtraPerPallet:
               productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
+            customSections: productConfig?.customSections ?? [],
           };
         }),
 

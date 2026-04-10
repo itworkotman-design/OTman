@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { OPTION_CATEGORIES, OPTION_CODES } from "@/lib/booking/constants";
+import {
+  normalizeProductCustomSections,
+  type ProductCustomSection,
+} from "@/lib/products/customSections";
 
 type PriceListSummary = {
   id: string;
@@ -25,6 +29,7 @@ type PriceListItem = {
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
   autoXtraPerPallet?: boolean;
+  customSections?: ProductCustomSection[];
   optionCode: string;
   optionLabel?: string | null;
   description: string | null;
@@ -50,6 +55,7 @@ type EditableRow = PriceListItem & {
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
   autoXtraPerPallet?: boolean;
+  customSections?: ProductCustomSection[];
 
   saving?: boolean;
   saved?: boolean;
@@ -76,7 +82,13 @@ type ProductSettingsDraft = {
   allowDemont: boolean;
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
+  autoXtraPerPallet: boolean;
+  customSections: ProductCustomSection[];
 };
+
+function createDraftId(prefix: string) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function buildProductSettingsDefaults(
   productType: ProductSettingsDraft["productType"],
@@ -93,6 +105,8 @@ function buildProductSettingsDefaults(
         allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput: false,
+        autoXtraPerPallet: true,
+        customSections: [],
       };
     case "LABOR":
       return {
@@ -105,6 +119,8 @@ function buildProductSettingsDefaults(
         allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput: true,
+        autoXtraPerPallet: false,
+        customSections: [],
       };
     case "PHYSICAL":
     default:
@@ -118,6 +134,8 @@ function buildProductSettingsDefaults(
         allowDemont: true,
         allowPeopleCount: false,
         allowHoursInput: false,
+        autoXtraPerPallet: false,
+        customSections: [],
       };
   }
 }
@@ -132,6 +150,7 @@ const PRODUCT_SETTING_FIELDS: Array<{
     | "allowExtraServices"
     | "allowDemont"
     | "allowHoursInput"
+    | "autoXtraPerPallet"
   >;
   label: string;
 }> = [
@@ -142,6 +161,7 @@ const PRODUCT_SETTING_FIELDS: Array<{
   { key: "allowExtraServices", label: "Utpakking / Demontering" },
   { key: "allowDemont", label: "Demont" },
   { key: "allowHoursInput", label: "Hours input" },
+  { key: "autoXtraPerPallet", label: "Automatic pallet XTRA" },
 ];
 
 function isReturnRow(
@@ -376,6 +396,11 @@ export default function EditPricesPage() {
       allowDemont: row.allowDemont ?? true,
       allowPeopleCount: false,
       allowHoursInput: row.allowHoursInput ?? false,
+      autoXtraPerPallet:
+        row.autoXtraPerPallet ??
+        buildProductSettingsDefaults(row.productType ?? "PHYSICAL")
+          .autoXtraPerPallet,
+      customSections: normalizeProductCustomSections(row.customSections),
     });
     setProductSettingsError(null);
   }
@@ -409,6 +434,9 @@ export default function EditPricesPage() {
           body: JSON.stringify({
             ...productSettingsDraft,
             allowPeopleCount: false,
+            customSections: normalizeProductCustomSections(
+              productSettingsDraft.customSections,
+            ),
           }),
         },
       );
@@ -441,6 +469,10 @@ export default function EditPricesPage() {
         allowPeopleCount: false,
         allowHoursInput:
           data.item.allowHoursInput ?? productSettingsDraft.allowHoursInput,
+        autoXtraPerPallet:
+          data.item.autoXtraPerPallet ?? productSettingsDraft.autoXtraPerPallet,
+        customSections:
+          data.item.customSections ?? productSettingsDraft.customSections,
       };
 
       setRows((current) =>
@@ -475,6 +507,139 @@ export default function EditPricesPage() {
     } finally {
       setSavingProductSettings(false);
     }
+  }
+
+  function addCustomSection() {
+    setProductSettingsDraft((current) =>
+      current
+        ? {
+            ...current,
+            customSections: [
+              ...current.customSections,
+              {
+                id: createDraftId("section"),
+                title: "",
+                usePrices: false,
+                options: [
+                  {
+                    id: createDraftId("option"),
+                    label: "",
+                    price: "0",
+                  },
+                ],
+              },
+            ],
+          }
+        : current,
+    );
+  }
+
+  function removeCustomSection(sectionId: string) {
+    setProductSettingsDraft((current) =>
+      current
+        ? {
+            ...current,
+            customSections: current.customSections.filter(
+              (section) => section.id !== sectionId,
+            ),
+          }
+        : current,
+    );
+  }
+
+  function updateCustomSection(
+    sectionId: string,
+    patch: Partial<ProductCustomSection>,
+  ) {
+    setProductSettingsDraft((current) =>
+      current
+        ? {
+            ...current,
+            customSections: current.customSections.map((section) =>
+              section.id === sectionId
+                ? {
+                    ...section,
+                    ...patch,
+                  }
+                : section,
+            ),
+          }
+        : current,
+    );
+  }
+
+  function addCustomSectionOption(sectionId: string) {
+    setProductSettingsDraft((current) =>
+      current
+        ? {
+            ...current,
+            customSections: current.customSections.map((section) =>
+              section.id === sectionId
+                ? {
+                    ...section,
+                    options: [
+                      ...section.options,
+                      {
+                        id: createDraftId("option"),
+                        label: "",
+                        price: "0",
+                      },
+                    ],
+                  }
+                : section,
+            ),
+          }
+        : current,
+    );
+  }
+
+  function updateCustomSectionOption(
+    sectionId: string,
+    optionId: string,
+    patch: Partial<ProductCustomSection["options"][number]>,
+  ) {
+    setProductSettingsDraft((current) =>
+      current
+        ? {
+            ...current,
+            customSections: current.customSections.map((section) =>
+              section.id === sectionId
+                ? {
+                    ...section,
+                    options: section.options.map((option) =>
+                      option.id === optionId
+                        ? {
+                            ...option,
+                            ...patch,
+                          }
+                        : option,
+                    ),
+                  }
+                : section,
+            ),
+          }
+        : current,
+    );
+  }
+
+  function removeCustomSectionOption(sectionId: string, optionId: string) {
+    setProductSettingsDraft((current) =>
+      current
+        ? {
+            ...current,
+            customSections: current.customSections.map((section) =>
+              section.id === sectionId
+                ? {
+                    ...section,
+                    options: section.options.filter(
+                      (option) => option.id !== optionId,
+                    ),
+                  }
+                : section,
+            ),
+          }
+        : current,
+    );
   }
 
   function isDirty(row: EditableRow) {
@@ -2072,6 +2237,149 @@ export default function EditPricesPage() {
                     <span className="text-sm">{label}</span>
                   </label>
                 ))}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-black/80">
+                      Custom sections
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addCustomSection}
+                    className="customButtonDefault text-xs"
+                  >
+                    Add custom section
+                  </button>
+                </div>
+
+                {productSettingsDraft.customSections.length === 0 ? (
+                  <div className="customContainer text-sm text-black/50">
+                    No custom sections added.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {productSettingsDraft.customSections.map((section) => (
+                      <div key={section.id} className="customContainer p-3">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <h4 className="text-sm font-semibold text-black/80">
+                            Custom section
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => removeCustomSection(section.id)}
+                            className="customButtonDefault text-xs"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-black/70">
+                              Title
+                            </span>
+                            <input
+                              type="text"
+                              value={section.title}
+                              onChange={(e) =>
+                                updateCustomSection(section.id, {
+                                  title: e.target.value,
+                                })
+                              }
+                              className="customInput w-full"
+                              placeholder="Example: Wall type"
+                            />
+                          </label>
+
+                          <label className="flex items-center gap-2 customContainer">
+                            <input
+                              type="checkbox"
+                              checked={section.usePrices}
+                              onChange={(e) =>
+                                updateCustomSection(section.id, {
+                                  usePrices: e.target.checked,
+                                })
+                              }
+                              className="customInput h-4 w-4"
+                            />
+                            <span className="text-sm">Use prices</span>
+                          </label>
+
+                          <div className="space-y-2">
+                            {section.options.map((option) => (
+                              <div
+                                key={option.id}
+                                className={
+                                  section.usePrices
+                                    ? "grid grid-cols-1 gap-2 sm:grid-cols-[1fr_110px_auto]"
+                                    : "grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]"
+                                }
+                              >
+                                <input
+                                  type="text"
+                                  value={option.label}
+                                  onChange={(e) =>
+                                    updateCustomSectionOption(
+                                      section.id,
+                                      option.id,
+                                      {
+                                        label: e.target.value,
+                                      },
+                                    )
+                                  }
+                                  className="customInput w-full"
+                                  placeholder="Option label"
+                                />
+                                {section.usePrices && (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={option.price}
+                                    onChange={(e) =>
+                                      updateCustomSectionOption(
+                                        section.id,
+                                        option.id,
+                                        {
+                                          price: e.target.value,
+                                        },
+                                      )
+                                    }
+                                    className="customInput w-full"
+                                    placeholder="Price"
+                                  />
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeCustomSectionOption(
+                                      section.id,
+                                      option.id,
+                                    )
+                                  }
+                                  className="customButtonDefault text-xs"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => addCustomSectionOption(section.id)}
+                            className="customButtonDefault text-xs"
+                          >
+                            Add option
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {productSettingsError && (

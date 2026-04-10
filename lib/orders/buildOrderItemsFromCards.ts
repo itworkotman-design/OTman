@@ -12,6 +12,10 @@ import {
   normalizedUpper,
 } from "@/lib/booking/pricing/rules";
 
+const PALLET_EXTRA_CODE = "PALLXTRAS1";
+const PALLET_EXTRA_LABEL = "Ekstra pall";
+const PALLET_EXTRA_PRICE_CENTS = 25000;
+
 export type BuiltOrderItem = {
   cardId: number;
 
@@ -184,41 +188,11 @@ export function buildOrderItemsFromCards(
           },
         });
       }
-    } else if (
-      baseOption &&
-      product?.productType === "PALLET"
-    ) {
-      items.push({
-        cardId: card.cardId,
-        productId: card.productId ?? null,
-        productCode: product?.code ?? null,
-        productName: product?.label ?? null,
-        deliveryType:
-          product?.allowDeliveryTypes && card.deliveryType ? card.deliveryType : null,
-        itemType: "BASE_OPTION",
-        optionId: baseOption.id,
-        optionCode: baseOption.code,
-        optionLabel: baseOption.label ?? null,
-        quantity: amount,
-        customerPriceCents: decimalStringToCents(baseOption.customerPrice),
-        subcontractorPriceCents: decimalStringToCents(
-          baseOption.subcontractorPrice,
-        ),
-        rawData: {
-          ...baseOption,
-          peopleCount,
-          hoursInput,
-        },
-      });
+    } else if (product?.productType === "PALLET") {
+      if (showInstallOptions && card.selectedInstallOptionIds.length > 0) {
+        for (const optionId of card.selectedInstallOptionIds) {
+          const option = product?.options.find((o) => o.id === optionId) ?? null;
 
-      if (
-        product.productType === "PALLET" &&
-        product.autoXtraPerPallet &&
-        amount > 1
-      ) {
-        const xtraOption = findXtraSpecialOption(catalogSpecialOptions);
-
-        if (xtraOption) {
           items.push({
             cardId: card.cardId,
             productId: card.productId ?? null,
@@ -228,22 +202,113 @@ export function buildOrderItemsFromCards(
               product?.allowDeliveryTypes && card.deliveryType
                 ? card.deliveryType
                 : null,
-            itemType: "EXTRA_OPTION",
-            optionId: xtraOption.id,
-            optionCode: xtraOption.code,
-            optionLabel: xtraOption.label ?? null,
-            quantity: amount - 1,
-            customerPriceCents: decimalStringToCents(xtraOption.customerPrice),
-            subcontractorPriceCents: decimalStringToCents(
-              xtraOption.subcontractorPrice,
-            ),
-            rawData: xtraOption,
+            itemType: "INSTALL_OPTION",
+            optionId,
+            optionCode: option?.code ?? null,
+            optionLabel: option?.label ?? null,
+            quantity: 1,
+            customerPriceCents: option
+              ? decimalStringToCents(option.customerPrice)
+              : null,
+            subcontractorPriceCents: option
+              ? decimalStringToCents(option.subcontractorPrice)
+              : null,
+            rawData: option ?? undefined,
           });
         }
+      } else if (!product.allowInstallOptions && baseOption) {
+        items.push({
+          cardId: card.cardId,
+          productId: card.productId ?? null,
+          productCode: product?.code ?? null,
+          productName: product?.label ?? null,
+          deliveryType:
+            product?.allowDeliveryTypes && card.deliveryType
+              ? card.deliveryType
+              : null,
+          itemType: "BASE_OPTION",
+          optionId: baseOption.id,
+          optionCode: baseOption.code,
+          optionLabel: baseOption.label ?? null,
+          quantity: 1,
+          customerPriceCents: decimalStringToCents(baseOption.customerPrice),
+          subcontractorPriceCents: decimalStringToCents(
+            baseOption.subcontractorPrice,
+          ),
+          rawData: {
+            ...baseOption,
+            peopleCount,
+            hoursInput,
+          },
+        });
+      }
+
+      if (
+        amount > 1 &&
+        ((showInstallOptions && card.selectedInstallOptionIds.length > 0) ||
+          (!product.allowInstallOptions && !!baseOption))
+      ) {
+        items.push({
+          cardId: card.cardId,
+          productId: card.productId ?? null,
+          productCode: product?.code ?? null,
+          productName: product?.label ?? null,
+          deliveryType:
+            product?.allowDeliveryTypes && card.deliveryType
+              ? card.deliveryType
+              : null,
+          itemType: "EXTRA_OPTION",
+          optionId: null,
+          optionCode: PALLET_EXTRA_CODE,
+          optionLabel: PALLET_EXTRA_LABEL,
+          quantity: amount - 1,
+          customerPriceCents: PALLET_EXTRA_PRICE_CENTS,
+          subcontractorPriceCents: 0,
+          rawData: {
+            code: PALLET_EXTRA_CODE,
+            label: PALLET_EXTRA_LABEL,
+            description: PALLET_EXTRA_LABEL,
+          },
+        });
       }
     }
 
-    if (product?.allowInstallOptions && product.productType !== "LABOR") {
+    for (const selection of card.customSectionSelections) {
+      const section = product?.customSections.find(
+        (item) => item.id === selection.sectionId,
+      );
+      if (!section) continue;
+
+      for (const optionId of selection.optionIds) {
+        const option = section.options.find((item) => item.id === optionId);
+        if (!option) continue;
+
+        items.push({
+          cardId: card.cardId,
+          productId: card.productId ?? null,
+          productCode: product?.code ?? null,
+          productName: product?.label ?? null,
+          deliveryType:
+            product?.allowDeliveryTypes && card.deliveryType ? card.deliveryType : null,
+          itemType: "EXTRA_OPTION",
+          optionId: option.id,
+          optionCode: section.title || null,
+          optionLabel: option.label,
+          quantity: section.usePrices ? amount : 1,
+          customerPriceCents: section.usePrices
+            ? decimalStringToCents(option.price)
+            : null,
+          subcontractorPriceCents: 0,
+          rawData: {
+            code: section.title || null,
+            label: option.label,
+            description: `${section.title}: ${option.label}`,
+          },
+        });
+      }
+    }
+
+    if (product?.allowInstallOptions && product.productType === "PHYSICAL") {
       for (const optionId of card.selectedInstallOptionIds) {
       const option = product?.options.find((o) => o.id === optionId) ?? null;
 
@@ -356,6 +421,7 @@ export function buildOrderItemsFromCards(
         rawData: special ?? undefined,
       });
     }
+
   }
 
   return items;

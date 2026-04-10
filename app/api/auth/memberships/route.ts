@@ -67,10 +67,39 @@ export async function GET(req: Request) {
     ],
   });
 
+  const onlineThreshold = new Date(Date.now() - 90_000);
+  const onlineSessions =
+    memberships.length === 0
+      ? []
+      : await prisma.session.findMany({
+          where: {
+            userId: {
+              in: memberships.map((membership) => membership.user.id),
+            },
+            activeCompanyId: session.activeCompanyId,
+            revokedAt: null,
+            expiresAt: {
+              gt: new Date(),
+            },
+            lastSeenAt: {
+              gte: onlineThreshold,
+            },
+          },
+          select: {
+            userId: true,
+          },
+          distinct: ["userId"],
+        });
+
+  const onlineUserIds = new Set(onlineSessions.map((item) => item.userId));
+
   return NextResponse.json(
     {
       ok: true,
-      memberships,
+      memberships: memberships.map((membership) => ({
+        ...membership,
+        isOnline: onlineUserIds.has(membership.user.id),
+      })),
     },
     { status: 200 }
   );

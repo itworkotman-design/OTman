@@ -19,7 +19,6 @@ export default function UserModal({
   isOpen,
   onClose,
   onSave,
-  onRemove,
   onToggleActive,
   actorRole,
   targetRole,
@@ -75,7 +74,7 @@ export default function UserModal({
   ]);
   const [sendingReset, setSendingReset] = useState(false);
 
-  const { isActorOwner, canEditTarget, canDisableOrRemove } = getPermissions(
+  const { isActorOwner, canEditTarget, canToggleActive } = getPermissions(
     actorRole,
     targetRole,
     isCreateMode,
@@ -291,7 +290,7 @@ export default function UserModal({
                 </button>
               </div>
 
-              {canDisableOrRemove && (
+              {canToggleActive && (
                 <div className="mt-8">
                   <h2 className="pb-2 font-semibold text-logoblue">Manage</h2>
 
@@ -327,21 +326,6 @@ export default function UserModal({
                       ].join(" ")}
                     >
                       {form.active ? "Disable" : "Enable"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!confirm("Remove this user?")) return;
-
-                        const ok = await onRemove();
-                        if (ok) {
-                          onClose();
-                        }
-                      }}
-                      className="mb-3 w-40 customButtonEnabled bg-red-800!"
-                    >
-                      Remove
                     </button>
                   </div>
                 </div>

@@ -1,12 +1,30 @@
 // app/(User)/dashboard/users/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import UserModal from "@/app/_components/Dahsboard/users/UserModal";
 import { useRouter } from "next/navigation";
 import type { Role, Membership } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { getAccessLabel } from "@/lib/users/access";
+
+const ROLE_PRIORITY: Record<Role, number> = {
+  OWNER: 0,
+  ADMIN: 1,
+  USER: 2,
+};
+
+function getRoleRowClass(role: Role) {
+  switch (role) {
+    case "OWNER":
+      return "bg-red-500/30 hover:bg-red-500/40";
+    case "ADMIN":
+      return "bg-amber-500/30 hover:bg-amber-500/40";
+    case "USER":
+    default:
+      return "bg-blue-500/30 hover:bg-blue-500/40";
+  }
+}
 
 export default function UserPage() {
   const currentUser = useCurrentUser();
@@ -34,7 +52,7 @@ export default function UserPage() {
       });
   }, []);
 
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -57,27 +75,72 @@ export default function UserPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    loadUsers();
   }, []);
 
-  const filteredUsers = useMemo(() => {
-    return users.filter((u) => {
-      const roleOk = !roleFilter || u.role === roleFilter;
-      const q = query.trim().toLowerCase();
-      const queryOk =
-        !q ||
-        (u.user.username ?? "").toLowerCase().includes(q) ||
-        u.user.email.toLowerCase().includes(q) ||
-        (u.user.phoneNumber ?? "").toLowerCase().includes(q) ||
-        (u.user.description ?? "").toLowerCase().includes(q) ||
-        u.role.toLowerCase().includes(q) ||
-        u.id.toLowerCase().includes(q);
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
-      return roleOk && queryOk;
-    });
+  useEffect(() => {
+    const refreshPresence = () => {
+      if (document.visibilityState !== "visible") return;
+      void loadUsers();
+    };
+
+    const intervalId = window.setInterval(refreshPresence, 30_000);
+    document.addEventListener("visibilitychange", refreshPresence);
+    window.addEventListener("focus", refreshPresence);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshPresence);
+      window.removeEventListener("focus", refreshPresence);
+    };
+  }, [loadUsers]);
+
+  const filteredUsers = useMemo(() => {
+    return users
+      .filter((u) => {
+        const roleOk = !roleFilter || u.role === roleFilter;
+        const q = query.trim().toLowerCase();
+        const queryOk =
+          !q ||
+          (u.user.username ?? "").toLowerCase().includes(q) ||
+          u.user.email.toLowerCase().includes(q) ||
+          (u.user.phoneNumber ?? "").toLowerCase().includes(q) ||
+          (u.user.description ?? "").toLowerCase().includes(q) ||
+          u.role.toLowerCase().includes(q) ||
+          u.id.toLowerCase().includes(q);
+
+        return roleOk && queryOk;
+      })
+      .toSorted((a, b) => {
+        const onlinePriorityA = a.isOnline ? 0 : 1;
+        const onlinePriorityB = b.isOnline ? 0 : 1;
+
+        if (onlinePriorityA !== onlinePriorityB) {
+          return onlinePriorityA - onlinePriorityB;
+        }
+
+        const statusPriorityA = a.status === "ACTIVE" ? 0 : 1;
+        const statusPriorityB = b.status === "ACTIVE" ? 0 : 1;
+
+        if (statusPriorityA !== statusPriorityB) {
+          return statusPriorityA - statusPriorityB;
+        }
+
+        const rolePriorityA = ROLE_PRIORITY[a.role] ?? 99;
+        const rolePriorityB = ROLE_PRIORITY[b.role] ?? 99;
+
+        if (rolePriorityA !== rolePriorityB) {
+          return rolePriorityA - rolePriorityB;
+        }
+
+        const labelA = (a.user.username || a.user.email).toLowerCase();
+        const labelB = (b.user.username || b.user.email).toLowerCase();
+
+        return labelA.localeCompare(labelB);
+      });
   }, [users, roleFilter, query]);
 
   const visibleIds = filteredUsers.map((u) => u.id);
@@ -234,30 +297,6 @@ export default function UserPage() {
             setOpen(false);
             setSelectedUser(null);
           }}
-          onRemove={async () => {
-            if (!selectedUser) return false;
-
-            const res = await fetch(
-              `/api/auth/memberships/${selectedUser.id}/remove`,
-              {
-                method: "POST",
-                credentials: "include",
-              },
-            );
-
-            const result = await res.json().catch(() => null);
-
-            if (!res.ok || !result?.ok) {
-              alert(result?.reason || "Failed to remove user");
-              return false;
-            }
-
-            await loadUsers();
-            router.refresh();
-            setOpen(false);
-            setSelectedUser(null);
-            return true;
-          }}
           onToggleActive={() => {
             if (!selectedUser) return;
             toggleMembership(selectedUser);
@@ -349,6 +388,9 @@ export default function UserPage() {
                     Description
                   </th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                    Online
+                  </th>
+                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
                     Role
                   </th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
@@ -370,9 +412,9 @@ export default function UserPage() {
                 {filteredUsers.map((u) => (
                   <tr
                     key={u.id}
-                    className={`cursor-pointer border-b border-black/10 hover:bg-black/2 ${
-                      u.status !== "ACTIVE" ? "opacity-50" : ""
-                    }`}
+                    className={`cursor-pointer border-b border-black/10 transition-colors ${getRoleRowClass(
+                      u.role,
+                    )} ${u.status !== "ACTIVE" ? "opacity-50" : ""}`}
                     onClick={() => {
                       setSelectedUser(u);
                       setOpen(true);
@@ -406,6 +448,22 @@ export default function UserPage() {
                     </td>
                     <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {u.user.description || "-"}
+                    </td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block h-2.5 w-2.5 rounded-full ${
+                            u.isOnline ? "bg-green-500" : "bg-gray-400"
+                          }`}
+                        />
+                        <span
+                          className={
+                            u.isOnline ? "text-green-700" : "text-gray-500"
+                          }
+                        >
+                          {u.isOnline ? "Online" : "Offline"}
+                        </span>
+                      </div>
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {u.role}

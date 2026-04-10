@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
+import SessionHeartbeat from "@/app/_components/Users/SessionHeartbeat";
 
 export default async function UserLayout({
   children,
@@ -40,5 +41,10 @@ export default async function UserLayout({
     redirect("/login");
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <SessionHeartbeat />
+      {children}
+    </>
+  );
 }

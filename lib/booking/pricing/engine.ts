@@ -65,6 +65,25 @@ export function calculateBookingPricing(params: {
         continue;
       }
 
+      if (item.kind === "customPrice") {
+        const lineTotal = item.unitPrice * item.qty;
+        const subcontractorLineTotal =
+          (item.subcontractorUnitPrice ?? 0) * item.qty;
+
+        subtotalExVat += lineTotal;
+        subcontractorBase += subcontractorLineTotal;
+
+        lines.push({
+          label: item.label,
+          code: item.code,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+          lineTotal,
+        });
+
+        continue;
+      }
+
       const lookup = priceLookup[item.productOptionId];
       if (!lookup) continue;
 

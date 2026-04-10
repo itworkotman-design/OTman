@@ -3,6 +3,10 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { getEffectivePrice } from "@/lib/products/discounts";
 import { getProductConfigMap } from "@/lib/products/productConfig";
+import {
+  normalizeProductCustomSections,
+  type ProductCustomSection,
+} from "@/lib/products/customSections";
 
 type Body = {
   customerPrice?: string | number;
@@ -24,6 +28,7 @@ type Body = {
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
   autoXtraPerPallet?: boolean;
+  customSections?: ProductCustomSection[];
 
   discountAmount?: string | number | null;
   discountEndsAt?: string | null;
@@ -243,6 +248,7 @@ export async function PATCH(
     allowPeopleCount?: boolean;
     allowHoursInput?: boolean;
     autoXtraPerPallet?: boolean;
+    customSections?: ProductCustomSection[];
   } = {};
 
   const productName =
@@ -310,6 +316,17 @@ export async function PATCH(
     productData.autoXtraPerPallet = body.autoXtraPerPallet;
   }
 
+  if (body.customSections !== undefined) {
+    productData.customSections = normalizeProductCustomSections(
+      body.customSections,
+    );
+  }
+
+  const customSectionsJson =
+    productData.customSections !== undefined
+      ? JSON.stringify(productData.customSections)
+      : null;
+
   const updated = await prisma.$transaction(async (tx) => {
     if (Object.keys(productData).length > 0) {
       // Prisma's runtime client can lag behind the schema during dev, so use
@@ -327,7 +344,8 @@ export async function PATCH(
           "allowDemont" = COALESCE(${productData.allowDemont ?? null}, "allowDemont"),
           "allowPeopleCount" = COALESCE(${productData.allowPeopleCount ?? null}, "allowPeopleCount"),
           "allowHoursInput" = COALESCE(${productData.allowHoursInput ?? null}, "allowHoursInput"),
-          "autoXtraPerPallet" = COALESCE(${productData.autoXtraPerPallet ?? null}, "autoXtraPerPallet")
+          "autoXtraPerPallet" = COALESCE(${productData.autoXtraPerPallet ?? null}, "autoXtraPerPallet"),
+          "customSections" = COALESCE(${customSectionsJson}::jsonb, "customSections")
         WHERE "id" = ${existing.productOption.productId}
       `;
     }
@@ -430,6 +448,10 @@ export async function PATCH(
       updatedProduct.autoXtraPerPallet ??
       productData.autoXtraPerPallet ??
       existing.productOption.product.autoXtraPerPallet,
+    customSections:
+      rawProductConfig?.customSections ??
+      productData.customSections ??
+      normalizeProductCustomSections(null),
   };
 
   return NextResponse.json(
@@ -465,6 +487,7 @@ export async function PATCH(
         allowPeopleCount: productSnapshot.allowPeopleCount,
         allowHoursInput: productSnapshot.allowHoursInput,
         autoXtraPerPallet: productSnapshot.autoXtraPerPallet,
+        customSections: productSnapshot.customSections,
       },
     },
     { status: 200 },

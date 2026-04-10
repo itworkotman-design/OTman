@@ -22,6 +22,10 @@ import {
   shouldPriceReturnOption,
 } from "@/lib/booking/pricing/rules";
 
+const PALLET_EXTRA_CODE = "PALLXTRAS1";
+const PALLET_EXTRA_LABEL = "Ekstra pall";
+const PALLET_EXTRA_UNIT_PRICE = 250;
+
 function findXtraSpecialOption(catalogSpecialOptions: CatalogSpecialOption[]) {
   return (
     catalogSpecialOptions.find((o) => o.active && o.type === "xtra") ?? null
@@ -75,6 +79,37 @@ function getAmount(card: SavedProductCard, product: CatalogProduct) {
 function getHoursInput(card: SavedProductCard, product: CatalogProduct) {
   if (!product.allowHoursInput) return 1;
   return Math.max(0.5, card.hoursInput || 1);
+}
+
+function appendCustomSectionItems(
+  items: ProductCardLineItem[],
+  card: SavedProductCard,
+  product: CatalogProduct,
+  qty: number,
+) {
+  for (const selection of card.customSectionSelections) {
+    const section = product.customSections.find(
+      (item) => item.id === selection.sectionId,
+    );
+    if (!section) continue;
+
+    for (const optionId of selection.optionIds) {
+      const option = section.options.find((item) => item.id === optionId);
+      if (!option) continue;
+
+      if (!section.usePrices) {
+        continue;
+      }
+
+      items.push({
+        kind: "customPrice",
+        code: section.title,
+        label: option.label,
+        qty,
+        unitPrice: Number(option.price) || 0,
+      });
+    }
+  }
 }
 
 function buildItemsForCard(
@@ -167,27 +202,43 @@ function buildItemsForCard(
       }
     }
 
+    appendCustomSectionItems(items, card, product, 1);
     return items;
   }
 
-  if (product.productType === "PALLET" && baseProductOption) {
-    items.push({
-      kind: "productOption",
-      productOptionId: baseProductOption.id,
-      qty: amount,
-    });
-
-    if (product.autoXtraPerPallet && amount > 1) {
-      const xtraOption = findXtraSpecialOption(catalogSpecialOptions);
-
-      if (xtraOption) {
+  if (product.productType === "PALLET") {
+    if (showInstallOptions && card.selectedInstallOptionIds.length > 0) {
+      for (const id of card.selectedInstallOptionIds) {
         items.push({
           kind: "productOption",
-          productOptionId: xtraOption.id,
-          qty: amount - 1,
+          productOptionId: id,
+          qty: 1,
         });
       }
+    } else if (!product.allowInstallOptions && baseProductOption) {
+      items.push({
+        kind: "productOption",
+        productOptionId: baseProductOption.id,
+        qty: 1,
+      });
     }
+
+    if (
+      amount > 1 &&
+      ((showInstallOptions && card.selectedInstallOptionIds.length > 0) ||
+        (!product.allowInstallOptions && !!baseProductOption))
+    ) {
+      items.push({
+        kind: "customPrice",
+        code: PALLET_EXTRA_CODE,
+        label: PALLET_EXTRA_LABEL,
+        qty: amount - 1,
+        unitPrice: PALLET_EXTRA_UNIT_PRICE,
+      });
+    }
+
+    appendCustomSectionItems(items, card, product, amount);
+    return items;
   }
 
   if (showInstallOptions) {
@@ -246,6 +297,8 @@ function buildItemsForCard(
       });
     }
   }
+
+  appendCustomSectionItems(items, card, product, amount);
 
   return items;
 }

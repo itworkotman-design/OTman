@@ -366,6 +366,7 @@ model Product {
   allowPeopleCount    Boolean     @default(false)
   allowHoursInput     Boolean     @default(false)
   autoXtraPerPallet   Boolean     @default(false)
+  customSections      Json?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

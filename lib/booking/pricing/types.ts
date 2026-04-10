@@ -19,6 +19,14 @@ export type ProductCardLineItem =
       priceOverride?: number;
     }
   | {
+      kind: "customPrice";
+      code: string;
+      label: string;
+      qty: number;
+      unitPrice: number;
+      subcontractorUnitPrice?: number;
+    }
+  | {
       kind: "info";
       label: string;
       qty: number;

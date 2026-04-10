@@ -71,8 +71,8 @@ export function ProductCardNew({
       : categorizedInstallOptions;
   const installSectionLabel =
     !selectedProduct?.allowDeliveryTypes && categorizedInstallOptions.length === 0
-      ? "Velg"
-      : "Installasjonsmuligheter";
+      ? "Choose"
+      : "Installation";
 
   const productExtraOptions = options.filter(
     (o) =>
@@ -95,6 +95,7 @@ export function ProductCardNew({
   );
 
   const isPalletProduct = selectedProduct?.productType === "PALLET";
+  const customSections = selectedProduct?.customSections ?? [];
   const supportsDeliveryTypes = !!selectedProduct?.allowDeliveryTypes;
   const supportsQuantity = !!selectedProduct?.allowQuantity || isPalletProduct;
   const supportsInstallOptions = !!selectedProduct?.allowInstallOptions;
@@ -188,6 +189,8 @@ export function ProductCardNew({
 
     if (!supportsQuantity && value.amount !== 1) {
       nextValue.amount = 1;
+    } else if (supportsQuantity && value.amount < 1) {
+      nextValue.amount = 1;
     }
 
     if (value.peopleCount !== 1) {
@@ -196,6 +199,35 @@ export function ProductCardNew({
 
     if (!supportsHoursInput && value.hoursInput !== 1) {
       nextValue.hoursInput = 1;
+    }
+
+    const validCustomSectionSelections = value.customSectionSelections.filter(
+      (selection) => {
+        const section = customSections.find((item) => item.id === selection.sectionId);
+        if (!section) return false;
+        return true;
+      },
+    );
+
+    const normalizedCustomSectionSelections = validCustomSectionSelections.map(
+      (selection) => {
+        const section = customSections.find((item) => item.id === selection.sectionId);
+
+        return {
+          ...selection,
+          optionIds:
+            section?.options
+              .filter((option) => selection.optionIds.includes(option.id))
+              .map((option) => option.id) ?? [],
+        };
+      },
+    );
+
+    if (
+      JSON.stringify(normalizedCustomSectionSelections) !==
+      JSON.stringify(value.customSectionSelections)
+    ) {
+      nextValue.customSectionSelections = normalizedCustomSectionSelections;
     }
 
     if (Object.keys(nextValue).length > 0) {
@@ -216,6 +248,7 @@ export function ProductCardNew({
     supportsQuantity,
     supportsReturnOptions,
     value,
+    customSections,
   ]);
 
   function update(partial: Partial<SavedProductCard>) {
@@ -243,6 +276,7 @@ export function ProductCardNew({
       extraPalletQty: 1,
       etterEnabled: false,
       etterQty: 1,
+      customSectionSelections: [],
     });
   }
 
@@ -265,6 +299,52 @@ export function ProductCardNew({
 
   const shownCardNumber = displayIndex ?? cardId + 1;
   const productLabel = selectedProduct?.label ?? "Velg";
+
+  function getSelectedCustomSectionOptionIds(sectionId: string) {
+    return (
+      value.customSectionSelections.find((selection) => selection.sectionId === sectionId)
+        ?.optionIds ?? []
+    );
+  }
+
+  function toggleCustomSectionOption(sectionId: string, optionId: string) {
+    const existingSelection = value.customSectionSelections.find(
+      (selection) => selection.sectionId === sectionId,
+    );
+    const currentOptionIds = existingSelection?.optionIds ?? [];
+    const nextOptionIds = currentOptionIds.includes(optionId)
+      ? currentOptionIds.filter((id) => id !== optionId)
+      : [...currentOptionIds, optionId];
+
+    if (!existingSelection && nextOptionIds.length > 0) {
+      update({
+        customSectionSelections: [
+          ...value.customSectionSelections,
+          {
+            sectionId,
+            optionIds: nextOptionIds,
+          },
+        ],
+      });
+      return;
+    }
+
+    update({
+      customSectionSelections:
+        nextOptionIds.length === 0
+          ? value.customSectionSelections.filter(
+              (selection) => selection.sectionId !== sectionId,
+            )
+          : value.customSectionSelections.map((selection) =>
+              selection.sectionId === sectionId
+                ? {
+                    ...selection,
+                    optionIds: nextOptionIds,
+                  }
+                : selection,
+            ),
+    });
+  }
 
   return (
     <div className="customContainer relative w-full mb-4">
@@ -305,7 +385,7 @@ export function ProductCardNew({
           {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
           <h1 className="font-semibold mb-2 text-lg text-textcolor">
-            Velg produkt
+            Choose product
           </h1>
           <select
             className="customInput w-full"
@@ -328,7 +408,7 @@ export function ProductCardNew({
           {showDeliveryType && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                Velg leveringstype
+                Choose delivery type
               </h1>
               <select
                 className="customInput w-full"
@@ -474,25 +554,6 @@ export function ProductCardNew({
             </>
           )}
 
-          {showAmount && (
-            <>
-              <h1 className="font-semibold text-lg text-textcolor my-2">
-                {isPalletProduct ? "Pallet quantity" : "Product amount"}
-              </h1>
-              <input
-                type="number"
-                min={1}
-                value={value.amount}
-                onChange={(e) =>
-                  update({
-                    amount: Number(e.target.value) || 1,
-                  })
-                }
-                className="customInput w-full"
-              />
-            </>
-          )}
-
           {showHoursInput && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
@@ -506,6 +567,53 @@ export function ProductCardNew({
                 onChange={(e) =>
                   update({
                     hoursInput: Math.max(0.5, Number(e.target.value) || 0.5),
+                  })
+                }
+                className="customInput w-full"
+              />
+            </>
+          )}
+
+          {customSections.map((section) => (
+            <div key={section.id}>
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                {section.title || "Custom section"}
+              </h1>
+              <div className="space-y-1">
+                {section.options.map((option) => (
+                  <label key={option.id} className="block my-1">
+                    <input
+                      className="inline mr-2"
+                      type="checkbox"
+                      checked={getSelectedCustomSectionOptionIds(section.id).includes(
+                        option.id,
+                      )}
+                      onChange={() =>
+                        toggleCustomSectionOption(section.id, option.id)
+                      }
+                    />
+                    <span className="inline">
+                      {option.label}
+                      {section.usePrices ? ` (${option.price} NOK)` : ""}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {showAmount && (
+            <>
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                {isPalletProduct ? "Pallet quantity" : "Product amount"}
+              </h1>
+              <input
+                type="number"
+                min={1}
+                value={value.amount}
+                onChange={(e) =>
+                  update({
+                    amount: Math.max(1, Number(e.target.value) || 1),
                   })
                 }
                 className="customInput w-full"

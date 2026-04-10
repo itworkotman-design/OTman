@@ -1,6 +1,12 @@
 import type { DeliveryType } from "@/lib/booking/pricing/types";
+import type { ProductCustomSection } from "@/lib/products/customSections";
 
 export type ProductType = "PHYSICAL" | "PALLET" | "LABOR";
+
+export type ProductCardCustomSectionSelection = {
+  sectionId: string;
+  optionIds: string[];
+};
 
 export type SavedProductCard = {
   cardId: number;
@@ -24,6 +30,8 @@ export type SavedProductCard = {
 
   etterEnabled: boolean;
   etterQty: number;
+
+  customSectionSelections: ProductCardCustomSectionSelection[];
 };
 
 export type CatalogOption = {
@@ -53,6 +61,7 @@ export type CatalogProduct = {
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
   autoXtraPerPallet: boolean;
+  customSections: ProductCustomSection[];
   options: CatalogOption[];
 };
 
@@ -91,6 +100,8 @@ export function createEmptyProductCard(cardId: number): SavedProductCard {
 
     etterEnabled: false,
     etterQty: 1,
+
+    customSectionSelections: [],
   };
 }
 
@@ -154,5 +165,34 @@ export function normalizeSavedProductCard(
       typeof value?.etterQty === "number" && Number.isFinite(value.etterQty)
         ? value.etterQty
         : base.etterQty,
+    customSectionSelections: Array.isArray(value?.customSectionSelections)
+      ? value.customSectionSelections
+          .map((selection) => {
+            if (!selection || typeof selection !== "object") return null;
+            const rawSelection = selection as {
+              sectionId?: unknown;
+              optionIds?: unknown;
+              optionId?: unknown;
+            };
+            return typeof rawSelection.sectionId === "string"
+              ? {
+                  sectionId: rawSelection.sectionId,
+                  optionIds: Array.isArray(rawSelection.optionIds)
+                    ? rawSelection.optionIds.filter(
+                        (optionId): optionId is string =>
+                          typeof optionId === "string",
+                      )
+                    : typeof rawSelection.optionId === "string"
+                      ? [rawSelection.optionId]
+                      : [],
+                }
+              : null;
+          })
+          .filter(
+            (
+              selection,
+            ): selection is ProductCardCustomSectionSelection => selection !== null,
+          )
+      : base.customSectionSelections,
   };
 }

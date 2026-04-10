@@ -27,6 +27,7 @@ export type Membership = {
   role: Role;
   status: MembershipStatus;
   createdAt: string;
+  isOnline?: boolean;
   user: MembershipUser;
   priceListId: string | null;
   permissions: { permission: AppPermission }[];

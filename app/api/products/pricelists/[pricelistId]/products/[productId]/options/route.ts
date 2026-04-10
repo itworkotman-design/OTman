@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { getProductConfigMap } from "@/lib/products/productConfig";
 import { OPTION_CATEGORIES } from "@/lib/booking/constants";
 
 export async function POST(
@@ -71,6 +72,9 @@ export async function POST(
     },
   });
 
+  const productConfigMap = await getProductConfigMap([item.productOption.product.id]);
+  const productConfig = productConfigMap.get(item.productOption.product.id);
+
   return NextResponse.json({
     ok: true,
     item: {
@@ -79,6 +83,33 @@ export async function POST(
       productOptionId: item.productOptionId,
       productName: item.productOption.product.name,
       productCode: item.productOption.product.code,
+      productType: productConfig?.productType ?? item.productOption.product.productType,
+      allowDeliveryTypes:
+        productConfig?.allowDeliveryTypes ??
+        item.productOption.product.allowDeliveryTypes,
+      allowQuantity:
+        productConfig?.allowQuantity ?? item.productOption.product.allowQuantity,
+      allowInstallOptions:
+        productConfig?.allowInstallOptions ??
+        item.productOption.product.allowInstallOptions,
+      allowReturnOptions:
+        productConfig?.allowReturnOptions ??
+        item.productOption.product.allowReturnOptions,
+      allowExtraServices:
+        productConfig?.allowExtraServices ??
+        item.productOption.product.allowExtraServices,
+      allowDemont:
+        productConfig?.allowDemont ?? item.productOption.product.allowDemont,
+      allowPeopleCount:
+        productConfig?.allowPeopleCount ??
+        item.productOption.product.allowPeopleCount,
+      allowHoursInput:
+        productConfig?.allowHoursInput ??
+        item.productOption.product.allowHoursInput,
+      autoXtraPerPallet:
+        productConfig?.autoXtraPerPallet ??
+        item.productOption.product.autoXtraPerPallet,
+      customSections: productConfig?.customSections ?? [],
       optionCode: item.productOption.code,
       optionLabel: item.productOption.label,
       description: item.productOption.description,

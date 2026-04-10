@@ -4,6 +4,7 @@ import { getActiveMembership } from "@/lib/auth/membership";
 import { getProductConfigMap } from "@/lib/products/productConfig";
 import { prisma } from "@/lib/db";
 import { getEffectivePrice } from "@/lib/products/discounts";
+import type { ProductCustomSection } from "@/lib/products/customSections";
 
 function centsToNokString(cents: number) {
   return Math.round(cents / 100).toString();
@@ -128,6 +129,7 @@ export async function GET(req: Request) {
       allowPeopleCount: boolean;
       allowHoursInput: boolean;
       autoXtraPerPallet: boolean;
+      customSections: ProductCustomSection[];
 
       options: Array<{
         id: string;
@@ -171,6 +173,7 @@ export async function GET(req: Request) {
           productConfig?.allowHoursInput ?? product.allowHoursInput,
         autoXtraPerPallet:
           productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
+        customSections: productConfig?.customSections ?? [],
 
         options: [],
       });

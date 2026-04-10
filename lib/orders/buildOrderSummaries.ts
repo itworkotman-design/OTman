@@ -101,6 +101,24 @@ export function buildOrderSummaries(
       const text = getOptionText(special);
       if (text) services.push(text);
     }
+
+    if (product) {
+      for (const selection of card.customSectionSelections) {
+        const section = product.customSections.find(
+          (item) => item.id === selection.sectionId,
+        );
+        if (!section) continue;
+
+        for (const optionId of selection.optionIds) {
+          const option = section.options.find((item) => item.id === optionId);
+          if (!option) continue;
+
+          services.push(
+            section.title ? `${section.title}: ${option.label}` : option.label,
+          );
+        }
+      }
+    }
   }
 
   return {

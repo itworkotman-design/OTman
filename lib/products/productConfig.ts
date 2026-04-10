@@ -1,5 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import {
+  normalizeProductCustomSections,
+  type ProductCustomSection,
+} from "@/lib/products/customSections";
 
 export type ProductConfig = {
   id: string;
@@ -13,6 +17,7 @@ export type ProductConfig = {
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
   autoXtraPerPallet: boolean;
+  customSections: ProductCustomSection[];
 };
 
 export async function getProductConfigMap(productIds: string[]) {
@@ -22,7 +27,13 @@ export async function getProductConfigMap(productIds: string[]) {
     return new Map<string, ProductConfig>();
   }
 
-  const rows = await prisma.$queryRaw<ProductConfig[]>(Prisma.sql`
+  const rows = await prisma.$queryRaw<
+    Array<
+      Omit<ProductConfig, "customSections"> & {
+        customSections: Prisma.JsonValue | null;
+      }
+    >
+  >(Prisma.sql`
     SELECT
       "id",
       "productType",
@@ -34,10 +45,19 @@ export async function getProductConfigMap(productIds: string[]) {
       "allowQuantity",
       "allowPeopleCount",
       "allowHoursInput",
-      "autoXtraPerPallet"
+      "autoXtraPerPallet",
+      "customSections"
     FROM "Product"
     WHERE "id" IN (${Prisma.join(uniqueIds)})
   `);
 
-  return new Map(rows.map((row) => [row.id, row]));
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      {
+        ...row,
+        customSections: normalizeProductCustomSections(row.customSections),
+      },
+    ]),
+  );
 }
