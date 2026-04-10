@@ -23,20 +23,28 @@ export default function UserModal({
   onToggleActive,
   actorRole,
   targetRole,
-  ...props
+  initialValueUsername,
+  initialValueEmail,
+  initialValuePhoneNumber,
+  initialValueDescription,
+  initialValueRole,
+  initialValueActive,
+  initialValuePermissions,
+  priceLists,
+  initialPriceListId,
 }: UserModalProps) {
-  const isCreateMode = !props.initialValueEmail;
+  const isCreateMode = !initialValueEmail;
 
   const [form, setForm] = useState(() =>
     buildInitialForm({
-      isOpen,
-      onClose,
-      onSave,
-      onRemove,
-      onToggleActive,
-      actorRole,
-      targetRole,
-      ...props,
+      initialValueUsername,
+      initialValueEmail,
+      initialValuePhoneNumber,
+      initialValueDescription,
+      initialValueRole,
+      initialValueActive,
+      initialValuePermissions,
+      initialPriceListId,
     }),
   );
   useEffect(() => {
@@ -44,17 +52,27 @@ export default function UserModal({
 
     setForm(
       buildInitialForm({
-        isOpen,
-        onClose,
-        onSave,
-        onRemove,
-        onToggleActive,
-        actorRole,
-        targetRole,
-        ...props,
+        initialValueUsername,
+        initialValueEmail,
+        initialValuePhoneNumber,
+        initialValueDescription,
+        initialValueRole,
+        initialValueActive,
+        initialValuePermissions,
+        initialPriceListId,
       }),
     );
-  }, [isOpen, actorRole, targetRole, props]);
+  }, [
+    isOpen,
+    initialValueUsername,
+    initialValueEmail,
+    initialValuePhoneNumber,
+    initialValueDescription,
+    initialValueRole,
+    initialValueActive,
+    initialValuePermissions,
+    initialPriceListId,
+  ]);
   const [sendingReset, setSendingReset] = useState(false);
 
   const { isActorOwner, canEditTarget, canDisableOrRemove } = getPermissions(
@@ -233,7 +251,7 @@ export default function UserModal({
               >
                 <option value="">No price list</option>
 
-                {props.priceLists?.map((pl) => (
+                {priceLists?.map((pl) => (
                   <option key={pl.id} value={pl.id}>
                     {pl.name}
                   </option>

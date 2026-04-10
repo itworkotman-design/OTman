@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getBookingCatalogMock: vi.fn(),
   buildOrderSummariesMock: vi.fn(),
   buildOrderItemsFromCardsMock: vi.fn(),
+  sendOrderNotificationEmailMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   orderFindManyMock: vi.fn(),
   orderCreateMock: vi.fn(),
@@ -34,6 +35,10 @@ vi.mock("@/lib/orders/buildOrderSummaries", () => ({
 
 vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
   buildOrderItemsFromCards: mocks.buildOrderItemsFromCardsMock,
+}));
+
+vi.mock("@/lib/orders/orderNotificationEmail", () => ({
+  sendOrderNotificationEmail: mocks.sendOrderNotificationEmailMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -80,6 +85,8 @@ describe("routes in /api/orders", () => {
     mocks.orderCreateMock.mockResolvedValue({
       id: "order-1",
       displayId: 20000,
+      orderNumber: "PO-1",
+      createdAt: new Date("2030-01-01T00:00:00.000Z"),
     });
     mocks.transactionMock.mockImplementation(async (callback: any) =>
       callback({
@@ -216,5 +223,66 @@ describe("routes in /api/orders", () => {
       ok: false,
       reason: "INVALID_PRODUCT_CARDS",
     });
+  });
+
+  it("POST sends an internal notification email after a successful create", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "Power Grunerlokka",
+        email: "power@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.buildOrderItemsFromCardsMock.mockReturnValue([
+      {
+        cardId: 1,
+        productId: "product-1",
+        productCode: "PROD-1",
+        productName: "Oppvaskmaskin",
+        deliveryType: "Innbaering",
+        itemType: "EXTRA_OPTION",
+        optionId: "option-1",
+        optionCode: "INDOOR",
+        optionLabel: "Innbaering",
+        quantity: 1,
+        customerPriceCents: 66900,
+        subcontractorPriceCents: 0,
+      },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          customerLabel: "Power Grunerlokka",
+          deliveryDate: "2026-04-09",
+          pickupAddress: "Pickup 1",
+          deliveryAddress: "Delivery 1",
+          orderNumber: "11340837806",
+          priceExVat: 3699,
+          status: "behandles",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.sendOrderNotificationEmailMock).toHaveBeenCalledTimes(1);
+    expect(mocks.sendOrderNotificationEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "created",
+        order: expect.objectContaining({
+          orderNumber: "PO-1",
+          customerLabel: "Power Grunerlokka",
+        }),
+      }),
+    );
   });
 });

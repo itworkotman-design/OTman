@@ -63,7 +63,7 @@ export default function BulkUpdateBar({
           <label className="mb-1 block text-xs font-medium text-textColorThird">
             Selected
           </label>
-          <div className="customInput flex h-10 w-[60px] items-center justify-center text-center">{selectedCount}</div>
+          <div className="customInput flex h-10 w-[60] items-center justify-center text-center">{selectedCount}</div>
         </div>
 
         <div>

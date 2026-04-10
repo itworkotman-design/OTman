@@ -4,23 +4,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ServiceWindowItem } from "./ServiceWindowItem";
 import { ServiceModal } from "./ServiceModal";
-
-type Locale = "en" | "no";
-
-type LocalizedText = {
-  en: string;
-  no: string;
-};
-
-export type ServiceItem = {
-  id: string;
-  title: LocalizedText;
-  svg: string;
-};
+import type {
+  Locale,
+  LocalizedText,
+  ServiceGroup,
+} from "@/lib/content/ServiceWindowContent";
 
 type ServiceWindowProps = {
   title: LocalizedText;
-  items: ServiceItem[];
+  items: ServiceGroup[];
   locale: Locale;
 };
 
@@ -50,7 +42,7 @@ const localizedItems = useMemo(
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
-  const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
   const isTeleportingRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -186,7 +178,7 @@ const localizedItems = useMemo(
                   <div key={`${item.title}-${idx}`} data-card className="shrink-0 snap-center">
                     <ServiceWindowItem
                       {...item}
-                      onClick={() => setSelectedService(item.title)}
+                      onClick={() => setSelectedServiceId(item.id)}
                     />
                   </div>
                 ))}
@@ -210,13 +202,13 @@ const localizedItems = useMemo(
               )}
             </div>
 
-            <div className="mt-4 hidden md:grid md:gap-6 grid-cols-3 lg:grid-cols-4 justify-items-center">
+            <div className="mt-4 hidden justify-items-center md:grid md:grid-cols-4 md:gap-6">
               {items.map((item) => (
                 <ServiceWindowItem
                   key={item.id}
                   title={item.title[locale]}
                   svg={item.svg}
-                  onClick={() => setSelectedService(item.id)}
+                  onClick={() => setSelectedServiceId(item.id)}
                 />
               ))}
             </div>
@@ -224,10 +216,11 @@ const localizedItems = useMemo(
         </div>
       </section>
 
-      {selectedService && (
+      {selectedServiceId && (
         <ServiceModal
-          service={selectedService}
-          onClose={() => setSelectedService(null)}
+          service={items.find((item) => item.id === selectedServiceId) ?? items[0]}
+          locale={locale}
+          onClose={() => setSelectedServiceId(null)}
         />
       )}
     </>

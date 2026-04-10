@@ -11,6 +11,7 @@ import {
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
+import { sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { AppPermission } from "@/lib/users/types";
 
@@ -250,9 +251,12 @@ export async function PATCH(
     },
     select: {
       id: true,
+      displayId: true,
+      orderNumber: true,
       priceListId: true,
       customerMembershipId: true,
       customerLabel: true,
+      createdAt: true,
     },
   });
 
@@ -274,8 +278,6 @@ export async function PATCH(
     catalog.products,
     catalog.specialOptions,
   );
-
-  console.log("PATCH SUMMARIES", summaries);
 
   const builtItems = buildOrderItemsFromCards(
     productCards,
@@ -389,6 +391,48 @@ export async function PATCH(
       });
     }
   });
+
+  try {
+    await sendOrderNotificationEmail({
+      kind: "updated",
+      order: {
+        id: orderId,
+        displayId: existingOrder.displayId,
+        orderNumber:
+          optionalString(body.orderNumber) || existingOrder.orderNumber,
+        customerLabel:
+          optionalString(body.customerLabel) || existingOrder.customerLabel,
+        deliveryDate: optionalString(body.deliveryDate),
+        pickupAddress: optionalString(body.pickupAddress),
+        extraPickupAddress: Array.isArray(body.extraPickupAddress)
+          ? body.extraPickupAddress
+              .filter(
+                (value: unknown): value is string => typeof value === "string",
+              )
+              .map((value: string) => value.trim())
+              .filter(Boolean)
+          : [],
+        deliveryAddress: optionalString(body.deliveryAddress),
+        drivingDistance: optionalString(body.drivingDistance),
+        timeWindow: optionalString(body.timeWindow),
+        description: optionalString(body.description),
+        customerName: optionalString(body.customerName),
+        email: optionalString(body.email),
+        phone: optionalString(body.phone),
+        floorNo: optionalString(body.floorNo),
+        lift: optionalString(body.lift),
+        cashierName: optionalString(body.cashierName),
+        cashierPhone: optionalString(body.cashierPhone),
+        status: optionalString(body.status),
+        createdAt: existingOrder.createdAt,
+        productsSummary: summaries.productsSummary,
+        priceExVat: Math.round(safeNumber(body.priceExVat)),
+      },
+      items: builtItems,
+    });
+  } catch (error) {
+    console.error("Failed to send order update notification email", error);
+  }
 
   return NextResponse.json({
     ok: true,

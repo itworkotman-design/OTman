@@ -11,6 +11,7 @@ import {
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
+import { sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { AppPermission } from "@/lib/users/types";
 
@@ -291,6 +292,46 @@ export async function POST(req: Request) {
   await prisma.pendingOrderAttachment.deleteMany({
     where: { sessionId: session.userId },
   });
+
+  try {
+    await sendOrderNotificationEmail({
+      kind: "created",
+      order: {
+        id: order.id,
+        displayId: order.displayId,
+        orderNumber: order.orderNumber,
+        customerLabel,
+        deliveryDate: optionalString(body.deliveryDate),
+        pickupAddress: optionalString(body.pickupAddress),
+        extraPickupAddress: Array.isArray(body.extraPickupAddress)
+          ? body.extraPickupAddress
+              .filter(
+                (value: unknown): value is string => typeof value === "string",
+              )
+              .map((value: string) => value.trim())
+              .filter(Boolean)
+          : [],
+        deliveryAddress: optionalString(body.deliveryAddress),
+        drivingDistance: optionalString(body.drivingDistance),
+        timeWindow: optionalString(body.timeWindow),
+        description: optionalString(body.description),
+        customerName,
+        email: optionalString(body.email),
+        phone: optionalString(body.phone),
+        floorNo: optionalString(body.floorNo),
+        lift: optionalString(body.lift),
+        cashierName: optionalString(body.cashierName),
+        cashierPhone: optionalString(body.cashierPhone),
+        status: optionalString(body.status) || "behandles",
+        createdAt: order.createdAt,
+        productsSummary: summaries.productsSummary,
+        priceExVat: Math.round(safeNumber(body.priceExVat)),
+      },
+      items: builtItems,
+    });
+  } catch (error) {
+    console.error("Failed to send order creation notification email", error);
+  }
 
   return NextResponse.json({
     ok: true,

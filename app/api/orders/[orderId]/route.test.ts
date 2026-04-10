@@ -3,9 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   canEditOrdersMock: vi.fn(),
+  getBookingCatalogMock: vi.fn(),
+  buildOrderSummariesMock: vi.fn(),
+  buildOrderItemsFromCardsMock: vi.fn(),
+  sendOrderNotificationEmailMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
   orderDeleteManyMock: vi.fn(),
+  transactionMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -17,15 +22,19 @@ vi.mock("@/lib/users/orderAccess", () => ({
 }));
 
 vi.mock("@/lib/orders/buildOrderSummaries", () => ({
-  buildOrderSummaries: vi.fn(),
+  buildOrderSummaries: mocks.buildOrderSummariesMock,
 }));
 
 vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
-  buildOrderItemsFromCards: vi.fn(),
+  buildOrderItemsFromCards: mocks.buildOrderItemsFromCardsMock,
 }));
 
 vi.mock("@/lib/booking/catalog/getBookingCatalog", () => ({
-  getBookingCatalog: vi.fn(),
+  getBookingCatalog: mocks.getBookingCatalogMock,
+}));
+
+vi.mock("@/lib/orders/orderNotificationEmail", () => ({
+  sendOrderNotificationEmail: mocks.sendOrderNotificationEmailMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -37,6 +46,7 @@ vi.mock("@/lib/db", () => ({
       findFirst: mocks.orderFindFirstMock,
       deleteMany: mocks.orderDeleteManyMock,
     },
+    $transaction: mocks.transactionMock,
   },
 }));
 
@@ -46,6 +56,27 @@ describe("routes in /api/orders/[orderId]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.canEditOrdersMock.mockReturnValue(true);
+    mocks.getBookingCatalogMock.mockResolvedValue({
+      products: [],
+      specialOptions: [],
+    });
+    mocks.buildOrderSummariesMock.mockReturnValue({
+      productsSummary: "Product summary",
+      deliveryTypeSummary: "Delivery summary",
+      servicesSummary: "Service summary",
+    });
+    mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
+    mocks.transactionMock.mockImplementation(async (callback: any) =>
+      callback({
+        order: {
+          update: vi.fn().mockResolvedValue({ id: "order-1" }),
+        },
+        orderItem: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+          create: vi.fn().mockResolvedValue({ id: "item-1" }),
+        },
+      }),
+    );
   });
 
   it("GET returns 404 when the order does not exist", async () => {
@@ -91,6 +122,71 @@ describe("routes in /api/orders/[orderId]", () => {
       ok: false,
       reason: "INVALID_PRODUCT_CARDS",
     });
+  });
+
+  it("PATCH sends an internal notification email after a successful update", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+    });
+    mocks.buildOrderItemsFromCardsMock.mockReturnValue([
+      {
+        cardId: 1,
+        productId: "product-1",
+        productCode: "PROD-1",
+        productName: "Kjoleskap/ Kombiskap",
+        deliveryType: "Innbaering",
+        itemType: "EXTRA_OPTION",
+        optionId: "option-1",
+        optionCode: "INDOOR",
+        optionLabel: "Innbaering",
+        quantity: 1,
+        customerPriceCents: 66900,
+        subcontractorPriceCents: 0,
+      },
+    ]);
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          customerLabel: "POWER Slependen",
+          orderNumber: "11191323551",
+          status: "ferdig",
+          priceExVat: 1019,
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.sendOrderNotificationEmailMock).toHaveBeenCalledTimes(1);
+    expect(mocks.sendOrderNotificationEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "updated",
+        order: expect.objectContaining({
+          orderNumber: "11191323551",
+          customerLabel: "POWER Slependen",
+          status: "ferdig",
+        }),
+      }),
+    );
   });
 
   it("DELETE returns 404 when no order row is removed", async () => {

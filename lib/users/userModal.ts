@@ -33,16 +33,28 @@ export interface UserModalProps {
   initialPriceListId?: string | null;
 }
 
-export function buildInitialForm(props: UserModalProps): UserFormData {
+export type UserFormSource = Pick<
+  UserModalProps,
+  | "initialValueUsername"
+  | "initialValueEmail"
+  | "initialValuePhoneNumber"
+  | "initialValueDescription"
+  | "initialValueRole"
+  | "initialValueActive"
+  | "initialValuePermissions"
+  | "initialPriceListId"
+>;
+
+export function buildInitialForm(source: UserFormSource): UserFormData {
   return {
-    username: props.initialValueUsername ?? "",
-    email: props.initialValueEmail ?? "",
-    phoneNumber: props.initialValuePhoneNumber ?? "",
-    description: props.initialValueDescription ?? "",
-    role: props.initialValueRole || "USER",
-    active: props.initialValueActive,
-    priceListId: props.initialPriceListId ?? null,
-    permissions: props.initialValuePermissions ?? ["BOOKING_VIEW"],
+    username: source.initialValueUsername ?? "",
+    email: source.initialValueEmail ?? "",
+    phoneNumber: source.initialValuePhoneNumber ?? "",
+    description: source.initialValueDescription ?? "",
+    role: source.initialValueRole || "USER",
+    active: source.initialValueActive,
+    priceListId: source.initialPriceListId ?? null,
+    permissions: source.initialValuePermissions ?? ["BOOKING_VIEW"],
   };
 }
 

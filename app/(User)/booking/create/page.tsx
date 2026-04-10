@@ -59,7 +59,7 @@ export default function BookingCreatePage() {
 
   if (!currentUser) {
     return (
-      <div className="mx-auto max-w-[1400px] py-10">
+      <div className="mx-auto max-w-[1400] py-10">
         <div className="text-textColorThird">Loading...</div>
       </div>
     );
@@ -67,7 +67,7 @@ export default function BookingCreatePage() {
 
   if (!canCreate) {
     return (
-      <div className="mx-auto max-w-[1400px] py-10">
+      <div className="mx-auto max-w-[1400] py-10">
         <h1 className="mb-4 text-2xl font-semibold text-logoblue">
           Create booking
         </h1>
@@ -79,7 +79,7 @@ export default function BookingCreatePage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1600px]">
+    <div className="mx-auto max-w-[1600]">
       <div className="mb-8 flex items-center justify-between gap-3">
         <div>
           <h1 className="whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
