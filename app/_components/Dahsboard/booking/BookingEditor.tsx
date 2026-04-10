@@ -7,6 +7,7 @@ import { getCreateOrderViewConfig } from "@/lib/booking/createOrderView";
 import {
   SavedProductCard,
   createEmptyProductCard,
+  normalizeSavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type {
   CatalogProduct,
@@ -102,7 +103,9 @@ export default function BookingEditor({
   const [calcOpen, setCalcOpen] = useState(false);
   const [productCards, setProductCards] = useState<SavedProductCard[]>(
     initialValues?.productCards?.length
-      ? initialValues.productCards
+      ? initialValues.productCards.map((card, index) =>
+          normalizeSavedProductCard(card, index),
+        )
       : [createEmptyProductCard(0)],
   );
   const [customerLabel, setCustomerLabel] = useState(
@@ -236,6 +239,8 @@ export default function BookingEditor({
   );
   const { effectiveHidden, effectiveHideDontSendEmail } =
     getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
+  const showAdminCalculatorAdjustments =
+    !!initialValues?.id && (role === "OWNER" || role === "ADMIN");
   useEffect(() => {
     async function loadCatalog() {
       try {
@@ -282,7 +287,9 @@ export default function BookingEditor({
 
     setProductCards(
       initialValues.productCards?.length
-        ? initialValues.productCards
+        ? initialValues.productCards.map((card, index) =>
+            normalizeSavedProductCard(card, index),
+          )
         : [createEmptyProductCard(0)],
     );
     setExpandedCardId(
@@ -835,8 +842,12 @@ export default function BookingEditor({
               setCalcOpen={setCalcOpen}
               productBreakdowns={productBreakdowns}
               priceLookup={priceLookup}
-              adminView={dataset === "default"}
+              adminView={dataset === "default" && showAdminCalculatorAdjustments}
               onPriceChange={handlePriceChange}
+              rabatt={rabatt}
+              leggTil={leggTil}
+              subcontractorMinus={subcontractorMinus}
+              subcontractorPlus={subcontractorPlus}
               onAdjustmentsChange={handleAdjustmentsChange}
               sidebarMode
             />
@@ -849,8 +860,12 @@ export default function BookingEditor({
             setCalcOpen={setCalcOpen}
             productBreakdowns={productBreakdowns}
             priceLookup={priceLookup}
-            adminView={dataset === "default"}
+            adminView={dataset === "default" && showAdminCalculatorAdjustments}
             onPriceChange={handlePriceChange}
+            rabatt={rabatt}
+            leggTil={leggTil}
+            subcontractorMinus={subcontractorMinus}
+            subcontractorPlus={subcontractorPlus}
             onAdjustmentsChange={handleAdjustmentsChange}
           />
         </div>

@@ -58,6 +58,12 @@ enum AuthEventType {
   TENANT_SELECTED
 }
 
+enum ProductType {
+  PHYSICAL
+  PALLET
+  LABOR
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
@@ -343,12 +349,24 @@ model RequestItem {
 }
 
 model Product {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
-  code        String   @unique
+  code        String      @unique
   description String?
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+
+  productType         ProductType @default(PHYSICAL)
+  allowDeliveryTypes  Boolean     @default(true)
+  allowInstallOptions Boolean     @default(true)
+  allowReturnOptions  Boolean     @default(true)
+  allowExtraServices  Boolean     @default(true)
+  allowDemont         Boolean     @default(true)
+  allowQuantity       Boolean     @default(true)
+  allowPeopleCount    Boolean     @default(false)
+  allowHoursInput     Boolean     @default(false)
+  autoXtraPerPallet   Boolean     @default(false)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

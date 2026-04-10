@@ -12,6 +12,10 @@ type Props = {
   priceLookup: ReturnType<typeof buildPriceLookup>;
   adminView: boolean;
   onPriceChange: (exVat: number, subPrice: number) => void;
+  rabatt?: string;
+  leggTil?: string;
+  subcontractorMinus?: string;
+  subcontractorPlus?: string;
   onAdjustmentsChange: (adj: {
     rabatt: string;
     leggTil: string;
@@ -28,6 +32,10 @@ export default function BookingCalculatorPanel({
   priceLookup,
   adminView,
   onPriceChange,
+  rabatt,
+  leggTil,
+  subcontractorMinus,
+  subcontractorPlus,
   onAdjustmentsChange,
   sidebarMode = false,
 }: Props) {
@@ -62,6 +70,10 @@ export default function BookingCalculatorPanel({
                 priceLookup={priceLookup}
                 adminView={adminView}
                 onPriceChange={onPriceChange}
+                rabatt={rabatt}
+                leggTil={leggTil}
+                subcontractorMinus={subcontractorMinus}
+                subcontractorPlus={subcontractorPlus}
                 onAdjustmentsChange={onAdjustmentsChange}
                 sidebarMode={false}
               />
@@ -76,6 +88,10 @@ export default function BookingCalculatorPanel({
           priceLookup={priceLookup}
           adminView={adminView}
           onPriceChange={onPriceChange}
+          rabatt={rabatt}
+          leggTil={leggTil}
+          subcontractorMinus={subcontractorMinus}
+          subcontractorPlus={subcontractorPlus}
           onAdjustmentsChange={onAdjustmentsChange}
           sidebarMode={sidebarMode}
         />

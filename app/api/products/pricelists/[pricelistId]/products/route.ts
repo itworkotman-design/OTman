@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { getProductConfigMap } from "@/lib/products/productConfig";
+import { OPTION_CATEGORIES } from "@/lib/booking/constants";
 
 function generateCode(prefix: string) {
   return `${prefix}_${Date.now()}`;
@@ -57,13 +59,29 @@ export async function POST(
       },
     });
 
+    await tx.$executeRaw`
+      UPDATE "Product"
+      SET
+        "productType" = ${"PHYSICAL"}::"ProductType",
+        "allowDeliveryTypes" = true,
+        "allowInstallOptions" = true,
+        "allowReturnOptions" = true,
+        "allowExtraServices" = true,
+        "allowDemont" = true,
+        "allowQuantity" = true,
+        "allowPeopleCount" = false,
+        "allowHoursInput" = false,
+        "autoXtraPerPallet" = false
+      WHERE "id" = ${product.id}
+    `;
+
     const productOption = await tx.productOption.create({
       data: {
         productId: product.id,
         code: optionCode,
         label: optionLabel,
         description: null,
-        category: null,
+        category: OPTION_CATEGORIES.INSTALL,
         sortOrder: 1,
         isActive: true,
       },
@@ -89,6 +107,11 @@ export async function POST(
     return item;
   });
 
+  const productConfigMap = await getProductConfigMap([
+    result.productOption.product.id,
+  ]);
+  const productConfig = productConfigMap.get(result.productOption.product.id);
+
   return NextResponse.json(
     {
       ok: true,
@@ -98,6 +121,8 @@ export async function POST(
         productOptionId: result.productOptionId,
         productName: result.productOption.product.name,
         productCode: result.productOption.product.code,
+        productType: productConfig?.productType ?? "PHYSICAL",
+        allowDeliveryTypes: productConfig?.allowDeliveryTypes ?? true,
         optionCode: result.productOption.code,
         optionLabel: result.productOption.label,
         description: result.productOption.description,
@@ -106,6 +131,14 @@ export async function POST(
         customerPrice: centsToNokString(result.customerPriceCents),
         subcontractorPrice: centsToNokString(result.subcontractorPriceCents),
         isActive: result.isActive,
+        allowQuantity: productConfig?.allowQuantity ?? true,
+        allowInstallOptions: productConfig?.allowInstallOptions ?? true,
+        allowReturnOptions: productConfig?.allowReturnOptions ?? true,
+        allowExtraServices: productConfig?.allowExtraServices ?? true,
+        allowDemont: productConfig?.allowDemont ?? true,
+        allowPeopleCount: productConfig?.allowPeopleCount ?? false,
+        allowHoursInput: productConfig?.allowHoursInput ?? false,
+        autoXtraPerPallet: productConfig?.autoXtraPerPallet ?? false,
       },
     },
     { status: 201 },

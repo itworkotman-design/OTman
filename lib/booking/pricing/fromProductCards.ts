@@ -10,6 +10,11 @@ import type {
   ProductCardLineItem,
 } from "@/lib/booking/pricing/types";
 import {
+  isInstallOption,
+  isReturnOption,
+  isXtraOption,
+  isExtraCheckboxOption,
+  normalizedUpper,
   isDeliveryTypeWithExtraAmount,
   showsInstallOptions,
   showsReturnOptions,
@@ -36,18 +41,68 @@ function findSelectedReturnSpecialOption(
   );
 }
 
+function findBaseProductOption(product: CatalogProduct) {
+  return (
+    product.options.find(
+      (option) =>
+        option.active &&
+        !isInstallOption(option.category, option.code) &&
+        !isReturnOption(option.category, option.code) &&
+        !isXtraOption(option.category, option.code) &&
+        !isExtraCheckboxOption(option.code),
+    ) ??
+    product.options.find((option) => option.active) ??
+    null
+  );
+}
+
+function findDemontOption(product: CatalogProduct) {
+  return (
+    product.options.find(
+      (option) => normalizedUpper(option.code) === OPTION_CODES.DEMONT,
+    ) ?? null
+  );
+}
+
+function getAmount(card: SavedProductCard, product: CatalogProduct) {
+  if (!product.allowQuantity && product.productType !== "PALLET") {
+    return 1;
+  }
+
+  return Math.max(1, card.amount || 1);
+}
+
+function getHoursInput(card: SavedProductCard, product: CatalogProduct) {
+  if (!product.allowHoursInput) return 1;
+  return Math.max(0.5, card.hoursInput || 1);
+}
+
 function buildItemsForCard(
   card: SavedProductCard,
   product: CatalogProduct,
   catalogSpecialOptions: CatalogSpecialOption[],
 ): ProductCardLineItem[] {
   const items: ProductCardLineItem[] = [];
-  const amount = Math.max(1, card.amount);
-  const showInstallOptions = showsInstallOptions(card.deliveryType);
-  const showReturnOptions = showsReturnOptions(card.deliveryType);
-  const showExtras = showsExtraCheckboxes(card.deliveryType);
+  const amount = getAmount(card, product);
+  const hoursInput = getHoursInput(card, product);
+  const showInstallOptions =
+    product.allowInstallOptions &&
+    (!product.allowDeliveryTypes || showsInstallOptions(card.deliveryType));
+  const showReturnOptions =
+    product.allowReturnOptions &&
+    (!product.allowDeliveryTypes || showsReturnOptions(card.deliveryType));
+  const installSelected = card.selectedInstallOptionIds.length > 0;
+  const showExtras =
+    product.allowExtraServices &&
+    (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType)) &&
+    !installSelected;
+  const showDemont =
+    product.allowDemont &&
+    (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType));
+  const demontOption = findDemontOption(product);
+  const baseProductOption = findBaseProductOption(product);
 
-  if (card.deliveryType) {
+  if (product.allowDeliveryTypes && card.deliveryType) {
     items.push({
       kind: "deliveryType",
       code: card.deliveryType,
@@ -56,6 +111,73 @@ function buildItemsForCard(
     });
 
     if (isDeliveryTypeWithExtraAmount(card.deliveryType) && amount > 1) {
+      const xtraOption = findXtraSpecialOption(catalogSpecialOptions);
+
+      if (xtraOption) {
+        items.push({
+          kind: "productOption",
+          productOptionId: xtraOption.id,
+          qty: amount - 1,
+        });
+      }
+    }
+  }
+
+  if (product.productType === "LABOR") {
+    if (showInstallOptions && card.selectedInstallOptionIds.length > 0) {
+      for (const id of card.selectedInstallOptionIds) {
+        items.push({
+          kind: "productOption",
+          productOptionId: id,
+          qty: hoursInput,
+        });
+      }
+    } else if (!product.allowInstallOptions && baseProductOption) {
+      items.push({
+        kind: "productOption",
+        productOptionId: baseProductOption.id,
+        qty: hoursInput,
+      });
+    }
+
+    if (showReturnOptions && card.selectedReturnOptionId) {
+      const selectedReturn = findSelectedReturnSpecialOption(
+        catalogSpecialOptions,
+        card.selectedReturnOptionId,
+      );
+
+      if (selectedReturn) {
+        if (shouldPriceReturnOption(card.deliveryType)) {
+          items.push({
+            kind: "productOption",
+            productOptionId: selectedReturn.id,
+            qty: amount,
+          });
+        } else {
+          items.push({
+            kind: "info",
+            label:
+              selectedReturn.description ||
+              selectedReturn.label ||
+              selectedReturn.code ||
+              "Return",
+            qty: amount,
+          });
+        }
+      }
+    }
+
+    return items;
+  }
+
+  if (product.productType === "PALLET" && baseProductOption) {
+    items.push({
+      kind: "productOption",
+      productOptionId: baseProductOption.id,
+      qty: amount,
+    });
+
+    if (product.autoXtraPerPallet && amount > 1) {
       const xtraOption = findXtraSpecialOption(catalogSpecialOptions);
 
       if (xtraOption) {
@@ -86,6 +208,14 @@ function buildItemsForCard(
         qty: amount,
       });
     }
+  }
+
+  if (showDemont && !installSelected && card.demontEnabled && demontOption) {
+    items.push({
+      kind: "productOption",
+      productOptionId: demontOption.id,
+      qty: amount,
+    });
   }
 
   if (showReturnOptions && card.selectedReturnOptionId) {
@@ -135,7 +265,10 @@ export function buildProductBreakdowns(
 
     return [
       {
-        productName: product.label,
+        productName:
+          product.productType === "LABOR"
+            ? `${product.label} (${getHoursInput(card, product)} h)`
+            : product.label,
         items: buildItemsForCard(card, product, catalogSpecialOptions),
       },
     ];

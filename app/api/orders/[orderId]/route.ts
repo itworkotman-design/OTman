@@ -12,7 +12,10 @@ import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
 import { sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
-import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import {
+  normalizeSavedProductCard,
+  type SavedProductCard,
+} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { AppPermission } from "@/lib/users/types";
 
 export async function GET(
@@ -44,6 +47,7 @@ export async function GET(
     },
     select: {
       id: true,
+      displayId: true,
       priceListId: true,
       customerMembershipId: true,
       productCardsSnapshot: true,
@@ -119,10 +123,16 @@ export async function GET(
     ok: true,
     order: {
       id: order.id,
+      displayId: order.displayId ?? 0,
       priceListId: order.priceListId ?? "",
       customerMembershipId: order.customerMembershipId ?? "",
       productCards: Array.isArray(order.productCardsSnapshot)
-        ? order.productCardsSnapshot
+        ? order.productCardsSnapshot.map((card, index) =>
+            normalizeSavedProductCard(
+              card as Partial<SavedProductCard>,
+              index,
+            ),
+          )
         : [],
       orderNumber: order.orderNumber ?? "",
       description: order.description ?? "",
@@ -267,7 +277,9 @@ export async function PATCH(
     );
   }
 
-  const productCards = body.productCards as SavedProductCard[];
+  const productCards = (body.productCards as SavedProductCard[]).map(
+    (card, index) => normalizeSavedProductCard(card, index),
+  );
 
   const catalog = await getBookingCatalog(
     existingOrder.priceListId ?? membership.priceListId ?? null,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { OPTION_CATEGORIES } from "@/lib/booking/constants";
 
 export async function POST(
   req: Request,
@@ -32,14 +33,22 @@ export async function POST(
     typeof body.label === "string" && body.label.trim()
       ? body.label.trim()
       : "New option";
+  const description =
+    typeof body.description === "string" && body.description.trim()
+      ? body.description.trim()
+      : null;
+  const category =
+    typeof body.category === "string" && body.category.trim()
+      ? body.category.trim()
+      : OPTION_CATEGORIES.INSTALL;
 
   const option = await prisma.productOption.create({
     data: {
       productId,
       code,
       label,
-      description: null,
-      category: null,
+      description,
+      category,
       sortOrder: 999,
       isActive: true,
     },

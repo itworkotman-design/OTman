@@ -10,11 +10,12 @@ type Result = {
   servicesSummary: string;
 };
 
-function getCardCount(card: SavedProductCard) {
-  const possibleCount =
-    (card as { amount?: number }).amount ??
-    (card as { quantity?: number }).quantity ??
-    1;
+function getCardCount(card: SavedProductCard, product?: CatalogProduct | null) {
+  if (!product?.allowQuantity && product?.productType !== "PALLET") {
+    return 1;
+  }
+
+  const possibleCount = card.amount ?? (card as { quantity?: number }).quantity ?? 1;
 
   return Number.isFinite(possibleCount) && possibleCount > 0
     ? Math.floor(possibleCount)
@@ -50,34 +51,50 @@ export function buildOrderSummaries(
 
   for (const card of productCards) {
     const product = catalogProducts.find((p) => p.id === card.productId);
-    const count = getCardCount(card);
+    const count = getCardCount(card, product);
 
     for (let i = 0; i < count; i += 1) {
       if (product?.label) {
         productNames.push(product.label);
       }
 
-      if (card.deliveryType) {
+      if (product?.allowDeliveryTypes && card.deliveryType) {
         deliveryTypes.push(card.deliveryType);
       }
     }
 
-    for (const optionId of card.selectedInstallOptionIds) {
+    if (product?.allowInstallOptions) {
+      for (const optionId of card.selectedInstallOptionIds) {
       const option = product?.options.find((o) => o.id === optionId);
       const text = getOptionText(option);
       if (text) services.push(text);
     }
+    }
 
-    for (const optionId of card.selectedExtraOptionIds) {
-      const productOption = product?.options.find((o) => o.id === optionId);
-      const specialOption = catalogSpecialOptions.find(
-        (o) => o.id === optionId,
+    if (product?.allowExtraServices && card.selectedInstallOptionIds.length === 0) {
+      for (const optionId of card.selectedExtraOptionIds) {
+        const productOption = product?.options.find((o) => o.id === optionId);
+        const specialOption = catalogSpecialOptions.find(
+          (o) => o.id === optionId,
+        );
+        const text = getOptionText(productOption ?? specialOption);
+        if (text) services.push(text);
+      }
+    }
+
+    if (
+      product?.allowDemont &&
+      card.demontEnabled &&
+      card.selectedInstallOptionIds.length === 0
+    ) {
+      const demontOption = product.options.find((option) =>
+        option.code?.trim().toUpperCase() === "DEMONT",
       );
-      const text = getOptionText(productOption ?? specialOption);
+      const text = getOptionText(demontOption);
       if (text) services.push(text);
     }
 
-    if (card.selectedReturnOptionId) {
+    if (product?.allowReturnOptions && card.selectedReturnOptionId) {
       const special = catalogSpecialOptions.find(
         (o) => o.id === card.selectedReturnOptionId,
       );

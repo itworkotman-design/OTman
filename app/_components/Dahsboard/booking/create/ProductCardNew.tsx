@@ -1,15 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { DeliveryType } from "@/lib/booking/pricing/types";
 import type {
   SavedProductCard,
   CatalogProduct,
   CatalogSpecialOption,
 } from "./_types/productCard";
-import { DELIVERY_TYPES } from "@/lib/booking/constants";
+import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import {
+  normalizedUpper,
   isInstallOption,
+  isReturnOption,
+  isXtraOption,
   isExtraCheckboxOption,
   showsInstallOptions,
   showsReturnOptions,
@@ -52,32 +55,168 @@ export function ProductCardNew({
 
   const options = selectedProduct?.options ?? [];
 
-  const installOptions = options.filter((o) =>
+  const categorizedInstallOptions = options.filter((o) =>
     isInstallOption(o.category, o.code),
   );
 
+  const installOptions =
+    !selectedProduct?.allowDeliveryTypes && categorizedInstallOptions.length === 0
+      ? options.filter(
+          (o) =>
+            o.active &&
+            !isReturnOption(o.category, o.code) &&
+            !isXtraOption(o.category, o.code) &&
+            !isExtraCheckboxOption(o.code),
+        )
+      : categorizedInstallOptions;
+  const installSectionLabel =
+    !selectedProduct?.allowDeliveryTypes && categorizedInstallOptions.length === 0
+      ? "Velg"
+      : "Installasjonsmuligheter";
 
+  const productExtraOptions = options.filter(
+    (o) =>
+      isExtraCheckboxOption(o.code) &&
+      normalizedUpper(o.code) !== OPTION_CODES.DEMONT,
+  );
 
-const productExtraOptions = options.filter((o) =>
-  isExtraCheckboxOption(o.code),
-);
+  const demontOption =
+    options.find((o) => normalizedUpper(o.code) === OPTION_CODES.DEMONT) ??
+    null;
 
-const specialExtraServiceOptions = catalogSpecialOptions.filter(
-  (o) => o.active && o.type === "extra_service",
-);
+  const specialExtraServiceOptions = catalogSpecialOptions.filter(
+    (o) => o.active && o.type === "extra_service",
+  );
 
-const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
+  const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
 
   const returnOptions = catalogSpecialOptions.filter(
     (o) => o.active && o.type === "return",
   );
 
-  const showInstallOptions = showsInstallOptions(value.deliveryType);
-  const showReturnOptions = showsReturnOptions(value.deliveryType);
-  const showExtras = showsExtraCheckboxes(value.deliveryType);
+  const isPalletProduct = selectedProduct?.productType === "PALLET";
+  const supportsDeliveryTypes = !!selectedProduct?.allowDeliveryTypes;
+  const supportsQuantity = !!selectedProduct?.allowQuantity || isPalletProduct;
+  const supportsInstallOptions = !!selectedProduct?.allowInstallOptions;
+  const supportsReturnOptions = !!selectedProduct?.allowReturnOptions;
+  const supportsExtraServices = !!selectedProduct?.allowExtraServices;
+  const supportsDemont = !!selectedProduct?.allowDemont;
+  const supportsHoursInput = !!selectedProduct?.allowHoursInput;
 
-  const showDeliveryType = !!value.productId;
-  const showAmount = !!value.productId;
+  const showInstallOptions =
+    !!selectedProduct &&
+    supportsInstallOptions &&
+    (!supportsDeliveryTypes || showsInstallOptions(value.deliveryType));
+  const showReturnOptions =
+    !!selectedProduct &&
+    supportsReturnOptions &&
+    (!supportsDeliveryTypes || showsReturnOptions(value.deliveryType));
+  const showExtras =
+    !!selectedProduct &&
+    supportsExtraServices &&
+    (!supportsDeliveryTypes || showsExtraCheckboxes(value.deliveryType)) &&
+    value.selectedInstallOptionIds.length === 0;
+  const showDemont =
+    !!selectedProduct &&
+    supportsDemont &&
+    (!supportsDeliveryTypes || showsExtraCheckboxes(value.deliveryType)) &&
+    value.selectedInstallOptionIds.length === 0 &&
+    !!demontOption;
+
+  const showDeliveryType = !!value.productId && supportsDeliveryTypes;
+  const showAmount = !!value.productId && supportsQuantity;
+  const showHoursInput = !!value.productId && supportsHoursInput;
+
+  useEffect(() => {
+    if (!selectedProduct) return;
+
+    const nextDeliveryType = supportsDeliveryTypes ? value.deliveryType : "";
+    const nextValue: Partial<SavedProductCard> = {};
+    const hasLegacyDemontSelection =
+      !!demontOption &&
+      value.selectedExtraOptionIds.includes(demontOption.id);
+
+    if (hasLegacyDemontSelection) {
+      nextValue.selectedExtraOptionIds = value.selectedExtraOptionIds.filter(
+        (id) => id !== demontOption!.id,
+      );
+
+      if (supportsDemont) {
+        nextValue.demontEnabled = true;
+      }
+    }
+
+    if (!supportsDeliveryTypes && value.deliveryType) {
+      nextValue.deliveryType = "";
+    }
+
+    if (
+      (!supportsInstallOptions ||
+        (supportsDeliveryTypes && !showsInstallOptions(nextDeliveryType))) &&
+        value.selectedInstallOptionIds.length > 0) {
+      nextValue.selectedInstallOptionIds = [];
+    }
+
+    if (
+      (!supportsExtraServices ||
+        (supportsDeliveryTypes && !showsExtraCheckboxes(nextDeliveryType))) &&
+        value.selectedExtraOptionIds.length > 0) {
+      nextValue.selectedExtraOptionIds = [];
+    }
+
+    if (
+      value.selectedInstallOptionIds.length > 0 &&
+      value.selectedExtraOptionIds.length > 0
+    ) {
+      nextValue.selectedExtraOptionIds = [];
+    }
+
+    if (
+      (!supportsReturnOptions ||
+        (supportsDeliveryTypes && !showsReturnOptions(nextDeliveryType))) &&
+        value.selectedReturnOptionId) {
+      nextValue.selectedReturnOptionId = null;
+    }
+
+    if ((!supportsDemont ||
+        (supportsDeliveryTypes && !showsExtraCheckboxes(nextDeliveryType)) ||
+        value.selectedInstallOptionIds.length > 0 ||
+        !demontOption) &&
+        value.demontEnabled) {
+      nextValue.demontEnabled = false;
+    }
+
+    if (!supportsQuantity && value.amount !== 1) {
+      nextValue.amount = 1;
+    }
+
+    if (value.peopleCount !== 1) {
+      nextValue.peopleCount = 1;
+    }
+
+    if (!supportsHoursInput && value.hoursInput !== 1) {
+      nextValue.hoursInput = 1;
+    }
+
+    if (Object.keys(nextValue).length > 0) {
+      onChange({
+        ...value,
+        ...nextValue,
+      });
+    }
+  }, [
+    demontOption,
+    onChange,
+    selectedProduct,
+    supportsDeliveryTypes,
+    supportsDemont,
+    supportsExtraServices,
+    supportsHoursInput,
+    supportsInstallOptions,
+    supportsQuantity,
+    supportsReturnOptions,
+    value,
+  ]);
 
   function update(partial: Partial<SavedProductCard>) {
     onChange({
@@ -92,6 +231,8 @@ const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
       productId: newProductId,
       deliveryType: "",
       amount: 1,
+      peopleCount: 1,
+      hoursInput: 1,
       selectedInstallOptionIds: [],
       selectedExtraOptionIds: [],
       selectedReturnOptionId: null,
@@ -116,6 +257,9 @@ const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
       [field]: exists
         ? current.filter((id) => id !== optionId)
         : [...current, optionId],
+      ...(field === "selectedInstallOptionIds" && !exists
+        ? { demontEnabled: false }
+        : {}),
     });
   }
 
@@ -215,7 +359,7 @@ const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
           {showInstallOptions && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                Installasjonsmuligheter
+                {installSectionLabel}
               </h1>
               {installOptions.length === 0 ? (
                 <p className="text-sm opacity-70">
@@ -247,7 +391,9 @@ const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
                 Utpakking / Demontering
               </h1>
               {extraOptions.length === 0 ? (
-                <p className="text-sm opacity-70">No extra services.</p>
+                <p className="text-sm opacity-70">
+                  No utpakking / demontering options.
+                </p>
               ) : (
                 extraOptions.map((opt) => (
                   <label key={opt.id} className="block my-1">
@@ -265,6 +411,32 @@ const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
                   </label>
                 ))
               )}
+            </>
+          )}
+
+          {showDemont && (
+            <>
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                Demont
+              </h1>
+              <label className="block my-1">
+                <input
+                  className="inline mr-2"
+                  type="checkbox"
+                  checked={value.demontEnabled}
+                  onChange={() =>
+                    update({
+                      demontEnabled: !value.demontEnabled,
+                    })
+                  }
+                />
+                <span className="inline">
+                  {demontOption?.description ||
+                    demontOption?.label ||
+                    demontOption?.code ||
+                    "Demont"}
+                </span>
+              </label>
             </>
           )}
 
@@ -305,7 +477,7 @@ const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
           {showAmount && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                Product amount
+                {isPalletProduct ? "Pallet quantity" : "Product amount"}
               </h1>
               <input
                 type="number"
@@ -314,6 +486,26 @@ const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
                 onChange={(e) =>
                   update({
                     amount: Number(e.target.value) || 1,
+                  })
+                }
+                className="customInput w-full"
+              />
+            </>
+          )}
+
+          {showHoursInput && (
+            <>
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                Hours input
+              </h1>
+              <input
+                type="number"
+                min={0.5}
+                step={0.5}
+                value={value.hoursInput}
+                onChange={(e) =>
+                  update({
+                    hoursInput: Math.max(0.5, Number(e.target.value) || 0.5),
                   })
                 }
                 className="customInput w-full"

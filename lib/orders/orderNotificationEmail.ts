@@ -135,6 +135,19 @@ function renderOrderItems(order: NotificationOrder, items: BuiltOrderItem[]) {
         group.find((item) => item.itemType === "PRODUCT_CARD") ?? group[0];
 
       const productHeading = productCard?.productName?.trim() || "Produkt";
+      const productCardRawData =
+        productCard?.rawData &&
+        typeof productCard.rawData === "object" &&
+        !Array.isArray(productCard.rawData)
+          ? (productCard.rawData as {
+              hoursInput?: number;
+            })
+          : null;
+      const laborSuffix =
+        productCardRawData &&
+        typeof productCardRawData.hoursInput === "number"
+          ? ` (${productCardRawData.hoursInput} t)`
+          : "";
       const quantitySuffix =
         productCard?.quantity && productCard.quantity > 1
           ? ` x${productCard.quantity}`
@@ -161,7 +174,7 @@ function renderOrderItems(order: NotificationOrder, items: BuiltOrderItem[]) {
 
       return `
         <div style="margin:18px 0 0 0;">
-          <p style="margin:0 0 8px 0;font-weight:700;">${escapeHtml(`${productHeading}${quantitySuffix}`)}</p>
+          <p style="margin:0 0 8px 0;font-weight:700;">${escapeHtml(`${productHeading}${quantitySuffix}${laborSuffix}`)}</p>
           ${optionLines ? `<ul style="margin:0;padding:0;">${optionLines}</ul>` : ""}
         </div>
       `;

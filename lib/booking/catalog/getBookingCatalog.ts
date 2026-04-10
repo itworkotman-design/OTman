@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getProductConfigMap } from "@/lib/products/productConfig";
 import type {
   CatalogProduct,
   CatalogSpecialOption,
@@ -61,6 +62,8 @@ export async function getBookingCatalog(
       })
     : [];
 
+  const productConfigMap = await getProductConfigMap(products.map((p) => p.id));
+
   const priceMap = new Map(
     priceListItems.map((item) => [
       item.productOptionId,
@@ -72,10 +75,38 @@ export async function getBookingCatalog(
   );
 
   const mappedProducts: CatalogProduct[] = products.map((product) => ({
+    ...(productConfigMap.get(product.id) ?? {}),
     id: product.id,
     code: product.code,
     label: product.name,
     active: product.isActive,
+    productType:
+      productConfigMap.get(product.id)?.productType ?? product.productType,
+    allowDeliveryTypes:
+      productConfigMap.get(product.id)?.allowDeliveryTypes ??
+      product.allowDeliveryTypes,
+    allowInstallOptions:
+      productConfigMap.get(product.id)?.allowInstallOptions ??
+      product.allowInstallOptions,
+    allowReturnOptions:
+      productConfigMap.get(product.id)?.allowReturnOptions ??
+      product.allowReturnOptions,
+    allowExtraServices:
+      productConfigMap.get(product.id)?.allowExtraServices ??
+      product.allowExtraServices,
+    allowDemont:
+      productConfigMap.get(product.id)?.allowDemont ?? product.allowDemont,
+    allowQuantity:
+      productConfigMap.get(product.id)?.allowQuantity ?? product.allowQuantity,
+    allowPeopleCount:
+      productConfigMap.get(product.id)?.allowPeopleCount ??
+      product.allowPeopleCount,
+    allowHoursInput:
+      productConfigMap.get(product.id)?.allowHoursInput ??
+      product.allowHoursInput,
+    autoXtraPerPallet:
+      productConfigMap.get(product.id)?.autoXtraPerPallet ??
+      product.autoXtraPerPallet,
     options: product.options.map((option) => {
       const price = priceMap.get(option.id);
 

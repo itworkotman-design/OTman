@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { getEffectivePrice } from "@/lib/products/discounts";
+import { getProductConfigMap } from "@/lib/products/productConfig";
 
 type Body = {
   customerPrice?: string | number;
@@ -12,6 +13,18 @@ type Body = {
   description?: string | null;
   category?: string | null;
   productName?: string;
+
+  productType?: string;
+  allowDeliveryTypes?: boolean;
+  allowInstallOptions?: boolean;
+  allowReturnOptions?: boolean;
+  allowExtraServices?: boolean;
+  allowDemont?: boolean;
+  allowQuantity?: boolean;
+  allowPeopleCount?: boolean;
+  allowHoursInput?: boolean;
+  autoXtraPerPallet?: boolean;
+
   discountAmount?: string | number | null;
   discountEndsAt?: string | null;
 };
@@ -75,6 +88,7 @@ export async function PATCH(
 
   const { itemId } = await params;
   const body = (await req.json()) as Body;
+
 
   const existing = await prisma.priceListItem.findUnique({
     where: { id: itemId },
@@ -219,6 +233,16 @@ export async function PATCH(
 
   const productData: {
     name?: string;
+    productType?: "PHYSICAL" | "PALLET" | "LABOR";
+    allowDeliveryTypes?: boolean;
+    allowInstallOptions?: boolean;
+    allowReturnOptions?: boolean;
+    allowExtraServices?: boolean;
+    allowDemont?: boolean;
+    allowQuantity?: boolean;
+    allowPeopleCount?: boolean;
+    allowHoursInput?: boolean;
+    autoXtraPerPallet?: boolean;
   } = {};
 
   const productName =
@@ -235,12 +259,77 @@ export async function PATCH(
     productData.name = productName;
   }
 
+  if (body.productType !== undefined) {
+    if (
+      body.productType === "PHYSICAL" ||
+      body.productType === "PALLET" ||
+      body.productType === "LABOR"
+    ) {
+      productData.productType = body.productType;
+    } else {
+      return NextResponse.json(
+        { ok: false, reason: "INVALID_PRODUCT_TYPE" },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (typeof body.allowDeliveryTypes === "boolean") {
+    productData.allowDeliveryTypes = body.allowDeliveryTypes;
+  }
+
+  if (typeof body.allowInstallOptions === "boolean") {
+    productData.allowInstallOptions = body.allowInstallOptions;
+  }
+
+  if (typeof body.allowReturnOptions === "boolean") {
+    productData.allowReturnOptions = body.allowReturnOptions;
+  }
+
+  if (typeof body.allowExtraServices === "boolean") {
+    productData.allowExtraServices = body.allowExtraServices;
+  }
+
+  if (typeof body.allowDemont === "boolean") {
+    productData.allowDemont = body.allowDemont;
+  }
+
+  if (typeof body.allowQuantity === "boolean") {
+    productData.allowQuantity = body.allowQuantity;
+  }
+
+  if (typeof body.allowPeopleCount === "boolean") {
+    productData.allowPeopleCount = body.allowPeopleCount;
+  }
+
+  if (typeof body.allowHoursInput === "boolean") {
+    productData.allowHoursInput = body.allowHoursInput;
+  }
+
+  if (typeof body.autoXtraPerPallet === "boolean") {
+    productData.autoXtraPerPallet = body.autoXtraPerPallet;
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     if (Object.keys(productData).length > 0) {
-      await tx.product.update({
-        where: { id: existing.productOption.productId },
-        data: productData,
-      });
+      // Prisma's runtime client can lag behind the schema during dev, so use
+      // a parameterized SQL update here for the newly added Product fields.
+      await tx.$executeRaw`
+        UPDATE "Product"
+        SET
+          "name" = COALESCE(${productData.name ?? null}, "name"),
+          "productType" = COALESCE(${productData.productType ?? null}::"ProductType", "productType"),
+          "allowDeliveryTypes" = COALESCE(${productData.allowDeliveryTypes ?? null}, "allowDeliveryTypes"),
+          "allowQuantity" = COALESCE(${productData.allowQuantity ?? null}, "allowQuantity"),
+          "allowInstallOptions" = COALESCE(${productData.allowInstallOptions ?? null}, "allowInstallOptions"),
+          "allowReturnOptions" = COALESCE(${productData.allowReturnOptions ?? null}, "allowReturnOptions"),
+          "allowExtraServices" = COALESCE(${productData.allowExtraServices ?? null}, "allowExtraServices"),
+          "allowDemont" = COALESCE(${productData.allowDemont ?? null}, "allowDemont"),
+          "allowPeopleCount" = COALESCE(${productData.allowPeopleCount ?? null}, "allowPeopleCount"),
+          "allowHoursInput" = COALESCE(${productData.allowHoursInput ?? null}, "allowHoursInput"),
+          "autoXtraPerPallet" = COALESCE(${productData.autoXtraPerPallet ?? null}, "autoXtraPerPallet")
+        WHERE "id" = ${existing.productOption.productId}
+      `;
     }
 
     if (Object.keys(productOptionData).length > 0) {
@@ -282,15 +371,78 @@ export async function PATCH(
     discountEndsAt: updated.discountEndsAt,
   });
 
+  const productConfigMap = await getProductConfigMap([
+    updated.productOption.product.id,
+  ]);
+  const updatedProduct = updated.productOption.product;
+  const rawProductConfig = productConfigMap.get(updatedProduct.id);
+  const productSnapshot = {
+    id: updatedProduct.id,
+    name: updatedProduct.name ?? productData.name ?? existing.productOption.product.name,
+    code: updatedProduct.code,
+    productType:
+      rawProductConfig?.productType ??
+      updatedProduct.productType ??
+      productData.productType ??
+      existing.productOption.product.productType,
+    allowDeliveryTypes:
+      rawProductConfig?.allowDeliveryTypes ??
+      updatedProduct.allowDeliveryTypes ??
+      productData.allowDeliveryTypes ??
+      existing.productOption.product.allowDeliveryTypes,
+    allowQuantity:
+      rawProductConfig?.allowQuantity ??
+      updatedProduct.allowQuantity ??
+      productData.allowQuantity ??
+      existing.productOption.product.allowQuantity,
+    allowInstallOptions:
+      rawProductConfig?.allowInstallOptions ??
+      updatedProduct.allowInstallOptions ??
+      productData.allowInstallOptions ??
+      existing.productOption.product.allowInstallOptions,
+    allowReturnOptions:
+      rawProductConfig?.allowReturnOptions ??
+      updatedProduct.allowReturnOptions ??
+      productData.allowReturnOptions ??
+      existing.productOption.product.allowReturnOptions,
+    allowExtraServices:
+      rawProductConfig?.allowExtraServices ??
+      updatedProduct.allowExtraServices ??
+      productData.allowExtraServices ??
+      existing.productOption.product.allowExtraServices,
+    allowDemont:
+      rawProductConfig?.allowDemont ??
+      updatedProduct.allowDemont ??
+      productData.allowDemont ??
+      existing.productOption.product.allowDemont,
+    allowPeopleCount:
+      rawProductConfig?.allowPeopleCount ??
+      updatedProduct.allowPeopleCount ??
+      productData.allowPeopleCount ??
+      existing.productOption.product.allowPeopleCount,
+    allowHoursInput:
+      rawProductConfig?.allowHoursInput ??
+      updatedProduct.allowHoursInput ??
+      productData.allowHoursInput ??
+      existing.productOption.product.allowHoursInput,
+    autoXtraPerPallet:
+      rawProductConfig?.autoXtraPerPallet ??
+      updatedProduct.autoXtraPerPallet ??
+      productData.autoXtraPerPallet ??
+      existing.productOption.product.autoXtraPerPallet,
+  };
+
   return NextResponse.json(
     {
       ok: true,
       item: {
         id: updated.id,
-        productId: updated.productOption.product.id,
+        productId: productSnapshot.id,
         productOptionId: updated.productOptionId,
-        productName: updated.productOption.product.name,
-        productCode: updated.productOption.product.code,
+        productName: productSnapshot.name,
+        productCode: productSnapshot.code,
+        productType: productSnapshot.productType,
+        allowDeliveryTypes: productSnapshot.allowDeliveryTypes,
         optionCode: updated.productOption.code,
         optionLabel: updated.productOption.label,
         description: updated.productOption.description,
@@ -305,6 +457,14 @@ export async function PATCH(
         discountEndsAt: toDateInputValue(updated.discountEndsAt),
         effectiveCustomerPrice: centsToNokString(effectiveCustomerPriceCents),
         isActive: updated.isActive,
+        allowQuantity: productSnapshot.allowQuantity,
+        allowInstallOptions: productSnapshot.allowInstallOptions,
+        allowReturnOptions: productSnapshot.allowReturnOptions,
+        allowExtraServices: productSnapshot.allowExtraServices,
+        allowDemont: productSnapshot.allowDemont,
+        allowPeopleCount: productSnapshot.allowPeopleCount,
+        allowHoursInput: productSnapshot.allowHoursInput,
+        autoXtraPerPallet: productSnapshot.autoXtraPerPallet,
       },
     },
     { status: 200 },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import type {
   CalculatorAdjustments,
@@ -23,10 +23,10 @@ type Props = {
   priceLookup: PriceLookup;
   adminView?: boolean;
   onPriceChange?: (exVat: number, subcontractorPrice: number) => void;
-  initialRabatt?: number;
-  initialLeggTil?: number;
-  initialSubcontractorMinus?: number;
-  initialSubcontractorPlus?: number;
+  rabatt?: string;
+  leggTil?: string;
+  subcontractorMinus?: string;
+  subcontractorPlus?: string;
   onAdjustmentsChange?: (adjustments: CalculatorAdjustments) => void;
   sidebarMode?: boolean;
 };
@@ -36,32 +36,13 @@ export function CalculatorDisplayNew({
   priceLookup,
   adminView = false,
   onPriceChange,
-  initialRabatt,
-  initialLeggTil,
-  initialSubcontractorMinus,
-  initialSubcontractorPlus,
+  rabatt = "",
+  leggTil = "",
+  subcontractorMinus = "",
+  subcontractorPlus = "",
   onAdjustmentsChange,
   sidebarMode = false,
 }: Props) {
-  const [rabatt, setRabatt] = useState(
-    initialRabatt != null && initialRabatt !== 0 ? String(initialRabatt) : "",
-  );
-  const [leggTil, setLeggTil] = useState(
-    initialLeggTil != null && initialLeggTil !== 0
-      ? String(initialLeggTil)
-      : "",
-  );
-  const [subcontractorMinus, setSubcontractorMinus] = useState(
-    initialSubcontractorMinus != null && initialSubcontractorMinus !== 0
-      ? String(initialSubcontractorMinus)
-      : "",
-  );
-  const [subcontractorPlus, setSubcontractorPlus] = useState(
-    initialSubcontractorPlus != null && initialSubcontractorPlus !== 0
-      ? String(initialSubcontractorPlus)
-      : "",
-  );
-
   const adjustments = useMemo(
     () => ({
       rabatt,
@@ -84,8 +65,7 @@ export function CalculatorDisplayNew({
 
   useEffect(() => {
     onPriceChange?.(result.totals.totalExVat, result.totals.subcontractorTotal);
-    onAdjustmentsChange?.(adjustments);
-  }, [result, adjustments, onPriceChange, onAdjustmentsChange]);
+  }, [result, onPriceChange]);
 
   return (
     <section
@@ -163,7 +143,12 @@ export function CalculatorDisplayNew({
               <input
                 type="text"
                 value={rabatt}
-                onChange={(e) => setRabatt(e.target.value)}
+                onChange={(e) =>
+                  onAdjustmentsChange?.({
+                    ...adjustments,
+                    rabatt: e.target.value,
+                  })
+                }
                 className="customInput w-full ml-2 h-8"
                 placeholder="e.g. 500"
               />
@@ -174,7 +159,12 @@ export function CalculatorDisplayNew({
               <input
                 type="text"
                 value={leggTil}
-                onChange={(e) => setLeggTil(e.target.value)}
+                onChange={(e) =>
+                  onAdjustmentsChange?.({
+                    ...adjustments,
+                    leggTil: e.target.value,
+                  })
+                }
                 className="customInput w-full ml-2 h-8"
                 placeholder="e.g. 300"
               />
@@ -185,7 +175,12 @@ export function CalculatorDisplayNew({
               <input
                 type="text"
                 value={subcontractorMinus}
-                onChange={(e) => setSubcontractorMinus(e.target.value)}
+                onChange={(e) =>
+                  onAdjustmentsChange?.({
+                    ...adjustments,
+                    subcontractorMinus: e.target.value,
+                  })
+                }
                 className="customInput w-full ml-2 h-8"
                 placeholder="e.g. 200"
               />
@@ -196,7 +191,12 @@ export function CalculatorDisplayNew({
               <input
                 type="text"
                 value={subcontractorPlus}
-                onChange={(e) => setSubcontractorPlus(e.target.value)}
+                onChange={(e) =>
+                  onAdjustmentsChange?.({
+                    ...adjustments,
+                    subcontractorPlus: e.target.value,
+                  })
+                }
                 className="customInput w-full ml-2 h-8"
                 placeholder="e.g. 200"
               />

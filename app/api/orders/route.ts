@@ -12,7 +12,10 @@ import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
-import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import {
+  normalizeSavedProductCard,
+  type SavedProductCard,
+} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { AppPermission } from "@/lib/users/types";
 
 function parsePositiveInt(value: string | null, fallback: number) {
@@ -124,7 +127,9 @@ export async function POST(req: Request) {
     );
   }
 
-  const productCards = body.productCards as SavedProductCard[];
+  const productCards = (body.productCards as SavedProductCard[]).map(
+    (card, index) => normalizeSavedProductCard(card, index),
+  );
 
   const isAdminOrOwner =
     membership.role === "OWNER" || membership.role === "ADMIN";

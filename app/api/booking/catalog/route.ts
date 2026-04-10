@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
+import { getProductConfigMap } from "@/lib/products/productConfig";
 import { prisma } from "@/lib/db";
 import { getEffectivePrice } from "@/lib/products/discounts";
 
@@ -30,8 +31,8 @@ export async function GET(req: Request) {
     );
   }
 
-    const { searchParams } = new URL(req.url);
-    const requestedPriceListId = searchParams.get("priceListId");
+  const { searchParams } = new URL(req.url);
+  const requestedPriceListId = searchParams.get("priceListId");
 
   const membership = await getActiveMembership({
     userId: session.userId,
@@ -45,16 +46,14 @@ export async function GET(req: Request) {
     );
   }
 
- const effectivePriceListId = requestedPriceListId || membership.priceListId;
+  const effectivePriceListId = requestedPriceListId || membership.priceListId;
 
- if (!effectivePriceListId) {
-   return NextResponse.json(
-     { ok: false, reason: "PRICE_LIST_NOT_ASSIGNED" },
-     { status: 409 },
-   );
- }
-
-
+  if (!effectivePriceListId) {
+    return NextResponse.json(
+      { ok: false, reason: "PRICE_LIST_NOT_ASSIGNED" },
+      { status: 409 },
+    );
+  }
 
   const priceList = await prisma.priceList.findUnique({
     where: { id: effectivePriceListId },
@@ -107,6 +106,10 @@ export async function GET(req: Request) {
     );
   }
 
+  const productConfigMap = await getProductConfigMap(
+    priceList.items.map((item) => item.productOption.product.id),
+  );
+
   const productMap = new Map<
     string,
     {
@@ -114,6 +117,18 @@ export async function GET(req: Request) {
       code: string;
       label: string;
       active: boolean;
+
+      productType: string;
+      allowDeliveryTypes: boolean;
+      allowInstallOptions: boolean;
+      allowReturnOptions: boolean;
+      allowExtraServices: boolean;
+      allowDemont: boolean;
+      allowQuantity: boolean;
+      allowPeopleCount: boolean;
+      allowHoursInput: boolean;
+      autoXtraPerPallet: boolean;
+
       options: Array<{
         id: string;
         code: string;
@@ -130,6 +145,7 @@ export async function GET(req: Request) {
 
   for (const item of priceList.items) {
     const product = item.productOption.product;
+    const productConfig = productConfigMap.get(product.id);
 
     if (!productMap.has(product.id)) {
       productMap.set(product.id, {
@@ -137,6 +153,25 @@ export async function GET(req: Request) {
         code: product.code,
         label: product.name,
         active: product.isActive,
+
+        productType: productConfig?.productType ?? product.productType,
+        allowDeliveryTypes:
+          productConfig?.allowDeliveryTypes ?? product.allowDeliveryTypes,
+        allowInstallOptions:
+          productConfig?.allowInstallOptions ?? product.allowInstallOptions,
+        allowReturnOptions:
+          productConfig?.allowReturnOptions ?? product.allowReturnOptions,
+        allowExtraServices:
+          productConfig?.allowExtraServices ?? product.allowExtraServices,
+        allowDemont: productConfig?.allowDemont ?? product.allowDemont,
+        allowQuantity: productConfig?.allowQuantity ?? product.allowQuantity,
+        allowPeopleCount:
+          productConfig?.allowPeopleCount ?? product.allowPeopleCount,
+        allowHoursInput:
+          productConfig?.allowHoursInput ?? product.allowHoursInput,
+        autoXtraPerPallet:
+          productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
+
         options: [],
       });
     }

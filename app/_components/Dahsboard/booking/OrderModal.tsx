@@ -8,6 +8,7 @@ import BookingEditor, {
 
 type OrderDetails = OrderFormPayload & {
   id: string;
+  displayId?: number;
 };
 
 
@@ -34,6 +35,10 @@ export default function OrderModal({
   const [mounted, setMounted] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const archiveOrderId =
+    typeof order?.displayId === "number" && order.displayId > 0
+      ? String(order.displayId)
+      : null;
   
 
   // Ensure we're on the client before portaling into document.body
@@ -159,7 +164,11 @@ export default function OrderModal({
           {/* Sticky header */}
           <div className="shrink-0 flex items-center justify-between rounded-t-2xl border-b bg-white px-6 py-4">
             <h2 className="text-2xl font-semibold text-logoblue">
-              {orderId ? `Edit order ${orderId}` : "Order"}
+              {archiveOrderId
+                ? `Editing order - ${archiveOrderId}`
+                : orderId
+                  ? "Editing order"
+                  : "Order"}
             </h2>
             <button
               type="button"

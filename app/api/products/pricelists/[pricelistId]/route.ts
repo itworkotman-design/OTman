@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getPriceListById } from "@/lib/products/priceLists";
+import { getProductConfigMap } from "@/lib/products/productConfig";
 import { prisma } from "@/lib/db";
 import {
   getEffectivePrice,
@@ -98,6 +99,10 @@ export async function GET(
     );
   }
 
+  const productConfigMap = await getProductConfigMap(
+    priceList.items.map((item) => item.productOption.product.id),
+  );
+
   return NextResponse.json(
     {
       ok: true,
@@ -109,6 +114,8 @@ export async function GET(
         isActive: priceList.isActive,
 
         items: priceList.items.map((item) => {
+          const product = item.productOption.product;
+          const productConfig = productConfigMap.get(product.id);
           const effectiveCustomerPriceCents = getEffectivePrice({
             basePrice: item.customerPriceCents,
             discountAmount: item.discountAmountCents,
@@ -117,10 +124,13 @@ export async function GET(
 
           return {
             id: item.id,
-            productId: item.productOption.product.id,
+            productId: product.id,
             productOptionId: item.productOptionId,
-            productName: item.productOption.product.name,
-            productCode: item.productOption.product.code,
+            productName: product.name,
+            productCode: product.code,
+            productType: productConfig?.productType ?? product.productType,
+            allowDeliveryTypes:
+              productConfig?.allowDeliveryTypes ?? product.allowDeliveryTypes,
             optionCode: item.productOption.code,
             optionLabel: item.productOption.label,
             description: item.productOption.description,
@@ -137,6 +147,20 @@ export async function GET(
               effectiveCustomerPriceCents,
             ),
             isActive: item.isActive,
+            allowQuantity: productConfig?.allowQuantity ?? product.allowQuantity,
+            allowInstallOptions:
+              productConfig?.allowInstallOptions ?? product.allowInstallOptions,
+            allowReturnOptions:
+              productConfig?.allowReturnOptions ?? product.allowReturnOptions,
+            allowExtraServices:
+              productConfig?.allowExtraServices ?? product.allowExtraServices,
+            allowDemont: productConfig?.allowDemont ?? product.allowDemont,
+            allowPeopleCount:
+              productConfig?.allowPeopleCount ?? product.allowPeopleCount,
+            allowHoursInput:
+              productConfig?.allowHoursInput ?? product.allowHoursInput,
+            autoXtraPerPallet:
+              productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
           };
         }),
 

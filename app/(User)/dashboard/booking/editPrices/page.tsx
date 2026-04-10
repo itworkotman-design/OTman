@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { OPTION_CATEGORIES, OPTION_CODES } from "@/lib/booking/constants";
-import { isReturnOption, isXtraOption } from "@/lib/booking/pricing/rules";
 
 type PriceListSummary = {
   id: string;
@@ -16,6 +15,16 @@ type PriceListItem = {
   productOptionId?: string;
   productName?: string;
   productCode?: string;
+  productType?: "PHYSICAL" | "PALLET" | "LABOR";
+  allowDeliveryTypes?: boolean;
+  allowQuantity?: boolean;
+  allowInstallOptions?: boolean;
+  allowReturnOptions?: boolean;
+  allowExtraServices?: boolean;
+  allowDemont?: boolean;
+  allowPeopleCount?: boolean;
+  allowHoursInput?: boolean;
+  autoXtraPerPallet?: boolean;
   optionCode: string;
   optionLabel?: string | null;
   description: string | null;
@@ -31,6 +40,17 @@ type PriceListItem = {
 };
 
 type EditableRow = PriceListItem & {
+  productType?: "PHYSICAL" | "PALLET" | "LABOR";
+  allowDeliveryTypes?: boolean;
+  allowQuantity?: boolean;
+  allowInstallOptions?: boolean;
+  allowReturnOptions?: boolean;
+  allowExtraServices?: boolean;
+  allowDemont?: boolean;
+  allowPeopleCount?: boolean;
+  allowHoursInput?: boolean;
+  autoXtraPerPallet?: boolean;
+
   saving?: boolean;
   saved?: boolean;
   error?: string | null;
@@ -45,6 +65,84 @@ type PriceListData = {
   items: PriceListItem[];
   specialOptions: PriceListItem[];
 };
+
+type ProductSettingsDraft = {
+  productType: "PHYSICAL" | "PALLET" | "LABOR";
+  allowDeliveryTypes: boolean;
+  allowQuantity: boolean;
+  allowInstallOptions: boolean;
+  allowReturnOptions: boolean;
+  allowExtraServices: boolean;
+  allowDemont: boolean;
+  allowPeopleCount: boolean;
+  allowHoursInput: boolean;
+};
+
+function buildProductSettingsDefaults(
+  productType: ProductSettingsDraft["productType"],
+): ProductSettingsDraft {
+  switch (productType) {
+    case "PALLET":
+      return {
+        productType: "PALLET",
+        allowDeliveryTypes: true,
+        allowQuantity: true,
+        allowInstallOptions: false,
+        allowReturnOptions: false,
+        allowExtraServices: false,
+        allowDemont: false,
+        allowPeopleCount: false,
+        allowHoursInput: false,
+      };
+    case "LABOR":
+      return {
+        productType: "LABOR",
+        allowDeliveryTypes: false,
+        allowQuantity: false,
+        allowInstallOptions: true,
+        allowReturnOptions: false,
+        allowExtraServices: false,
+        allowDemont: false,
+        allowPeopleCount: false,
+        allowHoursInput: true,
+      };
+    case "PHYSICAL":
+    default:
+      return {
+        productType: "PHYSICAL",
+        allowDeliveryTypes: true,
+        allowQuantity: true,
+        allowInstallOptions: true,
+        allowReturnOptions: true,
+        allowExtraServices: true,
+        allowDemont: true,
+        allowPeopleCount: false,
+        allowHoursInput: false,
+      };
+  }
+}
+
+const PRODUCT_SETTING_FIELDS: Array<{
+  key: keyof Pick<
+    ProductSettingsDraft,
+    | "allowDeliveryTypes"
+    | "allowQuantity"
+    | "allowInstallOptions"
+    | "allowReturnOptions"
+    | "allowExtraServices"
+    | "allowDemont"
+    | "allowHoursInput"
+  >;
+  label: string;
+}> = [
+  { key: "allowDeliveryTypes", label: "Delivery type selection" },
+  { key: "allowQuantity", label: "Quantity" },
+  { key: "allowInstallOptions", label: "Install options" },
+  { key: "allowReturnOptions", label: "Return options" },
+  { key: "allowExtraServices", label: "Utpakking / Demontering" },
+  { key: "allowDemont", label: "Demont" },
+  { key: "allowHoursInput", label: "Hours input" },
+];
 
 function isReturnRow(
   item: Pick<
@@ -104,6 +202,13 @@ export default function EditPricesPage() {
   const [originalRows, setOriginalRows] = useState<
     Record<string, PriceListItem>
   >({});
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [productSettingsDraft, setProductSettingsDraft] =
+    useState<ProductSettingsDraft | null>(null);
+  const [savingProductSettings, setSavingProductSettings] = useState(false);
+  const [productSettingsError, setProductSettingsError] = useState<
+    string | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -255,6 +360,123 @@ export default function EditPricesPage() {
     );
   }
 
+  function openProductSettings(productId: string) {
+    const row = rows.find((item) => item.productId === productId);
+    if (!row) return;
+
+    setEditingProductId(productId);
+    setProductSettingsDraft({
+      ...buildProductSettingsDefaults(row.productType ?? "PHYSICAL"),
+      productType: row.productType ?? "PHYSICAL",
+      allowDeliveryTypes: row.allowDeliveryTypes ?? true,
+      allowQuantity: row.allowQuantity ?? true,
+      allowInstallOptions: row.allowInstallOptions ?? true,
+      allowReturnOptions: row.allowReturnOptions ?? true,
+      allowExtraServices: row.allowExtraServices ?? true,
+      allowDemont: row.allowDemont ?? true,
+      allowPeopleCount: false,
+      allowHoursInput: row.allowHoursInput ?? false,
+    });
+    setProductSettingsError(null);
+  }
+
+  function closeProductSettings() {
+    setEditingProductId(null);
+    setProductSettingsDraft(null);
+    setProductSettingsError(null);
+  }
+
+  async function saveProductSettings() {
+    if (!editingProductId || !productSettingsDraft) return;
+
+    const row = rows.find((item) => item.productId === editingProductId);
+    if (!row) {
+      setProductSettingsError("Could not find a row for this product");
+      return;
+    }
+
+    try {
+      setSavingProductSettings(true);
+      setProductSettingsError(null);
+
+      const res = await fetch(
+        `/api/products/pricelists/items/${row.id}/full`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...productSettingsDraft,
+            allowPeopleCount: false,
+          }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        setProductSettingsError(
+          data.reason ?? "Failed to update product settings",
+        );
+        return;
+      }
+
+      const sharedPatch: Partial<EditableRow> = {
+        productType: data.item.productType ?? productSettingsDraft.productType,
+        allowDeliveryTypes:
+          data.item.allowDeliveryTypes ?? productSettingsDraft.allowDeliveryTypes,
+        allowQuantity:
+          data.item.allowQuantity ?? productSettingsDraft.allowQuantity,
+        allowInstallOptions:
+          data.item.allowInstallOptions ??
+          productSettingsDraft.allowInstallOptions,
+        allowReturnOptions:
+          data.item.allowReturnOptions ??
+          productSettingsDraft.allowReturnOptions,
+        allowExtraServices:
+          data.item.allowExtraServices ??
+          productSettingsDraft.allowExtraServices,
+        allowDemont: data.item.allowDemont ?? productSettingsDraft.allowDemont,
+        allowPeopleCount: false,
+        allowHoursInput:
+          data.item.allowHoursInput ?? productSettingsDraft.allowHoursInput,
+      };
+
+      setRows((current) =>
+        current.map((item) =>
+          item.productId === editingProductId
+            ? {
+                ...item,
+                ...sharedPatch,
+              }
+            : item,
+        ),
+      );
+
+      setOriginalRows((current) => {
+        const next = { ...current };
+
+        for (const [id, item] of Object.entries(next)) {
+          if (item.productId === editingProductId) {
+            next[id] = {
+              ...item,
+              ...sharedPatch,
+            };
+          }
+        }
+
+        return next;
+      });
+
+      closeProductSettings();
+    } catch {
+      setProductSettingsError("Something went wrong while updating settings");
+    } finally {
+      setSavingProductSettings(false);
+    }
+  }
+
   function isDirty(row: EditableRow) {
     const original = originalRows[row.id];
     if (!original) return false;
@@ -264,6 +486,28 @@ export default function EditPricesPage() {
 
     return (
       (!isSpecialRow && row.productName !== original.productName) ||
+      (!isSpecialRow &&
+        (row.productType ?? "PHYSICAL") !==
+          (original.productType ?? "PHYSICAL")) ||
+      (!isSpecialRow &&
+        (row.allowQuantity ?? false) !== (original.allowQuantity ?? false)) ||
+      (!isSpecialRow &&
+        (row.allowInstallOptions ?? false) !==
+          (original.allowInstallOptions ?? false)) ||
+      (!isSpecialRow &&
+        (row.allowReturnOptions ?? false) !==
+          (original.allowReturnOptions ?? false)) ||
+      (!isSpecialRow &&
+        (row.allowExtraServices ?? false) !==
+          (original.allowExtraServices ?? false)) ||
+      (!isSpecialRow &&
+        (row.allowDemont ?? false) !== (original.allowDemont ?? false)) ||
+      (!isSpecialRow &&
+        (row.allowPeopleCount ?? false) !==
+          (original.allowPeopleCount ?? false)) ||
+      (!isSpecialRow &&
+        (row.allowHoursInput ?? false) !==
+          (original.allowHoursInput ?? false)) ||
       row.customerPrice !== original.customerPrice ||
       row.subcontractorPrice !== original.subcontractorPrice ||
       row.isActive !== original.isActive ||
@@ -426,6 +670,14 @@ export default function EditPricesPage() {
             ? "extra_service"
             : row.category,
       ...(isSpecialRow ? {} : { productName: row.productName }),
+      productType: row.productType,
+      allowQuantity: row.allowQuantity,
+      allowInstallOptions: row.allowInstallOptions,
+      allowReturnOptions: row.allowReturnOptions,
+      allowExtraServices: row.allowExtraServices,
+      allowDemont: row.allowDemont,
+      allowPeopleCount: row.allowPeopleCount,
+      allowHoursInput: row.allowHoursInput,
     };
 
     try {
@@ -704,6 +956,15 @@ export default function EditPricesPage() {
     );
   }, [normalRows]);
 
+  const editingProductGroup = useMemo(
+    () =>
+      editingProductId
+        ? groupedProducts.find((group) => group.productId === editingProductId) ??
+          null
+        : null,
+    [editingProductId, groupedProducts],
+  );
+
   const hasAutomaticXtra = xtraRows.length > 0;
 
   if (loading) {
@@ -809,11 +1070,15 @@ export default function EditPricesPage() {
 
         <div className="lg:pl-[50] lg:pr-[200] space-y-12">
           <section>
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col items-start gap-3">
               <h2 className="text-xl font-bold text-logoblue">
                 Product Options
               </h2>
-              <button onClick={addProduct} className="customButtonEnabled">
+              <button
+                type="button"
+                onClick={addProduct}
+                className="customButtonEnabled"
+              >
                 Add Product
               </button>
             </div>
@@ -849,7 +1114,7 @@ export default function EditPricesPage() {
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Active
                     </th>
-                    <th className="w-40 px-4 py-4 border bg-white text-logoBlue font-semibold text-center">
+                    <th className="w-40 px-4 py-4 border-l border-black/10 bg-white text-logoBlue font-semibold text-center">
                       Update
                     </th>
                   </tr>
@@ -866,7 +1131,7 @@ export default function EditPricesPage() {
                       return (
                         <tr
                           key={item.id}
-                          className="group relative align-middle border-b-2 border-logoblue/50"
+                          className="group relative align-middle [&>td:not(:last-child)]:border-b-2 [&>td:not(:last-child)]:border-logoblue/50"
                         >
                           {index === 0 && (
                             <td
@@ -883,6 +1148,16 @@ export default function EditPricesPage() {
                                     })
                                   }
                                 />
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openProductSettings(group.productId)
+                                  }
+                                  className="customButtonDefault text-xs"
+                                >
+                                  Edit settings
+                                </button>
 
                                 <button
                                   type="button"
@@ -1009,7 +1284,7 @@ export default function EditPricesPage() {
                             </select>
                           </td>
 
-                          <td className="align-middle">
+                          <td className="align-middle border-l border-logoblue/20">
                             <div className="flex justify-between items-center w-full">
                               <div className="flex items-center gap-2 relative">
                                 {isDirty(item) && (
@@ -1057,7 +1332,7 @@ export default function EditPricesPage() {
           </section>
 
           <section className="mt-10">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col items-start gap-3">
               <h2 className="text-xl font-bold text-logoblue">
                 Return Options
               </h2>
@@ -1098,7 +1373,7 @@ export default function EditPricesPage() {
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Active
                     </th>
-                    <th className="w-40 px-4 py-4 border bg-white text-logoBlue font-semibold text-center">
+                    <th className="w-40 px-4 py-4 border-l border-black/10 bg-white text-logoBlue font-semibold text-center">
                       Update
                     </th>
                   </tr>
@@ -1124,7 +1399,7 @@ export default function EditPricesPage() {
                       return (
                         <tr
                           key={item.id}
-                          className="group relative align-middle border-b border-logoblue/20"
+                          className="group relative align-middle [&>td:not(:last-child)]:border-b [&>td:not(:last-child)]:border-logoblue/20"
                         >
                           <td>
                             <input
@@ -1239,7 +1514,7 @@ export default function EditPricesPage() {
                             </select>
                           </td>
 
-                          <td className="align-middle">
+                          <td className="align-middle border-l border-logoblue/20">
                             <div className="flex justify-between items-center w-full">
                               <div className="flex items-center gap-2 relative">
                                 {isDirty(item) && (
@@ -1287,9 +1562,9 @@ export default function EditPricesPage() {
           </section>
 
           <section className="mt-10">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col items-start gap-3">
               <h2 className="text-xl font-bold text-logoblue">
-                Extra Services
+                Utpakking / Demontering
               </h2>
               <button
                 type="button"
@@ -1328,7 +1603,7 @@ export default function EditPricesPage() {
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Active
                     </th>
-                    <th className="w-40 px-4 py-4 border bg-white text-logoBlue font-semibold text-center">
+                    <th className="w-40 px-4 py-4 border-l border-black/10 bg-white text-logoBlue font-semibold text-center">
                       Update
                     </th>
                   </tr>
@@ -1341,7 +1616,7 @@ export default function EditPricesPage() {
                         colSpan={11}
                         className="px-4 py-6 text-center text-black/50"
                       >
-                        No extra services found.
+                        No utpakking / demontering options found.
                       </td>
                     </tr>
                   ) : (
@@ -1354,7 +1629,7 @@ export default function EditPricesPage() {
                       return (
                         <tr
                           key={item.id}
-                          className="group relative align-middle border-b border-logoblue/20"
+                          className="group relative align-middle [&>td:not(:last-child)]:border-b [&>td:not(:last-child)]:border-logoblue/20"
                         >
                           <td>
                             <input
@@ -1469,7 +1744,7 @@ export default function EditPricesPage() {
                             </select>
                           </td>
 
-                          <td className="align-middle">
+                          <td className="align-middle border-l border-logoblue/20">
                             <div className="flex justify-between items-center w-full">
                               <div className="flex items-center gap-2 relative">
                                 {isDirty(item) && (
@@ -1517,7 +1792,7 @@ export default function EditPricesPage() {
           </section>
 
           <section className="mt-10">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col items-start gap-3">
               <h2 className="text-xl font-bold text-logoblue">
                 Automatic XTRA
               </h2>
@@ -1560,7 +1835,7 @@ export default function EditPricesPage() {
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Active
                     </th>
-                    <th className="w-40 px-4 py-4 border bg-white text-logoBlue font-semibold text-center">
+                    <th className="w-40 px-4 py-4 border-l border-black/10 bg-white text-logoBlue font-semibold text-center">
                       Update
                     </th>
                   </tr>
@@ -1586,7 +1861,7 @@ export default function EditPricesPage() {
                       return (
                         <tr
                           key={item.id}
-                          className="group relative align-middle border-b border-logoblue/20"
+                          className="group relative align-middle [&>td:not(:last-child)]:border-b [&>td:not(:last-child)]:border-logoblue/20"
                         >
                           <td>
                             <input
@@ -1701,7 +1976,7 @@ export default function EditPricesPage() {
                             </select>
                           </td>
 
-                          <td className="align-middle">
+                          <td className="align-middle border-l border-logoblue/20">
                             <div className="flex justify-between items-center w-full">
                               <div className="flex items-center gap-2 relative">
                                 {isDirty(item) && (
@@ -1741,6 +2016,90 @@ export default function EditPricesPage() {
           </section>
         </div>
       </div>
+
+      {editingProductGroup && productSettingsDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4">
+              <h2 className="text-lg font-bold text-logoblue">
+                Edit - {editingProductGroup.productName || "Unnamed product"}
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-black/80">
+                  Product type
+                </span>
+                <select
+                  value={productSettingsDraft.productType}
+                  onChange={(e) =>
+                    setProductSettingsDraft(
+                      buildProductSettingsDefaults(
+                        e.target.value as "PHYSICAL" | "PALLET" | "LABOR",
+                      ),
+                    )
+                  }
+                  className="customInput w-full"
+                >
+                  <option value="PHYSICAL">Physical</option>
+                  <option value="PALLET">Pallet</option>
+                  <option value="LABOR">Labor</option>
+                </select>
+              </label>
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {PRODUCT_SETTING_FIELDS.map(({ key, label }) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-2 customContainer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={productSettingsDraft[key]}
+                      onChange={(e) =>
+                        setProductSettingsDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                [key]: e.target.checked,
+                              }
+                            : current,
+                        )
+                      }
+                      className="background h-4 w-4"
+                    />
+                    <span className="text-sm">{label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {productSettingsError && (
+                <p className="text-sm text-red-600">{productSettingsError}</p>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeProductSettings}
+                disabled={savingProductSettings}
+                className="customButtonDefault"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveProductSettings}
+                disabled={savingProductSettings}
+                className="customButtonEnabled"
+              >
+                {savingProductSettings ? "Updating..." : "Update"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
