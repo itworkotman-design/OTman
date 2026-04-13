@@ -83,11 +83,13 @@ export default {
       messageId: getHeaderValue(message, "message-id"),
     };
 
-    const response = await fetch(env.EMAIL_FORWARD_URL, {
+    const forwardUrl = new URL(env.EMAIL_FORWARD_URL);
+    forwardUrl.searchParams.set("secret", env.EMAIL_INBOUND_SECRET);
+
+    const response = await fetch(forwardUrl, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-otman-email-secret": env.EMAIL_INBOUND_SECRET,
       },
       body: JSON.stringify(payload),
     });

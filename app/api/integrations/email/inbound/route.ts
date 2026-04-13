@@ -23,7 +23,7 @@ function getTextValue(value: unknown) {
 }
 
 export async function POST(req: Request) {
-  const secret = req.headers.get("x-otman-email-secret");
+  const secret = new URL(req.url).searchParams.get("secret");
   const expected = process.env.EMAIL_INBOUND_SECRET;
 
   if (!expected || secret !== expected) {

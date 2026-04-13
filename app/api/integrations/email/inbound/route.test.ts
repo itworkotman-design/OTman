@@ -40,19 +40,21 @@ describe("POST /api/integrations/email/inbound", () => {
 
   it("returns 401 when the inbound secret does not match", async () => {
     const response = await POST(
-      new Request("http://localhost/api/integrations/email/inbound", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-otman-email-secret": "wrong-secret",
+      new Request(
+        "http://localhost/api/integrations/email/inbound?secret=wrong-secret",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Customer <customer@example.com>",
+            to: "reply+thread123@otman.no",
+            subject: "Hello",
+            text: "Test",
+          }),
         },
-        body: JSON.stringify({
-          from: "Customer <customer@example.com>",
-          to: "reply+thread123@otman.no",
-          subject: "Hello",
-          text: "Test",
-        }),
-      }),
+      ),
     );
 
     expect(response.status).toBe(401);
@@ -64,19 +66,21 @@ describe("POST /api/integrations/email/inbound", () => {
 
   it("returns 400 when no thread token can be extracted", async () => {
     const response = await POST(
-      new Request("http://localhost/api/integrations/email/inbound", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-otman-email-secret": "secret-123",
+      new Request(
+        "http://localhost/api/integrations/email/inbound?secret=secret-123",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Customer <customer@example.com>",
+            to: "reply@otman.no",
+            subject: "Hello",
+            text: "Test",
+          }),
         },
-        body: JSON.stringify({
-          from: "Customer <customer@example.com>",
-          to: "reply@otman.no",
-          subject: "Hello",
-          text: "Test",
-        }),
-      }),
+      ),
     );
 
     expect(response.status).toBe(400);
@@ -99,22 +103,24 @@ describe("POST /api/integrations/email/inbound", () => {
     });
 
     const response = await POST(
-      new Request("http://localhost/api/integrations/email/inbound", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-otman-email-secret": "secret-123",
+      new Request(
+        "http://localhost/api/integrations/email/inbound?secret=secret-123",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Customer Name <customer@example.com>",
+            to: "reply+thread123@otman.no",
+            recipients: ["reply+thread123@otman.no"],
+            subject: "Re: Order 20001 [OTMAN:thread123]",
+            text: "Inbound email body",
+            html: "<p>Inbound email body</p>",
+            messageId: "<message-id-1>",
+          }),
         },
-        body: JSON.stringify({
-          from: "Customer Name <customer@example.com>",
-          to: "reply+thread123@otman.no",
-          recipients: ["reply+thread123@otman.no"],
-          subject: "Re: Order 20001 [OTMAN:thread123]",
-          text: "Inbound email body",
-          html: "<p>Inbound email body</p>",
-          messageId: "<message-id-1>",
-        }),
-      }),
+      ),
     );
 
     expect(response.status).toBe(200);
