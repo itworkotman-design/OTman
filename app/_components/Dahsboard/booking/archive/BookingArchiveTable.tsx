@@ -544,7 +544,7 @@ export default function BookingArchiveTable({
                         type="button"
                         className={`relative inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition ${
                           order.needsEmailAttention
-                            ? "border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-200"
+                            ? "border-logoblue/20 bg-logoblue/10 text-logoblue hover:bg-logoblue/15"
                             : "border-black/10 bg-white text-logoblue hover:bg-black/3"
                         }`}
                         onClick={(event) => {

@@ -4,6 +4,8 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { sendEmail } from "@/lib/email/sendEmail";
 import {
   buildOrderConversationEmailHtml,
+  buildOrderConversationEmailText,
+  buildReplySubject,
   buildReplyToAddress,
   buildThreadedSubject,
   createOrderEmailThreadToken,
@@ -18,6 +20,8 @@ type OrderEmailRouteParams = {
 type SendOrderEmailBody = {
   to?: unknown;
   recipientName?: unknown;
+  additionalTo?: unknown;
+  additionalRecipientName?: unknown;
   subject?: unknown;
   message?: unknown;
 };
@@ -86,6 +90,37 @@ async function getAdminMembership(req: Request) {
 
 function getTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeEmailAddress(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function formatReplyTimestamp(value: Date) {
+  return value.toLocaleString("no-NO", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function stripHtmlToPlainText(value: string) {
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+}
+
+function formatEmailPerson(name: string | null, email: string) {
+  if (name && name.trim()) {
+    return `${name.trim()} <${email}>`;
+  }
+
+  return email;
 }
 
 export async function GET(req: Request, { params }: OrderEmailRouteParams) {
@@ -201,17 +236,12 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   const { orderId } = await params;
   const body = (await req.json().catch(() => null)) as SendOrderEmailBody | null;
 
-  const to = getTrimmedString(body?.to);
-  const recipientName = getTrimmedString(body?.recipientName);
+  const typedTo = getTrimmedString(body?.to);
+  const typedRecipientName = getTrimmedString(body?.recipientName);
+  const additionalTo = getTrimmedString(body?.additionalTo);
+  const additionalRecipientName = getTrimmedString(body?.additionalRecipientName);
   const subject = getTrimmedString(body?.subject);
   const message = getTrimmedString(body?.message);
-
-  if (!to) {
-    return NextResponse.json(
-      { ok: false, reason: "MISSING_RECIPIENT" },
-      { status: 400 },
-    );
-  }
 
   if (!subject) {
     return NextResponse.json(
@@ -239,6 +269,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       orderNumber: true,
       customerName: true,
       customerLabel: true,
+      email: true,
       emailThreadToken: true,
     },
   });
@@ -249,6 +280,67 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       { status: 404 },
     );
   }
+
+  const primaryRecipientEmail = order.email?.trim() || typedTo;
+  const primaryRecipientName =
+    order.customerName?.trim() || order.customerLabel?.trim() || typedRecipientName;
+
+  if (!primaryRecipientEmail) {
+    return NextResponse.json(
+      { ok: false, reason: "MISSING_RECIPIENT" },
+      { status: 400 },
+    );
+  }
+
+  const recipients = [
+    {
+      email: primaryRecipientEmail,
+      name: primaryRecipientName || primaryRecipientEmail,
+    },
+    ...(additionalTo
+      ? [
+          {
+            email: additionalTo,
+            name: additionalRecipientName || additionalTo,
+          },
+        ]
+      : []),
+  ];
+  const backupEmail =
+    getTrimmedString(process.env.ORDER_CONVERSATION_BACKUP_EMAIL) ||
+    "itworkotman@gmail.com";
+  const normalizedRecipientEmails = new Set(
+    recipients.map((recipient) => normalizeEmailAddress(recipient.email)),
+  );
+  const backupRecipient = backupEmail
+    ? {
+        email: backupEmail,
+        name: "OTman Backup",
+      }
+    : null;
+  const storedToEmail = recipients.map((recipient) => recipient.email).join(", ");
+  const storedToName = recipients
+    .map((recipient) => recipient.name || recipient.email)
+    .join(", ");
+
+  const existingMessages = await prisma.orderEmailMessage.findMany({
+    where: {
+      orderId: order.id,
+      companyId,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      externalMessageId: true,
+      subject: true,
+      bodyText: true,
+      bodyHtml: true,
+      fromEmail: true,
+      fromName: true,
+      createdAt: true,
+    },
+  });
 
   const threadToken = order.emailThreadToken || createOrderEmailThreadToken();
   const senderEmail = process.env.BREVO_SENDER_EMAIL || "bestilling@otman.no";
@@ -269,20 +361,71 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
     order.orderNumber && order.orderNumber.trim().length > 0
       ? `Order ${order.displayId} | ${order.orderNumber}`
       : `Order ${order.displayId}`;
-  const finalSubject = buildThreadedSubject(subject, threadToken);
+  const hasExistingConversation = existingMessages.length > 0;
+  const baseSubject = hasExistingConversation
+    ? buildReplySubject(subject)
+    : subject;
+  const finalSubject = buildThreadedSubject(baseSubject, threadToken);
   const replyToEmail = buildReplyToAddress(threadToken);
+  const replyAnchor = [...existingMessages]
+    .reverse()
+    .find(
+      (item) =>
+        typeof item.externalMessageId === "string" &&
+        item.externalMessageId.trim().length > 0,
+    );
+  const references = existingMessages
+    .map((item) =>
+      typeof item.externalMessageId === "string"
+        ? item.externalMessageId.trim()
+        : "",
+    )
+    .filter((item) => item.length > 0)
+    .slice(-10);
+  const replyContext = replyAnchor
+    ? {
+        bodyText: replyAnchor.bodyText?.trim()
+          ? replyAnchor.bodyText.trim()
+          : stripHtmlToPlainText(replyAnchor.bodyHtml ?? ""),
+        personLabel: formatEmailPerson(
+          replyAnchor.fromName ?? null,
+          replyAnchor.fromEmail,
+        ),
+        sentAtLabel: formatReplyTimestamp(replyAnchor.createdAt),
+      }
+    : null;
+  const emailHtml = buildOrderConversationEmailHtml({
+    messageText: message,
+    orderLabel,
+    replyContext,
+  });
+  const emailText = buildOrderConversationEmailText({
+    messageText: message,
+    orderLabel,
+    replyContext,
+  });
+  const emailHeaders: Record<string, string> = {};
+
+  if (replyAnchor?.externalMessageId) {
+    emailHeaders["In-Reply-To"] = replyAnchor.externalMessageId;
+  }
+
+  if (references.length > 0) {
+    emailHeaders.References = references.join(" ");
+  }
 
   try {
     const sendResult = await sendEmail({
-      to: {
-        email: to,
-        name: recipientName || order.customerName || order.customerLabel || to,
-      },
+      to: recipients,
+      bcc:
+        backupRecipient &&
+        !normalizedRecipientEmails.has(normalizeEmailAddress(backupRecipient.email))
+          ? backupRecipient
+          : null,
       subject: finalSubject,
-      html: buildOrderConversationEmailHtml({
-        messageText: message,
-        orderLabel,
-      }),
+      html: emailHtml,
+      text: emailText,
+      headers: Object.keys(emailHeaders).length > 0 ? emailHeaders : undefined,
       replyTo: replyToEmail
         ? {
             email: replyToEmail,
@@ -303,14 +446,11 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         externalMessageId: sendResult.messageId,
         subject: finalSubject,
         bodyText: message,
-        bodyHtml: buildOrderConversationEmailHtml({
-          messageText: message,
-          orderLabel,
-        }),
+        bodyHtml: emailHtml,
         fromEmail: senderEmail,
         fromName: senderName,
-        toEmail: to,
-        toName: recipientName || order.customerName || order.customerLabel || null,
+        toEmail: storedToEmail,
+        toName: storedToName || null,
         sentAt,
       },
     });
@@ -348,14 +488,11 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         sentByMembershipId: auth.membership.id,
         subject: finalSubject,
         bodyText: message,
-        bodyHtml: buildOrderConversationEmailHtml({
-          messageText: message,
-          orderLabel,
-        }),
+        bodyHtml: emailHtml,
         fromEmail: senderEmail,
         fromName: senderName,
-        toEmail: to,
-        toName: recipientName || order.customerName || order.customerLabel || null,
+        toEmail: storedToEmail,
+        toName: storedToName || null,
         sentAt: failedAt,
       },
     });
@@ -365,4 +502,54 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       { status: 502 },
     );
   }
+}
+
+export async function PATCH(req: Request, { params }: OrderEmailRouteParams) {
+  const auth = await getAdminMembership(req);
+
+  if (auth.response || !auth.session) {
+    return auth.response;
+  }
+
+  const companyId = auth.companyId;
+
+  if (!companyId) {
+    return NextResponse.json(
+      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+      { status: 409 },
+    );
+  }
+
+  const { orderId } = await params;
+
+  const order = await prisma.order.findFirst({
+    where: {
+      id: orderId,
+      companyId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!order) {
+    return NextResponse.json(
+      { ok: false, reason: "NOT_FOUND" },
+      { status: 404 },
+    );
+  }
+
+  await prisma.order.update({
+    where: {
+      id: order.id,
+    },
+    data: {
+      needsEmailAttention: false,
+      unreadInboundEmailCount: 0,
+    },
+  });
+
+  return NextResponse.json({
+    ok: true,
+  });
 }

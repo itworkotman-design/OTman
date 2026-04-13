@@ -5,6 +5,12 @@ export type EmailAddress = {
   name?: string | null;
 };
 
+type OrderConversationReplyContext = {
+  bodyText: string;
+  personLabel: string;
+  sentAtLabel: string;
+};
+
 const THREAD_TOKEN_REGEX = /\[OTMAN:([a-z0-9]+)\]/i;
 
 function escapeHtml(value: string) {
@@ -63,6 +69,20 @@ export function buildThreadedSubject(subject: string, threadToken: string): stri
   }
 
   return `${trimmed} ${suffix}`;
+}
+
+export function buildReplySubject(subject: string): string {
+  const trimmed = subject.trim();
+
+  if (!trimmed) {
+    return "Re:";
+  }
+
+  if (/^re:/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `Re: ${trimmed}`;
 }
 
 export function extractThreadTokenFromSubject(subject: string | null | undefined) {
@@ -187,25 +207,72 @@ export function convertPlainTextToHtml(text: string): string {
     .join("");
 }
 
+function buildQuotedReplyText({
+  bodyText,
+  personLabel,
+  sentAtLabel,
+}: OrderConversationReplyContext): string {
+  const quotedLines = bodyText
+    .split(/\r?\n/)
+    .map((line) => `> ${line}`)
+    .join("\n");
+
+  return [
+    "",
+    "",
+    `On ${sentAtLabel}, ${personLabel} wrote:`,
+    quotedLines,
+  ].join("\n");
+}
+
+export function buildOrderConversationEmailText(input: {
+  messageText: string;
+  orderLabel: string;
+  replyContext?: OrderConversationReplyContext | null;
+}): string {
+  const parts = [input.orderLabel.trim(), "", input.messageText.trim()];
+
+  if (input.replyContext) {
+    parts.push(buildQuotedReplyText(input.replyContext));
+  }
+
+  parts.push(
+    "",
+    "Med vennlig hilsen,",
+    "Otman Transport AS",
+    "+47 402 84 977 | bestilling@otman.no",
+  );
+
+  return parts.join("\n").trim();
+}
+
 export function buildOrderConversationEmailHtml(input: {
   messageText: string;
   orderLabel: string;
+  replyContext?: OrderConversationReplyContext | null;
 }): string {
   const body = convertPlainTextToHtml(input.messageText.trim());
+  const quotedReply = input.replyContext
+    ? `
+      <div style="margin-top:24px;padding-left:12px;border-left:2px solid #d1d5db;">
+        <p style="margin:0 0 12px 0;color:#6b7280;font-size:12px;">
+          On ${escapeHtml(input.replyContext.sentAtLabel)}, ${escapeHtml(input.replyContext.personLabel)} wrote:
+        </p>
+        ${convertPlainTextToHtml(input.replyContext.bodyText)}
+      </div>
+    `
+    : "";
 
   return `
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;max-width:760px;margin:0 auto;">
-      <p style="margin:0 0 16px 0;font-weight:700;color:#273097;">
-        ${escapeHtml(input.orderLabel)}
-      </p>
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
+      <p style="margin:0 0 16px 0;">${escapeHtml(input.orderLabel)}</p>
       ${body}
-      <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;">
-        <p style="margin:0;">
-          Med vennlig hilsen,<br/>
-          Otman Transport AS<br/>
-          +47 402 84 977 | bestilling@otman.no
-        </p>
-      </div>
+      ${quotedReply}
+      <p style="margin:24px 0 0 0;">
+        Med vennlig hilsen,<br/>
+        Otman Transport AS<br/>
+        +47 402 84 977 | bestilling@otman.no
+      </p>
     </div>
   `;
 }

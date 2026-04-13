@@ -212,7 +212,10 @@ function getEventTitle(item: HistoryItem) {
 
 function getConversationBody(message: ConversationMessage) {
   if (message.bodyText.trim()) {
-    return message.bodyText.trim();
+    return message.bodyText
+      .replace(/^\s*>\s?/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
   }
 
   return message.bodyHtml
@@ -220,6 +223,10 @@ function getConversationBody(message: ConversationMessage) {
     .replace(/<\/p>/gi, "\n\n")
     .replace(/<[^>]+>/g, "")
     .trim();
+}
+
+function getConversationSubject(subject: string) {
+  return subject.replace(/\s*\[OTMAN:[a-z0-9]+\]/i, "").trim() || "Email";
 }
 
 function formatEmailPerson(name: string, email: string) {
@@ -402,8 +409,12 @@ function StatusChange({ payload }: { payload: StatusChangedPayload }) {
 
 function ConversationMessageCard({
   message,
+  expanded,
+  onToggle,
 }: {
   message: ConversationMessage;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   const isInbound = message.direction === "INBOUND";
   const statusLabel = getMessageStatusLabel(message);
@@ -411,45 +422,63 @@ function ConversationMessageCard({
 
   return (
     <div
-      className={`rounded-2xl border p-4 ${
+      className={`flex ${
         isInbound
-          ? "border-amber-200 bg-amber-50"
-          : message.status === "FAILED"
-            ? "border-red-200 bg-red-50"
-            : "border-blue-200 bg-blue-50"
+          ? "justify-start pr-8 sm:pr-16 lg:pr-28"
+          : "justify-end pl-8 sm:pl-16 lg:pl-28"
       }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-base font-semibold text-logoblue">
-            {message.subject || "Email"}
-          </div>
-          <div className="mt-1 text-sm text-textColorThird">
-            {isInbound
-              ? `From ${formatEmailPerson(message.fromName, message.fromEmail)}`
-              : `To ${formatEmailPerson(message.toName, message.toEmail)}`}
-          </div>
-          {!isInbound && message.sentByName ? (
-            <div className="mt-1 text-sm text-textColorThird">
-              Sent by {formatEmailPerson(message.sentByName, message.sentByEmail)}
+      <div
+        className={`w-full max-w-[820px] rounded-2xl border p-4 ${
+          isInbound
+            ? "border-amber-200 bg-amber-50"
+            : message.status === "FAILED"
+              ? "border-red-200 bg-red-50"
+              : "border-blue-200 bg-blue-50"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
+          aria-expanded={expanded}
+        >
+          <div>
+            <div className="text-base font-semibold text-logoblue">
+              {getConversationSubject(message.subject)}
             </div>
-          ) : null}
-        </div>
-
-        <div className="text-right text-sm text-textColorThird">
-          <div>{statusLabel}</div>
-          <div className="mt-1">
-            {formatTimestamp(
-              message.receivedAt || message.sentAt || message.createdAt,
-            )}
+            <div className="mt-1 text-sm text-textColorThird">
+              {isInbound
+                ? `From ${formatEmailPerson(message.fromName, message.fromEmail)}`
+                : `To ${formatEmailPerson(message.toName, message.toEmail)}`}
+            </div>
+            {!isInbound && message.sentByName ? (
+              <div className="mt-1 text-sm text-textColorThird">
+                Sent by {formatEmailPerson(message.sentByName, message.sentByEmail)}
+              </div>
+            ) : null}
           </div>
-        </div>
-      </div>
 
-      <div className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-3">
-        <div className="whitespace-pre-wrap break-words text-sm leading-6 text-logoblue">
-          {body || "No message content stored."}
-        </div>
+          <div className="text-right text-sm text-textColorThird">
+            <div>{statusLabel}</div>
+            <div className="mt-1">
+              {formatTimestamp(
+                message.receivedAt || message.sentAt || message.createdAt,
+              )}
+            </div>
+            <div className="mt-2 text-xs font-semibold uppercase tracking-wide text-textColorThird">
+              {expanded ? "Collapse" : "Expand"}
+            </div>
+          </div>
+        </button>
+
+        {expanded ? (
+          <div className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-3">
+            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-logoblue">
+              {body || "No message content stored."}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -473,14 +502,18 @@ export default function OrderEmailModal({
   const [conversation, setConversation] = useState<ConversationState | null>(
     null,
   );
+  const [expandedMessageIds, setExpandedMessageIds] = useState<string[]>([]);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [conversationError, setConversationError] = useState("");
 
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientName, setRecipientName] = useState("");
+  const [additionalRecipientEmail, setAdditionalRecipientEmail] = useState("");
+  const [additionalRecipientName, setAdditionalRecipientName] = useState("");
   const [subject, setSubject] = useState("");
   const [messageText, setMessageText] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
+  const [completeLoading, setCompleteLoading] = useState(false);
   const [sendError, setSendError] = useState("");
 
   useEffect(() => {
@@ -500,6 +533,8 @@ export default function OrderEmailModal({
     setActiveTab("conversation");
     setRecipientEmail(order.email || "");
     setRecipientName(order.customerName || order.customerLabel || "");
+    setAdditionalRecipientEmail("");
+    setAdditionalRecipientName("");
     setSubject(defaultSubject);
     setMessageText("");
     setSendError("");
@@ -507,6 +542,17 @@ export default function OrderEmailModal({
     open,
     order,
   ]);
+
+  useEffect(() => {
+    const latestMessageId = conversation?.messages[0]?.id;
+
+    if (!latestMessageId) {
+      setExpandedMessageIds([]);
+      return;
+    }
+
+    setExpandedMessageIds([latestMessageId]);
+  }, [conversation?.messages]);
 
   useEffect(() => {
     if (!open || !order?.id) {
@@ -632,6 +678,8 @@ export default function OrderEmailModal({
         body: JSON.stringify({
           to: recipientEmail,
           recipientName,
+          additionalTo: additionalRecipientEmail,
+          additionalRecipientName,
           subject,
           message: messageText,
         }),
@@ -672,6 +720,58 @@ export default function OrderEmailModal({
     }
   }
 
+  async function handleConversationComplete() {
+    if (!order?.id) {
+      return;
+    }
+
+    try {
+      setCompleteLoading(true);
+      setConversationError("");
+
+      const response = await fetch(`/api/orders/${order.id}/emails`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+
+      const data = (await response.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            reason?: string;
+          }
+        | null;
+
+      if (!response.ok || !data?.ok) {
+        setConversationError(data?.reason || "Failed to update conversation");
+        return;
+      }
+
+      setConversation((current) =>
+        current
+          ? {
+              ...current,
+              needsEmailAttention: false,
+              unreadInboundEmailCount: 0,
+            }
+          : current,
+      );
+
+      onConversationChanged?.();
+    } catch {
+      setConversationError("Failed to update conversation");
+    } finally {
+      setCompleteLoading(false);
+    }
+  }
+
+  function toggleMessageExpansion(messageId: string) {
+    setExpandedMessageIds((current) =>
+      current.includes(messageId)
+        ? current.filter((id) => id !== messageId)
+        : [...current, messageId],
+    );
+  }
+
   if (!open || !mounted || !order) {
     return null;
   }
@@ -688,7 +788,7 @@ export default function OrderEmailModal({
     >
       <div className="flex min-h-full items-center justify-center px-4 py-6">
         <div
-          className="flex max-h-[90vh] w-full max-w-[980px] flex-col customContainer bg-white"
+          className="flex max-h-[94vh] w-full max-w-[1180px] flex-col customContainer bg-white"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex items-center justify-between border-b border-black/10 px-6 py-4">
@@ -737,9 +837,19 @@ export default function OrderEmailModal({
                 Order history
               </button>
               {conversation?.needsEmailAttention ? (
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-                  Awaiting admin reply
-                </span>
+                <>
+                  <span className="rounded-full bg-logoblue/10 px-3 py-1 text-xs font-semibold text-logoblue">
+                    Awaiting admin reply
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleConversationComplete}
+                    disabled={completeLoading}
+                    className="rounded-full bg-logoblue px-3 py-1 text-xs font-semibold text-white transition hover:bg-logoblue/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {completeLoading ? "Updating..." : "Conversation complete"}
+                  </button>
+                </>
               ) : null}
             </div>
           </div>
@@ -756,7 +866,7 @@ export default function OrderEmailModal({
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">
                         <div className="mb-1 text-sm font-medium text-textColorThird">
-                          To
+                          Customer email
                         </div>
                         <input
                           value={recipientEmail}
@@ -765,12 +875,13 @@ export default function OrderEmailModal({
                           }
                           className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
                           placeholder="customer@email.com"
+                          readOnly={Boolean(order.email)}
                         />
                       </label>
 
                       <label className="block">
                         <div className="mb-1 text-sm font-medium text-textColorThird">
-                          Recipient name
+                          Customer name
                         </div>
                         <input
                           value={recipientName}
@@ -779,6 +890,37 @@ export default function OrderEmailModal({
                           }
                           className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
                           placeholder="Customer name"
+                          readOnly={Boolean(order.customerName || order.customerLabel)}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <div className="mb-1 text-sm font-medium text-textColorThird">
+                          Additional recipient
+                        </div>
+                        <input
+                          value={additionalRecipientEmail}
+                          onChange={(event) =>
+                            setAdditionalRecipientEmail(event.target.value)
+                          }
+                          className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                          placeholder="Optional extra email"
+                        />
+                      </label>
+
+                      <label className="block">
+                        <div className="mb-1 text-sm font-medium text-textColorThird">
+                          Additional recipient name
+                        </div>
+                        <input
+                          value={additionalRecipientName}
+                          onChange={(event) =>
+                            setAdditionalRecipientName(event.target.value)
+                          }
+                          className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                          placeholder="Optional extra name"
                         />
                       </label>
                     </div>
@@ -840,12 +982,6 @@ export default function OrderEmailModal({
                   <>
                     <div className="rounded-2xl border border-black/10 bg-white px-4 py-3">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-sm text-textColorThird">
-                          Thread
-                          {conversation?.threadToken
-                            ? ` | ${conversation.threadToken}`
-                            : " | Not started yet"}
-                        </div>
                         <div className="flex flex-wrap items-center gap-3 text-sm text-textColorThird">
                           <span>
                             Inbound: {formatTimestamp(conversation?.lastInboundEmailAt)}
@@ -863,6 +999,8 @@ export default function OrderEmailModal({
                           <ConversationMessageCard
                             key={message.id}
                             message={message}
+                            expanded={expandedMessageIds.includes(message.id)}
+                            onToggle={() => toggleMessageExpansion(message.id)}
                           />
                         ))}
                       </div>
