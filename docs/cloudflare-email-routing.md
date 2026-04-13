@@ -11,11 +11,11 @@ BREVO_API_KEY=...
 BREVO_SENDER_EMAIL=bestilling@otman.no
 BREVO_SENDER_NAME=Otman Transport
 
-EMAIL_REPLY_DOMAIN=otman.no
+EMAIL_REPLY_DOMAIN=reply.otman.no
 EMAIL_INBOUND_SECRET=...
 ```
 
-`EMAIL_REPLY_DOMAIN` is used when generating `reply+<threadToken>@otman.no`.
+`EMAIL_REPLY_DOMAIN` is used when generating `reply+<threadToken>@reply.otman.no`.
 
 ## Cloudflare dashboard
 

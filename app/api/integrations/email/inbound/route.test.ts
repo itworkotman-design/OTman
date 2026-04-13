@@ -38,7 +38,7 @@ describe("POST /api/integrations/email/inbound", () => {
     process.env.BREVO_SENDER_NAME = originalSenderName;
   });
 
-  it("returns 401 when the inbound secret does not match", async () => {
+  it("returns 406 when the inbound secret does not match", async () => {
     const response = await POST(
       new Request(
         "http://localhost/api/integrations/email/inbound?secret=wrong-secret",
@@ -57,14 +57,14 @@ describe("POST /api/integrations/email/inbound", () => {
       ),
     );
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(406);
     await expect(response.json()).resolves.toEqual({
       ok: false,
       reason: "UNAUTHORIZED",
     });
   });
 
-  it("returns 400 when no thread token can be extracted", async () => {
+  it("returns 406 when no thread token can be extracted", async () => {
     const response = await POST(
       new Request(
         "http://localhost/api/integrations/email/inbound?secret=secret-123",
@@ -83,14 +83,14 @@ describe("POST /api/integrations/email/inbound", () => {
       ),
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(406);
     await expect(response.json()).resolves.toEqual({
       ok: false,
       reason: "THREAD_TOKEN_NOT_FOUND",
     });
   });
 
-  it("returns 400 for form-data payloads missing from or to", async () => {
+  it("returns 406 for form-data payloads missing from or to", async () => {
     const form = new FormData();
     form.set("subject", "Hello");
     form.set("body-plain", "Test");
@@ -105,7 +105,7 @@ describe("POST /api/integrations/email/inbound", () => {
       ),
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(406);
     await expect(response.json()).resolves.toEqual({
       ok: false,
       reason: "INVALID_PAYLOAD",

@@ -87,7 +87,7 @@ export async function POST(req: Request) {
   if (!expected || secret !== expected) {
     return NextResponse.json(
       { ok: false, reason: "UNAUTHORIZED" },
-      { status: 401 },
+      { status: 406 },
     );
   }
 
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
   if (!body) {
     return NextResponse.json(
       { ok: false, reason: "INVALID_PAYLOAD" },
-      { status: 400 },
+      { status: 406 },
     );
   }
 
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
   if (!threadToken) {
     return NextResponse.json(
       { ok: false, reason: "THREAD_TOKEN_NOT_FOUND" },
-      { status: 400 },
+      { status: 406 },
     );
   }
 
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
   if (!sender) {
     return NextResponse.json(
       { ok: false, reason: "SENDER_NOT_FOUND" },
-      { status: 400 },
+      { status: 406 },
     );
   }
 
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
   if (!order) {
     return NextResponse.json(
       { ok: false, reason: "ORDER_NOT_FOUND" },
-      { status: 404 },
+      { status: 406 },
     );
   }
 

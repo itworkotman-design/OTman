@@ -1,7 +1,9 @@
 @import "tailwindcss";
 @source "./app/**/*.{js,ts,jsx,tsx}";
 @source "./components/**/*.{js,ts,jsx,tsx}";
-@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/forms" {
+  strategy: "class";
+}
 
 
 :root {
@@ -163,6 +165,18 @@ html {
 body {
   background: var(--background);
   color: var(--textcolor)
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  inline-size: 1rem;
+  block-size: 1rem;
+  accent-color: var(--logoblue);
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: middle;
 }
 
 h1, h2, h3, h4, h5 , th, label {
