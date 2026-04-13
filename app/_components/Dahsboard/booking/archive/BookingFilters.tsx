@@ -1,11 +1,11 @@
 "use client";
 
-import { Combobox } from "@headlessui/react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { BookingArchiveFilters, BookingArchiveOption } from "./types";
 import {
   DEFAULT_BOOKING_ARCHIVE_FILTERS,
+  getThisMonthRange,
   getThisWeekRange,
   getTodayRange,
   getTomorrowRange,
@@ -25,6 +25,115 @@ type Props = {
   onReset: () => void;
   onRefresh?: () => void;
 };
+
+type CalendarDay = {
+  iso: string;
+  dayOfMonth: number;
+  inCurrentMonth: boolean;
+};
+
+const WEEKDAY_LABELS = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
+
+function parseIsoDate(value: string): Date | null {
+  if (!value) return null;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(year, monthIndex, day);
+
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== monthIndex ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date: Date, count: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + count, 1);
+}
+
+function buildCalendarDays(month: Date): CalendarDay[] {
+  const firstDay = startOfMonth(month);
+  const firstWeekday = (firstDay.getDay() + 6) % 7;
+  const startDate = new Date(
+    firstDay.getFullYear(),
+    firstDay.getMonth(),
+    1 - firstWeekday,
+  );
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const current = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate() + index,
+    );
+
+    return {
+      iso: toIsoDate(current),
+      dayOfMonth: current.getDate(),
+      inCurrentMonth: current.getMonth() === month.getMonth(),
+    };
+  });
+}
+
+function formatDisplayDate(value: string): string {
+  const date = parseIsoDate(value);
+  if (!date) return value;
+
+  return date.toLocaleDateString("no-NO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatRangeLabel(fromDate: string, toDate: string): string {
+  if (fromDate && toDate) {
+    return `${formatDisplayDate(fromDate)} - ${formatDisplayDate(toDate)}`;
+  }
+
+  if (fromDate) {
+    return `${formatDisplayDate(fromDate)} - Velg sluttdato`;
+  }
+
+  return "Velg datointervall";
+}
+
+function getMonthLabel(month: Date): string {
+  return month.toLocaleDateString("no-NO", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function isIsoWithinRange(value: string, fromDate: string, toDate: string): boolean {
+  if (!fromDate || !toDate) return false;
+  return value >= fromDate && value <= toDate;
+}
+
+function isRangeBoundary(value: string, fromDate: string, toDate: string): boolean {
+  return value === fromDate || value === toDate;
+}
 
 export default function BookingFilters({
   initialApplied,
@@ -47,21 +156,24 @@ export default function BookingFilters({
   const [rowsPerPage, setRowsPerPage] = useState<number>(
     initialApplied.rowsPerPage,
   );
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const initialMonth =
+      parseIsoDate(initialApplied.fromDate) ??
+      parseIsoDate(initialApplied.toDate) ??
+      new Date();
+    return startOfMonth(initialMonth);
+  });
 
-  const [customerQuery, setCustomerQuery] = useState("");
-  const [subQuery, setSubQuery] = useState("");
+  const rangeLabel = useMemo(
+    () => formatRangeLabel(fromDate, toDate),
+    [fromDate, toDate],
+  );
 
-  const filteredCustomers = useMemo(() => {
-    return creators.filter((item) =>
-      item.label.toLowerCase().includes(customerQuery.toLowerCase()),
-    );
-  }, [creators, customerQuery]);
-
-  const filteredSubs = useMemo(() => {
-    return subcontractors.filter((item) =>
-      item.label.toLowerCase().includes(subQuery.toLowerCase()),
-    );
-  }, [subcontractors, subQuery]);
+  const calendars = useMemo(
+    () => [visibleMonth, addMonths(visibleMonth, 1)],
+    [visibleMonth],
+  );
 
   const handleApply = () => {
     onApply({
@@ -91,28 +203,60 @@ export default function BookingFilters({
     setToDate(DEFAULT_BOOKING_ARCHIVE_FILTERS.toDate);
     setSearch(DEFAULT_BOOKING_ARCHIVE_FILTERS.search);
     setRowsPerPage(DEFAULT_BOOKING_ARCHIVE_FILTERS.rowsPerPage);
-    setCustomerQuery("");
-    setSubQuery("");
+    setVisibleMonth(startOfMonth(new Date()));
+    setDatePickerOpen(false);
 
     onReset();
   };
 
+  const applyRange = (nextFromDate: string, nextToDate: string) => {
+    setFromDate(nextFromDate);
+    setToDate(nextToDate);
+
+    const anchorDate = parseIsoDate(nextFromDate) ?? new Date();
+    setVisibleMonth(startOfMonth(anchorDate));
+  };
+
   const setToday = () => {
     const range = getTodayRange();
-    setFromDate(range.fromDate);
-    setToDate(range.toDate);
+    applyRange(range.fromDate, range.toDate);
   };
 
   const setTomorrow = () => {
     const range = getTomorrowRange();
-    setFromDate(range.fromDate);
-    setToDate(range.toDate);
+    applyRange(range.fromDate, range.toDate);
   };
 
   const setThisWeek = () => {
     const range = getThisWeekRange();
-    setFromDate(range.fromDate);
-    setToDate(range.toDate);
+    applyRange(range.fromDate, range.toDate);
+  };
+
+  const setThisMonth = () => {
+    const range = getThisMonthRange();
+    applyRange(range.fromDate, range.toDate);
+  };
+
+  const clearDateRange = () => {
+    setFromDate("");
+    setToDate("");
+  };
+
+  const handleDaySelect = (selectedDate: string) => {
+    if (!fromDate || toDate) {
+      setFromDate(selectedDate);
+      setToDate("");
+      return;
+    }
+
+    if (selectedDate < fromDate) {
+      setFromDate(selectedDate);
+      setToDate(fromDate);
+    } else {
+      setToDate(selectedDate);
+    }
+
+    setDatePickerOpen(false);
   };
 
   return (
@@ -176,48 +320,141 @@ export default function BookingFilters({
           )}
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 md:col-span-2">
-            <Field label="Fra dato" className="min-w-0">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="customInput block min-w-0 text-sm lg:w-full"
-              />
-            </Field>
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+          <Field label="Datoer" className="min-w-0">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDatePickerOpen((current) => !current)}
+                className="customInput flex w-full items-center justify-between text-left"
+              >
+                <span className={fromDate ? "text-black" : "text-neutral-500"}>
+                  {rangeLabel}
+                </span>
+                <span className="text-xs text-neutral-500">
+                  {datePickerOpen ? "Lukk" : "Velg"}
+                </span>
+              </button>
 
-            <Field label="Til dato" className="min-w-0">
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="customInput block min-w-0 text-sm lg:w-full"
-              />
-            </Field>
-          </div>
+              {datePickerOpen ? (
+                <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-full rounded-xl border border-black/10 bg-white p-3 shadow-xl">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVisibleMonth((current) => addMonths(current, -1))
+                      }
+                      className="customButtonDefault h-9 px-3!"
+                    >
+                      Forrige
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearDateRange}
+                      className="customButtonDefault h-9 px-3!"
+                    >
+                      Fjern datoer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVisibleMonth((current) => addMonths(current, 1))
+                      }
+                      className="customButtonDefault h-9 px-3!"
+                    >
+                      Neste
+                    </button>
+                  </div>
 
-          <div className="flex items-end gap-2 justify-evenly">
+                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                    {calendars.map((month) => (
+                      <div
+                        key={toIsoDate(month)}
+                        className="rounded-lg border border-black/5 p-2"
+                      >
+                        <div className="mb-2 text-center text-sm font-semibold capitalize text-logoblue">
+                          {getMonthLabel(month)}
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-neutral-500">
+                          {WEEKDAY_LABELS.map((label) => (
+                            <div key={label} className="py-1">
+                              {label}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1">
+                          {buildCalendarDays(month).map((day) => {
+                            const inRange = isIsoWithinRange(
+                              day.iso,
+                              fromDate,
+                              toDate,
+                            );
+                            const isBoundary = isRangeBoundary(
+                              day.iso,
+                              fromDate,
+                              toDate,
+                            );
+                            const isPendingStart =
+                              fromDate === day.iso && !toDate;
+
+                            return (
+                              <button
+                                key={day.iso}
+                                type="button"
+                                onClick={() => handleDaySelect(day.iso)}
+                                className={`h-10 rounded-md text-sm transition ${
+                                  isBoundary || isPendingStart
+                                    ? "bg-logoblue text-white"
+                                    : inRange
+                                      ? "bg-logoblue/10 text-logoblue"
+                                      : day.inCurrentMonth
+                                        ? "hover:bg-black/5"
+                                        : "text-neutral-300 hover:bg-black/5"
+                                }`}
+                              >
+                                {day.dayOfMonth}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </Field>
+
+          <div className="flex items-end gap-2 md:flex-nowrap">
             <button
               type="button"
               onClick={setToday}
-              className="customButtonDefault h-10"
+              className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
               I dag
             </button>
             <button
               type="button"
               onClick={setTomorrow}
-              className="customButtonDefault h-10"
+              className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
               I morgen
             </button>
             <button
               type="button"
               onClick={setThisWeek}
-              className="customButtonDefault h-10"
+              className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
               Denne uken
+            </button>
+            <button
+              type="button"
+              onClick={setThisMonth}
+              className="customButtonDefault h-10 whitespace-nowrap px-3!"
+            >
+              Denne måneden
             </button>
           </div>
         </div>
@@ -292,8 +529,6 @@ export default function BookingFilters({
   );
 }
 
-/* ---------- Helpers ---------- */
-
 function Field({
   label,
   children,
@@ -310,52 +545,5 @@ function Field({
       </span>
       {children}
     </label>
-  );
-}
-
-function ComboField({
-  label,
-  value,
-  onChange,
-  query,
-  setQuery,
-  items,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string | null) => void;
-  query: string;
-  setQuery: (value: string) => void;
-  items: BookingArchiveOption[];
-  placeholder: string;
-}) {
-  return (
-    <Field label={label}>
-      <Combobox<string> value={value ?? ""} onChange={onChange}>
-        <div className="relative">
-          <Combobox.Input
-            className="customInput w-full"
-            onChange={(e) => setQuery(e.target.value)}
-            displayValue={(selectedId: string) =>
-              items.find((item) => item.id === selectedId)?.label ?? ""
-            }
-            placeholder={placeholder}
-          />
-
-          <Combobox.Options className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-white text-sm shadow-sm">
-            {items.map((item) => (
-              <Combobox.Option
-                key={item.id}
-                value={item.id}
-                className="cursor-pointer px-3 py-2 hover:bg-neutral-100"
-              >
-                {item.label}
-              </Combobox.Option>
-            ))}
-          </Combobox.Options>
-        </div>
-      </Combobox>
-    </Field>
   );
 }

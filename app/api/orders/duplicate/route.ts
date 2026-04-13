@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import {
+  buildOrderEventSnapshot,
+  createOrderCreatedEvent,
+} from "@/lib/orders/orderEvents";
 
 async function reserveNextOrderNumber(companyId: string): Promise<number> {
   return prisma.$transaction(async (tx) => {
@@ -57,7 +61,14 @@ export async function POST(req: Request) {
       status: "ACTIVE",
     },
     select: {
+      id: true,
       role: true,
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
     },
   });
 
@@ -215,6 +226,59 @@ export async function POST(req: Request) {
           })),
         });
       }
+
+      await createOrderCreatedEvent(tx, {
+        orderId: newOrder.id,
+        companyId: newOrder.companyId,
+        actor: {
+          membershipId: membership.id,
+          name: membership.user.username ?? null,
+          email: membership.user.email,
+          source: "USER",
+        },
+        snapshot: buildOrderEventSnapshot({
+          displayId: newOrder.displayId,
+          orderNumber: newOrder.orderNumber,
+          status: newOrder.status,
+          statusNotes: newOrder.statusNotes,
+          customerLabel: newOrder.customerLabel,
+          customerName: newOrder.customerName,
+          deliveryDate: newOrder.deliveryDate,
+          timeWindow: newOrder.timeWindow,
+          pickupAddress: newOrder.pickupAddress,
+          extraPickupAddress: newOrder.extraPickupAddress,
+          deliveryAddress: newOrder.deliveryAddress,
+          returnAddress: newOrder.returnAddress,
+          drivingDistance: newOrder.drivingDistance,
+          phone: newOrder.phone,
+          phoneTwo: newOrder.phoneTwo,
+          email: newOrder.email,
+          customerComments: newOrder.customerComments,
+          description: newOrder.description,
+          productsSummary: newOrder.productsSummary,
+          deliveryTypeSummary: newOrder.deliveryTypeSummary,
+          servicesSummary: newOrder.servicesSummary,
+          cashierName: newOrder.cashierName,
+          cashierPhone: newOrder.cashierPhone,
+          subcontractor: newOrder.subcontractor,
+          driver: newOrder.driver,
+          secondDriver: newOrder.secondDriver,
+          driverInfo: newOrder.driverInfo,
+          licensePlate: newOrder.licensePlate,
+          deviation: newOrder.deviation,
+          feeExtraWork: newOrder.feeExtraWork,
+          feeAddToOrder: newOrder.feeAddToOrder,
+          dontSendEmail: newOrder.dontSendEmail,
+          priceExVat: newOrder.priceExVat,
+          priceSubcontractor: newOrder.priceSubcontractor,
+          rabatt: newOrder.rabatt,
+          leggTil: newOrder.leggTil,
+          subcontractorMinus: newOrder.subcontractorMinus,
+          subcontractorPlus: newOrder.subcontractorPlus,
+          gsmLastTaskState: newOrder.gsmLastTaskState,
+        }),
+        createdAt: newOrder.createdAt,
+      });
     }
   });
 

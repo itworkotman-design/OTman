@@ -67,7 +67,7 @@ export async function GET(req: Request) {
     ],
   });
 
-  const onlineThreshold = new Date(Date.now() - 90_000);
+  const onlineThreshold = new Date(Date.now() - 180_000);
   const onlineSessions =
     memberships.length === 0
       ? []

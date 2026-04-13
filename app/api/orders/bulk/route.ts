@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { optionalString } from "@/lib/orders/normalizeOrderInput";
+import {
+  buildOrderEventSnapshot,
+  createManyOrderStatusChangedEvents,
+  createOrderUpdatedEvent,
+  diffOrderEventSnapshots,
+} from "@/lib/orders/orderEvents";
 
 export async function PATCH(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -27,7 +33,14 @@ export async function PATCH(req: Request) {
       status: "ACTIVE",
     },
     select: {
+      id: true,
       role: true,
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
     },
   });
 
@@ -158,6 +171,58 @@ export async function PATCH(req: Request) {
     data.customerName = customerName ?? "";
   }
 
+  const ordersBeforeUpdate = await prisma.order.findMany({
+    where: {
+      id: {
+        in: orderIds,
+      },
+      companyId: session.activeCompanyId,
+    },
+    select: {
+      id: true,
+      companyId: true,
+      displayId: true,
+      status: true,
+      statusNotes: true,
+      customerLabel: true,
+      customerName: true,
+      deliveryDate: true,
+      timeWindow: true,
+      pickupAddress: true,
+      extraPickupAddress: true,
+      deliveryAddress: true,
+      returnAddress: true,
+      drivingDistance: true,
+      phone: true,
+      phoneTwo: true,
+      email: true,
+      customerComments: true,
+      description: true,
+      orderNumber: true,
+      productsSummary: true,
+      deliveryTypeSummary: true,
+      servicesSummary: true,
+      cashierName: true,
+      cashierPhone: true,
+      subcontractor: true,
+      driver: true,
+      secondDriver: true,
+      driverInfo: true,
+      licensePlate: true,
+      deviation: true,
+      feeExtraWork: true,
+      feeAddToOrder: true,
+      dontSendEmail: true,
+      priceExVat: true,
+      priceSubcontractor: true,
+      rabatt: true,
+      leggTil: true,
+      subcontractorMinus: true,
+      subcontractorPlus: true,
+      gsmLastTaskState: true,
+    },
+  });
+
   const result = await prisma.order.updateMany({
     where: {
       id: {
@@ -165,8 +230,60 @@ export async function PATCH(req: Request) {
       },
       companyId: session.activeCompanyId,
     },
-    data,
+    data: {
+      ...data,
+      lastEditedByMembershipId: membership.id,
+    },
   });
+
+  const actor = {
+    membershipId: membership.id,
+    name: membership.user.username ?? null,
+    email: membership.user.email,
+    source: "USER",
+  } as const;
+
+  const statusOnlyEvents: Array<{
+    orderId: string;
+    companyId: string;
+    actor: typeof actor;
+    fromStatus: string | null | undefined;
+    toStatus: string | null | undefined;
+    note?: string | null;
+  }> = [];
+
+  for (const order of ordersBeforeUpdate) {
+    const previousSnapshot = buildOrderEventSnapshot(order);
+    const nextSnapshot = buildOrderEventSnapshot({
+      ...order,
+      status: status ?? order.status,
+      subcontractor: subcontractorName ?? order.subcontractor,
+      customerName: customerName ?? order.customerName,
+    });
+
+    const changes = diffOrderEventSnapshots(previousSnapshot, nextSnapshot);
+
+    if (changes.length === 1 && changes[0]?.field === "status") {
+      statusOnlyEvents.push({
+        orderId: order.id,
+        companyId: order.companyId,
+        actor,
+        fromStatus: previousSnapshot.status,
+        toStatus: nextSnapshot.status,
+        note: nextSnapshot.statusNotes,
+      });
+      continue;
+    }
+
+    await createOrderUpdatedEvent(prisma, {
+      orderId: order.id,
+      companyId: order.companyId,
+      actor,
+      changes,
+    });
+  }
+
+  await createManyOrderStatusChangedEvents(prisma, statusOnlyEvents);
 
   return NextResponse.json({
     ok: true,

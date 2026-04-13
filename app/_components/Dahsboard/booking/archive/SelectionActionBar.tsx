@@ -20,6 +20,7 @@ type Props = {
   showResendGsm?: boolean;
   onCopySelected: () => void | Promise<void>;
   onExportExcel: () => void | Promise<void>;
+  onManageColumns: () => void;
   loading?: boolean;
   error?: string;
 };
@@ -33,6 +34,7 @@ export default function SelectionActionBar({
   showResendGsm = false,
   onCopySelected,
   onExportExcel,
+  onManageColumns,
   loading = false,
   error = "",
 }: Props) {
@@ -228,6 +230,14 @@ export default function SelectionActionBar({
           className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
         >
           Export Excel
+        </button>
+
+        <button
+          type="button"
+          onClick={onManageColumns}
+          className="customButtonDefault h-10"
+        >
+          Hide columns
         </button>
       </div>
 

@@ -108,7 +108,7 @@ export default function OrderModal({
     const data = await res.json().catch(() => null);
 
     if (!res.ok || !data?.ok) {
-      throw new Error(data?.reason || "Failed to update order");
+      throw new Error(data?.message || data?.reason || "Failed to update order");
     }
 
     // 👇 ADD THIS HERE

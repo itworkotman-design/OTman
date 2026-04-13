@@ -8,10 +8,20 @@ import {
   optionalString,
   safeNumber,
 } from "@/lib/orders/normalizeOrderInput";
+import {
+  getOptionalEmailError,
+  getOptionalPhoneError,
+  normalizeOptionalEmail,
+  normalizeOptionalPhone,
+} from "@/lib/orders/contactValidation";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
+import {
+  buildOrderEventSnapshot,
+  createOrderCreatedEvent,
+} from "@/lib/orders/orderEvents";
 import {
   normalizeSavedProductCard,
   type SavedProductCard,
@@ -130,6 +140,43 @@ export async function POST(req: Request) {
   const productCards = (body.productCards as SavedProductCard[]).map(
     (card, index) => normalizeSavedProductCard(card, index),
   );
+  const emailError = getOptionalEmailError(body.email);
+  const phoneError = getOptionalPhoneError(body.phone);
+  const phoneTwoError = getOptionalPhoneError(body.phoneTwo);
+  const cashierPhoneError = getOptionalPhoneError(body.cashierPhone);
+
+  if (emailError) {
+    return NextResponse.json(
+      { ok: false, reason: "INVALID_EMAIL", message: emailError },
+      { status: 400 },
+    );
+  }
+
+  if (phoneError) {
+    return NextResponse.json(
+      { ok: false, reason: "INVALID_PHONE", message: phoneError },
+      { status: 400 },
+    );
+  }
+
+  if (phoneTwoError) {
+    return NextResponse.json(
+      { ok: false, reason: "INVALID_PHONE_TWO", message: phoneTwoError },
+      { status: 400 },
+    );
+  }
+
+  if (cashierPhoneError) {
+    return NextResponse.json(
+      { ok: false, reason: "INVALID_CASHIER_PHONE", message: cashierPhoneError },
+      { status: 400 },
+    );
+  }
+
+  const email = normalizeOptionalEmail(body.email);
+  const phone = normalizeOptionalPhone(body.phone);
+  const phoneTwo = normalizeOptionalPhone(body.phoneTwo);
+  const cashierPhone = normalizeOptionalPhone(body.cashierPhone);
 
   const isAdminOrOwner =
     membership.role === "OWNER" || membership.role === "ADMIN";
@@ -213,16 +260,16 @@ export async function POST(req: Request) {
       returnAddress: optionalString(body.returnAddress),
       drivingDistance: optionalString(body.drivingDistance),
 
-      phone: optionalString(body.phone),
-      phoneTwo: optionalString(body.phoneTwo),
-      email: optionalString(body.email),
+      phone,
+      phoneTwo,
+      email,
       customerComments: optionalString(body.customerComments),
 
       floorNo: optionalString(body.floorNo),
       lift: optionalString(body.lift),
 
       cashierName: optionalString(body.cashierName),
-      cashierPhone: optionalString(body.cashierPhone),
+      cashierPhone,
 
       subcontractorMembershipId: optionalString(body.subcontractorId),
       subcontractor: optionalString(body.subcontractor),
@@ -298,6 +345,59 @@ export async function POST(req: Request) {
     where: { sessionId: session.userId },
   });
 
+  await createOrderCreatedEvent(prisma, {
+    orderId: order.id,
+    companyId: order.companyId,
+    actor: {
+      membershipId: membership.id,
+      name: membership.user.username ?? null,
+      email: membership.user.email,
+      source: "USER",
+    },
+    snapshot: buildOrderEventSnapshot({
+      displayId: order.displayId,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      statusNotes: order.statusNotes,
+      customerLabel: order.customerLabel,
+      customerName: order.customerName,
+      deliveryDate: order.deliveryDate,
+      timeWindow: order.timeWindow,
+      pickupAddress: order.pickupAddress,
+      extraPickupAddress: order.extraPickupAddress,
+      deliveryAddress: order.deliveryAddress,
+      returnAddress: order.returnAddress,
+      drivingDistance: order.drivingDistance,
+      phone: order.phone,
+      phoneTwo: order.phoneTwo,
+      email: order.email,
+      customerComments: order.customerComments,
+      description: order.description,
+      productsSummary: order.productsSummary,
+      deliveryTypeSummary: order.deliveryTypeSummary,
+      servicesSummary: order.servicesSummary,
+      cashierName: order.cashierName,
+      cashierPhone: order.cashierPhone,
+      subcontractor: order.subcontractor,
+      driver: order.driver,
+      secondDriver: order.secondDriver,
+      driverInfo: order.driverInfo,
+      licensePlate: order.licensePlate,
+      deviation: order.deviation,
+      feeExtraWork: order.feeExtraWork,
+      feeAddToOrder: order.feeAddToOrder,
+      dontSendEmail: order.dontSendEmail,
+      priceExVat: order.priceExVat,
+      priceSubcontractor: order.priceSubcontractor,
+      rabatt: order.rabatt,
+      leggTil: order.leggTil,
+      subcontractorMinus: order.subcontractorMinus,
+      subcontractorPlus: order.subcontractorPlus,
+      gsmLastTaskState: order.gsmLastTaskState,
+    }),
+    createdAt: order.createdAt,
+  });
+
   try {
     await sendOrderNotificationEmail({
       kind: "created",
@@ -321,12 +421,12 @@ export async function POST(req: Request) {
         timeWindow: optionalString(body.timeWindow),
         description: optionalString(body.description),
         customerName,
-        email: optionalString(body.email),
-        phone: optionalString(body.phone),
+        email,
+        phone,
         floorNo: optionalString(body.floorNo),
         lift: optionalString(body.lift),
         cashierName: optionalString(body.cashierName),
-        cashierPhone: optionalString(body.cashierPhone),
+        cashierPhone,
         status: optionalString(body.status) || "behandles",
         createdAt: order.createdAt,
         productsSummary: summaries.productsSummary,
@@ -488,9 +588,7 @@ export async function GET(req: Request) {
     ];
   }
 
-  const orderBy:
-    | Prisma.OrderOrderByWithRelationInput
-    | Prisma.OrderOrderByWithRelationInput[] = (() => {
+  const baseOrderBy = (() => {
     if (!sortBy) {
       return [
         {
@@ -517,6 +615,17 @@ export async function GET(req: Request) {
     }
   })();
 
+  const orderBy = (
+    Array.isArray(baseOrderBy) ? baseOrderBy : [baseOrderBy]
+  ) as Prisma.OrderOrderByWithRelationInput[];
+
+  if (isAdminOrOwner) {
+    orderBy.unshift(
+      { needsEmailAttention: "desc" },
+      { lastInboundEmailAt: { sort: "desc", nulls: "last" } },
+    );
+  }
+
   const orders = await prisma.order.findMany({
     where,
     orderBy,
@@ -533,6 +642,7 @@ export async function GET(req: Request) {
       customerName: true,
       orderNumber: true,
       phone: true,
+      email: true,
       pickupAddress: true,
       extraPickupAddress: true,
       deliveryAddress: true,
@@ -550,6 +660,10 @@ export async function GET(req: Request) {
       driver: true,
       createdAt: true,
       updatedAt: true,
+      lastInboundEmailAt: true,
+      lastOutboundEmailAt: true,
+      needsEmailAttention: true,
+      unreadInboundEmailCount: true,
       priceExVat: true,
       priceSubcontractor: true,
       createdByMembershipId: true,
@@ -592,6 +706,7 @@ export async function GET(req: Request) {
       customerName: order.customerName ?? "",
       orderNumber: order.orderNumber ?? "",
       phone: order.phone ?? "",
+      email: order.email ?? "",
       pickupAddress: order.pickupAddress ?? "",
       extraPickupAddress: order.extraPickupAddress ?? [],
       deliveryAddress: order.deliveryAddress ?? "",
@@ -609,6 +724,10 @@ export async function GET(req: Request) {
       driver: order.driver ?? "",
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      lastInboundEmailAt: order.lastInboundEmailAt,
+      lastOutboundEmailAt: order.lastOutboundEmailAt,
+      needsEmailAttention: order.needsEmailAttention,
+      unreadInboundEmailCount: order.unreadInboundEmailCount,
       priceExVat: order.priceExVat,
       priceSubcontractor: order.priceSubcontractor,
       createdByMembershipId: order.createdByMembershipId,

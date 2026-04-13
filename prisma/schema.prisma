@@ -119,6 +119,8 @@ model Membership {
   company          Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdOrders    Order[] @relation("OrderCreatedByMembership")
   ordersLastEdited Order[] @relation("OrderLastEditedByMembership")
+  orderEvents      OrderEvent[]
+  sentOrderEmails  OrderEmailMessage[] @relation("OrderEmailSentByMembership")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -271,6 +273,23 @@ enum RequestStatus {
   CONFIRMED
   REJECTED
   CANCELLED
+}
+
+enum OrderEventType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+}
+
+enum OrderEmailDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum OrderEmailStatus {
+  SENT
+  FAILED
+  RECEIVED
 }
 
 model Category {
@@ -531,6 +550,11 @@ model Order {
   gsmSentAt          DateTime?
   gsmLastWebhookAt   DateTime?
   gsmLastSyncedAt    DateTime?
+  emailThreadToken   String?   @unique
+  lastInboundEmailAt DateTime?
+  lastOutboundEmailAt DateTime?
+  needsEmailAttention Boolean @default(false)
+  unreadInboundEmailCount Int @default(0)
 
   productCardsSnapshot Json?
 
@@ -546,6 +570,8 @@ model Order {
   orderAttachments OrderAttachment[]
   gsmTasks         OrderGsmTask[]
   gsmWebhookEvents GsmWebhookEvent[]
+  events           OrderEvent[]
+  emailMessages    OrderEmailMessage[]
 
   @@index([companyId, createdAt])
   @@index([status])
@@ -556,6 +582,58 @@ model Order {
   @@index([gsmOrderId])
   @@index([gsmExternalId])
   @@index([gsmSyncStatus])
+  @@index([needsEmailAttention, lastInboundEmailAt])
+}
+
+model OrderEvent {
+  id                String         @id @default(cuid())
+  orderId           String
+  companyId         String
+  type              OrderEventType
+  actorMembershipId String?
+  actorName         String?
+  actorEmail        String?
+  actorSource       String?
+  payload           Json
+  createdAt         DateTime       @default(now())
+
+  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actorMembership Membership? @relation(fields: [actorMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([type, createdAt])
+  @@index([actorMembershipId, createdAt])
+}
+
+model OrderEmailMessage {
+  id                 String              @id @default(cuid())
+  orderId            String
+  companyId          String
+  direction          OrderEmailDirection
+  status             OrderEmailStatus
+  sentByMembershipId String?
+  externalMessageId  String?
+  subject            String
+  bodyText           String?
+  bodyHtml           String?
+  fromEmail          String
+  fromName           String?
+  toEmail            String
+  toName             String?
+  createdAt          DateTime            @default(now())
+  sentAt             DateTime?
+  receivedAt         DateTime?
+
+  order            Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sentByMembership Membership? @relation("OrderEmailSentByMembership", fields: [sentByMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([direction, createdAt])
+  @@index([status, createdAt])
+  @@index([sentByMembershipId, createdAt])
+  @@index([externalMessageId])
 }
 
 model OrderItem {

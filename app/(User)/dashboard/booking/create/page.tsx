@@ -22,7 +22,7 @@ export default function CreateBookingPage() {
     const data = await res.json().catch(() => null);
 
     if (!res.ok || !data?.ok) {
-      throw new Error(data?.reason || "Failed to create order");
+      throw new Error(data?.message || data?.reason || "Failed to create order");
     }
 
     setSuccessMessage(`Order created (${data.displayId ?? data.orderId})`);

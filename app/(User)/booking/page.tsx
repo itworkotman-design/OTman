@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
+import OrderEmailModal from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
 import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadOnlyOrderModal";
 import type {
   BookingArchiveFilters,
@@ -54,6 +55,8 @@ export default function BookingPage() {
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [emailOrder, setEmailOrder] = useState<OrderRow | null>(null);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>(
     [],
@@ -236,6 +239,10 @@ export default function BookingPage() {
                 setSelectedOrderId(orderId);
                 setModalOpen(true);
               }}
+              onEmailClick={(order) => {
+                setEmailOrder(order);
+                setEmailModalOpen(true);
+              }}
               selectable={false}
               selectedOrderIds={[]}
               onToggleOrder={() => {}}
@@ -256,6 +263,16 @@ export default function BookingPage() {
           setModalOpen(false);
           setSelectedOrderId(null);
         }}
+      />
+
+      <OrderEmailModal
+        open={emailModalOpen}
+        order={emailOrder}
+        onClose={() => {
+          setEmailModalOpen(false);
+          setEmailOrder(null);
+        }}
+        onConversationChanged={() => void loadOrders(appliedFilters)}
       />
     </div>
   );

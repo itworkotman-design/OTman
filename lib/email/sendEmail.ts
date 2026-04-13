@@ -2,10 +2,12 @@ export async function sendEmail({
   to,
   subject,
   html,
+  replyTo,
 }: {
   to: { email: string; name?: string };
   subject: string;
   html: string;
+  replyTo?: { email: string; name?: string } | null;
 }) {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
@@ -24,6 +26,12 @@ export async function sendEmail({
           name: to.name ?? to.email,
         },
       ],
+      replyTo: replyTo
+        ? {
+            email: replyTo.email,
+            name: replyTo.name ?? replyTo.email,
+          }
+        : undefined,
       subject,
       htmlContent: html,
     }),
@@ -33,4 +41,14 @@ export async function sendEmail({
     const errorText = await res.text();
     throw new Error(`Brevo send failed: ${errorText}`);
   }
+
+  const data = (await res.json().catch(() => null)) as
+    | {
+        messageId?: unknown;
+      }
+    | null;
+
+  return {
+    messageId: typeof data?.messageId === "string" ? data.messageId : null,
+  };
 }

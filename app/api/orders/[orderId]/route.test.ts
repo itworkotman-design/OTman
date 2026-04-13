@@ -6,6 +6,10 @@ const mocks = vi.hoisted(() => ({
   getBookingCatalogMock: vi.fn(),
   buildOrderSummariesMock: vi.fn(),
   buildOrderItemsFromCardsMock: vi.fn(),
+  buildOrderEventSnapshotMock: vi.fn(),
+  diffOrderEventSnapshotsMock: vi.fn(),
+  createOrderStatusChangedEventMock: vi.fn(),
+  createOrderUpdatedEventMock: vi.fn(),
   sendOrderNotificationEmailMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
@@ -31,6 +35,13 @@ vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
 
 vi.mock("@/lib/booking/catalog/getBookingCatalog", () => ({
   getBookingCatalog: mocks.getBookingCatalogMock,
+}));
+
+vi.mock("@/lib/orders/orderEvents", () => ({
+  buildOrderEventSnapshot: mocks.buildOrderEventSnapshotMock,
+  diffOrderEventSnapshots: mocks.diffOrderEventSnapshotsMock,
+  createOrderStatusChangedEvent: mocks.createOrderStatusChangedEventMock,
+  createOrderUpdatedEvent: mocks.createOrderUpdatedEventMock,
 }));
 
 vi.mock("@/lib/orders/orderNotificationEmail", () => ({
@@ -65,6 +76,10 @@ describe("routes in /api/orders/[orderId]", () => {
       deliveryTypeSummary: "Delivery summary",
       servicesSummary: "Service summary",
     });
+    mocks.buildOrderEventSnapshotMock.mockImplementation((value) => value);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([]);
+    mocks.createOrderStatusChangedEventMock.mockResolvedValue(undefined);
+    mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
     mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
     mocks.transactionMock.mockImplementation(async (callback: any) =>
       callback({
@@ -106,6 +121,10 @@ describe("routes in /api/orders/[orderId]", () => {
       id: "membership-1",
       role: "ADMIN",
       priceListId: "price-list-1",
+      user: {
+        username: "admin",
+        email: "admin@example.com",
+      },
       permissions: [{ permission: "BOOKING_CREATE" }],
     });
 
@@ -124,6 +143,88 @@ describe("routes in /api/orders/[orderId]", () => {
     });
   });
 
+  it("PATCH returns 400 when an optional phone is invalid", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      user: {
+        username: "admin",
+        email: "admin@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      companyId: "company-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      productCardsSnapshot: [],
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      status: "behandles",
+      statusNotes: "",
+      customerName: "",
+      deliveryDate: "",
+      timeWindow: "",
+      pickupAddress: "",
+      extraPickupAddress: [],
+      deliveryAddress: "",
+      returnAddress: "",
+      drivingDistance: "",
+      phone: "",
+      phoneTwo: "",
+      email: "",
+      customerComments: "",
+      description: "",
+      productsSummary: "",
+      deliveryTypeSummary: "",
+      servicesSummary: "",
+      cashierName: "",
+      cashierPhone: "",
+      subcontractor: "",
+      driver: "",
+      secondDriver: "",
+      driverInfo: "",
+      licensePlate: "",
+      deviation: "",
+      feeExtraWork: false,
+      feeAddToOrder: false,
+      dontSendEmail: false,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      gsmLastTaskState: null,
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          phone: "abc123",
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "INVALID_PHONE",
+      message: "Phone number contains invalid characters.",
+    });
+  });
+
   it("PATCH sends an internal notification email after a successful update", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
@@ -133,6 +234,10 @@ describe("routes in /api/orders/[orderId]", () => {
       id: "membership-1",
       role: "ADMIN",
       priceListId: "price-list-1",
+      user: {
+        username: "admin",
+        email: "admin@example.com",
+      },
       permissions: [{ permission: "BOOKING_CREATE" }],
     });
     mocks.orderFindFirstMock.mockResolvedValue({

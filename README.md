@@ -20,6 +20,13 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Email Routing
+
+Inbound order replies are designed to use Cloudflare Email Routing plus an Email Worker.
+
+- App setup: [docs/cloudflare-email-routing.md](docs/cloudflare-email-routing.md)
+- Worker scaffold: [cloudflare/email-routing](cloudflare/email-routing)
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

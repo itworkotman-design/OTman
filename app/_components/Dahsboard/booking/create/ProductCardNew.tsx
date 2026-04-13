@@ -54,6 +54,13 @@ export function ProductCardNew({
   );
 
   const options = selectedProduct?.options ?? [];
+  const sortedActiveProducts = useMemo(
+    () =>
+      catalogProducts
+        .filter((product) => product.active)
+        .toSorted((left, right) => left.label.localeCompare(right.label, "no")),
+    [catalogProducts],
+  );
 
   const categorizedInstallOptions = options.filter((o) =>
     isInstallOption(o.category, o.code),
@@ -406,11 +413,9 @@ export function ProductCardNew({
             <option value="" disabled>
               Choose
             </option>
-            {catalogProducts
-              .filter((p) => p.active)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
+            {sortedActiveProducts.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.label}
                 </option>
               ))}
           </select>
@@ -530,40 +535,6 @@ export function ProductCardNew({
             </>
           )}
 
-          {showReturnOptions && (
-            <>
-              <h1 className="font-semibold text-lg text-textcolor my-2">
-                Return
-              </h1>
-              {returnOptions.length === 0 ? (
-                <p className="text-sm opacity-70">
-                  No return options available.
-                </p>
-              ) : (
-                returnOptions.map((opt) => (
-                  <label key={opt.id} className="block my-1">
-                    <input
-                      className="inline mr-2"
-                      type="radio"
-                      checked={value.selectedReturnOptionId === opt.id}
-                      onChange={() =>
-                        update({
-                          selectedReturnOptionId:
-                            value.selectedReturnOptionId === opt.id
-                              ? null
-                              : opt.id,
-                        })
-                      }
-                    />
-                    <span className="inline">
-                      {opt.description || opt.label || opt.code}
-                    </span>
-                  </label>
-                ))
-              )}
-            </>
-          )}
-
           {showHoursInput && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
@@ -604,7 +575,6 @@ export function ProductCardNew({
                       }
                     />
                     <span className="inline">
-                      {option.code ? `(${option.code}) ` : ""}
                       {option.label}
                     </span>
                   </label>
@@ -612,6 +582,40 @@ export function ProductCardNew({
               </div>
             </div>
           ))}
+
+          {showReturnOptions && (
+            <>
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                Return
+              </h1>
+              {returnOptions.length === 0 ? (
+                <p className="text-sm opacity-70">
+                  No return options available.
+                </p>
+              ) : (
+                returnOptions.map((opt) => (
+                  <label key={opt.id} className="block my-1">
+                    <input
+                      className="inline mr-2"
+                      type="radio"
+                      checked={value.selectedReturnOptionId === opt.id}
+                      onChange={() =>
+                        update({
+                          selectedReturnOptionId:
+                            value.selectedReturnOptionId === opt.id
+                              ? null
+                              : opt.id,
+                        })
+                      }
+                    />
+                    <span className="inline">
+                      {opt.description || opt.label || opt.code}
+                    </span>
+                  </label>
+                ))
+              )}
+            </>
+          )}
 
           {showAmount && (
             <>

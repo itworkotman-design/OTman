@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   getBookingCatalogMock: vi.fn(),
   buildOrderSummariesMock: vi.fn(),
   buildOrderItemsFromCardsMock: vi.fn(),
+  buildOrderEventSnapshotMock: vi.fn(),
+  createOrderCreatedEventMock: vi.fn(),
   sendOrderNotificationEmailMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   orderFindManyMock: vi.fn(),
@@ -35,6 +37,11 @@ vi.mock("@/lib/orders/buildOrderSummaries", () => ({
 
 vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
   buildOrderItemsFromCards: mocks.buildOrderItemsFromCardsMock,
+}));
+
+vi.mock("@/lib/orders/orderEvents", () => ({
+  buildOrderEventSnapshot: mocks.buildOrderEventSnapshotMock,
+  createOrderCreatedEvent: mocks.createOrderCreatedEventMock,
 }));
 
 vi.mock("@/lib/orders/orderNotificationEmail", () => ({
@@ -75,6 +82,11 @@ describe("routes in /api/orders", () => {
       deliveryTypeSummary: "Delivery summary",
       servicesSummary: "Service summary",
     });
+    mocks.buildOrderEventSnapshotMock.mockReturnValue({
+      status: "behandles",
+      statusNotes: "",
+    });
+    mocks.createOrderCreatedEventMock.mockResolvedValue(undefined);
     mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
     mocks.getBookingCatalogMock.mockResolvedValue({
       products: [],
@@ -223,6 +235,120 @@ describe("routes in /api/orders", () => {
       ok: false,
       reason: "INVALID_PRODUCT_CARDS",
     });
+  });
+
+  it("POST returns 400 when an optional email is invalid", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          email: "not-an-email",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "INVALID_EMAIL",
+      message: "Enter a valid email address.",
+    });
+  });
+
+  it("POST removes spaces from phone values before saving", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          phone: "+47 98 76 54 32",
+          phoneTwo: "12 34 56 78",
+          cashierPhone: "90 12 34 56",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          phone: "+4798765432",
+          phoneTwo: "12345678",
+          cashierPhone: "90123456",
+        }),
+      }),
+    );
+  });
+
+  it("POST treats a bare +47 prefix as an empty optional phone field", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          phone: "+47",
+          phoneTwo: "+47",
+          cashierPhone: "+47",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          phone: null,
+          phoneTwo: null,
+          cashierPhone: null,
+        }),
+      }),
+    );
   });
 
   it("POST sends an internal notification email after a successful create", async () => {

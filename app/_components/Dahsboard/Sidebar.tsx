@@ -116,7 +116,13 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
       <div className={open ? "" : "hidden"}>
         <div className="flex justify-center">
-          <Image src="/LogoSVG.svg" alt="Logo" width={200} height={200} />
+          <Image
+            src="/LogoSVG.svg"
+            alt="Logo"
+            width={116}
+            height={50}
+            className="h-auto w-full max-w-[200px]"
+          />
         </div>
 
         <div className="px-4">

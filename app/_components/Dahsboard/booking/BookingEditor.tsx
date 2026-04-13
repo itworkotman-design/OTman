@@ -25,6 +25,13 @@ import {
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import type { AppPermission, UserOption } from "@/lib/users/types";
+import {
+  DEFAULT_PHONE_PREFIX,
+  getOptionalEmailError,
+  getOptionalPhoneError,
+  normalizeOptionalEmail,
+  normalizeOptionalPhone,
+} from "@/lib/orders/contactValidation";
 
 export type OrderFormPayload = {
   productCards: SavedProductCard[];
@@ -144,8 +151,12 @@ export default function BookingEditor({
   const [customerName, setCustomerName] = useState(
     initialValues?.customerName ?? "",
   );
-  const [phone, setPhone] = useState(initialValues?.phone ?? "");
-  const [phoneTwo, setPhoneTwo] = useState(initialValues?.phoneTwo ?? "");
+  const [phone, setPhone] = useState(
+    initialValues ? (initialValues.phone ?? "") : DEFAULT_PHONE_PREFIX,
+  );
+  const [phoneTwo, setPhoneTwo] = useState(
+    initialValues ? (initialValues.phoneTwo ?? "") : DEFAULT_PHONE_PREFIX,
+  );
   const [email, setEmail] = useState(initialValues?.email ?? "");
   const [customerComments, setCustomerComments] = useState(
     initialValues?.customerComments ?? "",
@@ -158,7 +169,7 @@ export default function BookingEditor({
     initialValues?.cashierName ?? "",
   );
   const [cashierPhone, setCashierPhone] = useState(
-    initialValues?.cashierPhone ?? "",
+    initialValues ? (initialValues.cashierPhone ?? "") : DEFAULT_PHONE_PREFIX,
   );
   const [subcontractorId, setSubcontractorId] = useState(
     initialValues?.subcontractorId ?? "",
@@ -442,6 +453,10 @@ export default function BookingEditor({
     () => subcontractorOptions.find((option) => option.id === subcontractorId),
     [subcontractorId, subcontractorOptions],
   );
+  const emailError = getOptionalEmailError(email);
+  const phoneError = getOptionalPhoneError(phone);
+  const phoneTwoError = getOptionalPhoneError(phoneTwo);
+  const cashierPhoneError = getOptionalPhoneError(cashierPhone);
 
   const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
     setPriceExVat(exVat);
@@ -478,7 +493,7 @@ export default function BookingEditor({
     const data = await res.json().catch(() => null);
 
     if (!res.ok || !data?.ok) {
-      throw new Error(data?.reason || "Failed to create order");
+      throw new Error(data?.message || data?.reason || "Failed to create order");
     }
 
   }
@@ -616,10 +631,19 @@ export default function BookingEditor({
       return;
     }
 
+    if (emailError || phoneError || phoneTwoError || cashierPhoneError) {
+      setSubmitError("Fix invalid email or phone fields");
+      return;
+    }
+
     const finalTimeWindow =
       timeWindow === "custom"
         ? `${customTimeFrom}-${customTimeTo}`
         : timeWindow;
+    const normalizedEmail = normalizeOptionalEmail(email) ?? "";
+    const normalizedPhone = normalizeOptionalPhone(phone) ?? "";
+    const normalizedPhoneTwo = normalizeOptionalPhone(phoneTwo) ?? "";
+    const normalizedCashierPhone = normalizeOptionalPhone(cashierPhone) ?? "";
 
     const payload: OrderFormPayload = {
       productCards,
@@ -637,16 +661,16 @@ export default function BookingEditor({
       drivingDistance,
 
       customerName,
-      phone,
-      phoneTwo,
-      email,
+      phone: normalizedPhone,
+      phoneTwo: normalizedPhoneTwo,
+      email: normalizedEmail,
       customerComments,
 
       floorNo,
       lift,
 
       cashierName,
-      cashierPhone,
+      cashierPhone: normalizedCashierPhone,
 
       subcontractorId,
       subcontractor: selectedSubcontractor?.name ?? "",
@@ -705,8 +729,12 @@ export default function BookingEditor({
       }
 
       setAttachments([]);
-    } catch {
-      setSubmitError("Failed to save order");
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to save order",
+      );
     } finally {
       setSaving(false);
     }
@@ -787,10 +815,13 @@ export default function BookingEditor({
             setCustomerName={setCustomerName}
             phone={phone}
             setPhone={setPhone}
+            phoneError={phoneError}
             phoneTwo={phoneTwo}
             setPhoneTwo={setPhoneTwo}
+            phoneTwoError={phoneTwoError}
             email={email}
             setEmail={setEmail}
+            emailError={emailError}
             customerComments={customerComments}
             setCustomerComments={setCustomerComments}
             floorNo={floorNo}
@@ -801,6 +832,7 @@ export default function BookingEditor({
             setCashierName={setCashierName}
             cashierPhone={cashierPhone}
             setCashierPhone={setCashierPhone}
+            cashierPhoneError={cashierPhoneError}
             subcontractorId={subcontractorId}
             setSubcontractorId={setSubcontractorId}
             customerLabel={customerLabel}

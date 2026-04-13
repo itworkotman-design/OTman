@@ -5,6 +5,7 @@ import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import OrderModal from "@/app/_components/Dahsboard/booking/OrderModal";
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
+import OrderEmailModal from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
 import type {
   BookingArchiveFilters,
   BookingArchiveOption,
@@ -14,7 +15,14 @@ import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 import BulkUpdateBar from "@/app/_components/Dahsboard/booking/archive/BulkUpdateBar";
 import SelectionActionBar from "@/app/_components/Dahsboard/booking/archive/SelectionActionBar";
+import BookingColumnVisibilityModal from "@/app/_components/Dahsboard/booking/archive/BookingColumnVisibilityModal";
 import { exportOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
+import {
+  getDefaultVisibleBookingArchiveColumns,
+  getBookingArchiveVisibilityStorageKey,
+  sanitizeVisibleBookingArchiveColumns,
+  type BookingArchiveColumnId,
+} from "@/lib/booking/archiveColumns";
 
 type FilterOptionApiItem = {
   id: string;
@@ -42,8 +50,14 @@ export default function BookingPage() {
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [emailOrder, setEmailOrder] = useState<OrderRow | null>(null);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [columnModalOpen, setColumnModalOpen] = useState(false);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [visibleColumnIds, setVisibleColumnIds] = useState<
+    BookingArchiveColumnId[]
+  >(() => getDefaultVisibleBookingArchiveColumns(access.viewMode));
 
   const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>(
     [],
@@ -349,8 +363,43 @@ export default function BookingPage() {
       rows: orders,
       selectedIds: selectedOrderIds,
       viewMode: access.viewMode,
+      visibleColumnIds,
     });
   }
+
+  useEffect(() => {
+    const defaultColumns = getDefaultVisibleBookingArchiveColumns(access.viewMode);
+    const storageKey = getBookingArchiveVisibilityStorageKey(access.viewMode);
+    const storedValue = window.localStorage.getItem(storageKey);
+
+    if (!storedValue) {
+      setVisibleColumnIds(defaultColumns);
+      return;
+    }
+
+    try {
+      const parsedValue: unknown = JSON.parse(storedValue);
+
+      if (Array.isArray(parsedValue)) {
+        const storedColumnIds = parsedValue.filter(
+          (columnId): columnId is string => typeof columnId === "string",
+        );
+        setVisibleColumnIds(
+          sanitizeVisibleBookingArchiveColumns(access.viewMode, storedColumnIds),
+        );
+        return;
+      }
+    } catch {
+      // Ignore invalid persisted column state.
+    }
+
+    setVisibleColumnIds(defaultColumns);
+  }, [access.viewMode]);
+
+  useEffect(() => {
+    const storageKey = getBookingArchiveVisibilityStorageKey(access.viewMode);
+    window.localStorage.setItem(storageKey, JSON.stringify(visibleColumnIds));
+  }, [access.viewMode, visibleColumnIds]);
 
   useEffect(() => {
     void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
@@ -391,7 +440,38 @@ export default function BookingPage() {
     });
   }
 
+  function handleToggleVisibleColumn(columnId: BookingArchiveColumnId) {
+    setVisibleColumnIds((prev) => {
+      const isVisible = prev.includes(columnId);
+
+      if (isVisible) {
+        if (prev.length === 1) return prev;
+        return prev.filter((id) => id !== columnId);
+      }
+
+      const next = [...prev, columnId];
+      return sanitizeVisibleBookingArchiveColumns(access.viewMode, next);
+    });
+  }
+
+  function handleResetVisibleColumns() {
+    setVisibleColumnIds(getDefaultVisibleBookingArchiveColumns(access.viewMode));
+  }
+
   const canBulkSelect = access.viewMode === "ADMIN";
+  const selectedOrderIdSet = new Set(selectedOrderIds);
+  const selectedPriceExVatTotal = orders.reduce((sum, order) => {
+    if (!selectedOrderIdSet.has(order.id)) return sum;
+    if (typeof order.priceExVat !== "number") return sum;
+    return sum + order.priceExVat;
+  }, 0);
+  const selectedPriceExVatLabel = selectedPriceExVatTotal.toLocaleString(
+    "no-NO",
+    {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    },
+  );
 
   return (
     <div className="w-full">
@@ -431,6 +511,7 @@ export default function BookingPage() {
             showResendGsm={gsmResendAvailable}
             onCopySelected={handleCopySelected}
             onExportExcel={handleExportSelected}
+            onManageColumns={() => setColumnModalOpen(true)}
             loading={customerActionLoading}
             error={customerActionError}
           />
@@ -439,8 +520,22 @@ export default function BookingPage() {
       <div className="overflow-x-auto">
         <div className=" max-w-[4000]">
           <div className="flex items-center justify-between gap-2 my-4">
-            <div className="text-sm text-textColorThird my-2">
-              {canBulkSelect ? `${selectedOrderIds.length} selected` : ""}
+            <div className="flex flex-col items-start gap-2 my-2">
+              {access.viewMode !== "ADMIN" ? (
+                <button
+                  type="button"
+                  className="customButtonDefault"
+                  onClick={() => setColumnModalOpen(true)}
+                >
+                  Hide columns
+                </button>
+              ) : null}
+
+              <div className="text-sm text-textColorThird">
+                {canBulkSelect
+                  ? `${selectedOrderIds.length} selected • Pris uten MVA: NOK ${selectedPriceExVatLabel}`
+                  : ""}
+              </div>
             </div>
             <div className="flex items-center gap-2 justify-end">
               <select
@@ -485,10 +580,15 @@ export default function BookingPage() {
                 setSelectedOrderId(orderId);
                 setModalOpen(true);
               }}
+              onEmailClick={(order) => {
+                setEmailOrder(order);
+                setEmailModalOpen(true);
+              }}
               selectable={canBulkSelect}
               selectedOrderIds={selectedOrderIds}
               onToggleOrder={handleToggleOrder}
               onToggleAllVisible={handleToggleAllVisible}
+              visibleColumnIds={visibleColumnIds}
             />
           )}
         </div>
@@ -508,6 +608,25 @@ export default function BookingPage() {
           setSelectedOrderId(null);
           void loadOrders(appliedFilters);
         }}
+      />
+
+      <OrderEmailModal
+        open={emailModalOpen}
+        order={emailOrder}
+        onClose={() => {
+          setEmailModalOpen(false);
+          setEmailOrder(null);
+        }}
+        onConversationChanged={() => void loadOrders(appliedFilters)}
+      />
+
+      <BookingColumnVisibilityModal
+        open={columnModalOpen}
+        viewMode={access.viewMode}
+        visibleColumnIds={visibleColumnIds}
+        onToggleColumn={handleToggleVisibleColumn}
+        onReset={handleResetVisibleColumns}
+        onClose={() => setColumnModalOpen(false)}
       />
     </div>
   );

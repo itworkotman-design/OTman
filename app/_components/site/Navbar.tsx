@@ -38,6 +38,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
             width={116}
             height={50}
             alt="Logo"
+            loading="eager"
             className="h-[50] w-auto"
           />
         </Link>

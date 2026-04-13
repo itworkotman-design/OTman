@@ -41,6 +41,7 @@ export type OrderRow = {
   customerLabel: string;
   orderNumber: string;
   phone: string;
+  email: string;
   pickupAddress: string;
   extraPickupAddress: string[];
   deliveryAddress: string;
@@ -56,6 +57,10 @@ export type OrderRow = {
   driver: string;
   createdAt: string;
   updatedAt: string;
+  lastInboundEmailAt: string | null;
+  lastOutboundEmailAt: string | null;
+  needsEmailAttention: boolean;
+  unreadInboundEmailCount: number;
   priceExVat: number;
   priceSubcontractor: number;
   customerMembershipId: string;

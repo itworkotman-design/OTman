@@ -4,6 +4,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { fetchGsmTask } from "@/lib/integrations/gsm/fetchTask";
 import { syncPodPdfWithRetry } from "@/lib/integrations/gsm/downloadPodPdf";
+import {
+  buildOrderEventSnapshot,
+  createOrderStatusChangedEvent,
+  createOrderUpdatedEvent,
+  diffOrderEventSnapshots,
+} from "@/lib/orders/orderEvents";
 
 function mapStatus(state?: string | null) {
   const value = (state ?? "").toLowerCase();
@@ -135,30 +141,70 @@ export async function POST(req: Request) {
       });
     }
 
+    const orderBeforeUpdate = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        companyId: true,
+        displayId: true,
+        orderNumber: true,
+        status: true,
+        statusNotes: true,
+        customerLabel: true,
+        customerName: true,
+        deliveryDate: true,
+        timeWindow: true,
+        pickupAddress: true,
+        extraPickupAddress: true,
+        deliveryAddress: true,
+        returnAddress: true,
+        drivingDistance: true,
+        phone: true,
+        phoneTwo: true,
+        email: true,
+        customerComments: true,
+        description: true,
+        productsSummary: true,
+        deliveryTypeSummary: true,
+        servicesSummary: true,
+        cashierName: true,
+        cashierPhone: true,
+        subcontractor: true,
+        driver: true,
+        secondDriver: true,
+        driverInfo: true,
+        licensePlate: true,
+        deviation: true,
+        feeExtraWork: true,
+        feeAddToOrder: true,
+        dontSendEmail: true,
+        priceExVat: true,
+        priceSubcontractor: true,
+        rabatt: true,
+        leggTil: true,
+        subcontractorMinus: true,
+        subcontractorPlus: true,
+        gsmLastTaskState: true,
+      },
+    });
+
+    if (!orderBeforeUpdate) {
+      await prisma.gsmWebhookEvent.update({
+        where: { id: event.id },
+        data: {
+          processed: true,
+          processingError: "ORDER_NOT_FOUND",
+          processedAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({ ok: true });
+    }
+
     const metafields =
       fullTask?.metafields && typeof fullTask.metafields === "object"
         ? (fullTask.metafields as Record<string, unknown>)
         : {};
-
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        driver:
-          (typeof metafields["app:name"] === "string"
-            ? metafields["app:name"]
-            : undefined) ?? undefined,
-        secondDriver:
-          (typeof metafields["app:driver2"] === "string"
-            ? metafields["app:driver2"]
-            : undefined) ?? undefined,
-        licensePlate:
-          (typeof metafields["app:carnumber"] === "string"
-            ? metafields["app:carnumber"]
-            : undefined) ?? undefined,
-        gsmLastTaskState: state ?? undefined,
-        gsmLastWebhookAt: new Date(),
-      },
-    });
 
     // Import only POD PDF, with delay + retry, after completion
     if (gsmTaskId && state === "completed") {
@@ -181,20 +227,70 @@ export async function POST(req: Request) {
     const allCompleted =
       tasks.length > 0 && tasks.every((task) => task.state === "completed");
 
-    if (allCompleted) {
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { status: "completed" },
+    const mapped = mapStatus(state);
+    const nextStatus = allCompleted
+      ? "completed"
+      : mapped ?? orderBeforeUpdate.status;
+
+    const driverValue =
+      typeof metafields["app:name"] === "string"
+        ? metafields["app:name"]
+        : orderBeforeUpdate.driver;
+    const secondDriverValue =
+      typeof metafields["app:driver2"] === "string"
+        ? metafields["app:driver2"]
+        : orderBeforeUpdate.secondDriver;
+    const licensePlateValue =
+      typeof metafields["app:carnumber"] === "string"
+        ? metafields["app:carnumber"]
+        : orderBeforeUpdate.licensePlate;
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        driver: driverValue ?? undefined,
+        secondDriver: secondDriverValue ?? undefined,
+        licensePlate: licensePlateValue ?? undefined,
+        gsmLastTaskState: state ?? undefined,
+        gsmLastWebhookAt: new Date(),
+        status: nextStatus ?? undefined,
+      },
+    });
+
+    const previousSnapshot = buildOrderEventSnapshot(orderBeforeUpdate);
+    const nextSnapshot = buildOrderEventSnapshot({
+      ...orderBeforeUpdate,
+      driver: driverValue,
+      secondDriver: secondDriverValue,
+      licensePlate: licensePlateValue,
+      gsmLastTaskState: state ?? orderBeforeUpdate.gsmLastTaskState,
+      status: nextStatus,
+    });
+    const changes = diffOrderEventSnapshots(previousSnapshot, nextSnapshot);
+
+    if (changes.length === 1 && changes[0]?.field === "status") {
+      await createOrderStatusChangedEvent(prisma, {
+        orderId,
+        companyId: orderBeforeUpdate.companyId,
+        actor: {
+          name: "GSM webhook",
+          email: null,
+          source: "GSM_WEBHOOK",
+        },
+        fromStatus: previousSnapshot.status,
+        toStatus: nextSnapshot.status,
       });
     } else {
-      const mapped = mapStatus(state);
-
-      if (mapped) {
-        await prisma.order.update({
-          where: { id: orderId },
-          data: { status: mapped },
-        });
-      }
+      await createOrderUpdatedEvent(prisma, {
+        orderId,
+        companyId: orderBeforeUpdate.companyId,
+        actor: {
+          name: "GSM webhook",
+          email: null,
+          source: "GSM_WEBHOOK",
+        },
+        changes,
+      });
     }
 
     await prisma.gsmWebhookEvent.update({

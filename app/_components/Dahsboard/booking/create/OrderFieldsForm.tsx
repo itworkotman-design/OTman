@@ -55,10 +55,13 @@ type Props = {
   setCustomerName: React.Dispatch<React.SetStateAction<string>>;
   phone: string;
   setPhone: React.Dispatch<React.SetStateAction<string>>;
+  phoneError: string | null;
   phoneTwo: string;
   setPhoneTwo: React.Dispatch<React.SetStateAction<string>>;
+  phoneTwoError: string | null;
   email: string;
   setEmail: React.Dispatch<React.SetStateAction<string>>;
+  emailError: string | null;
   customerComments: string;
   setCustomerComments: React.Dispatch<React.SetStateAction<string>>;
 
@@ -71,6 +74,7 @@ type Props = {
   setCashierName: React.Dispatch<React.SetStateAction<string>>;
   cashierPhone: string;
   setCashierPhone: React.Dispatch<React.SetStateAction<string>>;
+  cashierPhoneError: string | null;
 
   subcontractorId: string;
   setSubcontractorId: React.Dispatch<React.SetStateAction<string>>;
@@ -148,10 +152,13 @@ export default function OrderFieldsForm({
   setCustomerName,
   phone,
   setPhone,
+  phoneError,
   phoneTwo,
   setPhoneTwo,
+  phoneTwoError,
   email,
   setEmail,
+  emailError,
   customerComments,
   setCustomerComments,
 
@@ -165,6 +172,7 @@ export default function OrderFieldsForm({
   setCashierName,
   cashierPhone,
   setCashierPhone,
+  cashierPhoneError,
 
   subcontractorId,
   setSubcontractorId,
@@ -341,10 +349,14 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">Customer&apos;s phone</h1>
           <input
             type="tel"
+            inputMode="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="customInput w-full"
           />
+          {phoneError ? (
+            <p className="mt-1 text-sm text-red-600">{phoneError}</p>
+          ) : null}
         </>
       )}
 
@@ -353,10 +365,14 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">Additional customer&apos;s phone</h1>
           <input
             type="tel"
+            inputMode="tel"
             value={phoneTwo}
             onChange={(e) => setPhoneTwo(e.target.value)}
             className="customInput w-full"
           />
+          {phoneTwoError ? (
+            <p className="mt-1 text-sm text-red-600">{phoneTwoError}</p>
+          ) : null}
         </>
       )}
 
@@ -364,10 +380,15 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">Customer&apos;s email</h1>
           <input
+            type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="customInput w-full"
           />
+          {emailError ? (
+            <p className="mt-1 text-sm text-red-600">{emailError}</p>
+          ) : null}
         </>
       )}
 
@@ -435,10 +456,14 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">Cashier&apos;s phone</h1>
           <input
             type="tel"
+            inputMode="tel"
             value={cashierPhone}
             onChange={(e) => setCashierPhone(e.target.value)}
             className="customInput w-full"
           />
+          {cashierPhoneError ? (
+            <p className="mt-1 text-sm text-red-600">{cashierPhoneError}</p>
+          ) : null}
         </>
       )}
 
