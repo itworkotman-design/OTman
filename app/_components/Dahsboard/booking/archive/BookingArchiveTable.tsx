@@ -141,7 +141,7 @@ function Cell({
   className?: string;
 }) {
   return (
-    <div className={`max-h-[100px] overflow-y-auto break-words ${className}`}>
+    <div className={`max-h-[100] overflow-y-auto wrap-break-word ${className}`}>
       {children}
     </div>
   );
@@ -180,7 +180,7 @@ export default function BookingArchiveTable({
     orders.every((order) => selectedOrderIds.includes(order.id));
 
   return (
-    <div className="mb-10 max-h-[1000px] w-full max-w-full overflow-x-auto overflow-y-auto [-webkit-overflow-scrolling:touch] lg:max-w-[calc(100vw-300px)]">
+    <div className="mb-10 max-h-[1000] w-full max-w-full overflow-x-auto overflow-y-auto [-webkit-overflow-scrolling:touch] lg:max-w-[calc(100vw-300px)]">
       <table
         className="table-fixed border-y border-black/10 text-sm"
         style={{ width: `${tableWidth}px`, minWidth: `${tableWidth}px` }}
@@ -501,9 +501,7 @@ export default function BookingArchiveTable({
                 )
                   return;
                 if (
-                  (e.target as HTMLElement).closest(
-                    '[data-email-cell="true"]',
-                  )
+                  (e.target as HTMLElement).closest('[data-email-cell="true"]')
                 )
                   return;
                 onRowClick(order.id);
@@ -544,8 +542,8 @@ export default function BookingArchiveTable({
                         type="button"
                         className={`relative inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition ${
                           order.needsEmailAttention
-                            ? "border-logoblue/20 bg-logoblue/10 text-logoblue hover:bg-logoblue/15"
-                            : "border-black/10 bg-white text-logoblue hover:bg-black/3"
+                            ? "border-logoblue bg-logoblue text-white cursor-pointer"
+                            : "border-black/10 bg-white text-logoblue cursor-pointer"
                         }`}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -556,7 +554,7 @@ export default function BookingArchiveTable({
                       >
                         M
                         {order.unreadInboundEmailCount > 0 ? (
-                          <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-logored px-1 text-[10px] font-semibold leading-[18px] text-white">
+                          <span className="absolute -right-1 -top-1 min-w-[18] rounded-full bg-logored px-1 text-[10px] font-semibold leading-[18] text-white">
                             {order.unreadInboundEmailCount > 99
                               ? "99+"
                               : order.unreadInboundEmailCount}
@@ -616,9 +614,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("productsSummary") ? (
                     <td className="w-[220] min-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>
-                        {formatCell(order.productsSummary)}
-                      </Cell>
+                      <Cell>{formatCell(order.productsSummary)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("deliveryTypeSummary") ? (

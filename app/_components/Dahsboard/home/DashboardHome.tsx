@@ -580,7 +580,7 @@ export default function DashboardHome() {
                         className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/60"
                       >
                         <div className="flex min-w-0 items-center gap-4">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-logoblue to-blue-500 text-sm font-bold text-white shadow-md">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-logoblue to-blue-500 text-sm font-bold text-white shadow-md">
                             {primaryLabel?.charAt(0)?.toUpperCase() || "U"}
                           </div>
 
@@ -639,7 +639,7 @@ export default function DashboardHome() {
                     </div>
                   </div>
 
-                  <div className="inline-flex min-w-[120px] items-center justify-center rounded-2xl bg-white px-6 py-4 text-3xl font-bold text-slate-900 shadow-sm">
+                  <div className="inline-flex min-w-[120] items-center justify-center rounded-2xl bg-white px-6 py-4 text-3xl font-bold text-slate-900 shadow-sm">
                     {bookingEmailCount}
                   </div>
                 </div>

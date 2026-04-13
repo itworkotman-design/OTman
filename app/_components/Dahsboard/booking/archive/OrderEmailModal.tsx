@@ -211,17 +211,21 @@ function getEventTitle(item: HistoryItem) {
 }
 
 function getConversationBody(message: ConversationMessage) {
-  if (message.bodyText.trim()) {
-    return message.bodyText
-      .replace(/^\s*>\s?/gm, "")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-  }
-
-  return message.bodyHtml
+  const source = message.bodyText.trim()
+    ? message.bodyText
+    : message.bodyHtml
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "")
+    .replace(/<[^>]+>/g, "");
+
+  return source
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*>\s?/, "").replace(/\s+$/g, ""))
+    .join("\n")
+    .replace(/\n(On .+ wrote:)/g, "\n\n$1")
+    .replace(/(On .+ wrote:)\n(?!\n)/g, "$1\n\n")
+    .replace(/\n(Med vennlig hilsen,)/g, "\n\n$1")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
@@ -277,7 +281,7 @@ function SnapshotGrid({ snapshot }: { snapshot: Record<string, unknown> }) {
           <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
             {SNAPSHOT_LABELS[key] ?? key}
           </div>
-          <div className="mt-1 break-words text-sm text-logoblue">
+          <div className="mt-1 wrap-break-word text-sm text-logoblue">
             {formatValue(value)}
           </div>
         </div>
@@ -306,7 +310,7 @@ function UpdatedChanges({ changes }: { changes: ChangeItem[] }) {
               <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
                 Before
               </div>
-              <div className="mt-1 break-words text-sm text-textColorThird">
+              <div className="mt-1 wrap-break-word text-sm text-textColorThird">
                 {change.previousValue || "-"}
               </div>
             </div>
@@ -314,7 +318,7 @@ function UpdatedChanges({ changes }: { changes: ChangeItem[] }) {
               <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
                 After
               </div>
-              <div className="mt-1 break-words text-sm text-logoblue">
+              <div className="mt-1 wrap-break-word text-sm text-logoblue">
                 {change.nextValue || "-"}
               </div>
             </div>
@@ -369,7 +373,7 @@ function ProductChanges({ changes }: { changes: ProductChangeItem[] }) {
                       <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
                         Before
                       </div>
-                      <div className="mt-0.5 break-words text-sm leading-snug text-textColorThird">
+                      <div className="mt-0.5 wrap-break-word text-sm leading-snug text-textColorThird">
                         {fieldChange.previousValue || "-"}
                       </div>
                     </div>
@@ -377,7 +381,7 @@ function ProductChanges({ changes }: { changes: ProductChangeItem[] }) {
                       <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
                         After
                       </div>
-                      <div className="mt-0.5 break-words text-sm leading-snug text-logoblue">
+                      <div className="mt-0.5 wrap-break-word text-sm leading-snug text-logoblue">
                         {fieldChange.nextValue || "-"}
                       </div>
                     </div>
@@ -429,7 +433,7 @@ function ConversationMessageCard({
       }`}
     >
       <div
-        className={`w-full max-w-[820px] rounded-2xl border p-4 ${
+        className={`w-full max-w-[820] rounded-2xl border p-4 ${
           isInbound
             ? "border-amber-200 bg-amber-50"
             : message.status === "FAILED"
@@ -474,7 +478,7 @@ function ConversationMessageCard({
 
         {expanded ? (
           <div className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-3">
-            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-logoblue">
+            <div className="whitespace-pre-wrap wrap-break-word text-sm leading-6 text-logoblue">
               {body || "No message content stored."}
             </div>
           </div>
@@ -788,7 +792,7 @@ export default function OrderEmailModal({
     >
       <div className="flex min-h-full items-center justify-center px-4 py-6">
         <div
-          className="flex max-h-[94vh] w-full max-w-[1180px] flex-col customContainer bg-white"
+          className="flex max-h-[94vh] w-full max-w-[1180] flex-col customContainer bg-white"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex items-center justify-between border-b border-black/10 px-6 py-4">
@@ -944,7 +948,7 @@ export default function OrderEmailModal({
                       <textarea
                         value={messageText}
                         onChange={(event) => setMessageText(event.target.value)}
-                        className="min-h-[140px] w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                        className="min-h-[140] w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
                         placeholder="Write the email here"
                       />
                     </label>
@@ -955,10 +959,7 @@ export default function OrderEmailModal({
                       </div>
                     ) : null}
 
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-xs text-textColorThird">
-                        Replies can be matched automatically when inbound email is configured.
-                      </div>
+                    <div className="flex items-center justify-end gap-3">
                       <button
                         type="submit"
                         disabled={sendLoading}
@@ -984,10 +985,12 @@ export default function OrderEmailModal({
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex flex-wrap items-center gap-3 text-sm text-textColorThird">
                           <span>
-                            Inbound: {formatTimestamp(conversation?.lastInboundEmailAt)}
-                          </span>
-                          <span>
-                            Outbound: {formatTimestamp(conversation?.lastOutboundEmailAt)}
+                            Thread code:{" "}
+                            <span className="font-semibold text-logoblue">
+                              {conversation?.threadToken
+                                ? `[OTMAN:${conversation.threadToken}]`
+                                : "Not started yet"}
+                            </span>
                           </span>
                         </div>
                       </div>
