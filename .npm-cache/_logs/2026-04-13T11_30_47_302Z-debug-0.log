@@ -1,0 +1,48 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.6.2
+2 info using node@v24.13.0
+3 silly config load:file:C:\Program Files\nodejs\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\rkolv\Documents\School\Git\otmanTransport\OTman\.npmrc
+5 silly config load:file:C:\Users\rkolv\.npmrc
+6 silly config load:file:C:\Users\rkolv\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm install
+8 verbose argv "install" "--package-lock-only" "--ignore-scripts"
+9 verbose logfile logs-max:10 dir:C:\Users\rkolv\Documents\School\Git\otmanTransport\OTman\.npm-cache\_logs\2026-04-13T11_30_47_302Z-
+10 verbose logfile C:\Users\rkolv\Documents\School\Git\otmanTransport\OTman\.npm-cache\_logs\2026-04-13T11_30_47_302Z-debug-0.log
+11 silly logfile done cleaning log files
+12 http fetch GET https://registry.npmjs.org/npm attempt 1 failed with ECONNREFUSED
+13 silly packumentCache heap:4496293888 maxSize:1124073472 maxEntrySize:562036736
+14 silly idealTree buildDeps
+15 silly fetch manifest @emnapi/runtime@^1.7.0
+16 silly packumentCache full:https://registry.npmjs.org/@emnapi%2fruntime cache-miss
+17 silly placeDep node_modules/@img/sharp-wasm32 @emnapi/runtime@ REPLACE for: @img/sharp-wasm32@0.34.5 want: ^1.7.0
+18 silly fetch manifest @emnapi/core@^1.4.3
+19 silly packumentCache full:https://registry.npmjs.org/@emnapi%2fcore cache-miss
+20 silly fetch manifest @emnapi/runtime@^1.4.3
+21 silly packumentCache full:https://registry.npmjs.org/@emnapi%2fruntime cache-miss
+22 silly placeDep node_modules/@napi-rs/wasm-runtime @emnapi/core@ REPLACE for: @napi-rs/wasm-runtime@0.2.12 want: ^1.4.3
+23 silly placeDep node_modules/@napi-rs/wasm-runtime @emnapi/runtime@ REPLACE for: @napi-rs/wasm-runtime@0.2.12 want: ^1.4.3
+24 silly fetch manifest @emnapi/core@1.9.2
+25 silly packumentCache full:https://registry.npmjs.org/@emnapi%2fcore cache-miss
+26 silly fetch manifest @emnapi/runtime@1.9.2
+27 silly packumentCache full:https://registry.npmjs.org/@emnapi%2fruntime cache-miss
+28 silly placeDep node_modules/@rolldown/binding-wasm32-wasi @emnapi/core@ OK for: @rolldown/binding-wasm32-wasi@1.0.0-rc.15 want: 1.9.2
+29 silly placeDep node_modules/@rolldown/binding-wasm32-wasi @emnapi/runtime@ OK for: @rolldown/binding-wasm32-wasi@1.0.0-rc.15 want: 1.9.2
+30 http cache https://registry.npmjs.org/@tailwindcss/oxide-wasm32-wasi/-/oxide-wasm32-wasi-4.1.18.tgz 0ms (cache hit)
+31 silly tarball no local data for https://registry.npmjs.org/@tailwindcss/oxide-wasm32-wasi/-/oxide-wasm32-wasi-4.1.18.tgz. Extracting by manifest.
+32 verbose stack Error: request to https://registry.npmjs.org/@tailwindcss/oxide-wasm32-wasi/-/oxide-wasm32-wasi-4.1.18.tgz failed: cache mode is 'only-if-cached' but no cached response is available.
+32 verbose stack     at cacheFetch (C:\Program Files\nodejs\node_modules\npm\node_modules\make-fetch-happen\lib\cache\index.js:12:13)
+32 verbose stack     at async fetch (C:\Program Files\nodejs\node_modules\npm\node_modules\make-fetch-happen\lib\fetch.js:98:7)
+33 error code ENOTCACHED
+34 error request to https://registry.npmjs.org/@tailwindcss/oxide-wasm32-wasi/-/oxide-wasm32-wasi-4.1.18.tgz failed: cache mode is 'only-if-cached' but no cached response is available.
+35 silly unfinished npm timer reify 1776079847623
+36 silly unfinished npm timer reify:loadTrees 1776079847623
+37 silly unfinished npm timer idealTree:buildDeps 1776079847750
+38 silly unfinished npm timer idealTree:node_modules/@tailwindcss/oxide-wasm32-wasi 1776079847759
+39 verbose cwd C:\Users\rkolv\Documents\School\Git\otmanTransport\OTman
+40 verbose os Windows_NT 10.0.26200
+41 verbose node v24.13.0
+42 verbose npm  v11.6.2
+43 verbose exit 1
+44 verbose code 1
+45 error A complete log of this run can be found in: C:\Users\rkolv\Documents\School\Git\otmanTransport\OTman\.npm-cache\_logs\2026-04-13T11_30_47_302Z-debug-0.log
