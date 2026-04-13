@@ -22,6 +22,64 @@ function getTextValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+async function parseInboundEmailBody(
+  req: Request,
+): Promise<InboundEmailBody | null> {
+  const contentType = req.headers.get("content-type")?.toLowerCase() ?? "";
+
+  if (
+    contentType.includes("multipart/form-data") ||
+    contentType.includes("application/x-www-form-urlencoded")
+  ) {
+    const form = await req.formData().catch(() => null);
+
+    if (!form) {
+      return null;
+    }
+
+    const from = String(
+      form.get("From") ?? form.get("sender") ?? form.get("from") ?? "",
+    );
+    const to = String(
+      form.get("recipient") ?? form.get("To") ?? form.get("to") ?? "",
+    );
+    const subject = String(form.get("subject") ?? form.get("Subject") ?? "");
+    const text = String(
+      form.get("body-plain") ??
+        form.get("stripped-text") ??
+        form.get("body_plain") ??
+        "",
+    );
+    const html = String(
+      form.get("body-html") ??
+        form.get("stripped-html") ??
+        form.get("body_html") ??
+        "",
+    );
+    const messageId = String(
+      form.get("Message-Id") ??
+        form.get("message-id") ??
+        form.get("Message-ID") ??
+        "",
+    );
+
+    if (!from || !to) {
+      return null;
+    }
+
+    return {
+      from,
+      to,
+      subject,
+      text,
+      html,
+      messageId,
+    };
+  }
+
+  return (await req.json().catch(() => null)) as InboundEmailBody | null;
+}
+
 export async function POST(req: Request) {
   const secret = new URL(req.url).searchParams.get("secret");
   const expected = process.env.EMAIL_INBOUND_SECRET;
@@ -33,7 +91,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const body = (await req.json().catch(() => null)) as InboundEmailBody | null;
+  const body = await parseInboundEmailBody(req);
 
   if (!body) {
     return NextResponse.json(

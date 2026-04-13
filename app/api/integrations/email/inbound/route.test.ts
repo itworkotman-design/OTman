@@ -90,6 +90,28 @@ describe("POST /api/integrations/email/inbound", () => {
     });
   });
 
+  it("returns 400 for form-data payloads missing from or to", async () => {
+    const form = new FormData();
+    form.set("subject", "Hello");
+    form.set("body-plain", "Test");
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/integrations/email/inbound?secret=secret-123",
+        {
+          method: "POST",
+          body: form,
+        },
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      reason: "INVALID_PAYLOAD",
+    });
+  });
+
   it("stores an inbound message and marks the order for attention", async () => {
     mocks.orderFindFirstMock.mockResolvedValue({
       id: "order-1",
@@ -164,6 +186,67 @@ describe("POST /api/integrations/email/inbound", () => {
           increment: 1,
         },
       },
+    });
+  });
+
+  it("maps Mailgun form-data fields into the inbound email shape", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-2",
+      companyId: "company-2",
+    });
+    mocks.orderEmailMessageCreateMock.mockResolvedValue({
+      id: "email-2",
+    });
+    mocks.orderUpdateMock.mockResolvedValue({
+      id: "order-2",
+    });
+
+    const form = new FormData();
+    form.set("From", "Customer Name <customer@example.com>");
+    form.set("recipient", "reply+thread456@otman.no");
+    form.set("subject", "Re: Order 20002 [OTMAN:thread456]");
+    form.set("body-plain", "Inbound plain text");
+    form.set("body-html", "<p>Inbound html</p>");
+    form.set("Message-Id", "<message-id-2>");
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/integrations/email/inbound?secret=secret-123",
+        {
+          method: "POST",
+          body: form,
+        },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+
+    expect(mocks.orderFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        emailThreadToken: "thread456",
+      },
+      select: {
+        id: true,
+        companyId: true,
+      },
+    });
+
+    expect(mocks.orderEmailMessageCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orderId: "order-2",
+        companyId: "company-2",
+        direction: "INBOUND",
+        status: "RECEIVED",
+        externalMessageId: "<message-id-2>",
+        subject: "Re: Order 20002 [OTMAN:thread456]",
+        bodyText: "Inbound plain text",
+        bodyHtml: "<p>Inbound html</p>",
+        fromEmail: "customer@example.com",
+        fromName: "Customer Name",
+        toEmail: "reply+thread456@otman.no",
+        toName: "Otman Transport",
+      }),
     });
   });
 });
