@@ -34,6 +34,8 @@ type Props = {
   setDeliveryDate: React.Dispatch<React.SetStateAction<string>>;
   timeWindow: string;
   setTimeWindow: React.Dispatch<React.SetStateAction<string>>;
+  expressDelivery: boolean;
+  setExpressDelivery: React.Dispatch<React.SetStateAction<boolean>>;
   customTimeFrom: string;
   setCustomTimeFrom: React.Dispatch<React.SetStateAction<string>>;
   customTimeTo: string;
@@ -139,6 +141,8 @@ export default function OrderFieldsForm({
   setDeliveryDate,
   timeWindow,
   setTimeWindow,
+  expressDelivery,
+  setExpressDelivery,
   customTimeFrom,
   setCustomTimeFrom,
   customTimeTo,
@@ -303,6 +307,16 @@ export default function OrderFieldsForm({
               </div>
             </div>
           )}
+
+          <label className="mt-3 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={expressDelivery}
+              onChange={(e) => setExpressDelivery(e.target.checked)}
+              className="background h-4 w-4"
+            />
+            <span className="text-sm font-medium">Express delivery</span>
+          </label>
         </>
       )}
 

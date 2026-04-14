@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getOrderStatusLabel, getOrderStatusStyle } from "@/lib/orders/statusPresentation";
 import type { Membership } from "@/lib/users/types";
 
 type DashboardStats = {
@@ -38,15 +39,6 @@ type MembershipsResponse = {
   reason?: string;
 };
 
-const STATUS_BAR_COLORS = [
-  "bg-blue-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-violet-500",
-  "bg-cyan-500",
-];
-
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
     style: "currency",
@@ -57,31 +49,6 @@ function formatNOK(value: number) {
 
 function getOnlineMemberLabel(member: Membership) {
   return member.user.username?.trim() || member.user.email;
-}
-
-function formatStatusLabel(status: string) {
-  const normalized = status.trim().toLowerCase();
-
-  switch (normalized) {
-    case "behandles":
-      return "Pending";
-    case "bekreftet":
-      return "Confirmed";
-    case "aktiv":
-      return "Active";
-    case "kanselert":
-      return "Cancelled";
-    case "ferdig":
-      return "Completed";
-    case "fakturert":
-      return "Invoiced";
-    case "betalt":
-      return "Paid";
-    case "fail":
-      return "Failed";
-    default:
-      return status || "Unknown";
-  }
 }
 
 function StatusBreakdownChart({ items }: { items: StatusItem[] }) {
@@ -124,22 +91,24 @@ function StatusBreakdownChart({ items }: { items: StatusItem[] }) {
             {sortedItems.map((item, index) => {
               const widthPercent =
                 maxCount > 0 ? Math.max((item.count / maxCount) * 100, 8) : 0;
-              const fillColor =
-                STATUS_BAR_COLORS[index % STATUS_BAR_COLORS.length];
+              const statusStyle = getOrderStatusStyle(item.status);
 
               return (
                 <div key={item.status} className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-semibold text-slate-800">
-                      {formatStatusLabel(item.status)}
+                      {getOrderStatusLabel(item.status)}
                     </div>
                     <div className="text-sm text-slate-500">{item.count}</div>
                   </div>
 
                   <div className="h-3 overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className={`h-full rounded-full ${fillColor}`}
-                      style={{ width: `${widthPercent}%` }}
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${widthPercent}%`,
+                        backgroundColor: statusStyle.color,
+                      }}
                     />
                   </div>
                 </div>

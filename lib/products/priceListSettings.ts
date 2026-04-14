@@ -8,6 +8,7 @@ export type PriceListChargeSetting = {
 
 export type PriceListSettings = {
   extraPickup: PriceListChargeSetting;
+  expressDelivery: PriceListChargeSetting;
   kmFrom21: PriceListChargeSetting;
   kmOver100: PriceListChargeSetting;
 };
@@ -35,6 +36,10 @@ export function createDefaultPriceListSettings(): PriceListSettings {
     extraPickup: createDefaultChargeSetting(
       "EXTRA_PICKUP",
       "Extra pickup location",
+    ),
+    expressDelivery: createDefaultChargeSetting(
+      "EXPRESS_DELIVERY",
+      "Express delivery",
     ),
     kmFrom21: createDefaultChargeSetting(
       "KM_FROM_21",
@@ -99,6 +104,10 @@ export function normalizePriceListSettings(
             price: legacyInput.extraPickupPrice,
           },
       defaults.extraPickup,
+    ),
+    expressDelivery: normalizeChargeSetting(
+      input?.expressDelivery,
+      defaults.expressDelivery,
     ),
     kmFrom21: normalizeChargeSetting(
       input?.kmFrom21

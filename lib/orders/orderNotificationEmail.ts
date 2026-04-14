@@ -16,6 +16,7 @@ type NotificationOrder = {
   returnAddress?: string | null;
   drivingDistance?: string | null;
   timeWindow?: string | null;
+  expressDelivery?: boolean | null;
   description?: string | null;
   customerName?: string | null;
   email?: string | null;
@@ -219,6 +220,7 @@ export async function sendOrderNotificationEmail({
       ${detailLine("Leveringsadresse", order.deliveryAddress ?? "")}
       ${detailLine("Total kjøreavstand", order.drivingDistance ?? "")}
       ${detailLine("Tidsvindu for levering", order.timeWindow ?? "")}
+      ${detailLine("Ekspresslevering", order.expressDelivery ? "Ja" : "")}
       ${detailLine("Power Bilagsnummer", reference)}
       ${detailLine("Beskrivelse", order.description ?? "")}
       ${detailLine("Kundens Navn", order.customerName ?? "")}

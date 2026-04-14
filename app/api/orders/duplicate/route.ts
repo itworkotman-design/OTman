@@ -152,6 +152,7 @@ export async function POST(req: Request) {
 
           deliveryDate: sourceOrder.deliveryDate,
           timeWindow: sourceOrder.timeWindow,
+          expressDelivery: sourceOrder.expressDelivery,
 
           pickupAddress: sourceOrder.pickupAddress,
           extraPickupAddress: sourceOrder.extraPickupAddress,
@@ -245,6 +246,7 @@ export async function POST(req: Request) {
           customerName: newOrder.customerName,
           deliveryDate: newOrder.deliveryDate,
           timeWindow: newOrder.timeWindow,
+          expressDelivery: newOrder.expressDelivery,
           pickupAddress: newOrder.pickupAddress,
           extraPickupAddress: newOrder.extraPickupAddress,
           deliveryAddress: newOrder.deliveryAddress,

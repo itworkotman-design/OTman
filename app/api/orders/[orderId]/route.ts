@@ -343,6 +343,7 @@ export async function GET(
       modelNr: true,
       deliveryDate: true,
       timeWindow: true,
+      expressDelivery: true,
       pickupAddress: true,
       extraPickupAddress: true,
       deliveryAddress: true,
@@ -426,6 +427,7 @@ export async function GET(
       modelNr: order.modelNr ?? "",
       deliveryDate: order.deliveryDate ?? "",
       timeWindow: order.timeWindow ?? "",
+      expressDelivery: order.expressDelivery,
       pickupAddress: order.pickupAddress ?? "",
       extraPickupAddress: order.extraPickupAddress ?? [],
       deliveryAddress: order.deliveryAddress ?? "",
@@ -567,6 +569,7 @@ export async function PATCH(
       customerName: true,
       deliveryDate: true,
       timeWindow: true,
+      expressDelivery: true,
       pickupAddress: true,
       extraPickupAddress: true,
       deliveryAddress: true,
@@ -691,6 +694,10 @@ export async function PATCH(
     customerName: optionalString(body.customerName) ?? existingOrder.customerName,
     deliveryDate: optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
     timeWindow: optionalString(body.timeWindow) ?? existingOrder.timeWindow,
+    expressDelivery:
+      body.expressDelivery === undefined
+        ? existingOrder.expressDelivery
+        : optionalBoolean(body.expressDelivery),
     pickupAddress:
       optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
     extraPickupAddress: Array.isArray(body.extraPickupAddress)
@@ -752,6 +759,7 @@ export async function PATCH(
 
         deliveryDate: optionalString(body.deliveryDate),
         timeWindow: optionalString(body.timeWindow),
+        expressDelivery: optionalBoolean(body.expressDelivery),
 
         pickupAddress: optionalString(body.pickupAddress),
         extraPickupAddress: Array.isArray(body.extraPickupAddress)
@@ -906,6 +914,10 @@ export async function PATCH(
         returnAddress: optionalString(body.returnAddress),
         drivingDistance: optionalString(body.drivingDistance),
         timeWindow: optionalString(body.timeWindow),
+        expressDelivery:
+          body.expressDelivery === undefined
+            ? existingOrder.expressDelivery
+            : optionalBoolean(body.expressDelivery),
         description: optionalString(body.description),
         customerName: optionalString(body.customerName),
         email,

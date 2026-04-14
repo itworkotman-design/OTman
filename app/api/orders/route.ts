@@ -246,6 +246,7 @@ export async function POST(req: Request) {
 
       deliveryDate: optionalString(body.deliveryDate),
       timeWindow: optionalString(body.timeWindow),
+      expressDelivery: optionalBoolean(body.expressDelivery),
 
       pickupAddress: optionalString(body.pickupAddress),
       extraPickupAddress: Array.isArray(body.extraPickupAddress)
@@ -363,6 +364,7 @@ export async function POST(req: Request) {
       customerName: order.customerName,
       deliveryDate: order.deliveryDate,
       timeWindow: order.timeWindow,
+      expressDelivery: order.expressDelivery,
       pickupAddress: order.pickupAddress,
       extraPickupAddress: order.extraPickupAddress,
       deliveryAddress: order.deliveryAddress,
@@ -420,6 +422,7 @@ export async function POST(req: Request) {
         returnAddress: optionalString(body.returnAddress),
         drivingDistance: optionalString(body.drivingDistance),
         timeWindow: optionalString(body.timeWindow),
+        expressDelivery: optionalBoolean(body.expressDelivery),
         description: optionalString(body.description),
         customerName,
         email,
@@ -639,6 +642,7 @@ export async function GET(req: Request) {
       statusNotes: true,
       deliveryDate: true,
       timeWindow: true,
+      expressDelivery: true,
       customerLabel: true,
       customerName: true,
       orderNumber: true,
@@ -702,6 +706,7 @@ export async function GET(req: Request) {
       statusNotes: order.statusNotes ?? "",
       deliveryDate: order.deliveryDate ?? "",
       timeWindow: order.timeWindow ?? "",
+      expressDelivery: order.expressDelivery,
       customer: order.customerLabel ?? "",
       customerLabel: order.customerLabel ?? "",
       customerName: order.customerName ?? "",

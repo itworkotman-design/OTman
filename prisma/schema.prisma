@@ -497,6 +497,7 @@ model Order {
 
   deliveryDate String?
   timeWindow   String?
+  expressDelivery Boolean @default(false)
 
   pickupAddress      String?
   extraPickupAddress String[]

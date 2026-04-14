@@ -46,6 +46,7 @@ export type OrderFormPayload = {
   modelNr: string;
   deliveryDate: string;
   timeWindow: string;
+  expressDelivery: boolean;
 
   pickupAddress: string;
   extraPickupAddress: string[];
@@ -163,6 +164,9 @@ export default function BookingEditor({
     initialValues?.deliveryDate ?? "",
   );
   const [timeWindow, setTimeWindow] = useState(initialValues?.timeWindow ?? "");
+  const [expressDelivery, setExpressDelivery] = useState(
+    initialValues?.expressDelivery ?? false,
+  );
   const [deliveryAddress, setDeliveryAddress] = useState(
     initialValues?.deliveryAddress ?? "",
   );
@@ -341,6 +345,7 @@ export default function BookingEditor({
     setModelNr(initialValues.modelNr ?? "");
     setDeliveryDate(initialValues.deliveryDate ?? "");
     setTimeWindow(initialValues.timeWindow ?? "");
+    setExpressDelivery(initialValues.expressDelivery ?? false);
     setDeliveryAddress(initialValues.deliveryAddress ?? "");
     setDrivingDistance(initialValues.drivingDistance ?? "");
     setCustomerName(initialValues.customerName ?? "");
@@ -493,6 +498,20 @@ export default function BookingEditor({
       });
     }
 
+    const expressDeliveryPrice = Number(
+      priceListSettings.expressDelivery.price.replace(",", "."),
+    );
+
+    if (expressDelivery && Number.isFinite(expressDeliveryPrice)) {
+      extraItems.push({
+        kind: "customPrice",
+        code: priceListSettings.expressDelivery.code,
+        label: priceListSettings.expressDelivery.description,
+        qty: 1,
+        unitPrice: expressDeliveryPrice,
+      });
+    }
+
     if (kmFrom21Qty > 0 && Number.isFinite(kmFrom21Price)) {
       extraItems.push({
         kind: "customPrice",
@@ -523,10 +542,14 @@ export default function BookingEditor({
     return nextBreakdowns;
   }, [
     drivingDistance,
+    expressDelivery,
     extraPickups,
     priceListSettings.extraPickup.code,
     priceListSettings.extraPickup.description,
     priceListSettings.extraPickup.price,
+    priceListSettings.expressDelivery.code,
+    priceListSettings.expressDelivery.description,
+    priceListSettings.expressDelivery.price,
     priceListSettings.kmFrom21.code,
     priceListSettings.kmFrom21.description,
     priceListSettings.kmFrom21.price,
@@ -773,6 +796,7 @@ export default function BookingEditor({
       modelNr,
       deliveryDate,
       timeWindow: finalTimeWindow,
+      expressDelivery,
       pickupAddress,
       extraPickupAddress: extraPickups
         .map((pickup) => pickup.value.trim())
@@ -920,6 +944,8 @@ export default function BookingEditor({
             setDeliveryDate={setDeliveryDate}
             timeWindow={timeWindow}
             setTimeWindow={setTimeWindow}
+            expressDelivery={expressDelivery}
+            setExpressDelivery={setExpressDelivery}
             pickupAddress={pickupAddress}
             setPickupAddress={setPickupAddress}
             extraPickups={extraPickups}

@@ -2368,6 +2368,71 @@ export default function EditPricesPage() {
 
               <div className="space-y-3 rounded-lg border border-black/10 p-4">
                 <h3 className="text-sm font-semibold text-logoblue">
+                  Express delivery
+                </h3>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Code
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.expressDelivery.code}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "expressDelivery",
+                        "code",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Code"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Description
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.expressDelivery.description}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "expressDelivery",
+                        "description",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Description"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.expressDelivery.price}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "expressDelivery",
+                        "price",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Price"
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-black/10 p-4">
+                <h3 className="text-sm font-semibold text-logoblue">
                   KM from 21 km
                 </h3>
 

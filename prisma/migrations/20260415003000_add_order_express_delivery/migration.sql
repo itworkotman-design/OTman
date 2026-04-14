@@ -1,0 +1,2 @@
+ALTER TABLE "Order"
+ADD COLUMN "expressDelivery" BOOLEAN NOT NULL DEFAULT false;
