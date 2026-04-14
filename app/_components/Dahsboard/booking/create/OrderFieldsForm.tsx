@@ -11,6 +11,14 @@ import { UserOption } from "@/lib/users/types";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import OrderAttachmentsSection from "@/app/_components/Dahsboard/booking/create/OrderAttachmentsSection";
 
+function FormSectionSpacer() {
+  return (
+    <div className="py-8">
+      <div className="h-px w-full bg-logoblue" />
+    </div>
+  );
+}
+
 type Props = {
   hidden: HiddenMask;
   hideDontSendEmail: boolean;
@@ -231,10 +239,11 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.Description) && (
         <>
           <h1 className="font-bold py-2">Description</h1>
-          <input
+          <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="customInput w-full h-30"
+            rows={5}
+            className="customInput w-full resize-y py-3 leading-normal"
           />
         </>
       )}
@@ -320,6 +329,9 @@ export default function OrderFieldsForm({
         </>
       )}
 
+      {shown(hidden, OrderFields.DeliveryTimeWindow) &&
+        shown(hidden, OrderFields.PickupLocations) && <FormSectionSpacer />}
+
       {shown(hidden, OrderFields.PickupLocations) && (
         <PickupLocations
           disabled={isReturnOnly}
@@ -363,6 +375,9 @@ export default function OrderFieldsForm({
           />
         </>
       )}
+
+      {shown(hidden, OrderFields.DrivingDistance) &&
+        shown(hidden, OrderFields.CustomerName) && <FormSectionSpacer />}
 
       {shown(hidden, OrderFields.CustomerName) && (
         <>
@@ -471,6 +486,9 @@ export default function OrderFieldsForm({
         </>
       )}
 
+      {shown(hidden, OrderFields.Lift) &&
+        shown(hidden, OrderFields.CashierName) && <FormSectionSpacer />}
+
       {shown(hidden, OrderFields.CashierName) && (
         <>
           <h1 className="font-bold py-2">Cashier&apos;s name</h1>
@@ -497,6 +515,9 @@ export default function OrderFieldsForm({
           ) : null}
         </>
       )}
+
+      {shown(hidden, OrderFields.CashierPhone) &&
+        shown(hidden, OrderFields.Subcontractor) && <FormSectionSpacer />}
 
       {shown(hidden, OrderFields.Subcontractor) && (
         <>

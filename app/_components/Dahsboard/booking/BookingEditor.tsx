@@ -1018,7 +1018,10 @@ export default function BookingEditor({
         </div>
 
         <div className="hidden lg:block lg:w-[420] lg:shrink-0">
-          <div className="sticky top-4">
+          <div
+            className=" top-[86px] z-10 w-[420px]"
+            style={{ right: "16px" }}
+          >
             <BookingCalculatorPanel
               calcOpen={calcOpen}
               setCalcOpen={setCalcOpen}

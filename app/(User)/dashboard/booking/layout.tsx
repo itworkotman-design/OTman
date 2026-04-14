@@ -97,7 +97,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
       <style jsx>{`
         .content-shell {
-          padding-top: var(--topbar-height);
+          padding-top: calc(var(--topbar-height) + 10px);
           padding-left: 0;
         }
 
