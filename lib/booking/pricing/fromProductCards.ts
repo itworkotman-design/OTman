@@ -3,7 +3,7 @@ import type {
   CatalogSpecialOption,
   SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { OPTION_CODES } from "@/lib/booking/constants";
+import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import {
   getProductDeliveryTypeCode,
   getProductDeliveryTypeLabel,
@@ -36,18 +36,73 @@ function findXtraSpecialOption(catalogSpecialOptions: CatalogSpecialOption[]) {
 }
 
 function shouldUseXtraDeliveryPricing(
-  cards: SavedProductCard[],
+  xtraDeliveryCardIds: Set<number>,
   currentCardId: number,
 ) {
-  for (const card of cards) {
-    if (card.cardId === currentCardId) break;
+  return xtraDeliveryCardIds.has(currentCardId);
+}
 
-    if (card.productId) {
-      return true;
+function usesSharedDeliveryPricing(card: SavedProductCard, product: CatalogProduct) {
+  if (!product.allowDeliveryTypes) {
+    return false;
+  }
+
+  return (
+    card.deliveryType === DELIVERY_TYPES.FIRST_STEP ||
+    card.deliveryType === DELIVERY_TYPES.INDOOR
+  );
+}
+
+function getXtraDeliveryCardIds(
+  cards: SavedProductCard[],
+  catalogProducts: CatalogProduct[],
+) {
+  const candidates = cards
+    .map((card, index) => {
+      if (!card.productId) {
+        return null;
+      }
+
+      const product =
+        catalogProducts.find((item) => item.id === card.productId && item.active) ??
+        null;
+
+      if (!product || !usesSharedDeliveryPricing(card, product)) {
+        return null;
+      }
+
+      return {
+        cardId: card.cardId,
+        index,
+        standardPrice: getProductDeliveryTypePrice({
+          deliveryTypes: product.deliveryTypes,
+          key: card.deliveryType,
+        }),
+      };
+    })
+    .filter((item) => item !== null);
+
+  if (candidates.length <= 1) {
+    return new Set<number>();
+  }
+
+  let mainCandidate = candidates[0];
+
+  for (const candidate of candidates.slice(1)) {
+    if (
+      candidate.standardPrice > mainCandidate.standardPrice ||
+      (candidate.standardPrice === mainCandidate.standardPrice &&
+        candidate.index < mainCandidate.index)
+    ) {
+      mainCandidate = candidate;
     }
   }
 
-  return false;
+  return new Set(
+    candidates
+      .filter((candidate) => candidate.cardId !== mainCandidate.cardId)
+      .map((candidate) => candidate.cardId),
+  );
 }
 
 function findSelectedReturnSpecialOption(
@@ -351,6 +406,8 @@ export function buildProductBreakdowns(
   catalogProducts: CatalogProduct[],
   catalogSpecialOptions: CatalogSpecialOption[],
 ): ProductBreakdown[] {
+  const xtraDeliveryCardIds = getXtraDeliveryCardIds(cards, catalogProducts);
+
   return cards.flatMap((card) => {
     if (!card.productId) return [];
 
@@ -369,7 +426,7 @@ export function buildProductBreakdowns(
           card,
           product,
           catalogSpecialOptions,
-          shouldUseXtraDeliveryPricing(cards, card.cardId),
+          shouldUseXtraDeliveryPricing(xtraDeliveryCardIds, card.cardId),
         ),
       },
     ];

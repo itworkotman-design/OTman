@@ -7,7 +7,7 @@ import type {
   SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 
-function buildProduct(): CatalogProduct {
+function buildProduct(overrides?: Partial<CatalogProduct>): CatalogProduct {
   return {
     id: "product-1",
     code: "PROD-1",
@@ -38,6 +38,7 @@ function buildProduct(): CatalogProduct {
         active: true,
       },
     ],
+    ...overrides,
   };
 }
 
@@ -192,6 +193,99 @@ describe("buildProductBreakdowns", () => {
       code: "FIRST_STEP",
       unitPrice: 590,
       label: "Første trinn",
+    });
+  });
+
+  it("keeps the most expensive indoor delivery as main even if it was added later", () => {
+    const cheaperProduct = buildProduct({
+      id: "product-1",
+      deliveryTypes: [
+        {
+          key: DELIVERY_TYPES.INDOOR,
+          code: "INDOOR",
+          label: "Innbæring",
+          price: "600",
+          xtraPrice: "250",
+        },
+        ...createDefaultProductDeliveryTypes().filter(
+          (item) => item.key !== DELIVERY_TYPES.INDOOR,
+        ),
+      ],
+    });
+    const moreExpensiveProduct = buildProduct({
+      id: "product-2",
+      code: "PROD-2",
+      label: "Sofa",
+      deliveryTypes: [
+        {
+          key: DELIVERY_TYPES.INDOOR,
+          code: "INDOOR",
+          label: "Innbæring",
+          price: "1300",
+          xtraPrice: "250",
+        },
+        ...createDefaultProductDeliveryTypes().filter(
+          (item) => item.key !== DELIVERY_TYPES.INDOOR,
+        ),
+      ],
+    });
+
+    const cards = [
+      buildCard({
+        cardId: 1,
+        productId: "product-1",
+        deliveryType: DELIVERY_TYPES.INDOOR,
+      }),
+      buildCard({
+        cardId: 2,
+        productId: "product-2",
+        deliveryType: DELIVERY_TYPES.INDOOR,
+      }),
+    ];
+
+    const result = buildProductBreakdowns(
+      cards,
+      [cheaperProduct, moreExpensiveProduct],
+      [],
+    );
+
+    expect(result[0]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      unitPrice: 250,
+      label: "Innbæring (XTRA)",
+    });
+    expect(result[1]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      unitPrice: 1300,
+      label: "Innbæring",
+    });
+  });
+
+  it("keeps the most expensive shared delivery type as main across first-step and indoor", () => {
+    const cards = [
+      buildCard({
+        cardId: 1,
+        deliveryType: DELIVERY_TYPES.FIRST_STEP,
+      }),
+      buildCard({
+        cardId: 2,
+        deliveryType: DELIVERY_TYPES.INDOOR,
+      }),
+    ];
+
+    const result = buildProductBreakdowns(cards, [buildProduct()], []);
+
+    expect(result[0]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "FIRST_STEP",
+      unitPrice: 150,
+      label: "Første trinn (XTRA)",
+    });
+    expect(result[1]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "INDOOR",
+      unitPrice: 669,
+      label: "Innbæring",
     });
   });
 });
