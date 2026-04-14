@@ -1,6 +1,8 @@
 // path: app/_components/Dahsboard/booking/create/OrderAttachmentsSection.tsx
 "use client";
 
+import { useId } from "react";
+
 type AttachmentItem = {
   id: string;
   filename: string;
@@ -34,22 +36,33 @@ export default function OrderAttachmentsSection({
   onUpload,
   onDelete,
 }: Props) {
+  const inputId = useId();
+
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-neutral-600">
         Attachments
       </label>
 
-      <div className="mb-3 flex items-center gap-2 customButtonDefault w-30">
+      <div className="mb-3">
         <input
+          id={inputId}
           type="file"
           accept="image/*,.pdf,application/pdf"
+          className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) void onUpload(file);
             e.currentTarget.value = "";
           }}
         />
+
+        <label
+          htmlFor={inputId}
+          className="customButtonDefault inline-flex w-30 cursor-pointer items-center justify-center"
+        >
+          Choose file
+        </label>
 
         {uploading && <span className="text-sm">Uploading...</span>}
       </div>

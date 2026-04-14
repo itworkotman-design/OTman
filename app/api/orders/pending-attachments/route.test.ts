@@ -77,6 +77,48 @@ describe("routes in /api/orders/pending-attachments", () => {
     });
   });
 
+  it("POST accepts pdf files", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+    });
+    mocks.countMock.mockResolvedValue(0);
+    mocks.mkdirMock.mockResolvedValue(undefined);
+    mocks.writeFileMock.mockResolvedValue(undefined);
+    mocks.createMock.mockResolvedValue({
+      id: "att-1",
+      filename: "test.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 4,
+      storagePath: "/uploads/pending-orders/user-1/file.pdf",
+      createdAt: new Date("2026-04-14T00:00:00.000Z"),
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3, 4])], "test.pdf", {
+        type: "application/pdf",
+      }),
+    );
+
+    const req = new Request("http://localhost/api/orders/pending-attachments", {
+      method: "POST",
+      body: formData,
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      attachment: {
+        id: "att-1",
+        filename: "test.pdf",
+        mimeType: "application/pdf",
+      },
+    });
+  });
+
   it("DELETE clears pending attachments for the current session", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

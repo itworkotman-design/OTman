@@ -9,6 +9,7 @@ export type ProductCardLineItem =
   | {
       kind: "deliveryType";
       code: DeliveryType;
+      label?: string;
       qty: number;
       unitPrice: number;
     }

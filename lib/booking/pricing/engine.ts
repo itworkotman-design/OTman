@@ -45,7 +45,7 @@ export function calculateBookingPricing(params: {
         subtotalExVat += lineTotal;
 
         lines.push({
-          label: deliveryTypeLabel(item.code),
+          label: item.label ?? deliveryTypeLabel(item.code),
           qty: item.qty,
           unitPrice,
           lineTotal,

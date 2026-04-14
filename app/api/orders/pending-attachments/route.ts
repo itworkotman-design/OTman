@@ -8,6 +8,12 @@ import { unlink } from "fs/promises";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
+function isAllowedAttachmentFile(file: File) {
+  if (file.type.startsWith("image/")) return true;
+  if (file.type === "application/pdf") return true;
+  return file.name.toLowerCase().endsWith(".pdf");
+}
+
 export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
 
@@ -75,7 +81,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!file.type.startsWith("image/")) {
+  if (!isAllowedAttachmentFile(file)) {
     return NextResponse.json(
       { ok: false, reason: "INVALID_FILE_TYPE" },
       { status: 400 },

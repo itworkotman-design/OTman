@@ -25,11 +25,38 @@ import {
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
 const PALLET_EXTRA_UNIT_PRICE = 250;
+const XTRA_DELIVERY_TYPE_PRICES: Partial<
+  Record<typeof DELIVERY_TYPES[keyof typeof DELIVERY_TYPES], number>
+> = {
+  [DELIVERY_TYPES.FIRST_STEP]: 150,
+  [DELIVERY_TYPES.INDOOR]: 229,
+};
 
 function findXtraSpecialOption(catalogSpecialOptions: CatalogSpecialOption[]) {
   return (
     catalogSpecialOptions.find((o) => o.active && o.type === "xtra") ?? null
   );
+}
+
+function shouldUseXtraDeliveryPricing(
+  cards: SavedProductCard[],
+  currentCardId: number,
+) {
+  for (const card of cards) {
+    if (card.cardId === currentCardId) break;
+
+    if (card.productId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getXtraDeliveryTypePrice(deliveryType: SavedProductCard["deliveryType"]) {
+  if (!deliveryType) return undefined;
+
+  return XTRA_DELIVERY_TYPE_PRICES[deliveryType];
 }
 
 function findSelectedReturnSpecialOption(
@@ -116,6 +143,7 @@ function buildItemsForCard(
   card: SavedProductCard,
   product: CatalogProduct,
   catalogSpecialOptions: CatalogSpecialOption[],
+  useXtraDeliveryPricing: boolean,
 ): ProductCardLineItem[] {
   const items: ProductCardLineItem[] = [];
   const amount = getAmount(card, product);
@@ -138,11 +166,19 @@ function buildItemsForCard(
   const baseProductOption = findBaseProductOption(product);
 
   if (product.allowDeliveryTypes && card.deliveryType) {
+    const xtraDeliveryPrice = useXtraDeliveryPricing
+      ? getXtraDeliveryTypePrice(card.deliveryType)
+      : undefined;
+
     items.push({
       kind: "deliveryType",
       code: card.deliveryType,
+      label:
+        xtraDeliveryPrice !== undefined
+          ? `${card.deliveryType} (${OPTION_CODES.XTRA})`
+          : undefined,
       qty: 1,
-      unitPrice: DELIVERY_TYPE_PRICES[card.deliveryType] ?? 0,
+      unitPrice: xtraDeliveryPrice ?? DELIVERY_TYPE_PRICES[card.deliveryType] ?? 0,
     });
 
     if (isDeliveryTypeWithExtraAmount(card.deliveryType) && amount > 1) {
@@ -322,7 +358,12 @@ export function buildProductBreakdowns(
           product.productType === "LABOR"
             ? `${product.label} (${getHoursInput(card, product)} h)`
             : product.label,
-        items: buildItemsForCard(card, product, catalogSpecialOptions),
+        items: buildItemsForCard(
+          card,
+          product,
+          catalogSpecialOptions,
+          shouldUseXtraDeliveryPricing(cards, card.cardId),
+        ),
       },
     ];
   });
