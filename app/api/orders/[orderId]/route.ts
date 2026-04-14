@@ -31,6 +31,7 @@ import {
   normalizeSavedProductCard,
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import type { AppPermission } from "@/lib/users/types";
 
 type ProductChangeValue = {
@@ -95,13 +96,21 @@ function describeCustomSelections(
 function getProductCardValues(
   card: SavedProductCard,
   optionLookup: Map<string, string>,
+  productLookup: Map<string, CatalogProduct>,
 ) {
   const productLabel = card.productId
     ? optionLookup.get(card.productId) || card.productId
     : "Unselected product";
+  const product = card.productId ? productLookup.get(card.productId) ?? null : null;
   const values: ProductChangeValue[] = [
     { label: "Product", value: productLabel },
-    { label: "Delivery type", value: card.deliveryType || "-" },
+    {
+      label: "Delivery type",
+      value:
+        product?.allowDeliveryTypes && card.deliveryType
+          ? getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType)
+          : "-",
+    },
     { label: "Amount", value: String(card.amount) },
   ];
 
@@ -192,6 +201,7 @@ function diffProductCards(
   previousCards: SavedProductCard[],
   nextCards: SavedProductCard[],
   optionLookup: Map<string, string>,
+  productLookup: Map<string, CatalogProduct>,
 ): OrderEventProductChange[] {
   const previousMap = new Map(previousCards.map((card) => [card.cardId, card]));
   const nextMap = new Map(nextCards.map((card) => [card.cardId, card]));
@@ -220,7 +230,7 @@ function diffProductCards(
         cardId,
         title,
         changeType: "ADDED",
-        changes: getProductCardValues(nextCard, optionLookup).map((item) => ({
+        changes: getProductCardValues(nextCard, optionLookup, productLookup).map((item) => ({
           label: item.label,
           previousValue: "-",
           nextValue: item.value,
@@ -234,7 +244,7 @@ function diffProductCards(
         cardId,
         title,
         changeType: "REMOVED",
-        changes: getProductCardValues(previousCard, optionLookup).map((item) => ({
+        changes: getProductCardValues(previousCard, optionLookup, productLookup).map((item) => ({
           label: item.label,
           previousValue: item.value,
           nextValue: "-",
@@ -247,8 +257,12 @@ function diffProductCards(
       continue;
     }
 
-    const previousValues = getProductCardValues(previousCard, optionLookup);
-    const nextValues = getProductCardValues(nextCard, optionLookup);
+    const previousValues = getProductCardValues(
+      previousCard,
+      optionLookup,
+      productLookup,
+    );
+    const nextValues = getProductCardValues(nextCard, optionLookup, productLookup);
     const valueLabels = Array.from(
       new Set([
         ...previousValues.map((item) => item.label),
@@ -651,6 +665,9 @@ export async function PATCH(
     catalog.specialOptions,
   );
   const optionLookup = buildOptionLookup(catalog.products, catalog.specialOptions);
+  const productLookup = new Map(
+    catalog.products.map((product) => [product.id, product]),
+  );
   const previousProductCards = Array.isArray(existingOrder.productCardsSnapshot)
     ? existingOrder.productCardsSnapshot.map((card, index) =>
         normalizeSavedProductCard(card as Partial<SavedProductCard>, index),
@@ -660,6 +677,7 @@ export async function PATCH(
     previousProductCards,
     productCards,
     optionLookup,
+    productLookup,
   );
 
   const previousSnapshot = buildOrderEventSnapshot(existingOrder);
@@ -685,7 +703,8 @@ export async function PATCH(
       : existingOrder.extraPickupAddress,
     deliveryAddress:
       optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
-    returnAddress: existingOrder.returnAddress,
+    returnAddress:
+      optionalString(body.returnAddress) ?? existingOrder.returnAddress,
     drivingDistance:
       optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
     phone: phone ?? existingOrder.phone,
@@ -884,6 +903,7 @@ export async function PATCH(
               .filter(Boolean)
           : [],
         deliveryAddress: optionalString(body.deliveryAddress),
+        returnAddress: optionalString(body.returnAddress),
         drivingDistance: optionalString(body.drivingDistance),
         timeWindow: optionalString(body.timeWindow),
         description: optionalString(body.description),

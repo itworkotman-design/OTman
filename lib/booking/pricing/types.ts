@@ -1,15 +1,15 @@
 export type DeliveryType =
   | ""
-  | "Første trinn"
-  | "Innbæring"
-  | "Kun Installasjon/Montering"
-  | "Kun retur";
+  | "FIRST_STEP"
+  | "INDOOR"
+  | "INSTALL_ONLY"
+  | "RETURN_ONLY";
 
 export type ProductCardLineItem =
   | {
       kind: "deliveryType";
-      code: DeliveryType;
-      label?: string;
+      code: string;
+      label: string;
       qty: number;
       unitPrice: number;
     }

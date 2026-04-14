@@ -3,6 +3,7 @@ import type {
   CatalogProduct,
   CatalogSpecialOption,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 
 type Result = {
   productsSummary: string;
@@ -59,7 +60,9 @@ export function buildOrderSummaries(
       }
 
       if (product?.allowDeliveryTypes && card.deliveryType) {
-        deliveryTypes.push(card.deliveryType);
+        deliveryTypes.push(
+          getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType),
+        );
       }
     }
 

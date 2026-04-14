@@ -109,6 +109,7 @@ export async function POST(
       autoXtraPerPallet:
         productConfig?.autoXtraPerPallet ??
         item.productOption.product.autoXtraPerPallet,
+      deliveryTypes: productConfig?.deliveryTypes ?? [],
       customSections: productConfig?.customSections ?? [],
       optionCode: item.productOption.code,
       optionLabel: item.productOption.label,

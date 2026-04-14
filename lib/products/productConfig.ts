@@ -4,6 +4,11 @@ import {
   normalizeProductCustomSections,
   type ProductCustomSection,
 } from "@/lib/products/customSections";
+import {
+  createDefaultProductDeliveryTypes,
+  normalizeProductDeliveryTypes,
+  type ProductDeliveryType,
+} from "@/lib/products/deliveryTypes";
 
 export type ProductConfig = {
   id: string;
@@ -17,8 +22,18 @@ export type ProductConfig = {
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
   autoXtraPerPallet: boolean;
+  deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
 };
+
+function isMissingDeliveryTypesColumnError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return (
+    message.includes(`column "deliveryTypes" does not exist`) ||
+    message.includes(`column "deliverytypes" does not exist`)
+  );
+}
 
 export async function getProductConfigMap(productIds: string[]) {
   const uniqueIds = Array.from(new Set(productIds.filter(Boolean)));
@@ -27,35 +42,80 @@ export async function getProductConfigMap(productIds: string[]) {
     return new Map<string, ProductConfig>();
   }
 
-  const rows = await prisma.$queryRaw<
-    Array<
-      Omit<ProductConfig, "customSections"> & {
-        customSections: Prisma.JsonValue | null;
-      }
-    >
-  >(Prisma.sql`
-    SELECT
-      "id",
-      "productType",
-      "allowDeliveryTypes",
-      "allowInstallOptions",
-      "allowReturnOptions",
-      "allowExtraServices",
-      "allowDemont",
-      "allowQuantity",
-      "allowPeopleCount",
-      "allowHoursInput",
-      "autoXtraPerPallet",
-      "customSections"
-    FROM "Product"
-    WHERE "id" IN (${Prisma.join(uniqueIds)})
-  `);
+  let rows: Array<
+    Omit<ProductConfig, "deliveryTypes" | "customSections"> & {
+      deliveryTypes: Prisma.JsonValue | null;
+      customSections: Prisma.JsonValue | null;
+    }
+  >;
+
+  try {
+    rows = await prisma.$queryRaw<
+      Array<
+        Omit<ProductConfig, "deliveryTypes" | "customSections"> & {
+          deliveryTypes: Prisma.JsonValue | null;
+          customSections: Prisma.JsonValue | null;
+        }
+      >
+    >(Prisma.sql`
+      SELECT
+        "id",
+        "productType",
+        "allowDeliveryTypes",
+        "allowInstallOptions",
+        "allowReturnOptions",
+        "allowExtraServices",
+        "allowDemont",
+        "allowQuantity",
+        "allowPeopleCount",
+        "allowHoursInput",
+        "autoXtraPerPallet",
+        "deliveryTypes",
+        "customSections"
+      FROM "Product"
+      WHERE "id" IN (${Prisma.join(uniqueIds)})
+    `);
+  } catch (error) {
+    if (!isMissingDeliveryTypesColumnError(error)) {
+      throw error;
+    }
+
+    const fallbackRows = await prisma.$queryRaw<
+      Array<
+        Omit<ProductConfig, "deliveryTypes" | "customSections"> & {
+          customSections: Prisma.JsonValue | null;
+        }
+      >
+    >(Prisma.sql`
+      SELECT
+        "id",
+        "productType",
+        "allowDeliveryTypes",
+        "allowInstallOptions",
+        "allowReturnOptions",
+        "allowExtraServices",
+        "allowDemont",
+        "allowQuantity",
+        "allowPeopleCount",
+        "allowHoursInput",
+        "autoXtraPerPallet",
+        "customSections"
+      FROM "Product"
+      WHERE "id" IN (${Prisma.join(uniqueIds)})
+    `);
+
+    rows = fallbackRows.map((row) => ({
+      ...row,
+      deliveryTypes: createDefaultProductDeliveryTypes(),
+    }));
+  }
 
   return new Map(
     rows.map((row) => [
       row.id,
       {
         ...row,
+        deliveryTypes: normalizeProductDeliveryTypes(row.deliveryTypes),
         customSections: normalizeProductCustomSections(row.customSections),
       },
     ]),

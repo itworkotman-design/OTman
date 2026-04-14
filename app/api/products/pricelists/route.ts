@@ -114,7 +114,7 @@ export async function POST(req: Request) {
         data: {
           name: nextName,
           code: nextCode,
-          description: null,
+          description: sourcePriceList.description,
           isActive: true,
         },
         select: {

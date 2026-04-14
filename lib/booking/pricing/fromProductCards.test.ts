@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
+import { createDefaultProductDeliveryTypes } from "@/lib/products/deliveryTypes";
 import type {
   CatalogProduct,
   SavedProductCard,
@@ -22,6 +23,7 @@ function buildProduct(): CatalogProduct {
     allowPeopleCount: false,
     allowHoursInput: false,
     autoXtraPerPallet: false,
+    deliveryTypes: createDefaultProductDeliveryTypes(),
     customSections: [],
     options: [
       {
@@ -63,7 +65,7 @@ function buildCard(overrides: Partial<SavedProductCard>): SavedProductCard {
 }
 
 describe("buildProductBreakdowns", () => {
-  it("uses XTRA indoor pricing for cards after an earlier selected product", () => {
+  it("uses standard and XTRA indoor delivery display values", () => {
     const product = buildProduct();
     const cards = [
       buildCard({
@@ -80,19 +82,19 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: DELIVERY_TYPES.INDOOR,
+      code: "INDOOR",
       unitPrice: 669,
-      label: undefined,
+      label: "Innbæring",
     });
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: DELIVERY_TYPES.INDOOR,
+      code: "INDOOR",
       unitPrice: 229,
-      label: `${DELIVERY_TYPES.INDOOR} (XTRA)`,
+      label: "Innbæring (XTRA)",
     });
   });
 
-  it("uses XTRA first-step pricing for cards after an earlier selected product", () => {
+  it("uses XTRA first-step pricing after an earlier selected product", () => {
     const product = buildProduct();
     const cards = [
       buildCard({
@@ -109,9 +111,9 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: DELIVERY_TYPES.FIRST_STEP,
+      code: "FIRST_STEP",
       unitPrice: 150,
-      label: `${DELIVERY_TYPES.FIRST_STEP} (XTRA)`,
+      label: "Første trinn (XTRA)",
     });
   });
 
@@ -137,17 +139,17 @@ describe("buildProductBreakdowns", () => {
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
       unitPrice: 669,
-      label: undefined,
+      label: "Innbæring",
     });
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
       unitPrice: 229,
-      label: `${DELIVERY_TYPES.INDOOR} (XTRA)`,
+      label: "Innbæring (XTRA)",
     });
     expect(result[2]?.items[0]).toMatchObject({
       kind: "deliveryType",
       unitPrice: 229,
-      label: `${DELIVERY_TYPES.INDOOR} (XTRA)`,
+      label: "Innbæring (XTRA)",
     });
   });
 
@@ -164,8 +166,9 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
+      code: "INDOOR",
       unitPrice: 669,
-      label: undefined,
+      label: "Innbæring",
     });
   });
 
@@ -186,8 +189,9 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
+      code: "FIRST_STEP",
       unitPrice: 590,
-      label: undefined,
+      label: "Første trinn",
     });
   });
 });

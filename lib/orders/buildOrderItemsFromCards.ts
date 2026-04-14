@@ -4,6 +4,7 @@ import type {
   CatalogSpecialOption,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { OPTION_CODES } from "@/lib/booking/constants";
+import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import {
   isInstallOption,
   isReturnOption,
@@ -109,6 +110,10 @@ export function buildOrderItemsFromCards(
   for (const card of productCards) {
     const product =
       catalogProducts.find((p) => p.id === card.productId) ?? null;
+    const deliveryTypeLabel =
+      product?.allowDeliveryTypes && card.deliveryType
+        ? getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType)
+        : null;
     const amount = getAmount(card, product);
     const peopleCount = getPeopleCount(card, product);
     const hoursInput = getHoursInput(card, product);
@@ -124,8 +129,7 @@ export function buildOrderItemsFromCards(
       productId: card.productId ?? null,
       productCode: product?.code ?? null,
       productName: product?.label ?? null,
-      deliveryType:
-        product?.allowDeliveryTypes && card.deliveryType ? card.deliveryType : null,
+      deliveryType: deliveryTypeLabel,
       itemType: "PRODUCT_CARD",
       optionId: null,
       optionCode: null,
@@ -198,10 +202,7 @@ export function buildOrderItemsFromCards(
             productId: card.productId ?? null,
             productCode: product?.code ?? null,
             productName: product?.label ?? null,
-            deliveryType:
-              product?.allowDeliveryTypes && card.deliveryType
-                ? card.deliveryType
-                : null,
+            deliveryType: deliveryTypeLabel,
             itemType: "INSTALL_OPTION",
             optionId,
             optionCode: option?.code ?? null,
@@ -222,10 +223,7 @@ export function buildOrderItemsFromCards(
           productId: card.productId ?? null,
           productCode: product?.code ?? null,
           productName: product?.label ?? null,
-          deliveryType:
-            product?.allowDeliveryTypes && card.deliveryType
-              ? card.deliveryType
-              : null,
+          deliveryType: deliveryTypeLabel,
           itemType: "BASE_OPTION",
           optionId: baseOption.id,
           optionCode: baseOption.code,
@@ -253,10 +251,7 @@ export function buildOrderItemsFromCards(
           productId: card.productId ?? null,
           productCode: product?.code ?? null,
           productName: product?.label ?? null,
-          deliveryType:
-            product?.allowDeliveryTypes && card.deliveryType
-              ? card.deliveryType
-              : null,
+          deliveryType: deliveryTypeLabel,
           itemType: "EXTRA_OPTION",
           optionId: null,
           optionCode: PALLET_EXTRA_CODE,
@@ -288,8 +283,7 @@ export function buildOrderItemsFromCards(
           productId: card.productId ?? null,
           productCode: product?.code ?? null,
           productName: product?.label ?? null,
-          deliveryType:
-            product?.allowDeliveryTypes && card.deliveryType ? card.deliveryType : null,
+          deliveryType: deliveryTypeLabel,
           itemType: "EXTRA_OPTION",
           optionId: option.id,
           optionCode: option.code || section.title || null,
@@ -317,7 +311,7 @@ export function buildOrderItemsFromCards(
         productId: card.productId ?? null,
         productCode: product?.code ?? null,
         productName: product?.label ?? null,
-        deliveryType: card.deliveryType || null,
+        deliveryType: deliveryTypeLabel,
         itemType: "INSTALL_OPTION",
         optionId,
         optionCode: option?.code ?? null,
@@ -348,10 +342,7 @@ export function buildOrderItemsFromCards(
           productId: card.productId ?? null,
           productCode: product?.code ?? null,
           productName: product?.label ?? null,
-          deliveryType:
-            product?.allowDeliveryTypes && card.deliveryType
-              ? card.deliveryType
-              : null,
+          deliveryType: deliveryTypeLabel,
           itemType: "EXTRA_OPTION",
           optionId,
           optionCode: option?.code ?? null,
@@ -379,8 +370,7 @@ export function buildOrderItemsFromCards(
         productId: card.productId ?? null,
         productCode: product?.code ?? null,
         productName: product?.label ?? null,
-        deliveryType:
-          product?.allowDeliveryTypes && card.deliveryType ? card.deliveryType : null,
+        deliveryType: deliveryTypeLabel,
         itemType: "EXTRA_OPTION",
         optionId: demontOption.id,
         optionCode: demontOption.code,
@@ -405,8 +395,7 @@ export function buildOrderItemsFromCards(
         productId: card.productId ?? null,
         productCode: product?.code ?? null,
         productName: product?.label ?? null,
-        deliveryType:
-          product?.allowDeliveryTypes && card.deliveryType ? card.deliveryType : null,
+        deliveryType: deliveryTypeLabel,
         itemType: "RETURN_OPTION",
         optionId: card.selectedReturnOptionId,
         optionCode: special?.code ?? null,

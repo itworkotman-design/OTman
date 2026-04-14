@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createDefaultProductDeliveryTypes } from "@/lib/products/deliveryTypes";
+import { createDefaultPriceListSettings } from "@/lib/products/priceListSettings";
 
 const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
@@ -157,6 +159,7 @@ describe("GET /api/booking/catalog", () => {
       ok: true,
       priceListId: "price-list-1",
       priceListCode: "PL-1",
+      priceListSettings: createDefaultPriceListSettings(),
       products: [
         {
           id: "product-1",
@@ -173,6 +176,7 @@ describe("GET /api/booking/catalog", () => {
           allowPeopleCount: false,
           allowHoursInput: false,
           autoXtraPerPallet: false,
+          deliveryTypes: createDefaultProductDeliveryTypes(),
           customSections: [],
           options: [
             {

@@ -1,5 +1,9 @@
 import type { DeliveryType } from "@/lib/booking/pricing/types";
 import type { ProductCustomSection } from "@/lib/products/customSections";
+import {
+  normalizeDeliveryTypeKey,
+  type ProductDeliveryType,
+} from "@/lib/products/deliveryTypes";
 
 export type ProductType = "PHYSICAL" | "PALLET" | "LABOR";
 
@@ -61,6 +65,7 @@ export type CatalogProduct = {
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
   autoXtraPerPallet: boolean;
+  deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
   options: CatalogOption[];
 };
@@ -116,7 +121,7 @@ export function normalizeSavedProductCard(
     ...value,
     cardId: value?.cardId ?? fallbackCardId,
     productId: value?.productId ?? null,
-    deliveryType: value?.deliveryType ?? "",
+    deliveryType: normalizeDeliveryTypeKey(value?.deliveryType),
     amount:
       typeof value?.amount === "number" && Number.isFinite(value.amount)
         ? value.amount

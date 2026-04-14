@@ -5,6 +5,8 @@ import { getProductConfigMap } from "@/lib/products/productConfig";
 import { prisma } from "@/lib/db";
 import { getEffectivePrice } from "@/lib/products/discounts";
 import type { ProductCustomSection } from "@/lib/products/customSections";
+import type { ProductDeliveryType } from "@/lib/products/deliveryTypes";
+import { parsePriceListSettings } from "@/lib/products/priceListSettings";
 
 function centsToNokString(cents: number) {
   return Math.round(cents / 100).toString();
@@ -129,6 +131,7 @@ export async function GET(req: Request) {
       allowPeopleCount: boolean;
       allowHoursInput: boolean;
       autoXtraPerPallet: boolean;
+      deliveryTypes: ProductDeliveryType[];
       customSections: ProductCustomSection[];
 
       options: Array<{
@@ -173,6 +176,7 @@ export async function GET(req: Request) {
           productConfig?.allowHoursInput ?? product.allowHoursInput,
         autoXtraPerPallet:
           productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
+        deliveryTypes: productConfig?.deliveryTypes ?? [],
         customSections: productConfig?.customSections ?? [],
 
         options: [],
@@ -232,6 +236,7 @@ export async function GET(req: Request) {
       ok: true,
       priceListId: priceList.id,
       priceListCode: priceList.code,
+      priceListSettings: parsePriceListSettings(priceList.description),
       products: Array.from(productMap.values()),
       specialOptions,
     },

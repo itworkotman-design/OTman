@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
@@ -7,6 +8,10 @@ import {
   normalizeProductCustomSections,
   type ProductCustomSection,
 } from "@/lib/products/customSections";
+import {
+  normalizeProductDeliveryTypes,
+  type ProductDeliveryType,
+} from "@/lib/products/deliveryTypes";
 
 type Body = {
   customerPrice?: string | number;
@@ -28,6 +33,7 @@ type Body = {
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
   autoXtraPerPallet?: boolean;
+  deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
 
   discountAmount?: string | number | null;
@@ -78,6 +84,61 @@ function toDateInputValue(value: Date | null) {
   return value.toISOString().slice(0, 10);
 }
 
+function isMissingDeliveryTypesColumnError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return (
+    message.includes(`column "deliveryTypes" does not exist`) ||
+    message.includes(`column "deliverytypes" does not exist`)
+  );
+}
+
+async function findPriceListItemById(
+  db: Prisma.TransactionClient | typeof prisma,
+  itemId: string,
+) {
+  return db.priceListItem.findUnique({
+    where: { id: itemId },
+    select: {
+      id: true,
+      productOptionId: true,
+      customerPriceCents: true,
+      subcontractorPriceCents: true,
+      discountAmountCents: true,
+      discountEndsAt: true,
+      isActive: true,
+      productOption: {
+        select: {
+          id: true,
+          productId: true,
+          code: true,
+          label: true,
+          description: true,
+          category: true,
+          sortOrder: true,
+          product: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              productType: true,
+              allowDeliveryTypes: true,
+              allowInstallOptions: true,
+              allowReturnOptions: true,
+              allowExtraServices: true,
+              allowDemont: true,
+              allowQuantity: true,
+              allowPeopleCount: true,
+              allowHoursInput: true,
+              autoXtraPerPallet: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ itemId: string }> },
@@ -95,16 +156,7 @@ export async function PATCH(
   const body = (await req.json()) as Body;
 
 
-  const existing = await prisma.priceListItem.findUnique({
-    where: { id: itemId },
-    include: {
-      productOption: {
-        include: {
-          product: true,
-        },
-      },
-    },
-  });
+  const existing = await findPriceListItemById(prisma, itemId);
 
   if (!existing) {
     return NextResponse.json(
@@ -248,6 +300,7 @@ export async function PATCH(
     allowPeopleCount?: boolean;
     allowHoursInput?: boolean;
     autoXtraPerPallet?: boolean;
+    deliveryTypes?: ProductDeliveryType[];
     customSections?: ProductCustomSection[];
   } = {};
 
@@ -316,65 +369,83 @@ export async function PATCH(
     productData.autoXtraPerPallet = body.autoXtraPerPallet;
   }
 
+  if (body.deliveryTypes !== undefined) {
+    productData.deliveryTypes = normalizeProductDeliveryTypes(body.deliveryTypes);
+  }
+
   if (body.customSections !== undefined) {
     productData.customSections = normalizeProductCustomSections(
       body.customSections,
     );
   }
 
+  const deliveryTypesJson =
+    productData.deliveryTypes !== undefined
+      ? JSON.stringify(productData.deliveryTypes)
+      : null;
   const customSectionsJson =
     productData.customSections !== undefined
       ? JSON.stringify(productData.customSections)
       : null;
 
-  const updated = await prisma.$transaction(async (tx) => {
-    if (Object.keys(productData).length > 0) {
-      // Prisma's runtime client can lag behind the schema during dev, so use
-      // a parameterized SQL update here for the newly added Product fields.
-      await tx.$executeRaw`
-        UPDATE "Product"
-        SET
-          "name" = COALESCE(${productData.name ?? null}, "name"),
-          "productType" = COALESCE(${productData.productType ?? null}::"ProductType", "productType"),
-          "allowDeliveryTypes" = COALESCE(${productData.allowDeliveryTypes ?? null}, "allowDeliveryTypes"),
-          "allowQuantity" = COALESCE(${productData.allowQuantity ?? null}, "allowQuantity"),
-          "allowInstallOptions" = COALESCE(${productData.allowInstallOptions ?? null}, "allowInstallOptions"),
-          "allowReturnOptions" = COALESCE(${productData.allowReturnOptions ?? null}, "allowReturnOptions"),
-          "allowExtraServices" = COALESCE(${productData.allowExtraServices ?? null}, "allowExtraServices"),
-          "allowDemont" = COALESCE(${productData.allowDemont ?? null}, "allowDemont"),
-          "allowPeopleCount" = COALESCE(${productData.allowPeopleCount ?? null}, "allowPeopleCount"),
-          "allowHoursInput" = COALESCE(${productData.allowHoursInput ?? null}, "allowHoursInput"),
-          "autoXtraPerPallet" = COALESCE(${productData.autoXtraPerPallet ?? null}, "autoXtraPerPallet"),
-          "customSections" = COALESCE(${customSectionsJson}::jsonb, "customSections")
-        WHERE "id" = ${existing.productOption.productId}
-      `;
-    }
+  let updated;
 
-    if (Object.keys(productOptionData).length > 0) {
-      await tx.productOption.update({
-        where: { id: existing.productOption.id },
-        data: productOptionData,
-      });
-    }
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      if (Object.keys(productData).length > 0) {
+        // Prisma's runtime client can lag behind the schema during dev, so use
+        // a parameterized SQL update here for the newly added Product fields.
+        await tx.$executeRaw`
+          UPDATE "Product"
+          SET
+            "name" = COALESCE(${productData.name ?? null}, "name"),
+            "productType" = COALESCE(${productData.productType ?? null}::"ProductType", "productType"),
+            "allowDeliveryTypes" = COALESCE(${productData.allowDeliveryTypes ?? null}, "allowDeliveryTypes"),
+            "allowQuantity" = COALESCE(${productData.allowQuantity ?? null}, "allowQuantity"),
+            "allowInstallOptions" = COALESCE(${productData.allowInstallOptions ?? null}, "allowInstallOptions"),
+            "allowReturnOptions" = COALESCE(${productData.allowReturnOptions ?? null}, "allowReturnOptions"),
+            "allowExtraServices" = COALESCE(${productData.allowExtraServices ?? null}, "allowExtraServices"),
+            "allowDemont" = COALESCE(${productData.allowDemont ?? null}, "allowDemont"),
+            "allowPeopleCount" = COALESCE(${productData.allowPeopleCount ?? null}, "allowPeopleCount"),
+            "allowHoursInput" = COALESCE(${productData.allowHoursInput ?? null}, "allowHoursInput"),
+            "autoXtraPerPallet" = COALESCE(${productData.autoXtraPerPallet ?? null}, "autoXtraPerPallet"),
+            "deliveryTypes" = COALESCE(${deliveryTypesJson}::jsonb, "deliveryTypes"),
+            "customSections" = COALESCE(${customSectionsJson}::jsonb, "customSections")
+          WHERE "id" = ${existing.productOption.productId}
+        `;
+      }
 
-    if (Object.keys(priceListItemData).length > 0) {
-      await tx.priceListItem.update({
-        where: { id: itemId },
-        data: priceListItemData,
-      });
-    }
+      if (Object.keys(productOptionData).length > 0) {
+        await tx.productOption.update({
+          where: { id: existing.productOption.id },
+          data: productOptionData,
+        });
+      }
 
-    return tx.priceListItem.findUnique({
-      where: { id: itemId },
-      include: {
-        productOption: {
-          include: {
-            product: true,
-          },
-        },
-      },
+      if (Object.keys(priceListItemData).length > 0) {
+        await tx.priceListItem.update({
+          where: { id: itemId },
+          data: priceListItemData,
+        });
+      }
+
+      return findPriceListItemById(tx, itemId);
     });
-  });
+  } catch (error) {
+    if (isMissingDeliveryTypesColumnError(error)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "DELIVERY_TYPES_MIGRATION_REQUIRED",
+          message:
+            'The "deliveryTypes" database column is missing. Run the latest Prisma migration first.',
+        },
+        { status: 409 },
+      );
+    }
+
+    throw error;
+  }
 
   if (!updated) {
     return NextResponse.json(
@@ -448,6 +519,10 @@ export async function PATCH(
       updatedProduct.autoXtraPerPallet ??
       productData.autoXtraPerPallet ??
       existing.productOption.product.autoXtraPerPallet,
+    deliveryTypes:
+      rawProductConfig?.deliveryTypes ??
+      productData.deliveryTypes ??
+      normalizeProductDeliveryTypes(null),
     customSections:
       rawProductConfig?.customSections ??
       productData.customSections ??
@@ -487,6 +562,7 @@ export async function PATCH(
         allowPeopleCount: productSnapshot.allowPeopleCount,
         allowHoursInput: productSnapshot.allowHoursInput,
         autoXtraPerPallet: productSnapshot.autoXtraPerPallet,
+        deliveryTypes: productSnapshot.deliveryTypes,
         customSections: productSnapshot.customSections,
       },
     },

@@ -6,6 +6,16 @@ import {
   normalizeProductCustomSections,
   type ProductCustomSection,
 } from "@/lib/products/customSections";
+import {
+  createDefaultProductDeliveryTypes,
+  normalizeProductDeliveryTypes,
+  type ProductDeliveryType,
+} from "@/lib/products/deliveryTypes";
+import {
+  createDefaultPriceListSettings,
+  normalizePriceListSettings,
+  type PriceListSettings,
+} from "@/lib/products/priceListSettings";
 
 type PriceListSummary = {
   id: string;
@@ -29,6 +39,7 @@ type PriceListItem = {
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
   autoXtraPerPallet?: boolean;
+  deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
   optionCode: string;
   optionLabel?: string | null;
@@ -55,6 +66,7 @@ type EditableRow = PriceListItem & {
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
   autoXtraPerPallet?: boolean;
+  deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
 
   saving?: boolean;
@@ -67,6 +79,7 @@ type PriceListData = {
   name: string;
   code: string;
   description: string | null;
+  settings: PriceListSettings;
   isActive: boolean;
   items: PriceListItem[];
   specialOptions: PriceListItem[];
@@ -83,6 +96,7 @@ type ProductSettingsDraft = {
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
   autoXtraPerPallet: boolean;
+  deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
 };
 
@@ -106,6 +120,7 @@ function buildProductSettingsDefaults(
         allowPeopleCount: false,
         allowHoursInput: false,
         autoXtraPerPallet: true,
+        deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
       };
     case "LABOR":
@@ -120,6 +135,7 @@ function buildProductSettingsDefaults(
         allowPeopleCount: false,
         allowHoursInput: true,
         autoXtraPerPallet: false,
+        deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
       };
     case "PHYSICAL":
@@ -135,9 +151,29 @@ function buildProductSettingsDefaults(
         allowPeopleCount: false,
         allowHoursInput: false,
         autoXtraPerPallet: false,
+        deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
       };
   }
+}
+
+function getDeliveryTypeEditorTitle(key: ProductDeliveryType["key"]) {
+  switch (key) {
+    case "FIRST_STEP":
+      return "First step";
+    case "INDOOR":
+      return "Indoor";
+    case "INSTALL_ONLY":
+      return "Install only";
+    case "RETURN_ONLY":
+      return "Return only";
+    default:
+      return key;
+  }
+}
+
+function supportsXtraPrice(key: ProductDeliveryType["key"]) {
+  return key === "FIRST_STEP" || key === "INDOOR";
 }
 
 const PRODUCT_SETTING_FIELDS: Array<{
@@ -213,9 +249,11 @@ export default function EditPricesPage() {
   const [priceLists, setPriceLists] = useState<PriceListSummary[]>([]);
   const [priceList, setPriceList] = useState<PriceListData | null>(null);
   const [creatingPriceList, setCreatingPriceList] = useState(false);
-  const [editingPriceList, setEditingPriceList] = useState(false);
   const [editingPriceListName, setEditingPriceListName] = useState("");
-  const [renamingPriceList, setRenamingPriceList] = useState(false);
+  const [editingPriceListSettings, setEditingPriceListSettings] = useState(false);
+  const [priceListSettingsDraft, setPriceListSettingsDraft] =
+    useState<PriceListSettings>(createDefaultPriceListSettings());
+  const [savingPriceListSettings, setSavingPriceListSettings] = useState(false);
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [originalRows, setOriginalRows] = useState<
     Record<string, PriceListItem>
@@ -243,8 +281,9 @@ export default function EditPricesPage() {
     return priceLists[0] ?? null;
   }, [priceLists, selectedPriceListId]);
 
-  const canEditActivePriceList =
+  const canEditActivePriceListName =
     !!activePriceListSummary && activePriceListSummary.code !== "DEFAULT";
+  const canEditActivePriceListSettings = !!activePriceListSummary;
 
   useEffect(() => {
     async function loadPriceLists() {
@@ -293,6 +332,7 @@ export default function EditPricesPage() {
     async function loadActivePriceList() {
       if (!activePriceListSummary) {
         setPriceList(null);
+        setPriceListSettingsDraft(createDefaultPriceListSettings());
         setRows([]);
         setOriginalRows({});
         return;
@@ -312,12 +352,16 @@ export default function EditPricesPage() {
         if (!res.ok || !data.ok) {
           setError(data.reason ?? "Failed to load price list");
           setPriceList(null);
+          setPriceListSettingsDraft(createDefaultPriceListSettings());
           setRows([]);
           setOriginalRows({});
           return;
         }
 
         setPriceList(data.priceList);
+        setPriceListSettingsDraft(
+          normalizePriceListSettings(data.priceList.settings),
+        );
 
         const combinedRows: EditableRow[] = [
           ...(data.priceList.items ?? []),
@@ -338,6 +382,7 @@ export default function EditPricesPage() {
       } catch {
         setError("Something went wrong while loading price list");
         setPriceList(null);
+        setPriceListSettingsDraft(createDefaultPriceListSettings());
         setRows([]);
         setOriginalRows({});
       } finally {
@@ -398,6 +443,7 @@ export default function EditPricesPage() {
         row.autoXtraPerPallet ??
         buildProductSettingsDefaults(row.productType ?? "PHYSICAL")
           .autoXtraPerPallet,
+      deliveryTypes: normalizeProductDeliveryTypes(row.deliveryTypes),
       customSections: normalizeProductCustomSections(row.customSections),
     });
     setProductSettingsError(null);
@@ -433,6 +479,9 @@ export default function EditPricesPage() {
             ...productSettingsDraft,
             allowDemont: false,
             allowPeopleCount: false,
+            deliveryTypes: normalizeProductDeliveryTypes(
+              productSettingsDraft.deliveryTypes,
+            ),
             customSections: normalizeProductCustomSections(
               productSettingsDraft.customSections,
             ),
@@ -470,6 +519,8 @@ export default function EditPricesPage() {
           data.item.allowHoursInput ?? productSettingsDraft.allowHoursInput,
         autoXtraPerPallet:
           data.item.autoXtraPerPallet ?? productSettingsDraft.autoXtraPerPallet,
+        deliveryTypes:
+          data.item.deliveryTypes ?? productSettingsDraft.deliveryTypes,
         customSections:
           data.item.customSections ?? productSettingsDraft.customSections,
       };
@@ -506,6 +557,27 @@ export default function EditPricesPage() {
     } finally {
       setSavingProductSettings(false);
     }
+  }
+
+  function updateDeliveryType(
+    key: ProductDeliveryType["key"],
+    patch: Partial<ProductDeliveryType>,
+  ) {
+    setProductSettingsDraft((current) =>
+      current
+        ? {
+            ...current,
+            deliveryTypes: current.deliveryTypes.map((item) =>
+              item.key === key
+                ? {
+                    ...item,
+                    ...patch,
+                  }
+                : item,
+            ),
+          }
+        : current,
+    );
   }
 
   function addCustomSection() {
@@ -685,32 +757,43 @@ export default function EditPricesPage() {
     );
   }
 
-  function startEditingPriceList() {
-    if (!activePriceListSummary || activePriceListSummary.code === "DEFAULT") {
-      return;
-    }
-
-    setEditingPriceListName(activePriceListSummary.name);
-    setEditingPriceList(true);
+  function openPriceListSettings() {
+    if (!priceList || !canEditActivePriceListSettings) return;
+    setEditingPriceListName(activePriceListSummary?.name ?? priceList.name);
+    setPriceListSettingsDraft(normalizePriceListSettings(priceList.settings));
+    setEditingPriceListSettings(true);
   }
 
-  function cancelEditingPriceList() {
-    setEditingPriceList(false);
-    setEditingPriceListName("");
+  function closePriceListSettings() {
+    setEditingPriceListSettings(false);
   }
 
-  async function savePriceListName() {
-    if (!activePriceListSummary || renamingPriceList) return;
+  function updatePriceListChargeSetting(
+    key: keyof PriceListSettings,
+    field: "code" | "description" | "price",
+    value: string,
+  ) {
+    setPriceListSettingsDraft((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        [field]: value,
+      },
+    }));
+  }
+
+  async function savePriceListSettings() {
+    if (!activePriceListSummary || savingPriceListSettings) return;
 
     const nextName = editingPriceListName.trim();
 
-    if (!nextName) {
+    if (canEditActivePriceListName && !nextName) {
       alert("Name is required");
       return;
     }
 
     try {
-      setRenamingPriceList(true);
+      setSavingPriceListSettings(true);
 
       const res = await fetch(
         `/api/products/pricelists/${activePriceListSummary.id}`,
@@ -720,7 +803,8 @@ export default function EditPricesPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            name: nextName,
+            ...(canEditActivePriceListName ? { name: nextName } : {}),
+            settings: normalizePriceListSettings(priceListSettingsDraft),
           }),
         },
       );
@@ -728,28 +812,52 @@ export default function EditPricesPage() {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        alert(data.reason ?? "Failed to rename pricelist");
+        alert(data.message ?? data.reason ?? "Failed to save pricelist settings");
         return;
       }
 
+      setPriceList((current) =>
+        current
+          ? {
+              ...current,
+              name:
+                typeof data.priceList.name === "string"
+                  ? data.priceList.name
+                  : current.name,
+              code:
+                typeof data.priceList.code === "string"
+                  ? data.priceList.code
+                  : current.code,
+              description:
+                typeof data.priceList.description === "string"
+                  ? data.priceList.description
+                  : current.description,
+              settings: normalizePriceListSettings(data.priceList.settings),
+            }
+          : current,
+      );
       setPriceLists((current) =>
         current.map((item) =>
           item.id === data.priceList.id
             ? {
                 ...item,
-                name: data.priceList.name,
-                code: data.priceList.code,
+                name:
+                  typeof data.priceList.name === "string"
+                    ? data.priceList.name
+                    : item.name,
+                code:
+                  typeof data.priceList.code === "string"
+                    ? data.priceList.code
+                    : item.code,
               }
             : item,
         ),
       );
-
-      setEditingPriceList(false);
-      setEditingPriceListName("");
+      setEditingPriceListSettings(false);
     } catch {
-      alert("Something went wrong while renaming pricelist");
+      alert("Something went wrong while saving pricelist settings");
     } finally {
-      setRenamingPriceList(false);
+      setSavingPriceListSettings(false);
     }
   }
 
@@ -1191,44 +1299,17 @@ export default function EditPricesPage() {
             >
               {creatingPriceList ? "…" : "+"}
             </button>
-            {activePriceListSummary && canEditActivePriceList && (
-              <div className="flex justify-center">
-                {!editingPriceList ? (
+            {activePriceListSummary && (
+              <div className="flex justify-center items-center gap-2 flex-wrap">
+                {canEditActivePriceListSettings && (
                   <button
                     type="button"
-                    onClick={startEditingPriceList}
+                    onClick={openPriceListSettings}
+                    disabled={!priceList}
                     className="customButtonDefault"
                   >
-                    Edit
+                    Pricelist settings
                   </button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <input
-                      autoFocus
-                      value={editingPriceListName}
-                      onChange={(e) => setEditingPriceListName(e.target.value)}
-                      className="customInput"
-                      placeholder="Pricelist name"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={savePriceListName}
-                      disabled={renamingPriceList}
-                      className="customButtonEnabled"
-                    >
-                      {renamingPriceList ? "Saving..." : "Save"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={cancelEditingPriceList}
-                      disabled={renamingPriceList}
-                      className="customButtonDefault"
-                    >
-                      Cancel
-                    </button>
-                  </div>
                 )}
               </div>
             )}
@@ -2184,16 +2265,274 @@ export default function EditPricesPage() {
         </div>
       </div>
 
+      {editingPriceListSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 shrink-0">
+              <h2 className="text-lg font-bold text-logoblue">
+                Pricelist settings
+              </h2>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto pr-2">
+              <div className="space-y-3 rounded-lg border border-black/10 p-4">
+                <h3 className="text-sm font-semibold text-logoblue">
+                  Pricelist
+                </h3>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Name
+                  </span>
+                  <input
+                    type="text"
+                    value={editingPriceListName}
+                    onChange={(e) => setEditingPriceListName(e.target.value)}
+                    disabled={!canEditActivePriceListName}
+                    className="customInput w-full disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="Pricelist name"
+                  />
+                </label>
+
+                {!canEditActivePriceListName && (
+                  <p className="text-sm text-black/60">
+                    Default pricelist name cannot be changed.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-black/10 p-4">
+                <h3 className="text-sm font-semibold text-logoblue">
+                  Extra pickup location
+                </h3>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Code
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.extraPickup.code}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "extraPickup",
+                        "code",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Code"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Description
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.extraPickup.description}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "extraPickup",
+                        "description",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Description"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.extraPickup.price}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "extraPickup",
+                        "price",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Price"
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-black/10 p-4">
+                <h3 className="text-sm font-semibold text-logoblue">
+                  KM from 21 km
+                </h3>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Code
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.kmFrom21.code}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "kmFrom21",
+                        "code",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Code"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Description
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.kmFrom21.description}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "kmFrom21",
+                        "description",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Description"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.kmFrom21.price}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "kmFrom21",
+                        "price",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Price per km"
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-black/10 p-4">
+                <h3 className="text-sm font-semibold text-logoblue">
+                  KM over 100 km
+                </h3>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Code
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.kmOver100.code}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "kmOver100",
+                        "code",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Code"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Description
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.kmOver100.description}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "kmOver100",
+                        "description",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Description"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.kmOver100.price}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "kmOver100",
+                        "price",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Price per km"
+                  />
+                </label>
+              </div>
+
+              <p className="text-sm text-black/60">
+                Product delivery type prices and XTRA prices are edited per product.
+              </p>
+            </div>
+
+            <div className="mt-6 flex shrink-0 justify-end gap-2 border-t border-black/10 pt-4">
+              <button
+                type="button"
+                onClick={closePriceListSettings}
+                disabled={savingPriceListSettings}
+                className="customButtonDefault"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={savePriceListSettings}
+                disabled={savingPriceListSettings}
+                className="customButtonEnabled"
+              >
+                {savingPriceListSettings ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingProductGroup && productSettingsDraft && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-5xl rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-4">
+          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 shrink-0">
               <h2 className="text-lg font-bold text-logoblue">
                 Edit - {editingProductGroup.productName || "Unnamed product"}
               </h2>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto pr-2">
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-black/80">
                   Product type
@@ -2240,6 +2579,83 @@ export default function EditPricesPage() {
                   </label>
                 ))}
               </div>
+
+              {productSettingsDraft.allowDeliveryTypes && (
+                <details className="customContainer p-3" open>
+                  <summary className="cursor-pointer text-sm font-semibold text-black/80">
+                    Delivery types
+                  </summary>
+
+                  <div className="mt-3 space-y-3">
+                    {productSettingsDraft.deliveryTypes.map((deliveryType) => (
+                      <div key={deliveryType.key} className="customContainer p-3">
+                        <div className="mb-3 text-sm font-semibold text-black/80">
+                          {getDeliveryTypeEditorTitle(deliveryType.key)}
+                        </div>
+
+                        <div
+                          className={
+                            supportsXtraPrice(deliveryType.key)
+                              ? "grid grid-cols-1 gap-2 sm:grid-cols-4"
+                              : "grid grid-cols-1 gap-2 sm:grid-cols-3"
+                          }
+                        >
+                          <input
+                            type="text"
+                            value={deliveryType.code}
+                            onChange={(e) =>
+                              updateDeliveryType(deliveryType.key, {
+                                code: e.target.value,
+                              })
+                            }
+                            className="customInput w-full"
+                            placeholder="Code"
+                          />
+                          <input
+                            type="text"
+                            value={deliveryType.label}
+                            onChange={(e) =>
+                              updateDeliveryType(deliveryType.key, {
+                                label: e.target.value,
+                              })
+                            }
+                            className="customInput w-full"
+                            placeholder="Name"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={deliveryType.price}
+                            onChange={(e) =>
+                              updateDeliveryType(deliveryType.key, {
+                                price: e.target.value,
+                              })
+                            }
+                            className="customInput w-full"
+                            placeholder="Price"
+                          />
+                          {supportsXtraPrice(deliveryType.key) && (
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={deliveryType.xtraPrice}
+                              onChange={(e) =>
+                                updateDeliveryType(deliveryType.key, {
+                                  xtraPrice: e.target.value,
+                                })
+                              }
+                              className="customInput w-full"
+                              placeholder="XTRA price"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -2418,7 +2834,7 @@ export default function EditPricesPage() {
               )}
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex shrink-0 justify-end gap-2 border-t border-black/10 pt-4">
               <button
                 type="button"
                 onClick={closeProductSettings}

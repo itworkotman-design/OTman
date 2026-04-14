@@ -1,8 +1,8 @@
 export const DELIVERY_TYPES = {
-  FIRST_STEP: "Første trinn",
-  INDOOR: "Innbæring",
-  INSTALL_ONLY: "Kun Installasjon/Montering",
-  RETURN_ONLY: "Kun retur",
+  FIRST_STEP: "FIRST_STEP",
+  INDOOR: "INDOOR",
+  INSTALL_ONLY: "INSTALL_ONLY",
+  RETURN_ONLY: "RETURN_ONLY",
 } as const;
 
 export const OPTION_CODES = {

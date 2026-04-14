@@ -7,7 +7,8 @@ import type {
   CatalogProduct,
   CatalogSpecialOption,
 } from "./_types/productCard";
-import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
+import { OPTION_CODES } from "@/lib/booking/constants";
+import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import {
   normalizedUpper,
   isInstallOption,
@@ -103,6 +104,7 @@ export function ProductCardNew({
 
   const isPalletProduct = selectedProduct?.productType === "PALLET";
   const customSections = selectedProduct?.customSections ?? [];
+  const deliveryTypes = selectedProduct?.deliveryTypes ?? [];
   const supportsDeliveryTypes = !!selectedProduct?.allowDeliveryTypes;
   const supportsQuantity = !!selectedProduct?.allowQuantity || isPalletProduct;
   const supportsInstallOptions = !!selectedProduct?.allowInstallOptions;
@@ -155,6 +157,14 @@ export function ProductCardNew({
     }
 
     if (!supportsDeliveryTypes && value.deliveryType) {
+      nextValue.deliveryType = "";
+    }
+
+    if (
+      supportsDeliveryTypes &&
+      value.deliveryType &&
+      !deliveryTypes.some((item) => item.key === value.deliveryType)
+    ) {
       nextValue.deliveryType = "";
     }
 
@@ -262,6 +272,7 @@ export function ProductCardNew({
     supportsReturnOptions,
     value,
     customSections,
+    deliveryTypes,
   ]);
 
   function update(partial: Partial<SavedProductCard>) {
@@ -441,12 +452,14 @@ export function ProductCardNew({
                 <option value="" disabled>
                   Velg
                 </option>
-                <option value={DELIVERY_TYPES.FIRST_STEP}>Første trinn</option>
-                <option value={DELIVERY_TYPES.INDOOR}>Innbæring</option>
-                <option value={DELIVERY_TYPES.INSTALL_ONLY}>
-                  Kun Installasjon/Montering
-                </option>
-                <option value={DELIVERY_TYPES.RETURN_ONLY}>Kun retur</option>
+                {deliveryTypes.map((deliveryType) => (
+                  <option key={deliveryType.key} value={deliveryType.key}>
+                    {getProductDeliveryTypeLabel(
+                      deliveryTypes,
+                      deliveryType.key,
+                    )}
+                  </option>
+                ))}
               </select>
             </>
           )}

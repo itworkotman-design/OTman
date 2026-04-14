@@ -32,6 +32,11 @@ import {
   normalizeOptionalEmail,
   normalizeOptionalPhone,
 } from "@/lib/orders/contactValidation";
+import {
+  createDefaultPriceListSettings,
+  normalizePriceListSettings,
+  type PriceListSettings,
+} from "@/lib/products/priceListSettings";
 
 export type OrderFormPayload = {
   productCards: SavedProductCard[];
@@ -44,6 +49,7 @@ export type OrderFormPayload = {
 
   pickupAddress: string;
   extraPickupAddress: string[];
+  returnAddress: string;
 
   deliveryAddress: string;
   drivingDistance: string;
@@ -97,6 +103,18 @@ type Props = {
   };
 };
 
+function parseDistanceKm(value: string) {
+  const normalized = value.trim().replace(",", ".");
+  const match = normalized.match(/-?\d+(?:\.\d+)?/);
+
+  if (!match) {
+    return 0;
+  }
+
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 export default function BookingEditor({
   hidden = 0,
   hideDontSendEmail = false,
@@ -123,6 +141,9 @@ export default function BookingEditor({
   const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<
     CatalogSpecialOption[]
   >([]);
+  const [priceListSettings, setPriceListSettings] = useState<PriceListSettings>(
+    createDefaultPriceListSettings(),
+  );
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [priceExVat, setPriceExVat] = useState(0);
@@ -208,6 +229,9 @@ export default function BookingEditor({
       value,
     })),
   );
+  const [returnAddress, setReturnAddress] = useState(
+    initialValues?.returnAddress ?? "",
+  );
   const [customTimeFrom, setCustomTimeFrom] = useState(
     initialValues?.timeWindow?.includes("-")
       ? (initialValues.timeWindow.split("-")[0] ?? "")
@@ -276,15 +300,18 @@ export default function BookingEditor({
           setCatalogError(data.reason ?? "Failed to load catalog");
           setCatalogProducts([]);
           setCatalogSpecialOptions([]);
+          setPriceListSettings(createDefaultPriceListSettings());
           return;
         }
 
         setCatalogProducts(data.products ?? []);
         setCatalogSpecialOptions(data.specialOptions ?? []);
+        setPriceListSettings(normalizePriceListSettings(data.priceListSettings));
       } catch {
         setCatalogError("Failed to load catalog");
         setCatalogProducts([]);
         setCatalogSpecialOptions([]);
+        setPriceListSettings(createDefaultPriceListSettings());
       } finally {
         setCatalogLoading(false);
       }
@@ -344,6 +371,7 @@ export default function BookingEditor({
         value,
       })),
     );
+    setReturnAddress(initialValues.returnAddress ?? "");
 
     setPriceExVat(initialValues.priceExVat ?? 0);
     setPriceSubcontractor(initialValues.priceSubcontractor ?? 0);
@@ -426,6 +454,88 @@ export default function BookingEditor({
     [productCards, catalogProducts, catalogSpecialOptions],
   );
 
+  const calculatorBreakdowns = useMemo(() => {
+    const nextBreakdowns = [...productBreakdowns];
+    const extraItems: Array<{
+      kind: "customPrice";
+      code: string;
+      label: string;
+      qty: number;
+      unitPrice: number;
+    }> = [];
+    const extraPickupCount = extraPickups
+      .map((pickup) => pickup.value.trim())
+      .filter(Boolean).length;
+    const extraPickupPrice = Number(
+      priceListSettings.extraPickup.price.replace(",", "."),
+    );
+    const totalDistanceKm = parseDistanceKm(drivingDistance);
+    const kmFrom21Qty = Math.max(0, Math.min(totalDistanceKm, 100) - 21);
+    const kmOver100Qty = Math.max(0, totalDistanceKm - 100);
+    const kmFrom21Price = Number(
+      priceListSettings.kmFrom21.price.replace(",", "."),
+    );
+    const kmOver100Price = Number(
+      priceListSettings.kmOver100.price.replace(",", "."),
+    );
+
+    if (
+      extraPickupCount > 0 &&
+      Number.isFinite(extraPickupPrice) &&
+      extraPickupPrice > 0
+    ) {
+      extraItems.push({
+        kind: "customPrice",
+        code: priceListSettings.extraPickup.code,
+        label: priceListSettings.extraPickup.description,
+        qty: extraPickupCount,
+        unitPrice: extraPickupPrice,
+      });
+    }
+
+    if (kmFrom21Qty > 0 && Number.isFinite(kmFrom21Price)) {
+      extraItems.push({
+        kind: "customPrice",
+        code: priceListSettings.kmFrom21.code,
+        label: priceListSettings.kmFrom21.description,
+        qty: kmFrom21Qty,
+        unitPrice: kmFrom21Price,
+      });
+    }
+
+    if (kmOver100Qty > 0 && Number.isFinite(kmOver100Price)) {
+      extraItems.push({
+        kind: "customPrice",
+        code: priceListSettings.kmOver100.code,
+        label: priceListSettings.kmOver100.description,
+        qty: kmOver100Qty,
+        unitPrice: kmOver100Price,
+      });
+    }
+
+    if (extraItems.length > 0) {
+      nextBreakdowns.push({
+        productName: "Order extras",
+        items: extraItems,
+      });
+    }
+
+    return nextBreakdowns;
+  }, [
+    drivingDistance,
+    extraPickups,
+    priceListSettings.extraPickup.code,
+    priceListSettings.extraPickup.description,
+    priceListSettings.extraPickup.price,
+    priceListSettings.kmFrom21.code,
+    priceListSettings.kmFrom21.description,
+    priceListSettings.kmFrom21.price,
+    priceListSettings.kmOver100.code,
+    priceListSettings.kmOver100.description,
+    priceListSettings.kmOver100.price,
+    productBreakdowns,
+  ]);
+
   const priceLookup = useMemo(
     () => buildPriceLookup(catalogProducts, catalogSpecialOptions),
     [catalogProducts, catalogSpecialOptions],
@@ -446,6 +556,10 @@ export default function BookingEditor({
       productCards.every(
         (card) => card.deliveryType === DELIVERY_TYPES.RETURN_ONLY,
       ),
+    [productCards],
+  );
+  const hasSelectedReturnOption = useMemo(
+    () => productCards.some((card) => !!card.selectedReturnOptionId),
     [productCards],
   );
 
@@ -477,6 +591,12 @@ export default function BookingEditor({
     },
     [],
   );
+
+  useEffect(() => {
+    if (!hasSelectedReturnOption && returnAddress) {
+      setReturnAddress("");
+    }
+  }, [hasSelectedReturnOption, returnAddress]);
 
   async function handleCreateOrder(payload: OrderFormPayload) {
     setSubmitError("");
@@ -657,6 +777,7 @@ export default function BookingEditor({
       extraPickupAddress: extraPickups
         .map((pickup) => pickup.value.trim())
         .filter(Boolean),
+      returnAddress,
       deliveryAddress,
       drivingDistance,
 
@@ -803,12 +924,15 @@ export default function BookingEditor({
             setPickupAddress={setPickupAddress}
             extraPickups={extraPickups}
             setExtraPickups={setExtraPickups}
+            returnAddress={returnAddress}
+            setReturnAddress={setReturnAddress}
             customTimeFrom={customTimeFrom}
             setCustomTimeFrom={setCustomTimeFrom}
             customTimeTo={customTimeTo}
             setCustomTimeTo={setCustomTimeTo}
             deliveryAddress={deliveryAddress}
             setDeliveryAddress={setDeliveryAddress}
+            hasSelectedReturnOption={hasSelectedReturnOption}
             drivingDistance={drivingDistance}
             setDrivingDistance={setDrivingDistance}
             customerName={customerName}
@@ -872,7 +996,7 @@ export default function BookingEditor({
             <BookingCalculatorPanel
               calcOpen={calcOpen}
               setCalcOpen={setCalcOpen}
-              productBreakdowns={productBreakdowns}
+              productBreakdowns={calculatorBreakdowns}
               priceLookup={priceLookup}
               adminView={dataset === "default" && showAdminCalculatorAdjustments}
               onPriceChange={handlePriceChange}
@@ -890,7 +1014,7 @@ export default function BookingEditor({
           <BookingCalculatorPanel
             calcOpen={calcOpen}
             setCalcOpen={setCalcOpen}
-            productBreakdowns={productBreakdowns}
+            productBreakdowns={calculatorBreakdowns}
             priceLookup={priceLookup}
             adminView={dataset === "default" && showAdminCalculatorAdjustments}
             onPriceChange={handlePriceChange}

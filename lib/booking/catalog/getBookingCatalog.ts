@@ -107,6 +107,7 @@ export async function getBookingCatalog(
     autoXtraPerPallet:
       productConfigMap.get(product.id)?.autoXtraPerPallet ??
       product.autoXtraPerPallet,
+    deliveryTypes: productConfigMap.get(product.id)?.deliveryTypes ?? [],
     customSections: productConfigMap.get(product.id)?.customSections ?? [],
     options: product.options.map((option) => {
       const price = priceMap.get(option.id);

@@ -417,6 +417,7 @@ export async function POST(req: Request) {
               .filter(Boolean)
           : [],
         deliveryAddress: optionalString(body.deliveryAddress),
+        returnAddress: optionalString(body.returnAddress),
         drivingDistance: optionalString(body.drivingDistance),
         timeWindow: optionalString(body.timeWindow),
         description: optionalString(body.description),

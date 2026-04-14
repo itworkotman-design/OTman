@@ -48,6 +48,9 @@ type Props = {
   setExtraPickups: React.Dispatch<
     React.SetStateAction<{ id: string; value: string }[]>
   >;
+  returnAddress: string;
+  setReturnAddress: React.Dispatch<React.SetStateAction<string>>;
+  hasSelectedReturnOption: boolean;
 
   customerLabel: string;
   setCustomerLabel: React.Dispatch<React.SetStateAction<string>>;
@@ -148,6 +151,9 @@ export default function OrderFieldsForm({
   setPickupAddress,
   extraPickups,
   setExtraPickups,
+  returnAddress,
+  setReturnAddress,
+  hasSelectedReturnOption,
   customerName,
   setCustomerName,
   phone,
@@ -319,6 +325,17 @@ export default function OrderFieldsForm({
             onChange={setDeliveryAddress}
             placeholder="Enter a location"
           />
+
+          {hasSelectedReturnOption && (
+            <>
+              <h1 className="font-bold py-2">Return address</h1>
+              <AddressAutocompleteInput
+                value={returnAddress}
+                onChange={setReturnAddress}
+                placeholder="Enter a return location"
+              />
+            </>
+          )}
         </>
       )}
 

@@ -13,10 +13,6 @@ function parseNOK(input: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function deliveryTypeLabel(code: string) {
-  return code;
-}
-
 export function calculateBookingPricing(params: {
   productBreakdowns: ProductBreakdown[];
   priceLookup: PriceLookup;
@@ -45,7 +41,8 @@ export function calculateBookingPricing(params: {
         subtotalExVat += lineTotal;
 
         lines.push({
-          label: item.label ?? deliveryTypeLabel(item.code),
+          label: item.label,
+          code: item.code,
           qty: item.qty,
           unitPrice,
           lineTotal,

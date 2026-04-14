@@ -139,6 +139,7 @@ export async function POST(
         allowPeopleCount: productConfig?.allowPeopleCount ?? false,
         allowHoursInput: productConfig?.allowHoursInput ?? false,
         autoXtraPerPallet: productConfig?.autoXtraPerPallet ?? false,
+        deliveryTypes: productConfig?.deliveryTypes ?? [],
         customSections: productConfig?.customSections ?? [],
       },
     },

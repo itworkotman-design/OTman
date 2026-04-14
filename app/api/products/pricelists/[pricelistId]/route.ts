@@ -7,6 +7,11 @@ import {
   getEffectivePrice,
   shouldClearExpiredDiscount,
 } from "@/lib/products/discounts";
+import {
+  normalizePriceListSettings,
+  parsePriceListSettings,
+  serializePriceListSettings,
+} from "@/lib/products/priceListSettings";
 
 function centsToNokString(cents: number) {
   return Math.round(cents / 100).toString();
@@ -111,6 +116,7 @@ export async function GET(
         name: priceList.name,
         code: priceList.code,
         description: priceList.description,
+        settings: parsePriceListSettings(priceList.description),
         isActive: priceList.isActive,
 
         items: priceList.items.map((item) => {
@@ -161,6 +167,7 @@ export async function GET(
               productConfig?.allowHoursInput ?? product.allowHoursInput,
             autoXtraPerPallet:
               productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
+            deliveryTypes: productConfig?.deliveryTypes ?? [],
             customSections: productConfig?.customSections ?? [],
           };
         }),
@@ -241,12 +248,16 @@ export async function PATCH(
   try {
     const { pricelistId } = await params;
     const body = await req.json().catch(() => null);
+    const name =
+      typeof body?.name === "string" ? body.name.trim() : undefined;
+    const settings =
+      body?.settings !== undefined
+        ? normalizePriceListSettings(body.settings)
+        : undefined;
 
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
-
-    if (!name) {
+    if (!name && settings === undefined) {
       return NextResponse.json(
-        { ok: false, reason: "NAME_REQUIRED" },
+        { ok: false, reason: "NO_UPDATES_PROVIDED" },
         { status: 400 },
       );
     }
@@ -266,9 +277,16 @@ export async function PATCH(
       );
     }
 
-    if (existing.code === "DEFAULT") {
+    if (existing.code === "DEFAULT" && name !== undefined) {
       return NextResponse.json(
         { ok: false, reason: "DEFAULT_NOT_EDITABLE" },
+        { status: 400 },
+      );
+    }
+
+    if (name !== undefined && !name) {
+      return NextResponse.json(
+        { ok: false, reason: "NAME_REQUIRED" },
         { status: 400 },
       );
     }
@@ -276,24 +294,31 @@ export async function PATCH(
     const updated = await prisma.priceList.update({
       where: { id: pricelistId },
       data: {
-        name,
+        ...(name !== undefined ? { name } : {}),
+        ...(settings !== undefined
+          ? { description: serializePriceListSettings(settings) }
+          : {}),
       },
       select: {
         id: true,
         name: true,
         code: true,
+        description: true,
       },
     });
 
     return NextResponse.json(
       {
         ok: true,
-        priceList: updated,
+        priceList: {
+          ...updated,
+          settings: parsePriceListSettings(updated.description),
+        },
       },
       { status: 200 },
     );
   } catch (error) {
-    console.error("Rename pricelist failed:", error);
+    console.error("Update pricelist failed:", error);
 
     return NextResponse.json(
       { ok: false, reason: "UPDATE_FAILED" },

@@ -13,6 +13,7 @@ type NotificationOrder = {
   pickupAddress?: string | null;
   extraPickupAddress?: string[] | null;
   deliveryAddress?: string | null;
+  returnAddress?: string | null;
   drivingDistance?: string | null;
   timeWindow?: string | null;
   description?: string | null;
