@@ -1597,25 +1597,6 @@ function handleProductChange(e) {
   const layout = select.closest('.layout');
   if (!layout) return;
 
-  const productValue = (select.value || '').toLowerCase();
-  const leveringstypeWrap = layout.querySelector('.acf-field[data-key="field_681b162239347"]');
-  const leveringstypeSelect = leveringstypeWrap?.querySelector('select');
-
-  const userEl = document.querySelector('.sidebar-username');
-  const userName = (userEl?.textContent || '').toLowerCase().trim();
-
-  if (userName.includes('flugger 028') && productValue === 'kasse levering') {
-    if (leveringstypeSelect) {
-      leveringstypeSelect.value = '';
-      leveringstypeSelect.disabled = true;
-      leveringstypeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  } else {
-    if (leveringstypeSelect) {
-      leveringstypeSelect.disabled = false;
-    }
-  }
-
   setTimeout(() => {
     if (window.acf && typeof window.acf.doAction === 'function') {
       window.acf.doAction('refresh');

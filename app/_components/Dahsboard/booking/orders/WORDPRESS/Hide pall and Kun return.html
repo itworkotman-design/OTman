@@ -1,3 +1,80 @@
 <script>
-// Disabled: ACF native conditional logic should control delivery field visibility.
+jQuery(function ($) {
+  const flexFieldKey = 'field_682b0fa395c44';
+  const productFieldName = 'velg_produkt';
+  const genericDeliveryFieldKeys = [
+    'field_681b162239347',
+    'field_682b100495c6b'
+  ];
+
+function toggleDeliveryField($layout) {
+  const $productSelect = $layout.find(`[data-name="${productFieldName}"] select`);
+  const selectedValue = ($productSelect.val() || '').toLowerCase();
+
+  const shouldHide =
+    selectedValue === '750:pall:palls1' ||
+    selectedValue === 'kasse levering' ||
+    selectedValue === 'timepris_flugger' ||
+    selectedValue.includes('669:kun retur') ||
+    selectedValue.includes('andre') ||
+    selectedValue === '590:ettermontering:delivery' ||
+    selectedValue === 'timepris';
+
+  genericDeliveryFieldKeys.forEach(fieldKey => {
+    const $deliveryWrapper = $layout.find(`[data-key="${fieldKey}"]`);
+    const $deliverySelect = $deliveryWrapper.find('select');
+
+    if (!$deliveryWrapper.length) return;
+
+    if (shouldHide) {
+      $deliveryWrapper.addClass('acf-hidden acf-hide').css('display', 'none');
+      $deliverySelect.val('');
+      $deliverySelect.trigger('change');
+    } else {
+      $deliveryWrapper.removeClass('acf-hidden acf-hide').css('display', '');
+    }
+  });
+}
+
+  function initAllLayouts(container) {
+    container.querySelectorAll('.layout:not(.acf-clone)').forEach(layoutEl => {
+      const $layout = $(layoutEl);
+      const $productSelect = $layout.find(`[data-name="${productFieldName}"] select`);
+
+      if ($productSelect.length) {
+        toggleDeliveryField($layout);
+        $productSelect.off('change.toggleDelivery').on('change.toggleDelivery', function () {
+          toggleDeliveryField($layout);
+        });
+      }
+    });
+  }
+
+  // === Step 1: Wait for ACF to render ===
+  const interval = setInterval(() => {
+    const container = document.querySelector(`.acf-flexible-content input[name*="${flexFieldKey}"]`)?.closest('.acf-flexible-content');
+    if (!container) return;
+
+    clearInterval(interval);
+    const $container = $(container);
+
+    // Step 2: Init existing layouts
+    initAllLayouts(container);
+
+    // Step 3: Init future layouts
+    if (typeof acf !== 'undefined') {
+      acf.addAction('append', function ($el) {
+        if ($el.closest(container).length > 0) {
+          $el.find(`[data-name="${productFieldName}"] select`).each(function () {
+            const $layout = $(this).closest('.layout');
+            toggleDeliveryField($layout);
+            $(this).off('change.toggleDelivery').on('change.toggleDelivery', function () {
+              toggleDeliveryField($layout);
+            });
+          });
+        }
+      });
+    }
+  }, 300);
+});
 </script>

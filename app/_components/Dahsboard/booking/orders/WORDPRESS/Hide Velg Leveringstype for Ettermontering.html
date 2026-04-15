@@ -1,3 +1,65 @@
 <script>
-// Disabled: ACF native conditional logic should control delivery field visibility.
+document.addEventListener('DOMContentLoaded', function () {
+  const genericDeliveryFieldKeys = [
+    'field_681b162239347',
+    'field_682b100495c6b'
+  ];
+
+  function checkGenericLeveringstype() {
+    document.querySelectorAll('.acf-flexible-content .layout:not(.acf-clone)').forEach(layout => {
+      const productSelect = layout.querySelector('.acf-field[data-name="velg_produkt"] select');
+
+      if (!productSelect) return;
+
+      const selectedText = (productSelect.selectedOptions?.[0]?.textContent || '').trim();
+
+      const shouldHideGeneric =
+        selectedText === '' ||
+        selectedText === 'Velg' ||
+        selectedText === 'Ettermontering' ||
+        selectedText === 'Andre produkter' ||
+        selectedText === 'Pall' ||
+        selectedText === 'Kun retur' ||
+        selectedText === 'Retur' ||
+        selectedText === 'Platetopp' ||
+        selectedText === 'Side by side' ||
+        selectedText === 'Timepris' ||
+        selectedText === 'Timepris Flugger' ||
+        selectedText === 'Kasse levering';
+
+      genericDeliveryFieldKeys.forEach(fieldKey => {
+        const genericField = layout.querySelector(`.acf-field[data-key="${fieldKey}"]`);
+        if (!genericField) return;
+
+        if (shouldHideGeneric) {
+          genericField.style.display = 'none';
+          genericField.hidden = true;
+          genericField.setAttribute('hidden', '');
+          genericField.classList.add('acf-hidden', 'acf-hide');
+          genericField.classList.remove('acf-show');
+        } else {
+          genericField.style.display = '';
+          genericField.hidden = false;
+          genericField.removeAttribute('hidden');
+          genericField.classList.remove('acf-hidden', 'acf-hide');
+        }
+      });
+    });
+  }
+
+  document.addEventListener('change', function (e) {
+    if (e.target.matches('.acf-field[data-name="velg_produkt"] select')) {
+      checkGenericLeveringstype();
+    }
+  });
+
+  const root = document.querySelector('.acf-flexible-content');
+  if (root) {
+    new MutationObserver(() => {
+      checkGenericLeveringstype();
+    }).observe(root, { childList: true, subtree: true });
+  }
+
+  checkGenericLeveringstype();
+});
 </script>

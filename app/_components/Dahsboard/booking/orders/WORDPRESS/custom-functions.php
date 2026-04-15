@@ -3714,6 +3714,7 @@ add_filter('acf/load_field/key=field_682b0fe895c6a', function ($field) {
     // Flugger 028
     if (strpos($name, 'flugger 028') !== false) {
         $field['choices'] = [
+            '750:Pall:PALLS1'   => 'Pall',
             'Kasse levering'   => 'Kasse levering',
             'timepris_flugger' => 'Timepris Flugger',
         ];
