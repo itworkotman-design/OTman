@@ -1,0 +1,82 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const toggle = document.getElementById('sidebar-toggle');
+  const sidebar = document.getElementById('sidebar-menu');
+
+  if (toggle && sidebar) {
+    toggle.addEventListener('click', () => {
+      sidebar.classList.toggle('expanded');
+    });
+
+    sidebar.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        sidebar.classList.remove('expanded');
+      });
+    });
+  }
+});
+</script>
+
+
+<script>
+(function () {
+  var cont = document.getElementById('price-sticky-container');
+  var brk  = document.getElementById('pricebreakdown');
+
+  function isMobile(){ return window.matchMedia('(max-width: 767px)').matches; }
+  function summaryEl(){ return brk ? brk.querySelector('.price-summary') : null; }
+
+  // Height of collapsed state = summary block height (+ a bit)
+  function measureCollapsedHeight() {
+    var s = summaryEl();
+    if (!s) return 72;
+    var cs = getComputedStyle(brk);
+    var padV = (parseFloat(cs.paddingTop||0) + parseFloat(cs.paddingBottom||0)) || 0;
+    return Math.ceil(s.offsetHeight + padV);
+  }
+
+  function syncCollapsedHeight() {
+    if (!cont || !brk || !isMobile()) return;
+    var h = measureCollapsedHeight();
+    cont.style.setProperty('--collapsed-height', h + 'px');
+    // Keep page content visible above the sticky bar
+    document.body.style.paddingBottom = Math.max(h + 16, 96) + 'px';
+  }
+
+  function setCollapsed(collapsed) {
+    if (!cont) return;
+    cont.classList.toggle('collapsed', collapsed);
+    cont.classList.toggle('expanded', !collapsed);
+    syncCollapsedHeight();
+  }
+
+  function init() {
+    if (!cont || !brk) return;
+    if (isMobile()) {
+      setCollapsed(true);  // start collapsed on mobile
+    } else {
+      cont.classList.remove('collapsed', 'expanded'); // desktop unchanged
+      document.body.style.paddingBottom = '';
+    }
+  }
+
+  // Toggle on ANY click inside the container (mobile only)
+  cont && cont.addEventListener('click', function () {
+    if (!isMobile()) return;
+    setCollapsed(!cont.classList.contains('collapsed'));
+  });
+
+  // Recalculate if the breakdown updates (prices/rows change)
+  if (brk) {
+    var mo = new MutationObserver(syncCollapsedHeight);
+    mo.observe(brk, { childList: true, subtree: true, characterData: true });
+  }
+
+  window.addEventListener('resize', init);
+  window.addEventListener('orientationchange', init);
+
+  init();
+  syncCollapsedHeight();
+})();
+</script>
+

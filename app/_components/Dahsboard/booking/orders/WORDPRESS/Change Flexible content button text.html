@@ -1,0 +1,9 @@
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.acf-button[data-name="add-layout"]').forEach(btn => {
+    if (btn.textContent.includes('Legg til extra produkt')) {
+      btn.textContent = '+ Legg til ekstra produkt';
+    }
+  });
+});
+</script>

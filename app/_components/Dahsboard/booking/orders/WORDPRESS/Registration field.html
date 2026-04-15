@@ -1,0 +1,55 @@
+<script>
+jQuery(document).ready(function($) {
+
+  // Function to handle form submission for a specific form ID
+  function handleFormSubmission(formId) {
+    $(formId).on('submit', function(event) {
+      event.preventDefault(); // Prevent default form submission
+      var regNr;
+      var formData = $(this).serializeArray();
+      
+      formData.forEach(function(field) {
+        if (field.name === 'text-1') { 
+          var fieldValue = field.value;
+          regNr = fieldValue;
+        }
+      });
+      
+      var apiUrl = 'https://api-proxy-coral.vercel.app/?regNr=' + regNr;
+
+      console.log('Calling API:', apiUrl);
+      $.ajax({
+        url: apiUrl,
+        method: "GET",
+        success: function(response) {
+          try {
+            // Attempt to extract query parameters
+            var merke = response.kjoretoydataListe[0].godkjenning.tekniskGodkjenning.tekniskeData.generelt.merke[0].merke;
+            var model = response.kjoretoydataListe[0].godkjenning.tekniskGodkjenning.tekniskeData.generelt.handelsbetegnelse;
+            var regnr = response.kjoretoydataListe[0].kjoretoyId.kjennemerke;
+            var fullyear = response.kjoretoydataListe[0].godkjenning.forstegangsGodkjenning.forstegangRegistrertDato;
+            var year = fullyear.substring(0, 4);
+            var farge = response.kjoretoydataListe[0].godkjenning.tekniskGodkjenning.tekniskeData.karosseriOgLasteplan.rFarge[0].kodeNavn;
+            // Redirect with query parameter
+            var currentUrl = window.location.href;
+            var redirectUrl = currentUrl + '?merke=' + encodeURIComponent(merke)+ '&model=' + encodeURIComponent(model)+'&regnr=' + encodeURIComponent(regnr)+'&regyear=' + encodeURIComponent(year)+'&farge=' + encodeURIComponent(farge);
+            window.location.href = redirectUrl;
+          } catch (error) {
+            console.error('Error processing API response:', error);
+          }
+        },
+        error: function(xhr, status, error) {
+          console.error('API Error:', error);
+        }
+      });
+    });
+  }
+
+  // Call the function for both form IDs
+  handleFormSubmission('#forminator-module-2392');
+  handleFormSubmission('#forminator-module-2400');
+});
+	
+
+</script>
+

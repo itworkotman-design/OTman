@@ -1,0 +1,100 @@
+<script>
+(function () {
+  // Limit to a specific page if you want
+  var isAllowedPage =
+    (location.hostname === 'otman.no' || location.hostname.endsWith('.otman.no')) &&
+    location.pathname.replace(/\/+$/, '') === '/powerorder';
+  if (!isAllowedPage) return;
+
+  // Flexible content parent key (extra_produkt group)
+  var FLEX_PARENT_KEY = 'field_682b0fa395c44';
+
+  // Support BOTH product selects:
+  // - main product (old key)
+  // - per extra_produkt row (new key)
+  var PRODUCT_SELECT_KEYS = ['field_681b15bf298b6','field_682b0fe895c6a'];
+
+  // Exact option values to hide
+  var valuesToHide = new Set(['Timepris']);
+
+  function isProductSelect(selectEl) {
+    if (!selectEl || !selectEl.name) return false;
+    // must contain any of the product keys
+    var hitsKey = PRODUCT_SELECT_KEYS.some(function (k) {
+      return selectEl.name.includes('[' + k + ']');
+    });
+    if (!hitsKey) return false;
+    // optionally ensure it's inside the FC parent when present
+    return (
+      selectEl.name.includes('[' + FLEX_PARENT_KEY + ']') ||
+      true // also allow the main product select outside flexible content
+    );
+  }
+
+  function hideOptionsByValue(selectEl) {
+    if (!isProductSelect(selectEl)) return;
+
+    var options = Array.from(selectEl.options || []);
+    var selectionHidden = false;
+
+    options.forEach(function (opt) {
+      if (valuesToHide.has(opt.value)) {
+        opt.disabled = true;
+        opt.hidden = true;
+        opt.setAttribute('aria-disabled', 'true');
+        opt.dataset.acfHiddenByScript = '1';
+        opt.style.display = 'none';
+        if (opt.selected) selectionHidden = true;
+      }
+    });
+
+    if (selectionHidden) {
+      var fallback =
+        options.find(function (o) { return o.value === '' && !o.disabled; }) ||
+        options.find(function (o) { return !o.disabled && !o.hidden && o.style.display !== 'none'; });
+      if (fallback) {
+        selectEl.value = fallback.value;
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+
+  function scanAll() {
+    // Query any select that could be a product select (match any key)
+    var selector = PRODUCT_SELECT_KEYS
+      .map(function (k) { return 'select[name^="acff[post]"][name*="[' + k + ']"]'; })
+      .join(',');
+    document.querySelectorAll(selector).forEach(hideOptionsByValue);
+  }
+
+  function initObservers() {
+    // MutationObserver to catch new layouts/fields
+    var mo = new MutationObserver(function () {
+      clearTimeout(window.__acfHideOptsThrottle);
+      window.__acfHideOptsThrottle = setTimeout(scanAll, 80);
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    // ACF event hooks (if available)
+    if (window.acf && typeof acf.addAction === 'function') {
+      // when a field is shown (conditional logic), when appended, and on ready
+      ['show_field', 'append', 'ready_field'].forEach(function (evt) {
+        acf.addAction(evt, function () { scanAll(); });
+      });
+      // after a new flexible layout row is added
+      acf.addAction('acfe/flexible/layout_added', function () { scanAll(); });
+    }
+  }
+
+  function init() {
+    scanAll();
+    initObservers();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>

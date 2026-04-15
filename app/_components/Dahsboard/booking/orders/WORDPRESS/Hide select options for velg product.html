@@ -1,0 +1,121 @@
+<script>
+(function () {
+  var path = location.pathname.replace(/\/+$/, '');
+  var isAllowedPage =
+    (location.hostname === 'otman.no' || location.hostname.endsWith('.otman.no')) &&
+    (path === '/powerorder' || path === '/order');
+  if (!isAllowedPage) return;
+
+  var EXTRA_PRODUCT_KEY = 'field_682b0fe895c6a';
+
+  function norm(s){
+    return (s || '')
+      .toString()
+      .toLowerCase()
+      .replace(/\u00A0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getCurrentUser(){
+    if (window.CURRENT_USER_KEY) return norm(window.CURRENT_USER_KEY);
+
+    var el =
+      document.querySelector('.sidebar-username') ||
+      document.querySelector('.js-current-user') ||
+      document.querySelector('[data-current-user]');
+    return norm(el ? (el.textContent || el.innerText || '') : '');
+  }
+
+  function getAllowedExtraProducts(user){
+    if (user.includes('banor transport as')) {
+      return new Set([
+        'pall',
+        '750:pall:palls1'
+      ]);
+    }
+
+    if (user.includes('flugger 028')) {
+      return new Set([
+        'kasse levering',
+        'timepris flugger',
+        'timepris_flugger'
+      ]);
+    }
+
+    return null;
+  }
+
+  function filterExtraProductSelect(selectEl){
+    if (!selectEl) return;
+
+    var currentUser = getCurrentUser();
+    var allow = getAllowedExtraProducts(currentUser);
+    if (!allow) return;
+
+    // Save original options once
+    if (!selectEl.__originalOptions) {
+      selectEl.__originalOptions = Array.from(selectEl.options).map(function(opt){
+        return {
+          value: opt.value,
+          text: opt.textContent
+        };
+      });
+    }
+
+    var currentValue = selectEl.value;
+    var allowedOptions = selectEl.__originalOptions.filter(function(opt){
+      return (
+        opt.value === '' ||
+        allow.has(norm(opt.value)) ||
+        allow.has(norm(opt.text))
+      );
+    });
+
+    // Rebuild the select completely
+    selectEl.innerHTML = '';
+    allowedOptions.forEach(function(opt){
+      var option = document.createElement('option');
+      option.value = opt.value;
+      option.textContent = opt.text;
+      selectEl.appendChild(option);
+    });
+
+    // Restore selection only if still allowed
+    var stillAllowed = allowedOptions.some(function(opt){ return opt.value === currentValue; });
+    selectEl.value = stillAllowed ? currentValue : '';
+  }
+
+  function scanAll(){
+    document
+      .querySelectorAll('[data-key="' + EXTRA_PRODUCT_KEY + '"] select')
+      .forEach(filterExtraProductSelect);
+  }
+
+  function boot(){
+    scanAll();
+    setTimeout(scanAll, 100);
+    setTimeout(scanAll, 300);
+    setTimeout(scanAll, 600);
+
+    if (document.body) {
+      var mo = new MutationObserver(function(){
+        scanAll();
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (window.acf && typeof window.acf.addAction === 'function') {
+      ['append','show_field','ready','ready_field'].forEach(function(evt){
+        try { window.acf.addAction(evt, function(){ scanAll(); }); } catch(e){}
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>

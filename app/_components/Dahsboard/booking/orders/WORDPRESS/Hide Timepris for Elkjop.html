@@ -1,0 +1,153 @@
+<script>
+(function () {
+  // --- Page gate (supports both /powerorder and /order) ---
+  var path = location.pathname.replace(/\/+$/, '');
+  var isAllowedPage =
+    (location.hostname === 'otman.no' || location.hostname.endsWith('.otman.no')) &&
+    (path === '/powerorder' || path === '/order');
+  if (!isAllowedPage) return;
+
+  // Keys
+  var FLEX_PARENT_KEY = 'field_682b0fa395c44';
+  var PRODUCT_SELECT_KEYS = ['field_681b15bf298b6','field_682b0fe895c6a'];
+
+  // Target user (write what you expect to see)
+  var TARGET_USER_DISPLAY = 'Elkjop Alna';
+
+  // --- STRONG normalizer with Nordic ASCII folding ---
+  function asciiFold(s){
+    return s
+      // Nordic/Scandi
+      .replace(/[øØ]/g,'o')
+      .replace(/[åÅ]/g,'a')
+      .replace(/[æÆ]/g,'ae')
+      .replace(/[äÄ]/g,'a')
+      .replace(/[öÖ]/g,'o')
+      .replace(/[üÜ]/g,'u')
+      // Common French/Spanish etc will be handled by NFD below, but keep a few singles:
+      .replace(/[ß]/g,'ss');
+  }
+  function norm(s){
+    s = (s || '').toString()
+      .replace(/\u00A0/g,' ')                 // NBSP → space
+      .replace(/[\u200B-\u200D\uFEFF]/g,'')   // zero-widths
+      .trim();
+    s = asciiFold(s);                          // <-- fold before NFD
+    return s
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // strip accents
+      .replace(/\s+/g,' ')                     // collapse spaces
+      .replace(/[“”"‘’']/g,'')                 // strip curly quotes
+      .replace(/^[^a-z0-9]+|[^a-z0-9]+$/g,''); // trim non-alnum ends
+  }
+
+  function getDisplayNameFromShortcode(){
+    var el =
+      document.querySelector('.sidebar-username') ||
+      document.querySelector('.js-current-user') ||
+      document.querySelector('[data-current-user]');
+    return el ? (el.textContent || el.innerText || '') : '';
+  }
+
+  function isTargetUser(){
+    var rawCurrent = getDisplayNameFromShortcode();
+    var rawTarget  = TARGET_USER_DISPLAY;
+
+    var cur = norm(rawCurrent);
+    var tgt = norm(rawTarget);
+
+    console.debug('USER CHECK — raw:', rawCurrent, '| target:', rawTarget);
+    console.debug('USER CHECK — norm:', cur, '| targetNorm:', tgt);
+
+    if (!cur || !tgt) return false;
+    return (cur === tgt) || cur.includes(tgt) || tgt.includes(cur);
+  }
+
+  // Options to hide
+  var RAW_HIDE = [
+    'Timepris'
+  ];
+  var HIDE_SET = new Set(RAW_HIDE.map(norm));
+
+  function isProductSelect(selectEl) {
+    if (!selectEl || !selectEl.name) return false;
+    var hitsKey = PRODUCT_SELECT_KEYS.some(function (k) {
+      return selectEl.name.includes('[' + k + ']');
+    });
+    if (!hitsKey) return false;
+    return (selectEl.name.includes('[' + FLEX_PARENT_KEY + ']') || true);
+  }
+
+  function optionShouldHide(opt){
+    return HIDE_SET.has(norm(opt.value)) || HIDE_SET.has(norm(opt.textContent));
+  }
+
+  function hideOptions(selectEl) {
+    if (!isProductSelect(selectEl) || !isTargetUser()) return;
+
+    var options = Array.from(selectEl.options || []);
+    var selectionHidden = false;
+
+    options.forEach(function (opt) {
+      if (optionShouldHide(opt)) {
+        opt.disabled = true;
+        opt.hidden = true;
+        opt.setAttribute('aria-disabled', 'true');
+        opt.style.display = 'none';
+        if (opt.selected) selectionHidden = true;
+      }
+    });
+
+    if (selectionHidden) {
+      var fallback =
+        options.find(function (o) { return o.value === '' && !o.disabled; }) ||
+        options.find(function (o) { return !o.disabled && !o.hidden && o.style.display !== 'none'; });
+      if (fallback) {
+        selectEl.value = fallback.value;
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+
+  function scanAllOnce() {
+    var selector = PRODUCT_SELECT_KEYS
+      .map(function (k) { return 'select[name^="acff[post]"][name*="[' + k + ']"]'; })
+      .join(',');
+    document.querySelectorAll(selector).forEach(hideOptions);
+  }
+
+  var scanTimer = null;
+  function scanAll() {
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(scanAllOnce, 60);
+  }
+
+  function attachObserversWhenBodyReady(){
+    var tryAttach = function(){
+      var body = document.body;
+      if (!body) { setTimeout(tryAttach, 50); return; }
+
+      scanAll();
+      setTimeout(scanAll, 120);
+      setTimeout(scanAll, 400);
+
+      var mo = new MutationObserver(function () { scanAll(); });
+      mo.observe(body, { childList: true, subtree: true });
+
+      if (window.acf && typeof window.acf.addAction === 'function') {
+        ['show_field','append','ready_field','ready'].forEach(function (evt) {
+          try { window.acf.addAction(evt, function(){ scanAll(); }); } catch(e){}
+        });
+        try { window.acf.addAction('acfe/flexible/layout_added', function(){ scanAll(); }); } catch(e){}
+      }
+    };
+    tryAttach();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachObserversWhenBodyReady);
+  } else {
+    attachObserversWhenBodyReady();
+  }
+})();
+</script>

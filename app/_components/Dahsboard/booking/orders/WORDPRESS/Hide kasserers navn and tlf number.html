@@ -1,0 +1,78 @@
+<script>
+(function () {
+  // --- only on /powerorder or /order at otman.no ---
+  var path = location.pathname.replace(/\/+$/, '');
+  var isAllowedPage =
+    (location.hostname === 'otman.no' || location.hostname.endsWith('.otman.no')) &&
+    (path === '/powerorder' || path === '/order');
+  if (!isAllowedPage) return;
+
+  // ---- target user (uses your shortcode-rendered span) ----
+  var TARGET_USER_DISPLAY = 'Banor Transport AS';
+  function norm(s){return (s||'').toString().trim().toLowerCase();}
+  function getDisplayName(){ 
+    var el = document.querySelector('.sidebar-username') 
+          || document.querySelector('.js-current-user') 
+          || document.querySelector('[data-current-user]');
+    return el ? el.textContent : '';
+  }
+  function isTargetUser(){ return norm(getDisplayName()) === norm(TARGET_USER_DISPLAY); }
+
+  // ---- ACF field keys to hide (your two fields) ----
+  var FIELD_KEYS_TO_HIDE = [
+    'field_681b2417d6a19', // matches [frontend_admin field=681b2417d6a19]
+    'field_6823595de4d61'  // matches [frontend_admin field=6823595de4d61]
+  ];
+
+  function hideFieldByKey(key){
+    document.querySelectorAll('.acf-field[data-key="'+key+'"]').forEach(function(field){
+      // hide wrapper
+      field.style.display = 'none';
+      field.setAttribute('aria-hidden','true');
+      field.dataset.hiddenForBanor = '1';
+
+      // disable all inputs inside so they don't submit or validate
+      field.querySelectorAll('input, select, textarea, button').forEach(function(el){
+        // clear required to avoid browser validation
+        el.removeAttribute('required');
+        el.setAttribute('aria-disabled','true');
+        // cache original disabled state
+        if (!el.dataset._origDisabled) el.dataset._origDisabled = el.disabled ? '1':'0';
+        el.disabled = true;
+      });
+    });
+  }
+
+  function keepHidden(){
+    if (!isTargetUser()) return;
+    FIELD_KEYS_TO_HIDE.forEach(hideFieldByKey);
+  }
+
+  // initial + delayed runs (ACF often paints late)
+  function boot(){
+    keepHidden();
+    setTimeout(keepHidden, 120);
+    setTimeout(keepHidden, 400);
+
+    // MutationObserver – keep fields hidden on DOM changes / new layouts
+    var body = document.body;
+    if (!body) return;
+    var mo = new MutationObserver(function(){ keepHidden(); });
+    mo.observe(body, { childList:true, subtree:true });
+
+    // ACF hooks if present
+    if (window.acf && typeof acf.addAction === 'function') {
+      ['ready','append','show_field','ready_field'].forEach(function(evt){
+        try { acf.addAction(evt, keepHidden); } catch(e){}
+      });
+      try { acf.addAction('acfe/flexible/layout_added', keepHidden); } catch(e){}
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>

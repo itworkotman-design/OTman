@@ -1,0 +1,153 @@
+<style>
+  :root{
+    --fb-blue:#242ACF;
+    --fb-overlay:rgba(0,0,0,.55);
+    --fb-radius:26px;
+  }
+
+  .fb-modal-overlay{
+    position:fixed; inset:0; z-index:9998;
+    background:var(--fb-overlay);
+    opacity:1;
+  }
+
+  .fb-success-modal{
+    position:fixed; z-index:9999;
+    left:50%; top:50%; transform:translate(-50%,-50%);
+    width:min(820px, calc(100vw - 48px));
+    box-sizing:border-box;
+    background:var(--fb-blue);
+    color:#fff;
+    border-radius:var(--fb-radius);
+    padding:32px 40px;
+    box-shadow:0 18px 48px rgba(0,0,0,.28);
+  }
+
+  .fb-success-modal .msg{
+    margin:0;
+    text-align:center;
+    font-weight:600;
+    line-height:1.35;
+    font-size:20px;
+    letter-spacing:.2px;
+    white-space:pre-line;
+  }
+
+  /* Close button: fully transparent, only white “X” */
+  .fb-success-close{
+    position:absolute;
+    right:16px; top:16px;
+    width:32px; height:32px;            /* comfy hit area */
+    display:flex; align-items:center; justify-content:center;
+    background:transparent !important;
+    border:0; border-radius:0;
+    padding:0; margin:0;
+    box-shadow:none;
+    cursor:pointer;
+    appearance:none; -webkit-appearance:none;
+  }
+  .fb-success-close:hover{ opacity:.85; background:transparent !important; }
+  .fb-success-close:active{ transform:scale(.98); background:transparent !important; }
+  .fb-success-close:focus{ outline:none; }
+
+  /* Ensure SVG is visible even if global CSS messes with it */
+  .fb-success-close svg{ 
+    display:block !important; width:20px; height:20px;
+  }
+
+  /* Fallback “×” if SVG ends up hidden by other CSS */
+  .fb-success-close .fallback{ 
+    display:none; color:#fff; font-size:20px; line-height:1;
+  }
+  .fb-success-close.no-svg svg{ display:none !important; }
+  .fb-success-close.no-svg .fallback{ display:block; }
+</style>
+
+<script>
+(function () {
+  const DEFAULT_TEXT =
+    'Bestillingsforespørselen din er sendt.\nDu vil motta en bekreftelses e-post snart.\n Forespørselen vil bli behandlet innen få timer.';
+
+  function showBlueSuccessModal(textOrHtml) {
+    const overlay = document.createElement('div');
+    overlay.className = 'fb-modal-overlay';
+
+    const box = document.createElement('div');
+    box.className = 'fb-success-modal';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+
+    const btn = document.createElement('button');
+    btn.className = 'fb-success-close';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Lukk');
+
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M18 6L6 18M6 6l12 12"
+              fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+      </svg>
+      <span class="fallback">×</span>
+    `;
+
+    const p = document.createElement('p');
+    p.className = 'msg';
+    const s = String(textOrHtml ?? DEFAULT_TEXT);
+    if (/[<][a-z/]/i.test(s)) p.innerHTML = s;
+    else p.textContent = s;
+
+    box.append(btn, p);
+
+    const prevOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+
+    const cleanup = () => {
+      document.documentElement.style.overflow = prevOverflow;
+      overlay.remove();
+      box.remove();
+      if (history.replaceState) {
+        const url = new URL(location.href);
+        url.searchParams.delete('saved');
+        url.searchParams.delete('msg');
+        history.replaceState(null, '', url);
+      }
+      window.removeEventListener('keydown', onKey);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') cleanup(); };
+
+    overlay.addEventListener('click', cleanup);
+    btn.addEventListener('click', cleanup);
+    window.addEventListener('keydown', onKey);
+
+    const mount = () => {
+      document.body.append(overlay, box);
+      const svg = btn.querySelector('svg');
+      const rect = svg && svg.getBoundingClientRect();
+      if (!rect || rect.width < 2 || rect.height < 2) {
+        btn.classList.add('no-svg');
+      }
+      btn.focus({ preventScroll: true });
+    };
+    (document.readyState === 'loading')
+      ? document.addEventListener('DOMContentLoaded', mount, { once: true })
+      : mount();
+  }
+
+  window.showBlueSuccessModal = showBlueSuccessModal;
+
+  // Auto-show with ?saved=1 or when path is /test
+  try {
+    const qs = new URLSearchParams(location.search);
+    const path = location.pathname.replace(/\/+$/, ''); // remove trailing slash
+
+    if (qs.get('saved') === '1' || path === '/test') {
+      const raw = qs.get('msg') || DEFAULT_TEXT;
+      showBlueSuccessModal(raw.replace(/\\n/g, '\n'));
+    }
+  } catch {}
+})();
+
+
+</script>
+
+

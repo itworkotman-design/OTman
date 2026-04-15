@@ -1,0 +1,177 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function initIntlTelField(inputName, hiddenName, fieldClass = '') {
+    const input = document.querySelector(`input[name="${inputName}"]`);
+    const hidden = hiddenName ? document.querySelector(`input[name="${hiddenName}"]`) : null;
+
+    if (input && typeof intlTelInput !== 'undefined') {
+      const iti = window.intlTelInput(input, {
+        initialCountry: "no",
+        preferredCountries: ["no", "se", "dk"],
+        separateDialCode: true,
+				 autoPlaceholder: "off",
+        utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.2.1/build/js/utils.js"
+      });
+input.setAttribute('placeholder', '');
+
+      if (hidden && hidden.value) {
+        iti.setNumber(hidden.value);
+      } else {
+        iti.setCountry("no");
+      }
+
+      const updateHidden = () => {
+        if (hidden) hidden.value = iti.getNumber();
+      };
+
+      input.addEventListener('input', updateHidden);
+      input.addEventListener('change', updateHidden);
+      input.addEventListener('blur', updateHidden);
+      updateHidden();
+
+      if (fieldClass) {
+        input.closest(`.acf-field-${fieldClass}`)?.classList.add('iti-init');
+      }
+    }
+  }
+
+  // Init for each field
+  initIntlTelField('acff[post][field_681b2332f7eff]', 'acff[post][field_6867d572a7457]', '681b2332f7eff'); // Customer phone
+  initIntlTelField('acff[post][field_6823595de4d61]', 'acff[post][field_686e7b9f82d6d]', '6823595de4d61'); // Kasserers phone
+  initIntlTelField('acff[post][field_6880cbf9928bc]', null, '6880cbf9928bc'); // Ekstra kundens telefon (no hidden field)
+});
+</script>
+
+
+
+
+
+
+<style>
+/* === Universal intlTelInput Styling for ACF fields === */
+.acf-field-681b2332f7eff .iti,
+.acf-field-6823595de4d61 .iti {
+  display: flex !important;
+  align-items: center !important;
+  border: 1px solid #ccc !important;
+  border-radius: 10px !important;
+  height: 45px !important;
+  background: white !important;
+  width: 100% !important;
+  padding-left: 0 !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  position: relative !important;
+}
+
+/* Input inside .iti */
+.acf-field-681b2332f7eff .iti input[type="tel"],
+.acf-field-681b2332f7eff .iti input[type="text"],
+.acf-field-6823595de4d61 .iti input[type="tel"],
+.acf-field-6823595de4d61 .iti input[type="text"] {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  height: 100% !important;
+  width: 100% !important;
+  padding: 0 12px !important;
+  font-size: 16px !important;
+  line-height: 45px !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+}
+
+/* Flag container */
+.acf-field-681b2332f7eff .iti__flag-container,
+.acf-field-6823595de4d61 .iti__flag-container {
+  position: relative !important;
+  height: 100% !important;
+  padding-left: 12px !important;
+  padding-right: 8px !important;
+  border-right: 1px solid #ddd !important;
+  display: flex !important;
+  align-items: center !important;
+  background: white !important;
+  z-index: 10;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+/* Remove default ACF styling inside wrapper */
+.acf-field-681b2332f7eff .acf-input-wrap,
+.acf-field-681b2332f7eff .acf-input,
+.acf-field-6823595de4d61 .acf-input-wrap,
+.acf-field-6823595de4d61 .acf-input {
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  background: transparent !important;
+}
+
+/* Ensure dropdown is visible above everything */
+.iti__country-list {
+  z-index: 999999 !important;
+}
+
+/* Avoid clipping in Elementor or ACF containers */
+.elementor-widget-container,
+.acf-input,
+.acf-input-wrap {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+.acf-field-6880cbf9928bc .iti {
+  display: flex !important;
+  align-items: center !important;
+  border: 1px solid #ccc !important;
+  border-radius: 10px !important;
+  height: 45px !important;
+  background: white !important;
+  width: 100% !important;
+  padding-left: 0 !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  position: relative !important;
+}
+
+.acf-field-6880cbf9928bc .iti input[type="tel"],
+.acf-field-6880cbf9928bc .iti input[type="text"] {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  height: 100% !important;
+  width: 100% !important;
+  padding: 0 12px !important;
+  font-size: 16px !important;
+  line-height: 45px !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+}
+
+.acf-field-6880cbf9928bc .iti__flag-container {
+  position: relative !important;
+  height: 100% !important;
+  padding-left: 12px !important;
+  padding-right: 8px !important;
+  border-right: 1px solid #ddd !important;
+  display: flex !important;
+  align-items: center !important;
+  background: white !important;
+  z-index: 10;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+.acf-field-6880cbf9928bc .acf-input-wrap,
+.acf-field-6880cbf9928bc .acf-input {
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  background: transparent !important;
+}
+
+
+</style>

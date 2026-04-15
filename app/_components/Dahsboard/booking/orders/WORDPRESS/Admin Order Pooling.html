@@ -1,0 +1,61 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const wrapper = document.getElementById('admin-order-table-wrapper');
+  let lastOrderId = null;
+
+  function getTopVisibleOrderId() {
+    const row = wrapper.querySelector('.order-row');
+    return row?.getAttribute('data-post-id') || null;
+  }
+
+  function getTopOrderIdFromHTML(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    const row = temp.querySelector('.order-row');
+    return row?.getAttribute('data-post-id') || null;
+  }
+
+  function checkForNewOrders() {
+    const form = document.getElementById('admin-order-filter-form');
+    if (!form) return;
+
+    const formData = new FormData(form);
+    formData.append('action', 'load_admin_order_table');
+    formData.append('paged', '1');
+
+    fetch('/wp-admin/admin-ajax.php', {
+      method: 'POST',
+      body: formData
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data?.html) return;
+
+        const topNewId = getTopOrderIdFromHTML(data.html);
+        if (topNewId && topNewId !== lastOrderId) {
+          console.log('[🔔] New order detected:', topNewId);
+          lastOrderId = topNewId;
+
+          if (typeof window.loadTable === 'function') {
+            window.loadTable(1);
+            setTimeout(() => {
+              const newRow = wrapper.querySelector(`.order-row[data-post-id="${topNewId}"]`);
+              if (newRow) {
+                newRow.style.backgroundColor = '#ffffcc';
+                newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => newRow.style.backgroundColor = '', 3000);
+              }
+            }, 1000);
+          }
+        }
+      })
+      .catch(err => console.error('[Polling Error]', err));
+  }
+
+  // ✅ Initial ID
+  lastOrderId = getTopVisibleOrderId();
+
+  // 🔁 Check every 30 seconds
+  setInterval(checkForNewOrders, 30000);
+});
+</script>

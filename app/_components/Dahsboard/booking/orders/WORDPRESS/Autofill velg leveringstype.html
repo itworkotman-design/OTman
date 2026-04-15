@@ -1,0 +1,34 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function setFirstLeveringstypeOnce(container = document) {
+    container.querySelectorAll('select[name*="leveringstype"]').forEach(select => {
+      if (!select.dataset.autoSelected && select.options.length > 1 && select.selectedIndex === 0) {
+        for (let i = 0; i < select.options.length; i++) {
+          if (select.options[i].value) {
+            select.selectedIndex = i;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            select.dataset.autoSelected = '1'; // ✅ prevent repeat
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  // Run immediately on load
+  setFirstLeveringstypeOnce();
+
+  // Also run when new fields are revealed by ACF logic
+  if (typeof acf !== 'undefined') {
+    acf.addAction('show_field', function ($el) {
+      setFirstLeveringstypeOnce($el[0]);
+    });
+  }
+
+  // Watch for DOM changes (e.g. when flexible layouts are added)
+  const observer = new MutationObserver(() => {
+    setFirstLeveringstypeOnce();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+});
+</script>

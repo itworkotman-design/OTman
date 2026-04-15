@@ -1,0 +1,81 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const discountInput = document.getElementById('discount-input');
+  const applyBtn = document.getElementById('apply-discount');
+  const discountField = document.querySelector('input[name="acff[post][field_686e217030aaa]"]');
+  let discount = 0;
+
+  applyBtn?.addEventListener('click', () => {
+    const value = parseFloat(discountInput.value);
+    if (!isNaN(value) && value >= 0) {
+      discount = value;
+      discountField.value = value;
+      triggerDiscountUpdate();
+    }
+  });
+
+  const saved = parseFloat(discountField?.value);
+  if (!isNaN(saved) && saved > 0) {
+    discount = saved;
+    discountInput.value = saved;
+  }
+
+  function triggerDiscountUpdate() {
+    requestAnimationFrame(() => {
+      const breakdownEl = document.getElementById('pricebreakdown');
+      if (!breakdownEl || !discount) return;
+
+      const summary = breakdownEl.querySelector('.price-summary');
+      const totalRow = summary?.querySelector('.total-highlight .price-breakdown-price');
+      if (!summary || !totalRow) return;
+
+      // Prevent duplicates
+      if (summary.querySelector('.price-breakdown-label strong')?.textContent === 'Rabatt') return;
+
+      const totalBefore = parseFloat(totalRow.textContent.replace(/[^\d.]/g, '')) || 0;
+      const discounted = Math.max(totalBefore - discount, 0);
+      const vat = discounted * 0.25;
+      const totalWithVat = discounted * 1.25;
+
+      // Inject discount line
+      const discountRow = document.createElement('div');
+      discountRow.className = 'price-breakdown-row';
+      discountRow.innerHTML = `
+        <span class="price-breakdown-label"><strong>Rabatt</strong></span>
+        <span class="price-breakdown-price">- ${discount.toFixed(2)} NOK</span>
+      `;
+      summary.insertBefore(discountRow, summary.firstElementChild);
+
+      // Update summary numbers
+      totalRow.textContent = `${discounted.toFixed(2)} NOK`;
+
+      const vatRow = summary.querySelectorAll('.price-breakdown-row')[1];
+      const totalInclRow = summary.querySelectorAll('.price-breakdown-row')[2];
+      if (vatRow) vatRow.querySelector('.price-breakdown-price').textContent = `${vat.toFixed(2)} NOK`;
+      if (totalInclRow) totalInclRow.querySelector('.price-breakdown-price').textContent = `${totalWithVat.toFixed(2)} NOK`;
+
+      // Update synced total field
+      const totalInput = document.getElementById('acff-post-field_6835ca43b0cfc');
+      if (totalInput) totalInput.value = discounted;
+
+      // Update HTML field for breakdown
+      const breakdownTextarea = document.getElementById('acff-post-field_6835ca7fb0cfd');
+      if (breakdownTextarea) breakdownTextarea.value = breakdownEl.innerHTML;
+window.__discountAlreadyInjected = true;
+
+    });
+  }
+
+  // Listen when calculator finishes and override right after
+  window.addEventListener('discount-updated', () => {
+    setTimeout(triggerDiscountUpdate, 100); // delay override
+  });
+
+  // Trigger once on load if needed
+  if (discount > 0) {
+window.__discountAlreadyInjected = false;
+
+    setTimeout(() => window.dispatchEvent(new Event('discount-updated')), 300);
+  }
+});
+</script>

@@ -1,0 +1,17 @@
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // Split path into parts and get the last part
+  const pathParts = window.location.pathname.split('/').filter(p => p);
+  const currentSlug = pathParts[pathParts.length - 1];
+
+  // 🔍 Debug output
+  console.log('Current slug:', currentSlug);
+
+  document.querySelectorAll(".sidebar-button").forEach(button => {
+    const page = button.dataset.page;
+    if (page === currentSlug) {
+      button.classList.add("is-active");
+    }
+  });
+});
+</script>

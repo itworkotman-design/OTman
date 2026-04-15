@@ -1,0 +1,42 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const phoneFields = [
+    'field_681b2332f7eff',
+    'field_6880cbf9928bc',
+    'field_6867d572a7457'
+  ];
+
+  // Handle late-loaded fields (like in flexible content)
+  function cleanPhoneValues() {
+    phoneFields.forEach(fieldKey => {
+      // Try the standard name
+      const inputs = document.querySelectorAll(`input[name*="${fieldKey}"]`);
+      inputs.forEach(input => {
+        if (input && input.type === 'tel' || input.type === 'text') {
+          input.value = input.value.replace(/\s+/g, '');
+        }
+      });
+    });
+  }
+
+  // On form submit
+  const form = document.querySelector('form.frontend-form');
+  if (form) {
+    form.addEventListener('submit', function () {
+      cleanPhoneValues();
+    });
+  }
+
+  // Optional: Also clean live on input
+  setTimeout(() => {
+    phoneFields.forEach(fieldKey => {
+      const inputs = document.querySelectorAll(`input[name*="${fieldKey}"]`);
+      inputs.forEach(input => {
+        input.addEventListener('input', () => {
+          input.value = input.value.replace(/\s+/g, '');
+        });
+      });
+    });
+  }, 500);
+});
+</script>

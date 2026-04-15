@@ -1,0 +1,16 @@
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const observer = new MutationObserver(() => {
+    document.querySelectorAll('.acf-repeater .acf-actions .acf-button').forEach(button => {
+      if (button.textContent.trim() !== 'Legg til +') {
+        button.textContent = 'Legg til +';
+      }
+    });
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+});
+</script>

@@ -1,0 +1,109 @@
+<script>
+jQuery(function ($) {
+  const cfgs = [
+    // MAIN layout
+    { productKey: 'field_681b15bf298b6', leveringKey: 'field_68235e7826058', targetKey: 'field_681b1b08ecdce' },
+    // EXTRA layout
+    { productKey: 'field_682b0fe895c6a', leveringKey: 'field_682b103d95c6d', targetKey: 'field_682b106d95c6f' }
+  ];
+
+  const ci = s => (s || '').toLowerCase();
+  const contains = (s, needle) => ci(s).includes(ci(needle));
+
+  function getSelectValText($sel) {
+    if (!$sel.length) return { value: '', text: '' };
+    return {
+      value: ($sel.val() || '').toString().trim(),
+      text: ($sel.find('option:selected').text() || '').toString().trim()
+    };
+  }
+
+  function acfField($el) {
+    try { return (window.acf && acf.getField) ? acf.getField($el) : null; } catch(e){ return null; }
+  }
+
+  function toggleField($target, show) {
+    const fld = acfField($target);
+    if (fld && typeof fld[show ? 'show' : 'hide'] === 'function') {
+      fld[show ? 'show' : 'hide']();
+    } else {
+      // Fallback (rare): keep ACF stable even if API missing
+      $target.toggle(!!show).attr('data-otman-visibility', show ? 'visible' : 'hidden');
+    }
+  }
+
+  function clearField($target) {
+    // Clear and notify ACF so conditions recompute correctly
+    $target.find('input[type="checkbox"], input[type="radio"]').each(function () {
+      if (this.checked) {
+        this.checked = false;
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    $target.find('select').each(function () {
+      if (this.selectedIndex !== 0) {
+        this.selectedIndex = 0;
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    $target.find('input[type="text"], input[type="number"]').each(function () {
+      if (this.value) {
+        this.value = '';
+        this.dispatchEvent(new Event('input',  { bubbles: true }));
+        this.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+  }
+
+  let guard = false;
+  function evalLayout($layout, cfg) {
+    const $target = $layout.find(`.acf-field[data-key="${cfg.targetKey}"]:not(.acf-clone)`);
+    if (!$target.length) return;
+
+    const $prodSel = $layout.find(`.acf-field[data-key="${cfg.productKey}"] select:not([name*="acfcloneindex"])`);
+    const $levWrap = $layout.find(`.acf-field[data-key="${cfg.leveringKey}"]`);
+    const $levSel  = $levWrap.find('select:not([name*="acfcloneindex"])');
+    const $levInp  = $levSel.length ? $() : $levWrap.find('input:not([type="hidden"]):not([name*="acfcloneindex"])');
+
+    const prod     = getSelectValText($prodSel);
+    const levVal   = $levSel.length ? ($levSel.val() || '') : ($levInp.val && $levInp.val()) || '';
+    const levText  = $levSel.length ? ($levSel.find('option:selected').text() || '') : levVal;
+
+    const sideMatch = contains(prod.value, 'side') || contains(prod.text, 'side');
+    const innbMatch = contains(levVal, 'innbæring') || contains(levText, 'innbæring');
+    const shouldShow = sideMatch && innbMatch;
+
+    if (guard) return;
+    guard = true;
+    toggleField($target, shouldShow);
+    if (!shouldShow) clearField($target);
+    guard = false;
+  }
+
+  function evalFor($layout) { cfgs.forEach(cfg => evalLayout($layout, cfg)); }
+  function evaluateAll()    { $('.acf-flexible-content .layout:not(.acf-clone)').each(function(){ evalFor($(this)); }); }
+
+  // Scoped listeners: only react to the driver fields
+  const driverSelectors = cfgs.map(cfg =>
+    `.acf-field[data-key="${cfg.productKey}"] select, .acf-field[data-key="${cfg.leveringKey}"] :input`
+  ).join(', ');
+
+  $(document).on('change input', driverSelectors, function () {
+    const $layout = $(this).closest('.layout');
+    if ($layout.length) evalFor($layout);
+  });
+
+  // ACF lifecycle (new rows / ready)
+  if (window.acf && acf.addAction) {
+    acf.addAction('append', $el => {
+      const $layout = $el && $el.closest ? $el.closest('.layout') : null;
+      if ($layout && $layout.length) evalFor($layout);
+      else evaluateAll();
+    });
+    acf.addAction('ready', evaluateAll);
+  }
+
+  // Initial pass
+  evaluateAll();
+});
+</script>

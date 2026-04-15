@@ -1,0 +1,181 @@
+<script>
+(function () {
+  const lastSelectedMap = new WeakMap();
+  const userInteractedMap = new WeakMap();
+  let hideFieldTimeout;
+  let suppressChange = false;
+
+  function forceInjectEmptyValue(name, input) {
+    if (document.querySelector(`input[name="${name}"][data-fake-empty]`)) return;
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = name;
+    hidden.value = '';
+    hidden.dataset.fakeEmpty = '1';
+    const correctForm = input.closest('form.frontend-form') || input.closest('form');
+    correctForm.appendChild(hidden);
+  }
+
+  function resetFieldWithACF(input, value) {
+    const $input = jQuery(input);
+    const $fieldEl = $input.closest('.acf-field');
+    const type = $input.attr('type');
+    const name = $input.attr('name');
+
+    if (type === 'checkbox') {
+      $input.prop('checked', !!value);
+      if (!value) {
+        $fieldEl.find('input[type="checkbox"]').prop('checked', false);
+        forceInjectEmptyValue(name, input);
+      }
+
+    } else if (type === 'radio') {
+      $fieldEl.find('input[type="radio"]').prop('checked', false);
+      forceInjectEmptyValue(name, input);
+      document.querySelectorAll(`input[type="hidden"][name="${name}"]`).forEach(el => { el.value = ''; });
+
+    } else {
+      $input.val(value);
+    }
+  }
+
+  function updateLayoutTitlesAndResetFields() {
+    document.querySelectorAll('.layout').forEach(layout => {
+      const title = layout.querySelector('.acfe-layout-title');
+      const select = layout.querySelector('.acf-field[data-name="velg_produkt"] select');
+
+      if (title && select) {
+        const currentValue = select.value;
+        const lastValue = lastSelectedMap.get(select);
+        const hasUserInteracted = userInteractedMap.get(select);
+
+        if (currentValue !== lastValue && hasUserInteracted) {
+          lastSelectedMap.set(select, currentValue);
+          setTimeout(() => {
+            suppressChange = true;
+
+            layout.querySelectorAll('.price-item input[type="checkbox"]').forEach(input => {
+              resetFieldWithACF(input, false);
+            });
+
+            layout.querySelectorAll('.price-item input[type="radio"]').forEach(input => {
+              resetFieldWithACF(input, false);
+            });
+
+            layout.querySelectorAll('.price-item select').forEach(sel => {
+              if (sel !== select) {
+                resetFieldWithACF(sel, '');
+              }
+            });
+
+            layout.querySelectorAll('.price-item input[type="number"]').forEach(input => {
+              resetFieldWithACF(input, '');
+            });
+
+            const mult1 = layout.querySelector('.acf-field[data-key="field_688b6e9bb4434"] input[type="number"]');
+            const mult2 = layout.querySelector('.acf-field[data-key="field_688b7e4897363"] input[type="number"]');
+            if (mult1) resetFieldWithACF(mult1, 1);
+            if (mult2) resetFieldWithACF(mult2, 1);
+
+            suppressChange = false;
+
+            const newTitle = select.options[select.selectedIndex]?.textContent?.trim() || 'Velg produkt';
+            if (title.textContent !== newTitle) {
+              title.textContent = newTitle;
+            }
+
+            if (typeof window.delayedCalculate === 'function') {
+              window.delayedCalculate();
+            }
+          }, 200);
+        } else {
+          lastSelectedMap.set(select, currentValue);
+          const newTitle = select.options[select.selectedIndex]?.textContent?.trim() || 'Velg produkt';
+          if (title.textContent !== newTitle) {
+            title.textContent = newTitle;
+          }
+        }
+      }
+    });
+  }
+
+ document.addEventListener('change', function (e) {
+  if (suppressChange) return;
+
+  const select = e.target;
+  if (!select.matches('.layout select')) return;
+
+  const fieldWrapper = select.closest('.acf-field');
+  const isProductSelect = fieldWrapper?.dataset?.name === 'velg_produkt';
+
+  if (!isProductSelect) return;
+
+  userInteractedMap.set(select, true);
+  updateLayoutTitlesAndResetFields();
+});
+
+  document.addEventListener('DOMContentLoaded', updateLayoutTitlesAndResetFields);
+
+  const container = document.querySelector('.acf-flexible-content');
+  if (container) {
+    const observer = new MutationObserver(() => {
+      if (suppressChange) return;
+      updateLayoutTitlesAndResetFields();
+    });
+    observer.observe(container, { childList: true, subtree: true });
+  }
+
+  if (typeof acf !== 'undefined' && typeof acf.addAction === 'function') {
+    acf.addAction('append', function () {
+      const allLayouts = document.querySelectorAll('.acf-flexible-content .layout:not(.acf-clone)');
+      if (allLayouts.length > 1) {
+        const lastLayout = allLayouts[allLayouts.length - 2];
+        const collapseButton = lastLayout.querySelector('.acf-fc-layout-controls .acf-icon.-collapse');
+        if (collapseButton && !lastLayout.classList.contains('-collapsed')) {
+          collapseButton.click();
+        }
+      }
+    });
+
+    acf.addAction('hide_field', function () {
+      clearTimeout(hideFieldTimeout);
+      hideFieldTimeout = setTimeout(() => {
+        if (typeof window.delayedCalculate === 'function') {
+          window.delayedCalculate();
+        }
+      }, 100);
+    });
+  }
+
+})();
+</script>
+
+<script>
+document.addEventListener('click', function (e) {
+  if (
+    e.target.type === 'radio' &&
+    e.target.closest('.price-item')
+  ) {
+    setTimeout(() => {
+      if (e.target.checked) {
+        const input = e.target;
+        document.querySelectorAll(`input[name="${input.name}"][data-fake-empty]`).forEach(el => el.remove());
+      }
+    }, 10);
+  }
+});
+</script>
+
+<script>
+document.addEventListener('click', function (e) {
+  if (
+    e.target.type === 'checkbox' &&
+    e.target.closest('.price-item')
+  ) {
+    setTimeout(() => {
+      const input = e.target;
+      document.querySelectorAll(`input[name="${input.name}"][data-fake-empty]`).forEach(el => el.remove());
+    }, 10);
+  }
+});
+</script>

@@ -1,0 +1,2034 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+
+
+
+
+
+	// ——— Auto-check EXPRESS checkbox on page load if EXPRESS was already in saved breakdown field ———
+window.__discountAlreadyInjected = false;
+	window.__plusAlreadyInjected = false;
+
+const PLUS_ACF_KEY = 'field_689db2aa4db4a';
+
+const savedBreakdownField = document.getElementById('acff-post-field_6835ca7fb0cfd');
+const expressCheckbox = document.getElementById('acff-post-field_684c3ad580b60-Express');
+
+if (savedBreakdownField?.value?.includes('EXPRESS') && expressCheckbox && !expressCheckbox.checked) {
+  expressCheckbox.checked = true;
+  expressCheckbox.dataset.userChanged = 'true'; // ✅ mark as user-changed
+  const realInput = document.querySelector('input[name="acff[post][field_684c3ad580b60][]"][value="Express"]');
+  if (realInput) realInput.checked = true;
+}
+
+
+ // Collapse-safe: only exclude when ACF actually hides the field (acf-hidden) or the input is disabled.
+
+
+let savedCreatedOnce = false;
+let syncedExpressFromBreakdownOnce = false;
+		let __isResetting = false;
+
+function parseNOK(input) {
+  if (input == null) return 0;
+  let s = String(input).trim();
+
+  // strip currency/text but keep digits, separators and sign
+  s = s.replace(/[^\d.,\- \u00A0\u202F]/g, '');
+
+  // remove ALL spaces including NBSP (U+00A0) and NNBSP (U+202F)
+  s = s.replace(/[\s\u00A0\u202F]+/g, '');
+
+  const hasComma = s.includes(',');
+  const hasDot   = s.includes('.');
+
+  if (hasComma && hasDot) {
+    // assume rightmost separator is decimal
+    const lastComma = s.lastIndexOf(',');
+    const lastDot   = s.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      // comma decimal → remove dots (thousands)
+      s = s.replace(/\./g, '').replace(/,/g, '.');
+    } else {
+      // dot decimal → remove commas (thousands)
+      s = s.replace(/,/g, '');
+    }
+  } else if (hasComma) {
+    // only comma → treat as decimal
+    s = s.replace(/,/g, '.');
+  }
+  // only dot → already decimal
+
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+		// ——— EXPRESS helpers ———
+function parseACFDate(dateStr) {
+  // Accepts "dd/mm/yyyy", "dd.mm.yyyy" or "dd-mm-yyyy"
+  if (!dateStr) return null;
+  const m = String(dateStr).match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+  if (!m) return null;
+  const d = Number(m[1]), mon = Number(m[2]), y = Number(m[3]);
+  return new Date(y, mon - 1, d);
+}
+
+function parseTimeWindowStart(textOrValue) {
+  // Grabs the FIRST "HH:MM" as the window start
+  if (!textOrValue) return null;
+  const s = String(textOrValue);
+  const m = s.match(/(\d{1,2})\s*[:.]\s*(\d{2})/);
+  if (!m) return null;
+  return { h: Number(m[1]), m: Number(m[2]) };
+}
+
+function getTFInfo(selectEl) {
+  const val  = selectEl?.value ?? '';
+  const text = selectEl?.selectedOptions?.[0]?.textContent ?? val;
+  const s = String(text || val).trim().toLowerCase();
+
+  const isKontaktKunde   = /kontakt\s*kunde/.test(s);
+  const hasConcreteWindow= /\d{1,2}\s*[:.]\s*\d{2}/.test(s);
+  const isAnyOrNone      = (!s) || /(^|\s)(any|none|velg|ingen)(\s|$)/.test(s);
+
+  return { isKontaktKunde, hasConcreteWindow, isAnyOrNone, raw: text || val };
+}
+
+
+  function parsePrice(value) {
+    if (!value) return 0;
+    if (value.startsWith('zero')) return 0;
+    if (value === '1999A' || value === '1999B') return 1999;
+    const parts = value.split(':');
+    const num = parseInt(parts[0]);
+    return isNaN(num) ? 0 : num;
+  }
+
+  function parseLabelAndCode(value) {
+    const parts = value.split(':');
+    if (parts.length >= 3) {
+      const label = parts[1]?.trim() || '';
+      const code = parts[2]?.split(' ')[0]?.trim() || '';
+      return { label, code };
+    }
+    return { label: '', code: '' };
+  }
+
+  function formatLabel(label, code) {
+    const cleanLabel = label.replace(/\s*\(([^)]+)\)$/, '').trim();
+    return `${cleanLabel} (${code})`;
+  }
+
+
+let __calcTimer = null;
+function delayedCalculate() {
+  if (__calcTimer) clearTimeout(__calcTimer);
+  __calcTimer = setTimeout(() => {
+    calculateTotal();
+    attachListeners();
+  }, 80);
+}
+window.delayedCalculate = delayedCalculate;
+
+  function calculateTotal() {
+
+
+    let total = 0;
+		
+const discountInput = document.querySelector('input[name="acff[post][field_686e217030aaa]"]');
+
+const manualDiscount = discountInput ? parseNOK(discountInput.value) : 0;
+// PLUS / Ekstra (uten MVA): prefer ACF field; fall back to the UI input if ACF is absent
+let manualPlus = 0;
+const plusACF = PLUS_ACF_KEY ? document.querySelector(`input[name="acff[post][${PLUS_ACF_KEY}]"]`) : null;
+if (plusACF) {
+  manualPlus = parseNOK(plusACF.value);
+} else {
+  const plusUI = document.getElementById('plus-input');
+  manualPlus = plusUI ? parseNOK(plusUI.value) : 0;
+}
+
+
+    let rawBreakdown = [];
+		// ─── Auto-set order_created_at once ───────────────────────
+if ( ! savedCreatedOnce ) {
+  const createdEl = document.getElementById('acff-post-field_684feac9c43b7');
+  if ( createdEl && !createdEl.value ) {
+    const now = new Date();
+    const y   = now.getFullYear();
+    const m   = String(now.getMonth()+1).padStart(2,'0');
+    const d   = String(now.getDate()).padStart(2,'0');
+    const H   = String(now.getHours()).padStart(2,'0');
+    const M   = String(now.getMinutes()).padStart(2,'0');
+    createdEl.value = `${y}-${m}-${d} ${H}:${M}:00`;
+    
+  }
+  savedCreatedOnce = true;
+}
+		
+	// ——— reference real Express checkbox ———
+const expressCheckbox = document.getElementById('acff-post-field_684c3ad580b60-Express');
+
+
+ 
+    const flexContainer = document.querySelector('.acf-flexible-content');
+    if (flexContainer) {
+    const layouts = flexContainer.querySelectorAll('.layout:not(.acf-clone)');
+			function fieldContainsKun(fieldEl) {
+  if (!fieldEl) return false;
+
+  // If select, check selected option text + value
+  if (fieldEl.tagName === 'SELECT') {
+    const txt = (fieldEl.selectedOptions?.[0]?.textContent || '').toLowerCase();
+    const val = (fieldEl.value || '').toLowerCase();
+    return txt.includes('kun') || val.includes('kun');
+  }
+
+  // Inputs/text
+  const v = (fieldEl.value || '').toLowerCase();
+  return v.includes('kun');
+}
+
+function fieldContainsKunReturn(fieldEl) {
+  if (!fieldEl) return false;
+
+  const getTextVal = () => {
+    if (fieldEl.tagName === 'SELECT') {
+      const txt = (fieldEl.selectedOptions?.[0]?.textContent || '').toLowerCase();
+      const val = (fieldEl.value || '').toLowerCase();
+      return `${txt} ${val}`;
+    }
+    return (fieldEl.value || '').toLowerCase();
+  };
+
+  const s = getTextVal();
+  return s.includes('kun') && s.includes('retur');
+}
+
+function layoutHasKunReturn(layout, triggerIds) {
+  return triggerIds.some(id => fieldContainsKunReturn(findFieldInLayout(layout, id)));
+}
+
+
+function findFieldInLayout(layout, idOrKey) {
+  // Supports both: acff-post-field_XXXXX OR name contains XXXXX (flex content rows)
+  return (
+    layout.querySelector(`#acff-post-field_${idOrKey}`) ||
+    layout.querySelector(`[name*="${idOrKey}"]`) ||
+    layout.querySelector(`[id*="${idOrKey}"]`)
+  );
+}
+
+function layoutHasKun(layout, triggerIds) {
+  return triggerIds.some(id => fieldContainsKun(findFieldInLayout(layout, id)));
+}
+const KUN_TRIGGERS_L1 = ['681b162239347','6880e6834088b','68246df488e9a','68235e7826058'];
+ const KUN_TRIGGERS_L2 = ['682b100495c6b','6880eb12e3933','682b102595c6c','682b103d95c6d'];
+
+const KUN_ZERO_RADIOS_L1 = ['681b211e616f6','681b20ef42390'];
+ const KUN_ZERO_RADIOS_L2 = ['682b205e4554c','682b20404554b'];
+
+function isKunZeroRadioInput(inputEl, kunMode, radioIds) {
+  if (!kunMode) return false;
+  const n = inputEl.name || '';
+  const i = inputEl.id || '';
+  const v = inputEl.value || '';
+  // match by name/id/value containing the frontend_admin field id
+  return radioIds.some(fid => n.includes(fid) || i.includes(fid) || v.includes(fid));
+}
+
+layouts.forEach(layout => {
+  let productLabel = 'Produkt';
+  const productSelect = layout.querySelector('select[name*="field_"]');
+								 
+
+  // must exist before any pushes
+  let groupItems = [];
+								 
+const selectedValue = (productSelect?.value || '').toLowerCase();
+
+if (selectedValue === 'kasse levering') {
+  groupItems.push({
+    label: 'Kasse levering (BOX)',
+    price: 400,
+    code: 'BOX'
+  });
+}
+const extraBoxCheckbox = layout.querySelector('input[type="checkbox"][value*="BOXEXTRA"]:checked');
+const extraBoxQtyInput = layout.querySelector('input[name*="field_69dea96bffe4e"], input[name*="field_69ded876b1d5d"], input[name*="field_69dec9d8fd32d"]');
+
+if (selectedValue === 'kasse levering' && extraBoxCheckbox && extraBoxQtyInput) {
+  const qty = parseFloat(extraBoxQtyInput.value) || 0;
+  if (qty > 0) {
+    const subtotal = qty * 200;
+    groupItems.push({
+      label: `Extra box (BOXEXTRA) x${qty}`,
+      price: subtotal,
+      code: 'BOXEXTRA'
+    });
+  }
+}
+  if (productSelect?.selectedOptions?.length) {
+    productLabel = productSelect.selectedOptions[0].textContent.trim();
+  }
+
+  // Push BASE PRODUCT only if price > 0
+  if (productSelect) {
+    const chosenText = productSelect.selectedOptions?.[0]?.textContent?.trim() ?? '';
+    const chosenVal  = productSelect.value?.trim() ?? '';
+    const isPlaceholder =
+      (!chosenText && !chosenVal) ||
+      /^(velg|choose|select|--)/i.test(chosenText || chosenVal);
+
+    if (!isPlaceholder) {
+      const price = parsePrice(chosenVal);
+      if (price > 0) {
+        let { label, code } = parseLabelAndCode(chosenVal);
+        if (!label) label = chosenText;
+        if (!code) {
+          const m = chosenText.match(/\(([^)]+)\)\s*$/);
+          code = m ? m[1].trim() : chosenVal;
+        }
+        groupItems.push({
+          label: formatLabel(label, code),
+          price,
+          code
+        });
+      }
+    }
+  }
+
+	
+
+
+				
+// === HANDLE RETUR MULTIPLIER (radio + number) ===
+const returWrap = layout.querySelector('.acf-field[data-key="field_682206a2252d2"]:not(.acf-hidden):not(.acf-clone)');
+ const qtyWrap   = layout.querySelector('.acf-field[data-key="field_6888cdca56635"]:not(.acf-hidden):not(.acf-clone)');
+ const returRadio    = returWrap?.querySelector('input[type="radio"]:enabled:checked');
+const returQtyField = qtyWrap?.querySelector('input[type="number"]:enabled');
+
+
+if (returRadio && returQtyField) {
+  const qty = parseFloat(returQtyField.value) || 0;
+  if (qty > 0) {
+    const unitPrice = parsePrice(returRadio.value);
+    const { label, code } = parseLabelAndCode(returRadio.value);
+    const subtotal = qty * unitPrice;
+
+    const formattedLabel = `${formatLabel(label, code)} x${qty}`;
+    groupItems.push({
+      label: formattedLabel,
+      price: subtotal,
+      code
+    });
+
+    total += subtotal;
+
+    // ✅ Prevent general checkbox loop from reprocessing this
+    layout.dataset.skipRetur = 'true';
+  }
+}
+
+				
+				
+				
+        // === HANDLE PALLET ===
+const palletCheckbox =
+  layout.querySelector('input[type="checkbox"][name*="field_682b20b245550"]') ||
+  layout.querySelector('input[type="checkbox"][name*="field_681b21e526309"]');
+
+const palletQtyInput =
+  layout.querySelector('input[type="number"][name*="field_682b20cc45551"]') ||
+  layout.querySelector('input[type="number"][name*="field_681b2237f9ab3"]');
+
+if (palletCheckbox?.checked && palletQtyInput) {
+  const qty = parseFloat(palletQtyInput.value) || 0;
+  if (qty > 0) {
+    const subtotal = qty * 250;
+    total += subtotal;
+    groupItems.push({
+      label: `Ekstra pall (PALLXTRAS1) x${qty}`,
+      price: subtotal,
+      code: 'PALLXTRAS1'
+    });
+  }
+}
+
+// === HANDLE EXTRA BOX (with quantity) ===
+const boxCheckbox = layout.querySelector('input[name*="BOXEXTRA"]');
+const boxQtyInput = layout.querySelector('input[name*="field_69dea96bffe4e"]');
+
+if (boxCheckbox?.checked && boxQtyInput) {
+  const qty = parseFloat(boxQtyInput.value) || 0;
+  if (qty > 0) {
+    const unitPrice = 200;
+
+    const subtotal = qty * unitPrice;
+
+    total += subtotal;
+
+    groupItems.push({
+      label: `Extra box (BOXEXTRA) x${qty}`,
+      price: subtotal,
+      code: 'BOXEXTRA'
+    });
+  }
+}
+
+
+
+// === HANDLE HÅNDVERKER / ETTERMONTERING (generic, works for all checkboxes in the field) ===
+const checkboxQtyPairs = [
+  { checkbox: 'field_682de3292a5b7', qty: 'field_682de505a2920' },
+  { checkbox: 'field_682de4c1a291f', qty: 'field_682de569a2921' },
+  { checkbox: 'field_68839b93d0cc8', qty: 'field_68839bcdd0cc9' },
+  { checkbox: 'field_68839e3c2bd3e', qty: 'field_68839e4f2bd3f' },
+  { checkbox: 'field_690886f3b67da', qty: 'field_690886f9b67db' },
+  { checkbox: 'field_690889e64a6e0', qty: 'field_690889eb4a6e1' },
+  { checkbox: 'field_69de541a91505', qty: 'field_690886f9b67db' },
+{ checkbox: 'field_69decaa840fe5', qty: 'field_690889eb4a6e1' },
+];
+
+checkboxQtyPairs.forEach(({ checkbox, qty }) => {
+  const fieldWrap = layout.querySelector(`.acf-field[data-key="${checkbox}"]`);
+  const qtyField  = layout.querySelector(`.acf-field[data-key="${qty}"] input[type="number"]`);
+  if (!fieldWrap || !qtyField) return;
+
+  // Default hours when first checkbox in the group is ticked
+  const anyChecked = !!fieldWrap.querySelector('input[type="checkbox"]:enabled:checked');
+  if (anyChecked && !qtyField.value) qtyField.value = '0.5';
+
+  // Delegate listeners once per field
+  if (!fieldWrap.dataset.listenerAttached) {
+    fieldWrap.addEventListener('change', e => {
+      if (e.target.matches('input[type="checkbox"]')) {
+        if (e.target.checked && !qtyField.value) qtyField.value = '0.5';
+        delayedCalculate();
+      }
+    });
+    qtyField.addEventListener('input', delayedCalculate);
+    fieldWrap.dataset.listenerAttached = 'true';
+  }
+
+// Hours (rounded to 0.5)
+let hours = Math.round((parseFloat(qtyField.value) || 0) * 2) / 2;
+if (hours <= 0) return;
+
+// For every checked option in THIS field, use its own unit price from ACF value
+const checked = [...fieldWrap.querySelectorAll('input[type="checkbox"]:enabled:checked')];
+checked.forEach(cb => {
+  // Pull unit price, label and code from the checkbox's value string
+  const unitPrice = parsePrice(cb.value);                    // e.g. 300 / 350 / 500
+  let { label, code } = parseLabelAndCode(cb.value);         // e.g. label text, ANDRE/TIME1/TIME2
+
+  // Fallbacks (legacy safety)
+  if (!unitPrice || unitPrice <= 0) {
+    // keep old behavior if value was missing a price
+    // (you can remove this branch once all values are in the new format)
+    const fallbackRate = 600;
+    if (!code) code = ['Andre produkter', 'Ettermontering'].includes(productLabel) ? 'ANDRE' : 'XTRA';
+    if (!label) {
+      const rawLabel = cb.closest('label')?.textContent?.trim() || '';
+      label = rawLabel.replace(/\s*\(([^)]+)\)\s*x?.*$/, '').trim();
+    }
+    const subtotal = hours * fallbackRate;
+    total += subtotal;
+    groupItems.push({
+      label: `${formatLabel(label, code)} x${hours} time`,
+      price: subtotal,
+      code
+    });
+    return;
+  }
+
+  // Normal path: multiply hours by the per-option unit price
+  const subtotal = hours * unitPrice;
+  if (!label) {
+    const rawLabel = cb.closest('label')?.textContent?.trim() || '';
+    label = rawLabel.replace(/\s*\(([^)]+)\)\s*x?.*$/, '').trim();
+  }
+  if (!code) {
+    // conservative fallback for older options without a code
+    code = ['Andre produkter', 'Ettermontering'].includes(productLabel) ? 'ANDRE' : 'XTRA';
+  }
+
+  total += subtotal;
+  groupItems.push({
+    label: `${formatLabel(label, code)} x${hours} time`,
+    price: subtotal,
+    code
+  });
+});
+
+// Tell the catch-all loop we’ve handled this field (prevents double counting)
+layout.dataset.skipSnekker = 'true';
+
+});
+
+// Fields whose checkboxes are priced by hours (handled above)
+const TIME_FIELDS = new Set([
+  'field_682de3292a5b7',
+  'field_682de4c1a291f',
+  'field_68839b93d0cc8',
+  'field_68839e3c2bd3e',
+  'field_69de541a91505',
+	'field_69decaa840fe5',
+]);
+
+
+// Catch-all: push priced checkboxes except those handled by TIME_FIELDS
+layout
+  .querySelectorAll('.price-item:not(.acf-hidden) input[type="checkbox"]:enabled:checked')
+  .forEach(input => {
+    const wrapper  = input.closest('.acf-field');
+    const fieldKey = wrapper?.dataset.key || '';
+
+    // Skip time-priced groups (already added with hours × 600)
+    if (TIME_FIELDS.has(fieldKey)) return;
+
+    // Skip hidden wrappers (belt & suspenders)
+    if (wrapper?.classList.contains('acf-hidden')) return;
+
+    // Skip pallet (has its own qty block above)
+    if (input.name.includes('field_682b20b245550') || input.name.includes('field_681b21e526309')) return;
+
+    // Skip explicitly excluded field
+    if (input.name.includes('field_68272eb0ae0db')) return;
+if (input.name.includes('field_690886f3b67da')) return;
+		 if (input.name.includes('field_690889e64a6e0')) return;
+
+    // Skip RETUR (handled in special radio+qty block)
+    if (layout.dataset.skipRetur === 'true') return;
+
+    // Skip global XTRAARBEID (handled elsewhere)
+if (input.value.includes('XTRAARBEID')) return;
+
+// Skip BOXEXTRA (handled in custom qty block)
+if (input.value.includes('BOXEXTRA')) return;
+
+    // Normal priced checkbox
+    const price = parsePrice(input.value);
+    if (price > 0) {
+      const { label, code } = parseLabelAndCode(input.value);
+      groupItems.push({ label: formatLabel(label, code), price, code });
+    }
+  });
+
+
+
+
+// Decide which trigger/radio set applies for THIS layout
+const isL1 = KUN_TRIGGERS_L1.some(id => !!findFieldInLayout(layout, id));
+const isL2 = !isL1 && KUN_TRIGGERS_L2.some(id => !!findFieldInLayout(layout, id));
+
+const kunReturnMode =
+  (isL1 && layoutHasKunReturn(layout, KUN_TRIGGERS_L1)) ||
+  (isL2 && layoutHasKunReturn(layout, KUN_TRIGGERS_L2));
+
+// const kunRadioIds = isL1 ? KUN_ZERO_RADIOS_L1 : (isL2 ? KUN_ZERO_RADIOS_L2 : []);
+const kunRadioIds = isL1 ? KUN_ZERO_RADIOS_L1 : []; // L2 will never forceZero
+
+
+layout.querySelectorAll('.price-item input[type="radio"]:checked').forEach(input => {
+  const fieldWrapper = input.closest('.acf-field');
+
+  const isReturRadio = fieldWrapper?.dataset.key === 'field_682206a2252d2';
+  if (isReturRadio) return; // RETUR handled elsewhere
+
+    const forceZero = isKunZeroRadioInput(input, kunReturnMode, kunRadioIds);
+
+  const price = forceZero ? 0 : parsePrice(input.value);
+
+  // ✅ normal behavior: only push if >0
+  // ✅ special rule: if Kun-mode on the trigger fields, push this radio even if price is 0
+  if (price > 0 || forceZero) {
+    const { label, code } = parseLabelAndCode(input.value);
+   groupItems.push({
+  label: formatLabel(label, code),
+  price,
+  code,
+  kunZero: forceZero === true   // ✅ mark only the special case
+});
+
+  }
+});
+
+	
+	
+
+ layout.querySelectorAll('.price-item select').forEach(select => {
+  const wrap = select.closest('.acf-field');
+
+
+  const lbl = wrap.querySelector('label')?.textContent?.trim().toLowerCase() || '';
+  if (lbl.includes('velg produkt')) return;                 // don’t treat product picker as priced
+
+  const price = parsePrice(select.value);
+  if (price > 0) {
+    const { label, code } = parseLabelAndCode(select.value);
+    // if (code === 'RETURNREC') return; // (optional hard stop)
+    groupItems.push({ label: formatLabel(label, code), price, code });
+  }
+});
+
+	
+	
+	
+	
+	
+	
+// Deduplicate DELIVERY / INDOOR / XTRA only within each product layout
+const seenCodes = new Set();
+groupItems = groupItems.filter(item => {
+  if (['DELIVERY', 'INDOOR', 'XTRA'].includes(item.code)) {
+    const key = item.code;
+    if (seenCodes.has(key)) return false;
+    seenCodes.add(key);
+  }
+  return true;
+});
+
+	// === HANDLE MULTIPLIER AND PUSH TO BREAKDOWN ===
+let multiplier = 1;
+const multField =
+  layout.querySelector('.acf-field[data-key="field_688b6e9bb4434"] input[type="number"]') || // First layout
+  layout.querySelector('.acf-field[data-key="field_688b7e4897363"] input[type="number"]');  // Second layout
+
+if (multField) {
+  multiplier = parseInt(multField.value) || 1;
+  if (multiplier < 1) multiplier = 1;
+}
+
+let hasDelivery = groupItems.some(i => i.code === 'DELIVERY');
+let hasIndoor   = groupItems.some(i => i.code === 'INDOOR');
+let adjustedGroup = [];
+
+if (multiplier > 1) {
+  const extraMultiplier = multiplier - 1;
+
+  groupItems.forEach(item => {
+    if (['DELIVERY', 'INDOOR', 'Montering', 'RETURIN'].includes(item.code)) {
+      adjustedGroup.push(item); // keep DELIVERY/INDOOR unmultiplied
+      total += item.price;      // but still include original in total
+    } else {
+      const multipliedItem = {
+        label: `${item.label} x${multiplier}`,
+        price: item.price * multiplier,
+        code: item.code
+      };
+      adjustedGroup.push(multipliedItem);
+      total += multipliedItem.price;
+    }
+  });
+
+  if (hasDelivery) {
+    adjustedGroup.push({
+      label: `Ekstra levering (XTRA) x${extraMultiplier}`,
+      price: 150 * extraMultiplier,
+      code: 'XTRA'
+    });
+    total += 150 * extraMultiplier;
+  }
+
+  if (hasIndoor) {
+    adjustedGroup.push({
+      label: `Ekstra innbæring (XTRA) x${extraMultiplier}`,
+      price: 229 * extraMultiplier,
+      code: 'XTRA'
+    });
+    total += 229 * extraMultiplier;
+  }
+} else {
+  // No multiplier, just add everything as-is
+  adjustedGroup = groupItems;
+  adjustedGroup.forEach(item => {
+    total += item.price;
+  });
+}
+
+if (adjustedGroup.length > 0) {
+  rawBreakdown.push({ label: productLabel, group: adjustedGroup });
+}
+
+	
+	
+
+        
+      });
+    }
+
+// ——— HANDLE GLOBAL TILLEGG 20min XTRAARBEID ———
+const arbeidChecked = !!document.querySelector('.acf-field[data-key="field_68760a149a59b"] input[type="checkbox"][value$="XTRAARBEID"]:checked');
+
+// You have one minutes field, but this also works if more appear later.
+const arbeidMinutesInputs = [...document.querySelectorAll('.acf-field[data-key="field_68760ebfe7f33"] input[type="number"]')];
+const totalMinutes = arbeidMinutesInputs.reduce((sum, el) => sum + (parseInt(el.value) || 0), 0);
+
+if (arbeidChecked && totalMinutes > 0) {
+  const blocks = Math.ceil(totalMinutes / 20);
+  const subtotal = blocks * 150;
+  total += subtotal;
+
+  rawBreakdown.push({
+    label: `<strong>Tillegg for ekstra arbeid per påbegynt 20 min x${blocks} (XTRAARBEID)</strong>`,
+    price: subtotal,
+    code: 'XTRAARBEID'
+  });
+}
+
+// ——— HANDLE GEBYR FOR TILLEGG AV BESTILLING ———
+const addOrderCheckbox = document.querySelector('.acf-field[data-key="field_690216d860a13"] input[type="checkbox"]:checked');
+
+if (addOrderCheckbox) {
+  total += 99;
+  rawBreakdown.push({
+    label: `<strong>Gebyr for tillegg av bestilling (ADDORDER)</strong>`,
+    price: 99,
+    code: 'ADDORDER'
+  });
+}
+
+
+    const extraPickupInputs = document.querySelectorAll('input[name*="field_68248274acd3f"]');
+    let extraPickupCount = 0;
+    extraPickupInputs.forEach(input => {
+      if (input.value.trim()) extraPickupCount++;
+    });
+    if (extraPickupCount > 0) {
+      const pickupPrice = extraPickupCount * 590;
+      total += pickupPrice;
+      rawBreakdown.push({
+        label: `<strong>EXTRA PICKUP (EXTRAPICKUP) x${extraPickupCount}</strong>`,
+        price: pickupPrice,
+        code: 'EXTRAPICKUP'
+      });
+    }
+
+    const kmField = document.getElementById('acff-post-field_682482a1acd41');
+    const totalKm = parseFloat(kmField?.value) || 0;
+    if (totalKm > 20) {
+      const kmCharge = Math.round((totalKm - 20) * 28);
+      total += kmCharge;
+      rawBreakdown.push({ label: '<strong>KM pris</strong>', price: kmCharge, code: 'KM2' });
+    }
+
+    let hasTargetCode = rawBreakdown.some(item => {
+      if (item.group) {
+        return item.group.some(sub => ['SIDEBYSIDE', 'SIDEBYSIDETRAPP', 'INSSBS1', 'INSSBS2'].includes(sub.code));
+      }
+      return ['SIDEBYSIDE', 'SIDEBYSIDETRAPP', 'INSSBS1', 'INSSBS2'].includes(item.code);
+    });
+
+    const extraLayouts = document.querySelectorAll('.acf-flexible-content .layout[data-layout="extra_produkt"]');
+    extraLayouts.forEach(layout => {
+      const select = layout.querySelector('select[name*="field_"]');
+      const selected = select?.selectedOptions?.[0]?.textContent?.trim();
+      if (selected === 'Kombiskap') {
+        hasTargetCode = true;
+      }
+    });
+			
+			
+// ─── Pick baseTime ───────────────────────────────────────────
+const createdEl = document.getElementById('acff-post-field_684feac9c43b7');
+const rawCreated = createdEl?.value;
+let baseTime = rawCreated
+  ? new Date(rawCreated.replace(' ', 'T'))
+  : new Date();
+
+// ─── Express-fee logic (rules 1–4) ───────────────────────────
+const dateInputWrap = document.querySelector('.acf-field[data-key="field_682358b62c3b4"]:not(.acf-clone) .acf-date-picker');
+const dateInput     = dateInputWrap ? dateInputWrap.querySelector('input[type="text"]') : null;
+
+const timeWindowField = document.getElementById('acff-post-field_681b23b73d2d2');
+const expressCheckboxEl = document.getElementById('acff-post-field_684c3ad580b60-Express');
+const realExpressInput  = document.querySelector('input[name="acff[post][field_684c3ad580b60][]"][value="Express"]');
+
+function alreadyHasExpress(items) {
+  return items.some(item =>
+    item?.code === 'EXPRESS' ||
+    (item?.group && item.group.some(g => g.code === 'EXPRESS'))
+  );
+}
+
+function pushExpressOnce() {
+  if (!alreadyHasExpress(rawBreakdown)) {
+    rawBreakdown.push({
+      label: '<strong>EXPRESS DELIVERY (EXPRESS)</strong>',
+      price: 500,
+      code: 'EXPRESS'
+    });
+    total += 500;
+  }
+}
+
+// 👇 If EXPRESS existed in saved HTML and the checkbox is visible but unchecked, re-sync it once
+const expressAlreadySaved = document.querySelector('#pricebreakdown')?.innerHTML.includes('EXPRESS DELIVERY');
+const checkboxVisible = !!(expressCheckboxEl && (expressCheckboxEl.offsetWidth || expressCheckboxEl.offsetParent));
+if (!syncedExpressFromBreakdownOnce && expressAlreadySaved && checkboxVisible && !expressCheckboxEl.checked) {
+  expressCheckboxEl.checked = true;
+  if (realExpressInput) realExpressInput.checked = true;
+  syncedExpressFromBreakdownOnce = true;
+}
+
+let shouldAutoExpress = false;
+
+if (dateInput) {
+  const deliveryDay = parseACFDate(dateInput.value);
+  if (deliveryDay) {
+    // Base time uses order_created_at if present, else now (your existing behavior)
+    const todayMid   = new Date(baseTime.getFullYear(), baseTime.getMonth(), baseTime.getDate());
+    const tomorrowMid= new Date(todayMid.getTime() + 24*60*60*1000);
+
+    const isToday    = deliveryDay.getTime() === todayMid.getTime();
+    const isTomorrow = deliveryDay.getTime() === tomorrowMid.getTime();
+
+    // Normalize timeframe info
+    const tf = getTFInfo(timeWindowField);
+
+    if (isToday) {
+      // Rule 1 + “within 24h” goal → anything scheduled for today is < 24h
+      // (covers ANY/NONE and also specific windows today)
+      shouldAutoExpress = true;
+    } else if (isTomorrow) {
+      // Rule 2: tomorrow + (no timeframe OR Kontakt Kunde) → EXPRESS
+      if (!tf.hasConcreteWindow || tf.isKontaktKunde || tf.isAnyOrNone) {
+        shouldAutoExpress = true;
+      } else {
+        // Rule 3 & 4: tomorrow + concrete timeframe → compare start vs now
+        const start = parseTimeWindowStart(tf.raw);
+        if (start) {
+          const startDT = new Date(deliveryDay.getFullYear(), deliveryDay.getMonth(), deliveryDay.getDate(), start.h, start.m);
+          const diffMs  = startDT - baseTime;
+          shouldAutoExpress = (diffMs > 0 && diffMs <= 24*60*60*1000);
+        } else {
+          // If we somehow don't parse a time, be conservative: no auto
+          shouldAutoExpress = false;
+        }
+      }
+    } else {
+      // All other dates are ≥ 2 days away → not within 24h
+      shouldAutoExpress = false;
+    }
+  }
+}
+
+// Respect manual override if user touched the checkbox
+const userChangedExpress = !!(expressCheckboxEl && expressCheckboxEl.dataset.userChanged === 'true');
+
+// Apply outcome:
+//  - If auto rule says EXPRESS, we add it unless user explicitly unchecked.
+//  - If checkbox is visible and untouched, we also sync it to checked for clarity.
+//  - If auto rule says no EXPRESS, we don't add it here (manual block below can still add/remove).
+if (shouldAutoExpress) {
+  if (checkboxVisible) {
+    if (!userChangedExpress) {
+      expressCheckboxEl.checked = true;
+      if (realExpressInput) realExpressInput.checked = true;
+      pushExpressOnce();
+    } else if (expressCheckboxEl.checked) {
+      // user changed, but they WANT express → include it
+      pushExpressOnce();
+    }
+    // user changed & unchecked → do nothing (honor manual override)
+  } else {
+    // Checkbox hidden → auto-apply
+    pushExpressOnce();
+  }
+}
+
+			
+			// ——— Extra: force add/remove EXPRESS if checkbox toggled ———
+if (expressCheckbox) {
+  const alreadyAdded = rawBreakdown.some(item =>
+    item.code === 'EXPRESS' || (item.group && item.group.some(g => g.code === 'EXPRESS'))
+  );
+
+  if (expressCheckbox.checked && !alreadyAdded) {
+    rawBreakdown.push({
+      label: '<strong>EXPRESS DELIVERY (EXPRESS)</strong>',
+      price: 500,
+      code: 'EXPRESS'
+    });
+    total += 500;
+  }
+
+  if (!expressCheckbox.checked && alreadyAdded) {
+    rawBreakdown = rawBreakdown.map(item => {
+      if (item.group) {
+        const group = item.group.filter(sub => sub.code !== 'EXPRESS');
+        return group.length ? { ...item, group } : null;
+      }
+      return item.code === 'EXPRESS' ? null : item;
+    }).filter(Boolean);
+  }
+}		
+	if (hasTargetCode) {
+  rawBreakdown = rawBreakdown.map(item => {
+    if (item.group) {
+      const group = item.group.map(sub => {
+        if (sub.code === 'DELIVERY') {
+          return {
+            label: formatLabel(sub.label, 'XTRA'),
+            price: 150,
+            code: 'XTRA'
+          };
+        } else if (sub.code === 'INDOOR') {
+          return {
+            label: formatLabel(sub.label, 'XTRA'),
+            price: 229,
+            code: 'XTRA'
+          };
+        }
+        return sub;
+      });
+      return { ...item, group };
+    } else if (item.code === 'DELIVERY') {
+      return {
+        label: formatLabel(item.label, 'XTRA'),
+        price: 150,
+        code: 'XTRA'
+      };
+    } else if (item.code === 'INDOOR') {
+      return {
+        label: formatLabel(item.label, 'XTRA'),
+        price: 229,
+        code: 'XTRA'
+      };
+    }
+    return item;
+  });
+}
+
+
+    if (totalKm > 100) {
+      rawBreakdown = rawBreakdown.map(item => {
+        if (item.group) {
+          const adjustedGroup = item.group.map(sub => {
+            if (['DELIVERY', 'INDOOR', 'XTRA'].includes(sub.code)) return { ...sub, price: 0 };
+            if (sub.code === 'SIDEBYSIDE') return { ...sub, price: 710 };
+            if (sub.code === 'SIDEBYSIDETRAPP') return { ...sub, price: 409 };
+            return sub;
+          });
+          return { ...item, group: adjustedGroup };
+        } else {
+          if (['DELIVERY', 'INDOOR', 'XTRA'].includes(item.code)) {
+            return { ...item, price: 0 };
+          }
+          if (item.code === 'SIDEBYSIDE') return { ...item, price: 710 };
+          if (item.code === 'SIDEBYSIDETRAPP') return { ...item, price: 409 };
+          return item;
+        }
+      });
+    }
+// 1) Ensure BOMTUR is part of the breakdown BEFORE discount
+const bomturSelect = document.querySelector('.price-item select[name="acff[post][field_682e0baebb080]"]');
+if (bomturSelect) {
+  const price = parsePrice(bomturSelect.value);
+  if (price > 0) {
+    const { label, code } = parseLabelAndCode(bomturSelect.value);
+    rawBreakdown.push({
+      label: `<strong>${formatLabel(label, code)}</strong>`,
+      price,
+      code
+    });
+  }
+}
+
+// 2) De-dup groups first so math matches what you display
+rawBreakdown = rawBreakdown.map(item => {
+  if (item.group) {
+    const seen = new Set();
+    const dedupedGroup = item.group.filter(sub => {
+      const key = sub.code + ':' + sub.label;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return { ...item, group: dedupedGroup };
+  }
+  return item;
+});
+
+
+
+
+
+	
+	
+// 3) Compute subtotal from the *displayed* items
+const subtotal = rawBreakdown.reduce((sum, item) => {
+  if (item.group) return sum + item.group.reduce((g, sub) => g + sub.price, 0);
+  return sum + item.price;
+}, 0);
+
+// 4) Apply Rabatt and PLUS (pre-VAT). Clamp at 0.
+total = subtotal - manualDiscount + manualPlus;
+
+
+
+
+    const breakdownEl = document.getElementById('pricebreakdown');
+    const totalEl = document.getElementById('totalprice');
+// Flatten and clean each group to remove duplicate codes
+rawBreakdown = rawBreakdown.map(item => {
+  if (item.group) {
+    const seen = new Set();
+    const dedupedGroup = item.group.filter(sub => {
+      const key = sub.code + ':' + sub.label;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return { ...item, group: dedupedGroup };
+  }
+  return item;
+});
+
+
+
+	
+     if (breakdownEl) {
+  if (rawBreakdown.length) {
+    breakdownEl.innerHTML = `
+    
+      <div class="price-breakdown-wrapper">
+        ${rawBreakdown.map(item => {
+          if (item.group) {
+            return `
+              <div class="price-group">
+                <div class="price-group-label"><strong>${item.label}</strong></div>
+                ${item.group.map(sub => `
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">${sub.label}</span>
+                    <span class="price-breakdown-price">${sub.price} NOK</span>
+                  </div>
+                `).join('')}
+              </div>
+            `;
+          } else {
+            return `
+              <div class="price-breakdown-row">
+                <span class="price-breakdown-label">${item.label}</span>
+                <span class="price-breakdown-price">${item.price} NOK</span>
+              </div>
+            `;
+          }
+        }).join('')}
+
+        <hr style="margin: 12px 0; border-top: 2px solid black;">
+
+        <div class="price-summary">
+${manualDiscount > 0 ? `
+  <div class="price-breakdown-row">
+    <span class="price-breakdown-label"><strong>Rabatt</strong></span>
+    <span class="price-breakdown-price">- ${manualDiscount.toFixed(2)} NOK</span>
+  </div>` : ''}
+${manualPlus > 0 ? `
+  <div class="price-breakdown-row">
+    <span class="price-breakdown-label"><strong>Ekstra</strong></span>
+    <span class="price-breakdown-price">+ ${manualPlus.toFixed(2)} NOK</span>
+  </div>` : ''}
+
+          <div class="price-breakdown-row total-highlight" style="font-size: 1.6em; font-weight: bold;">
+            <span class="price-breakdown-label"><strong>Total</strong></span>
+            <span class="price-breakdown-price">${total.toFixed(2)} NOK</span>
+          </div>
+
+          ${total > 0 ? `
+            <div class="price-breakdown-row">
+              <span class="price-breakdown-label">MVA (25%)</span>
+              <span class="price-breakdown-price">${(total * 0.25).toFixed(2)} NOK</span>
+            </div>
+            <div class="price-breakdown-row">
+              <span class="price-breakdown-label">Total inkl. MVA</span>
+              <span class="price-breakdown-price">${(total * 1.25).toFixed(2)} NOK</span>
+            </div>` : ''}
+        </div>
+      </div>`;
+  } else {
+    breakdownEl.innerHTML = `
+    
+      <div class="price-breakdown-wrapper">
+        <hr style="margin: 12px 0; border-top: 2px solid black;">
+        <div class="price-summary">
+          <div class="price-breakdown-row total-highlight" style="font-size: 1.6em; font-weight: bold;">
+            <span class="price-breakdown-label"><strong>Total</strong></span>
+            <span class="price-breakdown-price">0.00 NOK</span>
+          </div>
+        </div>
+      </div>`;
+  }
+}
+
+
+    if (totalEl) {
+      totalEl.textContent = (total * 1.25).toFixed(2);
+    }
+
+    const vatEl = document.getElementById('totalvat');
+    const withVatEl = document.getElementById('totalwithvat');
+    if (vatEl) {
+      const vat = total * 0.25;
+      vatEl.textContent = vat.toFixed(2);
+    }
+    if (withVatEl) {
+      const withVat = total * 1.25;
+      withVatEl.textContent = withVat.toFixed(2);
+    }
+
+
+	 // ✅ Injected ACF sync logic
+    const totalWithVat = (total * 1.25).toFixed(2);
+    const totalInput = document.getElementById('acff-post-field_6835ca43b0cfc');
+    if (totalInput) {
+      totalInput.value = total;
+    }
+
+    const breakdownTextarea = document.getElementById('acff-post-field_6835ca7fb0cfd');
+	let savedBreakdownOnce = false;
+   if (breakdownTextarea && breakdownEl && !savedBreakdownOnce) {
+  const newValue = breakdownEl.innerHTML;
+		
+  breakdownTextarea.value = newValue;
+		
+		 
+  savedBreakdownOnce = true;
+		 generateSubcontractorBreakdown(rawBreakdown, totalKm);
+
+		 
+		 // ——— ALSO POPULATE order_created_at ONCE ———
+const createdEl = document.getElementById('acff-post-field_684feac9c43b7');
+if ( createdEl && !savedCreatedOnce ) {
+  // format "YYYY-MM-DD HH:MM:00"
+  const now = new Date();
+  const y   = now.getFullYear();
+  const m   = String(now.getMonth()+1).padStart(2,'0');
+  const d   = String(now.getDate()).padStart(2,'0');
+  const H   = String(now.getHours()).padStart(2,'0');
+  const M   = String(now.getMinutes()).padStart(2,'0');
+  const formatted = `${y}-${m}-${d} ${H}:${M}:00`;
+  createdEl.value      = formatted;
+  console.log('🍕 [DEBUG] order_created_at auto-set to', formatted);
+  savedCreatedOnce = true;
+}
+}
+	setTimeout(() => {
+  const discountOverride = document.querySelector('input[name="acff[post][field_686e217030aaa]"]');
+  const breakdownEl = document.getElementById('pricebreakdown');
+
+  if (
+    !window.__discountAlreadyInjected &&
+    discountOverride &&
+        parseNOK(discountOverride.value) > 0 &&
+
+    breakdownEl
+  ) {
+    window.__discountAlreadyInjected = true;
+    window.dispatchEvent(new Event('discount-updated'));
+  }
+}, 50);
+
+  }
+setTimeout(() => {
+  const plusOverride = PLUS_ACF_KEY ? document.querySelector(`input[name="acff[post][${PLUS_ACF_KEY}]"]`) : null;
+  const breakdownEl = document.getElementById('pricebreakdown');
+
+  if (
+    !window.__plusAlreadyInjected &&
+    plusOverride &&
+    parseNOK(plusOverride.value) > 0 &&
+    breakdownEl
+  ) {
+    window.__plusAlreadyInjected = true;
+    window.dispatchEvent(new Event('plus-updated'));
+  }
+}, 50);
+
+window.addEventListener('plus-updated', delayedCalculate);
+
+	
+	//SUBCONTRACTOR
+function generateSubcontractorBreakdown(rawBreakdown, kmValue) {
+  const subcontractorPriceMap = {
+   EXPRESS: 250,
+DELIVERY: 390,
+INDOOR: 450,
+PALLS1: 500,
+PALLXTRAS1: 150,
+XTRA: 100,
+RETURNSBSSTORE: 350,
+RETURNSBS: 250,
+RETURNREC: 150,
+RETURNSTORE: 200,
+UNPACKING: 50,
+SIDEBYSIDE: 800,
+SIDEBYSIDETRAPP: 600,
+INSDISHW2: 1000,
+INSINTDISHW2: 1300,
+INSWASH2: 1100,
+INSWASH1: 390,
+INSDRYER: 200,
+DRYERONTOP: 100,
+STABLERAMME: 290,
+INSINTOVEN: 390,
+INSHOB: 500,
+INSHOBFAN: 1200,
+INSCOOKER: 230,
+INSCOOKER2: 299,
+STOPSEL: 150,
+INSFAN: 799,
+INSFRIDGE: 199,
+INSINTFRIDGE: 1000,
+REHANGDOOR1: 299,
+REHANGDOOR2: 399,
+INSTALLDOOR: 399,
+INSINTMICRO: 599,
+TVTABLE1: 149,
+TVTABLE2: 229,
+ONWALL1: 749,
+ONWALL2: 1000,
+TVSETUP: 399,
+TVTABLE3: 1249,
+INSSBS2: 1150,
+INSSBS1: 249,
+XTRAARBEID: 299,
+TimeMont: 399,
+NOTHOME: 390,
+CANCELED: 149,
+DAMAGESITE: 390,
+WRONGPROD: 390,
+WRONGADRESS: 149,
+WRONGDATE: 149,
+CANTFIND: 149,
+ANDRE: 300,
+Montering: 390,
+INSINTFAN: 999,
+MANNU1: 300,
+MANNU2: 600,
+MANN1: 550,
+MANN2: 850,
+EXTRAPICKUP: 390,
+RETURIN: 450,
+DEMONT: 99,
+TIME1: 550,
+TIME2: 850,
+		
+
+  };
+
+    const discountInput = document.querySelector('input[name="acff[post][field_686e217030aaa]"]');
+const manualDiscount = discountInput ? parseNOK(discountInput.value) : 0;
+// PLUS / Ekstra (uten MVA) for subcontractor math
+let manualPlus = 0;
+const plusACF = PLUS_ACF_KEY ? document.querySelector(`input[name="acff[post][${PLUS_ACF_KEY}]"]`) : null;
+if (plusACF) {
+  manualPlus = parseNOK(plusACF.value);
+} else {
+  const plusUI = document.getElementById('plus-input');
+  manualPlus = plusUI ? parseNOK(plusUI.value) : 0;
+}
+// 🔽 NEW: SUBCONTRACTOR-ONLY MANUAL ADJUSTMENTS
+  const subDiscountInput = document.getElementById('sub-discount-input');
+  const subPlusInput     = document.getElementById('sub-plus-input');
+  const subDiscount      = subDiscountInput ? parseNOK(subDiscountInput.value) : 0;
+  const subPlus          = subPlusInput     ? parseNOK(subPlusInput.value)     : 0;
+
+  let mainTotal = 0;
+rawBreakdown.forEach(item => {
+  if (item.group) {
+    item.group.forEach(sub => { mainTotal += sub.price; });
+  } else {
+    mainTotal += item.price;
+  }
+});
+
+// percent from RETAIL world
+const discountPercent = (manualDiscount > 0 && mainTotal > 0)
+  ? (manualDiscount / mainTotal)
+  : 0;
+function getQtyFromLabel(label) {
+  if (!label) return 1;
+
+  // supports: x2, x0.5, x0,5, x 1.5
+  const m = String(label).match(/x\s*([0-9]+(?:[.,][0-9]+)?)/i);
+  if (!m) return 1;
+
+  const n = parseFloat(m[1].replace(',', '.'));
+  return (isNaN(n) || n <= 0) ? 1 : n;
+}
+
+let total = 0;
+const adjusted = rawBreakdown.map(item => {
+  if (item.group) {
+    const newGroup = item.group.map(sub => {
+      const code = sub.code?.trim();
+
+
+// ✅ If main breakdown explicitly forced this to 0, keep it 0 for subcontractor too
+let price = (sub.kunZero === true) ? 0 : (subcontractorPriceMap[code] ?? sub.price);
+
+if (sub.label?.toLowerCase().includes('km pris')) {
+  price = Math.max(0, Math.round((kmValue - 21) * 16));
+}
+
+// ✅ Only multiply by qty when NOT forced zero
+if (sub.kunZero !== true) {
+  const qty = getQtyFromLabel(sub.label);
+  price *= qty;
+}
+
+
+
+
+      total += price;
+      return { ...sub, price };
+    });
+    return { ...item, group: newGroup };
+  } else {
+    const code = item.code?.trim();
+  
+
+let price = (item.kunZero === true) ? 0 : (subcontractorPriceMap[code] ?? item.price);
+
+if (item.label?.toLowerCase().includes('km pris')) {
+  price = Math.max(0, Math.round((kmValue - 21) * 16));
+}
+
+if (item.kunZero !== true) {
+  const qty = getQtyFromLabel(item.label);
+  price *= qty;
+}
+
+
+
+
+
+    total += price;
+    return { ...item, price };
+  }
+});
+
+
+const subcontractorFactor = (mainTotal > 0 && total > 0) ? (total / mainTotal) : 1;
+const rabattNOK = total * discountPercent;       // discount scales automatically to ~70%
+const discountedTotal = total - rabattNOK;
+const plusScaled = manualPlus * subcontractorFactor;  // ✅ PLUS now ~70% too
+const withPlus = discountedTotal + plusScaled;
+ const withSubAdj = withPlus - subDiscount + subPlus;
+  const mva        = withSubAdj * 0.25;
+  const inklMva    = withSubAdj * 1.25;
+
+
+   const html = `
+    <div class="price-breakdown-wrapper">
+      ${adjusted.map(item => {
+        if (item.group) {
+          return `
+            <div class="price-group">
+              <div class="price-group-label"><strong>${item.label}</strong></div>
+              ${item.group.map(sub => `
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label">${sub.label}</span>
+                  <span class="price-breakdown-price">${sub.price} NOK</span>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        } else {
+          return `
+            <div class="price-breakdown-row">
+              <span class="price-breakdown-label">${item.label}</span>
+              <span class="price-breakdown-price">${item.price} NOK</span>
+            </div>
+          `;
+        }
+      }).join('')}
+
+      <hr style="margin: 12px 0; border-top: 2px solid black;">
+
+      <div class="price-summary">
+        ${discountPercent > 0 ? `
+          <div class="price-breakdown-row">
+            <span class="price-breakdown-label"><strong>Rabatt (${Math.round(discountPercent * 100)}%)</strong></span>
+            <span class="price-breakdown-price">- ${rabattNOK.toFixed(2)} NOK</span>
+          </div>` : ''}
+
+        ${manualPlus > 0 ? `
+          <div class="price-breakdown-row">
+            <span class="price-breakdown-label"><strong>Ekstra (skalert)</strong></span>
+            <span class="price-breakdown-price">+ ${plusScaled.toFixed(2)} NOK</span>
+          </div>` : ''}
+
+        ${subDiscount > 0 ? `
+          <div class="price-breakdown-row">
+            <span class="price-breakdown-label"><strong>Minus</strong></span>
+            <span class="price-breakdown-price">- ${subDiscount.toFixed(2)} NOK</span>
+          </div>` : ''}
+
+        ${subPlus > 0 ? `
+          <div class="price-breakdown-row">
+            <span class="price-breakdown-label"><strong>Ekstra</strong></span>
+            <span class="price-breakdown-price">+ ${subPlus.toFixed(2)} NOK</span>
+          </div>` : ''}
+
+        <div class="price-breakdown-row total-highlight" style="font-size: 1.6em; font-weight: bold;">
+          <span class="price-breakdown-label"><strong>Total</strong></span>
+          <span class="price-breakdown-price">${withSubAdj.toFixed(2)} NOK</span>
+        </div>
+
+        ${withSubAdj > 0 ? `
+          <div class="price-breakdown-row">
+            <span class="price-breakdown-label">MVA (25%)</span>
+            <span class="price-breakdown-price">${mva.toFixed(2)} NOK</span>
+          </div>
+          <div class="price-breakdown-row">
+            <span class="price-breakdown-label">Total inkl. MVA</span>
+            <span class="price-breakdown-price">${inklMva.toFixed(2)} NOK</span>
+          </div>` : ''}
+      </div>
+    </div>
+  `;
+
+
+  const subcontractorTextarea = document.getElementById('acff-post-field_6889f3e2ca127');
+  if (subcontractorTextarea) {
+    subcontractorTextarea.value = html;
+  }
+}
+//END of logic	
+	
+const PRODUCT_SELECT_SELECTOR =
+  '.acf-flexible-content .layout:not(.acf-clone) .acf-field[data-key="field_681b15bf298b6"] select';
+const DELIVERY_TYPE_FIELD_SELECTOR =
+  '.acf-flexible-content .layout:not(.acf-clone) .acf-field.delivery-type';
+
+function isProductSelect(target) {
+  return !!target?.matches?.(PRODUCT_SELECT_SELECTOR);
+}
+
+function isDeliveryTypeControl(target) {
+  return !!target?.closest?.(DELIVERY_TYPE_FIELD_SELECTOR);
+}
+
+function isVisibleAcfField(target) {
+  const field = target?.closest?.('.acf-field');
+  if (!field) return true;
+
+  return (
+    !field.classList.contains('acf-hidden') &&
+    !field.classList.contains('acf-clone') &&
+    !field.hidden &&
+    !field.hasAttribute('hidden')
+  );
+}
+	
+  function handleDynamicChange(e) {
+    const target = e.target;
+    if (!isVisibleAcfField(target)) return;
+    if (isProductSelect(target) || isDeliveryTypeControl(target)) return;
+
+    if (
+      target.matches('.price-item input, .price-item select, input[name*="field_68248274acd3f"], input[type="number"], .acf-date-picker input[type="text"], #acff-post-field_682482a1acd41')
+
+    ) {
+      delayedCalculate();
+    }
+  }
+
+function bindDeliveryTypeBridge() {
+  // Delivery type conditional logic belongs to ACF only.
+}
+
+
+  function attachListeners() {
+		// Inside attachListeners()
+document.querySelectorAll('.acf-flexible-content .layout:not(.acf-clone)').forEach(layout => {
+  const arbeidCheckboxes = layout.querySelectorAll('.acf-field[data-key="field_68760a149a59b"] input[type="checkbox"]');
+  const arbeidMinutesInput = layout.querySelector('.acf-field[data-key="field_68760ebfe7f33"] input[type="number"]');
+
+  arbeidCheckboxes.forEach(checkbox => {
+    if (!checkbox.dataset.arbeidAttached && arbeidMinutesInput) {
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked && !arbeidMinutesInput.value) {
+          arbeidMinutesInput.value = 20;
+        }
+        delayedCalculate();
+      });
+
+      arbeidMinutesInput.addEventListener('input', delayedCalculate);
+      checkbox.dataset.arbeidAttached = 'true';
+    }
+  });
+});
+
+// Make minutes changes recalc immediately
+document.querySelectorAll('.acf-field[data-key="field_68760ebfe7f33"] input[type="number"]').forEach(el => {
+  if (!el.dataset.listenerAttached) {
+    el.addEventListener('input',  delayedCalculate);
+    el.addEventListener('change', delayedCalculate);
+    el.dataset.listenerAttached = 'true';
+  }
+});
+
+// Also watch the XTRAARBEID checkbox itself
+document.querySelectorAll('.acf-field[data-key="field_68760a149a59b"] input[type="checkbox"][value$="XTRAARBEID"]').forEach(cb => {
+  if (!cb.dataset.listenerAttached) {
+    cb.addEventListener('change', delayedCalculate);
+    cb.dataset.listenerAttached = 'true';
+  }
+});
+
+		document.querySelectorAll('.acf-flexible-content .layout:not(.acf-clone)').forEach(layout => {
+  const snekkerCheckbox = layout.querySelector('.acf-field[data-key="field_682de4c1a291f"] input[type="checkbox"][value*="Snekker"]');
+  const snekkerQtyInput = layout.querySelector('.acf-field[data-key="field_682de569a2921"] input[type="number"]');
+
+  if (snekkerCheckbox && snekkerQtyInput && !snekkerCheckbox.dataset.listenerAttached) {
+    snekkerCheckbox.addEventListener('change', () => {
+      snekkerQtyInput.value = snekkerCheckbox.checked ? '0.5' : '';
+      delayedCalculate();
+    });
+
+    snekkerQtyInput.addEventListener('input', delayedCalculate);
+    snekkerCheckbox.dataset.listenerAttached = 'true';
+  }
+});
+
+		const express = document.getElementById('acff-post-field_684c3ad580b60-Express');
+if (express && !express.dataset.listenerAttached) {
+express.addEventListener('click', () => {
+  express.dataset.userChanged = 'true';
+  setTimeout(delayedCalculate, 0); // let checkbox update first
+});
+
+
+
+
+
+  express.dataset.listenerAttached = 'true';
+}
+
+
+		// ✅ Ensure Rabatt triggers recalculation immediately
+const rabatt = document.querySelector('input[name="acff[post][field_686e217030aaa]"]');
+if (rabatt && !rabatt.dataset.listenerAttached) {
+  const onRabattChange = () => {
+    // so the 50ms injector won't think we've already processed it
+    window.__discountAlreadyInjected = false;
+    delayedCalculate();
+  };
+  rabatt.addEventListener('input', onRabattChange);
+  rabatt.addEventListener('change', onRabattChange);
+  rabatt.addEventListener('paste', onRabattChange);
+  rabatt.dataset.listenerAttached = 'true';
+}
+
+	// ✅ Ensure PLUS (ACF) triggers recalculation immediately
+const plus = PLUS_ACF_KEY ? document.querySelector(`input[name="acff[post][${PLUS_ACF_KEY}]"]`) : null;
+if (plus && !plus.dataset.listenerAttached) {
+  const onPlusChange = () => {
+    window.__plusAlreadyInjected = false;
+    delayedCalculate();
+  };
+  plus.addEventListener('input', onPlusChange);
+  plus.addEventListener('change', onPlusChange);
+  plus.addEventListener('paste', onPlusChange);
+  plus.dataset.listenerAttached = 'true';
+}
+	
+		
+		
+		
+ const fields = document.querySelectorAll(
+  '.price-item input, ' +
+  '.price-item select, ' +
+  '.acf-field[data-key="field_682358b62c3b4"]:not(.acf-clone) .acf-date-picker input[type="text"], ' +
+  '#acff-post-field_681b23b73d2d2, ' +                                   // time window
+  'input[name*="field_68248274acd3f"], ' +                                // extra pickup(s)
+  '#acff-post-field_682482a1acd41, ' +                                    // KM field
+  'input[name="acff[post][field_684c3ad580b60]"][type="checkbox"]'        // EXPRESS
+);
+fields.forEach(el => {
+  if (!isVisibleAcfField(el)) return;
+  if (isProductSelect(el) || isDeliveryTypeControl(el)) return;
+  if (!el.id && !el.name) return;                 // don’t attach to nameless controls
+  if (!el.dataset.listenerAttached) {
+    el.addEventListener('change', delayedCalculate);
+    el.addEventListener('input',  delayedCalculate);
+    el.dataset.listenerAttached = 'true';
+  }
+});
+
+
+
+document.querySelectorAll(PRODUCT_SELECT_SELECTOR).forEach(select => {
+  if (!select.dataset.resetListenerAttached) {
+    select.addEventListener('change', handleProductChange);
+    select.dataset.resetListenerAttached = 'true';
+  }
+});
+
+
+
+bindDeliveryTypeBridge();
+
+    const container = document.querySelector('.acf-flexible-content');
+    if (container) {
+      container.removeEventListener('input', handleDynamicChange);
+      container.removeEventListener('change', handleDynamicChange);
+      container.addEventListener('input', handleDynamicChange);
+      container.addEventListener('change', handleDynamicChange);
+    }
+  }
+	
+	
+	
+
+
+	let __echoGuard = false;
+
+
+function handleProductChange(e) {
+  const select = e.target;
+  if (!isProductSelect(select)) return;
+
+  const layout = select.closest('.layout');
+  if (!layout) return;
+
+  const productValue = (select.value || '').toLowerCase();
+  const leveringstypeWrap = layout.querySelector('.acf-field[data-key="field_681b162239347"]');
+  const leveringstypeSelect = leveringstypeWrap?.querySelector('select');
+
+  const userEl = document.querySelector('.sidebar-username');
+  const userName = (userEl?.textContent || '').toLowerCase().trim();
+
+  if (userName.includes('flugger 028') && productValue === 'kasse levering') {
+    if (leveringstypeSelect) {
+      leveringstypeSelect.value = '';
+      leveringstypeSelect.disabled = true;
+      leveringstypeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  } else {
+    if (leveringstypeSelect) {
+      leveringstypeSelect.disabled = false;
+    }
+  }
+
+  setTimeout(() => {
+    if (window.acf && typeof window.acf.doAction === 'function') {
+      window.acf.doAction('refresh');
+    }
+    delayedCalculate();
+  }, 120);
+}
+
+let __legacyHideTimer = null;
+function hideLegacyOptionsOncePerTick() {
+  if (__legacyHideTimer) return;
+  __legacyHideTimer = setTimeout(() => {
+    __legacyHideTimer = null;
+   
+  }, 0);
+}
+
+const flexRoot = document.querySelector('.acf-flexible-content');
+if (flexRoot) {
+  const observer = new MutationObserver(() => {
+    if (__isResetting) return; // ignore flurry caused by our own reset
+    clearTimeout(window.__priceObserverThrottle);
+    window.__priceObserverThrottle = setTimeout(() => {
+      attachListeners();
+      delayedCalculate();
+      // run legacy hider occasionally, not every time
+      hideLegacyOptionsOncePerTick();
+      window.__discountAlreadyInjected = false;
+    }, 120);
+  });
+  observer.observe(flexRoot, { childList: true, subtree: true });
+}
+
+
+  document.body.addEventListener('click', function (e) {
+    if (e.target.closest('.acf-button')) {
+      setTimeout(() => {
+        attachListeners();
+        delayedCalculate();
+      }, 200);
+    }
+  });
+window.addEventListener('discount-updated', delayedCalculate);
+
+  attachListeners();
+  calculateTotal();
+	// === DISCOUNT UI BRIDGE (connect #discount-input / #apply-discount to ACF Rabatt) ===
+(function setupDiscountBridge() {
+  const ui = document.getElementById('discount-input');
+  const btn = document.getElementById('apply-discount');
+  const acf = document.querySelector('input[name="acff[post][field_686e217030aaa]"]'); // ACF Rabatt
+
+  if (!acf) return;
+
+  // Pre-fill the UI from ACF on first load so they match
+  if (ui && !ui.value) ui.value = acf.value || '';
+
+  const apply = () => {
+    const n = ui ? parseNOK(ui.value) : 0;       // use your robust parser
+    acf.value = n ? String(n) : '';              // write back to ACF (empty if 0)
+    window.__discountAlreadyInjected = false;    // make sure no “already done” flag blocks us
+    delayedCalculate();                          // force immediate recalculation
+  };
+
+  // Click on "Bruk rabatt"
+  btn?.addEventListener('click', (e) => {
+    e.preventDefault(); // avoid submitting the form if the button sits inside it
+    apply();
+  });
+
+  // Enter to apply
+  ui?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      apply();
+    }
+  });
+
+  // Optional: also apply on blur so UI and totals never drift
+  ui?.addEventListener('blur', apply);
+})();
+
+	// === PLUS UI BRIDGE (connect #plus-input / #apply-plus to ACF PLUS) ===
+(function setupPlusBridge() {
+  const ui = document.getElementById('plus-input');
+  const btn = document.getElementById('apply-plus');
+  const acf = PLUS_ACF_KEY ? document.querySelector(`input[name="acff[post][${PLUS_ACF_KEY}]"]`) : null;
+
+  if (!acf) return; // if you haven't added an ACF field yet, UI will be informational only
+
+  // Pre-fill the UI from ACF on first load
+  if (ui && !ui.value) ui.value = acf.value || '';
+
+  const apply = () => {
+    const n = ui ? parseNOK(ui.value) : 0;
+    acf.value = n ? String(n) : '';
+    window.__plusAlreadyInjected = false;
+    delayedCalculate();
+  };
+
+  btn?.addEventListener('click', (e) => { e.preventDefault(); apply(); });
+  ui?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+  ui?.addEventListener('blur', apply);
+})();
+
+
+  const kmField = document.getElementById('acff-post-field_682482a1acd41');
+  if (kmField) {
+    const observer = new MutationObserver(() => {
+      delayedCalculate();
+    });
+
+    observer.observe(kmField, { attributes: true, childList: true, subtree: true, characterData: true });
+
+    let lastKmValue = kmField.value;
+    setInterval(() => {
+      if (kmField.value !== lastKmValue) {
+        lastKmValue = kmField.value;
+        delayedCalculate();
+      }
+    }, 300);
+  }
+
+  if (typeof acf !== 'undefined') {
+    acf.addAction('show_field', function ($el) {
+      if ($el[0] && $el[0].classList.contains('price-item')) {
+        calculateTotal();
+        attachListeners();
+      }
+    });
+  }
+});
+
+
+</script>
+
+<style>
+  /* In Select2 dropdowns, hide disabled choices */
+  .select2-results__option[aria-disabled="true"] { display: none !important; }
+</style>
+
+<script>
+(function () {
+  // --- the extra pickup input selector
+  const EXTRA_INPUT = 'input[name*="field_68248274acd3f"]';
+
+  // helper: let KM writes happen (same gate you use elsewhere)
+  function allowKmWrites() {
+    try { (window.__kmGate?.allow || window.enableKmWrites || function(){})(); } catch(_) {}
+  }
+
+  // do both recalcs + broadcast a signal
+  function recalcAll(tag) {
+    allowKmWrites();
+
+    // 1) KM
+    try { window.calculateTotalDistance && window.calculateTotalDistance(true); } catch(_) {}
+
+    // 2) Prices
+    if (typeof window.delayedCalculate === 'function') {
+      window.delayedCalculate();
+    } else if (typeof window.calculateTotal === 'function') {
+      window.calculateTotal();
+    }
+
+    // 3) Let other code react if needed
+    const count = document.querySelectorAll(EXTRA_INPUT).length;
+    if (window.jQuery) jQuery(document).trigger('extra_pickup_changed', [count, tag || '']);
+    window.dispatchEvent(new CustomEvent('extra-pickup-change', { detail: { count, tag: tag || '' } }));
+  }
+
+  // ACF removes with an animation; run now and again after it settles
+  function afterRemove() {
+    setTimeout(() => recalcAll('after-remove'), 0);
+    setTimeout(() => recalcAll('after-remove-late'), 350);
+  }
+
+  // Watch the repeater container for node removals (covers AJAX/edge cases)
+  function watchRepeater() {
+    // Find a stable ancestor to observe
+    const any = document.querySelector(EXTRA_INPUT);
+    const root =
+      (any && (any.closest('.acf-repeater, .acf-field-repeater, .acf-field[data-type="repeater"], .acf-field'))) ||
+      document.body;
+
+    if (!root || root.dataset.extraPickupWatch) return;
+    root.dataset.extraPickupWatch = '1';
+
+    new MutationObserver(muts => {
+      for (const m of muts) {
+        if (m.type !== 'childList') continue;
+        // if a removed subtree contained one of our inputs, trigger
+        const touched = [...m.removedNodes].some(n =>
+          n.nodeType === 1 && (n.matches?.(EXTRA_INPUT) || n.querySelector?.(EXTRA_INPUT))
+        );
+        if (touched) { afterRemove(); break; }
+      }
+    }).observe(root, { childList: true, subtree: true });
+  }
+
+  // Click hooks for ACF “remove row” buttons across ACF 5/6 variants
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest?.(
+      '[data-event="remove-row"], [data-event="remove"], ' +    // ACF 6
+      '.acf-repeater .acf-row .acf-icon.-minus, ' +             // ACF 5
+      '.acf-actions .-remove, .acf-icon.-minusSmall'
+    );
+    if (btn) setTimeout(afterRemove, 0);
+  });
+
+  // ACF JS actions (if available)
+  if (window.acf?.addAction) {
+    // generic field remove (ACF 5/6)
+    acf.addAction('remove', ($el) => {
+      const el = $el?.[0] || $el;
+      if (el && (el.matches?.(EXTRA_INPUT) || el.querySelector?.(EXTRA_INPUT))) afterRemove();
+    });
+    // explicit repeater hook (ACF Extended / some builds)
+    acf.addAction('remove_row', afterRemove);
+
+    // keep the watcher alive as rows are appended/shown
+    acf.addAction('append',  () => setTimeout(watchRepeater, 0));
+    acf.addAction('ready',   () => setTimeout(watchRepeater, 0));
+    acf.addAction('show_field', () => setTimeout(watchRepeater, 0));
+  }
+
+  // boot
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', watchRepeater);
+  } else {
+    watchRepeater();
+  }
+})();
+</script>
+
+<script>
+(function () {
+  // Exact time windows to hide (canonical "H:MM - H:MM")
+  const EXACT_TIMES = new Set([
+    '8:00 - 12:00',
+    '11:00 - 15:00',
+    '14:00 - 18:00',
+    '17:00 - 21:00',
+    '10:00 - 14:00',
+    '13:00 - 17:00'
+  ]);
+
+  const norm = s => (s || '')
+    .replace(/\u00A0/g, ' ')          // NBSP → space
+    .replace(/[–—−-]/g, '-')          // dashes → hyphen
+    .replace(/\s+/g, ' ')             // collapse spaces
+    .trim();
+
+  const canonicalWindow = s => {
+    const m = norm(s).match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    const [, h1, m1, h2, m2] = m;
+    return `${parseInt(h1,10)}:${m1} - ${parseInt(h2,10)}:${m2}`;
+  };
+
+  const hasAnyTimeLikeOption = select => {
+    for (const opt of select.options) {
+      if (canonicalWindow(opt.textContent || '')) return true;
+    }
+    return false;
+  };
+
+  const isInDatepicker = el => !!(el.closest && (
+    el.closest('#ui-datepicker-div') ||
+    el.classList?.contains('ui-datepicker-month') ||
+    el.classList?.contains('ui-datepicker-year') ||
+    el.closest('.acf-field-date-picker')
+  ));
+
+  // Hide (but don't deselect!) "legacy" everywhere, and EXACT_TIMES only in time-window selects
+  function scrubSelect(select) {
+    if (!select || isInDatepicker(select)) return;
+
+    const looksLikeTimeWindow = hasAnyTimeLikeOption(select);
+
+    for (const opt of select.options) {
+      const label = opt.textContent || '';
+      const n     = norm(label).toLowerCase();
+
+      const hideLegacy = n.includes('legacy');
+      let   hideTime   = false;
+
+      if (!hideLegacy && looksLikeTimeWindow) {
+        const canon = canonicalWindow(label);
+        hideTime = !!(canon && EXACT_TIMES.has(canon));
+      }
+
+      const shouldHide = hideLegacy || hideTime;
+
+      if (shouldHide && !opt.selected) {
+        // Hide from native <select> and inform Select2
+        opt.disabled = true;
+        opt.hidden   = true;
+        opt.setAttribute('aria-disabled', 'true');
+        opt.dataset.legacyHidden = '1';
+      } else if (opt.selected && (hideLegacy || hideTime)) {
+        // Keep saved value visible/enabled
+        opt.disabled = false;
+        opt.hidden   = false;
+        opt.removeAttribute('aria-disabled');
+        delete opt.dataset.legacyHidden;
+      }
+    }
+    // No change event — we never alter selection.
+  }
+
+// Hide UNCHECKED radios/checkboxes whose label contains "legacy" (case-insensitive)
+function scrubChoices(root = document) {
+  root.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(input => {
+    if (isInDatepicker(input)) return;
+
+    const wrapper =
+      input.closest('li') ||
+      input.closest('label') ||
+      input.closest('.acf-radio-list, .acf-checkbox-list') ||
+      input.parentElement;
+
+    const text = norm((wrapper ? wrapper.textContent : '') || '').toLowerCase();
+    if (!text.includes('legacy')) return;
+
+    if (!input.checked) {
+      input.disabled = true;
+      input.dataset.legacyHidden = '1';
+      if (wrapper && wrapper.style) wrapper.style.display = 'none';
+    } else {
+      // keep saved legacy selections visible
+      input.disabled = false;
+      if (wrapper && wrapper.style) wrapper.style.display = '';
+      delete input.dataset.legacyHidden;
+    }
+  });
+}
+
+
+function runScrub(ctx = document) {
+  ctx.querySelectorAll('select').forEach(scrubSelect);
+  scrubChoices(ctx);   // instead of scrubRadios(ctx)
+}
+
+
+  document.addEventListener('DOMContentLoaded', () => runScrub());
+  window.addEventListener('load', () => runScrub());
+
+  // ACF lifecycle hooks (covers flexible content add/append/show)
+  if (window.acf && typeof acf.addAction === 'function') {
+    acf.addAction('ready append show_field', ($el) => {
+      const ctx = ($el && $el[0]) ? $el[0] : document;
+      runScrub(ctx);
+    });
+  }
+
+  // Catch late DOM mutations (cloned rows, AJAX choice loads, etc.)
+  const mo = new MutationObserver(() => {
+    clearTimeout(runScrub._t);
+    runScrub._t = setTimeout(() => runScrub(), 60);
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  // Bonus: when a Select2 dropdown opens, ensure disabled items stay hidden
+  if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
+    jQuery(document).on('select2:open', () => {
+      // The CSS rule already hides aria-disabled items; this is just a safety pass
+      document.querySelectorAll('.select2-results__option').forEach(li => {
+        const t = norm(li.textContent || '').toLowerCase();
+        const isLegacy = t.includes('legacy');
+        const canon = canonicalWindow(t);
+        const isExactTime = !!(canon && EXACT_TIMES.has(canon));
+        if (isLegacy || isExactTime) {
+          li.setAttribute('aria-disabled', 'true');
+          li.style.display = 'none';
+        }
+      });
+    });
+  }
+})();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const subRabattUI  = document.getElementById('sub-discount-input');
+  const subRabattBtn = document.getElementById('apply-sub-discount');
+  const subPlusUI    = document.getElementById('sub-plus-input');
+  const subPlusBtn   = document.getElementById('apply-sub-plus');
+
+  if (!subRabattUI && !subPlusUI) return; // nothing to wire
+
+  const trigger = (e) => {
+    if (e) e.preventDefault();
+    // Use the global versions if you’ve exposed them, otherwise try window.*
+    if (typeof window.delayedCalculate === 'function') {
+      window.delayedCalculate();
+    } else if (typeof window.calculateTotal === 'function') {
+      window.calculateTotal();
+    }
+  };
+
+  subRabattBtn?.addEventListener('click', trigger);
+  subPlusBtn?.addEventListener('click', trigger);
+
+  [subRabattUI, subPlusUI].forEach(input => {
+    if (!input) return;
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        trigger(e);
+      }
+    });
+    input.addEventListener('blur', trigger);
+  });
+});
+</script>

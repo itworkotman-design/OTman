@@ -1,0 +1,183 @@
+<script>
+// jQuery(function ($) {
+//   // Keys
+//   var HENTE_KEY    = 'field_68248210acd3d';   // Henteadresse  [frontend_admin field=68248210acd3d]
+//   var REPEATER_KEY = 'field_68248234acd3e';   // Repeater      [frontend_admin field=68248234acd3e]
+
+//   // 👇 Add more field keys to scrub-on-hide here if needed (e.g. return address)
+//   var KEYS_TO_WIPE = [HENTE_KEY/*, 'field_68499231b558f'*/];
+
+//   // Leveringstype SELECTs inside Flexible Content (your inner field codes)
+//   var selectSelectorCore = [
+//     'select[name*="[field_682b0fa395c44]"][name*="[field_681b162239347]"]',
+//     'select[name*="[field_682b0fa395c44]"][name*="[field_6880e6834088b]"]',
+//     'select[name*="[field_682b0fa395c44]"][name*="[field_68246df488e9a]"]',
+//     'select[name*="[field_682b0fa395c44]"][name*="[field_68235e7826058]"]',
+//     'select[name*="[field_682b0fa395c44]"][name*="[field_682b100495c6b]"]',
+//     'select[name*="[field_682b0fa395c44]"][name*="[field_6880eb12e3933]"]',
+//     'select[name*="[field_682b0fa395c44]"][name*="[field_682b102595c6c]"]',
+//     'select[name*="[field_682b0fa395c44]"][name*="[field_682b103d95c6d]"]'
+//   ];
+//   var selectSelector = selectSelectorCore
+//     .map(function (s) { return s + ':not([name*="[acfcloneindex]"])'; })
+//     .join(', ');
+
+//   function isReal(el) {
+//     var $el = $(el);
+//     if (el.disabled) return false;
+//     if ((el.name || '').indexOf('acfcloneindex') !== -1) return false;
+//     if ($el.closest('.acf-clone, .acf-row--clone').length) return false;
+//     if (!$el.is(':visible')) return false;
+//     return true;
+//   }
+
+//   // Treat placeholder "Velg" / empty as not selected/meaningful
+//   function isMeaningfulOption(opt) {
+//     var txt = String($(opt).text() || '').trim().toLowerCase();
+//     var val = String($(opt).val()  || '').trim().toLowerCase();
+//     if (!txt && !val) return false;
+//     if (txt === 'velg' || val === 'velg') return false;
+//     return true;
+//   }
+
+//   // ---- SCRUB HELPERS -------------------------------------------------------
+
+//   // Find all inputs/textareas in an ACF field wrapper
+//   function findInputsInField($field) {
+//     return $field.find('input, textarea').filter(function(){
+//       var name = this.name || '';
+//       return name && name.indexOf('acfcloneindex') === -1;
+//     });
+//   }
+
+//   // Inject a trailing hidden empty input to ensure server meta is cleared
+//   function ensureEmptyMarker(form, name) {
+//     if (!form || !name) return;
+//     var exists = form.querySelector('input[type="hidden"][data-empty-for="'+ name +'"]');
+//     if (exists) return;
+//     var h = document.createElement('input');
+//     h.type = 'hidden';
+//     h.name = name;
+//     h.value = '';
+//     h.setAttribute('data-empty-for', name);
+//     form.appendChild(h);
+//   }
+
+//   // Remove previously injected empty marker when the field becomes visible again
+//   function removeEmptyMarker(form, name) {
+//     if (!form || !name) return;
+//     var el = form.querySelector('input[type="hidden"][data-empty-for="'+ name +'"]');
+//     if (el) el.parentNode.removeChild(el);
+//   }
+
+//   // Clear & disable inputs inside $field (quietly: no change events)
+//   function scrubField($field) {
+//     var form = $field.closest('form')[0] || document.querySelector('form');
+//     findInputsInField($field).each(function(){
+//       var input = this;
+//       var name  = input.name;
+//       // clear visible value + any placeId cached by our scripts
+//       if ('value' in input) input.value = '';
+//       if (input.dataset) delete input.dataset.placeId;
+//       // disable so it won't submit
+//       input.disabled = true;
+//       // force empty to be sent so existing meta is overwritten
+//       ensureEmptyMarker(form, name);
+//     });
+//   }
+
+//   // Re-enable inputs and remove injected empties when showing again
+//   function enableField($field) {
+//     var form = $field.closest('form')[0] || document.querySelector('form');
+//     findInputsInField($field).each(function(){
+//       this.disabled = false;
+//       removeEmptyMarker(form, this.name);
+//     });
+//   }
+
+//   function setHidden($els, hide) {
+//     if (hide) {
+//       $els.addClass('acf-hidden').hide();
+//       // If any of these fields are in our scrub list, wipe them now
+//       $els.each(function(){
+//         var key = $(this).attr('data-key');
+//         if (KEYS_TO_WIPE.indexOf(key) !== -1) {
+//           scrubField($(this));
+//         }
+//       });
+//     } else {
+//       $els.removeClass('acf-hidden').show();
+//       // Re-enable when shown
+//       $els.each(function(){
+//         var key = $(this).attr('data-key');
+//         if (KEYS_TO_WIPE.indexOf(key) !== -1) {
+//           enableField($(this));
+//         }
+//       });
+//     }
+//   }
+
+//   // ---- TOGGLING LOGIC ------------------------------------------------------
+
+//   function toggleFields() {
+//     // Always re-query so newly appended ACF rows are included
+//     var $henteAdresse = $('.acf-field[data-key="' + HENTE_KEY + '"]');
+//     var $repeater     = $('.acf-field[data-key="' + REPEATER_KEY + '"]');
+
+//     var anyKun = false;
+//     var anyNonKun = false;
+
+//     $(selectSelector).each(function () {
+//       if (!isReal(this)) return;
+
+//       $(this).find('option:selected').each(function () {
+//         if (!isMeaningfulOption(this)) return;
+
+//         var txt = String($(this).text() || '').toLowerCase();
+//         var val = String($(this).val()  || '').toLowerCase();
+//         var isKun = (txt.indexOf('kun') !== -1 || val.indexOf('kun') !== -1);
+
+//         if (isKun) anyKun = true;
+//         else anyNonKun = true; // any other meaningful selection counts as NOT Kun
+//       });
+//     });
+
+//     // Hide only if there is at least one "kun" AND no non-kun selected anywhere
+//     var shouldHide = anyKun && !anyNonKun;
+
+//     setHidden($henteAdresse, shouldHide);
+//     setHidden($repeater,     shouldHide);
+//   }
+
+//   // Prevent flash on initial paint
+//   $('.acf-field[data-key="' + HENTE_KEY + '"], .acf-field[data-key="' + REPEATER_KEY + '"]')
+//     .addClass('acf-hidden').hide();
+
+//   // Initial eval
+//   toggleFields();
+
+//   // Re-run on changes of any leveringstype select
+//   $(document).on('change', selectSelector, toggleFields);
+
+//   // Re-check when ACF adds/removes/appends rows
+//   if (window.acf && typeof acf.addAction === 'function') {
+//     acf.addAction('ready',  toggleFields);
+//     acf.addAction('append', toggleFields);
+//     acf.addAction('remove', toggleFields);
+//   }
+
+//   // Extra safety: before ACF validates/serializes, scrub again if hidden
+//   if (window.acf && typeof acf.addAction === 'function') {
+//     acf.addAction('validation_begin', function ($form) {
+//       var $hente = $('.acf-field[data-key="' + HENTE_KEY + '"]');
+//       if ($hente.hasClass('acf-hidden') || !$hente.is(':visible')) scrubField($hente);
+//     });
+//   }
+
+//   // Extra safety: on native submit
+//   $(document).on('submit', 'form', function () {
+//     var $hente = $('.acf-field[data-key="' + HENTE_KEY + '"]');
+//     if ($hente.hasClass('acf-hidden') || !$hente.is(':visible')) scrubField($hente);
+//   });
+// });
+</script>

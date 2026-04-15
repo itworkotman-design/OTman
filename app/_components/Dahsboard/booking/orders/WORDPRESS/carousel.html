@@ -1,0 +1,25 @@
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Select all carousel slides
+    const carouselSlides = document.querySelectorAll('.swiper-slide');
+
+    carouselSlides.forEach(function(slide) {
+        // Find the elementor-carousel-image within each slide
+        const bgImageElement = slide.querySelector('.elementor-carousel-image');
+
+        if (bgImageElement && bgImageElement.style.backgroundImage === 'url("")') {
+            // Remove slide if background image URL is empty
+            slide.remove();
+        }
+    });
+
+    // Reinitialize the carousel (assuming Swiper is used by Elementor's carousel)
+    const swiperContainer = document.querySelector('.swiper-container');
+    if (swiperContainer && swiperContainer.swiper) {
+        swiperContainer.swiper.update();
+    }
+});
+
+
+
+</script>

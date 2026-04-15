@@ -1,0 +1,78 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const flexFieldKey = 'field_682b0fa395c44';
+
+  function isVisible(el) {
+    return el && el.offsetParent !== null;
+  }
+
+  function updateVisibilityGlobal() {
+    const triggers = document.querySelectorAll('.trigger-checkbox input[type="checkbox"]');
+    const target = document.querySelector('.hide-if-any-checked:not(.layout .hide-if-any-checked)');
+
+    let anyCheckedVisible = false;
+
+    triggers.forEach(trigger => {
+      if (trigger.checked && isVisible(trigger)) {
+        anyCheckedVisible = true;
+      }
+    });
+
+    if (target) {
+      target.style.display = anyCheckedVisible ? 'none' : '';
+    }
+  }
+
+  function updateLayoutVisibility(layoutEl) {
+    const triggers = layoutEl.querySelectorAll('.trigger-checkbox input[type="checkbox"]');
+    const target = layoutEl.querySelector('.hide-if-any-checked');
+
+    if (!target) return;
+
+    let anyCheckedVisible = false;
+
+    triggers.forEach(trigger => {
+      if (trigger.checked && isVisible(trigger)) {
+        anyCheckedVisible = true;
+      }
+    });
+
+    target.style.display = anyCheckedVisible ? 'none' : '';
+  }
+
+  function updateAll() {
+    // Global section outside flexible layouts
+    updateVisibilityGlobal();
+
+    // All flexible layouts
+    const container = document.querySelector(`.acf-flexible-content input[name*="${flexFieldKey}"]`)?.closest('.acf-flexible-content');
+    if (!container) return;
+
+    container.querySelectorAll('.layout:not(.acf-clone)').forEach(updateLayoutVisibility);
+  }
+
+  // Event handler for checkbox changes
+  document.body.addEventListener('change', function (e) {
+    if (e.target.matches('.trigger-checkbox input[type="checkbox"]')) {
+      const layout = e.target.closest('.layout');
+      if (layout) {
+        updateLayoutVisibility(layout);
+      } else {
+        updateVisibilityGlobal();
+      }
+    }
+  });
+
+  // Watch for DOM changes (new layouts added)
+  const observer = new MutationObserver(updateAll);
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class']
+  });
+
+  // Initial run
+  updateAll();
+});
+</script>

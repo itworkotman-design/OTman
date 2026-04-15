@@ -1,0 +1,1009 @@
+<!-- 1) Wait for CURRENT_USER_KEY (unchanged) -->
+<script>
+(function waitForKey(tries = 0) {
+  if (window.CURRENT_USER_KEY) {
+    console.log("CURRENT_USER_KEY (boot):", window.CURRENT_USER_KEY);
+    return;
+  }
+  if (tries > 50) {
+    console.warn("CURRENT_USER_KEY never defined (check shortcode placement)");
+    return;
+  }
+  setTimeout(() => waitForKey(tries + 1), 100);
+})();
+</script>
+
+
+<!-- 2) Google Maps autocomplete + strict KM calculation (passive on load, responsive to edits/clears) -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const geocoder = new google.maps.Geocoder();
+  const placeCache = new Map();
+  const RETURN_SELECTOR = 'input[name*="field_68499231b558f"]';
+
+  // ---------- visibility
+  function isVisible(el) {
+    if (!el) return false;
+    const field = el.closest?.('.acf-field') || el;
+    const st = window.getComputedStyle(field);
+    return !field.classList.contains('acf-hidden') &&
+           st.display !== 'none' && st.visibility !== 'hidden' &&
+           (field.offsetWidth || field.getClientRects().length);
+  }
+
+  // ---------- helpers
+  const getReturnInput = () => document.querySelector(RETURN_SELECTOR);
+
+  // Gate: do not touch KM field until user interacts OR you opt-in via window.enableKmWrites()
+  let KM_WRITE_ALLOWED = false;
+  function enableKmWrites(){ KM_WRITE_ALLOWED = true; }
+  window.enableKmWrites = enableKmWrites;
+
+  // Any real interaction unlocks KM writes
+  ['pointerdown','keydown','touchstart','focusin'].forEach(evt => {
+    document.addEventListener(evt, () => { KM_WRITE_ALLOWED = true; }, { once:true, capture:true });
+  });
+
+  // ---------- acceptance
+  const STRICT_TYPES = new Set(["street_address","premise","route","establishment","subpremise"]);
+  const STRICT_LOC   = new Set(["ROOFTOP","RANGE_INTERPOLATED"]);
+  const LOOSE_TYPES  = new Set(["street_address","premise","route","establishment","subpremise","locality","political"]);
+  const LOOSE_LOC    = new Set(["ROOFTOP","RANGE_INTERPOLATED","GEOMETRIC_CENTER","APPROXIMATE"]);
+
+  function isPlausiblePrefilledAddressStrict(str) {
+    const s = (str || "").trim();
+    if (!s) return false;
+    const hasDigit = /\d/.test(s);
+    const hasComma = s.includes(",");
+    const hasPostalNO = /\b\d{4}\b/.test(s);
+    return (hasDigit || hasComma || hasPostalNO) && s.length >= 6;
+  }
+
+  function confirmAllowed(result, loose) {
+    const types = result.types || [];
+    const locType = result.geometry && result.geometry.location_type;
+    const tset = loose ? LOOSE_TYPES : STRICT_TYPES;
+    const lset = loose ? LOOSE_LOC   : STRICT_LOC;
+    return types.some(t => tset.has(t)) && lset.has(locType);
+  }
+
+  // ---------- ensure placeId (loose=true only for Return)
+  async function ensurePlaceIdForInput(input, allowBootstrapFromPrefill, loose = false) {
+    if (!input) return "";
+    const val = (input.value || "").trim();
+    if (!val) { delete input.dataset.placeId; return ""; }
+    if (input.dataset.placeId) return { placeId: input.dataset.placeId };
+    if (!allowBootstrapFromPrefill) return "";
+
+    const okPrefill = loose ? (val.length >= 3) : isPlausiblePrefilledAddressStrict(val);
+    if (!okPrefill) return "";
+
+    if (placeCache.has(val)) {
+      const pid = placeCache.get(val);
+      input.dataset.placeId = pid;
+      return { placeId: pid };
+    }
+
+    const pid = await new Promise((resolve) => {
+      geocoder.geocode({ address: val, componentRestrictions: { country: "NO" } },
+        (results, status) => {
+          if (status === "OK" && results?.[0] && confirmAllowed(results[0], loose)) resolve(results[0].place_id);
+          else resolve("");
+        });
+    });
+
+    if (pid) { placeCache.set(val, pid); input.dataset.placeId = pid; return { placeId: pid }; }
+    return "";
+  }
+
+  // ---------- autocomplete (no change events fired on init)
+  function initAutocomplete(input) {
+    if (!input || input.name.includes("acfcloneindex")) return;
+    if (input.dataset.autocompleteInitialized) return;
+    input.dataset.autocompleteInitialized = "true";
+
+    const invalidate = () => { delete input.dataset.placeId; };
+    input.addEventListener("input", invalidate);
+    input.addEventListener("paste", invalidate);
+
+    const ac = new google.maps.places.Autocomplete(input);
+    ac.addListener("place_changed", () => {
+      KM_WRITE_ALLOWED = true; // user picked a place
+
+      const place = ac.getPlace();
+      if (!place || !place.address_components) return;
+
+      const postal = place.address_components.find(c => c.types?.includes("postal_code"))?.long_name || "";
+      const street = place.formatted_address || input.value || "";
+      let full = street;
+      if (place.name && !street.includes(place.name)) full = `${place.name}, ${street}`;
+      if (postal && !full.includes(postal)) full += `, ${postal}`;
+
+      input.value = full;                       // do NOT dispatch change here
+      if (place.place_id) input.dataset.placeId = place.place_id;
+
+      // Calculate after selection (allowed by user interaction)
+      setTimeout(() => calculateTotalDistance(true), 10);
+    });
+  }
+
+  function initAllAutocompletes(root = document) {
+    const sels = [
+      'input[name*="field_68248210acd3d"]:not([name*="[acfcloneindex]"])',
+      'input[name*="field_6824829aacd40"]:not([name*="[acfcloneindex]"])',
+      'input[name*="field_68248274acd3f"]:not([name*="[acfcloneindex]"])',
+      `${RETURN_SELECTOR}:not([name*="[acfcloneindex]"])`
+    ];
+    root.querySelectorAll(sels.join(",")).forEach(initAutocomplete);
+  }
+
+  // ---------- KM setter (no writes when gated)
+  function setKmValue(totalKmInput, newVal) {
+    if (!KM_WRITE_ALLOWED) return;
+    if (!totalKmInput) return;
+    if (totalKmInput.value === newVal) return;
+    totalKmInput.value = newVal;
+    totalKmInput.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  // ---------- allowBootstrap heuristic (like before, but Return only if visible)
+  function allowBootstrapDynamic() {
+    const inputs = [
+      ...document.querySelectorAll('input[name*="field_68248210acd3d"]:not([name*="[acfcloneindex]"])'),
+      ...document.querySelectorAll('input[name*="field_6824829aacd40"]:not([name*="[acfcloneindex]"])'),
+      ...document.querySelectorAll('input[name*="field_68248274acd3f"]:not([name*="[acfcloneindex]"])')
+    ];
+    const ret = getReturnInput();
+    if (ret && isVisible(ret)) inputs.push(ret);
+    return inputs.some(i => i && (i.value || "").trim() && !i.dataset.placeId);
+  }
+
+  // ---------- distance calc
+  async function calculateTotalDistance(allowBootstrapFromPrefill) {
+    const pickupInput   = document.querySelector('input[name*="field_68248210acd3d"]');
+    const deliveryInput = document.querySelector('input[name*="field_6824829aacd40"]');
+    const extraInputs   = document.querySelectorAll('input[name*="field_68248274acd3f"]');
+    const returnInput   = getReturnInput();
+    const totalKmInput  = document.querySelector('input[name*="field_682482a1acd41"]');
+    if (!pickupInput || !deliveryInput || !totalKmInput) return;
+
+    const origin      = await ensurePlaceIdForInput(pickupInput,   allowBootstrapFromPrefill, false);
+    const deliveryLoc = await ensurePlaceIdForInput(deliveryInput, allowBootstrapFromPrefill, false);
+
+    const okOrigin   = origin && typeof origin === "object" && origin.placeId;
+    const okDelivery = deliveryLoc && typeof deliveryLoc === "object" && deliveryLoc.placeId;
+    if (!okOrigin || !okDelivery) { setKmValue(totalKmInput, ""); return; }
+
+    const waypoints = [];
+    for (const i of Array.from(extraInputs)) {
+      const loc = await ensurePlaceIdForInput(i, allowBootstrapFromPrefill, false);
+      if (loc && typeof loc === "object" && loc.placeId) waypoints.push({ stopover: true, location: loc });
+    }
+
+    let useReturn = false;
+    let returnLoc = "";
+    if (returnInput && isVisible(returnInput)) {
+      returnLoc = await ensurePlaceIdForInput(returnInput, allowBootstrapFromPrefill, true);
+      useReturn = !!(returnLoc && typeof returnLoc === "object" && returnLoc.placeId);
+    }
+
+    let finalDestination = deliveryLoc;
+    if (useReturn) { waypoints.push({ location: deliveryLoc, stopover: true }); finalDestination = returnLoc; }
+
+    const ds = new google.maps.DirectionsService();
+    ds.route(
+      { origin, destination: finalDestination, waypoints, travelMode: google.maps.TravelMode.DRIVING, optimizeWaypoints: false },
+      (response, status) => {
+        if (status === "OK" && response?.routes?.[0]) {
+          const meters = (response.routes[0].legs || []).reduce((sum, leg) => sum + (leg.distance?.value || 0), 0);
+          const km = (meters / 1000).toFixed(2);
+          setKmValue(totalKmInput, km);
+        } else {
+          setKmValue(totalKmInput, "");
+          console.error("Directions request failed:", status);
+        }
+      }
+    );
+  }
+
+  // ---------- edits/clears => recalc (responsive behaviour)
+  function debounce(fn, wait){ let t; return () => { clearTimeout(t); t = setTimeout(fn, wait); }; }
+  const debouncedCalc = debounce(() => calculateTotalDistance(allowBootstrapDynamic()), 250);
+
+  const watchedSelectors = [
+    'input[name*="field_68248210acd3d"]:not([name*="[acfcloneindex]"])',
+    'input[name*="field_6824829aacd40"]:not([name*="[acfcloneindex]"])',
+    'input[name*="field_68248274acd3f"]:not([name*="[acfcloneindex]"])',
+    `${RETURN_SELECTOR}:not([name*="[acfcloneindex]"])`
+  ];
+
+  document.querySelectorAll(watchedSelectors.join(",")).forEach(i => {
+    const unlock = () => { KM_WRITE_ALLOWED = true; };
+
+    // Typing, backspace, clear button, paste/cut — all trigger recalculation
+    i.addEventListener("input", () => {
+      unlock();
+      if ((i.value || "").trim() === "") delete i.dataset.placeId;
+      debouncedCalc();
+    }, { passive: true });
+
+    i.addEventListener("change", () => { unlock(); debouncedCalc(); }, { passive: true });
+    i.addEventListener("paste",  () => { unlock(); setTimeout(debouncedCalc, 0); }, { passive: true });
+    i.addEventListener("cut",    () => { unlock(); setTimeout(debouncedCalc, 0); }, { passive: true });
+    i.addEventListener("keyup",  (ev) => {
+      if (ev.key === "Backspace" || ev.key === "Delete") { unlock(); debouncedCalc(); }
+    }, { passive: true });
+
+    // Touch-specific nudge (helps some mobile “clear” UX)
+    i.addEventListener("touchend", () => { unlock(); setTimeout(debouncedCalc, 0); }, { passive: true });
+  });
+
+  // ---------- init (passive)
+  initAllAutocompletes();
+
+  // Expose
+  window.calculateTotalDistance = (allow) => calculateTotalDistance(!!allow);
+  window.ensurePlaceIdForInput = ensurePlaceIdForInput;
+  window.__kmGate = { get allowed(){ return KM_WRITE_ALLOWED; }, allow: enableKmWrites };
+});
+</script>
+
+
+
+<script>
+(function(){
+  // The repeater "extra pickup" text input
+  const EXTRA_KEY = 'field_68248274acd3f';
+  const EXTRA_QS  = `input[name*="${EXTRA_KEY}"]`;
+
+  const hasPlaces = () => !!(window.google?.maps?.places?.Autocomplete);
+
+  function inCloneTemplate(input){
+    const row = input.closest('.acf-row, .acf-field');
+    return !!(row && row.classList.contains('acf-clone'));
+  }
+  function isVisible(input){
+    if (!input) return false;
+    const box = input.closest('.acf-field') || input;
+    const st = window.getComputedStyle(box);
+    return !box.classList.contains('acf-hidden') &&
+           st.display !== 'none' && st.visibility !== 'hidden' &&
+           (box.offsetWidth || box.getClientRects().length);
+  }
+
+  // Bind Places to a single input (with safe defers)
+  function ensureAutocomplete(input){
+    if (!input || input.dataset.autocompleteInitialized === 'true') return;
+
+    // Wait until it's a real, visible row
+    if (inCloneTemplate(input) || !isVisible(input)) {
+      const wrap = input.closest('.acf-field') || input;
+      const mo = new MutationObserver(() => {
+        if (!inCloneTemplate(input) && isVisible(input)) {
+          mo.disconnect();
+          ensureAutocomplete(input);
+        }
+      });
+      mo.observe(wrap, { attributes:true, attributeFilter:['class','style'] });
+      return;
+    }
+
+    // Wait for Places lib if it isn’t ready yet
+    if (!hasPlaces()) {
+      let tries = 0;
+      const t = setInterval(() => {
+        if (hasPlaces() || ++tries > 50) {
+          clearInterval(t);
+          if (hasPlaces()) ensureAutocomplete(input);
+        }
+      }, 100);
+      return;
+    }
+
+    input.dataset.autocompleteInitialized = 'true';
+
+    // keep placeId in sync if user edits text
+    const invalidate = () => { delete input.dataset.placeId; };
+    input.addEventListener('input', invalidate, { passive:true });
+    input.addEventListener('paste', invalidate, { passive:true });
+
+    const ac = new google.maps.places.Autocomplete(input, {
+      componentRestrictions: { country: 'NO' },
+      fields: ['place_id','formatted_address','name','address_components']
+    });
+
+    ac.addListener('place_changed', () => {
+      try { (window.__kmGate?.allow || window.enableKmWrites || function(){})(); } catch(_){}
+
+      const p = ac.getPlace();
+      if (!p || !p.address_components) return;
+
+      const postal = p.address_components.find(c => c.types?.includes('postal_code'))?.long_name || '';
+      let full = p.formatted_address || input.value || '';
+      if (p.name && !full.includes(p.name)) full = `${p.name}, ${full}`;
+      if (postal && !full.includes(postal)) full += `, ${postal}`;
+
+      input.value = full;                          // no synthetic events (keeps SBS visible)
+      if (p.place_id) input.dataset.placeId = p.place_id;
+
+      // kick KM calc
+      try { window.calculateTotalDistance && window.calculateTotalDistance(true); } catch(_){}
+    });
+
+    console.debug('[ACF+Places] bound to extra pickup:', input);
+  }
+
+  function scan(root = document){
+    root.querySelectorAll(EXTRA_QS).forEach(ensureAutocomplete);
+  }
+
+  // 1) Initialize any current/future rows
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => scan());
+  } else {
+    scan();
+  }
+
+  // 2) Bind when user focuses an uninitialized field (last-resort safety net)
+  document.addEventListener('focusin', (e) => {
+    const el = e.target;
+    if (el?.matches?.(EXTRA_QS)) ensureAutocomplete(el);
+  }, true);
+
+  // 3) ACF hooks (rows added/shown)
+  if (window.acf?.addAction) {
+    const arm = ($el) => { const el = $el?.[0] || $el || document; setTimeout(() => scan(el), 0); };
+    acf.addAction('append', arm);
+    acf.addAction('show_field', arm);
+    acf.addAction('ready', arm);
+  }
+
+  // 4) Fallback MO for builders that don’t emit ACF actions
+  function bindMutationObserver() {
+    if (!document.body) return;
+
+    new MutationObserver(muts => {
+      for (const m of muts) {
+        m.addedNodes && m.addedNodes.forEach(node => {
+          if (!(node instanceof Element)) return;
+          if (node.matches?.(EXTRA_QS) || node.querySelector?.(EXTRA_QS)) scan(node);
+        });
+      }
+    }).observe(document.body, { childList:true, subtree:true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindMutationObserver);
+  } else {
+    bindMutationObserver();
+  }
+})();
+</script>
+
+
+
+
+
+
+
+
+
+
+<script>
+/* Recalc total KM whenever Returadresse is shown/hidden (ACF or CSS) */
+(function(){
+  const RETURN_SELECTOR = 'input[name*="field_68499231b558f"]';
+
+  function getReturnInput(){ return document.querySelector(RETURN_SELECTOR); }
+  function getReturnWrapper(){
+    const i = getReturnInput();
+    return i?.closest('.acf-field') || i || null;
+  }
+
+  function recalcNow(){
+    // allow KM writes (counts as user-intent toggle)
+    try { (window.__kmGate?.allow || window.enableKmWrites || function(){})(); } catch(_) {}
+    // recalc without emitting input/change
+    try { window.calculateTotalDistance && window.calculateTotalDistance(true); } catch(_) {}
+  }
+
+  function attachObservers(){
+    const wrap = getReturnWrapper();
+    if (!wrap || wrap.dataset.kmVisObs) return;
+    wrap.dataset.kmVisObs = '1';
+
+    // Watch class/style flips (non-ACF toggles too)
+    const mo = new MutationObserver(() => { setTimeout(recalcNow, 0); });
+    mo.observe(wrap, { attributes: true, attributeFilter: ['class','style'] });
+
+    // run once now in case state already changed
+    setTimeout(recalcNow, 0);
+  }
+
+  function hookACF(){
+    if (!window.acf?.addAction) return;
+
+    const maybeRecalc = ($el) => {
+      const el = $el?.[0] || $el;
+      if (!el) return;
+      if (el.querySelector?.(RETURN_SELECTOR)) setTimeout(recalcNow, 0);
+    };
+
+    acf.addAction('hide_field',  maybeRecalc);
+    acf.addAction('show_field',  maybeRecalc);
+    acf.addAction('append',      () => setTimeout(attachObservers, 0));
+    acf.addAction('ready',       () => setTimeout(attachObservers, 0));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { attachObservers(); hookACF(); });
+  } else {
+    attachObservers(); hookACF();
+  }
+})();
+</script>
+
+
+
+
+
+
+<!-- 3) Username → default addresses (autofill NEW posts only + only if empty/no placeId) -->
+<script>
+/** ============================
+ *  Username → default addresses
+ *  (keys are LOWERCASE here)
+ *  ============================ */
+window.USER_ADDRESS_BOOK = {
+"otto": {
+  pickupAddress: "POWER Lørenskog, Solheimveien 6-8, 1461 Lørenskog, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Lørenskog, Solheimveien 6-8, 1461 Lørenskog, Norway",
+  returnPlaceId: ""
+},
+"power lorenskog": {
+  pickupAddress: "POWER Lørenskog, Solheimveien 6-8, 1461 Lørenskog, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Lørenskog, Solheimveien 6-8, 1461 Lørenskog, Norway",
+  returnPlaceId: ""
+},
+"power majorstuen": {
+  pickupAddress: "POWER Majorstuen, Sørkedalsveien 33, 0369 Oslo, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Majorstuen, Sørkedalsveien 33, 0369 Oslo, Norway",
+  returnPlaceId: ""
+},
+"power strommen": {
+  pickupAddress: "POWER Strømmen, Støperiveien 5, 2010 Strømmen, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Strømmen, Støperiveien 5, 2010 Strømmen, Norway",
+  returnPlaceId: ""
+},
+"power storo": {
+  pickupAddress: "POWER Rud, Løxaveien 5, 1315 Rud, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Rud, Løxaveien 5, 1315 Rud, Norway",
+  returnPlaceId: ""
+},
+"power rud": {
+  pickupAddress: "POWER Storo, Vitaminveien 6, 0485 Oslo, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Storo, Vitaminveien 6, 0485 Oslo, Norway",
+  returnPlaceId: ""
+},
+"power slependen": {
+  pickupAddress: "POWER Slependen, Nesbruveien 33, 1396 Hvalstad, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Slependen, Nesbruveien 33, 1396 Hvalstad, Norway",
+  returnPlaceId: ""
+},
+"power lille grensen": {
+  pickupAddress: "POWER Lille Grensen, Lille Grensen 5, 0159 Oslo, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Lille Grensen, Lille Grensen 5, 0159 Oslo, Norway",
+  returnPlaceId: ""
+},
+"power skullerud": {
+  pickupAddress: "POWER Skullerud, Enebakkveien 300, 1188 Oslo, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Skullerud, Enebakkveien 300, 1188 Oslo, Norway",
+  returnPlaceId: ""
+},
+"power skoyen": {
+  pickupAddress: "POWER Skøyen, Drammensveien 161, 0277 Oslo, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Skøyen, Drammensveien 161, 0277 Oslo, Norway",
+  returnPlaceId: ""
+},
+"power halden": {
+  pickupAddress: "POWER Halden, Walkers gate 10, 1771 Halden, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Halden, Walkers gate 10, 1771 Halden, Norway",
+  returnPlaceId: ""
+},
+"power alnabru": {
+  pickupAddress: "POWER Alnabru, Smalvollveien 65, 0667 Oslo, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Alnabru, Smalvollveien 65, 0667 Oslo, Norway",
+  returnPlaceId: ""
+},
+"power city": {
+  pickupAddress: "POWER City, Dronningens gt. 40, 0154 Oslo, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER City, Dronningens gt. 40, 0154 Oslo, Norway",
+  returnPlaceId: ""
+},
+"power hub": {
+  pickupAddress: "Solheimveien 6-8, 1473 Lørenskog",
+  pickupPlaceId: "",
+  returnAddress: "Solheimveien 6-8, 1473 Lørenskog",
+  returnPlaceId: ""
+},
+"power jessheim": {
+  pickupAddress: "POWER Jessheim, Furusethgata 10, 2050 Jessheim, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Jessheim, Furusethgata 10, 2050 Jessheim, Norway",
+  returnPlaceId: ""
+},
+"power ringhuset": {
+  pickupAddress: "Sørkedalsveien 33, 0369 Oslo",
+  pickupPlaceId: "",
+  returnAddress: "Sørkedalsveien 33, 0369 Oslo",
+  returnPlaceId: ""
+},
+"power ski": {
+  pickupAddress: "POWER Ski, Åsveien 11, 1424 Ski, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Ski, Åsveien 11, 1424 Ski, Norway",
+  returnPlaceId: ""
+},
+"power vestby": {
+  pickupAddress: "POWER Vestby, Kleverveien 2, 1540 Vestby, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Vestby, Kleverveien 2, 1540 Vestby, Norway",
+  returnPlaceId: ""
+},
+"power askim": {
+  pickupAddress: "POWER Askim, Trøgstadveien 4, 1830 Askim, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Askim, Trøgstadveien 4, 1830 Askim, Norway",
+  returnPlaceId: ""
+},
+"power honefoss": {
+  pickupAddress: "POWER Hønefoss, Hvervenmoveien 2A, 3511 Hønefoss, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Hønefoss, Hvervenmoveien 2A, 3511 Hønefoss, Norway",
+  returnPlaceId: ""
+},
+"power kongsvinger": {
+  pickupAddress: "POWER Kongsvinger, Otto Wengs Vei 7, 2212 Kongsvinger, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Kongsvinger, Otto Wengs Vei 7, 2212 Kongsvinger, Norway",
+  returnPlaceId: ""
+},
+"power konsberg": {
+  pickupAddress: "POWER Kongsberg, Schwabes gate 5, 3611 Kongsberg, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Kongsberg, Schwabes gate 5, 3611 Kongsberg, Norway",
+  returnPlaceId: ""
+},
+"power drammen": {
+  pickupAddress: "POWER Drammen, C O Lunds gate 25, 3043 Drammen, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Drammen, C O Lunds gate 25, 3043 Drammen, Norway",
+  returnPlaceId: ""
+},
+"power fredrikstad": {
+  pickupAddress: "POWER Fredrikstad, Dikeveien 37, 1661 Rolvsøy, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Fredrikstad, Dikeveien 37, 1661 Rolvsøy, Norway",
+  returnPlaceId: ""
+},
+"power arnes": {
+  pickupAddress: "POWER Årnes, Nedre Hagaveg 17C, 2150 Årnes, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Årnes, Nedre Hagaveg 17C, 2150 Årnes, Norway",
+  returnPlaceId: ""
+},
+"power sandefjord": {
+  pickupAddress: "POWER Sandefjord, Nygårdsveien 88, 3221 Sandefjord, Norway",
+  pickupPlaceId: "",
+  returnAddress: "POWER Sandefjord, Nygårdsveien 88, 3221 Sandefjord, Norway",
+  returnPlaceId: ""
+}
+
+
+};
+console.log("CURRENT_USER_KEY:", window.CURRENT_USER_KEY);
+
+(function () {
+  const PICKUP_SEL = 'input[name*="field_68248210acd3d"]';   // henteadresse
+  const RETURN_SEL = 'input[name*="field_68499231b558f"]';   // returadresse
+  const WAIT_MS = 200;
+
+  const book = Object.fromEntries(
+    Object.entries(window.USER_ADDRESS_BOOK || {}).map(([k, v]) => [String(k).toLowerCase(), v])
+  );
+
+  function isEditingExistingPost() {
+    const sels = [
+      'input[name="post_ID"]',
+      'input[name="post_id"]',
+      'input[name="acff[post_id]"]',
+      'input[name="acff[post][ID]"]'
+    ];
+    for (const sel of sels) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const raw = (el.value || '').trim();
+      const num = parseInt(raw, 10);
+      if (!isNaN(num) && num > 0) return true;
+    }
+    return false;
+  }
+
+  function fieldIsTrulyEmpty(input) {
+    if (!input) return true;
+    const val = (input.value || '').trim();
+    const hasPid = !!input.dataset.placeId;
+    return val === '' && !hasPid;
+  }
+
+  function waitForAfterAutofill(cb, deadlineMs = 3000, intervalMs = 50) {
+    const start = Date.now();
+    (function tick(){
+      if (typeof window.afterAutofill === 'function') return cb();
+      if (Date.now() - start >= deadlineMs) return;
+      setTimeout(tick, intervalMs);
+    })();
+  }
+
+  function runAutofill() {
+    // ✅ Only for NEW posts
+    if (isEditingExistingPost()) return;
+
+    const rawKey = window.CURRENT_USER_KEY || '';
+    const key = String(rawKey).toLowerCase();
+    const cfg = book[key];
+    if (!cfg) return;
+
+    waitForAfterAutofill(() => {
+      setTimeout(() => {
+        const pickupInput = document.querySelector(PICKUP_SEL);
+        const returnInput = document.querySelector(RETURN_SEL);
+
+        // Fill only if truly empty (no text and no placeId)
+        if (pickupInput && cfg.pickupAddress && fieldIsTrulyEmpty(pickupInput)) {
+          window.afterAutofill(pickupInput, {
+            formatted: cfg.pickupAddress,
+            placeId: cfg.pickupPlaceId || undefined
+          });
+        }
+        if (returnInput && cfg.returnAddress && fieldIsTrulyEmpty(returnInput)) {
+          window.afterAutofill(returnInput, {
+            formatted: cfg.returnAddress,
+            placeId: cfg.returnPlaceId || undefined
+          });
+        }
+      }, WAIT_MS);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(runAutofill, WAIT_MS));
+  } else {
+    setTimeout(runAutofill, WAIT_MS);
+  }
+
+  // Respect the same rule when Return appears later
+  if (window.acf && typeof acf.addAction === 'function') {
+    acf.addAction('show_field', $el => {
+      const el = $el && $el[0] ? $el[0] : $el;
+      const input = el && el.querySelector && el.querySelector(RETURN_SEL);
+      if (!input) return;
+
+      // ✅ Only for NEW posts and only if truly empty
+      if (isEditingExistingPost()) return;
+
+      const rawKey = window.CURRENT_USER_KEY || '';
+      const key = String(rawKey).toLowerCase();
+      const cfg = book[key];
+      if (cfg && fieldIsTrulyEmpty(input)) {
+        waitForAfterAutofill(() => {
+          window.afterAutofill(input, {
+            formatted: cfg.returnAddress,
+            placeId: cfg.returnPlaceId || undefined
+          });
+        });
+      }
+    });
+  }
+})();
+</script>
+
+<!-- 4) afterAutofill helper (adds "loose" geocode for Return + triggers KM) -->
+<script>
+(function () {
+  async function afterAutofill(input, { formatted, placeId } = {}) {
+    if (!input) return;
+
+    // 1) Set visible value
+    if (typeof formatted === 'string') input.value = formatted;
+
+    // 2) Ensure we have a placeId on the element
+    if (!placeId && formatted && window.google?.maps?.Geocoder) {
+      try {
+        // If it's the Return field, use loose geocoding to accept towns/localities
+        if (input.matches('input[name*="field_68499231b558f"]')) {
+          placeId = await geocodeToPlaceIdLoose(formatted);
+        } else {
+          placeId = await geocodeToPlaceIdStrict(formatted);
+        }
+      } catch (_) {}
+    }
+    if (placeId) input.dataset.placeId = placeId;
+
+    // 3) Fire broad events so other listeners react
+    fireAll(input);
+
+    // 4) Kick the distance calc (allow bootstrap so prefilled counterparts are accepted)
+    if (typeof window.calculateTotalDistance === 'function') {
+      try { window.calculateTotalDistance(true); } catch (_) {}
+    } else {
+      tryCallAny(['recalculateKm','recomputeKM','computeDistance','updateKm','calculateAndFillKm','updateTotalKm']);
+    }
+  }
+
+  function fireAll(el) {
+    el.dispatchEvent(new Event('input',  { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('blur',   { bubbles: true }));
+    if (window.jQuery) {
+      const $el = jQuery(el);
+      $el.trigger('input').trigger('change');
+      if (window.acf?.doAction) acf.doAction('change', $el);
+    }
+  }
+
+  function tryCallAny(names) {
+    for (const name of names) {
+      if (typeof window[name] === 'function') {
+        try { window[name](); } catch (_) {}
+        break;
+      }
+    }
+  }
+
+  function geocode(address, loose = false) {
+    const LOOSE_TYPES  = new Set(["street_address","premise","route","establishment","subpremise","locality","political"]);
+    const LOOSE_LOC    = new Set(["ROOFTOP","RANGE_INTERPOLATED","GEOMETRIC_CENTER","APPROXIMATE"]);
+    const STRICT_TYPES = new Set(["street_address","premise","route","establishment","subpremise"]);
+    const STRICT_LOC   = new Set(["ROOFTOP","RANGE_INTERPOLATED"]);
+
+    return new Promise((resolve, reject) => {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address, componentRestrictions: { country: 'NO' } }, (results, status) => {
+        if (status !== 'OK' || !results?.[0]) return reject(status);
+        const r = results[0];
+        const okType = (r.types || []).some(t => (loose ? LOOSE_TYPES : STRICT_TYPES).has(t));
+        const okLoc  = (loose ? LOOSE_LOC : STRICT_LOC).has(r.geometry?.location_type);
+        if (okType && okLoc) resolve(r.place_id);
+        else reject('UNSUPPORTED_RESULT');
+      });
+    });
+  }
+
+  function geocodeToPlaceIdStrict(address) { return geocode(address, /*loose*/ false); }
+  function geocodeToPlaceIdLoose(address)  { return geocode(address, /*loose*/ true);  }
+
+  window.afterAutofill = afterAutofill;
+})();
+</script>
+
+
+
+
+<script>
+(function () {
+  const RETURN_SEL = 'input[name*="field_68499231b558f"]'; // Returadresse
+  const PICKUP_SEL = 'input[name*="field_68248210acd3d"]'; // Henteadresse
+
+  // ---- helpers
+  const getForm        = () => document.querySelector('form');
+  const getReturnInput = () => document.querySelector(RETURN_SEL);
+  const getPickupInput = () => document.querySelector(PICKUP_SEL);
+
+  function isBoxVisible(el){
+    if (!el) return false;
+    const st = window.getComputedStyle(el);
+    return !el.classList.contains('acf-hidden') &&
+           st.display !== 'none' && st.visibility !== 'hidden' &&
+           (el.offsetWidth || el.getClientRects().length);
+  }
+  function isInputVisible(input){
+    return !!(input && isBoxVisible(input.closest('.acf-field') || input));
+  }
+
+  function isEditingExistingPost() {
+    const sels = ['input[name="post_ID"]','input[name="post_id"]','input[name="acff[post_id]"]','input[name="acff[post][ID]"]'];
+    for (const sel of sels) {
+      const el = document.querySelector(sel);
+      const n = parseInt((el?.value||'').trim(), 10);
+      if (!isNaN(n) && n > 0) return true;
+    }
+    return false;
+  }
+
+  function fieldIsTrulyEmpty(input){
+    if (!input) return true;
+    const v = (input.value || '').trim();
+    return v === '' && !input.dataset.placeId;
+  }
+
+  function getUserDefaults(){
+    const key  = String(window.CURRENT_USER_KEY || '').toLowerCase();
+    const book = Object.fromEntries(
+      Object.entries(window.USER_ADDRESS_BOOK || {}).map(([k,v]) => [String(k).toLowerCase(), v])
+    );
+    return book[key] || null;
+  }
+
+  // ---- silent autofill (no input/change events)
+  let didAutofill = false;
+  async function silentAutofillReturn(){
+    if (didAutofill) return;
+    const input = getReturnInput();
+    if (!input || !isInputVisible(input)) return;
+    if (isEditingExistingPost()) return;
+    if (!fieldIsTrulyEmpty(input)) return;
+
+    const cfg = getUserDefaults();
+    if (!cfg || !cfg.returnAddress) return;
+
+    // set value quietly
+    input.value = cfg.returnAddress;
+
+    // ensure placeId (loose) and recalc distance
+    try {
+      if (!input.dataset.placeId && typeof window.ensurePlaceIdForInput === 'function') {
+        const res = await window.ensurePlaceIdForInput(input, /*allowBootstrap*/ true, /*loose*/ true);
+        if (res && res.placeId) input.dataset.placeId = res.placeId;
+      }
+    } catch(_) {}
+
+    try { if (typeof window.calculateTotalDistance === 'function') window.calculateTotalDistance(true); } catch (_) {}
+
+    didAutofill = true;
+  }
+
+  // ---- visibility watch for Return wrapper (no events fired)
+  function watchReturnVisibleAndAutofill(){
+    const input   = getReturnInput();
+    if (!input) return;
+    const wrapper = input.closest('.acf-field') || input;
+
+    let timer = null;
+    const kick = () => {
+      clearTimeout(timer);
+      // wait a short moment after visibility changes settle
+      timer = setTimeout(() => { if (isInputVisible(input)) silentAutofillReturn(); }, 350);
+    };
+
+    // initial try (in case it's already visible)
+    if (isInputVisible(input)) {
+      setTimeout(silentAutofillReturn, 350);
+    }
+
+    const mo = new MutationObserver(kick);
+    mo.observe(wrapper, { attributes: true, attributeFilter: ['class','style'] });
+
+    // clean-up not strictly needed here; page will unload
+  }
+
+  // ---- focus fallback (if user taps the field, still autofill)
+  function attachFocusFallback(){
+    const input = getReturnInput();
+    if (!input) return;
+    const onFocusOnce = () => { silentAutofillReturn(); };
+    input.addEventListener('focusin', onFocusOnce, { once: true });
+  }
+
+  // ---- 2s failsafe (in case observers miss the exact moment)
+  function attachFailsafe(){
+    setTimeout(() => { if (!didAutofill) silentAutofillReturn(); }, 2000);
+  }
+
+  // ---- submit-time wipe (only for hidden fields; keeps your payload clean)
+  function forceEmpty(form, input){
+    const name = input.getAttribute('name');
+    if (!name) return;
+    if (form.querySelector(`input[type="hidden"][data-empty-for="${CSS.escape ? CSS.escape(name) : name}"]`)) return;
+    const h = document.createElement('input');
+    h.type = 'hidden';
+    h.name = name;
+    h.value = '';
+    h.setAttribute('data-empty-for', name);
+    form.appendChild(h);
+  }
+  function wipeHiddenOnSubmit(form){
+    [PICKUP_SEL, RETURN_SEL].forEach(sel => {
+      document.querySelectorAll(sel).forEach(input => {
+        const hidden = !isInputVisible(input);
+        if (hidden) {
+          forceEmpty(form, input);
+          input.disabled = true;
+        } else {
+          input.disabled = false;
+        }
+      });
+    });
+  }
+  function reenableIfDisabled(){
+    [getPickupInput(), getReturnInput()].forEach(i => { if (i) i.disabled = false; });
+    const form = getForm();
+    if (form) form.querySelectorAll('input[data-empty-for]').forEach(h => h.remove());
+  }
+  function attachSubmitHook(){
+    const form = getForm();
+    if (!form || form.dataset.retWipeAttached) return;
+    form.dataset.retWipeAttached = '1';
+    form.addEventListener('submit', () => wipeHiddenOnSubmit(form), { capture: true });
+    if (window.acf?.addAction) {
+      acf.addAction('validation_failure', reenableIfDisabled);
+      acf.addAction('submit_fail', reenableIfDisabled);
+    }
+  }
+
+  // ---- boot
+  function boot(){
+    attachSubmitHook();
+    watchReturnVisibleAndAutofill();
+    attachFocusFallback();
+    attachFailsafe();
+
+    // If ACF shows blocks later, just re-arm the watchers/fallbacks; still no events fired
+    if (window.acf?.addAction) {
+      const rearm = () => {
+        setTimeout(() => {
+          watchReturnVisibleAndAutofill();
+          attachFocusFallback();
+          attachFailsafe();
+        }, 0);
+      };
+      acf.addAction('append', rearm);
+      acf.addAction('show_field', rearm);
+      acf.addAction('ready', rearm);
+    }
+  }
+
+  if (window.acf?.addAction) {
+    acf.addAction('ready', () => setTimeout(boot, 0));
+  } else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+
+
+<script>
+document.addEventListener('click', function (e) {
+  if (
+    e.target.type === 'checkbox' &&
+    e.target.closest('.price-item')
+  ) {
+    setTimeout(() => {
+      const input = e.target;
+      document.querySelectorAll(`input[name="${input.name}"][data-fake-empty]`).forEach(el => el.remove());
+    }, 10);
+  }
+});
+</script>
+
+
+
+
+
+
+

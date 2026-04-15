@@ -1,0 +1,118 @@
+<script>
+(function () {
+  if (document.body.classList.contains('elementor-editor-active')) return;
+
+  const FIELD_KEY    = 'field_682b0fa395c44';   // Flexible Content field key
+  const LAYOUT_MAIN  = 'main_produkt';
+  const LAYOUT_EXTRA = 'extra_produkt';
+
+  function getFlexField() { try { return acf.getField(FIELD_KEY); } catch (e) { return null; } }
+  function containerOf(field) { return field && field.$el && field.$el[0] ? field.$el[0] : null; }
+
+  function ensureMain(field) {
+    const c = containerOf(field); if (!c) return;
+    const existing = c.querySelectorAll('.layout:not(.acf-clone)');
+    if (existing.length === 0) field.add({ layout: LAYOUT_MAIN });
+  }
+
+  function getMainValue(field) {
+    const c = containerOf(field); if (!c) return null;
+    const main = c.querySelector(`.layout[data-layout="${LAYOUT_MAIN}"]:not(.acf-clone)`);
+    if (!main) return null;
+    const sel = main.querySelector('[data-name="velg_produkt"] select');
+    return sel ? sel.value : null;
+  }
+
+  // Replace ACF "Add layout" with our own (strip ACF attrs so blockers won't catch it)
+  function replaceAddButtons(field) {
+    const c = containerOf(field); if (!c) return;
+
+    c.querySelectorAll('.acf-actions').forEach(actions => {
+      if (actions.dataset.extraBtnInjected === '1') return;
+
+      const original = actions.querySelector('[data-name="add-layout"], .acf-button[data-event="add-layout"]');
+      if (!original) return;
+
+      const btn = original.cloneNode(true);
+      btn.textContent = '+ Legg til ekstra produkt';
+      btn.classList.add('ot-add-extra-btn');
+
+      // ⚠️ critical: remove ACF trigger attributes so our blocker won't hit this button
+      btn.removeAttribute('data-name');
+      btn.removeAttribute('data-event');
+      btn.removeAttribute('aria-haspopup'); // some builds add this
+      btn.removeAttribute('aria-expanded');
+
+      original.replaceWith(btn);
+
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        const mainVal = getMainValue(field);
+        if (!mainVal) {
+          alert('Vennligst velg et produkt i hovedseksjonen før du legger til ekstra produkt.');
+          return;
+        }
+        field.add({ layout: LAYOUT_EXTRA });
+      });
+
+      actions.dataset.extraBtnInjected = '1';
+    });
+  }
+
+  // Block the chooser, but allow our custom button to pass
+  function installChooserBlockers(field) {
+    const c = containerOf(field); if (!c || c.dataset.fcChooserBlocked === '1') return;
+
+    const captureBlocker = function (e) {
+      const t = e.target;
+      // allow our custom button
+      if (t.closest('.ot-add-extra-btn')) return;
+
+      // block only ACF triggers
+      const trigger = t.closest('[data-name="add-layout"], .acf-button[data-event="add-layout"], .acf-icon.-plus.small');
+      if (trigger && c.contains(trigger)) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }
+    };
+    c.addEventListener('click', captureBlocker, true);
+    c.addEventListener('mousedown', captureBlocker, true);
+    c.addEventListener('touchstart', captureBlocker, { capture: true, passive: false });
+
+    // Nuke any chooser if it still appears
+    const mo = new MutationObserver(() => {
+      document.querySelectorAll('.acf-fc-popup, .acf-fc-dropdown').forEach(p => p.remove());
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    // Hide via CSS to avoid flicker
+    const styleId = 'hide-fc-popup-' + FIELD_KEY;
+    if (!document.getElementById(styleId)) {
+      const css = document.createElement('style');
+      css.id = styleId;
+      css.textContent =
+        `.acf-field-flexible-content[data-key="${FIELD_KEY}"] .acf-fc-popup,
+         .acf-field-flexible-content[data-key="${FIELD_KEY}"] .acf-fc-dropdown{display:none!important;}`;
+      document.head.appendChild(css);
+    }
+
+    c.dataset.fcChooserBlocked = '1';
+  }
+
+  function initForField(field) {
+    if (!field || field.data.key !== FIELD_KEY) return;
+    ensureMain(field);
+    replaceAddButtons(field);
+    installChooserBlockers(field);
+  }
+
+  acf.addAction('ready_field/type=flexible_content', initForField);
+  acf.addAction('append_field/type=flexible_content', initForField);
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const fld = getFlexField();
+    if (fld) initForField(fld);
+  });
+})();
+</script>

@@ -1,0 +1,52 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Status select input in ACF Frontend Admin uses id "acff-post-field_<fieldkey>"
+  // Your status field key is field_682dd6dba40f7. :contentReference[oaicite:2]{index=2}
+  const statusEl = document.getElementById('acff-post-field_682dd6dba40f7');
+  if (!statusEl) return;
+
+  let prevValue = statusEl.value;
+
+  statusEl.addEventListener('change', function () {
+    const newVal = statusEl.value;
+    // We compare the VALUE, not the label. Your code uses values like "Behandling", "Paid". :contentReference[oaicite:3]{index=3}
+    if (newVal === 'Betalt' && newVal !== prevValue) {
+      const ok = window.confirm(
+        'Når status settes til "Betalt", vil kundedata slettes permanent i henhold til GDPR. Vil du fortsette?'
+      );
+      if (!ok) {
+        statusEl.value = prevValue; // revert choice
+        return;
+      }
+
+      // Clear the visible inputs immediately so the user sees what's about to be erased.
+      // These IDs are standard for ACF Frontend Admin: "acff-post-field_<fieldkey>".
+      const toClearById = [
+        'acff-post-field_681b22d0d5d0e', // kundens_navn
+        'acff-post-field_68248210acd3d', // pickup_address
+        'acff-post-field_6824829aacd40', // delivery_address
+        'acff-post-field_68499231b558f', // returadresse
+        'acff-post-field_681b230e921a5', // e-postadresse
+        'acff-post-field_681b2417d6a19', // kasserers_navn
+        'acff-post-field_6823595de4d61'  // kasserers_telefon
+      ];
+
+      toClearById.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.value = ''; el.dispatchEvent(new Event('input', {bubbles:true})); }
+      });
+
+      // Repeater rows for extra_pickup_locations:
+     
+      document.querySelectorAll('input[name*="field_68248274acd3f"]').forEach(inp => {
+        inp.value = '';
+        inp.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+
+      prevValue = newVal;
+    } else {
+      prevValue = newVal;
+    }
+  }, { passive: true });
+});
+</script>

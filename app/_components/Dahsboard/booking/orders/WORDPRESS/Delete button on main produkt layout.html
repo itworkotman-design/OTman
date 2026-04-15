@@ -1,0 +1,41 @@
+<script>
+(function ($) {
+  function removeDeleteFromMainProdukt(context) {
+    $(context).find('.acf-flexible-content .layout[data-layout="main_produkt"]').each(function () {
+      const $controls = $(this).find('> .acf-fc-layout-controls');
+      $controls.find('.acf-icon.-minus').remove();
+    });
+  }
+
+  // Run initially
+  acf.addAction('ready', function ($el) {
+    removeDeleteFromMainProdukt($el);
+  });
+
+  // Run when new layouts are added
+  acf.addAction('append', function ($el) {
+    removeDeleteFromMainProdukt($el);
+  });
+
+  // MutationObserver fallback in case ACF re-renders controls
+  function bindObserver() {
+    if (!document.body) return;
+
+    const observer = new MutationObserver(() => {
+      removeDeleteFromMainProdukt(document.body);
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindObserver);
+  } else {
+    bindObserver();
+  }
+})(jQuery);
+
+</script>

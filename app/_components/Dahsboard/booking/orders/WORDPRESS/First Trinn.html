@@ -1,0 +1,201 @@
+<script>
+(function () {
+  // ------------- CONFIG -------------
+  const GROUP_A = [
+    'vaskemaskin','tørketrommel','torketrommel','oppvaskmaskin',
+    'kjøleskap/ kombiskap','kjoleskap/ kombiskap','fryseskap',
+    'komfyr','ovn','mikrobølgeovn','tv','ventilator','tørkeskap','vinskap'
+  ];
+
+  const EXTRA_PRODUCT_KEY = 'field_682b0fe895c6a';
+
+  const MAP_MAIN = {
+    groupA: 'field_681b162239347',
+    platetopp: 'field_68246df488e9a',
+    sidebyside: 'field_68235e7826058',
+    andre: 'field_6880e6834088b'
+  };
+  const MAP_EXTRA = {
+    groupA: 'field_682b100495c6b',
+    platetopp: 'field_682b102595c6c',
+    sidebyside: 'field_682b103d95c6d',
+    andre: 'field_6880eb12e3933'
+  };
+
+  const SPECIALS = {
+    platetopp: ['platetopp'],
+    sidebyside: ['side by side','side-by-side','sbs','sidebyside'],
+    andre: ['andre produkter','andre produkt','andre']
+  };
+
+  // ------------- UTILS -------------
+  const qsa = (root, sel) => Array.from((root||document).querySelectorAll(sel));
+
+  // Robust fold: lowercases, trims, strips combining marks AND maps Nordic letters.
+  function norm(s) {
+    const x = String(s || '').toLowerCase().trim()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    // Manual folds for letters that NFD doesn't decompose (Ø/ø, Æ/æ, Å/å) + common punctuation
+    return x
+      .replace(/æ/g, 'ae').replace(/ø/g, 'o').replace(/å/g, 'a')
+      .replace(/œ/g, 'oe').replace(/ß/g, 'ss')
+      .replace(/[._]/g, ' ')
+      .replace(/\s*\/\s*/g, ' / ') // keep slash but normalize spacing
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  const getRow = el => (el && (el.closest('.acf-row, .layout, .acf-fields') || document)) || document;
+
+  function byFieldKeyInRow(rowEl, fieldKey){
+    if (!rowEl) return null;
+    let sel = rowEl.querySelector(`.acf-field[data-key="${fieldKey}"] select`);
+    if (sel) return sel;
+    sel = rowEl.querySelector(`#acff-post-field_${fieldKey.replace(/^field_/, '')}`);
+    if (sel && sel.tagName === 'SELECT') return sel;
+    return document.querySelector(`.acf-field[data-key="${fieldKey}"] select, #acff-post-field_${fieldKey.replace(/^field_/, '')}`);
+  }
+
+  function isPlaceholder(text){
+    const x = norm(text);
+    return !x || x === 'velg' || x.startsWith('velg ');
+  }
+
+  function firstUsableOption(select){
+    if (!select) return null;
+    const opts = Array.from(select.options).filter(o => !o.disabled && String(o.value).length);
+    if (!opts.length) return null;
+    return opts.find(o => !isPlaceholder(o.text)) || opts[0];
+  }
+
+  function forceSelectValue(select, value){
+    if (!select) return;
+    if (select.value !== value) select.value = value;
+    select.dispatchEvent(new Event('input',  { bubbles: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    if (window.jQuery) {
+      const $ = window.jQuery;
+      try { $(select).trigger('change'); } catch(e){}
+      try { $(select).trigger('select2:select'); } catch(e){}
+    }
+    if (window.acf && typeof window.acf.getField === 'function') {
+      const fieldEl = select.closest('.acf-field');
+      if (fieldEl) {
+        try {
+          const fieldObj = window.acf.getField(fieldEl);
+          if (fieldObj && typeof fieldObj.val === 'function') fieldObj.val(value);
+        } catch(e){}
+      }
+    }
+  }
+
+  function productText(select){
+    const txt = select?.options[select.selectedIndex]?.text || '';
+    const val = select?.value || '';
+    return norm(txt + ' ' + val);
+  }
+
+  function pickContextMap(productSelect){
+    const fieldEl = productSelect.closest('.acf-field');
+    const key = fieldEl?.getAttribute('data-key') || '';
+    return key === EXTRA_PRODUCT_KEY ? MAP_EXTRA : MAP_MAIN;
+  }
+
+  function decideTargetFieldKey(prodNorm, ctxMap){
+    if (SPECIALS.platetopp.some(v => prodNorm.includes(norm(v)))) return ctxMap.platetopp;
+    if (SPECIALS.sidebyside.some(v => prodNorm.includes(norm(v)))) return ctxMap.sidebyside;
+    if (SPECIALS.andre.some(v => prodNorm.includes(norm(v)))) return ctxMap.andre;
+    if (GROUP_A.some(t => prodNorm.includes(norm(t)))) return ctxMap.groupA;
+    return null;
+  }
+
+  function waitForVisibleField(rowEl, fieldKey){
+    const wrap = rowEl.querySelector(`.acf-field[data-key="${fieldKey}"]`);
+    if (!wrap) return true;
+    return !wrap.classList.contains('acf-hidden');
+  }
+
+  function applyAutoChoice(rowEl, targetKey){
+    if (!targetKey) return true;
+    if (!waitForVisibleField(rowEl, targetKey)) return false;
+
+    const sel = byFieldKeyInRow(rowEl, targetKey);
+    if (!sel) return true;
+
+    const currText = sel.options[sel.selectedIndex]?.text || '';
+    const hasValue = String(sel.value).length && !isPlaceholder(currText);
+    if (hasValue) return true;
+
+    const opt = firstUsableOption(sel);
+    if (!opt) return true;
+
+    const targetVal = opt.value;
+    let tries = 0, max = 8, step = 55;
+    (function tick(){
+      const nowText = sel.options[sel.selectedIndex]?.text || '';
+      const snapped = isPlaceholder(nowText);
+      if (sel.value !== targetVal || snapped) {
+        forceSelectValue(sel, targetVal);
+      }
+      if (++tries < max) setTimeout(tick, step);
+    })();
+    return true;
+  }
+
+  function isProductSelect(el){
+    if (!el || el.tagName !== 'SELECT') return false;
+    const field = el.closest('.acf-field');
+    if (!field) return false;
+    const key = field.getAttribute('data-key') || '';
+    if (key === EXTRA_PRODUCT_KEY) return true;
+    const label = field.querySelector('.acf-label label')?.textContent || '';
+    const dn = field.getAttribute('data-name') || '';
+    const rx = /(^|\s)velg\s+produkt(\s|$)/i;
+    return rx.test(label) || rx.test(dn);
+  }
+
+  function handleProductChange(select){
+    const row = getRow(select);
+    const prod = productText(select);
+    const ctxMap = pickContextMap(select);
+    const fieldKey = decideTargetFieldKey(prod, ctxMap);
+    if (!fieldKey) return;
+
+    let tries = 0, max = 10, step = 40;
+    (function waitAndApply(){
+      const done = applyAutoChoice(row, fieldKey);
+      if (!done && tries++ < max) setTimeout(waitAndApply, step);
+    })();
+  }
+
+  // ------------- EVENTS -------------
+  document.addEventListener('change', function(e){
+    const t = e.target;
+    if (t && t.tagName === 'SELECT' && isProductSelect(t)) {
+      handleProductChange(t);
+    }
+  });
+
+  function initialScan(){
+    qsa(document, '.acf-field select').forEach(sel => {
+      if (isProductSelect(sel)) handleProductChange(sel);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialScan);
+  } else {
+    initialScan();
+  }
+
+  if (window.acf && typeof window.acf.addAction === 'function') {
+    window.acf.addAction('append', function($el){
+      const el = $el && $el[0] ? $el[0] : null;
+      if (!el) return;
+      qsa(el, '.acf-field select').forEach(sel => {
+        if (isProductSelect(sel)) handleProductChange(sel);
+      });
+    });
+  }
+})();
+</script>

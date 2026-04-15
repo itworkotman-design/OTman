@@ -1,0 +1,157 @@
+<script>
+jQuery(function ($) {
+
+  // Returadresse ACF wrapper + the real input(s) inside it
+  var RETUR_KEY = 'field_68499231b558f';
+  var $returAdresse = $('.acf-field[data-key="' + RETUR_KEY + '"]');
+
+  // The four radio groups (exclude ACF clone rows)
+  var radioSelectorCore = [
+    'input[type="radio"][name*="[field_682b0fa395c44]"][name*="[field_681b211e616f6]"]',
+    'input[type="radio"][name*="[field_682b0fa395c44]"][name*="[field_682b205e4554c]"]',
+    'input[type="radio"][name*="[field_682b0fa395c44]"][name*="[field_682b20404554b]"]',
+    'input[type="radio"][name*="[field_682b0fa395c44]"][name*="[field_681b20ef42390]"]'
+  ];
+  var radioSelector = radioSelectorCore
+    .map(function (s) { return s + ':not([name*="[acfcloneindex]"])'; })
+    .join(', ');
+
+  function isReal(el) {
+    var $el = $(el);
+    if (el.disabled) return false;
+    if ((el.name || '').indexOf('acfcloneindex') !== -1) return false;
+    if ($el.closest('.acf-clone, .acf-row--clone').length) return false;
+    if (!$el.is(':visible')) return false;
+    return true;
+  }
+
+  // ---------- SCRUB HELPERS (no change/input events fired) ----------
+  function findReturInputs() {
+    // Cover text inputs & textareas within the Returadresse wrapper
+    return $returAdresse.find('input[type="text"], textarea').filter(function () {
+      var name = this.name || '';
+      return name && name.indexOf('acfcloneindex') === -1;
+    });
+  }
+
+  // Add a hidden input with the same name and empty value so server clears meta
+  function ensureEmptyMarker(form, input) {
+    var name = input && input.getAttribute('name');
+    if (!form || !name) return;
+    var exists = false;
+    Array.prototype.forEach.call(
+      form.querySelectorAll('input[type="hidden"]'),
+      function (h) { if (h.getAttribute('data-empty-for') === name) exists = true; }
+    );
+    if (exists) return;
+    var h = document.createElement('input');
+    h.type = 'hidden';
+    h.name = name;
+    h.value = '';
+    h.setAttribute('data-empty-for', name);
+    form.appendChild(h);
+  }
+
+  // Remove previously injected hidden-empties for these inputs
+  function removeEmptyMarkers(form, inputs) {
+    if (!form) return;
+    var names = {};
+    inputs.each(function(){ if (this.name) names[this.name] = true; });
+    Array.prototype.slice.call(form.querySelectorAll('input[type="hidden"]'))
+      .forEach(function (h) {
+        var forName = h.getAttribute('data-empty-for');
+        if (forName && names[forName]) h.parentNode.removeChild(h);
+      });
+  }
+
+  function wipeRetur() {
+    if (!$returAdresse.length) return;
+    var form = $returAdresse.closest('form')[0] || document.querySelector('form');
+    var $inputs = findReturInputs();
+
+    $inputs.each(function () {
+      // clear value + any cached placeId
+      if ('value' in this) this.value = '';
+      try { delete this.dataset.placeId; } catch (_) {}
+      // disable so it cannot submit
+      this.disabled = true;
+      // force empty into request payload (classic & AJAX)
+      ensureEmptyMarker(form, this);
+    });
+  }
+
+  function enableRetur() {
+    if (!$returAdresse.length) return;
+    var form = $returAdresse.closest('form')[0] || document.querySelector('form');
+    var $inputs = findReturInputs();
+
+    // re-enable normal submission & remove forced empties
+    $inputs.prop('disabled', false);
+    removeEmptyMarkers(form, $inputs);
+  }
+  // ------------------------------------------------------------------
+
+  // NEW: robust keyword check (handles accents and the common typo)
+  function hasReturnKeyword(s) {
+    var v = String(s || '')
+      .toLowerCase()
+      .normalize('NFD')           // strip accents
+      .replace(/[\u0300-\u036f]/g, '');
+    return (
+      v.indexOf('butikk') !== -1 ||
+      v.indexOf('gjenvinning') !== -1 ||
+      v.indexOf('gjenivnning') !== -1 // common typo safeguard
+    );
+  }
+
+  function shouldShowReturAdresse() {
+    return $(radioSelector)
+      .filter(':checked')
+      .filter(function () {
+        if (!isReal(this)) return false;
+        return hasReturnKeyword(this.value);
+      })
+      .length > 0;
+  }
+
+  function toggleReturAdresse() {
+    var show = shouldShowReturAdresse();
+    if (show) {
+      $returAdresse.removeClass('acf-hidden').show();
+      enableRetur();
+    } else {
+      $returAdresse.addClass('acf-hidden').hide();
+      wipeRetur(); // 🧹 scrub immediately when hidden
+    }
+  }
+
+  // Prevent flash, then evaluate
+  $returAdresse.addClass('acf-hidden').hide();
+  toggleReturAdresse();
+
+  // Re-run on changes
+  $(document).on('change', radioSelector, toggleReturAdresse);
+
+  // Also re-check when ACF adds/removes rows
+  if (window.acf && typeof acf.addAction === 'function') {
+    acf.addAction('ready',  toggleReturAdresse);
+    acf.addAction('append', toggleReturAdresse);
+    acf.addAction('remove', toggleReturAdresse);
+
+    // Extra safety: right before ACF validates/serializes values
+    acf.addAction('validation_begin', function ($form) {
+      if ($returAdresse.hasClass('acf-hidden') || !$returAdresse.is(':visible')) {
+        wipeRetur();
+      }
+    });
+  }
+
+  // Final safety: native form submit
+  $(document).on('submit', 'form', function () {
+    if ($returAdresse.hasClass('acf-hidden') || !$returAdresse.is(':visible')) {
+      wipeRetur();
+    }
+  });
+
+});
+</script>

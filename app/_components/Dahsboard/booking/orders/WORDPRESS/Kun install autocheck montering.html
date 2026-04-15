@@ -1,0 +1,87 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const fieldKeys = [
+    '681b1adcbe483',
+    '681b1b96c0b47',
+    '681b1c4fea544',
+    '681b1ca5f1a39',
+    '681b1cf0a155b',
+    '681b1d167d1b8',
+    '681b1d823cb02',
+    '681b1e1c4b762',
+    '681b1f00ebba2',
+    '681b1f8095dd9',
+    '681b1fb825f9c',
+    '681b20386fcce',
+    '681b2092efa1c',
+    '682b105595c6e',
+    '682b108495c70',
+    '682b1d18c4207',
+    '682b1d2fc4208',
+    '682b1d4dc4209',
+    '682b1dbac420b',
+    '682b1de7c420d',
+    '682b1e14c420f',
+    '682b1edac4212',
+    '682b1f9445544',
+    '682b1fae45545',
+    '682b1fda45547',
+    '682b201045549',
+		'6887738647f8e',
+		'688772158d53a',
+		'688775c818294',
+		'6887742057c34',
+  ];
+
+  function isVisible(el) {
+    return el && el.offsetParent !== null;
+  }
+
+  function checkIfNoneAreChecked(fieldWrapper, key) {
+    if (!isVisible(fieldWrapper)) return;
+
+    const checkboxes = fieldWrapper.querySelectorAll('input[type="checkbox"]');
+    const alreadyChecked = Array.from(checkboxes).some(cb => cb.checked);
+
+    if (!alreadyChecked) {
+      const labels = fieldWrapper.querySelectorAll('ul.acf-checkbox-list li label');
+      for (const label of labels) {
+        const checkbox = label.querySelector('input[type="checkbox"]');
+        if (checkbox && isVisible(checkbox)) {
+          requestAnimationFrame(() => {
+            label.click();
+            console.log(`✅ Re-checked via label click: ${checkbox.value}`);
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  function scanFields() {
+    fieldKeys.forEach(key => {
+      const wrappers = document.querySelectorAll(`.acf-field[data-key="field_${key}"]`);
+      wrappers.forEach(wrapper => checkIfNoneAreChecked(wrapper, key));
+    });
+  }
+
+  // Initial scan once DOM is ready
+  setTimeout(scanFields, 800);
+
+  // === DEBOUNCED OBSERVER ===
+  let debounceTimer;
+  const observer = new MutationObserver(() => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      requestAnimationFrame(scanFields);
+    }, 150); // wait for layout to settle
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class']
+  });
+});
+</script>

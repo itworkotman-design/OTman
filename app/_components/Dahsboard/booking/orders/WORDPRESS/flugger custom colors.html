@@ -1,0 +1,28 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const userEls = document.querySelectorAll('.sidebar-username');
+  if (!userEls.length) return;
+
+  const isFlugger = Array.from(userEls).some(el =>
+    (el.textContent || '').toLowerCase().trim().includes('flugger 028')
+  );
+
+  if (!isFlugger) return;
+
+  // Hide logo
+  const icon = document.querySelector('.elementor-element-c114e45');
+  if (icon) icon.style.display = 'none';
+
+  // Force blue text
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .sidebar-username,
+    .sidebar-username span,
+    .elementor-widget-shortcode .sidebar-username {
+      color: #1e73be !important;
+      font-weight: 600 !important;
+    }
+  `;
+  document.head.appendChild(style);
+});
+</script>
