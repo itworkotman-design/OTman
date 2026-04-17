@@ -4,11 +4,12 @@ import type { BuiltOrderItem } from "@/lib/orders/buildOrderItemsFromCards";
 export const ORDER_NOTIFICATION_EMAIL =
   process.env.ORDER_NOTIFICATION_EMAIL?.trim() || "itworkotman@gmail.com";
 
-type NotificationOrder = {
+export type NotificationOrder = {
   id: string;
   displayId?: number | null;
   orderNumber?: string | null;
   customerLabel?: string | null;
+  customerEmail?: string | null;
   deliveryDate?: string | null;
   pickupAddress?: string | null;
   extraPickupAddress?: string[] | null;
@@ -29,6 +30,12 @@ type NotificationOrder = {
   createdAt?: Date | string | null;
   productsSummary?: string | null;
   priceExVat?: number | null;
+};
+
+type ExtraPickupNotificationRecipient = {
+  address: string;
+  phone?: string | null;
+  email: string;
 };
 
 function escapeHtml(value: string) {
@@ -81,11 +88,6 @@ function formatLift(value?: string | boolean | null) {
   return value;
 }
 
-function detailLine(label: string, value?: string | null) {
-  if (!value) return "";
-  return `<p style="margin:0 0 12px 0;"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`;
-}
-
 function groupItemsByCard(items: BuiltOrderItem[]) {
   const map = new Map<number, BuiltOrderItem[]>();
 
@@ -122,12 +124,15 @@ function getItemDescription(item: BuiltOrderItem) {
   );
 }
 
-function renderOrderItems(order: NotificationOrder, items: BuiltOrderItem[]) {
+function renderOrderItemsSimple(
+  order: NotificationOrder,
+  items: BuiltOrderItem[],
+) {
   const grouped = groupItemsByCard(items);
 
   if (grouped.length === 0) {
     return order.productsSummary
-      ? `<p style="margin:20px 0 0 0;">${escapeHtml(order.productsSummary)}</p>`
+      ? `<p style="margin:0 0 12px 0;"><strong>Produkter:</strong> ${escapeHtml(order.productsSummary)}</p>`
       : "";
   }
 
@@ -145,11 +150,12 @@ function renderOrderItems(order: NotificationOrder, items: BuiltOrderItem[]) {
               hoursInput?: number;
             })
           : null;
+
       const laborSuffix =
-        productCardRawData &&
-        typeof productCardRawData.hoursInput === "number"
+        productCardRawData && typeof productCardRawData.hoursInput === "number"
           ? ` (${productCardRawData.hoursInput} t)`
           : "";
+
       const quantitySuffix =
         productCard?.quantity && productCard.quantity > 1
           ? ` x${productCard.quantity}`
@@ -175,13 +181,95 @@ function renderOrderItems(order: NotificationOrder, items: BuiltOrderItem[]) {
         .join("");
 
       return `
-        <div style="margin:18px 0 0 0;">
-          <p style="margin:0 0 8px 0;font-weight:700;">${escapeHtml(`${productHeading}${quantitySuffix}${laborSuffix}`)}</p>
-          ${optionLines ? `<ul style="margin:0;padding:0;">${optionLines}</ul>` : ""}
-        </div>
+        <p style="margin:0 0 8px 0;"><strong>${escapeHtml(`${productHeading}${quantitySuffix}${laborSuffix}`)}</strong></p>
+        ${optionLines ? `<ul style="margin:0 0 12px 0;padding:0;">${optionLines}</ul>` : `<p style="margin:0 0 12px 0;"></p>`}
       `;
     })
     .join("");
+}
+
+function buildOrderEmailLines(
+  order: NotificationOrder,
+  reference: string,
+): [string, string][] {
+  const priceExVat =
+    typeof order.priceExVat === "number" ? order.priceExVat : null;
+  const vat = typeof priceExVat === "number" ? priceExVat * 0.25 : null;
+  const totalIncVat =
+    typeof priceExVat === "number" && typeof vat === "number"
+      ? priceExVat + vat
+      : null;
+
+  const lines: [string, string][] = [
+    [
+      "Bestiller",
+      [order.customerLabel, order.customerEmail]
+        .filter(
+          (v): v is string => typeof v === "string" && v.trim().length > 0,
+        )
+        .join(" - "),
+    ] as [string, string],
+    ["Leveringsdato", formatDateNorwegian(order.deliveryDate)],
+    ["Henteadresse", order.pickupAddress ?? ""],
+    [
+      "Ekstra hentesteder",
+      Array.isArray(order.extraPickupAddress) &&
+      order.extraPickupAddress.length > 0
+        ? order.extraPickupAddress.join(", ")
+        : "",
+    ],
+    ["Leveringsadresse", order.deliveryAddress ?? ""],
+    ["Returadresse", order.returnAddress ?? ""],
+    ["Total kjøreavstand", order.drivingDistance ?? ""],
+    ["Tidsvindu for levering", order.timeWindow ?? ""],
+    ["Ekspresslevering", order.expressDelivery ? "Ja" : ""],
+    ["Bestillingsnummer", order.orderNumber?.trim() ?? ""] as [string, string],
+    ["Beskrivelse", order.description ?? ""],
+    ["Kundens navn", order.customerName ?? ""],
+    ["E-postadresse", order.email ?? ""],
+    ["Telefon", order.phone ?? ""],
+    ["Etasje nr", order.floorNo ?? ""],
+    ["Heis", formatLift(order.lift)],
+    ["Kasserers navn", order.cashierName ?? ""],
+    ["Kasserers telefon", order.cashierPhone ?? ""],
+    ["Status", formatStatus(order.status)],
+    ["Bestillingsdato", formatDateNorwegian(order.createdAt)],
+    ["Total", formatMoneyNok(priceExVat)],
+    ["MVA (25%)", formatMoneyNok(vat)],
+    ["Total inkl. MVA", formatMoneyNok(totalIncVat)],
+  ];
+
+  return lines.filter(([, value]) => value && String(value).trim().length > 0);
+}
+
+function renderSimpleLines(lines: Array<[string, string]>) {
+  return lines
+    .map(
+      ([label, value]) =>
+        `<p style="margin:0 0 10px 0;"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(value))}</p>`,
+    )
+    .join("");
+}
+
+function buildSimpleEmailShell(content: string) {
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;text-align:left;">
+      ${content}
+      <p style="margin:20px 0 0 0;">Med vennlig hilsen,</p>
+      <p style="margin:0;">
+        Otman Transport AS<br/>
+        +47 402 84 977 | bestilling@otman.no
+      </p>
+
+      <div style="margin-top:12px;">
+        <img
+          src="https://otman.no/wp-content/uploads/2023/12/logo-removebg.png"
+          alt="Otman Transport Logo"
+          style="display:block;max-height:48px;width:auto;"
+        />
+      </div>
+    </div>
+  `;
 }
 
 export async function sendOrderNotificationEmail({
@@ -199,71 +287,79 @@ export async function sendOrderNotificationEmail({
 
   const customer = order.customerLabel?.trim() || "Ukjent bestiller";
   const titlePrefix = kind === "created" ? "🆕 Ny ordre" : "✏️ Endret ordre";
-  const subject = `${titlePrefix} #${reference} fra ${customer}`;
+  const heading =
+    kind === "created"
+      ? "Du har fått en ny bestilling."
+      : "En bestilling har blitt oppdatert.";
+  const subjectOrderId =
+    typeof order.displayId === "number" ? String(order.displayId) : order.id;
 
-  const priceExVat = typeof order.priceExVat === "number" ? order.priceExVat : 0;
-  const vat = priceExVat * 0.25;
-  const totalIncVat = priceExVat + vat;
+  const subject = `${titlePrefix} #${subjectOrderId} fra ${customer}`;
 
-  const html = `
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;max-width:900px;margin:0 auto;">
-      <h2 style="margin:0 0 20px 0;color:#273097;">Oversikt over bestillingen:</h2>
+  const lines = buildOrderEmailLines(order, reference);
 
-      ${detailLine("Bestiller", order.customerLabel ?? "")}
-      ${detailLine("Leveringsdato", formatDateNorwegian(order.deliveryDate))}
-      ${detailLine("Henteadresse", order.pickupAddress ?? "")}
-      ${
-        Array.isArray(order.extraPickupAddress) && order.extraPickupAddress.length > 0
-          ? detailLine("Ekstra hentesteder", order.extraPickupAddress.join(", "))
-          : ""
-      }
-      ${detailLine("Leveringsadresse", order.deliveryAddress ?? "")}
-      ${detailLine("Total kjøreavstand", order.drivingDistance ?? "")}
-      ${detailLine("Tidsvindu for levering", order.timeWindow ?? "")}
-      ${detailLine("Ekspresslevering", order.expressDelivery ? "Ja" : "")}
-      ${detailLine("Power Bilagsnummer", reference)}
-      ${detailLine("Beskrivelse", order.description ?? "")}
-      ${detailLine("Kundens Navn", order.customerName ?? "")}
-      ${detailLine("E-postadresse", order.email ?? "")}
-      ${detailLine("Telefon", order.phone ?? "")}
-      ${detailLine("Etasje nr", order.floorNo ?? "")}
-      ${detailLine("Heis", formatLift(order.lift))}
-      ${detailLine("Kasserers navn", order.cashierName ?? "")}
-      ${detailLine("Kasserers telefon", order.cashierPhone ?? "")}
-      ${detailLine("Status", formatStatus(order.status))}
-      ${detailLine("Bestillingsdato", formatDateNorwegian(order.createdAt))}
-
-      ${renderOrderItems(order, items)}
-
-      <div style="margin-top:20px;">
-        ${detailLine("Total", formatMoneyNok(priceExVat))}
-        ${detailLine("MVA (25%)", formatMoneyNok(vat))}
-        ${detailLine("Total inkl. MVA", formatMoneyNok(totalIncVat))}
-      </div>
-
-      <p style="margin:22px 0 0 0;">For å se bestillingen, logg inn.</p>
-
-      <div style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb;">
-        <p style="margin:0 0 16px 0;">
-          Med vennlig hilsen,<br/>
-          Otman Transport AS | otman.no<br/>
-          +47 402 84 977 | bestilling@otman.no
-        </p>
-
-        <div style="margin-top:12px;">
-          <img
-            src="https://otman.no/wp-content/uploads/2023/12/logo-removebg.png"
-            alt="Otman Transport Logo"
-            style="display:block;max-height:48px;width:auto;"
-          />
-        </div>
-      </div>
-    </div>
-  `;
+  const html = buildSimpleEmailShell(`
+    <p style="margin:0 0 16px 0;">Hei,</p>
+    <p style="margin:0 0 16px 0;">${escapeHtml(heading)}</p>
+    ${renderSimpleLines(lines)}
+    ${renderOrderItemsSimple(order, items)}
+    <p style="margin:16px 0 0 0;">For å se bestillingen, logg inn.</p>
+  `);
 
   await sendEmail({
     to: {
       email: ORDER_NOTIFICATION_EMAIL,
+    },
+    subject,
+    html,
+  });
+}
+
+export async function sendExtraPickupNotificationEmail({
+  order,
+  extraPickup,
+}: {
+  order: NotificationOrder;
+  extraPickup: ExtraPickupNotificationRecipient;
+}) {
+  const subjectOrderId =
+    typeof order.displayId === "number" ? String(order.displayId) : order.id;
+
+  const subject = `Ordre #${subjectOrderId} – ekstra henting`;
+
+  const lines = [
+    ["Bestillingsnummer", order.orderNumber?.trim() ?? ""] as [string, string],
+    [
+      "Bestiller",
+      [order.customerLabel, order.customerEmail]
+        .filter(
+          (v): v is string => typeof v === "string" && v.trim().length > 0,
+        )
+        .join(" - "),
+    ] as [string, string],
+    ["Kundens navn", order.customerName ?? ""] as [string, string],
+    ["Leveringsdato", formatDateNorwegian(order.deliveryDate)] as [
+      string,
+      string,
+    ],
+    ["Tidsvindu for levering", order.timeWindow ?? ""] as [string, string],
+    ["Ekstra henteadresse", extraPickup.address] as [string, string],
+    ["Kontakttelefon", extraPickup.phone ?? ""] as [string, string],
+    ["Leveringsadresse", order.deliveryAddress ?? ""] as [string, string],
+    ["Beskrivelse", order.description ?? ""] as [string, string],
+    ["Kunde e-post", order.email ?? ""] as [string, string],
+    ["Kunde telefon", order.phone ?? ""] as [string, string],
+  ].filter(([, value]) => value && String(value).trim().length > 0);
+
+  const html = buildSimpleEmailShell(`
+    <p style="margin:0 0 16px 0;">Hei,</p>
+    <p style="margin:0 0 16px 0;">Du har fått informasjon om en bestilling med ekstra henting.</p>
+    ${renderSimpleLines(lines)}
+  `);
+
+  await sendEmail({
+    to: {
+      email: extraPickup.email,
     },
     subject,
     html,

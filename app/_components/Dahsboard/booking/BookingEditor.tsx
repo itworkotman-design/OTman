@@ -55,7 +55,12 @@ export type OrderFormPayload = {
   customTimeContactNote: string;
 
   pickupAddress: string;
-  extraPickupAddress: string[];
+  extraPickups: {
+    address: string;
+    phone: string;
+    email: string;
+    sendEmail: boolean;
+  }[];
   returnAddress: string;
 
   deliveryAddress: string;
@@ -210,7 +215,9 @@ export default function BookingEditor({
     initialValues?.description ?? "",
   );
   const [modelNr, setModelNr] = useState(initialValues?.modelNr ?? "");
-  const initialTimeWindowState = parseTimeWindowState(initialValues?.timeWindow);
+  const initialTimeWindowState = parseTimeWindowState(
+    initialValues?.timeWindow,
+  );
   const [deliveryDate, setDeliveryDate] = useState(
     initialValues?.deliveryDate ?? "",
   );
@@ -277,20 +284,35 @@ export default function BookingEditor({
   const [dontSendEmail, setDontSendEmail] = useState(
     initialValues?.dontSendEmail ?? false,
   );
-  const [contactCustomerForCustomTimeWindow, setContactCustomerForCustomTimeWindow] =
-    useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
+  const [
+    contactCustomerForCustomTimeWindow,
+    setContactCustomerForCustomTimeWindow,
+  ] = useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
   const [customTimeContactNote, setCustomTimeContactNote] = useState(
     initialValues?.customTimeContactNote ?? "",
   );
   const [pickupAddress, setPickupAddress] = useState(
     initialValues?.pickupAddress ?? "",
   );
-  const [extraPickups, setExtraPickups] = useState(
-    (initialValues?.extraPickupAddress ?? []).map((value, index) => ({
-      id: `initial-${index}`,
-      value,
-    })),
-  );
+      const [extraPickups, setExtraPickups] = useState<
+        {
+          id: string;
+          address: string;
+          phone: string;
+          email: string;
+          sendEmail: boolean;
+        }[]
+      >(
+        initialValues?.extraPickups?.length
+          ? initialValues.extraPickups.map((p, index) => ({
+              id: `initial-${index}`,
+              address: p.address ?? "",
+              phone: p.phone ?? "",
+              email: p.email ?? "",
+              sendEmail: p.sendEmail ?? true,
+            }))
+          : [],
+      );
   const [returnAddress, setReturnAddress] = useState(
     initialValues?.returnAddress ?? "",
   );
@@ -356,7 +378,9 @@ export default function BookingEditor({
 
         setCatalogProducts(data.products ?? []);
         setCatalogSpecialOptions(data.specialOptions ?? []);
-        setPriceListSettings(normalizePriceListSettings(data.priceListSettings));
+        setPriceListSettings(
+          normalizePriceListSettings(data.priceListSettings),
+        );
       } catch {
         setCatalogError("Failed to load catalog");
         setCatalogProducts([]);
@@ -422,12 +446,15 @@ export default function BookingEditor({
     );
     setCustomTimeContactNote(initialValues.customTimeContactNote ?? "");
     setPickupAddress(initialValues.pickupAddress ?? "");
-    setExtraPickups(
-      (initialValues.extraPickupAddress ?? []).map((value, index) => ({
-        id: `initial-${index}`,
-        value,
-      })),
-    );
+     setExtraPickups(
+       (initialValues.extraPickups ?? []).map((pickup, index) => ({
+         id: `initial-${index}`,
+         address: pickup.address ?? "",
+         phone: pickup.phone ?? "",
+         email: pickup.email ?? "",
+         sendEmail: pickup.sendEmail ?? true,
+       })),
+     );
     setReturnAddress(initialValues.returnAddress ?? "");
     setCustomTimeFrom(nextTimeWindowState.customTimeFrom);
     setCustomTimeTo(nextTimeWindowState.customTimeTo);
@@ -514,103 +541,103 @@ export default function BookingEditor({
   );
 
   const calculatorBreakdowns = useMemo(() => {
-    const nextBreakdowns = [...productBreakdowns];
-    const extraItems: Array<{
-      kind: "customPrice";
-      code: string;
-      label: string;
-      qty: number;
-      unitPrice: number;
-    }> = [];
-    const extraPickupCount = extraPickups
-      .map((pickup) => pickup.value.trim())
-      .filter(Boolean).length;
-    const extraPickupPrice = Number(
-      priceListSettings.extraPickup.price.replace(",", "."),
-    );
-    const totalDistanceKm = parseDistanceKm(drivingDistance);
-    const kmFrom21Qty = Math.max(0, Math.min(totalDistanceKm, 100) - 21);
-    const kmOver100Qty = Math.max(0, totalDistanceKm - 100);
-    const kmFrom21Price = Number(
-      priceListSettings.kmFrom21.price.replace(",", "."),
-    );
-    const kmOver100Price = Number(
-      priceListSettings.kmOver100.price.replace(",", "."),
-    );
+      const nextBreakdowns = [...productBreakdowns];
+      const extraItems: Array<{
+        kind: "customPrice";
+        code: string;
+        label: string;
+        qty: number;
+        unitPrice: number;
+      }> = [];
+      const extraPickupCount = extraPickups
+        .map((pickup) => pickup.address.trim())
+        .filter(Boolean).length;
+      const extraPickupPrice = Number(
+        priceListSettings.extraPickup.price.replace(",", "."),
+      );
+      const totalDistanceKm = parseDistanceKm(drivingDistance);
+      const kmFrom21Qty = Math.max(0, Math.min(totalDistanceKm, 100) - 21);
+      const kmOver100Qty = Math.max(0, totalDistanceKm - 100);
+      const kmFrom21Price = Number(
+        priceListSettings.kmFrom21.price.replace(",", "."),
+      );
+      const kmOver100Price = Number(
+        priceListSettings.kmOver100.price.replace(",", "."),
+      );
 
-    if (
-      extraPickupCount > 0 &&
-      Number.isFinite(extraPickupPrice) &&
-      extraPickupPrice > 0
-    ) {
-      extraItems.push({
-        kind: "customPrice",
-        code: priceListSettings.extraPickup.code,
-        label: priceListSettings.extraPickup.description,
-        qty: extraPickupCount,
-        unitPrice: extraPickupPrice,
-      });
-    }
+      if (
+        extraPickupCount > 0 &&
+        Number.isFinite(extraPickupPrice) &&
+        extraPickupPrice > 0
+      ) {
+        extraItems.push({
+          kind: "customPrice",
+          code: priceListSettings.extraPickup.code,
+          label: priceListSettings.extraPickup.description,
+          qty: extraPickupCount,
+          unitPrice: extraPickupPrice,
+        });
+      }
 
-    const expressDeliveryPrice = Number(
-      priceListSettings.expressDelivery.price.replace(",", "."),
-    );
+      const expressDeliveryPrice = Number(
+        priceListSettings.expressDelivery.price.replace(",", "."),
+      );
 
-    if (expressDelivery && Number.isFinite(expressDeliveryPrice)) {
-      extraItems.push({
-        kind: "customPrice",
-        code: priceListSettings.expressDelivery.code,
-        label: priceListSettings.expressDelivery.description,
-        qty: 1,
-        unitPrice: expressDeliveryPrice,
-      });
-    }
+      if (expressDelivery && Number.isFinite(expressDeliveryPrice)) {
+        extraItems.push({
+          kind: "customPrice",
+          code: priceListSettings.expressDelivery.code,
+          label: priceListSettings.expressDelivery.description,
+          qty: 1,
+          unitPrice: expressDeliveryPrice,
+        });
+      }
 
-    if (kmFrom21Qty > 0 && Number.isFinite(kmFrom21Price)) {
-      extraItems.push({
-        kind: "customPrice",
-        code: priceListSettings.kmFrom21.code,
-        label: priceListSettings.kmFrom21.description,
-        qty: kmFrom21Qty,
-        unitPrice: kmFrom21Price,
-      });
-    }
+      if (kmFrom21Qty > 0 && Number.isFinite(kmFrom21Price)) {
+        extraItems.push({
+          kind: "customPrice",
+          code: priceListSettings.kmFrom21.code,
+          label: priceListSettings.kmFrom21.description,
+          qty: kmFrom21Qty,
+          unitPrice: kmFrom21Price,
+        });
+      }
 
-    if (kmOver100Qty > 0 && Number.isFinite(kmOver100Price)) {
-      extraItems.push({
-        kind: "customPrice",
-        code: priceListSettings.kmOver100.code,
-        label: priceListSettings.kmOver100.description,
-        qty: kmOver100Qty,
-        unitPrice: kmOver100Price,
-      });
-    }
+      if (kmOver100Qty > 0 && Number.isFinite(kmOver100Price)) {
+        extraItems.push({
+          kind: "customPrice",
+          code: priceListSettings.kmOver100.code,
+          label: priceListSettings.kmOver100.description,
+          qty: kmOver100Qty,
+          unitPrice: kmOver100Price,
+        });
+      }
 
-    if (extraItems.length > 0) {
-      nextBreakdowns.push({
-        productName: "Order extras",
-        items: extraItems,
-      });
-    }
+      if (extraItems.length > 0) {
+        nextBreakdowns.push({
+          productName: "Order extras",
+          items: extraItems,
+        });
+      }
 
-    return nextBreakdowns;
-  }, [
-    drivingDistance,
-    expressDelivery,
-    extraPickups,
-    priceListSettings.extraPickup.code,
-    priceListSettings.extraPickup.description,
-    priceListSettings.extraPickup.price,
-    priceListSettings.expressDelivery.code,
-    priceListSettings.expressDelivery.description,
-    priceListSettings.expressDelivery.price,
-    priceListSettings.kmFrom21.code,
-    priceListSettings.kmFrom21.description,
-    priceListSettings.kmFrom21.price,
-    priceListSettings.kmOver100.code,
-    priceListSettings.kmOver100.description,
-    priceListSettings.kmOver100.price,
-    productBreakdowns,
+      return nextBreakdowns;
+    }, [
+      drivingDistance,
+      expressDelivery,
+      extraPickups,
+      priceListSettings.extraPickup.code,
+      priceListSettings.extraPickup.description,
+      priceListSettings.extraPickup.price,
+      priceListSettings.expressDelivery.code,
+      priceListSettings.expressDelivery.description,
+      priceListSettings.expressDelivery.price,
+      priceListSettings.kmFrom21.code,
+      priceListSettings.kmFrom21.description,
+      priceListSettings.kmFrom21.price,
+      priceListSettings.kmOver100.code,
+      priceListSettings.kmOver100.description,
+      priceListSettings.kmOver100.price,
+      productBreakdowns,
   ]);
 
   const priceLookup = useMemo(
@@ -635,6 +662,19 @@ export default function BookingEditor({
       ),
     [productCards],
   );
+
+  //For locking pickupadress when isonlyreturn or install
+  const shouldLockPickupAddress = useMemo(
+    () =>
+      productCards.length > 0 &&
+      productCards.every(
+        (card) =>
+          card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY ||
+          card.deliveryType === DELIVERY_TYPES.RETURN_ONLY,
+      ),
+    [productCards],
+  );
+
   const hasSelectedReturnOption = useMemo(
     () => productCards.some((card) => !!card.selectedReturnOptionId),
     [productCards],
@@ -696,9 +736,10 @@ export default function BookingEditor({
     const data = await res.json().catch(() => null);
 
     if (!res.ok || !data?.ok) {
-      throw new Error(data?.message || data?.reason || "Failed to create order");
+      throw new Error(
+        data?.message || data?.reason || "Failed to create order",
+      );
     }
-
   }
 
   // Attachments
@@ -838,10 +879,10 @@ export default function BookingEditor({
       return;
     }
 
-    if (emailError || phoneError || phoneTwoError || cashierPhoneError) {
-      setSubmitError("Fix invalid email or phone fields");
-      return;
-    }
+        if (emailError || phoneError || phoneTwoError || cashierPhoneError) {
+          setSubmitError("Fix invalid email or phone fields");
+          return;
+        }
 
     const finalTimeWindow =
       timeWindow === "custom"
@@ -873,9 +914,14 @@ export default function BookingEditor({
         timeWindow === "custom" && contactCustomerForCustomTimeWindow,
       customTimeContactNote: normalizedCustomTimeContactNote,
       pickupAddress,
-      extraPickupAddress: extraPickups
-        .map((pickup) => pickup.value.trim())
-        .filter(Boolean),
+      extraPickups: extraPickups
+        .map((pickup) => ({
+          address: pickup.address.trim(),
+          phone: normalizeOptionalPhone(pickup.phone) ?? "",
+          email: normalizeOptionalEmail(pickup.email) ?? "",
+          sendEmail: pickup.sendEmail,
+        }))
+        .filter((pickup) => pickup.address),
       returnAddress,
       deliveryAddress,
       drivingDistance,
@@ -978,6 +1024,20 @@ export default function BookingEditor({
 
     setExpressDelivery(diffDays <= 1);
   }, [deliveryDate]);
+
+  //For locking pickupadress when isonlyreturn or install
+  useEffect(() => {
+    if (shouldLockPickupAddress) {
+      setPickupAddress("No shop pickup address");
+      setExtraPickups([]);
+      return;
+    }
+
+    setPickupAddress((current) =>
+      current === "No shop pickup address" ? "" : current,
+    );
+  }, [shouldLockPickupAddress]);
+
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -1020,6 +1080,7 @@ export default function BookingEditor({
             hideDontSendEmail={effectiveHideDontSendEmail}
             isInstallationOnly={isInstallationOnly}
             isReturnOnly={isReturnOnly}
+            shouldLockPickupAddress={shouldLockPickupAddress}
             hideSubmitButton={hideSubmitButton}
             subcontractorLoading={subcontractorLoading}
             subcontractorOptions={subcontractorOptions}
@@ -1119,16 +1180,15 @@ export default function BookingEditor({
         </div>
 
         <div className="hidden lg:block lg:w-[420] lg:shrink-0">
-          <div
-            className=" top-[86px] z-10 w-[420px]"
-            style={{ right: "16px" }}
-          >
+          <div className=" top-[86] z-10 w-[420]" style={{ right: "16px" }}>
             <BookingCalculatorPanel
               calcOpen={calcOpen}
               setCalcOpen={setCalcOpen}
               productBreakdowns={calculatorBreakdowns}
               priceLookup={priceLookup}
-              adminView={dataset === "default" && showAdminCalculatorAdjustments}
+              adminView={
+                dataset === "default" && showAdminCalculatorAdjustments
+              }
               onPriceChange={handlePriceChange}
               rabatt={rabatt}
               leggTil={leggTil}

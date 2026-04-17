@@ -17,7 +17,10 @@ import {
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
-import { sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
+import {
+  sendExtraPickupNotificationEmail,
+  sendOrderNotificationEmail,
+} from "@/lib/orders/orderNotificationEmail";
 import {
   buildOrderEventSnapshot,
   createOrderCreatedEvent,
@@ -33,6 +36,45 @@ function parsePositiveInt(value: string | null, fallback: number) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(1, Math.floor(n));
+}
+
+type ExtraPickupInput = {
+  address: string;
+  phone: string;
+  email: string;
+  sendEmail: boolean;
+};
+
+function parseExtraPickups(value: unknown): ExtraPickupInput[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const candidate =
+        item && typeof item === "object"
+          ? (item as {
+              address?: unknown;
+              phone?: unknown;
+              email?: unknown;
+              sendEmail?: unknown;
+            })
+          : null;
+
+      return {
+        address:
+          typeof candidate?.address === "string"
+            ? candidate.address.trim()
+            : "",
+        phone:
+          typeof candidate?.phone === "string" ? candidate.phone.trim() : "",
+        email:
+          typeof candidate?.email === "string" ? candidate.email.trim() : "",
+        sendEmail: candidate?.sendEmail === false ? false : true,
+      };
+    })
+    .filter((pickup) => pickup.address.length > 0);
 }
 
 async function reserveNextOrderNumber(companyId: string): Promise<number> {
@@ -168,7 +210,11 @@ export async function POST(req: Request) {
 
   if (cashierPhoneError) {
     return NextResponse.json(
-      { ok: false, reason: "INVALID_CASHIER_PHONE", message: cashierPhoneError },
+      {
+        ok: false,
+        reason: "INVALID_CASHIER_PHONE",
+        message: cashierPhoneError,
+      },
       { status: 400 },
     );
   }
@@ -177,6 +223,15 @@ export async function POST(req: Request) {
   const phone = normalizeOptionalPhone(body.phone);
   const phoneTwo = normalizeOptionalPhone(body.phoneTwo);
   const cashierPhone = normalizeOptionalPhone(body.cashierPhone);
+  const extraPickups = parseExtraPickups(body.extraPickups);
+
+  const validExtraPickups = extraPickups.filter((pickup) => {
+    if (!pickup.email.trim()) {
+      return true;
+    }
+
+    return !getOptionalEmailError(pickup.email);
+  });
 
   const isAdminOrOwner =
     membership.role === "OWNER" || membership.role === "ADMIN";
@@ -190,6 +245,23 @@ export async function POST(req: Request) {
     membership.user.email;
 
   const customerName = optionalString(body.customerName);
+  const deliveryDate = optionalString(body.deliveryDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const deliveryDateObj = deliveryDate ? new Date(deliveryDate) : null;
+  if (deliveryDateObj) {
+    deliveryDateObj.setHours(0, 0, 0, 0);
+  }
+
+  const diffDays = deliveryDateObj
+    ? (deliveryDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    : null;
+
+  const effectiveExpressDelivery =
+    typeof diffDays === "number" && diffDays <= 1
+      ? true
+      : optionalBoolean(body.expressDelivery);
 
   // Important:
   // For admin-created orders, use the selected customer's pricelist if possible.
@@ -244,23 +316,17 @@ export async function POST(req: Request) {
       description: optionalString(body.description),
       modelNr: optionalString(body.modelNr),
 
-      deliveryDate: optionalString(body.deliveryDate),
+      deliveryDate,
       timeWindow: optionalString(body.timeWindow),
-      expressDelivery: optionalBoolean(body.expressDelivery),
+      expressDelivery: effectiveExpressDelivery,
       contactCustomerForCustomTimeWindow: optionalBoolean(
         body.contactCustomerForCustomTimeWindow,
       ),
       customTimeContactNote: optionalString(body.customTimeContactNote),
 
       pickupAddress: optionalString(body.pickupAddress),
-      extraPickupAddress: Array.isArray(body.extraPickupAddress)
-        ? body.extraPickupAddress
-            .filter(
-              (value: unknown): value is string => typeof value === "string",
-            )
-            .map((value: string) => value.trim())
-            .filter(Boolean)
-        : [],
+      extraPickupAddress: extraPickups.map((pickup) => pickup.address),
+      extraPickupContacts: extraPickups as unknown as Prisma.InputJsonValue,
       deliveryAddress: optionalString(body.deliveryAddress),
       returnAddress: optionalString(body.returnAddress),
       drivingDistance: optionalString(body.drivingDistance),
@@ -409,43 +475,55 @@ export async function POST(req: Request) {
   });
 
   try {
+    const notificationOrder = {
+      id: order.id,
+      displayId: order.displayId,
+      orderNumber: order.orderNumber,
+      customerLabel,
+      customerEmail: membership.user.email,
+      deliveryDate,
+      pickupAddress: optionalString(body.pickupAddress),
+      extraPickupAddress: validExtraPickups.map((pickup) => pickup.address),
+      deliveryAddress: optionalString(body.deliveryAddress),
+      returnAddress: optionalString(body.returnAddress),
+      drivingDistance: optionalString(body.drivingDistance),
+      timeWindow: optionalString(body.timeWindow),
+      expressDelivery: effectiveExpressDelivery,
+      description: optionalString(body.description),
+      customerName,
+      email,
+      phone,
+      floorNo: optionalString(body.floorNo),
+      lift: optionalString(body.lift),
+      cashierName: optionalString(body.cashierName),
+      cashierPhone,
+      status: optionalString(body.status) || "behandles",
+      createdAt: order.createdAt,
+      productsSummary: summaries.productsSummary,
+      priceExVat: Math.round(safeNumber(body.priceExVat)),
+    };
+
     await sendOrderNotificationEmail({
       kind: "created",
-      order: {
-        id: order.id,
-        displayId: order.displayId,
-        orderNumber: order.orderNumber,
-        customerLabel,
-        deliveryDate: optionalString(body.deliveryDate),
-        pickupAddress: optionalString(body.pickupAddress),
-        extraPickupAddress: Array.isArray(body.extraPickupAddress)
-          ? body.extraPickupAddress
-              .filter(
-                (value: unknown): value is string => typeof value === "string",
-              )
-              .map((value: string) => value.trim())
-              .filter(Boolean)
-          : [],
-        deliveryAddress: optionalString(body.deliveryAddress),
-        returnAddress: optionalString(body.returnAddress),
-        drivingDistance: optionalString(body.drivingDistance),
-        timeWindow: optionalString(body.timeWindow),
-        expressDelivery: optionalBoolean(body.expressDelivery),
-        description: optionalString(body.description),
-        customerName,
-        email,
-        phone,
-        floorNo: optionalString(body.floorNo),
-        lift: optionalString(body.lift),
-        cashierName: optionalString(body.cashierName),
-        cashierPhone,
-        status: optionalString(body.status) || "behandles",
-        createdAt: order.createdAt,
-        productsSummary: summaries.productsSummary,
-        priceExVat: Math.round(safeNumber(body.priceExVat)),
-      },
+      order: notificationOrder,
       items: builtItems,
     });
+
+    for (const pickup of validExtraPickups) {
+      if (!pickup.sendEmail) continue;
+
+      const pickupEmail = normalizeOptionalEmail(pickup.email);
+      if (!pickupEmail) continue;
+
+      await sendExtraPickupNotificationEmail({
+        order: notificationOrder,
+        extraPickup: {
+          address: pickup.address,
+          phone: normalizeOptionalPhone(pickup.phone) ?? "",
+          email: pickupEmail,
+        },
+      });
+    }
   } catch (error) {
     console.error("Failed to send order creation notification email", error);
   }
@@ -658,6 +736,7 @@ export async function GET(req: Request) {
       email: true,
       pickupAddress: true,
       extraPickupAddress: true,
+      extraPickupContacts: true,
       deliveryAddress: true,
       returnAddress: true,
       productsSummary: true,
@@ -723,6 +802,7 @@ export async function GET(req: Request) {
       email: order.email ?? "",
       pickupAddress: order.pickupAddress ?? "",
       extraPickupAddress: order.extraPickupAddress ?? [],
+      extraPickupContacts: order.extraPickupContacts ?? [],
       deliveryAddress: order.deliveryAddress ?? "",
       returnAddress: order.returnAddress ?? "",
       productsSummary: order.productsSummary ?? "",
@@ -755,7 +835,7 @@ export async function GET(req: Request) {
         order.lastEditedByMembership?.user.username ||
         order.lastEditedByMembership?.user.email ||
         "",
-    } )),
+    })),
     page,
     rowsPerPage,
   });

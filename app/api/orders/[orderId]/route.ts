@@ -17,7 +17,10 @@ import {
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
-import { sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
+import {
+  sendExtraPickupNotificationEmail,
+  sendOrderNotificationEmail,
+} from "@/lib/orders/orderNotificationEmail";
 import {
   buildOrderEventSnapshot,
   type OrderEventProductChange,
@@ -41,6 +44,44 @@ type ProductChangeValue = {
 
 function formatList(values: string[]) {
   return values.length > 0 ? values.join(", ") : "-";
+}
+type ExtraPickupInput = {
+  address: string;
+  phone: string;
+  email: string;
+  sendEmail: boolean;
+};
+
+function parseExtraPickups(value: unknown): ExtraPickupInput[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const candidate =
+        item && typeof item === "object"
+          ? (item as {
+              address?: unknown;
+              phone?: unknown;
+              email?: unknown;
+              sendEmail?: unknown;
+            })
+          : null;
+
+      return {
+        address:
+          typeof candidate?.address === "string"
+            ? candidate.address.trim()
+            : "",
+        phone:
+          typeof candidate?.phone === "string" ? candidate.phone.trim() : "",
+        email:
+          typeof candidate?.email === "string" ? candidate.email.trim() : "",
+        sendEmail: candidate?.sendEmail === false ? false : true,
+      };
+    })
+    .filter((pickup) => pickup.address.length > 0);
 }
 
 function buildOptionLookup(
@@ -101,7 +142,9 @@ function getProductCardValues(
   const productLabel = card.productId
     ? optionLookup.get(card.productId) || card.productId
     : "Unselected product";
-  const product = card.productId ? productLookup.get(card.productId) ?? null : null;
+  const product = card.productId
+    ? (productLookup.get(card.productId) ?? null)
+    : null;
   const values: ProductChangeValue[] = [
     { label: "Product", value: productLabel },
     {
@@ -112,7 +155,10 @@ function getProductCardValues(
       label: "Delivery type",
       value:
         product?.allowDeliveryTypes && card.deliveryType
-          ? getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType)
+          ? getProductDeliveryTypeLabel(
+              product.deliveryTypes,
+              card.deliveryType,
+            )
           : "-",
     },
     { label: "Amount", value: String(card.amount) },
@@ -151,7 +197,9 @@ function getProductCardValues(
   if (card.selectedReturnOptionId) {
     values.push({
       label: "Return option",
-      value: optionLookup.get(card.selectedReturnOptionId) || card.selectedReturnOptionId,
+      value:
+        optionLookup.get(card.selectedReturnOptionId) ||
+        card.selectedReturnOptionId,
     });
   }
 
@@ -234,7 +282,11 @@ function diffProductCards(
         cardId,
         title,
         changeType: "ADDED",
-        changes: getProductCardValues(nextCard, optionLookup, productLookup).map((item) => ({
+        changes: getProductCardValues(
+          nextCard,
+          optionLookup,
+          productLookup,
+        ).map((item) => ({
           label: item.label,
           previousValue: "-",
           nextValue: item.value,
@@ -248,7 +300,11 @@ function diffProductCards(
         cardId,
         title,
         changeType: "REMOVED",
-        changes: getProductCardValues(previousCard, optionLookup, productLookup).map((item) => ({
+        changes: getProductCardValues(
+          previousCard,
+          optionLookup,
+          productLookup,
+        ).map((item) => ({
           label: item.label,
           previousValue: item.value,
           nextValue: "-",
@@ -266,7 +322,11 @@ function diffProductCards(
       optionLookup,
       productLookup,
     );
-    const nextValues = getProductCardValues(nextCard, optionLookup, productLookup);
+    const nextValues = getProductCardValues(
+      nextCard,
+      optionLookup,
+      productLookup,
+    );
     const valueLabels = Array.from(
       new Set([
         ...previousValues.map((item) => item.label),
@@ -291,9 +351,8 @@ function diffProductCards(
         };
       })
       .filter(
-        (
-          change,
-        ): change is OrderEventProductChange["changes"][number] => change !== null,
+        (change): change is OrderEventProductChange["changes"][number] =>
+          change !== null,
       );
 
     if (cardChanges.length > 0) {
@@ -352,6 +411,7 @@ export async function GET(
       customTimeContactNote: true,
       pickupAddress: true,
       extraPickupAddress: true,
+      extraPickupContacts: true,
       deliveryAddress: true,
       drivingDistance: true,
       customerName: true,
@@ -422,10 +482,7 @@ export async function GET(
       customerMembershipId: order.customerMembershipId ?? "",
       productCards: Array.isArray(order.productCardsSnapshot)
         ? order.productCardsSnapshot.map((card, index) =>
-            normalizeSavedProductCard(
-              card as Partial<SavedProductCard>,
-              index,
-            ),
+            normalizeSavedProductCard(card as Partial<SavedProductCard>, index),
           )
         : [],
       orderNumber: order.orderNumber ?? "",
@@ -439,6 +496,29 @@ export async function GET(
       customTimeContactNote: order.customTimeContactNote ?? "",
       pickupAddress: order.pickupAddress ?? "",
       extraPickupAddress: order.extraPickupAddress ?? [],
+      extraPickups: Array.isArray(order.extraPickupContacts)
+        ? order.extraPickupContacts.map((pickup) => {
+            const candidate =
+              pickup && typeof pickup === "object" && !Array.isArray(pickup)
+                ? (pickup as {
+                    address?: unknown;
+                    phone?: unknown;
+                    email?: unknown;
+                    sendEmail?: unknown;
+                  })
+                : null;
+
+            return {
+              address:
+                typeof candidate?.address === "string" ? candidate.address : "",
+              phone:
+                typeof candidate?.phone === "string" ? candidate.phone : "",
+              email:
+                typeof candidate?.email === "string" ? candidate.email : "",
+              sendEmail: candidate?.sendEmail === false ? false : true,
+            };
+          })
+        : [],
       deliveryAddress: order.deliveryAddress ?? "",
       drivingDistance: order.drivingDistance ?? "",
       customerName: order.customerName ?? "",
@@ -583,6 +663,7 @@ export async function PATCH(
       customTimeContactNote: true,
       pickupAddress: true,
       extraPickupAddress: true,
+      extraPickupContacts: true,
       deliveryAddress: true,
       returnAddress: true,
       drivingDistance: true,
@@ -653,7 +734,11 @@ export async function PATCH(
 
   if (cashierPhoneError) {
     return NextResponse.json(
-      { ok: false, reason: "INVALID_CASHIER_PHONE", message: cashierPhoneError },
+      {
+        ok: false,
+        reason: "INVALID_CASHIER_PHONE",
+        message: cashierPhoneError,
+      },
       { status: 400 },
     );
   }
@@ -662,6 +747,40 @@ export async function PATCH(
   const phone = normalizeOptionalPhone(body.phone);
   const phoneTwo = normalizeOptionalPhone(body.phoneTwo);
   const cashierPhone = normalizeOptionalPhone(body.cashierPhone);
+  const extraPickups =
+    body.extraPickups !== undefined
+      ? parseExtraPickups(body.extraPickups)
+      : Array.isArray(existingOrder.extraPickupContacts)
+        ? existingOrder.extraPickupContacts
+            .map((pickup) => {
+              const candidate =
+                pickup && typeof pickup === "object" && !Array.isArray(pickup)
+                  ? (pickup as {
+                      address?: unknown;
+                      phone?: unknown;
+                      email?: unknown;
+                      sendEmail?: unknown;
+                    })
+                  : null;
+
+              return {
+                address:
+                  typeof candidate?.address === "string"
+                    ? candidate.address.trim()
+                    : "",
+                phone:
+                  typeof candidate?.phone === "string"
+                    ? candidate.phone.trim()
+                    : "",
+                email:
+                  typeof candidate?.email === "string"
+                    ? candidate.email.trim()
+                    : "",
+                sendEmail: candidate?.sendEmail === false ? false : true,
+              };
+            })
+            .filter((pickup) => pickup.address.length > 0)
+        : [];
 
   const catalog = await getBookingCatalog(
     existingOrder.priceListId ?? membership.priceListId ?? null,
@@ -678,7 +797,10 @@ export async function PATCH(
     catalog.products,
     catalog.specialOptions,
   );
-  const optionLookup = buildOptionLookup(catalog.products, catalog.specialOptions);
+  const optionLookup = buildOptionLookup(
+    catalog.products,
+    catalog.specialOptions,
+  );
   const productLookup = new Map(
     catalog.products.map((product) => [product.id, product]),
   );
@@ -702,8 +824,10 @@ export async function PATCH(
     statusNotes: optionalString(body.statusNotes) ?? existingOrder.statusNotes,
     customerLabel:
       optionalString(body.customerLabel) ?? existingOrder.customerLabel,
-    customerName: optionalString(body.customerName) ?? existingOrder.customerName,
-    deliveryDate: optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
+    customerName:
+      optionalString(body.customerName) ?? existingOrder.customerName,
+    deliveryDate:
+      optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
     timeWindow: optionalString(body.timeWindow) ?? existingOrder.timeWindow,
     expressDelivery:
       body.expressDelivery === undefined
@@ -719,14 +843,10 @@ export async function PATCH(
         : optionalString(body.customTimeContactNote),
     pickupAddress:
       optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
-    extraPickupAddress: Array.isArray(body.extraPickupAddress)
-      ? body.extraPickupAddress
-          .filter(
-            (value: unknown): value is string => typeof value === "string",
-          )
-          .map((value: string) => value.trim())
-          .filter(Boolean)
-      : existingOrder.extraPickupAddress,
+    extraPickupAddress:
+      body.extraPickups !== undefined
+        ? extraPickups.map((pickup) => pickup.address)
+        : existingOrder.extraPickupAddress,
     deliveryAddress:
       optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
     returnAddress:
@@ -747,7 +867,8 @@ export async function PATCH(
     subcontractor:
       optionalString(body.subcontractor) ?? existingOrder.subcontractor,
     driver: optionalString(body.driver) ?? existingOrder.driver,
-    secondDriver: optionalString(body.secondDriver) ?? existingOrder.secondDriver,
+    secondDriver:
+      optionalString(body.secondDriver) ?? existingOrder.secondDriver,
     driverInfo: optionalString(body.driverInfo) ?? existingOrder.driverInfo,
     licensePlate:
       optionalString(body.licensePlate) ?? existingOrder.licensePlate,
@@ -760,7 +881,8 @@ export async function PATCH(
     rabatt: optionalString(body.rabatt) ?? existingOrder.rabatt,
     leggTil: optionalString(body.leggTil) ?? existingOrder.leggTil,
     subcontractorMinus:
-      optionalString(body.subcontractorMinus) ?? existingOrder.subcontractorMinus,
+      optionalString(body.subcontractorMinus) ??
+      existingOrder.subcontractorMinus,
     subcontractorPlus:
       optionalString(body.subcontractorPlus) ?? existingOrder.subcontractorPlus,
     gsmLastTaskState: existingOrder.gsmLastTaskState,
@@ -785,14 +907,8 @@ export async function PATCH(
         customTimeContactNote: optionalString(body.customTimeContactNote),
 
         pickupAddress: optionalString(body.pickupAddress),
-        extraPickupAddress: Array.isArray(body.extraPickupAddress)
-          ? body.extraPickupAddress
-              .filter(
-                (value: unknown): value is string => typeof value === "string",
-              )
-              .map((value: string) => value.trim())
-              .filter(Boolean)
-          : [],
+        extraPickupAddress: extraPickups.map((pickup) => pickup.address),
+        extraPickupContacts: extraPickups as unknown as Prisma.InputJsonValue,
         deliveryAddress: optionalString(body.deliveryAddress),
         drivingDistance: optionalString(body.drivingDistance),
 
@@ -914,52 +1030,70 @@ export async function PATCH(
   }
 
   try {
+    const notificationOrder = {
+      id: orderId,
+      displayId: existingOrder.displayId,
+      orderNumber:
+        optionalString(body.orderNumber) || existingOrder.orderNumber,
+      customerLabel:
+        optionalString(body.customerLabel) || existingOrder.customerLabel,
+      deliveryDate:
+        optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
+      pickupAddress:
+        optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
+      extraPickupAddress: extraPickups.map((pickup) => pickup.address),
+      deliveryAddress:
+        optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
+      returnAddress:
+        optionalString(body.returnAddress) ?? existingOrder.returnAddress,
+      drivingDistance:
+        optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
+      timeWindow: optionalString(body.timeWindow) ?? existingOrder.timeWindow,
+      expressDelivery:
+        body.expressDelivery === undefined
+          ? existingOrder.expressDelivery
+          : optionalBoolean(body.expressDelivery),
+      description:
+        optionalString(body.description) ?? existingOrder.description,
+      customerName:
+        optionalString(body.customerName) ?? existingOrder.customerName,
+      email,
+      phone,
+      floorNo: optionalString(body.floorNo),
+      lift: optionalString(body.lift),
+      cashierName:
+        optionalString(body.cashierName) ?? existingOrder.cashierName,
+      cashierPhone,
+      status: optionalString(body.status) ?? existingOrder.status,
+      createdAt: existingOrder.createdAt,
+      productsSummary: summaries.productsSummary,
+      priceExVat: Math.round(safeNumber(body.priceExVat)),
+    };
+
     await sendOrderNotificationEmail({
       kind: "updated",
-      order: {
-        id: orderId,
-        displayId: existingOrder.displayId,
-        orderNumber:
-          optionalString(body.orderNumber) || existingOrder.orderNumber,
-        customerLabel:
-          optionalString(body.customerLabel) || existingOrder.customerLabel,
-        deliveryDate: optionalString(body.deliveryDate),
-        pickupAddress: optionalString(body.pickupAddress),
-        extraPickupAddress: Array.isArray(body.extraPickupAddress)
-          ? body.extraPickupAddress
-              .filter(
-                (value: unknown): value is string => typeof value === "string",
-              )
-              .map((value: string) => value.trim())
-              .filter(Boolean)
-          : [],
-        deliveryAddress: optionalString(body.deliveryAddress),
-        returnAddress: optionalString(body.returnAddress),
-        drivingDistance: optionalString(body.drivingDistance),
-        timeWindow: optionalString(body.timeWindow),
-        expressDelivery:
-          body.expressDelivery === undefined
-            ? existingOrder.expressDelivery
-            : optionalBoolean(body.expressDelivery),
-        description: optionalString(body.description),
-        customerName: optionalString(body.customerName),
-        email,
-        phone,
-        floorNo: optionalString(body.floorNo),
-        lift: optionalString(body.lift),
-        cashierName: optionalString(body.cashierName),
-        cashierPhone,
-        status: optionalString(body.status),
-        createdAt: existingOrder.createdAt,
-        productsSummary: summaries.productsSummary,
-        priceExVat: Math.round(safeNumber(body.priceExVat)),
-      },
+      order: notificationOrder,
       items: builtItems,
     });
+
+    for (const pickup of extraPickups) {
+      if (!pickup.sendEmail) continue;
+
+      const pickupEmail = normalizeOptionalEmail(pickup.email);
+      if (!pickupEmail) continue;
+
+      await sendExtraPickupNotificationEmail({
+        order: notificationOrder,
+        extraPickup: {
+          address: pickup.address,
+          phone: normalizeOptionalPhone(pickup.phone) ?? "",
+          email: pickupEmail,
+        },
+      });
+    }
   } catch (error) {
     console.error("Failed to send order update notification email", error);
   }
-
   return NextResponse.json({
     ok: true,
     orderId,

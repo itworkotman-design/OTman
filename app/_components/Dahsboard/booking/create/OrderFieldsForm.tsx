@@ -34,6 +34,7 @@ type Props = {
   hideDontSendEmail: boolean;
   isInstallationOnly: boolean;
   isReturnOnly: boolean;
+  shouldLockPickupAddress: boolean;
   hideSubmitButton: boolean;
   subcontractorLoading: boolean;
   subcontractorOptions: UserOption[];
@@ -70,9 +71,23 @@ type Props = {
   setDrivingDistance: React.Dispatch<React.SetStateAction<string>>;
   pickupAddress: string;
   setPickupAddress: React.Dispatch<React.SetStateAction<string>>;
-  extraPickups: { id: string; value: string }[];
+  extraPickups: {
+    id: string;
+    address: string;
+    phone: string;
+    email: string;
+    sendEmail: boolean;
+  }[];
   setExtraPickups: React.Dispatch<
-    React.SetStateAction<{ id: string; value: string }[]>
+    React.SetStateAction<
+      {
+        id: string;
+        address: string;
+        phone: string;
+        email: string;
+        sendEmail: boolean;
+      }[]
+    >
   >;
   returnAddress: string;
   setReturnAddress: React.Dispatch<React.SetStateAction<string>>;
@@ -144,6 +159,8 @@ export default function OrderFieldsForm({
   hidden,
   hideDontSendEmail,
   isReturnOnly,
+  isInstallationOnly,
+  shouldLockPickupAddress,
   hideSubmitButton,
   subcontractorLoading,
   subcontractorOptions,
@@ -390,8 +407,10 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.PickupLocations) && (
         <PickupLocations
-          disabled={isReturnOnly}
-          overrideValue={isReturnOnly ? "Product already at client" : undefined}
+          disabled={shouldLockPickupAddress}
+          overrideValue={
+            shouldLockPickupAddress ? "No shop pickup address" : undefined
+          }
           mainAddress={pickupAddress}
           onMainAddressChange={setPickupAddress}
           pickups={extraPickups}

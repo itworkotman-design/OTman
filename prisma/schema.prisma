@@ -509,6 +509,7 @@ model Order {
 
   pickupAddress      String?
   extraPickupAddress String[]
+  extraPickupContacts Json?
   deliveryAddress    String?
   returnAddress      String?
   drivingDistance    String?
