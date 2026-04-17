@@ -86,6 +86,7 @@ describe("routes in /api/orders/pending-attachments", () => {
     mocks.writeFileMock.mockResolvedValue(undefined);
     mocks.createMock.mockResolvedValue({
       id: "att-1",
+      category: "RECEIPT",
       filename: "test.pdf",
       mimeType: "application/pdf",
       sizeBytes: 4,
@@ -94,6 +95,7 @@ describe("routes in /api/orders/pending-attachments", () => {
     });
 
     const formData = new FormData();
+    formData.append("category", "RECEIPT");
     formData.append(
       "file",
       new File([new Uint8Array([1, 2, 3, 4])], "test.pdf", {
@@ -109,10 +111,16 @@ describe("routes in /api/orders/pending-attachments", () => {
     const res = await POST(req);
 
     expect(res.status).toBe(200);
+    expect(mocks.createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        category: "RECEIPT",
+      }),
+    });
     await expect(res.json()).resolves.toMatchObject({
       ok: true,
       attachment: {
         id: "att-1",
+        category: "RECEIPT",
         filename: "test.pdf",
         mimeType: "application/pdf",
       },

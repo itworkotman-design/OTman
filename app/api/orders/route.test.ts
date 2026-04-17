@@ -411,4 +411,52 @@ describe("routes in /api/orders", () => {
       }),
     );
   });
+
+  it("POST preserves pending attachment categories when creating order attachments", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.pendingFindManyMock.mockResolvedValue([
+      {
+        id: "pending-1",
+        category: "RECEIPT",
+        filename: "receipt.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 42,
+        storagePath: "/uploads/pending-orders/user-1/receipt.pdf",
+      },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderAttachmentCreateMock).toHaveBeenCalledWith({
+      data: {
+        orderId: "order-1",
+        category: "RECEIPT",
+        filename: "receipt.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 42,
+        storagePath: "/uploads/pending-orders/user-1/receipt.pdf",
+      },
+    });
+  });
 });

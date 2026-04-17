@@ -34,6 +34,7 @@ export async function GET(req: Request) {
     ok: true,
     attachments: attachments.map((item) => ({
       id: item.id,
+      category: item.category,
       filename: item.filename,
       mimeType: item.mimeType ?? "",
       sizeBytes: item.sizeBytes ?? 0,

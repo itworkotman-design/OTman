@@ -10,6 +10,10 @@ import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/Pick
 import { UserOption } from "@/lib/users/types";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import OrderAttachmentsSection from "@/app/_components/Dahsboard/booking/create/OrderAttachmentsSection";
+import {
+  type AttachmentCategory,
+  type AttachmentItem,
+} from "@/lib/orders/attachmentCategories";
 
 function FormSectionSpacer() {
   return (
@@ -114,16 +118,13 @@ type Props = {
   setStatus: React.Dispatch<React.SetStateAction<string>>;
   dontSendEmail: boolean;
   setDontSendEmail: React.Dispatch<React.SetStateAction<boolean>>;
-  attachments: {
-    id: string;
-    filename: string;
-    mimeType: string;
-    sizeBytes: number;
-    url: string;
-  }[];
+  attachments: AttachmentItem[];
   attachmentsUploading: boolean;
   attachmentsError: string;
-  onUploadAttachment: (file: File) => void | Promise<void>;
+  onUploadAttachment: (
+    file: File,
+    category: AttachmentCategory,
+  ) => void | Promise<void>;
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
 };
 

@@ -44,6 +44,7 @@ describe("GET /api/orders/attachments", () => {
     mocks.findManyMock.mockResolvedValue([
       {
         id: "att-1",
+        category: "RECEIPT",
         filename: "invoice.png",
         mimeType: "image/png",
         sizeBytes: 1024,
@@ -60,6 +61,7 @@ describe("GET /api/orders/attachments", () => {
       attachments: [
         {
           id: "att-1",
+          category: "RECEIPT",
           filename: "invoice.png",
           mimeType: "image/png",
           sizeBytes: 1024,

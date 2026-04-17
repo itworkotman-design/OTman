@@ -116,6 +116,7 @@ describe("routes in /api/orders/[orderId]/attachments", () => {
     mocks.writeFileMock.mockResolvedValue(undefined);
     mocks.attachmentCreateMock.mockResolvedValue({
       id: "att-1",
+      category: "RECEIPT",
       filename: "manual.pdf",
       mimeType: "application/pdf",
       sizeBytes: 4,
@@ -124,6 +125,7 @@ describe("routes in /api/orders/[orderId]/attachments", () => {
     });
 
     const formData = new FormData();
+    formData.append("category", "RECEIPT");
     formData.append(
       "file",
       new File([new Uint8Array([1, 2, 3, 4])], "manual.pdf", {
@@ -141,10 +143,16 @@ describe("routes in /api/orders/[orderId]/attachments", () => {
     });
 
     expect(res.status).toBe(200);
+    expect(mocks.attachmentCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        category: "RECEIPT",
+      }),
+    });
     await expect(res.json()).resolves.toMatchObject({
       ok: true,
       attachment: {
         id: "att-1",
+        category: "RECEIPT",
         filename: "manual.pdf",
         mimeType: "application/pdf",
       },

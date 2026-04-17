@@ -292,6 +292,11 @@ enum OrderEmailStatus {
   RECEIVED
 }
 
+enum AttachmentCategory {
+  ATTACHMENT
+  RECEIPT
+}
+
 model Category {
   id        String  @id @default(cuid())
   name      String  @unique
@@ -720,6 +725,7 @@ model GsmWebhookEvent {
 model OrderAttachment {
   id          String   @id @default(cuid())
   orderId     String
+  category    AttachmentCategory @default(ATTACHMENT)
   filename    String
   mimeType    String?
   sizeBytes   Int?
@@ -739,6 +745,7 @@ model OrderAttachment {
 model PendingOrderAttachment {
   id          String   @id @default(cuid())
   sessionId   String
+  category    AttachmentCategory @default(ATTACHMENT)
   filename    String
   mimeType    String?
   sizeBytes   Int?

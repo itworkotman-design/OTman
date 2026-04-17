@@ -37,6 +37,10 @@ import {
   normalizePriceListSettings,
   type PriceListSettings,
 } from "@/lib/products/priceListSettings";
+import {
+  type AttachmentCategory,
+  type AttachmentItem,
+} from "@/lib/orders/attachmentCategories";
 
 export type OrderFormPayload = {
   productCards: SavedProductCard[];
@@ -262,15 +266,7 @@ export default function BookingEditor({
   const role = currentUser?.role ?? "USER";
   const permissions = (currentUser?.permissions ?? []) as AppPermission[];
   //Attachments
-  const [attachments, setAttachments] = useState<
-    {
-      id: string;
-      filename: string;
-      mimeType: string;
-      sizeBytes: number;
-      url: string;
-    }[]
-  >([]);
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [attachmentsUploading, setAttachmentsUploading] = useState(false);
   const [attachmentsError, setAttachmentsError] = useState("");
   const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>(
@@ -644,7 +640,10 @@ export default function BookingEditor({
   // Attachments
   const existingOrderId = initialValues?.id ?? null;
 
-  async function handleUploadAttachment(file: File) {
+  async function handleUploadAttachment(
+    file: File,
+    category: AttachmentCategory,
+  ) {
     if (attachments.length >= 10) {
       setAttachmentsError("Max 10 attachments allowed");
       return;
@@ -654,6 +653,7 @@ export default function BookingEditor({
       setAttachmentsError("");
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("category", category);
 
       const url = existingOrderId
         ? `/api/orders/${existingOrderId}/attachments`

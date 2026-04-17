@@ -334,6 +334,7 @@ export async function POST(req: Request) {
     await prisma.orderAttachment.create({
       data: {
         orderId: order.id,
+        category: a.category,
         filename: a.filename,
         mimeType: a.mimeType,
         sizeBytes: a.sizeBytes,

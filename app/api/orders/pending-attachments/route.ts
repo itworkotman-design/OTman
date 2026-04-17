@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { unlink } from "fs/promises";
+import { normalizeAttachmentCategory } from "@/lib/orders/attachmentCategories";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -37,6 +38,7 @@ export async function GET(req: Request) {
     ok: true,
     attachments: attachments.map((item) => ({
       id: item.id,
+      category: item.category,
       filename: item.filename,
       mimeType: item.mimeType ?? "",
       sizeBytes: item.sizeBytes ?? 0,
@@ -59,6 +61,7 @@ export async function POST(req: Request) {
 
   const formData = await req.formData();
   const file = formData.get("file");
+  const category = normalizeAttachmentCategory(formData.get("category"));
 
   if (!(file instanceof File)) {
     return NextResponse.json(
@@ -122,6 +125,7 @@ export async function POST(req: Request) {
   const attachment = await prisma.pendingOrderAttachment.create({
     data: {
       sessionId: session.userId,
+      category,
       filename: originalName,
       mimeType: file.type || null,
       sizeBytes: file.size,
@@ -133,6 +137,7 @@ export async function POST(req: Request) {
     ok: true,
     attachment: {
       id: attachment.id,
+      category: attachment.category,
       filename: attachment.filename,
       mimeType: attachment.mimeType ?? "",
       sizeBytes: attachment.sizeBytes ?? 0,
