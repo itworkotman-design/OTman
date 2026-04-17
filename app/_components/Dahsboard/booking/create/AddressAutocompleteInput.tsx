@@ -5,6 +5,9 @@ import React, { useEffect, useRef, useState } from "react";
 type AddressSuggestion = {
   id: string;
   label: string;
+  name: string;
+  subtitle: string;
+  featureType: string;
 };
 
 type Props = {
@@ -20,18 +23,46 @@ export default function AddressAutocompleteInput({
   placeholder = "Enter a location",
   disabled = false,
 }: Props) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<AddressSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const sessionTokenRef = useRef("");
   const [hasInteracted, setHasInteracted] = useState(false);
 
-useEffect(() => {
-  setQuery(value);
-  setOpen(false);
-  setHasInteracted(false);
-}, [value]);
+  useEffect(() => {
+    if (value === query) {
+      return;
+    }
+
+    setQuery(value);
+    setOpen(false);
+
+    if (!value.trim()) {
+      setHasInteracted(false);
+      sessionTokenRef.current = "";
+    }
+  }, [value, query]);
+
+  const getSessionToken = () => {
+    if (!sessionTokenRef.current) {
+      sessionTokenRef.current = crypto.randomUUID();
+    }
+
+    return sessionTokenRef.current;
+  };
+
+  const selectSuggestion = (suggestion: AddressSuggestion) => {
+    onChange(suggestion.label);
+    setQuery(suggestion.label);
+    setResults([]);
+    setOpen(false);
+    setHasInteracted(false);
+    sessionTokenRef.current = "";
+    inputRef.current?.blur();
+  };
 
   useEffect(() => {
     if (disabled) {
@@ -42,11 +73,11 @@ useEffect(() => {
 
     const trimmed = query.trim();
 
-   if (!hasInteracted || trimmed.length < 3) {
-     setResults([]);
-     setOpen(false);
-     return;
-   }
+    if (!hasInteracted || trimmed.length < 3) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
 
     const controller = new AbortController();
 
@@ -55,7 +86,7 @@ useEffect(() => {
         setLoading(true);
 
         const res = await fetch(
-          `/api/address-search?q=${encodeURIComponent(trimmed)}`,
+          `/api/address-search?q=${encodeURIComponent(trimmed)}&sessionToken=${encodeURIComponent(getSessionToken())}`,
           {
             method: "GET",
             credentials: "include",
@@ -85,7 +116,7 @@ useEffect(() => {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [query, disabled]);
+  }, [query, disabled, hasInteracted]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -102,12 +133,19 @@ useEffect(() => {
   return (
     <div className="relative w-full" ref={boxRef}>
       <input
+        ref={inputRef}
         value={query}
         onChange={(e) => {
           const next = e.target.value;
           setHasInteracted(true);
           setQuery(next);
           onChange(next);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && open && results.length > 0) {
+            event.preventDefault();
+            selectSuggestion(results[0]);
+          }
         }}
         onFocus={() => {
           if (query.trim().length >= 3) {
@@ -140,13 +178,23 @@ useEffect(() => {
                 key={item.id}
                 type="button"
                 className="block w-full px-3 py-2 text-left hover:bg-black/5"
-                onClick={() => {
-                  onChange(item.label);
-                  setQuery(item.label);
-                  setOpen(false);
-                }}
+                onClick={() => selectSuggestion(item)}
               >
-                {item.label}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-black">
+                      {item.name}
+                    </div>
+                    {item.subtitle ? (
+                      <div className="truncate text-sm text-textColorSecond">
+                        {item.subtitle}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0 text-xs uppercase tracking-[0.12em] text-textColorSecond">
+                    {item.featureType === "poi" ? "Business" : "Address"}
+                  </div>
+                </div>
               </button>
             ))}
         </div>
