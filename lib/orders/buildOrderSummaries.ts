@@ -23,6 +23,23 @@ function getCardCount(card: SavedProductCard, product?: CatalogProduct | null) {
     : 1;
 }
 
+function incrementLabelCount(
+  counts: Map<string, number>,
+  label: string | null | undefined,
+  amount = 1,
+) {
+  const trimmedLabel = label?.trim();
+  if (!trimmedLabel) return;
+
+  counts.set(trimmedLabel, (counts.get(trimmedLabel) ?? 0) + amount);
+}
+
+function formatCountSummary(counts: Map<string, number>) {
+  return Array.from(counts.entries(), ([label, count]) =>
+    count > 1 ? `${label} x${count}` : label,
+  ).join(", ");
+}
+
 function getOptionText(
   option:
     | {
@@ -46,32 +63,30 @@ export function buildOrderSummaries(
   catalogProducts: CatalogProduct[],
   catalogSpecialOptions: CatalogSpecialOption[],
 ): Result {
-  const productNames: string[] = [];
-  const deliveryTypes: string[] = [];
+  const productNames = new Map<string, number>();
+  const deliveryTypes = new Map<string, number>();
   const services: string[] = [];
 
   for (const card of productCards) {
     const product = catalogProducts.find((p) => p.id === card.productId);
     const count = getCardCount(card, product);
 
-    for (let i = 0; i < count; i += 1) {
-      if (product?.label) {
-        productNames.push(product.label);
-      }
+    incrementLabelCount(productNames, product?.label, count);
 
-      if (product?.allowDeliveryTypes && card.deliveryType) {
-        deliveryTypes.push(
-          getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType),
-        );
-      }
+    if (product?.allowDeliveryTypes && card.deliveryType) {
+      incrementLabelCount(
+        deliveryTypes,
+        getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType),
+        count,
+      );
     }
 
     if (product?.allowInstallOptions) {
       for (const optionId of card.selectedInstallOptionIds) {
-      const option = product?.options.find((o) => o.id === optionId);
-      const text = getOptionText(option);
-      if (text) services.push(text);
-    }
+        const option = product?.options.find((o) => o.id === optionId);
+        const text = getOptionText(option);
+        if (text) services.push(text);
+      }
     }
 
     if (product?.allowExtraServices && card.selectedInstallOptionIds.length === 0) {
@@ -125,8 +140,8 @@ export function buildOrderSummaries(
   }
 
   return {
-    productsSummary: productNames.join(", "),
-    deliveryTypeSummary: deliveryTypes.join(", "),
+    productsSummary: formatCountSummary(productNames),
+    deliveryTypeSummary: formatCountSummary(deliveryTypes),
     servicesSummary: services.join(", "),
   };
 }

@@ -32,7 +32,7 @@ type CalendarDay = {
   inCurrentMonth: boolean;
 };
 
-const WEEKDAY_LABELS = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function parseIsoDate(value: string): Date | null {
   if (!value) return null;
@@ -100,7 +100,7 @@ function formatDisplayDate(value: string): string {
   const date = parseIsoDate(value);
   if (!date) return value;
 
-  return date.toLocaleDateString("no-NO", {
+  return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -113,14 +113,14 @@ function formatRangeLabel(fromDate: string, toDate: string): string {
   }
 
   if (fromDate) {
-    return `${formatDisplayDate(fromDate)} - Velg sluttdato`;
+    return `${formatDisplayDate(fromDate)} - Select end date`;
   }
 
-  return "Velg datointervall";
+  return "Select date range";
 }
 
 function getMonthLabel(month: Date): string {
-  return month.toLocaleDateString("no-NO", {
+  return month.toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
   });
@@ -286,13 +286,13 @@ export default function BookingFilters({
           </Field>
 
           {access.canFilterCustomer && (
-            <Field label="Kunde">
+            <Field label="Customer">
               <select
                 value={customerMembershipId}
                 onChange={(e) => setCustomerMembershipId(e.target.value)}
                 className="customInput w-full"
               >
-                <option value="">Alle kunder</option>
+                <option value="">All customers</option>
                 {creators.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
@@ -321,7 +321,7 @@ export default function BookingFilters({
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-          <Field label="Datoer" className="min-w-0">
+          <Field label="Dates" className="min-w-0">
             <div className="relative">
               <button
                 type="button"
@@ -332,7 +332,7 @@ export default function BookingFilters({
                   {rangeLabel}
                 </span>
                 <span className="text-xs text-neutral-500">
-                  {datePickerOpen ? "Lukk" : "Velg"}
+                  {datePickerOpen ? "Close" : "Select"}
                 </span>
               </button>
 
@@ -346,14 +346,14 @@ export default function BookingFilters({
                       }
                       className="customButtonDefault h-9 px-3!"
                     >
-                      Forrige
+                      Previous
                     </button>
                     <button
                       type="button"
                       onClick={clearDateRange}
                       className="customButtonDefault h-9 px-3!"
                     >
-                      Fjern datoer
+                      Clear dates
                     </button>
                     <button
                       type="button"
@@ -362,7 +362,7 @@ export default function BookingFilters({
                       }
                       className="customButtonDefault h-9 px-3!"
                     >
-                      Neste
+                      Next
                     </button>
                   </div>
 
@@ -433,43 +433,43 @@ export default function BookingFilters({
               onClick={setToday}
               className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
-              I dag
+              Today
             </button>
             <button
               type="button"
               onClick={setTomorrow}
               className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
-              I morgen
+              Tomorrow
             </button>
             <button
               type="button"
               onClick={setThisWeek}
               className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
-              Denne uken
+              This week
             </button>
             <button
               type="button"
               onClick={setThisMonth}
               className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
-              Denne måneden
+              This month
             </button>
           </div>
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Field label="Søk">
+          <Field label="Search">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Søk ID, navn, telefon, ordrenr..."
+              placeholder="Search ID, name, phone, order no..."
               className="customInput w-full"
             />
           </Field>
 
-          <Field label="Antall bestillinger per side">
+          <Field label="Orders per page">
             <div className="space-y-2">
               <input
                 type="number"
@@ -513,14 +513,14 @@ export default function BookingFilters({
               onClick={handleReset}
               className="customButtonDefault h-10"
             >
-              Nullstill
+              Reset
             </button>
             <button
               type="button"
               onClick={handleApply}
               className="customButtonEnabled h-10"
             >
-              Filter
+              Apply filters
             </button>
           </div>
         </div>
