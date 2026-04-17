@@ -32,6 +32,7 @@ export const OrderFields = {
   ChangeCustomer: 1 << 28,
   Status: 1 << 29,
   Attachment: 1 << 30,
+  ExpressDelivery: 1 << 31,
 } as const;
 
 export type HiddenMask = number;

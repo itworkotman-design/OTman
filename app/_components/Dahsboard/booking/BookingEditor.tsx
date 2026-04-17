@@ -960,6 +960,24 @@ export default function BookingEditor({
     }
   };
 
+  //for controling express delivery checkbox, if delivery is in less than 2 days, turns on
+  useEffect(() => {
+    if (!deliveryDate) {
+      setExpressDelivery(false);
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const delivery = new Date(deliveryDate);
+    delivery.setHours(0, 0, 0, 0);
+
+    const diffDays =
+      (delivery.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+
+    setExpressDelivery(diffDays <= 1);
+  }, [deliveryDate]);
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">

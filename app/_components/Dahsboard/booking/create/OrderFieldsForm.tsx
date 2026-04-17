@@ -371,16 +371,17 @@ export default function OrderFieldsForm({
               )}
             </>
           )}
-
-          <label className="mt-3 flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={expressDelivery}
-              onChange={(e) => setExpressDelivery(e.target.checked)}
-              className="background h-4 w-4"
-            />
-            <span className="text-sm font-medium">Express delivery</span>
-          </label>
+          {shown(hidden, OrderFields.ExpressDelivery) && (
+            <label className="mt-3 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={expressDelivery}
+                onChange={(e) => setExpressDelivery(e.target.checked)}
+                className="background h-4 w-4"
+              />
+              <span className="text-sm font-medium">Express delivery</span>
+            </label>
+          )}
         </>
       )}
 

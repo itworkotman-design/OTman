@@ -13,7 +13,8 @@ import { OrderFields } from "@/app/_components/Dahsboard/booking/create/orderFie
 const HIDE_FOR_CREATOR =
   OrderFields.FeeExtraWork |
   OrderFields.FeeAddToOrder |
-  OrderFields.ChangeCustomer;
+  OrderFields.ChangeCustomer |
+  OrderFields.ExpressDelivery;
 
 export default function BookingCreatePage() {
   const router = useRouter();
