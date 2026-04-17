@@ -35,6 +35,7 @@ export type ProductCardLineItem =
 
 export type ProductBreakdown = {
   productName: string;
+  productModelNumber?: string | null;
   items: ProductCardLineItem[];
 };
 
@@ -78,6 +79,7 @@ export type CalculatedLine = {
 
 export type CalculatedBreakdown = {
   productName: string;
+  productModelNumber?: string | null;
   lines: CalculatedLine[];
 };
 

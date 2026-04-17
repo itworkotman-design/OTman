@@ -104,6 +104,9 @@ export async function getBookingCatalog(
     allowHoursInput:
       productConfigMap.get(product.id)?.allowHoursInput ??
       product.allowHoursInput,
+    allowModelNumber:
+      productConfigMap.get(product.id)?.allowModelNumber ??
+      product.allowModelNumber,
     autoXtraPerPallet:
       productConfigMap.get(product.id)?.autoXtraPerPallet ??
       product.autoXtraPerPallet,

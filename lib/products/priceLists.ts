@@ -58,6 +58,7 @@ async function findPriceListById(
                   allowQuantity: true,
                   allowPeopleCount: true,
                   allowHoursInput: true,
+                  allowModelNumber: true,
                   autoXtraPerPallet: true,
                 },
               },

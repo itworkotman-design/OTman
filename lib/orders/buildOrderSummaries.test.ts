@@ -23,6 +23,7 @@ function createProduct(overrides: Partial<CatalogProduct>): CatalogProduct {
     allowQuantity: true,
     allowPeopleCount: false,
     allowHoursInput: false,
+    allowModelNumber: true,
     autoXtraPerPallet: false,
     deliveryTypes: [],
     customSections: [],
@@ -35,6 +36,7 @@ function createCard(overrides: Partial<SavedProductCard>): SavedProductCard {
   return {
     cardId: 1,
     productId: "product-1",
+    modelNumber: "",
     deliveryType: "",
     amount: 1,
     peopleCount: 1,

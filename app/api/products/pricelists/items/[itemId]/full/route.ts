@@ -32,6 +32,7 @@ type Body = {
   allowQuantity?: boolean;
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
+  allowModelNumber?: boolean;
   autoXtraPerPallet?: boolean;
   deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
@@ -84,12 +85,14 @@ function toDateInputValue(value: Date | null) {
   return value.toISOString().slice(0, 10);
 }
 
-function isMissingDeliveryTypesColumnError(error: unknown) {
+function isMissingProductConfigColumnError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
 
   return (
     message.includes(`column "deliveryTypes" does not exist`) ||
-    message.includes(`column "deliverytypes" does not exist`)
+    message.includes(`column "deliverytypes" does not exist`) ||
+    message.includes(`column "allowModelNumber" does not exist`) ||
+    message.includes(`column "allowmodelnumber" does not exist`)
   );
 }
 
@@ -127,12 +130,13 @@ async function findPriceListItemById(
               allowReturnOptions: true,
               allowExtraServices: true,
               allowDemont: true,
-              allowQuantity: true,
-              allowPeopleCount: true,
-              allowHoursInput: true,
-              autoXtraPerPallet: true,
+                allowQuantity: true,
+                allowPeopleCount: true,
+                allowHoursInput: true,
+                allowModelNumber: true,
+                autoXtraPerPallet: true,
+              },
             },
-          },
         },
       },
     },
@@ -299,6 +303,7 @@ export async function PATCH(
     allowQuantity?: boolean;
     allowPeopleCount?: boolean;
     allowHoursInput?: boolean;
+    allowModelNumber?: boolean;
     autoXtraPerPallet?: boolean;
     deliveryTypes?: ProductDeliveryType[];
     customSections?: ProductCustomSection[];
@@ -365,6 +370,10 @@ export async function PATCH(
     productData.allowHoursInput = body.allowHoursInput;
   }
 
+  if (typeof body.allowModelNumber === "boolean") {
+    productData.allowModelNumber = body.allowModelNumber;
+  }
+
   if (typeof body.autoXtraPerPallet === "boolean") {
     productData.autoXtraPerPallet = body.autoXtraPerPallet;
   }
@@ -408,6 +417,7 @@ export async function PATCH(
             "allowDemont" = COALESCE(${productData.allowDemont ?? null}, "allowDemont"),
             "allowPeopleCount" = COALESCE(${productData.allowPeopleCount ?? null}, "allowPeopleCount"),
             "allowHoursInput" = COALESCE(${productData.allowHoursInput ?? null}, "allowHoursInput"),
+            "allowModelNumber" = COALESCE(${productData.allowModelNumber ?? null}, "allowModelNumber"),
             "autoXtraPerPallet" = COALESCE(${productData.autoXtraPerPallet ?? null}, "autoXtraPerPallet"),
             "deliveryTypes" = COALESCE(${deliveryTypesJson}::jsonb, "deliveryTypes"),
             "customSections" = COALESCE(${customSectionsJson}::jsonb, "customSections")
@@ -432,13 +442,13 @@ export async function PATCH(
       return findPriceListItemById(tx, itemId);
     });
   } catch (error) {
-    if (isMissingDeliveryTypesColumnError(error)) {
+    if (isMissingProductConfigColumnError(error)) {
       return NextResponse.json(
         {
           ok: false,
-          reason: "DELIVERY_TYPES_MIGRATION_REQUIRED",
+          reason: "PRODUCT_CONFIG_MIGRATION_REQUIRED",
           message:
-            'The "deliveryTypes" database column is missing. Run the latest Prisma migration first.',
+            "The latest product configuration database columns are missing. Run the latest Prisma migration first.",
         },
         { status: 409 },
       );
@@ -514,6 +524,11 @@ export async function PATCH(
       updatedProduct.allowHoursInput ??
       productData.allowHoursInput ??
       existing.productOption.product.allowHoursInput,
+    allowModelNumber:
+      rawProductConfig?.allowModelNumber ??
+      updatedProduct.allowModelNumber ??
+      productData.allowModelNumber ??
+      existing.productOption.product.allowModelNumber,
     autoXtraPerPallet:
       rawProductConfig?.autoXtraPerPallet ??
       updatedProduct.autoXtraPerPallet ??
@@ -561,6 +576,7 @@ export async function PATCH(
         allowDemont: productSnapshot.allowDemont,
         allowPeopleCount: productSnapshot.allowPeopleCount,
         allowHoursInput: productSnapshot.allowHoursInput,
+        allowModelNumber: productSnapshot.allowModelNumber,
         autoXtraPerPallet: productSnapshot.autoXtraPerPallet,
         deliveryTypes: productSnapshot.deliveryTypes,
         customSections: productSnapshot.customSections,

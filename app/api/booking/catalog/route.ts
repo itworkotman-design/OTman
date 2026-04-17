@@ -130,6 +130,7 @@ export async function GET(req: Request) {
       allowQuantity: boolean;
       allowPeopleCount: boolean;
       allowHoursInput: boolean;
+      allowModelNumber: boolean;
       autoXtraPerPallet: boolean;
       deliveryTypes: ProductDeliveryType[];
       customSections: ProductCustomSection[];
@@ -174,6 +175,8 @@ export async function GET(req: Request) {
           productConfig?.allowPeopleCount ?? product.allowPeopleCount,
         allowHoursInput:
           productConfig?.allowHoursInput ?? product.allowHoursInput,
+        allowModelNumber:
+          productConfig?.allowModelNumber ?? product.allowModelNumber,
         autoXtraPerPallet:
           productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
         deliveryTypes: productConfig?.deliveryTypes ?? [],

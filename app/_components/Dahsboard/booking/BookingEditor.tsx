@@ -51,6 +51,8 @@ export type OrderFormPayload = {
   deliveryDate: string;
   timeWindow: string;
   expressDelivery: boolean;
+  contactCustomerForCustomTimeWindow: boolean;
+  customTimeContactNote: string;
 
   pickupAddress: string;
   extraPickupAddress: string[];
@@ -108,6 +110,8 @@ type Props = {
   };
 };
 
+const PRESET_TIME_WINDOWS = ["10:00-16:00", "16:00-21:00"] as const;
+
 function parseDistanceKm(value: string) {
   const normalized = value.trim().replace(",", ".");
   const match = normalized.match(/-?\d+(?:\.\d+)?/);
@@ -118,6 +122,48 @@ function parseDistanceKm(value: string) {
 
   const parsed = Number(match[0]);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function parseTimeWindowState(value: string | undefined) {
+  const normalized = value?.trim() ?? "";
+
+  if (!normalized) {
+    return {
+      selectedTimeWindow: "",
+      customTimeFrom: "",
+      customTimeTo: "",
+    };
+  }
+
+  if (
+    PRESET_TIME_WINDOWS.includes(
+      normalized as (typeof PRESET_TIME_WINDOWS)[number],
+    )
+  ) {
+    return {
+      selectedTimeWindow: normalized,
+      customTimeFrom: "",
+      customTimeTo: "",
+    };
+  }
+
+  const [from = "", to = ""] = normalized.split("-");
+  const isCustomTimeRange =
+    /^\d{2}:\d{2}$/.test(from) && /^\d{2}:\d{2}$/.test(to);
+
+  if (!isCustomTimeRange) {
+    return {
+      selectedTimeWindow: normalized,
+      customTimeFrom: "",
+      customTimeTo: "",
+    };
+  }
+
+  return {
+    selectedTimeWindow: "custom",
+    customTimeFrom: from,
+    customTimeTo: to,
+  };
 }
 
 export default function BookingEditor({
@@ -164,10 +210,13 @@ export default function BookingEditor({
     initialValues?.description ?? "",
   );
   const [modelNr, setModelNr] = useState(initialValues?.modelNr ?? "");
+  const initialTimeWindowState = parseTimeWindowState(initialValues?.timeWindow);
   const [deliveryDate, setDeliveryDate] = useState(
     initialValues?.deliveryDate ?? "",
   );
-  const [timeWindow, setTimeWindow] = useState(initialValues?.timeWindow ?? "");
+  const [timeWindow, setTimeWindow] = useState(
+    initialTimeWindowState.selectedTimeWindow,
+  );
   const [expressDelivery, setExpressDelivery] = useState(
     initialValues?.expressDelivery ?? false,
   );
@@ -228,6 +277,11 @@ export default function BookingEditor({
   const [dontSendEmail, setDontSendEmail] = useState(
     initialValues?.dontSendEmail ?? false,
   );
+  const [contactCustomerForCustomTimeWindow, setContactCustomerForCustomTimeWindow] =
+    useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
+  const [customTimeContactNote, setCustomTimeContactNote] = useState(
+    initialValues?.customTimeContactNote ?? "",
+  );
   const [pickupAddress, setPickupAddress] = useState(
     initialValues?.pickupAddress ?? "",
   );
@@ -241,15 +295,11 @@ export default function BookingEditor({
     initialValues?.returnAddress ?? "",
   );
   const [customTimeFrom, setCustomTimeFrom] = useState(
-    initialValues?.timeWindow?.includes("-")
-      ? (initialValues.timeWindow.split("-")[0] ?? "")
-      : "",
+    initialTimeWindowState.customTimeFrom,
   );
 
   const [customTimeTo, setCustomTimeTo] = useState(
-    initialValues?.timeWindow?.includes("-")
-      ? (initialValues.timeWindow.split("-")[1] ?? "")
-      : "",
+    initialTimeWindowState.customTimeTo,
   );
 
   const [subcontractorOptions, setSubcontractorOptions] = useState<
@@ -323,6 +373,8 @@ export default function BookingEditor({
   useEffect(() => {
     if (!initialValues) return;
 
+    const nextTimeWindowState = parseTimeWindowState(initialValues.timeWindow);
+
     setProductCards(
       initialValues.productCards?.length
         ? initialValues.productCards.map((card, index) =>
@@ -340,7 +392,7 @@ export default function BookingEditor({
     setDescription(initialValues.description ?? "");
     setModelNr(initialValues.modelNr ?? "");
     setDeliveryDate(initialValues.deliveryDate ?? "");
-    setTimeWindow(initialValues.timeWindow ?? "");
+    setTimeWindow(nextTimeWindowState.selectedTimeWindow);
     setExpressDelivery(initialValues.expressDelivery ?? false);
     setDeliveryAddress(initialValues.deliveryAddress ?? "");
     setDrivingDistance(initialValues.drivingDistance ?? "");
@@ -365,6 +417,10 @@ export default function BookingEditor({
     setCustomerMembershipId(initialValues.customerMembershipId ?? "");
     setStatus(initialValues.status ?? "");
     setDontSendEmail(initialValues.dontSendEmail ?? false);
+    setContactCustomerForCustomTimeWindow(
+      initialValues.contactCustomerForCustomTimeWindow ?? false,
+    );
+    setCustomTimeContactNote(initialValues.customTimeContactNote ?? "");
     setPickupAddress(initialValues.pickupAddress ?? "");
     setExtraPickups(
       (initialValues.extraPickupAddress ?? []).map((value, index) => ({
@@ -373,6 +429,8 @@ export default function BookingEditor({
       })),
     );
     setReturnAddress(initialValues.returnAddress ?? "");
+    setCustomTimeFrom(nextTimeWindowState.customTimeFrom);
+    setCustomTimeTo(nextTimeWindowState.customTimeTo);
 
     setPriceExVat(initialValues.priceExVat ?? 0);
     setPriceSubcontractor(initialValues.priceSubcontractor ?? 0);
@@ -617,6 +675,12 @@ export default function BookingEditor({
     }
   }, [hasSelectedReturnOption, returnAddress]);
 
+  useEffect(() => {
+    if (!floorNo.trim() && lift) {
+      setLift("");
+    }
+  }, [floorNo, lift]);
+
   async function handleCreateOrder(payload: OrderFormPayload) {
     setSubmitError("");
 
@@ -787,6 +851,14 @@ export default function BookingEditor({
     const normalizedPhone = normalizeOptionalPhone(phone) ?? "";
     const normalizedPhoneTwo = normalizeOptionalPhone(phoneTwo) ?? "";
     const normalizedCashierPhone = normalizeOptionalPhone(cashierPhone) ?? "";
+    const normalizedFloorNo = floorNo.trim();
+    const normalizedLift = normalizedFloorNo ? lift : "";
+    const shouldSuppressEmailForCustomTimeWindow =
+      timeWindow === "custom" && contactCustomerForCustomTimeWindow;
+    const normalizedCustomTimeContactNote =
+      timeWindow === "custom" && contactCustomerForCustomTimeWindow
+        ? customTimeContactNote.trim()
+        : "";
 
     const payload: OrderFormPayload = {
       productCards,
@@ -797,6 +869,9 @@ export default function BookingEditor({
       deliveryDate,
       timeWindow: finalTimeWindow,
       expressDelivery,
+      contactCustomerForCustomTimeWindow:
+        timeWindow === "custom" && contactCustomerForCustomTimeWindow,
+      customTimeContactNote: normalizedCustomTimeContactNote,
       pickupAddress,
       extraPickupAddress: extraPickups
         .map((pickup) => pickup.value.trim())
@@ -811,8 +886,8 @@ export default function BookingEditor({
       email: normalizedEmail,
       customerComments,
 
-      floorNo,
-      lift,
+      floorNo: normalizedFloorNo,
+      lift: normalizedLift,
 
       cashierName,
       cashierPhone: normalizedCashierPhone,
@@ -831,7 +906,7 @@ export default function BookingEditor({
       customerMembershipId,
       customerLabel,
       status,
-      dontSendEmail,
+      dontSendEmail: dontSendEmail || shouldSuppressEmailForCustomTimeWindow,
 
       priceExVat,
       priceSubcontractor,
@@ -956,6 +1031,14 @@ export default function BookingEditor({
             setCustomTimeFrom={setCustomTimeFrom}
             customTimeTo={customTimeTo}
             setCustomTimeTo={setCustomTimeTo}
+            contactCustomerForCustomTimeWindow={
+              contactCustomerForCustomTimeWindow
+            }
+            setContactCustomerForCustomTimeWindow={
+              setContactCustomerForCustomTimeWindow
+            }
+            customTimeContactNote={customTimeContactNote}
+            setCustomTimeContactNote={setCustomTimeContactNote}
             deliveryAddress={deliveryAddress}
             setDeliveryAddress={setDeliveryAddress}
             hasSelectedReturnOption={hasSelectedReturnOption}

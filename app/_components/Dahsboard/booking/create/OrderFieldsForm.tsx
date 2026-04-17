@@ -15,6 +15,12 @@ import {
   type AttachmentItem,
 } from "@/lib/orders/attachmentCategories";
 
+const CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hours = String(Math.floor(index / 2)).padStart(2, "0");
+  const minutes = index % 2 === 0 ? "00" : "30";
+  return `${hours}:${minutes}`;
+});
+
 function FormSectionSpacer() {
   return (
     <div className="py-8">
@@ -52,6 +58,12 @@ type Props = {
   setCustomTimeFrom: React.Dispatch<React.SetStateAction<string>>;
   customTimeTo: string;
   setCustomTimeTo: React.Dispatch<React.SetStateAction<string>>;
+  contactCustomerForCustomTimeWindow: boolean;
+  setContactCustomerForCustomTimeWindow: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
+  customTimeContactNote: string;
+  setCustomTimeContactNote: React.Dispatch<React.SetStateAction<string>>;
   deliveryAddress: string;
   setDeliveryAddress: React.Dispatch<React.SetStateAction<string>>;
   drivingDistance: string;
@@ -156,6 +168,10 @@ export default function OrderFieldsForm({
   setCustomTimeFrom,
   customTimeTo,
   setCustomTimeTo,
+  contactCustomerForCustomTimeWindow,
+  setContactCustomerForCustomTimeWindow,
+  customTimeContactNote,
+  setCustomTimeContactNote,
   deliveryAddress,
   setDeliveryAddress,
   drivingDistance,
@@ -224,6 +240,9 @@ export default function OrderFieldsForm({
   onUploadAttachment,
   onDeleteAttachment,
 }: Props) {
+  const showLiftField =
+    shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
+
   return (
     <div className="customContainer">
       {shown(hidden, OrderFields.OrderNumber) && (
@@ -245,17 +264,6 @@ export default function OrderFieldsForm({
             onChange={(e) => setDescription(e.target.value)}
             rows={5}
             className="customInput w-full resize-y py-3 leading-normal"
-          />
-        </>
-      )}
-
-      {shown(hidden, OrderFields.ModelNr) && (
-        <>
-          <h1 className="font-bold py-2">Model number</h1>
-          <input
-            value={modelNr}
-            onChange={(e) => setModelNr(e.target.value)}
-            className="customInput w-full"
           />
         </>
       )}
@@ -284,6 +292,8 @@ export default function OrderFieldsForm({
               if (value !== "custom") {
                 setCustomTimeFrom("");
                 setCustomTimeTo("");
+                setContactCustomerForCustomTimeWindow(false);
+                setCustomTimeContactNote("");
               }
             }}
             className="customInput w-full"
@@ -295,27 +305,71 @@ export default function OrderFieldsForm({
           </select>
 
           {timeWindow === "custom" && (
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <h2 className="font-bold py-2">From</h2>
-                <input
-                  type="time"
-                  value={customTimeFrom}
-                  onChange={(e) => setCustomTimeFrom(e.target.value)}
-                  className="customInput w-full"
-                />
+            <>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <h2 className="font-bold py-2">From</h2>
+                  <select
+                    value={customTimeFrom}
+                    onChange={(e) => setCustomTimeFrom(e.target.value)}
+                    className="customInput w-full"
+                  >
+                    <option value="">Choose</option>
+                    {CUSTOM_TIME_OPTIONS.map((time) => (
+                      <option key={`from-${time}`} value={time}>
+                        {time}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <h2 className="font-bold py-2">To</h2>
+                  <select
+                    value={customTimeTo}
+                    onChange={(e) => setCustomTimeTo(e.target.value)}
+                    className="customInput w-full"
+                  >
+                    <option value="">Choose</option>
+                    {CUSTOM_TIME_OPTIONS.map((time) => (
+                      <option key={`to-${time}`} value={time}>
+                        {time}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <h2 className="font-bold py-2">To</h2>
+              <label className="mt-3 flex items-center gap-2">
                 <input
-                  type="time"
-                  value={customTimeTo}
-                  onChange={(e) => setCustomTimeTo(e.target.value)}
-                  className="customInput w-full"
+                  type="checkbox"
+                  checked={contactCustomerForCustomTimeWindow}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setContactCustomerForCustomTimeWindow(checked);
+
+                    if (!checked) {
+                      setCustomTimeContactNote("");
+                    }
+                  }}
+                  className="background h-4 w-4"
                 />
-              </div>
-            </div>
+                <span className="text-sm font-medium">Contact customer?</span>
+              </label>
+
+              {contactCustomerForCustomTimeWindow && (
+                <div className="mt-3">
+                  <h2 className="font-bold py-2">Contact note</h2>
+                  <textarea
+                    value={customTimeContactNote}
+                    onChange={(e) => setCustomTimeContactNote(e.target.value)}
+                    rows={3}
+                    className="customInput w-full resize-y py-3 leading-normal"
+                    placeholder="Optional note"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           <label className="mt-3 flex items-center gap-2">
@@ -461,7 +515,7 @@ export default function OrderFieldsForm({
         </>
       )}
 
-      {shown(hidden, OrderFields.Lift) && (
+      {showLiftField && (
         <>
           <h1 className="font-bold py-2">Lift</h1>
           <label className="mr-4 inline-flex items-center gap-2">
@@ -487,8 +541,9 @@ export default function OrderFieldsForm({
         </>
       )}
 
-      {shown(hidden, OrderFields.Lift) &&
-        shown(hidden, OrderFields.CashierName) && <FormSectionSpacer />}
+      {showLiftField && shown(hidden, OrderFields.CashierName) && (
+        <FormSectionSpacer />
+      )}
 
       {shown(hidden, OrderFields.CashierName) && (
         <>

@@ -22,6 +22,7 @@ function buildProduct(overrides?: Partial<CatalogProduct>): CatalogProduct {
     allowQuantity: true,
     allowPeopleCount: false,
     allowHoursInput: false,
+    allowModelNumber: true,
     autoXtraPerPallet: false,
     deliveryTypes: createDefaultProductDeliveryTypes(),
     customSections: [],
@@ -46,6 +47,7 @@ function buildCard(overrides: Partial<SavedProductCard>): SavedProductCard {
   return {
     cardId: 0,
     productId: "product-1",
+    modelNumber: "",
     deliveryType: "",
     amount: 1,
     peopleCount: 1,
@@ -286,6 +288,22 @@ describe("buildProductBreakdowns", () => {
       code: "INDOOR",
       unitPrice: 669,
       label: "Innbæring",
+    });
+  });
+  it("keeps an optional model number on the product breakdown", () => {
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          modelNumber: "WM-42",
+        }),
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(result[0]).toMatchObject({
+      productName: "Seng",
+      productModelNumber: "WM-42",
     });
   });
 });

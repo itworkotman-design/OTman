@@ -71,6 +71,7 @@ export async function POST(
         "allowQuantity" = true,
         "allowPeopleCount" = false,
         "allowHoursInput" = false,
+        "allowModelNumber" = true,
         "autoXtraPerPallet" = false
       WHERE "id" = ${product.id}
     `;
@@ -138,6 +139,7 @@ export async function POST(
         allowDemont: productConfig?.allowDemont ?? true,
         allowPeopleCount: productConfig?.allowPeopleCount ?? false,
         allowHoursInput: productConfig?.allowHoursInput ?? false,
+        allowModelNumber: productConfig?.allowModelNumber ?? true,
         autoXtraPerPallet: productConfig?.autoXtraPerPallet ?? false,
         deliveryTypes: productConfig?.deliveryTypes ?? [],
         customSections: productConfig?.customSections ?? [],

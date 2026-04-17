@@ -351,6 +351,45 @@ describe("routes in /api/orders", () => {
     );
   });
 
+  it("POST stores custom-time contact fields when requested", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          timeWindow: "08:30-10:00",
+          contactCustomerForCustomTimeWindow: true,
+          customTimeContactNote: "Call before confirming arrival window.",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          contactCustomerForCustomTimeWindow: true,
+          customTimeContactNote: "Call before confirming arrival window.",
+        }),
+      }),
+    );
+  });
+
   it("POST sends an internal notification email after a successful create", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

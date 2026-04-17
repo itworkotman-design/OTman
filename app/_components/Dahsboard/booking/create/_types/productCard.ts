@@ -15,6 +15,7 @@ export type ProductCardCustomSectionSelection = {
 export type SavedProductCard = {
   cardId: number;
   productId: string | null;
+  modelNumber: string;
 
   deliveryType: DeliveryType;
   amount: number;
@@ -64,6 +65,7 @@ export type CatalogProduct = {
   allowQuantity: boolean;
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
+  allowModelNumber: boolean;
   autoXtraPerPallet: boolean;
   deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
@@ -86,6 +88,7 @@ export function createEmptyProductCard(cardId: number): SavedProductCard {
   return {
     cardId,
     productId: null,
+    modelNumber: "",
 
     deliveryType: "",
     amount: 1,
@@ -121,6 +124,10 @@ export function normalizeSavedProductCard(
     ...value,
     cardId: value?.cardId ?? fallbackCardId,
     productId: value?.productId ?? null,
+    modelNumber:
+      typeof value?.modelNumber === "string"
+        ? value.modelNumber
+        : base.modelNumber,
     deliveryType: normalizeDeliveryTypeKey(value?.deliveryType),
     amount:
       typeof value?.amount === "number" && Number.isFinite(value.amount)

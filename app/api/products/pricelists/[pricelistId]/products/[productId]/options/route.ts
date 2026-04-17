@@ -106,6 +106,9 @@ export async function POST(
       allowHoursInput:
         productConfig?.allowHoursInput ??
         item.productOption.product.allowHoursInput,
+      allowModelNumber:
+        productConfig?.allowModelNumber ??
+        item.productOption.product.allowModelNumber,
       autoXtraPerPallet:
         productConfig?.autoXtraPerPallet ??
         item.productOption.product.autoXtraPerPallet,

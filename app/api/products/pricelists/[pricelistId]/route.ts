@@ -165,6 +165,8 @@ export async function GET(
               productConfig?.allowPeopleCount ?? product.allowPeopleCount,
             allowHoursInput:
               productConfig?.allowHoursInput ?? product.allowHoursInput,
+            allowModelNumber:
+              productConfig?.allowModelNumber ?? product.allowModelNumber,
             autoXtraPerPallet:
               productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
             deliveryTypes: productConfig?.deliveryTypes ?? [],

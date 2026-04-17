@@ -389,6 +389,7 @@ model Product {
   allowQuantity       Boolean     @default(true)
   allowPeopleCount    Boolean     @default(false)
   allowHoursInput     Boolean     @default(false)
+  allowModelNumber    Boolean     @default(true)
   autoXtraPerPallet   Boolean     @default(false)
   deliveryTypes       Json?
   customSections      Json?
@@ -503,6 +504,8 @@ model Order {
   deliveryDate String?
   timeWindow   String?
   expressDelivery Boolean @default(false)
+  contactCustomerForCustomTimeWindow Boolean @default(false)
+  customTimeContactNote String?
 
   pickupAddress      String?
   extraPickupAddress String[]

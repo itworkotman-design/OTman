@@ -105,6 +105,10 @@ function getProductCardValues(
   const values: ProductChangeValue[] = [
     { label: "Product", value: productLabel },
     {
+      label: "Model number",
+      value: card.modelNumber.trim() || "-",
+    },
+    {
       label: "Delivery type",
       value:
         product?.allowDeliveryTypes && card.deliveryType
@@ -344,6 +348,8 @@ export async function GET(
       deliveryDate: true,
       timeWindow: true,
       expressDelivery: true,
+      contactCustomerForCustomTimeWindow: true,
+      customTimeContactNote: true,
       pickupAddress: true,
       extraPickupAddress: true,
       deliveryAddress: true,
@@ -428,6 +434,9 @@ export async function GET(
       deliveryDate: order.deliveryDate ?? "",
       timeWindow: order.timeWindow ?? "",
       expressDelivery: order.expressDelivery,
+      contactCustomerForCustomTimeWindow:
+        order.contactCustomerForCustomTimeWindow,
+      customTimeContactNote: order.customTimeContactNote ?? "",
       pickupAddress: order.pickupAddress ?? "",
       extraPickupAddress: order.extraPickupAddress ?? [],
       deliveryAddress: order.deliveryAddress ?? "",
@@ -570,6 +579,8 @@ export async function PATCH(
       deliveryDate: true,
       timeWindow: true,
       expressDelivery: true,
+      contactCustomerForCustomTimeWindow: true,
+      customTimeContactNote: true,
       pickupAddress: true,
       extraPickupAddress: true,
       deliveryAddress: true,
@@ -698,6 +709,14 @@ export async function PATCH(
       body.expressDelivery === undefined
         ? existingOrder.expressDelivery
         : optionalBoolean(body.expressDelivery),
+    contactCustomerForCustomTimeWindow:
+      body.contactCustomerForCustomTimeWindow === undefined
+        ? existingOrder.contactCustomerForCustomTimeWindow
+        : optionalBoolean(body.contactCustomerForCustomTimeWindow),
+    customTimeContactNote:
+      body.customTimeContactNote === undefined
+        ? existingOrder.customTimeContactNote
+        : optionalString(body.customTimeContactNote),
     pickupAddress:
       optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
     extraPickupAddress: Array.isArray(body.extraPickupAddress)
@@ -760,6 +779,10 @@ export async function PATCH(
         deliveryDate: optionalString(body.deliveryDate),
         timeWindow: optionalString(body.timeWindow),
         expressDelivery: optionalBoolean(body.expressDelivery),
+        contactCustomerForCustomTimeWindow: optionalBoolean(
+          body.contactCustomerForCustomTimeWindow,
+        ),
+        customTimeContactNote: optionalString(body.customTimeContactNote),
 
         pickupAddress: optionalString(body.pickupAddress),
         extraPickupAddress: Array.isArray(body.extraPickupAddress)

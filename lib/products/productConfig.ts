@@ -21,17 +21,20 @@ export type ProductConfig = {
   allowQuantity: boolean;
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
+  allowModelNumber: boolean;
   autoXtraPerPallet: boolean;
   deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
 };
 
-function isMissingDeliveryTypesColumnError(error: unknown) {
+function isMissingProductConfigColumnError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
 
   return (
     message.includes(`column "deliveryTypes" does not exist`) ||
-    message.includes(`column "deliverytypes" does not exist`)
+    message.includes(`column "deliverytypes" does not exist`) ||
+    message.includes(`column "allowModelNumber" does not exist`) ||
+    message.includes(`column "allowmodelnumber" does not exist`)
   );
 }
 
@@ -69,6 +72,7 @@ export async function getProductConfigMap(productIds: string[]) {
         "allowQuantity",
         "allowPeopleCount",
         "allowHoursInput",
+        "allowModelNumber",
         "autoXtraPerPallet",
         "deliveryTypes",
         "customSections"
@@ -76,13 +80,13 @@ export async function getProductConfigMap(productIds: string[]) {
       WHERE "id" IN (${Prisma.join(uniqueIds)})
     `);
   } catch (error) {
-    if (!isMissingDeliveryTypesColumnError(error)) {
+    if (!isMissingProductConfigColumnError(error)) {
       throw error;
     }
 
     const fallbackRows = await prisma.$queryRaw<
       Array<
-        Omit<ProductConfig, "deliveryTypes" | "customSections"> & {
+        Omit<ProductConfig, "allowModelNumber" | "deliveryTypes" | "customSections"> & {
           customSections: Prisma.JsonValue | null;
         }
       >
@@ -106,6 +110,7 @@ export async function getProductConfigMap(productIds: string[]) {
 
     rows = fallbackRows.map((row) => ({
       ...row,
+      allowModelNumber: true,
       deliveryTypes: createDefaultProductDeliveryTypes(),
     }));
   }

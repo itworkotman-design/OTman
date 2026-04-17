@@ -29,6 +29,8 @@ export type OrderEventSnapshot = {
   deliveryDate: string | null;
   timeWindow: string | null;
   expressDelivery: boolean;
+  contactCustomerForCustomTimeWindow: boolean;
+  customTimeContactNote: string | null;
   pickupAddress: string | null;
   extraPickupAddress: string[];
   deliveryAddress: string | null;
@@ -115,6 +117,8 @@ const FIELD_LABELS: Record<keyof OrderEventSnapshot, string> = {
   deliveryDate: "Delivery date",
   timeWindow: "Time window",
   expressDelivery: "Express delivery",
+  contactCustomerForCustomTimeWindow: "Contact customer for custom time",
+  customTimeContactNote: "Custom time contact note",
   pickupAddress: "Pickup address",
   extraPickupAddress: "Extra pickup",
   deliveryAddress: "Delivery address",
@@ -280,6 +284,10 @@ export function buildOrderEventSnapshot(
     deliveryDate: normalizeString(source.deliveryDate),
     timeWindow: normalizeString(source.timeWindow),
     expressDelivery: normalizeBoolean(source.expressDelivery),
+    contactCustomerForCustomTimeWindow: normalizeBoolean(
+      source.contactCustomerForCustomTimeWindow,
+    ),
+    customTimeContactNote: normalizeString(source.customTimeContactNote),
     pickupAddress: normalizeString(source.pickupAddress),
     extraPickupAddress: normalizeStringArray(source.extraPickupAddress),
     deliveryAddress: normalizeString(source.deliveryAddress),

@@ -106,6 +106,7 @@ export function calculateBookingPricing(params: {
 
     breakdowns.push({
       productName: product.productName,
+      productModelNumber: product.productModelNumber ?? null,
       lines,
     });
   }

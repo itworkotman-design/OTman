@@ -80,7 +80,14 @@ export function CalculatorDisplayNew({
         ) : (
           result.breakdowns.map((product, productIdx) => (
             <div key={productIdx} className="mb-4 last:mb-0">
-              <h1 className="font-bold text-md mb-2">{product.productName}</h1>
+              <h1 className="font-bold text-md mb-2">
+                {product.productName}
+                {product.productModelNumber ? (
+                  <span className="ml-1 text-sm font-normal text-gray-500">
+                    ({product.productModelNumber})
+                  </span>
+                ) : null}
+              </h1>
 
               {product.lines.length === 0 ? (
                 <p className="text-sm opacity-30 ml-2">

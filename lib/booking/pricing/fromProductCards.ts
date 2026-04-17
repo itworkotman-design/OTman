@@ -422,6 +422,10 @@ export function buildProductBreakdowns(
           product.productType === "LABOR"
             ? `${product.label} (${getHoursInput(card, product)} h)`
             : product.label,
+        productModelNumber:
+          product.allowModelNumber && card.modelNumber.trim()
+            ? card.modelNumber.trim()
+            : null,
         items: buildItemsForCard(
           card,
           product,

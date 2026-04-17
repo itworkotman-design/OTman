@@ -1,0 +1,2 @@
+ALTER TABLE "Product"
+ADD COLUMN "allowModelNumber" BOOLEAN NOT NULL DEFAULT true;

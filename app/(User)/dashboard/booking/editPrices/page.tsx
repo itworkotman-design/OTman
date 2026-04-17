@@ -38,6 +38,7 @@ type PriceListItem = {
   allowDemont?: boolean;
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
+  allowModelNumber?: boolean;
   autoXtraPerPallet?: boolean;
   deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
@@ -65,6 +66,7 @@ type EditableRow = PriceListItem & {
   allowDemont?: boolean;
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
+  allowModelNumber?: boolean;
   autoXtraPerPallet?: boolean;
   deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
@@ -95,6 +97,7 @@ type ProductSettingsDraft = {
   allowDemont: boolean;
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
+  allowModelNumber: boolean;
   autoXtraPerPallet: boolean;
   deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
@@ -119,6 +122,7 @@ function buildProductSettingsDefaults(
         allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput: false,
+        allowModelNumber: true,
         autoXtraPerPallet: true,
         deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
@@ -134,6 +138,7 @@ function buildProductSettingsDefaults(
         allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput: true,
+        allowModelNumber: true,
         autoXtraPerPallet: false,
         deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
@@ -150,6 +155,7 @@ function buildProductSettingsDefaults(
         allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput: false,
+        allowModelNumber: true,
         autoXtraPerPallet: false,
         deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
@@ -185,6 +191,7 @@ const PRODUCT_SETTING_FIELDS: Array<{
     | "allowReturnOptions"
     | "allowExtraServices"
     | "allowHoursInput"
+    | "allowModelNumber"
     | "autoXtraPerPallet"
   >;
   label: string;
@@ -195,6 +202,7 @@ const PRODUCT_SETTING_FIELDS: Array<{
   { key: "allowReturnOptions", label: "Return options" },
   { key: "allowExtraServices", label: "Utpakking / Demontering" },
   { key: "allowHoursInput", label: "Hours input" },
+  { key: "allowModelNumber", label: "Model number input" },
   { key: "autoXtraPerPallet", label: "Automatic pallet XTRA" },
 ];
 
@@ -439,6 +447,7 @@ export default function EditPricesPage() {
       allowDemont: false,
       allowPeopleCount: false,
       allowHoursInput: row.allowHoursInput ?? false,
+      allowModelNumber: row.allowModelNumber ?? true,
       autoXtraPerPallet:
         row.autoXtraPerPallet ??
         buildProductSettingsDefaults(row.productType ?? "PHYSICAL")
@@ -517,6 +526,8 @@ export default function EditPricesPage() {
         allowPeopleCount: false,
         allowHoursInput:
           data.item.allowHoursInput ?? productSettingsDraft.allowHoursInput,
+        allowModelNumber:
+          data.item.allowModelNumber ?? productSettingsDraft.allowModelNumber,
         autoXtraPerPallet:
           data.item.autoXtraPerPallet ?? productSettingsDraft.autoXtraPerPallet,
         deliveryTypes:
@@ -747,6 +758,9 @@ export default function EditPricesPage() {
       (!isSpecialRow &&
         (row.allowHoursInput ?? false) !==
           (original.allowHoursInput ?? false)) ||
+      (!isSpecialRow &&
+        (row.allowModelNumber ?? false) !==
+          (original.allowModelNumber ?? false)) ||
       row.customerPrice !== original.customerPrice ||
       row.subcontractorPrice !== original.subcontractorPrice ||
       row.isActive !== original.isActive ||
@@ -953,6 +967,7 @@ export default function EditPricesPage() {
       allowDemont: row.allowDemont,
       allowPeopleCount: row.allowPeopleCount,
       allowHoursInput: row.allowHoursInput,
+      allowModelNumber: row.allowModelNumber,
     };
 
     try {

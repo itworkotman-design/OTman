@@ -112,6 +112,7 @@ export function ProductCardNew({
   const supportsExtraServices = !!selectedProduct?.allowExtraServices;
   const supportsDemont = !!selectedProduct?.allowDemont;
   const supportsHoursInput = !!selectedProduct?.allowHoursInput;
+  const supportsModelNumber = !!selectedProduct?.allowModelNumber;
 
   const showInstallOptions =
     !!selectedProduct &&
@@ -136,6 +137,7 @@ export function ProductCardNew({
   const showDeliveryType = !!value.productId && supportsDeliveryTypes;
   const showAmount = !!value.productId && supportsQuantity;
   const showHoursInput = !!value.productId && supportsHoursInput;
+  const showModelNumber = !!value.productId && supportsModelNumber;
 
   useEffect(() => {
     if (!selectedProduct) return;
@@ -218,6 +220,10 @@ export function ProductCardNew({
       nextValue.hoursInput = 1;
     }
 
+    if (!supportsModelNumber && value.modelNumber.trim()) {
+      nextValue.modelNumber = "";
+    }
+
     const validCustomSectionSelections = value.customSectionSelections.filter(
       (selection) => {
         const section = customSections.find((item) => item.id === selection.sectionId);
@@ -268,6 +274,7 @@ export function ProductCardNew({
     supportsExtraServices,
     supportsHoursInput,
     supportsInstallOptions,
+    supportsModelNumber,
     supportsQuantity,
     supportsReturnOptions,
     value,
@@ -286,6 +293,7 @@ export function ProductCardNew({
     onChange({
       ...value,
       productId: newProductId,
+      modelNumber: "",
       deliveryType: "",
       amount: 1,
       peopleCount: 1,
@@ -430,6 +438,25 @@ export function ProductCardNew({
                 </option>
               ))}
           </select>
+
+          {showModelNumber && (
+            <>
+              <h1 className="font-semibold text-lg text-textcolor my-2">
+                Model number
+              </h1>
+              <input
+                type="text"
+                value={value.modelNumber}
+                onChange={(e) =>
+                  update({
+                    modelNumber: e.target.value,
+                  })
+                }
+                className="customInput w-full"
+                placeholder="Optional"
+              />
+            </>
+          )}
 
           {showDeliveryType && (
             <>
