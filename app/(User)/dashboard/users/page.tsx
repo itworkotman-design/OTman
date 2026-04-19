@@ -108,6 +108,7 @@ export default function UserPage() {
           (u.user.username ?? "").toLowerCase().includes(q) ||
           u.user.email.toLowerCase().includes(q) ||
           (u.user.phoneNumber ?? "").toLowerCase().includes(q) ||
+          (u.user.address ?? "").toLowerCase().includes(q) ||
           (u.user.description ?? "").toLowerCase().includes(q) ||
           u.role.toLowerCase().includes(q) ||
           u.id.toLowerCase().includes(q);
@@ -222,6 +223,7 @@ export default function UserPage() {
           initialValueUsername={selectedUser?.user.username ?? ""}
           initialValueEmail={selectedUser?.user.email ?? ""}
           initialValuePhoneNumber={selectedUser?.user.phoneNumber ?? ""}
+          initialValueAddress={selectedUser?.user.address ?? ""}
           initialValueDescription={selectedUser?.user.description ?? ""}
           initialValueRole={selectedUser?.role ?? "USER"}
           initialValueActive={
@@ -245,6 +247,7 @@ export default function UserPage() {
                   role: data.role,
                   username: data.username,
                   phoneNumber: data.phoneNumber,
+                  address: data.address,
                   description: data.description,
                   priceListId: data.priceListId ?? null,
                   permissions: data.permissions,
@@ -273,6 +276,7 @@ export default function UserPage() {
                   email: data.email,
                   username: data.username,
                   phoneNumber: data.phoneNumber,
+                  address: data.address,
                   description: data.description,
                   priceListId: data.priceListId ?? null,
                   permissions: data.permissions,

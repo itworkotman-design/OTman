@@ -413,6 +413,7 @@ export async function GET(
       extraPickupAddress: true,
       extraPickupContacts: true,
       deliveryAddress: true,
+      returnAddress: true,
       drivingDistance: true,
       customerName: true,
       customerLabel: true,
@@ -520,6 +521,7 @@ export async function GET(
           })
         : [],
       deliveryAddress: order.deliveryAddress ?? "",
+      returnAddress: order.returnAddress ?? "",
       drivingDistance: order.drivingDistance ?? "",
       customerName: order.customerName ?? "",
       customerLabel: order.customerLabel ?? "",
@@ -910,6 +912,7 @@ export async function PATCH(
         extraPickupAddress: extraPickups.map((pickup) => pickup.address),
         extraPickupContacts: extraPickups as unknown as Prisma.InputJsonValue,
         deliveryAddress: optionalString(body.deliveryAddress),
+        returnAddress: optionalString(body.returnAddress),
         drivingDistance: optionalString(body.drivingDistance),
 
         customerMembershipId:

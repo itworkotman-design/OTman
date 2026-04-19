@@ -17,5 +17,5 @@ Reads and updates a single order, including product-card snapshots, event snapsh
 | `describeCustomSelections` | Formats custom-section selections for order-event output. |
 | `getProductCardValues` | Builds the labeled values used when comparing product-card changes between order revisions. It now includes the per-card `Model number` value. |
 | `diffProductCards` | Compares previous and next product-card arrays and produces order-event change records. |
-| `GET` | Loads one order and normalizes its saved product-card snapshot back into booking-editor state. It also returns the saved custom-time `Contact customer?` flag and contact note so the form can restore them. |
-| `PATCH` | Updates the order, rebuilds summaries/items from product cards, writes order events, preserves the normalized product-card snapshot, and saves the custom-time `Contact customer?` flag plus its optional contact note. |
+| `GET` | Loads one order and normalizes its saved product-card snapshot back into booking-editor state. It also returns the saved custom-time `Contact customer?` flag, contact note, and return address so the form can restore them. |
+| `PATCH` | Updates the order, rebuilds summaries/items from product cards, writes order events, preserves the normalized product-card snapshot, and saves the custom-time `Contact customer?` flag plus its optional contact note. It now persists edited return addresses as well. |

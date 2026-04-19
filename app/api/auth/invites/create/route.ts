@@ -50,6 +50,7 @@ export async function POST(req: Request) {
   const username = typeof body?.username === "string" ? body.username : "";
   const phoneNumber =
     typeof body?.phoneNumber === "string" ? body.phoneNumber : "";
+  const address = typeof body?.address === "string" ? body.address : "";
   const description =
     typeof body?.description === "string" ? body.description : "";
   const priceListId =
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
     role,
     username,
     phoneNumber,
+    address,
     description,
     priceListId,
     permissions,

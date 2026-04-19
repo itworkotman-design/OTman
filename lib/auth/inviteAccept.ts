@@ -61,6 +61,7 @@ export async function acceptInvite(params: {
       expiresAt: true,
       username: true,
       phoneNumber: true,
+      address: true,
       description: true,
       priceListId: true,
       permissions: {
@@ -89,6 +90,7 @@ export async function acceptInvite(params: {
       id: true,
       username: true,
       phoneNumber: true,
+      address: true,
       description: true,
     },
   });
@@ -122,6 +124,7 @@ export async function acceptInvite(params: {
           email,
           username: invite.username?.trim() || null,
           phoneNumber: invite.phoneNumber?.trim() || null,
+          address: invite.address?.trim() || null,
           description: invite.description?.trim() || null,
           passwordHash,
           status: "ACTIVE",
@@ -147,6 +150,7 @@ export async function acceptInvite(params: {
             invite.phoneNumber,
             existingUser.phoneNumber,
           ),
+          address: preferInviteValue(invite.address, existingUser.address),
           description: preferInviteValue(
             invite.description,
             existingUser.description,

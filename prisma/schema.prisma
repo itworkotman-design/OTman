@@ -69,6 +69,7 @@ model User {
   email        String     @unique
   username     String?    @unique
   phoneNumber  String?
+  address      String?
   description  String?
   passwordHash String
   status       UserStatus @default(ACTIVE)
@@ -153,6 +154,7 @@ model Invite {
 
   username    String?
   phoneNumber String?
+  address     String?
   description String?
   priceListId String?
 

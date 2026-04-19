@@ -56,6 +56,7 @@ export async function GET(req: Request) {
           email: true,
           username: true,
           phoneNumber: true,
+          address: true,
           description: true,
           status: true,
         },

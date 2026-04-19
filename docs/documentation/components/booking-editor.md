@@ -6,15 +6,17 @@
 
 ## Responsibility
 
-Owns booking form state, including file uploads before and after an order exists.
+Owns booking form state, product-card pricing state, customer autofill behavior, and attachment handling for create and edit order flows.
 
 ## Functions
 
 | Function | Description |
 | --- | --- |
 | `parseDistanceKm` | Extracts a positive numeric kilometer value from the driving-distance field. |
-| `parseTimeWindowState` | Normalizes a stored time-window string into either a preset selection or the custom `from/to` values used by the form. |
-| `BookingEditor` | Main booking editor container. Manages order form state, product cards, attachment state, upload/delete handlers, and final submit flow. Product cards now carry their own optional `modelNumber` values, while the editor still keeps the legacy top-level `modelNr` field for payload compatibility. It also restores saved custom time windows correctly, persists the custom `Contact customer?` flag together with its optional contact note, clears `lift` when `floorNo` is empty, and submits an empty lift value for floor-less orders. |
-| `handleUploadAttachment` | Uploads a file to either the pending-attachment route or the order-specific attachment route and now includes the selected file category. |
-| `handleDeleteAttachment` | Removes a file from pending storage or marks an existing order attachment for deletion. |
-| `handleSubmit` | Validates the form, submits the order payload, and finalizes attachment deletions after save. When `Contact customer?` is checked for a custom time window, it persists the checkbox state and optional contact note while also forcing `dontSendEmail` on the submitted payload. |
+| `parseTimeWindowState` | Normalizes a stored time-window string into the preset or custom time-window state used by the form. |
+| `isRecyclingReturnOption` | Detects return options such as `Retur til gjenvinning` so the editor can suppress the return-address input when the return does not go back to a store. |
+| `BookingEditor` | Main booking editor container. Loads catalog and user options, manages order form state, keeps pickup autofill editable, restores the last unlocked pickup address after temporary locks, seeds customer addresses when appropriate, clears the return address when all selected return options are recycling returns, and limits required-field validation to the visible delivery date, time window, pickup address, return address, and customer phone fields. |
+| `handleUploadAttachment` | Uploads a file to either pending attachment storage or an existing order and preserves the chosen attachment category. |
+| `handleDeleteAttachment` | Deletes a pending attachment immediately or marks an existing order attachment for deletion after save. |
+| `handleCreateOrder` | Sends the create-order request when no external submit handler is provided. |
+| `handleSubmit` | Validates visible required fields, normalizes optional contact values, submits the payload, and finalizes queued attachment deletions after save. |

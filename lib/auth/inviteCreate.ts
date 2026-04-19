@@ -48,6 +48,7 @@ export async function createInvite(params: {
   role: string;
   username?: string | null;
   phoneNumber?: string | null;
+  address?: string | null;
   description?: string | null;
   priceListId?: string | null;
   permissions?: AppPermission[];
@@ -60,6 +61,7 @@ export async function createInvite(params: {
 
   const username = normalizeOptionalString(params.username);
   const phoneNumber = normalizeOptionalString(params.phoneNumber);
+  const address = normalizeOptionalString(params.address);
   const description = normalizeOptionalString(params.description);
   const priceListId = normalizeOptionalString(params.priceListId);
   const permissions = normalizePermissions(params.permissions);
@@ -121,6 +123,7 @@ export async function createInvite(params: {
         role: nextRole,
         username,
         phoneNumber,
+        address,
         description,
         priceListId,
         status: "PENDING",
@@ -160,6 +163,7 @@ export async function createInvite(params: {
       role: nextRole,
       username,
       phoneNumber,
+      address,
       priceListId,
       permissions,
     },

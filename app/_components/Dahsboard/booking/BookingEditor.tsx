@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import OrderFieldsForm from "@/app/_components/Dahsboard/booking/create/OrderFieldsForm";
 import { loadUserOptions } from "@/lib/users/loadUserOptions";
 import { getCreateOrderViewConfig } from "@/lib/booking/createOrderView";
@@ -171,6 +177,21 @@ function parseTimeWindowState(value: string | undefined) {
   };
 }
 
+function isRecyclingReturnOption(
+  option: CatalogSpecialOption | undefined,
+): boolean {
+  if (!option) {
+    return false;
+  }
+
+  const normalizedCode = option.code.trim().toUpperCase();
+  const normalizedLabel = (option.label ?? "").trim().toLowerCase();
+
+  return (
+    normalizedCode === "RETURNREC" || normalizedLabel.includes("gjenvinning")
+  );
+}
+
 export default function BookingEditor({
   hidden = 0,
   hideDontSendEmail = false,
@@ -333,6 +354,11 @@ export default function BookingEditor({
     UserOption[]
   >([]);
   const [changeCustomerLoading, setChangeCustomerLoading] = useState(false);
+  const previousSelectedCustomerIdRef = useRef<string | null>(null);
+  const hasProcessedInitialReturnSyncRef = useRef(false);
+  const lastUnlockedPickupAddressRef = useRef(
+    initialValues?.pickupAddress ?? "",
+  );
 
   const currentUser = useCurrentUser();
   const role = currentUser?.role ?? "USER";
@@ -439,6 +465,8 @@ export default function BookingEditor({
     setFeeAddToOrder(initialValues.feeAddToOrder ?? false);
     setStatusNotes(initialValues.statusNotes ?? "");
     setCustomerMembershipId(initialValues.customerMembershipId ?? "");
+    previousSelectedCustomerIdRef.current =
+      initialValues.customerMembershipId ?? null;
     setStatus(initialValues.status ?? "");
     setDontSendEmail(initialValues.dontSendEmail ?? false);
     setContactCustomerForCustomTimeWindow(
@@ -458,6 +486,7 @@ export default function BookingEditor({
     setReturnAddress(initialValues.returnAddress ?? "");
     setCustomTimeFrom(nextTimeWindowState.customTimeFrom);
     setCustomTimeTo(nextTimeWindowState.customTimeTo);
+    hasProcessedInitialReturnSyncRef.current = false;
 
     setPriceExVat(initialValues.priceExVat ?? 0);
     setPriceSubcontractor(initialValues.priceSubcontractor ?? 0);
@@ -679,11 +708,51 @@ export default function BookingEditor({
     () => productCards.some((card) => !!card.selectedReturnOptionId),
     [productCards],
   );
+  const shouldShowReturnAddress = useMemo(
+    () =>
+      productCards.some((card) => {
+        if (!card.selectedReturnOptionId) {
+          return false;
+        }
+
+        const selectedReturnOption = catalogSpecialOptions.find(
+          (option) => option.id === card.selectedReturnOptionId,
+        );
+
+        if (!selectedReturnOption) {
+          return true;
+        }
+
+        return !isRecyclingReturnOption(selectedReturnOption);
+      }),
+    [catalogSpecialOptions, productCards],
+  );
+  const hadVisibleReturnAddressRef = useRef(shouldShowReturnAddress);
 
   const selectedSubcontractor = useMemo(
     () => subcontractorOptions.find((option) => option.id === subcontractorId),
     [subcontractorId, subcontractorOptions],
   );
+  const selectedCustomerOption = useMemo(() => {
+    if (customerMembershipId) {
+      return (
+        changeCustomerOptions.find(
+          (option) => option.id === customerMembershipId,
+        ) ?? null
+      );
+    }
+
+    if (!currentUser?.email) {
+      return null;
+    }
+
+    return (
+      changeCustomerOptions.find(
+        (option) => option.email === currentUser.email,
+      ) ?? null
+    );
+  }, [changeCustomerOptions, currentUser?.email, customerMembershipId]);
+  const selectedCustomerAddress = selectedCustomerOption?.address?.trim() ?? "";
   const emailError = getOptionalEmailError(email);
   const phoneError = getOptionalPhoneError(phone);
   const phoneTwoError = getOptionalPhoneError(phoneTwo);
@@ -710,10 +779,67 @@ export default function BookingEditor({
   );
 
   useEffect(() => {
-    if (!hasSelectedReturnOption && returnAddress) {
+    if (!shouldShowReturnAddress && returnAddress) {
       setReturnAddress("");
     }
-  }, [hasSelectedReturnOption, returnAddress]);
+  }, [returnAddress, shouldShowReturnAddress]);
+
+  useEffect(() => {
+    if (shouldLockPickupAddress || pickupAddress === "No shop pickup address") {
+      return;
+    }
+
+    lastUnlockedPickupAddressRef.current = pickupAddress;
+  }, [pickupAddress, shouldLockPickupAddress]);
+
+  useEffect(() => {
+    const selectedCustomerId = selectedCustomerOption?.id ?? null;
+    const previousSelectedCustomerId = previousSelectedCustomerIdRef.current;
+
+    previousSelectedCustomerIdRef.current = selectedCustomerId;
+
+    if (
+      !selectedCustomerOption ||
+      previousSelectedCustomerId === selectedCustomerId
+    ) {
+      return;
+    }
+
+    if (previousSelectedCustomerId === null && initialValues?.id) {
+      return;
+    }
+
+    setCustomerLabel(selectedCustomerOption.name);
+    setPickupAddress(selectedCustomerAddress);
+
+    if (shouldShowReturnAddress) {
+      setReturnAddress(selectedCustomerAddress);
+    }
+  }, [
+    initialValues?.id,
+    selectedCustomerAddress,
+    selectedCustomerOption,
+    shouldShowReturnAddress,
+  ]);
+
+  useEffect(() => {
+    const hadVisibleReturnAddress = hadVisibleReturnAddressRef.current;
+    hadVisibleReturnAddressRef.current = shouldShowReturnAddress;
+
+    if (!hasProcessedInitialReturnSyncRef.current) {
+      hasProcessedInitialReturnSyncRef.current = true;
+
+      if (initialValues?.id) {
+        return;
+      }
+    }
+
+    if (!shouldShowReturnAddress || hadVisibleReturnAddress) {
+      return;
+    }
+
+    setReturnAddress(selectedCustomerAddress);
+  }, [initialValues?.id, selectedCustomerAddress, shouldShowReturnAddress]);
 
   useEffect(() => {
     if (!floorNo.trim() && lift) {
@@ -864,26 +990,6 @@ export default function BookingEditor({
       return;
     }
 
-    if (!customerName.trim()) {
-      setSubmitError("Customer name is required");
-      return;
-    }
-
-    if (!deliveryDate.trim()) {
-      setSubmitError("Delivery date is required");
-      return;
-    }
-
-    if (timeWindow === "custom" && (!customTimeFrom || !customTimeTo)) {
-      setSubmitError("Custom time requires both from and to");
-      return;
-    }
-
-        if (emailError || phoneError || phoneTwoError || cashierPhoneError) {
-          setSubmitError("Fix invalid email or phone fields");
-          return;
-        }
-
     const finalTimeWindow =
       timeWindow === "custom"
         ? `${customTimeFrom}-${customTimeTo}`
@@ -900,6 +1006,57 @@ export default function BookingEditor({
       timeWindow === "custom" && contactCustomerForCustomTimeWindow
         ? customTimeContactNote.trim()
         : "";
+    const requiresDeliveryDate = shown(effectiveHidden, OrderFields.DeliveryDate);
+    const requiresTimeWindow = shown(
+      effectiveHidden,
+      OrderFields.DeliveryTimeWindow,
+    );
+    const requiresPickupAddress = shown(
+      effectiveHidden,
+      OrderFields.PickupLocations,
+    );
+    const requiresReturnAddress =
+      shown(effectiveHidden, OrderFields.DeliveryAddress) &&
+      shouldShowReturnAddress;
+    const requiresCustomerPhone = shown(
+      effectiveHidden,
+      OrderFields.CustomerPhone1,
+    );
+
+    if (requiresDeliveryDate && !deliveryDate.trim()) {
+      setSubmitError("Delivery date is required");
+      return;
+    }
+
+    if (requiresTimeWindow && !finalTimeWindow.trim()) {
+      setSubmitError("Delivery time window is required");
+      return;
+    }
+
+    if (requiresTimeWindow && timeWindow === "custom" && (!customTimeFrom || !customTimeTo)) {
+      setSubmitError("Custom time requires both from and to");
+      return;
+    }
+
+    if (requiresPickupAddress && !pickupAddress.trim()) {
+      setSubmitError("Pickup address is required");
+      return;
+    }
+
+    if (requiresReturnAddress && !returnAddress.trim()) {
+      setSubmitError("Return address is required");
+      return;
+    }
+
+    if (requiresCustomerPhone && !normalizedPhone) {
+      setSubmitError("Customer phone is required");
+      return;
+    }
+
+    if (emailError || phoneError || phoneTwoError || cashierPhoneError) {
+      setSubmitError("Fix invalid email or phone fields");
+      return;
+    }
 
     const payload: OrderFormPayload = {
       productCards,
@@ -1034,9 +1191,11 @@ export default function BookingEditor({
     }
 
     setPickupAddress((current) =>
-      current === "No shop pickup address" ? "" : current,
+      current === "No shop pickup address"
+        ? (lastUnlockedPickupAddressRef.current || selectedCustomerAddress)
+        : current,
     );
-  }, [shouldLockPickupAddress]);
+  }, [selectedCustomerAddress, shouldLockPickupAddress]);
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
@@ -1120,7 +1279,7 @@ export default function BookingEditor({
             setCustomTimeContactNote={setCustomTimeContactNote}
             deliveryAddress={deliveryAddress}
             setDeliveryAddress={setDeliveryAddress}
-            hasSelectedReturnOption={hasSelectedReturnOption}
+            shouldShowReturnAddress={shouldShowReturnAddress}
             drivingDistance={drivingDistance}
             setDrivingDistance={setDrivingDistance}
             customerName={customerName}

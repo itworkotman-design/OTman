@@ -67,6 +67,7 @@ export async function PATCH(
   const username = parseOptionalString(body?.username);
   const email = parseEmail(body?.email);
   const phoneNumber = parseOptionalString(body?.phoneNumber);
+  const address = parseOptionalString(body?.address);
   const description = parseOptionalString(body?.description);
   const priceListId =
     typeof body?.priceListId === "string" && body.priceListId.trim()
@@ -129,6 +130,7 @@ export async function PATCH(
         email,
         username,
         phoneNumber,
+        address,
         description,
       },
       select: {
@@ -136,6 +138,7 @@ export async function PATCH(
         email: true,
         username: true,
         phoneNumber: true,
+        address: true,
         description: true,
         status: true,
       },

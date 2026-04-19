@@ -7,6 +7,7 @@ export interface UserFormData {
   username: string;
   email: string;
   phoneNumber: string;
+  address: string;
   role: string;
   active: boolean;
   description: string;
@@ -22,6 +23,7 @@ export interface UserModalProps {
   initialValueUsername: string;
   initialValueEmail: string;
   initialValuePhoneNumber: string;
+  initialValueAddress: string;
   initialValueDescription: string;
   initialValueRole: string;
   initialValueActive: boolean;
@@ -37,6 +39,7 @@ export type UserFormSource = Pick<
   | "initialValueUsername"
   | "initialValueEmail"
   | "initialValuePhoneNumber"
+  | "initialValueAddress"
   | "initialValueDescription"
   | "initialValueRole"
   | "initialValueActive"
@@ -49,6 +52,7 @@ export function buildInitialForm(source: UserFormSource): UserFormData {
     username: source.initialValueUsername ?? "",
     email: source.initialValueEmail ?? "",
     phoneNumber: source.initialValuePhoneNumber ?? "",
+    address: source.initialValueAddress ?? "",
     description: source.initialValueDescription ?? "",
     role: source.initialValueRole || "USER",
     active: source.initialValueActive,

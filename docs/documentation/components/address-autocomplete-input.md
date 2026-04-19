@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Renders the shared address input used in booking and site flows. It queries the internal address-search API, shows business or address suggestions, and writes the selected address back into the field.
+Renders the shared address input used in booking, site, and user-management flows. It queries the internal address-search API, shows business or address suggestions, and writes the selected address back into the field.
 
 ## Functions
 

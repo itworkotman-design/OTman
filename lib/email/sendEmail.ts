@@ -6,6 +6,7 @@ export async function sendEmail({
   text,
   headers,
   replyTo,
+  attachments,
 }: {
   to: Array<{ email: string; name?: string }> | { email: string; name?: string };
   bcc?:
@@ -17,6 +18,10 @@ export async function sendEmail({
   text?: string;
   headers?: Record<string, string>;
   replyTo?: { email: string; name?: string } | null;
+  attachments?: Array<{
+    name: string;
+    content: string;
+  }>;
 }) {
   const recipients = Array.isArray(to) ? to : [to];
   const backupRecipients = !bcc ? [] : Array.isArray(bcc) ? bcc : [bcc];
@@ -53,6 +58,13 @@ export async function sendEmail({
       subject,
       htmlContent: html,
       textContent: text,
+      attachment:
+        attachments && attachments.length > 0
+          ? attachments.map((attachment) => ({
+              name: attachment.name,
+              content: attachment.content,
+            }))
+          : undefined,
     }),
   });
 

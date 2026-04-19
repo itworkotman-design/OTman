@@ -66,6 +66,7 @@ describe("acceptInvite", () => {
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
       username: null,
       phoneNumber: null,
+      address: null,
       description: null,
       priceListId: null,
       permissions: [],
@@ -164,6 +165,7 @@ describe("acceptInvite", () => {
         expiresAt: true,
         username: true,
         phoneNumber: true,
+        address: true,
         description: true,
         priceListId: true,
         permissions: {
@@ -249,6 +251,7 @@ describe("acceptInvite", () => {
         id: true,
         username: true,
         phoneNumber: true,
+        address: true,
         description: true,
       },
     });
@@ -262,6 +265,7 @@ describe("acceptInvite", () => {
         email: "inviteduser@example.com",
         username: null,
         phoneNumber: null,
+        address: null,
         description: null,
         passwordHash: "password-hash",
         status: "ACTIVE",
@@ -350,6 +354,7 @@ describe("acceptInvite", () => {
       data: {
         username: undefined,
         phoneNumber: undefined,
+        address: undefined,
         description: undefined,
         passwordHash: "password-hash",
         status: "ACTIVE",

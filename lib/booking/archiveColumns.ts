@@ -250,6 +250,13 @@ const adminColumns: BookingArchiveColumn[] = [
 
 const subcontractorColumns: BookingArchiveColumn[] = [
   {
+    id: "displayId",
+    label: "ID",
+    exportHeader: "ID",
+    exportWidth: 12,
+    getExportValue: (row) => formatCell(row.displayId),
+  },
+  {
     id: "status",
     label: "Status",
     exportHeader: "Status",
@@ -386,6 +393,13 @@ const subcontractorColumns: BookingArchiveColumn[] = [
 ];
 
 const orderCreatorColumns: BookingArchiveColumn[] = [
+  {
+    id: "displayId",
+    label: "ID",
+    exportHeader: "ID",
+    exportWidth: 12,
+    getExportValue: (row) => formatCell(row.displayId),
+  },
   {
     id: "status",
     label: "Status",

@@ -39,6 +39,14 @@ type MembershipsResponse = {
   reason?: string;
 };
 
+type FinishMonthResponse = {
+  ok: boolean;
+  sentCount?: number;
+  skippedCount?: number;
+  message?: string;
+  reason?: string;
+};
+
 function formatNOK(value: number) {
   return new Intl.NumberFormat("nb-NO", {
     style: "currency",
@@ -385,6 +393,9 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [onlineError, setOnlineError] = useState("");
+  const [finishingMonth, setFinishingMonth] = useState(false);
+  const [finishMonthMessage, setFinishMonthMessage] = useState("");
+  const [finishMonthError, setFinishMonthError] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -493,12 +504,92 @@ export default function DashboardHome() {
   const statusBreakdown = data.statusBreakdown;
   const dailyActivity = data.dailyActivity;
 
+  async function handleFinishMonth() {
+    try {
+      setFinishingMonth(true);
+      setFinishMonthError("");
+      setFinishMonthMessage("");
+
+      const res = await fetch("/api/dashboard/home/finish-month", {
+        method: "POST",
+        credentials: "include",
+      });
+      const json: FinishMonthResponse | null = await res
+        .json()
+        .catch(() => null);
+
+      if (!res.ok || !json?.ok) {
+        setFinishMonthError(
+          json?.message || json?.reason || "Failed to finish month",
+        );
+        return;
+      }
+
+      setFinishMonthMessage(json.message || "Month summaries sent.");
+    } catch {
+      setFinishMonthError("Failed to finish month");
+    } finally {
+      setFinishingMonth(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
       <div className="mx-auto max-w-7xl">
         <DailyActivityChart items={dailyActivity} />
 
         <StatusBreakdownChart items={statusBreakdown} />
+
+        <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+          <div className="bg-linear-to-r from-logoblue to-blue-500 px-6 py-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-white">
+                  Quick Tasks
+                </h2>
+                <p className="mt-1 text-sm text-white/75">
+                  Shortcuts for manual dashboard jobs
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-base font-semibold text-slate-800">
+                    Finish month
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    Sends one Excel summary per subcontractor for this month.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleFinishMonth}
+                  disabled={finishingMonth}
+                  className="inline-flex min-w-[180] items-center justify-center rounded-2xl bg-logoblue px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {finishingMonth ? "Sending..." : "Finish month"}
+                </button>
+              </div>
+
+              {finishMonthMessage ? (
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {finishMonthMessage}
+                </div>
+              ) : null}
+
+              {finishMonthError ? (
+                <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {finishMonthError}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
 
         <section className="grid gap-5 lg:grid-cols-2">
           {/* Online members */}

@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 
 import {
   UserModalProps,
@@ -25,6 +26,7 @@ export default function UserModal({
   initialValueUsername,
   initialValueEmail,
   initialValuePhoneNumber,
+  initialValueAddress,
   initialValueDescription,
   initialValueRole,
   initialValueActive,
@@ -39,6 +41,7 @@ export default function UserModal({
       initialValueUsername,
       initialValueEmail,
       initialValuePhoneNumber,
+      initialValueAddress,
       initialValueDescription,
       initialValueRole,
       initialValueActive,
@@ -54,6 +57,7 @@ export default function UserModal({
         initialValueUsername,
         initialValueEmail,
         initialValuePhoneNumber,
+        initialValueAddress,
         initialValueDescription,
         initialValueRole,
         initialValueActive,
@@ -66,6 +70,7 @@ export default function UserModal({
     initialValueUsername,
     initialValueEmail,
     initialValuePhoneNumber,
+    initialValueAddress,
     initialValueDescription,
     initialValueRole,
     initialValueActive,
@@ -83,6 +88,8 @@ export default function UserModal({
   const updateField = (
     key: "username" | "email" | "phoneNumber" | "description",
   ) => makeFieldUpdater(key, setForm);
+  const updateAddress = (value: string) =>
+    setForm((prev) => ({ ...prev, address: value }));
 
   const updatePriceList = makeSelectUpdater("priceListId", setForm);
 
@@ -196,6 +203,16 @@ export default function UserModal({
                 type="text"
                 disabled={!canEditTarget}
               />
+
+              <label className="block pl-2 pb-2">Address</label>
+              <div className="mb-2">
+                <AddressAutocompleteInput
+                  value={form.address}
+                  onChange={updateAddress}
+                  placeholder="Enter an address"
+                  disabled={!canEditTarget}
+                />
+              </div>
 
               <label className="block pl-2 pb-2">Description</label>
               <textarea

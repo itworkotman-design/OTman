@@ -1,0 +1,5 @@
+ALTER TABLE "User"
+ADD COLUMN "address" TEXT;
+
+ALTER TABLE "Invite"
+ADD COLUMN "address" TEXT;

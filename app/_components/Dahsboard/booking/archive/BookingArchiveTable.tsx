@@ -317,6 +317,11 @@ export default function BookingArchiveTable({
 
             {viewMode === "SUBCONTRACTOR" && (
               <>
+                {isColumnVisible("displayId") ? (
+                  <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
+                    ID
+                  </th>
+                ) : null}
                 {isColumnVisible("status") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                     Status
@@ -417,6 +422,11 @@ export default function BookingArchiveTable({
 
             {viewMode === "ORDER_CREATOR" && (
               <>
+                {isColumnVisible("displayId") ? (
+                  <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
+                    ID
+                  </th>
+                ) : null}
                 {isColumnVisible("status") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                     Status
@@ -659,6 +669,11 @@ export default function BookingArchiveTable({
 
               {viewMode === "SUBCONTRACTOR" && (
                 <>
+                  {isColumnVisible("displayId") ? (
+                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                      <Cell>{formatCell(order.displayId)}</Cell>
+                    </td>
+                  ) : null}
                   {isColumnVisible("status") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                       <Cell>{formatStatusCell(order.status)}</Cell>
@@ -763,6 +778,11 @@ export default function BookingArchiveTable({
 
               {viewMode === "ORDER_CREATOR" && (
                 <>
+                  {isColumnVisible("displayId") ? (
+                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                      <Cell>{formatCell(order.displayId)}</Cell>
+                    </td>
+                  ) : null}
                   {isColumnVisible("status") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                       <Cell>{formatStatusCell(order.status)}</Cell>

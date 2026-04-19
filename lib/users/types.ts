@@ -18,6 +18,7 @@ export type MembershipUser = {
   email: string;
   username: string | null;
   phoneNumber: string | null;
+  address: string | null;
   description: string | null;
   status: UserStatus;
 };
@@ -37,4 +38,5 @@ export type UserOption = {
   id: string;
   name: string;
   email: string;
+  address?: string;
 };

@@ -21,6 +21,31 @@ const CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   return `${hours}:${minutes}`;
 });
 
+const MIN_CUSTOM_TIME_GAP_MINUTES = 120;
+
+function parseCustomTimeToMinutes(value: string): number | null {
+  if (!/^\d{2}:\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const [hoursPart, minutesPart] = value.split(":");
+  const hours = Number(hoursPart);
+  const minutes = Number(minutesPart);
+
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
 function FormSectionSpacer() {
   return (
     <div className="py-8">
@@ -91,7 +116,7 @@ type Props = {
   >;
   returnAddress: string;
   setReturnAddress: React.Dispatch<React.SetStateAction<string>>;
-  hasSelectedReturnOption: boolean;
+  shouldShowReturnAddress: boolean;
 
   customerLabel: string;
   setCustomerLabel: React.Dispatch<React.SetStateAction<string>>;
@@ -199,7 +224,7 @@ export default function OrderFieldsForm({
   setExtraPickups,
   returnAddress,
   setReturnAddress,
-  hasSelectedReturnOption,
+  shouldShowReturnAddress,
   customerName,
   setCustomerName,
   phone,
@@ -259,6 +284,30 @@ export default function OrderFieldsForm({
 }: Props) {
   const showLiftField =
     shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
+  const customTimeFromMinutes = parseCustomTimeToMinutes(customTimeFrom);
+  const customTimeToMinutes = parseCustomTimeToMinutes(customTimeTo);
+  const availableCustomTimeFromOptions = CUSTOM_TIME_OPTIONS.filter((option) => {
+    if (customTimeToMinutes === null) {
+      return true;
+    }
+
+    const optionMinutes = parseCustomTimeToMinutes(option);
+    return (
+      optionMinutes !== null &&
+      optionMinutes <= customTimeToMinutes - MIN_CUSTOM_TIME_GAP_MINUTES
+    );
+  });
+  const availableCustomTimeToOptions = CUSTOM_TIME_OPTIONS.filter((option) => {
+    if (customTimeFromMinutes === null) {
+      return true;
+    }
+
+    const optionMinutes = parseCustomTimeToMinutes(option);
+    return (
+      optionMinutes !== null &&
+      optionMinutes >= customTimeFromMinutes + MIN_CUSTOM_TIME_GAP_MINUTES
+    );
+  });
 
   return (
     <div className="customContainer">
@@ -328,11 +377,26 @@ export default function OrderFieldsForm({
                   <h2 className="font-bold py-2">From</h2>
                   <select
                     value={customTimeFrom}
-                    onChange={(e) => setCustomTimeFrom(e.target.value)}
+                    onChange={(e) => {
+                      const nextFrom = e.target.value;
+                      const nextFromMinutes =
+                        parseCustomTimeToMinutes(nextFrom);
+
+                      setCustomTimeFrom(nextFrom);
+
+                      if (
+                        nextFromMinutes !== null &&
+                        customTimeToMinutes !== null &&
+                        customTimeToMinutes <
+                          nextFromMinutes + MIN_CUSTOM_TIME_GAP_MINUTES
+                      ) {
+                        setCustomTimeTo("");
+                      }
+                    }}
                     className="customInput w-full"
                   >
                     <option value="">Choose</option>
-                    {CUSTOM_TIME_OPTIONS.map((time) => (
+                    {availableCustomTimeFromOptions.map((time) => (
                       <option key={`from-${time}`} value={time}>
                         {time}
                       </option>
@@ -344,11 +408,25 @@ export default function OrderFieldsForm({
                   <h2 className="font-bold py-2">To</h2>
                   <select
                     value={customTimeTo}
-                    onChange={(e) => setCustomTimeTo(e.target.value)}
+                    onChange={(e) => {
+                      const nextTo = e.target.value;
+                      const nextToMinutes = parseCustomTimeToMinutes(nextTo);
+
+                      setCustomTimeTo(nextTo);
+
+                      if (
+                        nextToMinutes !== null &&
+                        customTimeFromMinutes !== null &&
+                        customTimeFromMinutes >
+                          nextToMinutes - MIN_CUSTOM_TIME_GAP_MINUTES
+                      ) {
+                        setCustomTimeFrom("");
+                      }
+                    }}
                     className="customInput w-full"
                   >
                     <option value="">Choose</option>
-                    {CUSTOM_TIME_OPTIONS.map((time) => (
+                    {availableCustomTimeToOptions.map((time) => (
                       <option key={`to-${time}`} value={time}>
                         {time}
                       </option>
@@ -427,7 +505,7 @@ export default function OrderFieldsForm({
             placeholder="Enter a location"
           />
 
-          {hasSelectedReturnOption && (
+          {shouldShowReturnAddress && (
             <>
               <h1 className="font-bold py-2">Return address</h1>
               <AddressAutocompleteInput

@@ -36,6 +36,7 @@ export async function GET(req: Request) {
         select: {
           email: true,
           username: true,
+          address: true,
         },
       },
       permissions: {
@@ -62,6 +63,7 @@ export async function GET(req: Request) {
       id: membership.id,
       name: membership.user.username?.trim() || membership.user.email,
       email: membership.user.email,
+      address: membership.user.address?.trim() || "",
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
