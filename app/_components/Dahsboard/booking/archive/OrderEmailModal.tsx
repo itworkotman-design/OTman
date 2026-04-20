@@ -87,11 +87,27 @@ type OrderEmailsResponse = {
   reason?: string;
 };
 
+type NotificationItem = {
+  id: string;
+  type: "MANUAL_REVIEW" | "GSM_REVIEW";
+  title: string;
+  message: string;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedBy: string;
+};
+
+type OrderNotificationsResponse = {
+  ok: boolean;
+  notifications?: NotificationItem[];
+  reason?: string;
+};
+
 type OrderEmailModalProps = {
   open: boolean;
   order: OrderRow | null;
   onClose: () => void;
-  onConversationChanged?: () => void;
+  onAlertsChanged?: () => void;
 };
 
 const SNAPSHOT_LABELS: Record<string, string> = {
@@ -492,10 +508,12 @@ export default function OrderEmailModal({
   open,
   order,
   onClose,
-  onConversationChanged,
+  onAlertsChanged,
 }: OrderEmailModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"conversation" | "history">(
+  const [activeTab, setActiveTab] = useState<
+    "conversation" | "notifications" | "history"
+  >(
     "conversation",
   );
 
@@ -509,6 +527,13 @@ export default function OrderEmailModal({
   const [expandedMessageIds, setExpandedMessageIds] = useState<string[]>([]);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [conversationError, setConversationError] = useState("");
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState("");
+  const [resolvingNotificationIds, setResolvingNotificationIds] = useState<
+    string[]
+  >([]);
 
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientName, setRecipientName] = useState("");
@@ -534,7 +559,12 @@ export default function OrderEmailModal({
         ? `Order ${order.displayId} | ${order.orderNumber}`
         : `Order ${order.displayId}`;
 
-    setActiveTab("conversation");
+    setActiveTab(
+      order.needsNotificationAttention &&
+        !(order.needsEmailAttention || order.unreadInboundEmailCount > 0)
+        ? "notifications"
+        : "conversation",
+    );
     setRecipientEmail(order.email || "");
     setRecipientName(order.customerName || order.customerLabel || "");
     setAdditionalRecipientEmail("");
@@ -642,7 +672,48 @@ export default function OrderEmailModal({
       }
     }
 
-    void Promise.all([loadHistory(), loadConversation()]);
+    async function loadNotifications() {
+      try {
+        setNotificationsLoading(true);
+        setNotificationsError("");
+
+        const response = await fetch(`/api/orders/${orderId}/notifications`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const data: OrderNotificationsResponse | null = await response
+          .json()
+          .catch(() => null);
+
+        if (!response.ok || !data?.ok) {
+          if (active) {
+            setNotificationsError(
+              data?.reason || "Failed to load notifications",
+            );
+            setNotifications([]);
+          }
+          return;
+        }
+
+        if (active) {
+          setNotifications(
+            Array.isArray(data.notifications) ? data.notifications : [],
+          );
+        }
+      } catch {
+        if (active) {
+          setNotificationsError("Failed to load notifications");
+          setNotifications([]);
+        }
+      } finally {
+        if (active) {
+          setNotificationsLoading(false);
+        }
+      }
+    }
+
+    void Promise.all([loadHistory(), loadConversation(), loadNotifications()]);
 
     return () => {
       active = false;
@@ -716,7 +787,7 @@ export default function OrderEmailModal({
         setConversation(conversationData.conversation ?? null);
       }
 
-      onConversationChanged?.();
+      onAlertsChanged?.();
     } catch {
       setSendError("Failed to send email");
     } finally {
@@ -760,11 +831,64 @@ export default function OrderEmailModal({
           : current,
       );
 
-      onConversationChanged?.();
+      onAlertsChanged?.();
     } catch {
       setConversationError("Failed to update conversation");
     } finally {
       setCompleteLoading(false);
+    }
+  }
+
+  async function handleResolveNotification(notificationId: string) {
+    if (!order?.id) {
+      return;
+    }
+
+    try {
+      setResolvingNotificationIds((current) => [...current, notificationId]);
+      setNotificationsError("");
+
+      const response = await fetch(
+        `/api/orders/${order.id}/notifications/${notificationId}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+        },
+      );
+
+      const data = (await response.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            reason?: string;
+          }
+        | null;
+
+      if (!response.ok || !data?.ok) {
+        setNotificationsError(data?.reason || "Failed to resolve notification");
+        return;
+      }
+
+      const resolvedAt = new Date().toISOString();
+
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === notificationId
+            ? {
+                ...notification,
+                resolvedAt,
+                resolvedBy: "",
+              }
+            : notification,
+        ),
+      );
+
+      onAlertsChanged?.();
+    } catch {
+      setNotificationsError("Failed to resolve notification");
+    } finally {
+      setResolvingNotificationIds((current) =>
+        current.filter((id) => id !== notificationId),
+      );
     }
   }
 
@@ -784,6 +908,12 @@ export default function OrderEmailModal({
     typeof order.displayId === "number" && order.displayId > 0
       ? `Order ${order.displayId}`
       : "Order";
+  const hasMailAttention =
+    (conversation?.needsEmailAttention ?? order.needsEmailAttention) ||
+    order.unreadInboundEmailCount > 0;
+  const hasNotificationAttention =
+    notifications.some((notification) => !notification.resolvedAt) ||
+    order.needsNotificationAttention;
 
   return createPortal(
     <div
@@ -798,7 +928,7 @@ export default function OrderEmailModal({
           <div className="flex items-center justify-between border-b border-black/10 px-6 py-4">
             <div>
               <h2 className="text-2xl font-semibold text-logoblue">
-                Email Center
+                Alert Center
               </h2>
               <p className="mt-1 text-sm text-textColorThird">
                 {orderLabel}
@@ -840,7 +970,18 @@ export default function OrderEmailModal({
               >
                 Order history
               </button>
-              {conversation?.needsEmailAttention ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab("notifications")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  activeTab === "notifications"
+                    ? "bg-logoblue text-white"
+                    : "bg-slate-100 text-textColorThird hover:bg-slate-200"
+                }`}
+              >
+                Notifications
+              </button>
+              {hasMailAttention ? (
                 <>
                   <span className="rounded-full bg-logoblue/10 px-3 py-1 text-xs font-semibold text-logoblue">
                     Awaiting admin reply
@@ -854,6 +995,11 @@ export default function OrderEmailModal({
                     {completeLoading ? "Updating..." : "Conversation complete"}
                   </button>
                 </>
+              ) : null}
+              {hasNotificationAttention ? (
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
+                  Awaiting notification approval
+                </span>
               ) : null}
             </div>
           </div>
@@ -1015,6 +1161,83 @@ export default function OrderEmailModal({
                   </>
                 )}
               </div>
+            ) : activeTab === "notifications" ? (
+              notificationsLoading ? (
+                <div className="py-6 text-sm text-textColorThird">
+                  Loading notifications...
+                </div>
+              ) : notificationsError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {notificationsError}
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="rounded-2xl border border-black/10 bg-white px-4 py-6 text-sm text-textColorThird">
+                  No notifications for this order.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {notifications.map((notification) => {
+                    const isResolving = resolvingNotificationIds.includes(
+                      notification.id,
+                    );
+                    const isResolved = Boolean(notification.resolvedAt);
+
+                    return (
+                      <div
+                        key={notification.id}
+                        className={`rounded-2xl border p-5 ${
+                          isResolved
+                            ? "border-emerald-200 bg-emerald-50"
+                            : "border-red-200 bg-red-50"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-base font-semibold text-logoblue">
+                              {notification.title}
+                            </div>
+                            <div className="mt-1 text-sm text-textColorThird">
+                              {notification.message}
+                            </div>
+                          </div>
+
+                          <div className="text-right text-sm text-textColorThird">
+                            <div>{formatTimestamp(notification.createdAt)}</div>
+                            <div className="mt-1 text-xs font-semibold uppercase tracking-wide">
+                              {notification.type.replaceAll("_", " ")}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                          <div className="text-sm text-textColorThird">
+                            {isResolved
+                              ? `Fixed${notification.resolvedAt ? ` at ${formatTimestamp(notification.resolvedAt)}` : ""}${
+                                  notification.resolvedBy
+                                    ? ` by ${notification.resolvedBy}`
+                                    : ""
+                                }`
+                              : "Needs admin approval"}
+                          </div>
+
+                          {!isResolved ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleResolveNotification(notification.id)
+                              }
+                              disabled={isResolving}
+                              className="rounded-full bg-logored px-4 py-2 text-sm font-semibold text-white transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isResolving ? "Updating..." : "Mark as fixed"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
             ) : historyLoading ? (
               <div className="py-6 text-sm text-textColorThird">
                 Loading order history...

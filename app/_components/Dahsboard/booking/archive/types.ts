@@ -61,6 +61,9 @@ export type OrderRow = {
   lastOutboundEmailAt: string | null;
   needsEmailAttention: boolean;
   unreadInboundEmailCount: number;
+  lastNotificationAt: string | null;
+  needsNotificationAttention: boolean;
+  unreadNotificationCount: number;
   priceExVat: number;
   priceSubcontractor: number;
   customerMembershipId: string;

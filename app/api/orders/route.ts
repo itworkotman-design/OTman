@@ -14,6 +14,11 @@ import {
   normalizeOptionalEmail,
   normalizeOptionalPhone,
 } from "@/lib/orders/contactValidation";
+import {
+  getExtraPickupApiError,
+  normalizeExtraPickups,
+  parseExtraPickups,
+} from "@/lib/orders/extraPickups";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
@@ -29,6 +34,8 @@ import {
   normalizeSavedProductCard,
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
 import type { AppPermission } from "@/lib/users/types";
 
 function parsePositiveInt(value: string | null, fallback: number) {
@@ -36,45 +43,6 @@ function parsePositiveInt(value: string | null, fallback: number) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(1, Math.floor(n));
-}
-
-type ExtraPickupInput = {
-  address: string;
-  phone: string;
-  email: string;
-  sendEmail: boolean;
-};
-
-function parseExtraPickups(value: unknown): ExtraPickupInput[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      const candidate =
-        item && typeof item === "object"
-          ? (item as {
-              address?: unknown;
-              phone?: unknown;
-              email?: unknown;
-              sendEmail?: unknown;
-            })
-          : null;
-
-      return {
-        address:
-          typeof candidate?.address === "string"
-            ? candidate.address.trim()
-            : "",
-        phone:
-          typeof candidate?.phone === "string" ? candidate.phone.trim() : "",
-        email:
-          typeof candidate?.email === "string" ? candidate.email.trim() : "",
-        sendEmail: candidate?.sendEmail === false ? false : true,
-      };
-    })
-    .filter((pickup) => pickup.address.length > 0);
 }
 
 async function reserveNextOrderNumber(companyId: string): Promise<number> {
@@ -223,15 +191,20 @@ export async function POST(req: Request) {
   const phone = normalizeOptionalPhone(body.phone);
   const phoneTwo = normalizeOptionalPhone(body.phoneTwo);
   const cashierPhone = normalizeOptionalPhone(body.cashierPhone);
-  const extraPickups = parseExtraPickups(body.extraPickups);
+  const parsedExtraPickups = parseExtraPickups(body.extraPickups);
+  const extraPickupError = getExtraPickupApiError(parsedExtraPickups);
 
-  const validExtraPickups = extraPickups.filter((pickup) => {
-    if (!pickup.email.trim()) {
-      return true;
-    }
-
-    return !getOptionalEmailError(pickup.email);
-  });
+  if (extraPickupError) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: "INVALID_EXTRA_PICKUP_CONTACT",
+        message: extraPickupError,
+      },
+      { status: 400 },
+    );
+  }
+  const extraPickups = normalizeExtraPickups(parsedExtraPickups);
 
   const isAdminOrOwner =
     membership.role === "OWNER" || membership.role === "ADMIN";
@@ -474,6 +447,19 @@ export async function POST(req: Request) {
     createdAt: order.createdAt,
   });
 
+  if (extraPickups.length > 0) {
+    const extraPickupNotification = buildExtraPickupNotification(extraPickups);
+
+    await createOrderNotification(prisma, {
+      orderId: order.id,
+      companyId: order.companyId,
+      type: "MANUAL_REVIEW",
+      title: extraPickupNotification.title,
+      message: extraPickupNotification.message,
+      payload: extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
+    });
+  }
+
   try {
     const notificationOrder = {
       id: order.id,
@@ -483,7 +469,7 @@ export async function POST(req: Request) {
       customerEmail: membership.user.email,
       deliveryDate,
       pickupAddress: optionalString(body.pickupAddress),
-      extraPickupAddress: validExtraPickups.map((pickup) => pickup.address),
+      extraPickupAddress: extraPickups.map((pickup) => pickup.address),
       deliveryAddress: optionalString(body.deliveryAddress),
       returnAddress: optionalString(body.returnAddress),
       drivingDistance: optionalString(body.drivingDistance),
@@ -509,7 +495,7 @@ export async function POST(req: Request) {
       items: builtItems,
     });
 
-    for (const pickup of validExtraPickups) {
+    for (const pickup of extraPickups) {
       if (!pickup.sendEmail) continue;
 
       const pickupEmail = normalizeOptionalEmail(pickup.email);
@@ -711,6 +697,8 @@ export async function GET(req: Request) {
 
   if (isAdminOrOwner) {
     orderBy.unshift(
+      { needsNotificationAttention: "desc" },
+      { lastNotificationAt: { sort: "desc", nulls: "last" } },
       { needsEmailAttention: "desc" },
       { lastInboundEmailAt: { sort: "desc", nulls: "last" } },
     );
@@ -754,8 +742,11 @@ export async function GET(req: Request) {
       updatedAt: true,
       lastInboundEmailAt: true,
       lastOutboundEmailAt: true,
+      lastNotificationAt: true,
       needsEmailAttention: true,
       unreadInboundEmailCount: true,
+      needsNotificationAttention: true,
+      unreadNotificationCount: true,
       priceExVat: true,
       priceSubcontractor: true,
       createdByMembershipId: true,
@@ -820,8 +811,11 @@ export async function GET(req: Request) {
       updatedAt: order.updatedAt,
       lastInboundEmailAt: order.lastInboundEmailAt,
       lastOutboundEmailAt: order.lastOutboundEmailAt,
+      lastNotificationAt: order.lastNotificationAt,
       needsEmailAttention: order.needsEmailAttention,
       unreadInboundEmailCount: order.unreadInboundEmailCount,
+      needsNotificationAttention: order.needsNotificationAttention,
+      unreadNotificationCount: order.unreadNotificationCount,
       priceExVat: order.priceExVat,
       priceSubcontractor: order.priceSubcontractor,
       createdByMembershipId: order.createdByMembershipId,

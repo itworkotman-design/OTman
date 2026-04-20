@@ -39,6 +39,10 @@ import {
   normalizeOptionalPhone,
 } from "@/lib/orders/contactValidation";
 import {
+  getExtraPickupValidation,
+  normalizeExtraPickups,
+} from "@/lib/orders/extraPickups";
+import {
   createDefaultPriceListSettings,
   normalizePriceListSettings,
   type PriceListSettings,
@@ -110,6 +114,22 @@ export type OrderFormPayload = {
   subcontractorPlus: string;
 };
 
+type ExtraPickupDraft = {
+  id: string;
+} & OrderFormPayload["extraPickups"][number];
+
+type FieldErrorMap = {
+  deliveryDate: string | null;
+  timeWindow: string | null;
+  pickupAddress: string | null;
+  deliveryAddress: string | null;
+  returnAddress: string | null;
+  customerPhone: string | null;
+  customerPhoneTwo: string | null;
+  customerEmail: string | null;
+  cashierPhone: string | null;
+};
+
 type Props = {
   hidden?: HiddenMask;
   hideDontSendEmail?: boolean;
@@ -122,6 +142,28 @@ type Props = {
 };
 
 const PRESET_TIME_WINDOWS = ["10:00-16:00", "16:00-21:00"] as const;
+const EMPTY_FIELD_ERRORS: FieldErrorMap = {
+  deliveryDate: null,
+  timeWindow: null,
+  pickupAddress: null,
+  deliveryAddress: null,
+  returnAddress: null,
+  customerPhone: null,
+  customerPhoneTwo: null,
+  customerEmail: null,
+  cashierPhone: null,
+};
+const FIELD_ERROR_TARGETS: Record<keyof FieldErrorMap, string> = {
+  deliveryDate: "order-delivery-date",
+  timeWindow: "order-time-window",
+  pickupAddress: "order-pickup-address",
+  deliveryAddress: "order-delivery-address",
+  returnAddress: "order-return-address",
+  customerPhone: "order-customer-phone",
+  customerPhoneTwo: "order-customer-phone-two",
+  customerEmail: "order-customer-email",
+  cashierPhone: "order-cashier-phone",
+};
 
 function parseDistanceKm(value: string) {
   const normalized = value.trim().replace(",", ".");
@@ -192,6 +234,36 @@ function isRecyclingReturnOption(
   );
 }
 
+function scrollToPageTop() {
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+}
+
+function scrollToFieldTarget(targetId: string) {
+  window.requestAnimationFrame(() => {
+    const element = document.getElementById(targetId);
+
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    if (
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLSelectElement ||
+      element instanceof HTMLTextAreaElement
+    ) {
+      element.focus();
+    }
+  });
+}
+
 export default function BookingEditor({
   hidden = 0,
   hideDontSendEmail = false,
@@ -202,6 +274,7 @@ export default function BookingEditor({
 }: Props) {
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [didAttemptSubmit, setDidAttemptSubmit] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [productCards, setProductCards] = useState<SavedProductCard[]>(
     initialValues?.productCards?.length
@@ -315,25 +388,17 @@ export default function BookingEditor({
   const [pickupAddress, setPickupAddress] = useState(
     initialValues?.pickupAddress ?? "",
   );
-      const [extraPickups, setExtraPickups] = useState<
-        {
-          id: string;
-          address: string;
-          phone: string;
-          email: string;
-          sendEmail: boolean;
-        }[]
-      >(
-        initialValues?.extraPickups?.length
-          ? initialValues.extraPickups.map((p, index) => ({
-              id: `initial-${index}`,
-              address: p.address ?? "",
-              phone: p.phone ?? "",
-              email: p.email ?? "",
-              sendEmail: p.sendEmail ?? true,
-            }))
-          : [],
-      );
+  const [extraPickups, setExtraPickups] = useState<ExtraPickupDraft[]>(
+    initialValues?.extraPickups?.length
+      ? initialValues.extraPickups.map((pickup, index) => ({
+          id: `initial-${index}`,
+          address: pickup.address ?? "",
+          phone: pickup.phone?.trim() || DEFAULT_PHONE_PREFIX,
+          email: pickup.email ?? "",
+          sendEmail: pickup.sendEmail ?? true,
+        }))
+      : [],
+  );
   const [returnAddress, setReturnAddress] = useState(
     initialValues?.returnAddress ?? "",
   );
@@ -475,15 +540,15 @@ export default function BookingEditor({
     );
     setCustomTimeContactNote(initialValues.customTimeContactNote ?? "");
     setPickupAddress(initialValues.pickupAddress ?? "");
-     setExtraPickups(
-       (initialValues.extraPickups ?? []).map((pickup, index) => ({
-         id: `initial-${index}`,
-         address: pickup.address ?? "",
-         phone: pickup.phone ?? "",
-         email: pickup.email ?? "",
-         sendEmail: pickup.sendEmail ?? true,
-       })),
-     );
+    setExtraPickups(
+      (initialValues.extraPickups ?? []).map((pickup, index) => ({
+        id: `initial-${index}`,
+        address: pickup.address ?? "",
+        phone: pickup.phone?.trim() || DEFAULT_PHONE_PREFIX,
+        email: pickup.email ?? "",
+        sendEmail: pickup.sendEmail ?? true,
+      })),
+    );
     setReturnAddress(initialValues.returnAddress ?? "");
     setCustomTimeFrom(nextTimeWindowState.customTimeFrom);
     setCustomTimeTo(nextTimeWindowState.customTimeTo);
@@ -495,6 +560,8 @@ export default function BookingEditor({
     setLeggTil(initialValues.leggTil ?? "");
     setSubcontractorMinus(initialValues.subcontractorMinus ?? "");
     setSubcontractorPlus(initialValues.subcontractorPlus ?? "");
+    setSubmitError("");
+    setDidAttemptSubmit(false);
   }, [initialValues]);
 
   //loading Subcontractors
@@ -757,10 +824,108 @@ export default function BookingEditor({
     );
   }, [changeCustomerOptions, currentUser?.email, customerMembershipId]);
   const selectedCustomerAddress = selectedCustomerOption?.address?.trim() ?? "";
+  const finalTimeWindow =
+    timeWindow === "custom" ? `${customTimeFrom}-${customTimeTo}` : timeWindow;
+  const normalizedEmail = normalizeOptionalEmail(email) ?? "";
+  const normalizedPhone = normalizeOptionalPhone(phone) ?? "";
+  const normalizedPhoneTwo = normalizeOptionalPhone(phoneTwo) ?? "";
+  const normalizedCashierPhone = normalizeOptionalPhone(cashierPhone) ?? "";
+  const normalizedFloorNo = floorNo.trim();
+  const normalizedLift = normalizedFloorNo ? lift : "";
+  const shouldSuppressEmailForCustomTimeWindow =
+    timeWindow === "custom" && contactCustomerForCustomTimeWindow;
+  const normalizedCustomTimeContactNote =
+    timeWindow === "custom" && contactCustomerForCustomTimeWindow
+      ? customTimeContactNote.trim()
+      : "";
+  const requiresDeliveryDate = shown(effectiveHidden, OrderFields.DeliveryDate);
+  const requiresTimeWindow = shown(
+    effectiveHidden,
+    OrderFields.DeliveryTimeWindow,
+  );
+  const requiresPickupAddress = shown(
+    effectiveHidden,
+    OrderFields.PickupLocations,
+  );
+  const requiresReturnAddress =
+    shown(effectiveHidden, OrderFields.DeliveryAddress) &&
+    shouldShowReturnAddress;
+  const requiresDeliveryAddress = shown(
+    effectiveHidden,
+    OrderFields.DeliveryAddress,
+  );
+  const requiresCustomerPhone = shown(
+    effectiveHidden,
+    OrderFields.CustomerPhone1,
+  );
   const emailError = getOptionalEmailError(email);
   const phoneError = getOptionalPhoneError(phone);
   const phoneTwoError = getOptionalPhoneError(phoneTwo);
   const cashierPhoneError = getOptionalPhoneError(cashierPhone);
+  const extraPickupErrors = useMemo(
+    () => extraPickups.map((pickup) => getExtraPickupValidation(pickup)),
+    [extraPickups],
+  );
+  const computedFieldErrors = useMemo(
+    (): FieldErrorMap => ({
+      deliveryDate:
+        requiresDeliveryDate && !deliveryDate.trim()
+          ? "Delivery date is required"
+          : null,
+      timeWindow:
+        requiresTimeWindow && !finalTimeWindow.trim()
+          ? "Delivery time window is required"
+          : requiresTimeWindow &&
+              timeWindow === "custom" &&
+              (!customTimeFrom || !customTimeTo)
+            ? "Custom time requires both from and to"
+            : null,
+      pickupAddress:
+        requiresPickupAddress && !pickupAddress.trim()
+          ? "Pickup address is required"
+          : null,
+      deliveryAddress:
+        requiresDeliveryAddress && !deliveryAddress.trim()
+          ? "Delivery address is required"
+          : null,
+      returnAddress:
+        requiresReturnAddress && !returnAddress.trim()
+          ? "Return address is required"
+          : null,
+      customerPhone:
+        phoneError ??
+        (requiresCustomerPhone && !normalizedPhone
+          ? "Customer phone is required"
+          : null),
+      customerPhoneTwo: phoneTwoError,
+      customerEmail: emailError,
+      cashierPhone: cashierPhoneError,
+    }),
+    [
+      cashierPhoneError,
+      customTimeFrom,
+      customTimeTo,
+      deliveryAddress,
+      deliveryDate,
+      emailError,
+      finalTimeWindow,
+      normalizedPhone,
+      phoneError,
+      phoneTwoError,
+      pickupAddress,
+      requiresCustomerPhone,
+      requiresDeliveryAddress,
+      requiresDeliveryDate,
+      requiresPickupAddress,
+      requiresReturnAddress,
+      requiresTimeWindow,
+      returnAddress,
+      timeWindow,
+    ],
+  );
+  const visibleFieldErrors = didAttemptSubmit
+    ? computedFieldErrors
+    : EMPTY_FIELD_ERRORS;
 
   const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
     setPriceExVat(exVat);
@@ -1070,74 +1235,61 @@ export default function BookingEditor({
       setSubmitError("At least one product is required");
       return;
     }
+    setDidAttemptSubmit(true);
 
-    const finalTimeWindow =
-      timeWindow === "custom"
-        ? `${customTimeFrom}-${customTimeTo}`
-        : timeWindow;
-    const normalizedEmail = normalizeOptionalEmail(email) ?? "";
-    const normalizedPhone = normalizeOptionalPhone(phone) ?? "";
-    const normalizedPhoneTwo = normalizeOptionalPhone(phoneTwo) ?? "";
-    const normalizedCashierPhone = normalizeOptionalPhone(cashierPhone) ?? "";
-    const normalizedFloorNo = floorNo.trim();
-    const normalizedLift = normalizedFloorNo ? lift : "";
-    const shouldSuppressEmailForCustomTimeWindow =
-      timeWindow === "custom" && contactCustomerForCustomTimeWindow;
-    const normalizedCustomTimeContactNote =
-      timeWindow === "custom" && contactCustomerForCustomTimeWindow
-        ? customTimeContactNote.trim()
-        : "";
-    const requiresDeliveryDate = shown(effectiveHidden, OrderFields.DeliveryDate);
-    const requiresTimeWindow = shown(
-      effectiveHidden,
-      OrderFields.DeliveryTimeWindow,
+    const hasExtraPickupValidationError = extraPickupErrors.some(
+      (validation) =>
+        validation.contactError ||
+        validation.phoneError ||
+        validation.emailError,
     );
-    const requiresPickupAddress = shown(
-      effectiveHidden,
-      OrderFields.PickupLocations,
-    );
-    const requiresReturnAddress =
-      shown(effectiveHidden, OrderFields.DeliveryAddress) &&
-      shouldShowReturnAddress;
-    const requiresCustomerPhone = shown(
-      effectiveHidden,
-      OrderFields.CustomerPhone1,
-    );
+    const firstFieldErrorKey = (
+      Object.keys(computedFieldErrors) as Array<keyof FieldErrorMap>
+    ).find((key) => computedFieldErrors[key]);
 
-    if (requiresDeliveryDate && !deliveryDate.trim()) {
-      setSubmitError("Delivery date is required");
+    if (firstFieldErrorKey || hasExtraPickupValidationError) {
+      setSubmitError("");
+
+      if (firstFieldErrorKey) {
+        scrollToFieldTarget(FIELD_ERROR_TARGETS[firstFieldErrorKey]);
+        return;
+      }
+
+      const firstExtraPickupError = extraPickups.find((pickup, index) => {
+        const validation = extraPickupErrors[index];
+        return (
+          validation?.contactError ||
+          validation?.phoneError ||
+          validation?.emailError
+        );
+      });
+
+      if (!firstExtraPickupError) {
+        return;
+      }
+
+      const extraPickupErrorTarget = (() => {
+        const validation =
+          extraPickupErrors[
+            extraPickups.findIndex(
+              (pickup) => pickup.id === firstExtraPickupError.id,
+            )
+          ];
+
+        if (validation?.phoneError || validation?.contactError) {
+          return `extra-pickup-${firstExtraPickupError.id}-phone`;
+        }
+
+        return `extra-pickup-${firstExtraPickupError.id}-email`;
+      })();
+
+      scrollToFieldTarget(extraPickupErrorTarget);
       return;
     }
 
-    if (requiresTimeWindow && !finalTimeWindow.trim()) {
-      setSubmitError("Delivery time window is required");
-      return;
-    }
-
-    if (requiresTimeWindow && timeWindow === "custom" && (!customTimeFrom || !customTimeTo)) {
-      setSubmitError("Custom time requires both from and to");
-      return;
-    }
-
-    if (requiresPickupAddress && !pickupAddress.trim()) {
-      setSubmitError("Pickup address is required");
-      return;
-    }
-
-    if (requiresReturnAddress && !returnAddress.trim()) {
-      setSubmitError("Return address is required");
-      return;
-    }
-
-    if (requiresCustomerPhone && !normalizedPhone) {
-      setSubmitError("Customer phone is required");
-      return;
-    }
-
-    if (emailError || phoneError || phoneTwoError || cashierPhoneError) {
-      setSubmitError("Fix invalid email or phone fields");
-      return;
-    }
+    const normalizedExtraPickups = normalizeExtraPickups(
+      extraPickups.map(({ id: _id, ...pickup }) => pickup),
+    ).filter((pickup) => pickup.address);
 
     const payload: OrderFormPayload = {
       productCards,
@@ -1152,14 +1304,7 @@ export default function BookingEditor({
         timeWindow === "custom" && contactCustomerForCustomTimeWindow,
       customTimeContactNote: normalizedCustomTimeContactNote,
       pickupAddress,
-      extraPickups: extraPickups
-        .map((pickup) => ({
-          address: pickup.address.trim(),
-          phone: normalizeOptionalPhone(pickup.phone) ?? "",
-          email: normalizeOptionalEmail(pickup.email) ?? "",
-          sendEmail: pickup.sendEmail,
-        }))
-        .filter((pickup) => pickup.address),
+      extraPickups: normalizedExtraPickups,
       returnAddress,
       deliveryAddress,
       drivingDistance,
@@ -1233,6 +1378,8 @@ export default function BookingEditor({
       }
 
       setAttachments([]);
+      setDidAttemptSubmit(false);
+      scrollToPageTop();
     } catch (error) {
       setSubmitError(
         error instanceof Error && error.message
@@ -1328,6 +1475,11 @@ export default function BookingEditor({
             changeCustomerOptions={changeCustomerOptions}
             saving={saving}
             submitError={submitError}
+            deliveryDateError={visibleFieldErrors.deliveryDate}
+            timeWindowError={visibleFieldErrors.timeWindow}
+            pickupAddressError={visibleFieldErrors.pickupAddress}
+            deliveryAddressError={visibleFieldErrors.deliveryAddress}
+            returnAddressError={visibleFieldErrors.returnAddress}
             orderNumber={orderNumber}
             setOrderNumber={setOrderNumber}
             description={description}
@@ -1367,13 +1519,13 @@ export default function BookingEditor({
             setCustomerName={setCustomerName}
             phone={phone}
             setPhone={setPhone}
-            phoneError={phoneError}
+            phoneError={visibleFieldErrors.customerPhone}
             phoneTwo={phoneTwo}
             setPhoneTwo={setPhoneTwo}
-            phoneTwoError={phoneTwoError}
+            phoneTwoError={visibleFieldErrors.customerPhoneTwo}
             email={email}
             setEmail={setEmail}
-            emailError={emailError}
+            emailError={visibleFieldErrors.customerEmail}
             customerComments={customerComments}
             setCustomerComments={setCustomerComments}
             floorNo={floorNo}
@@ -1384,7 +1536,7 @@ export default function BookingEditor({
             setCashierName={setCashierName}
             cashierPhone={cashierPhone}
             setCashierPhone={setCashierPhone}
-            cashierPhoneError={cashierPhoneError}
+            cashierPhoneError={visibleFieldErrors.cashierPhone}
             subcontractorId={subcontractorId}
             setSubcontractorId={setSubcontractorId}
             customerLabel={customerLabel}

@@ -15,6 +15,7 @@ type Props = {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  inputId?: string;
 };
 
 export default function AddressAutocompleteInput({
@@ -22,6 +23,7 @@ export default function AddressAutocompleteInput({
   onChange,
   placeholder = "Enter a location",
   disabled = false,
+  inputId,
 }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState(value);
@@ -133,6 +135,7 @@ export default function AddressAutocompleteInput({
   return (
     <div className="relative w-full" ref={boxRef}>
       <input
+        id={inputId}
         ref={inputRef}
         value={query}
         onChange={(e) => {

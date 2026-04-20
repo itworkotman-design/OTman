@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   buildOrderEventSnapshotMock: vi.fn(),
   createOrderCreatedEventMock: vi.fn(),
   sendOrderNotificationEmailMock: vi.fn(),
+  sendExtraPickupNotificationEmailMock: vi.fn(),
+  createOrderNotificationMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   orderFindManyMock: vi.fn(),
   orderCreateMock: vi.fn(),
@@ -46,6 +48,11 @@ vi.mock("@/lib/orders/orderEvents", () => ({
 
 vi.mock("@/lib/orders/orderNotificationEmail", () => ({
   sendOrderNotificationEmail: mocks.sendOrderNotificationEmailMock,
+  sendExtraPickupNotificationEmail: mocks.sendExtraPickupNotificationEmailMock,
+}));
+
+vi.mock("@/lib/orders/orderNotifications", () => ({
+  createOrderNotification: mocks.createOrderNotificationMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -87,6 +94,10 @@ describe("routes in /api/orders", () => {
       statusNotes: "",
     });
     mocks.createOrderCreatedEventMock.mockResolvedValue(undefined);
+    mocks.createOrderNotificationMock.mockResolvedValue({
+      id: "notification-1",
+      createdAt: new Date("2030-01-01T00:00:00.000Z"),
+    });
     mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
     mocks.getBookingCatalogMock.mockResolvedValue({
       products: [],
@@ -96,6 +107,7 @@ describe("routes in /api/orders", () => {
     mocks.pendingDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.orderCreateMock.mockResolvedValue({
       id: "order-1",
+      companyId: "company-1",
       displayId: 20000,
       orderNumber: "PO-1",
       createdAt: new Date("2030-01-01T00:00:00.000Z"),
@@ -268,6 +280,40 @@ describe("routes in /api/orders", () => {
       ok: false,
       reason: "INVALID_EMAIL",
       message: "Enter a valid email address.",
+    });
+  });
+
+  it("POST returns 400 when an extra pickup has no phone or email", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          extraPickups: [{ address: "Store 2", phone: "+47", email: "" }],
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "INVALID_EXTRA_PICKUP_CONTACT",
+      message: "Extra pickup 1 needs a phone number or email address.",
     });
   });
 
@@ -447,6 +493,55 @@ describe("routes in /api/orders", () => {
           orderNumber: "PO-1",
           customerLabel: "Power Grunerlokka",
         }),
+      }),
+    );
+  });
+
+  it("POST creates an order notification when extra pickups are present", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          extraPickups: [
+            {
+              address: "Store 2",
+              phone: "+47 98 76 54 32",
+              email: "",
+              sendEmail: false,
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.createOrderNotificationMock).toHaveBeenCalledTimes(1);
+    expect(mocks.createOrderNotificationMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        orderId: "order-1",
+        companyId: "company-1",
+        type: "MANUAL_REVIEW",
+        title: "Extra pickup notification",
+        message: expect.stringContaining(
+          "Please contact store for extra pickup.",
+        ),
       }),
     );
   });

@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   createOrderStatusChangedEventMock: vi.fn(),
   createOrderUpdatedEventMock: vi.fn(),
   sendOrderNotificationEmailMock: vi.fn(),
+  sendExtraPickupNotificationEmailMock: vi.fn(),
+  createOrderNotificationMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
   orderDeleteManyMock: vi.fn(),
@@ -47,6 +49,11 @@ vi.mock("@/lib/orders/orderEvents", () => ({
 
 vi.mock("@/lib/orders/orderNotificationEmail", () => ({
   sendOrderNotificationEmail: mocks.sendOrderNotificationEmailMock,
+  sendExtraPickupNotificationEmail: mocks.sendExtraPickupNotificationEmailMock,
+}));
+
+vi.mock("@/lib/orders/orderNotifications", () => ({
+  createOrderNotification: mocks.createOrderNotificationMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -81,6 +88,10 @@ describe("routes in /api/orders/[orderId]", () => {
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([]);
     mocks.createOrderStatusChangedEventMock.mockResolvedValue(undefined);
     mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
+    mocks.createOrderNotificationMock.mockResolvedValue({
+      id: "notification-1",
+      createdAt: new Date("2030-01-01T00:00:00.000Z"),
+    });
     mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
     mocks.orderUpdateMock.mockResolvedValue({ id: "order-1" });
     mocks.transactionMock.mockImplementation(async (callback: any) =>
@@ -227,6 +238,94 @@ describe("routes in /api/orders/[orderId]", () => {
     });
   });
 
+  it("PATCH returns 400 when an extra pickup email is invalid", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      user: {
+        username: "admin",
+        email: "admin@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      companyId: "company-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      productCardsSnapshot: [],
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      status: "behandles",
+      statusNotes: "",
+      customerName: "",
+      deliveryDate: "",
+      timeWindow: "",
+      expressDelivery: false,
+      contactCustomerForCustomTimeWindow: false,
+      customTimeContactNote: null,
+      pickupAddress: "",
+      extraPickupAddress: [],
+      extraPickupContacts: [],
+      deliveryAddress: "",
+      returnAddress: "",
+      drivingDistance: "",
+      phone: "",
+      phoneTwo: "",
+      email: "",
+      customerComments: "",
+      description: "",
+      productsSummary: "",
+      deliveryTypeSummary: "",
+      servicesSummary: "",
+      cashierName: "",
+      cashierPhone: "",
+      subcontractor: "",
+      driver: "",
+      secondDriver: "",
+      driverInfo: "",
+      licensePlate: "",
+      deviation: "",
+      feeExtraWork: false,
+      feeAddToOrder: false,
+      dontSendEmail: false,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      gsmLastTaskState: null,
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          extraPickups: [
+            { address: "Store 2", phone: "+47 98 76 54 32", email: "bad" },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "INVALID_EXTRA_PICKUP_CONTACT",
+      message: "Extra pickup 1: Enter a valid email address.",
+    });
+  });
+
   it("PATCH sends an internal notification email after a successful update", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
@@ -292,6 +391,104 @@ describe("routes in /api/orders/[orderId]", () => {
           customerLabel: "POWER Slependen",
           status: "ferdig",
         }),
+      }),
+    );
+  });
+
+  it("PATCH creates an order notification when extra pickups change", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      user: {
+        username: "admin",
+        email: "admin@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      companyId: "company-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      productCardsSnapshot: [],
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      status: "behandles",
+      statusNotes: "",
+      customerName: "",
+      deliveryDate: "",
+      timeWindow: "",
+      expressDelivery: false,
+      contactCustomerForCustomTimeWindow: false,
+      customTimeContactNote: null,
+      pickupAddress: "Store 1",
+      extraPickupAddress: [],
+      extraPickupContacts: [],
+      deliveryAddress: "",
+      returnAddress: "",
+      drivingDistance: "",
+      phone: "",
+      phoneTwo: "",
+      email: "",
+      customerComments: "",
+      description: "",
+      productsSummary: "",
+      deliveryTypeSummary: "",
+      servicesSummary: "",
+      cashierName: "",
+      cashierPhone: "",
+      subcontractor: "",
+      driver: "",
+      secondDriver: "",
+      driverInfo: "",
+      licensePlate: "",
+      deviation: "",
+      feeExtraWork: false,
+      feeAddToOrder: false,
+      dontSendEmail: false,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      gsmLastTaskState: null,
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          extraPickups: [
+            {
+              address: "Store 2",
+              phone: "+47 98 76 54 32",
+              email: "",
+              sendEmail: false,
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.createOrderNotificationMock).toHaveBeenCalledTimes(1);
+    expect(mocks.createOrderNotificationMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        orderId: "order-1",
+        companyId: "company-1",
+        type: "MANUAL_REVIEW",
+        title: "Extra pickup notification",
       }),
     );
   });

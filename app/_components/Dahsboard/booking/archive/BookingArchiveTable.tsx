@@ -16,7 +16,7 @@ type BookingArchiveTableProps = {
   orders: OrderRow[];
   viewMode: BookingArchiveViewMode;
   onRowClick: (orderId: string) => void;
-  onEmailClick: (order: OrderRow) => void;
+  onAlertClick: (order: OrderRow) => void;
   selectable?: boolean;
   selectedOrderIds?: string[];
   onToggleOrder?: (orderId: string) => void;
@@ -120,7 +120,7 @@ export default function BookingArchiveTable({
   orders,
   viewMode,
   onRowClick,
-  onEmailClick,
+  onAlertClick,
   selectable = false,
   selectedOrderIds = [],
   onToggleOrder,
@@ -199,7 +199,7 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("mail") ? (
                   <th className="w-[60] min-w-[60] border-r border-black/3 px-2 py-3 text-center font-medium">
-                    Mail
+                    Alerts
                   </th>
                 ) : null}
                 {isColumnVisible("deliveryDate") ? (
@@ -480,7 +480,7 @@ export default function BookingArchiveTable({
                 )
                   return;
                 if (
-                  (e.target as HTMLElement).closest('[data-email-cell="true"]')
+                  (e.target as HTMLElement).closest('[data-alert-cell="true"]')
                 )
                   return;
                 onRowClick(order.id);
@@ -514,32 +514,65 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("mail") ? (
                     <td
-                      data-email-cell="true"
+                      data-alert-cell="true"
                       className="w-[60] min-w-[60] border-r border-black/3 px-2 py-2 text-center"
                     >
-                      <button
-                        type="button"
-                        className={`relative inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition ${
-                          order.needsEmailAttention
-                            ? "border-logoblue bg-logoblue text-white cursor-pointer"
-                            : "border-black/10 bg-white text-logoblue cursor-pointer"
-                        }`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onEmailClick(order);
-                        }}
-                        aria-label={`Open email modal for order ${order.displayId}`}
-                        title="Open email modal"
-                      >
-                        M
-                        {order.unreadInboundEmailCount > 0 ? (
-                          <span className="absolute -right-1 -top-1 min-w-[18] rounded-full bg-logored px-1 text-[10px] font-semibold leading-[18] text-white">
-                            {order.unreadInboundEmailCount > 99
-                              ? "99+"
-                              : order.unreadInboundEmailCount}
-                          </span>
-                        ) : null}
-                      </button>
+                      {(() => {
+                        const hasMailAlert =
+                          order.needsEmailAttention ||
+                          order.unreadInboundEmailCount > 0;
+                        const hasNotificationAlert =
+                          order.needsNotificationAttention ||
+                          order.unreadNotificationCount > 0;
+
+                        let buttonClassName =
+                          "relative flex h-10 w-full items-center justify-center overflow-hidden rounded-md border text-[11px] font-semibold transition";
+
+                        if (hasMailAlert && hasNotificationAlert) {
+                          buttonClassName +=
+                            " border-amber-300 bg-white shadow-[0_0_12px_rgba(245,158,11,0.35)]";
+                        } else if (hasMailAlert) {
+                          buttonClassName +=
+                            " border-logoblue bg-logoblue text-white shadow-[0_0_12px_rgba(37,99,235,0.35)]";
+                        } else if (hasNotificationAlert) {
+                          buttonClassName +=
+                            " border-amber-400 bg-amber-300 text-amber-950 shadow-[0_0_12px_rgba(245,158,11,0.35)]";
+                        } else {
+                          buttonClassName +=
+                            " border-black/10 bg-white text-textColorThird";
+                        }
+
+                        return (
+                          <button
+                            type="button"
+                            className={buttonClassName}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onAlertClick(order);
+                            }}
+                            aria-label={`Open alert center for order ${order.displayId}`}
+                            title="Open alert center"
+                          >
+                            {hasMailAlert && hasNotificationAlert ? (
+                              <>
+                                <span className="flex h-full w-1/2 items-center justify-center bg-logoblue text-white">
+                                  M
+                                </span>
+                                <span className="h-full w-px bg-white/80" />
+                                <span className="flex h-full w-1/2 items-center justify-center bg-amber-300 text-amber-950">
+                                  A
+                                </span>
+                              </>
+                            ) : hasMailAlert ? (
+                              "M"
+                            ) : hasNotificationAlert ? (
+                              "A"
+                            ) : (
+                              "Open"
+                            )}
+                          </button>
+                        );
+                      })()}
                     </td>
                   ) : null}
                   {isColumnVisible("deliveryDate") ? (

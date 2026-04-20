@@ -2,19 +2,21 @@
 
 import { useMemo } from "react";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
+import {
+  createEmptyExtraPickup,
+  getExtraPickupValidation,
+  type ExtraPickupInput,
+} from "@/lib/orders/extraPickups";
 
 type Pickup = {
   id: string;
-  address: string;
-  phone: string;
-  email: string;
-  sendEmail: boolean;
-};
+} & ExtraPickupInput;
 
 export function PickupLocations({
   disabled = false,
   overrideValue,
   mainAddress,
+  mainAddressError,
   onMainAddressChange,
   pickups,
   onPickupsChange,
@@ -22,6 +24,7 @@ export function PickupLocations({
   disabled?: boolean;
   overrideValue?: string;
   mainAddress: string;
+  mainAddressError?: string | null;
   onMainAddressChange: (value: string) => void;
   pickups: Pickup[];
   onPickupsChange: (pickups: Pickup[]) => void;
@@ -38,10 +41,7 @@ export function PickupLocations({
       ...pickups,
       {
         id: crypto.randomUUID(),
-        address: "",
-        phone: "",
-        email: "",
-        sendEmail: true,
+        ...createEmptyExtraPickup(),
       },
     ]);
   };
@@ -69,6 +69,7 @@ export function PickupLocations({
           Pickup address<span className="text-red-600">*</span>
         </label>
         <AddressAutocompleteInput
+          inputId="order-pickup-address"
           value={disabled ? (overrideValue ?? "") : mainAddress}
           onChange={(value) => {
             if (!disabled) handleMainChange(value);
@@ -76,7 +77,11 @@ export function PickupLocations({
           disabled={disabled}
           placeholder="Enter a location"
         />
-
+        {mainAddressError ? (
+          <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {mainAddressError}
+          </div>
+        ) : null}
       </div>
 
       {!disabled && (
@@ -87,89 +92,121 @@ export function PickupLocations({
 
           <div
             className={[
-              additionalDisabled ? "opacity-50 pointer-events-none" : "",
+              additionalDisabled ? "pointer-events-none opacity-50" : "",
             ].join(" ")}
           >
-            {pickups.map((p, idx) => (
-              <div
-                key={p.id}
-                className="my-4 rounded-xl border border-neutral-200 p-4"
-              >
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <span className="text-md pl-1 font-semibold">
-                    Pickup {idx + 1}
-                  </span>
+            {pickups.map((pickup, idx) => {
+              const validation = getExtraPickupValidation(pickup);
 
-                  <button
-                    type="button"
-                    onClick={() => removePickup(p.id)}
-                    className="grid h-8 w-8 place-items-center rounded-full border hover:bg-red-700 hover:text-white cursor-pointer"
-                    aria-label={`Remove pickup ${idx + 1}`}
-                  >
-                    −
-                  </button>
-                </div>
+              return (
+                <div
+                  key={pickup.id}
+                  className="my-4 rounded-xl border border-neutral-200 p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <span className="text-md pl-1 font-semibold">
+                      Pickup {idx + 1}
+                      <span className="text-red-600">*</span>
+                    </span>
 
-                <div className="mb-3">
-                  <AddressAutocompleteInput
-                    value={p.address}
-                    onChange={(value) => updatePickup(p.id, { address: value })}
-                    placeholder="Enter a location"
-                  />
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => removePickup(pickup.id)}
+                      className="grid h-8 w-8 cursor-pointer place-items-center rounded-full border hover:bg-red-700 hover:text-white"
+                      aria-label={`Remove pickup ${idx + 1}`}
+                    >
+                      -
+                    </button>
+                  </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">
-                      Phone
-                    </label>
-                    <input
-                      type="tel"
-                      inputMode="tel"
-                      value={p.phone}
-                      onChange={(e) =>
-                        updatePickup(p.id, { phone: e.target.value })
+                  <div className="mb-3">
+                    <AddressAutocompleteInput
+                      inputId={`extra-pickup-${pickup.id}-address`}
+                      value={pickup.address}
+                      onChange={(value) =>
+                        updatePickup(pickup.id, { address: value })
                       }
-                      className="customInput w-full"
-                      placeholder="Enter phone"
+                      placeholder="Enter a location"
                     />
                   </div>
 
-                  <div>
-                    <label className="mb-1 block text-sm font-medium">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      autoComplete="email"
-                      value={p.email}
-                      onChange={(e) =>
-                        updatePickup(p.id, { email: e.target.value })
-                      }
-                      className="customInput w-full"
-                      placeholder="Enter email"
-                    />
-                  </div>
-                </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium">
+                        Phone
+                        {validation.phoneRequired ? (
+                          <span className="text-red-600">*</span>
+                        ) : null}
+                      </label>
+                      <input
+                        id={`extra-pickup-${pickup.id}-phone`}
+                        type="tel"
+                        inputMode="tel"
+                        value={pickup.phone}
+                        onChange={(e) =>
+                          updatePickup(pickup.id, { phone: e.target.value })
+                        }
+                        className="customInput w-full"
+                        placeholder="Enter phone"
+                      />
+                      {validation.phoneError ? (
+                        <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                          {validation.phoneError}
+                        </div>
+                      ) : null}
+                    </div>
 
-                <label className="mt-3 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={p.sendEmail}
-                    onChange={(e) =>
-                      updatePickup(p.id, { sendEmail: e.target.checked })
-                    }
-                  />
-                  <span>Send email</span>
-                </label>
-              </div>
-            ))}
+                    <div>
+                      <label className="mb-1 block text-sm font-medium">
+                        Email
+                        {validation.emailRequired ? (
+                          <span className="text-red-600">*</span>
+                        ) : null}
+                      </label>
+                      <input
+                        id={`extra-pickup-${pickup.id}-email`}
+                        type="email"
+                        autoComplete="email"
+                        value={pickup.email}
+                        onChange={(e) =>
+                          updatePickup(pickup.id, { email: e.target.value })
+                        }
+                        className="customInput w-full"
+                        placeholder="Enter email"
+                      />
+                      {validation.emailError ? (
+                        <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                          {validation.emailError}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {validation.contactError ? (
+                    <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {validation.contactError}
+                    </div>
+                  ) : null}
+
+                  <label className="mt-3 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={pickup.sendEmail}
+                      onChange={(e) =>
+                        updatePickup(pickup.id, { sendEmail: e.target.checked })
+                      }
+                    />
+                    <span>Send email</span>
+                  </label>
+                </div>
+              );
+            })}
 
             <button
               type="button"
               onClick={addPickup}
               disabled={additionalDisabled}
-              className="customButtonDefault w-full h-10"
+              className="customButtonDefault h-10 w-full"
             >
               Add additional pickup
             </button>

@@ -239,7 +239,7 @@ export default function BookingPage() {
                 setSelectedOrderId(orderId);
                 setModalOpen(true);
               }}
-              onEmailClick={(order) => {
+              onAlertClick={(order) => {
                 setEmailOrder(order);
                 setEmailModalOpen(true);
               }}
@@ -272,7 +272,7 @@ export default function BookingPage() {
           setEmailModalOpen(false);
           setEmailOrder(null);
         }}
-        onConversationChanged={() => void loadOrders(appliedFilters)}
+        onAlertsChanged={() => void loadOrders(appliedFilters)}
       />
     </div>
   );

@@ -54,6 +54,18 @@ function FormSectionSpacer() {
   );
 }
 
+function FieldErrorMessage({ message }: { message: string | null }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+      {message}
+    </div>
+  );
+}
+
 type Props = {
   hidden: HiddenMask;
   hideDontSendEmail: boolean;
@@ -67,6 +79,11 @@ type Props = {
   changeCustomerOptions: UserOption[];
   saving: boolean;
   submitError: string;
+  deliveryDateError: string | null;
+  timeWindowError: string | null;
+  pickupAddressError: string | null;
+  deliveryAddressError: string | null;
+  returnAddressError: string | null;
 
   orderNumber: string;
   setOrderNumber: React.Dispatch<React.SetStateAction<string>>;
@@ -193,6 +210,11 @@ export default function OrderFieldsForm({
   changeCustomerOptions,
   saving,
   submitError,
+  deliveryDateError,
+  timeWindowError,
+  pickupAddressError,
+  deliveryAddressError,
+  returnAddressError,
 
   orderNumber,
   setOrderNumber,
@@ -311,6 +333,8 @@ export default function OrderFieldsForm({
 
   return (
     <div className="customContainer">
+      {submitError ? <FieldErrorMessage message={submitError} /> : null}
+
       {shown(hidden, OrderFields.OrderNumber) && (
         <>
           <h1 className="font-bold py-2">Order number</h1>
@@ -340,11 +364,13 @@ export default function OrderFieldsForm({
             Delivery date<span className="text-red-600">*</span>
           </h1>
           <input
+            id="order-delivery-date"
             type="date"
             value={deliveryDate}
             onChange={(e) => setDeliveryDate(e.target.value)}
             className="customInput w-full"
           />
+          <FieldErrorMessage message={deliveryDateError} />
         </>
       )}
 
@@ -354,6 +380,7 @@ export default function OrderFieldsForm({
             Delivery Time window<span className="text-red-600">*</span>
           </h1>
           <select
+            id="order-time-window"
             value={timeWindow}
             onChange={(e) => {
               const value = e.target.value;
@@ -481,6 +508,7 @@ export default function OrderFieldsForm({
               <span className="text-sm font-medium">Express delivery</span>
             </label>
           )}
+          <FieldErrorMessage message={timeWindowError} />
         </>
       )}
 
@@ -494,6 +522,7 @@ export default function OrderFieldsForm({
             shouldLockPickupAddress ? "No shop pickup address" : undefined
           }
           mainAddress={pickupAddress}
+          mainAddressError={pickupAddressError}
           onMainAddressChange={setPickupAddress}
           pickups={extraPickups}
           onPickupsChange={setExtraPickups}
@@ -506,19 +535,23 @@ export default function OrderFieldsForm({
             Delivery address<span className="text-red-600">*</span>
           </h1>
           <AddressAutocompleteInput
+            inputId="order-delivery-address"
             value={deliveryAddress}
             onChange={setDeliveryAddress}
             placeholder="Enter a location"
           />
+          <FieldErrorMessage message={deliveryAddressError} />
 
           {shouldShowReturnAddress && (
             <>
               <h1 className="font-bold py-2">Return address</h1>
               <AddressAutocompleteInput
+                inputId="order-return-address"
                 value={returnAddress}
                 onChange={setReturnAddress}
                 placeholder="Enter a return location"
               />
+              <FieldErrorMessage message={returnAddressError} />
             </>
           )}
         </>
@@ -555,15 +588,14 @@ export default function OrderFieldsForm({
             Customer&apos;s phone<span className="text-red-600">*</span>
           </h1>
           <input
+            id="order-customer-phone"
             type="tel"
             inputMode="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="customInput w-full"
           />
-          {phoneError ? (
-            <p className="mt-1 text-sm text-red-600">{phoneError}</p>
-          ) : null}
+          <FieldErrorMessage message={phoneError} />
         </>
       )}
 
@@ -571,15 +603,14 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">Additional customer&apos;s phone</h1>
           <input
+            id="order-customer-phone-two"
             type="tel"
             inputMode="tel"
             value={phoneTwo}
             onChange={(e) => setPhoneTwo(e.target.value)}
             className="customInput w-full"
           />
-          {phoneTwoError ? (
-            <p className="mt-1 text-sm text-red-600">{phoneTwoError}</p>
-          ) : null}
+          <FieldErrorMessage message={phoneTwoError} />
         </>
       )}
 
@@ -587,15 +618,14 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">Customer&apos;s email</h1>
           <input
+            id="order-customer-email"
             type="email"
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="customInput w-full"
           />
-          {emailError ? (
-            <p className="mt-1 text-sm text-red-600">{emailError}</p>
-          ) : null}
+          <FieldErrorMessage message={emailError} />
         </>
       )}
 
@@ -666,15 +696,14 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">Cashier&apos;s phone</h1>
           <input
+            id="order-cashier-phone"
             type="tel"
             inputMode="tel"
             value={cashierPhone}
             onChange={(e) => setCashierPhone(e.target.value)}
             className="customInput w-full"
           />
-          {cashierPhoneError ? (
-            <p className="mt-1 text-sm text-red-600">{cashierPhoneError}</p>
-          ) : null}
+          <FieldErrorMessage message={cashierPhoneError} />
         </>
       )}
 
@@ -794,17 +823,6 @@ export default function OrderFieldsForm({
         </div>
       )}
 
-      {shown(hidden, OrderFields.StatusNotes) && (
-        <>
-          <h1 className="font-bold py-2">Status notes</h1>
-          <input
-            value={statusNotes}
-            onChange={(e) => setStatusNotes(e.target.value)}
-            className="customInput w-full h-30"
-          />
-        </>
-      )}
-
       {shown(hidden, OrderFields.ChangeCustomer) && (
         <>
           <h1 className="font-bold py-2">Change customer</h1>
@@ -856,6 +874,17 @@ export default function OrderFieldsForm({
         </>
       )}
 
+      {shown(hidden, OrderFields.StatusNotes) && (
+        <>
+          <h1 className="font-bold py-2">Status notes</h1>
+          <input
+            value={statusNotes}
+            onChange={(e) => setStatusNotes(e.target.value)}
+            className="customInput w-full h-30"
+          />
+        </>
+      )}
+
       {shown(hidden, OrderFields.Attachment) && (
         <>
           <div className="mt-2">
@@ -883,11 +912,6 @@ export default function OrderFieldsForm({
           />
           <span>Don&apos;t send email</span>
         </label>
-      )}
-      {submitError && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {submitError}
-        </div>
       )}
       {!hideSubmitButton && (
         <button

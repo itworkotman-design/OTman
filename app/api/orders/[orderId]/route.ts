@@ -14,6 +14,11 @@ import {
   normalizeOptionalEmail,
   normalizeOptionalPhone,
 } from "@/lib/orders/contactValidation";
+import {
+  getExtraPickupApiError,
+  normalizeExtraPickups,
+  parseExtraPickups,
+} from "@/lib/orders/extraPickups";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
@@ -35,6 +40,8 @@ import {
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
+import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
 import type { AppPermission } from "@/lib/users/types";
 
 type ProductChangeValue = {
@@ -45,45 +52,6 @@ type ProductChangeValue = {
 function formatList(values: string[]) {
   return values.length > 0 ? values.join(", ") : "-";
 }
-type ExtraPickupInput = {
-  address: string;
-  phone: string;
-  email: string;
-  sendEmail: boolean;
-};
-
-function parseExtraPickups(value: unknown): ExtraPickupInput[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      const candidate =
-        item && typeof item === "object"
-          ? (item as {
-              address?: unknown;
-              phone?: unknown;
-              email?: unknown;
-              sendEmail?: unknown;
-            })
-          : null;
-
-      return {
-        address:
-          typeof candidate?.address === "string"
-            ? candidate.address.trim()
-            : "",
-        phone:
-          typeof candidate?.phone === "string" ? candidate.phone.trim() : "",
-        email:
-          typeof candidate?.email === "string" ? candidate.email.trim() : "",
-        sendEmail: candidate?.sendEmail === false ? false : true,
-      };
-    })
-    .filter((pickup) => pickup.address.length > 0);
-}
-
 function buildOptionLookup(
   products: CatalogProduct[],
   specialOptions: CatalogSpecialOption[],
@@ -749,40 +717,34 @@ export async function PATCH(
   const phone = normalizeOptionalPhone(body.phone);
   const phoneTwo = normalizeOptionalPhone(body.phoneTwo);
   const cashierPhone = normalizeOptionalPhone(body.cashierPhone);
+  const parsedBodyExtraPickups =
+    body.extraPickups !== undefined ? parseExtraPickups(body.extraPickups) : null;
+
+  if (parsedBodyExtraPickups) {
+    const extraPickupError = getExtraPickupApiError(parsedBodyExtraPickups);
+
+    if (extraPickupError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "INVALID_EXTRA_PICKUP_CONTACT",
+          message: extraPickupError,
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  const existingExtraPickups = normalizeExtraPickups(
+    parseExtraPickups(existingOrder.extraPickupContacts),
+  );
   const extraPickups =
     body.extraPickups !== undefined
-      ? parseExtraPickups(body.extraPickups)
-      : Array.isArray(existingOrder.extraPickupContacts)
-        ? existingOrder.extraPickupContacts
-            .map((pickup) => {
-              const candidate =
-                pickup && typeof pickup === "object" && !Array.isArray(pickup)
-                  ? (pickup as {
-                      address?: unknown;
-                      phone?: unknown;
-                      email?: unknown;
-                      sendEmail?: unknown;
-                    })
-                  : null;
-
-              return {
-                address:
-                  typeof candidate?.address === "string"
-                    ? candidate.address.trim()
-                    : "",
-                phone:
-                  typeof candidate?.phone === "string"
-                    ? candidate.phone.trim()
-                    : "",
-                email:
-                  typeof candidate?.email === "string"
-                    ? candidate.email.trim()
-                    : "",
-                sendEmail: candidate?.sendEmail === false ? false : true,
-              };
-            })
-            .filter((pickup) => pickup.address.length > 0)
-        : [];
+      ? normalizeExtraPickups(parsedBodyExtraPickups ?? [])
+      : existingExtraPickups;
+  const extraPickupContactsChanged =
+    body.extraPickups !== undefined &&
+    JSON.stringify(extraPickups) !== JSON.stringify(existingExtraPickups);
 
   const catalog = await getBookingCatalog(
     existingOrder.priceListId ?? membership.priceListId ?? null,
@@ -1097,6 +1059,20 @@ export async function PATCH(
   } catch (error) {
     console.error("Failed to send order update notification email", error);
   }
+
+  if (extraPickups.length > 0 && extraPickupContactsChanged) {
+    const extraPickupNotification = buildExtraPickupNotification(extraPickups);
+
+    await createOrderNotification(prisma, {
+      orderId,
+      companyId: existingOrder.companyId,
+      type: "MANUAL_REVIEW",
+      title: extraPickupNotification.title,
+      message: extraPickupNotification.message,
+      payload: extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     orderId,

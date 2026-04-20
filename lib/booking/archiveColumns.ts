@@ -86,7 +86,7 @@ const adminColumns: BookingArchiveColumn[] = [
   },
   {
     id: "mail",
-    label: "Mail",
+    label: "Alerts",
   },
   {
     id: "deliveryDate",

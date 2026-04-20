@@ -30,6 +30,38 @@ function mapStatus(state?: string | null) {
 
 type GsmTaskRecord = Record<string, unknown>;
 
+function getRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getTrimmedString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getFirstNonEmptyString(...values: unknown[]): string | null {
+  for (const value of values) {
+    const trimmed = getTrimmedString(value);
+
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return null;
+}
+
+function getMetafields(task: GsmTaskRecord | null): Record<string, unknown> {
+  const metafields = getRecord(task?.metafields);
+  return metafields ?? {};
+}
+
 export async function POST(req: Request) {
   try {
     const secret = req.headers.get("x-otman-secret");
@@ -45,12 +77,7 @@ export async function POST(req: Request) {
     const raw = await req.text();
     const body = JSON.parse(raw) as Record<string, unknown>;
 
-    const rawTask =
-      body.task && typeof body.task === "object"
-        ? (body.task as GsmTaskRecord)
-        : body.object && typeof body.object === "object"
-          ? (body.object as GsmTaskRecord)
-          : null;
+    const rawTask = getRecord(body.task) ?? getRecord(body.object);
 
     const gsmTaskId =
       typeof rawTask?.id === "string"
@@ -201,10 +228,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const metafields =
-      fullTask?.metafields && typeof fullTask.metafields === "object"
-        ? (fullTask.metafields as Record<string, unknown>)
-        : {};
+    const metafields = getMetafields(fullTask);
 
     // Import only POD PDF, with delay + retry, after completion
     if (gsmTaskId && state === "completed") {
@@ -232,18 +256,27 @@ export async function POST(req: Request) {
       ? "completed"
       : mapped ?? orderBeforeUpdate.status;
 
-    const driverValue =
-      typeof metafields["app:name"] === "string"
-        ? metafields["app:name"]
-        : orderBeforeUpdate.driver;
-    const secondDriverValue =
-      typeof metafields["app:driver2"] === "string"
-        ? metafields["app:driver2"]
-        : orderBeforeUpdate.secondDriver;
-    const licensePlateValue =
-      typeof metafields["app:carnumber"] === "string"
-        ? metafields["app:carnumber"]
-        : orderBeforeUpdate.licensePlate;
+    const driverValue = getFirstNonEmptyString(
+      metafields["app:name"],
+      metafields.driver,
+      orderBeforeUpdate.driver,
+    );
+    const secondDriverValue = getFirstNonEmptyString(
+      metafields["app:driver2"],
+      metafields.driver2,
+      orderBeforeUpdate.secondDriver,
+    );
+    const licensePlateValue = getFirstNonEmptyString(
+      metafields["app:carnumber"],
+      metafields.carnumber,
+      orderBeforeUpdate.licensePlate,
+    );
+    const statusNotesValue = getFirstNonEmptyString(
+      body.notes,
+      metafields["app:status_notes"],
+      metafields.status_notes,
+      orderBeforeUpdate.statusNotes,
+    );
 
     await prisma.order.update({
       where: { id: orderId },
@@ -251,6 +284,7 @@ export async function POST(req: Request) {
         driver: driverValue ?? undefined,
         secondDriver: secondDriverValue ?? undefined,
         licensePlate: licensePlateValue ?? undefined,
+        statusNotes: statusNotesValue ?? undefined,
         gsmLastTaskState: state ?? undefined,
         gsmLastWebhookAt: new Date(),
         status: nextStatus ?? undefined,
@@ -263,6 +297,7 @@ export async function POST(req: Request) {
       driver: driverValue,
       secondDriver: secondDriverValue,
       licensePlate: licensePlateValue,
+      statusNotes: statusNotesValue,
       gsmLastTaskState: state ?? orderBeforeUpdate.gsmLastTaskState,
       status: nextStatus,
     });

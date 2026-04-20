@@ -17,4 +17,4 @@ Renders the archive table for admin, subcontractor, and order-creator views usin
 | `formatMoney` | Formats numeric archive totals as `NOK` strings. |
 | `formatStatusCell` | Wraps status text in the status-style badge used throughout the archive. |
 | `Cell` | Constrains tall cell content to a scrollable container without forcing the whole row taller than needed. |
-| `BookingArchiveTable` | Main archive table renderer. It now shows the internal order `ID` column for subcontractor and order-creator views in the same way admin already did. |
+| `BookingArchiveTable` | Main archive table renderer. It now shows the admin `Alerts` cell as a full-cell button, rendering blue `M` mail alerts, yellow `A` notification alerts, or a split blue/yellow state when an order has both at once, while still keeping the subcontractor and order-creator `ID` column support. |
