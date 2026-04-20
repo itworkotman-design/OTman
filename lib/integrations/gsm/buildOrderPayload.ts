@@ -27,6 +27,8 @@ type GsmOrderPayload = {
   metafields: Record<string, string>;
 };
 
+const NO_PICKUP_ADDRESS = "no shop pickup address";
+
 function normalizePhone(value?: string | null) {
   const raw = (value ?? "").trim();
   if (!raw) return "";
@@ -50,6 +52,16 @@ function normalizePhones(...values: Array<string | null | undefined>) {
 
 function hasMontering(order: Order) {
   return !!order.servicesSummary?.trim();
+}
+
+function normalizePickupAddress(value?: string | null) {
+  const normalized = value?.trim() ?? "";
+
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized.toLocaleLowerCase() === NO_PICKUP_ADDRESS ? "" : normalized;
 }
 
 function buildDescription(order: Order) {
@@ -151,13 +163,14 @@ export function buildOrderPayload(order: Order): GsmOrderPayload {
   });
 
   const tasks: GsmTask[] = [];
+  const pickupAddress = normalizePickupAddress(order.pickupAddress);
 
-  if (order.pickupAddress?.trim()) {
-    tasks.push(makeTask("pick_up", order.pickupAddress.trim(), cashierContact));
+  if (pickupAddress) {
+    tasks.push(makeTask("pick_up", pickupAddress, cashierContact));
   }
 
   for (const address of order.extraPickupAddress) {
-    const value = address.trim();
+    const value = normalizePickupAddress(address);
     if (value) {
       tasks.push(makeTask("pick_up", value, cashierContact));
     }

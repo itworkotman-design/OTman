@@ -290,6 +290,65 @@ describe("buildProductBreakdowns", () => {
       label: "Innbæring",
     });
   });
+
+  it("zeros the non-XTRA base delivery price over 100 km", () => {
+    const cards = [
+      buildCard({
+        cardId: 1,
+        deliveryType: DELIVERY_TYPES.FIRST_STEP,
+      }),
+      buildCard({
+        cardId: 2,
+        deliveryType: DELIVERY_TYPES.INDOOR,
+      }),
+    ];
+
+    const result = buildProductBreakdowns(cards, [buildProduct()], [], {
+      zeroBaseDeliveryPricesOver100Km: true,
+    });
+
+    expect(result[0]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "FIRST_STEP",
+      unitPrice: 150,
+    });
+    expect(result[1]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "INDOOR",
+      unitPrice: 0,
+    });
+  });
+
+  it("zeros install-only and return-only delivery prices over 100 km", () => {
+    const cards = [
+      buildCard({
+        cardId: 1,
+        deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+      }),
+      buildCard({
+        cardId: 2,
+        deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+      }),
+    ];
+
+    const result = buildProductBreakdowns(cards, [buildProduct()], [], {
+      zeroBaseDeliveryPricesOver100Km: true,
+    });
+
+    expect(result[0]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "INSTALL_ONLY",
+      unitPrice: 0,
+      label: "Kun Installasjon/Montering",
+    });
+    expect(result[1]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "RETURN_ONLY",
+      unitPrice: 0,
+      label: "Kun retur",
+    });
+  });
+
   it("keeps an optional model number on the product breakdown", () => {
     const result = buildProductBreakdowns(
       [

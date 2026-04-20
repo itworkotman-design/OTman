@@ -336,7 +336,9 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.DeliveryDate) && (
         <>
-          <h1 className="font-bold py-2">Delivery date</h1>
+          <h1 className="font-bold py-2">
+            Delivery date<span className="text-red-600">*</span>
+          </h1>
           <input
             type="date"
             value={deliveryDate}
@@ -348,7 +350,9 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.DeliveryTimeWindow) && (
         <>
-          <h1 className="font-bold py-2">Delivery Time window</h1>
+          <h1 className="font-bold py-2">
+            Delivery Time window<span className="text-red-600">*</span>
+          </h1>
           <select
             value={timeWindow}
             onChange={(e) => {
@@ -498,7 +502,9 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.DeliveryAddress) && (
         <>
-          <h1 className="font-bold py-2">Delivery address</h1>
+          <h1 className="font-bold py-2">
+            Delivery address<span className="text-red-600">*</span>
+          </h1>
           <AddressAutocompleteInput
             value={deliveryAddress}
             onChange={setDeliveryAddress}
@@ -545,7 +551,9 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.CustomerPhone1) && (
         <>
-          <h1 className="font-bold py-2">Customer&apos;s phone</h1>
+          <h1 className="font-bold py-2">
+            Customer&apos;s phone<span className="text-red-600">*</span>
+          </h1>
           <input
             type="tel"
             inputMode="tel"

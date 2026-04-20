@@ -29,6 +29,11 @@ import {
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
 const PALLET_EXTRA_UNIT_PRICE = 250;
+
+type BuildProductBreakdownsOptions = {
+  zeroBaseDeliveryPricesOver100Km?: boolean;
+};
+
 function findXtraSpecialOption(catalogSpecialOptions: CatalogSpecialOption[]) {
   return (
     catalogSpecialOptions.find((o) => o.active && o.type === "xtra") ?? null
@@ -50,6 +55,23 @@ function usesSharedDeliveryPricing(card: SavedProductCard, product: CatalogProdu
   return (
     card.deliveryType === DELIVERY_TYPES.FIRST_STEP ||
     card.deliveryType === DELIVERY_TYPES.INDOOR
+  );
+}
+
+function shouldZeroBaseDeliveryPrice(
+  deliveryType: SavedProductCard["deliveryType"],
+  useXtraDeliveryPricing: boolean,
+  zeroBaseDeliveryPricesOver100Km: boolean,
+) {
+  if (!zeroBaseDeliveryPricesOver100Km || useXtraDeliveryPricing) {
+    return false;
+  }
+
+  return (
+    deliveryType === DELIVERY_TYPES.INDOOR ||
+    deliveryType === DELIVERY_TYPES.FIRST_STEP ||
+    deliveryType === DELIVERY_TYPES.INSTALL_ONLY ||
+    deliveryType === DELIVERY_TYPES.RETURN_ONLY
   );
 }
 
@@ -190,6 +212,7 @@ function buildItemsForCard(
   product: CatalogProduct,
   catalogSpecialOptions: CatalogSpecialOption[],
   useXtraDeliveryPricing: boolean,
+  zeroBaseDeliveryPricesOver100Km: boolean,
 ): ProductCardLineItem[] {
   const items: ProductCardLineItem[] = [];
   const amount = getAmount(card, product);
@@ -240,7 +263,13 @@ function buildItemsForCard(
           ? `${deliveryTypeLabel} (${OPTION_CODES.XTRA})`
           : deliveryTypeLabel,
       qty: 1,
-      unitPrice: xtraDeliveryPrice ?? standardDeliveryPrice,
+      unitPrice: shouldZeroBaseDeliveryPrice(
+        card.deliveryType,
+        useXtraDeliveryPricing,
+        zeroBaseDeliveryPricesOver100Km,
+      )
+        ? 0
+        : (xtraDeliveryPrice ?? standardDeliveryPrice),
     });
 
     if (isDeliveryTypeWithExtraAmount(card.deliveryType) && amount > 1) {
@@ -405,8 +434,11 @@ export function buildProductBreakdowns(
   cards: SavedProductCard[],
   catalogProducts: CatalogProduct[],
   catalogSpecialOptions: CatalogSpecialOption[],
+  options?: BuildProductBreakdownsOptions,
 ): ProductBreakdown[] {
   const xtraDeliveryCardIds = getXtraDeliveryCardIds(cards, catalogProducts);
+  const zeroBaseDeliveryPricesOver100Km =
+    options?.zeroBaseDeliveryPricesOver100Km ?? false;
 
   return cards.flatMap((card) => {
     if (!card.productId) return [];
@@ -431,6 +463,7 @@ export function buildProductBreakdowns(
           product,
           catalogSpecialOptions,
           shouldUseXtraDeliveryPricing(xtraDeliveryCardIds, card.cardId),
+          zeroBaseDeliveryPricesOver100Km,
         ),
       },
     ];

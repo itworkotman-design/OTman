@@ -65,7 +65,9 @@ export function PickupLocations({
   return (
     <div className="w-full py-2">
       <div>
-        <label className="font-bold">Pickup address</label>
+        <label className="font-bold">
+          Pickup address<span className="text-red-600">*</span>
+        </label>
         <AddressAutocompleteInput
           value={disabled ? (overrideValue ?? "") : mainAddress}
           onChange={(value) => {
@@ -74,6 +76,7 @@ export function PickupLocations({
           disabled={disabled}
           placeholder="Enter a location"
         />
+
       </div>
 
       {!disabled && (
@@ -134,7 +137,7 @@ export function PickupLocations({
 
                   <div>
                     <label className="mb-1 block text-sm font-medium">
-                      Email <span className="text-red-600">*</span>
+                      Email
                     </label>
                     <input
                       type="email"

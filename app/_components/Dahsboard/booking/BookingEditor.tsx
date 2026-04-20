@@ -354,6 +354,7 @@ export default function BookingEditor({
     UserOption[]
   >([]);
   const [changeCustomerLoading, setChangeCustomerLoading] = useState(false);
+  const distanceRequestAbortRef = useRef<AbortController | null>(null);
   const previousSelectedCustomerIdRef = useRef<string | null>(null);
   const hasProcessedInitialReturnSyncRef = useRef(false);
   const lastUnlockedPickupAddressRef = useRef(
@@ -565,8 +566,11 @@ export default function BookingEditor({
         productCards,
         catalogProducts,
         catalogSpecialOptions,
+        {
+          zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistance) > 100,
+        },
       ),
-    [productCards, catalogProducts, catalogSpecialOptions],
+    [productCards, catalogProducts, catalogSpecialOptions, drivingDistance],
   );
 
   const calculatorBreakdowns = useMemo(() => {
@@ -846,6 +850,83 @@ export default function BookingEditor({
       setLift("");
     }
   }, [floorNo, lift]);
+
+  useEffect(() => {
+    const extraPickupAddresses = extraPickups
+      .map((pickup) => pickup.address)
+      .filter((address) => address.trim().length > 0);
+    const routeRequest = {
+      pickupAddress,
+      extraPickupAddresses,
+      deliveryAddress,
+      returnAddress: shouldShowReturnAddress ? returnAddress : "",
+    };
+
+    distanceRequestAbortRef.current?.abort();
+
+    const abortController = new AbortController();
+    distanceRequestAbortRef.current = abortController;
+
+    const hasAtLeastTwoCandidateStops =
+      [
+        routeRequest.pickupAddress,
+        ...routeRequest.extraPickupAddresses,
+        routeRequest.deliveryAddress,
+        routeRequest.returnAddress,
+      ].filter((address) => address.trim().length > 0).length >= 2;
+
+    if (!hasAtLeastTwoCandidateStops) {
+      setDrivingDistance("");
+      return () => {
+        abortController.abort();
+        if (distanceRequestAbortRef.current === abortController) {
+          distanceRequestAbortRef.current = null;
+        }
+      };
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/route-distance", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(routeRequest),
+          signal: abortController.signal,
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.ok || typeof data.distanceKm !== "string") {
+          return;
+        }
+
+        setDrivingDistance((current) =>
+          current === data.distanceKm ? current : data.distanceKm,
+        );
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+      }
+    }, 700);
+
+    return () => {
+      clearTimeout(timer);
+      abortController.abort();
+      if (distanceRequestAbortRef.current === abortController) {
+        distanceRequestAbortRef.current = null;
+      }
+    };
+  }, [
+    deliveryAddress,
+    extraPickups,
+    pickupAddress,
+    returnAddress,
+    shouldShowReturnAddress,
+  ]);
 
   async function handleCreateOrder(payload: OrderFormPayload) {
     setSubmitError("");
