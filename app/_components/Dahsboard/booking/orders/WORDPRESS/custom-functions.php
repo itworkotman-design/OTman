@@ -1370,9 +1370,34 @@ function render_admin_order_table() {
     // — Fetch filter data
     $field_object   = get_field_object('field_682dd6dba40f7');
     $status_choices = $field_object['choices'] ?? [];
-    $authors = get_users([
+    $subcontractor_usernames = [
+    'Bahs Kurjer',
+    'Nordline AS',
+    'Tastanovas Matbutikk',
+    'Viken Travsport Tanha',
+    'Arnosan AS',
+    'Ievitis Transport',
+    'Stombergas Transport',
+    'New subcontractor 1',
+    'New subcontractor 2',
+    'Bygg Service Vaicuss',
+    'Linebox',
+    'Christiania flytt og vask AS',
+    'Albittar Transport AS',
+];
+
+$exclude_ids = [];
+foreach ($subcontractor_usernames as $username) {
+    $user = get_user_by('login', $username);
+    if ($user) {
+        $exclude_ids[] = (int) $user->ID;
+    }
+}
+
+$authors = get_users([
     'orderby' => 'display_name',
     'order'   => 'ASC',
+    'exclude' => $exclude_ids,
 ]);
 
 		$field_object_subcontractor = get_field_object('field_6902089488faf');
