@@ -150,14 +150,14 @@ export default function TopFilters({
               className="customInput w-full"
             >
               <option value="">All statuses</option>
-              <option value="behandles">Behandles</option>
+              <option value="processing">Processing</option>
               <option value="confirmed">Confirmed</option>
               <option value="active">Active</option>
               <option value="cancelled">Cancelled</option>
-              <option value="fail">Fail</option>
+              <option value="failed">Fail</option>
               <option value="completed">Completed</option>
               <option value="invoiced">Invoiced</option>
-              <option value="betalt">Paid</option>
+              <option value="paid">Paid</option>
             </select>
           </Field>
 
@@ -279,7 +279,11 @@ export default function TopFilters({
           </Field>
 
           <div className="flex items-end justify-end gap-2">
-            <button type="button" onClick={handleReset} className="customButtonDefault h-10">
+            <button
+              type="button"
+              onClick={handleReset}
+              className="customButtonDefault h-10"
+            >
               Reset
             </button>
             <button

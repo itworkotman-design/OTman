@@ -63,7 +63,9 @@ export default function BulkUpdateBar({
           <label className="mb-1 block text-xs font-medium text-textColorThird">
             Selected
           </label>
-          <div className="customInput flex h-10 w-[60] items-center justify-center text-center">{selectedCount}</div>
+          <div className="customInput flex h-10 w-[60] items-center justify-center text-center">
+            {selectedCount}
+          </div>
         </div>
 
         <div>
@@ -77,14 +79,14 @@ export default function BulkUpdateBar({
             disabled={loading}
           >
             <option value="">No status change</option>
-            <option value="behandles">Behandles</option>
+            <option value="processing">Processing</option>
             <option value="confirmed">Confirmed</option>
             <option value="active">Active</option>
             <option value="cancelled">Cancelled</option>
-            <option value="fail">Fail</option>
+            <option value="failed">Fail</option>
             <option value="completed">Completed</option>
             <option value="invoiced">Invoiced</option>
-            <option value="betalt">Paid</option>
+            <option value="paid">Paid</option>
           </select>
         </div>
 

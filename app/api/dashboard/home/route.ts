@@ -87,7 +87,10 @@ export async function GET(req: Request) {
       },
     });
 
-    if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+    if (
+      !membership ||
+      (membership.role !== "OWNER" && membership.role !== "ADMIN")
+    ) {
       return NextResponse.json(
         { ok: false, reason: "FORBIDDEN" },
         { status: 403 },
@@ -128,7 +131,7 @@ export async function GET(req: Request) {
       prisma.order.count({
         where: {
           companyId: session.activeCompanyId,
-          status: "behandles",
+          status: "processing",
         },
       }),
 

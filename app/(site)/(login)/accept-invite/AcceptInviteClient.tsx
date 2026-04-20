@@ -70,7 +70,7 @@ export default function AcceptInviteClient() {
         <button
           type="submit"
           disabled={loading}
-          className="rounded bg-logoblue px-4 py-2 text-white disabled:opacity-60"
+          className=" rounded bg-logoblue px-4 py-2 text-white disabled:opacity-60"
         >
           {loading ? "Accepting..." : "Accept invite"}
         </button>

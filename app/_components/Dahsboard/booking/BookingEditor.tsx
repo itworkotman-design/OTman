@@ -51,6 +51,7 @@ import {
   type AttachmentCategory,
   type AttachmentItem,
 } from "@/lib/orders/attachmentCategories";
+import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
 
 export type OrderFormPayload = {
   productCards: SavedProductCard[];
@@ -140,6 +141,13 @@ type Props = {
     id?: string;
   };
 };
+
+type CapacityWarningState = {
+  count: number;
+  limit: number;
+  isOverCapacity: boolean;
+  message: string;
+} | null;
 
 const PRESET_TIME_WINDOWS = ["10:00-16:00", "16:00-21:00"] as const;
 const EMPTY_FIELD_ERRORS: FieldErrorMap = {
@@ -374,7 +382,7 @@ export default function BookingEditor({
   const [customerMembershipId, setCustomerMembershipId] = useState(
     initialValues?.customerMembershipId ?? "",
   );
-  const [status, setStatus] = useState(initialValues?.status ?? "behandles");
+  const [status, setStatus] = useState(initialValues?.status ?? "processing");
   const [dontSendEmail, setDontSendEmail] = useState(
     initialValues?.dontSendEmail ?? false,
   );
@@ -425,6 +433,9 @@ export default function BookingEditor({
   const lastUnlockedPickupAddressRef = useRef(
     initialValues?.pickupAddress ?? "",
   );
+  const [capacityWarning, setCapacityWarning] =
+    useState<CapacityWarningState>(null);
+  const [capacityWarningLoading, setCapacityWarningLoading] = useState(false);
 
   const currentUser = useCurrentUser();
   const role = currentUser?.role ?? "USER";
@@ -634,110 +645,111 @@ export default function BookingEditor({
         catalogProducts,
         catalogSpecialOptions,
         {
-          zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistance) > 100,
+          zeroBaseDeliveryPricesOver100Km:
+            parseDistanceKm(drivingDistance) > 100,
         },
       ),
     [productCards, catalogProducts, catalogSpecialOptions, drivingDistance],
   );
 
   const calculatorBreakdowns = useMemo(() => {
-      const nextBreakdowns = [...productBreakdowns];
-      const extraItems: Array<{
-        kind: "customPrice";
-        code: string;
-        label: string;
-        qty: number;
-        unitPrice: number;
-      }> = [];
-      const extraPickupCount = extraPickups
-        .map((pickup) => pickup.address.trim())
-        .filter(Boolean).length;
-      const extraPickupPrice = Number(
-        priceListSettings.extraPickup.price.replace(",", "."),
-      );
-      const totalDistanceKm = parseDistanceKm(drivingDistance);
-      const kmFrom21Qty = Math.max(0, Math.min(totalDistanceKm, 100) - 21);
-      const kmOver100Qty = Math.max(0, totalDistanceKm - 100);
-      const kmFrom21Price = Number(
-        priceListSettings.kmFrom21.price.replace(",", "."),
-      );
-      const kmOver100Price = Number(
-        priceListSettings.kmOver100.price.replace(",", "."),
-      );
+    const nextBreakdowns = [...productBreakdowns];
+    const extraItems: Array<{
+      kind: "customPrice";
+      code: string;
+      label: string;
+      qty: number;
+      unitPrice: number;
+    }> = [];
+    const extraPickupCount = extraPickups
+      .map((pickup) => pickup.address.trim())
+      .filter(Boolean).length;
+    const extraPickupPrice = Number(
+      priceListSettings.extraPickup.price.replace(",", "."),
+    );
+    const totalDistanceKm = parseDistanceKm(drivingDistance);
+    const kmFrom21Qty = Math.max(0, Math.min(totalDistanceKm, 100) - 21);
+    const kmOver100Qty = Math.max(0, totalDistanceKm - 100);
+    const kmFrom21Price = Number(
+      priceListSettings.kmFrom21.price.replace(",", "."),
+    );
+    const kmOver100Price = Number(
+      priceListSettings.kmOver100.price.replace(",", "."),
+    );
 
-      if (
-        extraPickupCount > 0 &&
-        Number.isFinite(extraPickupPrice) &&
-        extraPickupPrice > 0
-      ) {
-        extraItems.push({
-          kind: "customPrice",
-          code: priceListSettings.extraPickup.code,
-          label: priceListSettings.extraPickup.description,
-          qty: extraPickupCount,
-          unitPrice: extraPickupPrice,
-        });
-      }
+    if (
+      extraPickupCount > 0 &&
+      Number.isFinite(extraPickupPrice) &&
+      extraPickupPrice > 0
+    ) {
+      extraItems.push({
+        kind: "customPrice",
+        code: priceListSettings.extraPickup.code,
+        label: priceListSettings.extraPickup.description,
+        qty: extraPickupCount,
+        unitPrice: extraPickupPrice,
+      });
+    }
 
-      const expressDeliveryPrice = Number(
-        priceListSettings.expressDelivery.price.replace(",", "."),
-      );
+    const expressDeliveryPrice = Number(
+      priceListSettings.expressDelivery.price.replace(",", "."),
+    );
 
-      if (expressDelivery && Number.isFinite(expressDeliveryPrice)) {
-        extraItems.push({
-          kind: "customPrice",
-          code: priceListSettings.expressDelivery.code,
-          label: priceListSettings.expressDelivery.description,
-          qty: 1,
-          unitPrice: expressDeliveryPrice,
-        });
-      }
+    if (expressDelivery && Number.isFinite(expressDeliveryPrice)) {
+      extraItems.push({
+        kind: "customPrice",
+        code: priceListSettings.expressDelivery.code,
+        label: priceListSettings.expressDelivery.description,
+        qty: 1,
+        unitPrice: expressDeliveryPrice,
+      });
+    }
 
-      if (kmFrom21Qty > 0 && Number.isFinite(kmFrom21Price)) {
-        extraItems.push({
-          kind: "customPrice",
-          code: priceListSettings.kmFrom21.code,
-          label: priceListSettings.kmFrom21.description,
-          qty: kmFrom21Qty,
-          unitPrice: kmFrom21Price,
-        });
-      }
+    if (kmFrom21Qty > 0 && Number.isFinite(kmFrom21Price)) {
+      extraItems.push({
+        kind: "customPrice",
+        code: priceListSettings.kmFrom21.code,
+        label: priceListSettings.kmFrom21.description,
+        qty: kmFrom21Qty,
+        unitPrice: kmFrom21Price,
+      });
+    }
 
-      if (kmOver100Qty > 0 && Number.isFinite(kmOver100Price)) {
-        extraItems.push({
-          kind: "customPrice",
-          code: priceListSettings.kmOver100.code,
-          label: priceListSettings.kmOver100.description,
-          qty: kmOver100Qty,
-          unitPrice: kmOver100Price,
-        });
-      }
+    if (kmOver100Qty > 0 && Number.isFinite(kmOver100Price)) {
+      extraItems.push({
+        kind: "customPrice",
+        code: priceListSettings.kmOver100.code,
+        label: priceListSettings.kmOver100.description,
+        qty: kmOver100Qty,
+        unitPrice: kmOver100Price,
+      });
+    }
 
-      if (extraItems.length > 0) {
-        nextBreakdowns.push({
-          productName: "Order extras",
-          items: extraItems,
-        });
-      }
+    if (extraItems.length > 0) {
+      nextBreakdowns.push({
+        productName: "Order extras",
+        items: extraItems,
+      });
+    }
 
-      return nextBreakdowns;
-    }, [
-      drivingDistance,
-      expressDelivery,
-      extraPickups,
-      priceListSettings.extraPickup.code,
-      priceListSettings.extraPickup.description,
-      priceListSettings.extraPickup.price,
-      priceListSettings.expressDelivery.code,
-      priceListSettings.expressDelivery.description,
-      priceListSettings.expressDelivery.price,
-      priceListSettings.kmFrom21.code,
-      priceListSettings.kmFrom21.description,
-      priceListSettings.kmFrom21.price,
-      priceListSettings.kmOver100.code,
-      priceListSettings.kmOver100.description,
-      priceListSettings.kmOver100.price,
-      productBreakdowns,
+    return nextBreakdowns;
+  }, [
+    drivingDistance,
+    expressDelivery,
+    extraPickups,
+    priceListSettings.extraPickup.code,
+    priceListSettings.extraPickup.description,
+    priceListSettings.extraPickup.price,
+    priceListSettings.expressDelivery.code,
+    priceListSettings.expressDelivery.description,
+    priceListSettings.expressDelivery.price,
+    priceListSettings.kmFrom21.code,
+    priceListSettings.kmFrom21.description,
+    priceListSettings.kmFrom21.price,
+    priceListSettings.kmOver100.code,
+    priceListSettings.kmOver100.description,
+    priceListSettings.kmOver100.price,
+    productBreakdowns,
   ]);
 
   const priceLookup = useMemo(
@@ -826,6 +838,85 @@ export default function BookingEditor({
   const selectedCustomerAddress = selectedCustomerOption?.address?.trim() ?? "";
   const finalTimeWindow =
     timeWindow === "custom" ? `${customTimeFrom}-${customTimeTo}` : timeWindow;
+  useEffect(() => {
+    const normalizedDeliveryDate = deliveryDate.trim();
+    const normalizedTimeWindow = finalTimeWindow.trim();
+
+    if (!normalizedDeliveryDate || !normalizedTimeWindow) {
+      setCapacityWarning(null);
+      setCapacityWarningLoading(false);
+      return;
+    }
+
+    if (
+      timeWindow === "custom" &&
+      (!customTimeFrom.trim() || !customTimeTo.trim())
+    ) {
+      setCapacityWarning(null);
+      setCapacityWarningLoading(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setCapacityWarningLoading(true);
+
+        const searchParams = new URLSearchParams({
+          deliveryDate: normalizedDeliveryDate,
+          timeWindow: normalizedTimeWindow,
+        });
+
+        if (initialValues?.id) {
+          searchParams.set("excludeOrderId", initialValues.id);
+        }
+
+        const response = await fetch(
+          `/api/orders/capacity?${searchParams.toString()}`,
+          {
+            credentials: "include",
+            cache: "no-store",
+            signal: abortController.signal,
+          },
+        );
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.ok) {
+          setCapacityWarning(null);
+          return;
+        }
+
+        setCapacityWarning({
+          count: typeof data.count === "number" ? data.count : 0,
+          limit: typeof data.limit === "number" ? data.limit : 15,
+          isOverCapacity: Boolean(data.isOverCapacity),
+          message: typeof data.message === "string" ? data.message : "",
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        setCapacityWarning(null);
+      } finally {
+        setCapacityWarningLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [
+    customTimeFrom,
+    customTimeTo,
+    deliveryDate,
+    finalTimeWindow,
+    initialValues?.id,
+    timeWindow,
+  ]);
   const normalizedEmail = normalizeOptionalEmail(email) ?? "";
   const normalizedPhone = normalizeOptionalPhone(phone) ?? "";
   const normalizedPhoneTwo = normalizeOptionalPhone(phoneTwo) ?? "";
@@ -1420,7 +1511,7 @@ export default function BookingEditor({
 
     setPickupAddress((current) =>
       current === "No shop pickup address"
-        ? (lastUnlockedPickupAddressRef.current || selectedCustomerAddress)
+        ? lastUnlockedPickupAddressRef.current || selectedCustomerAddress
         : current,
     );
   }, [selectedCustomerAddress, shouldLockPickupAddress]);
@@ -1568,6 +1659,12 @@ export default function BookingEditor({
             attachmentsError={attachmentsError}
             onUploadAttachment={handleUploadAttachment}
             onDeleteAttachment={handleDeleteAttachment}
+            capacityWarningMessage={
+              capacityWarning?.isOverCapacity ? capacityWarning.message : ""
+            }
+            capacityWarningCount={capacityWarning?.count ?? 0}
+            capacityWarningLimit={capacityWarning?.limit ?? ORDER_SLOT_LIMIT}
+            capacityWarningLoading={capacityWarningLoading}
           />
         </div>
 

@@ -298,6 +298,7 @@ enum OrderEmailStatus {
 enum OrderNotificationType {
   MANUAL_REVIEW
   GSM_REVIEW
+  CAPACITY_REVIEW
 }
 
 enum AttachmentCategory {

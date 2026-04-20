@@ -57,7 +57,7 @@ function buildOrderBeforeUpdate() {
     companyId: "company-1",
     displayId: 20001,
     orderNumber: "A-1",
-    status: "behandles",
+    status: "processing",
     statusNotes: "",
     customerLabel: "Customer",
     customerName: "Customer Name",

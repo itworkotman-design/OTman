@@ -2,7 +2,7 @@ export function getOrderStatusStyle(status: string | null | undefined) {
   const key = (status ?? "").toString().trim().toLowerCase();
 
   switch (key) {
-    case "behandles":
+    case "processing":
       return { color: "#b45309", backgroundColor: "#fef3c7" };
     case "bekreftet":
     case "confirmed":
@@ -14,7 +14,7 @@ export function getOrderStatusStyle(status: string | null | undefined) {
     case "cancelled":
     case "canceled":
       return { color: "#ea580c", backgroundColor: "#ffedd5" };
-    case "fail":
+    case "failed":
       return { color: "#7c3aed", backgroundColor: "#ede9fe" };
     case "ferdig":
     case "completed":

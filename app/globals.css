@@ -1,3 +1,5 @@
+/* eslint-disable no-use-before-define */ 
+
 @import "tailwindcss";
 @source "./app/**/*.{js,ts,jsx,tsx}";
 @source "./components/**/*.{js,ts,jsx,tsx}";
@@ -270,4 +272,7 @@ p, ul, li, a, td {
   color: var(--textcolor);
   background-color: rgba(0, 0, 0, 0.03);
   transition-duration: 200ms;
+}
+button{
+  cursor: pointer;
 }

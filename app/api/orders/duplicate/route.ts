@@ -186,7 +186,7 @@ export async function POST(req: Request) {
           feeExtraWork: sourceOrder.feeExtraWork,
           feeAddToOrder: sourceOrder.feeAddToOrder,
           statusNotes: null,
-          status: "behandles",
+          status: "processing",
           dontSendEmail: sourceOrder.dontSendEmail,
 
           priceExVat: sourceOrder.priceExVat,

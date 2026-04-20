@@ -34,7 +34,16 @@ import {
   normalizeSavedProductCard,
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import {
+  ORDER_SLOT_LIMIT,
+  countOrdersInDeliverySlot,
+  isDeliverySlotOverCapacity,
+} from "@/lib/orders/capacity";
+import { buildCapacityWarningNotification } from "@/lib/orders/notificationTemplates/capacityWarningNotification";
+import {
+  createOrderNotification,
+  hasOpenCapacityNotification,
+} from "@/lib/orders/orderNotifications";
 import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
 import type { AppPermission } from "@/lib/users/types";
 
@@ -327,7 +336,7 @@ export async function POST(req: Request) {
       feeExtraWork: optionalBoolean(body.feeExtraWork),
       feeAddToOrder: optionalBoolean(body.feeAddToOrder),
       statusNotes: optionalString(body.statusNotes),
-      status: optionalString(body.status) || "behandles",
+      status: optionalString(body.status) || "processing",
       dontSendEmail: optionalBoolean(body.dontSendEmail),
 
       priceExVat: Math.round(safeNumber(body.priceExVat)),
@@ -456,8 +465,47 @@ export async function POST(req: Request) {
       type: "MANUAL_REVIEW",
       title: extraPickupNotification.title,
       message: extraPickupNotification.message,
-      payload: extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
+      payload:
+        extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
     });
+  }
+
+  const normalizedTimeWindow = optionalString(body.timeWindow);
+
+  if (deliveryDate && normalizedTimeWindow) {
+    const slotCount = await countOrdersInDeliverySlot(prisma, {
+      companyId: order.companyId,
+      deliveryDate,
+      timeWindow: normalizedTimeWindow,
+    });
+
+    if (isDeliverySlotOverCapacity(slotCount, ORDER_SLOT_LIMIT)) {
+      const alreadyExists = await hasOpenCapacityNotification(prisma, {
+        orderId: order.id,
+        companyId: order.companyId,
+        deliveryDate,
+        timeWindow: normalizedTimeWindow,
+      });
+
+      if (!alreadyExists) {
+        const capacityNotification = buildCapacityWarningNotification({
+          deliveryDate,
+          timeWindow: normalizedTimeWindow,
+          count: slotCount,
+          limit: ORDER_SLOT_LIMIT,
+        });
+
+        await createOrderNotification(prisma, {
+          orderId: order.id,
+          companyId: order.companyId,
+          type: "CAPACITY_REVIEW",
+          title: capacityNotification.title,
+          message: capacityNotification.message,
+          payload:
+            capacityNotification.payload as unknown as Prisma.InputJsonValue,
+        });
+      }
+    }
   }
 
   try {
@@ -483,7 +531,7 @@ export async function POST(req: Request) {
       lift: optionalString(body.lift),
       cashierName: optionalString(body.cashierName),
       cashierPhone,
-      status: optionalString(body.status) || "behandles",
+      status: optionalString(body.status) || "processing",
       createdAt: order.createdAt,
       productsSummary: summaries.productsSummary,
       priceExVat: Math.round(safeNumber(body.priceExVat)),

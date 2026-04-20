@@ -90,7 +90,7 @@ describe("routes in /api/orders", () => {
       servicesSummary: "Service summary",
     });
     mocks.buildOrderEventSnapshotMock.mockReturnValue({
-      status: "behandles",
+      status: "processing",
       statusNotes: "",
     });
     mocks.createOrderCreatedEventMock.mockResolvedValue(undefined);
@@ -116,7 +116,9 @@ describe("routes in /api/orders", () => {
       callback({
         companyOrderCounter: {
           findUnique: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({ companyId: "company-1", nextNumber: 20001 }),
+          create: vi
+            .fn()
+            .mockResolvedValue({ companyId: "company-1", nextNumber: 20001 }),
           update: vi.fn(),
         },
       }),
@@ -149,7 +151,7 @@ describe("routes in /api/orders", () => {
       {
         id: "order-1",
         displayId: 20001,
-        status: "behandles",
+        status: "processing",
         statusNotes: null,
         deliveryDate: "2030-01-15",
         timeWindow: "08-12",
@@ -190,7 +192,9 @@ describe("routes in /api/orders", () => {
     ]);
 
     const res = await GET(
-      new Request("http://localhost/api/orders?search=Acme&page=2&rowsPerPage=10"),
+      new Request(
+        "http://localhost/api/orders?search=Acme&page=2&rowsPerPage=10",
+      ),
     );
 
     expect(res.status).toBe(200);
@@ -479,7 +483,7 @@ describe("routes in /api/orders", () => {
           deliveryAddress: "Delivery 1",
           orderNumber: "11340837806",
           priceExVat: 3699,
-          status: "behandles",
+          status: "processing",
         }),
       }),
     );

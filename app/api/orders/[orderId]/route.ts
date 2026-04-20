@@ -40,9 +40,19 @@ import {
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
-import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import {
+  createOrderNotification,
+  hasOpenCapacityNotification,
+  resolveOutdatedCapacityNotifications,
+} from "@/lib/orders/orderNotifications";
 import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
 import type { AppPermission } from "@/lib/users/types";
+import {
+  ORDER_SLOT_LIMIT,
+  countOrdersInDeliverySlot,
+  isDeliverySlotOverCapacity,
+} from "@/lib/orders/capacity";
+import { buildCapacityWarningNotification } from "@/lib/orders/notificationTemplates/capacityWarningNotification";
 
 type ProductChangeValue = {
   label: string;
@@ -1072,6 +1082,63 @@ export async function PATCH(
       payload: extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
     });
   }
+
+      const nextDeliveryDate =
+        optionalString(body.deliveryDate) ?? existingOrder.deliveryDate;
+      const nextTimeWindow =
+        optionalString(body.timeWindow) ?? existingOrder.timeWindow;
+
+      if (nextDeliveryDate && nextTimeWindow) {
+        await resolveOutdatedCapacityNotifications(prisma, {
+          orderId,
+          companyId: existingOrder.companyId,
+          deliveryDate: nextDeliveryDate,
+          timeWindow: nextTimeWindow,
+          resolvedByMembershipId: membership.id,
+        });
+
+        const slotCount = await countOrdersInDeliverySlot(prisma, {
+          companyId: existingOrder.companyId,
+          deliveryDate: nextDeliveryDate,
+          timeWindow: nextTimeWindow,
+          excludeOrderId: orderId,
+        });
+
+        const totalCountIncludingCurrent = slotCount + 1;
+
+        if (
+          isDeliverySlotOverCapacity(
+            totalCountIncludingCurrent,
+            ORDER_SLOT_LIMIT,
+          )
+        ) {
+          const alreadyExists = await hasOpenCapacityNotification(prisma, {
+            orderId,
+            companyId: existingOrder.companyId,
+            deliveryDate: nextDeliveryDate,
+            timeWindow: nextTimeWindow,
+          });
+
+          if (!alreadyExists) {
+            const capacityNotification = buildCapacityWarningNotification({
+              deliveryDate: nextDeliveryDate,
+              timeWindow: nextTimeWindow,
+              count: totalCountIncludingCurrent,
+              limit: ORDER_SLOT_LIMIT,
+            });
+
+            await createOrderNotification(prisma, {
+              orderId,
+              companyId: existingOrder.companyId,
+              type: "CAPACITY_REVIEW",
+              title: capacityNotification.title,
+              message: capacityNotification.message,
+              payload:
+                capacityNotification.payload as unknown as Prisma.InputJsonValue,
+            });
+          }
+        }
+      }
 
   return NextResponse.json({
     ok: true,

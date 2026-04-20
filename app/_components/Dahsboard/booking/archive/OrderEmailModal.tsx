@@ -89,7 +89,7 @@ type OrderEmailsResponse = {
 
 type NotificationItem = {
   id: string;
-  type: "MANUAL_REVIEW" | "GSM_REVIEW";
+  type: "MANUAL_REVIEW" | "GSM_REVIEW" | "CAPACITY_REVIEW";
   title: string;
   message: string;
   createdAt: string;
@@ -1196,7 +1196,7 @@ export default function OrderEmailModal({
                             <div className="text-base font-semibold text-logoblue">
                               {notification.title}
                             </div>
-                            <div className="mt-1 text-sm text-textColorThird">
+                            <div className="mt-1 whitespace-pre-wrap text-sm text-textColorThird">
                               {notification.message}
                             </div>
                           </div>
@@ -1227,7 +1227,7 @@ export default function OrderEmailModal({
                                 handleResolveNotification(notification.id)
                               }
                               disabled={isResolving}
-                              className="rounded-full bg-logored px-4 py-2 text-sm font-semibold text-logoBlue transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="cursor-pointer rounded-full bg-logored px-4 py-2 text-sm font-semibold text-logoBlue transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {isResolving ? "Updating..." : "Mark as fixed"}
                             </button>

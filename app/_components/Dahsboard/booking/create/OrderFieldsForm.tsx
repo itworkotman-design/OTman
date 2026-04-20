@@ -190,6 +190,10 @@ type Props = {
   attachments: AttachmentItem[];
   attachmentsUploading: boolean;
   attachmentsError: string;
+  capacityWarningMessage: string;
+  capacityWarningCount: number;
+  capacityWarningLimit: number;
+  capacityWarningLoading: boolean;
   onUploadAttachment: (
     file: File,
     category: AttachmentCategory,
@@ -303,6 +307,10 @@ export default function OrderFieldsForm({
   attachmentsError,
   onUploadAttachment,
   onDeleteAttachment,
+  capacityWarningMessage,
+  capacityWarningCount,
+  capacityWarningLimit,
+  capacityWarningLoading,
 }: Props) {
   const showLiftField =
     shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
@@ -509,6 +517,19 @@ export default function OrderFieldsForm({
             </label>
           )}
           <FieldErrorMessage message={timeWindowError} />
+          {capacityWarningLoading ? (
+            <div className="mt-2 text-sm text-textColorThird">
+              Checking time window capacity...
+            </div>
+          ) : capacityWarningMessage ? (
+            <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="font-semibold">Warning</div>
+              <div className="mt-1">{capacityWarningMessage}</div>
+              <div className="mt-1 text-xs text-amber-800">
+                Orders in slot: {capacityWarningCount} / {capacityWarningLimit}
+              </div>
+            </div>
+          ) : null}
         </>
       )}
 
@@ -862,14 +883,14 @@ export default function OrderFieldsForm({
             className="customInput w-full"
           >
             <option value="">Choose</option>
-            <option>Behandles</option>
-            <option>Bekreftet</option>
-            <option>Aktiv</option>
-            <option>Kanselert</option>
-            <option>Fail</option>
-            <option>Ferdig</option>
-            <option>Fakturert</option>
-            <option>Betalt</option>
+            <option>Processing</option>
+            <option>Confirmed</option>
+            <option>Active</option>
+            <option>Cancelled</option>
+            <option>Failed</option>
+            <option>Completed</option>
+            <option>Invoiced</option>
+            <option>Paid</option>
           </select>
         </>
       )}

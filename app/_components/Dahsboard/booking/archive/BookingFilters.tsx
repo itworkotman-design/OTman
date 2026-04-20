@@ -273,15 +273,15 @@ export default function BookingFilters({
               onChange={(e) => setStatus(e.target.value)}
               className="customInput w-full"
             >
-              <option value="">Alle statuser</option>
-              <option value="behandles">Behandles</option>
+              <option value="">All statuses</option>
+              <option value="Processing">Processing</option>
               <option value="confirmed">Confirmed</option>
               <option value="active">Active</option>
               <option value="cancelled">Cancelled</option>
-              <option value="fail">Fail</option>
+              <option value="failed">Fail</option>
               <option value="completed">Completed</option>
               <option value="invoiced">Invoiced</option>
-              <option value="betalt">Paid</option>
+              <option value="paid">Paid</option>
             </select>
           </Field>
 

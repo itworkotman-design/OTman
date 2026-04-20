@@ -1163,7 +1163,7 @@ $args = [
         $post_id = get_the_ID();
 
         $field_object = get_field_object('field_682dd6dba40f7', $post_id);
-        $value = get_field('field_682dd6dba40f7', $post_id) ?: 'Behandles';
+        $value = get_field('field_682dd6dba40f7', $post_id) ?: 'processing';
         $label = $field_object['choices'][$value] ?? $value;
         $css_class = 'status-' . sanitize_title(strtolower($value));
         $status_output = '<span class="order-status ' . esc_attr($css_class) . '"><span class="status-dot"></span><span class="order-status-text">' . esc_html($label) . '</span></span>';
@@ -2510,7 +2510,7 @@ if ($slug_id_search !== '') {
 }
 
     // — Status filter 
-// — Status filter (treat "Behandles" as default/empty and support legacy "Behandling")
+// — Status filter (treat "processing" as default/empty and support legacy "Behandling")
 if ($selected_status) {
  if ($selected_status !== '') {
   $meta_query[] = ['key'=>'status','value'=>$selected_status,'compare'=>'='];
@@ -2613,7 +2613,7 @@ $args = [
 
     while ($query->have_posts()) : $query->the_post();
         $post_id = get_the_ID();
-        $status_val = get_field('status', $post_id) ?: 'Behandles';
+        $status_val = get_field('status', $post_id) ?: 'processing';
         $status_label = get_field_object('field_682dd6dba40f7')['choices'][$status_val] ?? $status_val;
         $status_class = 'status-' . sanitize_title(strtolower($status_val));
 $price_html = get_field('price_breakdown_html', $post_id);
@@ -3514,7 +3514,7 @@ function otman_duplicate_power_order( int $orig_id ): int {
         if (in_array($key, $blacklist, true)) continue;
 
         // Keep your other resets
-        if ($key === 'status')         { update_post_meta($new_id, $key, 'Behandles'); continue; }
+        if ($key === 'status')         { update_post_meta($new_id, $key, 'processing'); continue; }
 //         if ($key === 'bestillingsnr')  { update_post_meta($new_id, $key, '');         continue; }
 
        

@@ -74,7 +74,7 @@ describe("GET /api/dashboard/home", () => {
     ]);
     mocks.orderGroupByMock.mockResolvedValue([
       {
-        status: "behandles",
+        status: "processing",
         _count: {
           status: 2,
         },
@@ -104,7 +104,7 @@ describe("GET /api/dashboard/home", () => {
       },
       statusBreakdown: [
         {
-          status: "behandles",
+          status: "processing",
           count: 2,
         },
       ],

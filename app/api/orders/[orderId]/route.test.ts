@@ -181,7 +181,7 @@ describe("routes in /api/orders/[orderId]", () => {
       customerMembershipId: "membership-2",
       customerLabel: "POWER Slependen",
       createdAt: new Date("2026-04-01T00:00:00.000Z"),
-      status: "behandles",
+      status: "processing",
       statusNotes: "",
       customerName: "",
       deliveryDate: "",
@@ -263,7 +263,7 @@ describe("routes in /api/orders/[orderId]", () => {
       customerMembershipId: "membership-2",
       customerLabel: "POWER Slependen",
       createdAt: new Date("2026-04-01T00:00:00.000Z"),
-      status: "behandles",
+      status: "processing",
       statusNotes: "",
       customerName: "",
       deliveryDate: "",
@@ -420,7 +420,7 @@ describe("routes in /api/orders/[orderId]", () => {
       customerMembershipId: "membership-2",
       customerLabel: "POWER Slependen",
       createdAt: new Date("2026-04-01T00:00:00.000Z"),
-      status: "behandles",
+      status: "processing",
       statusNotes: "",
       customerName: "",
       deliveryDate: "",
@@ -518,7 +518,7 @@ describe("routes in /api/orders/[orderId]", () => {
       customerMembershipId: "membership-2",
       customerLabel: "POWER Slependen",
       createdAt: new Date("2026-04-01T00:00:00.000Z"),
-      status: "behandles",
+      status: "processing",
       statusNotes: "",
       customerName: "",
       deliveryDate: "",
@@ -607,7 +607,7 @@ describe("routes in /api/orders/[orderId]", () => {
       customerMembershipId: "membership-2",
       customerLabel: "POWER Slependen",
       createdAt: new Date("2026-04-01T00:00:00.000Z"),
-      status: "behandles",
+      status: "processing",
       statusNotes: "",
       customerName: "",
       deliveryDate: "",
@@ -685,9 +685,12 @@ describe("routes in /api/orders/[orderId]", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({ role: "OWNER" });
     mocks.orderDeleteManyMock.mockResolvedValue({ count: 0 });
 
-    const res = await DELETE(new Request("http://localhost/api/orders/order-1"), {
-      params: Promise.resolve({ orderId: "order-1" }),
-    });
+    const res = await DELETE(
+      new Request("http://localhost/api/orders/order-1"),
+      {
+        params: Promise.resolve({ orderId: "order-1" }),
+      },
+    );
 
     expect(res.status).toBe(404);
     await expect(res.json()).resolves.toEqual({
