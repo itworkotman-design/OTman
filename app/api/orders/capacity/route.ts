@@ -60,7 +60,7 @@ export async function GET(req: Request) {
     limit: ORDER_SLOT_LIMIT,
     isOverCapacity,
     message: isOverCapacity
-      ? "This time window is full. Order time might get changed."
+      ? "This time window is at full capacity. The delivery time may be adjusted."
       : "",
   });
 }

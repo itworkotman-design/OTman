@@ -517,11 +517,7 @@ export default function OrderFieldsForm({
             </label>
           )}
           <FieldErrorMessage message={timeWindowError} />
-          {capacityWarningLoading ? (
-            <div className="mt-2 text-sm text-textColorThird">
-              Checking time window capacity...
-            </div>
-          ) : capacityWarningMessage ? (
+          {!capacityWarningLoading && capacityWarningMessage ? (
             <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <div className="font-semibold">Warning</div>
               <div className="mt-1">{capacityWarningMessage}</div>
