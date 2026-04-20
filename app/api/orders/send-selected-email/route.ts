@@ -46,6 +46,19 @@ function tableRow(label: string, value?: string | null) {
   `;
 }
 
+function buildFailedEmailLogBody(message: string, reason: string) {
+  const sections = [
+    "Selected-order email failed to send.",
+    `Reason: ${reason}`,
+  ];
+
+  if (message) {
+    sections.push("", "Original message:", message);
+  }
+
+  return sections.join("\n");
+}
+
 function formatOrderBlockHtml(order: {
   orderNumber?: string | null;
   deliveryDate?: string | null;
@@ -117,6 +130,7 @@ export async function POST(req: Request) {
       status: "ACTIVE",
     },
     select: {
+      id: true,
       role: true,
       permissions: {
         select: {
@@ -274,16 +288,103 @@ export async function POST(req: Request) {
     </div>
   `;
 
-  await sendEmail({
-    to: {
-      email: to,
-    },
-    subject,
-    html: htmlBody,
-  });
+  try {
+    await sendEmail({
+      to: {
+        email: to,
+      },
+      subject,
+      html: htmlBody,
+    });
 
-  return NextResponse.json({
-    ok: true,
-    sentCount: orders.length,
-  });
+    return NextResponse.json({
+      ok: true,
+      sentCount: orders.length,
+    });
+  } catch (error) {
+    const reason =
+      error instanceof Error && error.message
+        ? error.message
+        : "FAILED_TO_SEND_EMAIL";
+    const failedBodyText = buildFailedEmailLogBody(message, reason);
+    const failedBodyHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
+        <p style="margin:0 0 16px 0;font-weight:700;color:#b91c1c;">
+          Selected-order email failed to send.
+        </p>
+        <p style="margin:0 0 16px 0;">
+          Reason: ${escapeHtml(reason)}
+        </p>
+        ${
+          message
+            ? `<p style="margin:0;white-space:pre-wrap;">${escapeHtml(message)}</p>`
+            : ""
+        }
+      </div>
+    `;
+
+    await logFailedSelectedOrderEmails({
+      orders,
+      companyId: session.activeCompanyId,
+      membershipId: membership.id,
+      subject,
+      bodyText: failedBodyText,
+      bodyHtml: failedBodyHtml,
+      toEmail: to,
+      toName: recipientName || null,
+    });
+
+    return NextResponse.json(
+      { ok: false, reason },
+      { status: 502 },
+    );
+  }
+}
+
+async function logFailedSelectedOrderEmails(params: {
+  orders: Array<{
+    id: string;
+  }>;
+  companyId: string;
+  membershipId: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml: string;
+  toEmail: string;
+  toName: string | null;
+}) {
+  const failedAt = new Date();
+
+  await Promise.all(
+    params.orders.map((order) =>
+      prisma.$transaction([
+        prisma.orderEmailMessage.create({
+          data: {
+            orderId: order.id,
+            companyId: params.companyId,
+            direction: "OUTBOUND",
+            status: "FAILED",
+            sentByMembershipId: params.membershipId,
+            subject: params.subject,
+            bodyText: params.bodyText,
+            bodyHtml: params.bodyHtml,
+            fromEmail: process.env.BREVO_SENDER_EMAIL || "bestilling@otman.no",
+            fromName: process.env.BREVO_SENDER_NAME || "Otman Transport",
+            toEmail: params.toEmail,
+            toName: params.toName,
+            sentAt: failedAt,
+          },
+        }),
+        prisma.order.update({
+          where: {
+            id: order.id,
+          },
+          data: {
+            lastOutboundEmailAt: failedAt,
+            needsEmailAttention: true,
+          },
+        }),
+      ]),
+    ),
+  );
 }

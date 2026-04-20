@@ -92,6 +92,15 @@ function getTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function normalizeEmailAddress(value: string) {
   return value.trim().toLowerCase();
 }
@@ -121,6 +130,19 @@ function formatEmailPerson(name: string | null, email: string) {
   }
 
   return email;
+}
+
+function buildFailedConversationBody(message: string, reason: string) {
+  const sections = [
+    "Email failed to send.",
+    `Reason: ${reason}`,
+  ];
+
+  if (message) {
+    sections.push("", "Original message:", message);
+  }
+
+  return sections.join("\n");
 }
 
 export async function GET(req: Request, { params }: OrderEmailRouteParams) {
@@ -478,6 +500,22 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       error instanceof Error && error.message
         ? error.message
         : "FAILED_TO_SEND_EMAIL";
+    const failedBodyText = buildFailedConversationBody(message, reason);
+    const failedBodyHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
+        <p style="margin:0 0 16px 0;font-weight:700;color:#b91c1c;">
+          Email failed to send.
+        </p>
+        <p style="margin:0 0 16px 0;">
+          Reason: ${escapeHtml(reason)}
+        </p>
+        ${
+          message
+            ? `<p style="margin:0;white-space:pre-wrap;">${escapeHtml(message)}</p>`
+            : ""
+        }
+      </div>
+    `;
 
     await prisma.orderEmailMessage.create({
       data: {
@@ -487,13 +525,23 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         status: "FAILED",
         sentByMembershipId: auth.membership.id,
         subject: finalSubject,
-        bodyText: message,
-        bodyHtml: emailHtml,
+        bodyText: failedBodyText,
+        bodyHtml: failedBodyHtml,
         fromEmail: senderEmail,
         fromName: senderName,
         toEmail: storedToEmail,
         toName: storedToName || null,
         sentAt: failedAt,
+      },
+    });
+
+    await prisma.order.update({
+      where: {
+        id: order.id,
+      },
+      data: {
+        lastOutboundEmailAt: failedAt,
+        needsEmailAttention: true,
       },
     });
 

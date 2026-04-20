@@ -25,3 +25,6 @@ Defines the column sets, export metadata, and visibility helpers used by the boo
 
 - `SUBCONTRACTOR` and `ORDER_CREATOR` now include the `displayId` column so non-admin users can see the same order id admins already had.
 - The admin `mail` column id is still used internally for saved column visibility and exports, but its user-facing label is now `Alerts` because the cell combines email attention and non-email order notifications.
+- Admin and subcontractor views now use a single `orderSummary` column instead of separate `productsSummary`, `deliveryTypeSummary`, and `servicesSummary` columns. The export value comes from the shared compact summary text.
+- Saved column visibility now migrates the removed legacy summary ids to `orderSummary`, keeps `orderSummary` always visible for admin and subcontractor archive views, and automatically restores `priceExVat` when `priceSubcontractor` is still visible.
+- Column labels and export headers are now English.

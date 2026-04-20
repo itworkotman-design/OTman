@@ -128,4 +128,63 @@ describe("buildOrderPayload", () => {
       "drop_off",
     ]);
   });
+
+  it("uses grouped order items in the GSM description when available", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        productsSummary: "Legacy product",
+        deliveryTypeSummary: "Legacy delivery",
+        servicesSummary: "Legacy service",
+        description: "Handle with care",
+      }),
+      items: [
+        {
+          id: "item-1",
+          createdAt: new Date("2026-04-20T09:00:00.000Z"),
+          orderId: "order-1",
+          cardId: 1,
+          productId: "product-1",
+          productCode: "WASHER",
+          productName: "Washer",
+          deliveryType: "Indoor carry",
+          itemType: "PRODUCT_CARD",
+          optionId: null,
+          optionCode: null,
+          optionLabel: null,
+          quantity: 2,
+          customerPriceCents: 0,
+          subcontractorPriceCents: 0,
+          rawData: null,
+        },
+        {
+          id: "item-2",
+          createdAt: new Date("2026-04-20T09:00:00.000Z"),
+          orderId: "order-1",
+          cardId: 1,
+          productId: "product-1",
+          productCode: "INSTALL",
+          productName: "Washer",
+          deliveryType: "Indoor carry",
+          itemType: "SPECIAL_OPTION",
+          optionId: "option-1",
+          optionCode: "INSTALL_ONLY",
+          optionLabel: "Install only",
+          quantity: 2,
+          customerPriceCents: 0,
+          subcontractorPriceCents: 0,
+          rawData: {
+            description: "Install only",
+          },
+        },
+      ],
+    });
+
+    expect(payload.tasks_data[0]?.description).toContain("Washer x2");
+    expect(payload.tasks_data[0]?.description).toContain("- Indoor carry x2");
+    expect(payload.tasks_data[0]?.description).toContain("- Install only x2");
+    expect(payload.tasks_data[0]?.description).toContain("Handle with care");
+    expect(payload.tasks_data[0]?.description).not.toContain("Legacy product");
+  });
 });

@@ -39,9 +39,7 @@ const COLUMN_WIDTHS: Record<BookingArchiveColumnId, number> = {
   pickupAddress: 220,
   extraPickupAddress: 220,
   deliveryAddress: 220,
-  productsSummary: 220,
-  deliveryTypeSummary: 220,
-  servicesSummary: 300,
+  orderSummary: 340,
   description: 220,
   cashierName: 180,
   cashierPhone: 180,
@@ -97,6 +95,32 @@ function formatStatusCell(value: string | null | undefined) {
     >
       {cell}
     </span>
+  );
+}
+
+function renderOrderSummary(
+  groups: OrderRow["orderSummaryGroups"],
+  fallbackText: string,
+) {
+  if (groups.length === 0) {
+    return formatCell(fallbackText);
+  }
+
+  return (
+    <div className="space-y-3">
+      {groups.map((group, index) => (
+        <div key={`${group.title}-${index}`} className="space-y-1">
+          <div className="font-semibold text-logoblue">{group.title}</div>
+          {group.details.length > 0 ? (
+            <div className="space-y-1 pl-3 text-xs font-medium text-textColorThird">
+              {group.details.map((detail, detailIndex) => (
+                <div key={`${detail}-${detailIndex}`}>- {detail}</div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -204,12 +228,12 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("deliveryDate") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Leveringsdato
+                    Delivery date
                   </th>
                 ) : null}
                 {isColumnVisible("timeWindow") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Tidsvindu
+                    Time window
                   </th>
                 ) : null}
                 {isColumnVisible("customerLabel") ? (
@@ -219,22 +243,22 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("orderNumber") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Best.nr
+                    Order no.
                   </th>
                 ) : null}
                 {isColumnVisible("customerName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Navn
+                    Customer name
                   </th>
                 ) : null}
                 {isColumnVisible("phone") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Telefon
+                    Phone
                   </th>
                 ) : null}
                 {isColumnVisible("pickupAddress") ? (
                   <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Pickup Adresse
+                    Pickup address
                   </th>
                 ) : null}
                 {isColumnVisible("extraPickupAddress") ? (
@@ -244,42 +268,32 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("deliveryAddress") ? (
                   <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Leveringsadresse
+                    Delivery address
                   </th>
                 ) : null}
-                {isColumnVisible("productsSummary") ? (
-                  <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Produkter
-                  </th>
-                ) : null}
-                {isColumnVisible("deliveryTypeSummary") ? (
-                  <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Leveringstype
-                  </th>
-                ) : null}
-                {isColumnVisible("servicesSummary") ? (
-                  <th className="whitespace-nowrap border-r w-[300] min-w-[300] border-black/3 px-4 py-3 font-medium">
-                    Montering/retur
+                {isColumnVisible("orderSummary") ? (
+                  <th className="whitespace-nowrap border-r w-[340] min-w-[340] border-black/3 px-4 py-3 font-medium">
+                    Products
                   </th>
                 ) : null}
                 {isColumnVisible("description") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Beskrivelse
+                    Description
                   </th>
                 ) : null}
                 {isColumnVisible("cashierName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Kasserers navn
+                    Cashier name
                   </th>
                 ) : null}
                 {isColumnVisible("cashierPhone") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Kasserers telefon
+                    Cashier phone
                   </th>
                 ) : null}
                 {isColumnVisible("customerComments") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Kundenotater
+                    Customer notes
                   </th>
                 ) : null}
                 {isColumnVisible("driverInfo") ? (
@@ -294,22 +308,22 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("createdAt") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Bestillingsdato
+                    Created at
                   </th>
                 ) : null}
                 {isColumnVisible("updatedAt") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Sist redigert
+                    Last edited
                   </th>
                 ) : null}
                 {isColumnVisible("priceExVat") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Pris uten MVA
+                    Price ex. VAT
                   </th>
                 ) : null}
                 {isColumnVisible("priceSubcontractor") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Pris Subcontractor
+                    Subcontractor price
                   </th>
                 ) : null}
               </>
@@ -329,12 +343,12 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("deliveryDate") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Leveringsdato
+                    Delivery date
                   </th>
                 ) : null}
                 {isColumnVisible("timeWindow") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Tidsvindu
+                    Time window
                   </th>
                 ) : null}
                 {isColumnVisible("customerName") ? (
@@ -344,12 +358,12 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("orderNumber") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Best.nr
+                    Order no.
                   </th>
                 ) : null}
                 {isColumnVisible("pickupAddress") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Pickup Adresse
+                    Pickup address
                   </th>
                 ) : null}
                 {isColumnVisible("extraPickupAddress") ? (
@@ -359,42 +373,32 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("deliveryAddress") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Leveringsadresse
+                    Delivery address
                   </th>
                 ) : null}
-                {isColumnVisible("productsSummary") ? (
-                  <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Produkter
-                  </th>
-                ) : null}
-                {isColumnVisible("deliveryTypeSummary") ? (
-                  <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Leveringstype
-                  </th>
-                ) : null}
-                {isColumnVisible("servicesSummary") ? (
-                  <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Montering/retur
+                {isColumnVisible("orderSummary") ? (
+                  <th className="whitespace-nowrap border-r w-[340] min-w-[340] border-black/3 px-2 py-3 font-medium">
+                    Products
                   </th>
                 ) : null}
                 {isColumnVisible("description") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Beskrivelse
+                    Description
                   </th>
                 ) : null}
                 {isColumnVisible("cashierName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Kasserers navn
+                    Cashier name
                   </th>
                 ) : null}
                 {isColumnVisible("cashierPhone") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Kasserers telefon
+                    Cashier phone
                   </th>
                 ) : null}
                 {isColumnVisible("customerComments") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Kundenotater
+                    Customer notes
                   </th>
                 ) : null}
                 {isColumnVisible("driver") ? (
@@ -404,17 +408,17 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("createdBy") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Opprettet av
+                    Created by
                   </th>
                 ) : null}
                 {isColumnVisible("createdAt") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Bestillingsdato
+                    Created at
                   </th>
                 ) : null}
                 {isColumnVisible("priceExVat") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    TotalPris
+                    Price ex. VAT
                   </th>
                 ) : null}
               </>
@@ -434,32 +438,32 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("statusNotes") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Status notater
+                    Status notes
                   </th>
                 ) : null}
                 {isColumnVisible("orderNumber") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Bestillings nr
+                    Order no.
                   </th>
                 ) : null}
                 {isColumnVisible("customerName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Kundens navn
+                    Customer name
                   </th>
                 ) : null}
                 {isColumnVisible("phone") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Kundens telefon
+                    Phone
                   </th>
                 ) : null}
                 {isColumnVisible("deliveryDate") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Leveringsdato
+                    Delivery date
                   </th>
                 ) : null}
                 {isColumnVisible("priceExVat") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Pris uten MVA
+                    Price ex. VAT
                   </th>
                 ) : null}
               </>
@@ -624,22 +628,13 @@ export default function BookingArchiveTable({
                       <Cell>{formatCell(order.deliveryAddress)}</Cell>
                     </td>
                   ) : null}
-                  {isColumnVisible("productsSummary") ? (
-                    <td className="w-[220] min-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatCell(order.productsSummary)}</Cell>
-                    </td>
-                  ) : null}
-                  {isColumnVisible("deliveryTypeSummary") ? (
-                    <td className="w-[220] min-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
+                  {isColumnVisible("orderSummary") ? (
+                    <td className="w-[340] min-w-[340] border-r border-black/3 px-3 py-2 font-semibold text-textColorThird">
                       <Cell className="whitespace-normal">
-                        {formatCell(order.deliveryTypeSummary)}
-                      </Cell>
-                    </td>
-                  ) : null}
-                  {isColumnVisible("servicesSummary") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell className="whitespace-normal">
-                        {formatCell(order.servicesSummary)}
+                        {renderOrderSummary(
+                          order.orderSummaryGroups,
+                          order.orderSummaryText,
+                        )}
                       </Cell>
                     </td>
                   ) : null}
@@ -751,19 +746,14 @@ export default function BookingArchiveTable({
                       <Cell>{formatCell(order.deliveryAddress)}</Cell>
                     </td>
                   ) : null}
-                  {isColumnVisible("productsSummary") ? (
-                    <td className="w-[220] min-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatCell(order.productsSummary)}</Cell>
-                    </td>
-                  ) : null}
-                  {isColumnVisible("deliveryTypeSummary") ? (
-                    <td className="w-[220] min-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatCell(order.deliveryTypeSummary)}</Cell>
-                    </td>
-                  ) : null}
-                  {isColumnVisible("servicesSummary") ? (
-                    <td className="w-[300] min-w-[300] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatCell(order.servicesSummary)}</Cell>
+                  {isColumnVisible("orderSummary") ? (
+                    <td className="w-[340] min-w-[340] border-r border-black/3 px-3 py-2 font-semibold text-textColorThird">
+                      <Cell className="whitespace-normal">
+                        {renderOrderSummary(
+                          order.orderSummaryGroups,
+                          order.orderSummaryText,
+                        )}
+                      </Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("description") ? (
@@ -866,3 +856,4 @@ export default function BookingArchiveTable({
     </div>
   );
 }
+

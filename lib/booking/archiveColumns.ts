@@ -16,9 +16,7 @@ export type BookingArchiveColumnId =
   | "pickupAddress"
   | "extraPickupAddress"
   | "deliveryAddress"
-  | "productsSummary"
-  | "deliveryTypeSummary"
-  | "servicesSummary"
+  | "orderSummary"
   | "description"
   | "cashierName"
   | "cashierPhone"
@@ -40,6 +38,12 @@ export type BookingArchiveColumn = {
   exportWidth?: number;
   getExportValue?: (row: OrderRow) => string;
 };
+
+const LEGACY_SUMMARY_COLUMN_IDS = new Set([
+  "productsSummary",
+  "deliveryTypeSummary",
+  "servicesSummary",
+]);
 
 function formatCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "-";
@@ -90,15 +94,15 @@ const adminColumns: BookingArchiveColumn[] = [
   },
   {
     id: "deliveryDate",
-    label: "Leveringsdato",
-    exportHeader: "Leveringsdato",
+    label: "Delivery date",
+    exportHeader: "Delivery date",
     exportWidth: 16,
     getExportValue: (row) => formatCell(row.deliveryDate),
   },
   {
     id: "timeWindow",
-    label: "Tidsvindu",
-    exportHeader: "Tidsvindu",
+    label: "Time window",
+    exportHeader: "Time window",
     exportWidth: 16,
     getExportValue: (row) => formatCell(row.timeWindow),
   },
@@ -111,29 +115,29 @@ const adminColumns: BookingArchiveColumn[] = [
   },
   {
     id: "orderNumber",
-    label: "Best.nr",
-    exportHeader: "Best.nr",
+    label: "Order no.",
+    exportHeader: "Order no.",
     exportWidth: 14,
     getExportValue: (row) => formatCell(row.orderNumber),
   },
   {
     id: "customerName",
-    label: "Navn",
-    exportHeader: "Navn",
+    label: "Customer name",
+    exportHeader: "Customer name",
     exportWidth: 20,
     getExportValue: (row) => formatCell(row.customerName),
   },
   {
     id: "phone",
-    label: "Telefon",
-    exportHeader: "Telefon",
+    label: "Phone",
+    exportHeader: "Phone",
     exportWidth: 16,
     getExportValue: (row) => formatCell(row.phone),
   },
   {
     id: "pickupAddress",
-    label: "Pickup Adresse",
-    exportHeader: "Pickup Adresse",
+    label: "Pickup address",
+    exportHeader: "Pickup address",
     exportWidth: 28,
     getExportValue: (row) => formatCell(row.pickupAddress),
   },
@@ -147,57 +151,43 @@ const adminColumns: BookingArchiveColumn[] = [
   },
   {
     id: "deliveryAddress",
-    label: "Leveringsadresse",
-    exportHeader: "Leveringsadresse",
+    label: "Delivery address",
+    exportHeader: "Delivery address",
     exportWidth: 28,
     getExportValue: (row) => formatCell(row.deliveryAddress),
   },
   {
-    id: "productsSummary",
-    label: "Produkter",
-    exportHeader: "Produkter",
-    exportWidth: 34,
-    getExportValue: (row) => formatCell(row.productsSummary),
-  },
-  {
-    id: "deliveryTypeSummary",
-    label: "Leveringstype",
-    exportHeader: "Leveringstype",
-    exportWidth: 26,
-    getExportValue: (row) => formatCell(row.deliveryTypeSummary),
-  },
-  {
-    id: "servicesSummary",
-    label: "Montering/retur",
-    exportHeader: "Montering/retur",
-    exportWidth: 32,
-    getExportValue: (row) => formatCell(row.servicesSummary),
+    id: "orderSummary",
+    label: "Products",
+    exportHeader: "Products",
+    exportWidth: 40,
+    getExportValue: (row) => formatCell(row.orderSummaryText),
   },
   {
     id: "description",
-    label: "Beskrivelse",
-    exportHeader: "Beskrivelse",
+    label: "Description",
+    exportHeader: "Description",
     exportWidth: 22,
     getExportValue: (row) => formatCell(row.description),
   },
   {
     id: "cashierName",
-    label: "Kasserers navn",
-    exportHeader: "Kasserers navn",
+    label: "Cashier name",
+    exportHeader: "Cashier name",
     exportWidth: 18,
     getExportValue: (row) => formatCell(row.cashierName),
   },
   {
     id: "cashierPhone",
-    label: "Kasserers telefon",
-    exportHeader: "Kasserers telefon",
+    label: "Cashier phone",
+    exportHeader: "Cashier phone",
     exportWidth: 18,
     getExportValue: (row) => formatCell(row.cashierPhone),
   },
   {
     id: "customerComments",
-    label: "Kundenotater",
-    exportHeader: "Kundenotater",
+    label: "Customer notes",
+    exportHeader: "Customer notes",
     exportWidth: 26,
     getExportValue: (row) => formatCell(row.customerComments),
   },
@@ -217,15 +207,15 @@ const adminColumns: BookingArchiveColumn[] = [
   },
   {
     id: "createdAt",
-    label: "Bestillingsdato",
-    exportHeader: "Bestillingsdato",
+    label: "Created at",
+    exportHeader: "Created at",
     exportWidth: 20,
     getExportValue: (row) => formatDateTime(row.createdAt),
   },
   {
     id: "updatedAt",
-    label: "Sist redigert",
-    exportHeader: "Sist redigert",
+    label: "Last edited",
+    exportHeader: "Last edited",
     exportWidth: 24,
     getExportValue: (row) =>
       row.lastEditedBy
@@ -234,15 +224,15 @@ const adminColumns: BookingArchiveColumn[] = [
   },
   {
     id: "priceExVat",
-    label: "Pris uten MVA",
-    exportHeader: "Pris uten MVA",
+    label: "Price ex. VAT",
+    exportHeader: "Price ex. VAT",
     exportWidth: 16,
     getExportValue: (row) => formatMoney(row.priceExVat),
   },
   {
     id: "priceSubcontractor",
-    label: "Pris Subcontractor",
-    exportHeader: "Pris Subcontractor",
+    label: "Subcontractor price",
+    exportHeader: "Subcontractor price",
     exportWidth: 18,
     getExportValue: (row) => formatMoney(row.priceSubcontractor),
   },
@@ -265,15 +255,15 @@ const subcontractorColumns: BookingArchiveColumn[] = [
   },
   {
     id: "deliveryDate",
-    label: "Leveringsdato",
-    exportHeader: "Leveringsdato",
+    label: "Delivery date",
+    exportHeader: "Delivery date",
     exportWidth: 16,
     getExportValue: (row) => formatCell(row.deliveryDate),
   },
   {
     id: "timeWindow",
-    label: "Tidsvindu",
-    exportHeader: "Tidsvindu",
+    label: "Time window",
+    exportHeader: "Time window",
     exportWidth: 16,
     getExportValue: (row) => formatCell(row.timeWindow),
   },
@@ -286,15 +276,15 @@ const subcontractorColumns: BookingArchiveColumn[] = [
   },
   {
     id: "orderNumber",
-    label: "Best.nr",
-    exportHeader: "Best.nr",
+    label: "Order no.",
+    exportHeader: "Order no.",
     exportWidth: 14,
     getExportValue: (row) => formatCell(row.orderNumber),
   },
   {
     id: "pickupAddress",
-    label: "Pickup Adresse",
-    exportHeader: "Pickup Adresse",
+    label: "Pickup address",
+    exportHeader: "Pickup address",
     exportWidth: 28,
     getExportValue: (row) => formatCell(row.pickupAddress),
   },
@@ -308,57 +298,43 @@ const subcontractorColumns: BookingArchiveColumn[] = [
   },
   {
     id: "deliveryAddress",
-    label: "Leveringsadresse",
-    exportHeader: "Leveringsadresse",
+    label: "Delivery address",
+    exportHeader: "Delivery address",
     exportWidth: 28,
     getExportValue: (row) => formatCell(row.deliveryAddress),
   },
   {
-    id: "productsSummary",
-    label: "Produkter",
-    exportHeader: "Produkter",
-    exportWidth: 34,
-    getExportValue: (row) => formatCell(row.productsSummary),
-  },
-  {
-    id: "deliveryTypeSummary",
-    label: "Leveringstype",
-    exportHeader: "Leveringstype",
-    exportWidth: 26,
-    getExportValue: (row) => formatCell(row.deliveryTypeSummary),
-  },
-  {
-    id: "servicesSummary",
-    label: "Montering/retur",
-    exportHeader: "Montering/retur",
-    exportWidth: 32,
-    getExportValue: (row) => formatCell(row.servicesSummary),
+    id: "orderSummary",
+    label: "Products",
+    exportHeader: "Products",
+    exportWidth: 40,
+    getExportValue: (row) => formatCell(row.orderSummaryText),
   },
   {
     id: "description",
-    label: "Beskrivelse",
-    exportHeader: "Beskrivelse",
+    label: "Description",
+    exportHeader: "Description",
     exportWidth: 22,
     getExportValue: (row) => formatCell(row.description),
   },
   {
     id: "cashierName",
-    label: "Kasserers navn",
-    exportHeader: "Kasserers navn",
+    label: "Cashier name",
+    exportHeader: "Cashier name",
     exportWidth: 18,
     getExportValue: (row) => formatCell(row.cashierName),
   },
   {
     id: "cashierPhone",
-    label: "Kasserers telefon",
-    exportHeader: "Kasserers telefon",
+    label: "Cashier phone",
+    exportHeader: "Cashier phone",
     exportWidth: 18,
     getExportValue: (row) => formatCell(row.cashierPhone),
   },
   {
     id: "customerComments",
-    label: "Kundenotater",
-    exportHeader: "Kundenotater",
+    label: "Customer notes",
+    exportHeader: "Customer notes",
     exportWidth: 26,
     getExportValue: (row) => formatCell(row.customerComments),
   },
@@ -371,22 +347,22 @@ const subcontractorColumns: BookingArchiveColumn[] = [
   },
   {
     id: "createdBy",
-    label: "Opprettet av",
-    exportHeader: "Opprettet av",
+    label: "Created by",
+    exportHeader: "Created by",
     exportWidth: 18,
     getExportValue: (row) => formatCell(row.createdBy),
   },
   {
     id: "createdAt",
-    label: "Bestillingsdato",
-    exportHeader: "Bestillingsdato",
+    label: "Created at",
+    exportHeader: "Created at",
     exportWidth: 20,
     getExportValue: (row) => formatDateTime(row.createdAt),
   },
   {
     id: "priceExVat",
-    label: "TotalPris",
-    exportHeader: "TotalPris",
+    label: "Price ex. VAT",
+    exportHeader: "Price ex. VAT",
     exportWidth: 16,
     getExportValue: (row) => formatMoney(row.priceExVat),
   },
@@ -409,43 +385,43 @@ const orderCreatorColumns: BookingArchiveColumn[] = [
   },
   {
     id: "statusNotes",
-    label: "Status notater",
-    exportHeader: "Status notater",
+    label: "Status notes",
+    exportHeader: "Status notes",
     exportWidth: 24,
     getExportValue: (row) => formatCell(row.statusNotes),
   },
   {
     id: "orderNumber",
-    label: "Bestillings nr",
-    exportHeader: "Bestillings nr",
+    label: "Order no.",
+    exportHeader: "Order no.",
     exportWidth: 18,
     getExportValue: (row) => formatCell(row.orderNumber),
   },
   {
     id: "customerName",
-    label: "Kundens navn",
-    exportHeader: "Kundens navn",
+    label: "Customer name",
+    exportHeader: "Customer name",
     exportWidth: 20,
     getExportValue: (row) => formatCell(row.customerName),
   },
   {
     id: "phone",
-    label: "Kundens telefon",
-    exportHeader: "Kundens telefon",
+    label: "Phone",
+    exportHeader: "Phone",
     exportWidth: 18,
     getExportValue: (row) => formatCell(row.phone),
   },
   {
     id: "deliveryDate",
-    label: "Leveringsdato",
-    exportHeader: "Leveringsdato",
+    label: "Delivery date",
+    exportHeader: "Delivery date",
     exportWidth: 16,
     getExportValue: (row) => formatCell(row.deliveryDate),
   },
   {
     id: "priceExVat",
-    label: "Pris uten MVA",
-    exportHeader: "Pris uten MVA",
+    label: "Price ex. VAT",
+    exportHeader: "Price ex. VAT",
     exportWidth: 16,
     getExportValue: (row) => formatMoney(row.priceExVat),
   },
@@ -476,18 +452,38 @@ export function sanitizeVisibleBookingArchiveColumns(
   viewMode: BookingArchiveViewMode,
   columnIds: string[],
 ): BookingArchiveColumnId[] {
-  const validColumnIds = new Set(getDefaultVisibleBookingArchiveColumns(viewMode));
-  const sanitized = columnIds.filter((columnId): columnId is BookingArchiveColumnId =>
-    validColumnIds.has(columnId as BookingArchiveColumnId),
+  const defaultColumnIds = getDefaultVisibleBookingArchiveColumns(viewMode);
+  const validColumnIds = new Set(defaultColumnIds);
+  const sanitized = new Set(
+    columnIds.filter((columnId): columnId is BookingArchiveColumnId =>
+      validColumnIds.has(columnId as BookingArchiveColumnId),
+    ),
   );
 
-  if (sanitized.length > 0) {
-    return getDefaultVisibleBookingArchiveColumns(viewMode).filter((columnId) =>
-      sanitized.includes(columnId),
-    );
+  const shouldForceOrderSummary =
+    viewMode === "ADMIN" || viewMode === "SUBCONTRACTOR";
+
+  const hadLegacySummaryColumn = columnIds.some((columnId) =>
+    LEGACY_SUMMARY_COLUMN_IDS.has(columnId),
+  );
+
+  if (shouldForceOrderSummary && (hadLegacySummaryColumn || !sanitized.has("orderSummary"))) {
+    sanitized.add("orderSummary");
   }
 
-  return getDefaultVisibleBookingArchiveColumns(viewMode);
+  if (
+    viewMode === "ADMIN" &&
+    sanitized.has("priceSubcontractor") &&
+    !sanitized.has("priceExVat")
+  ) {
+    sanitized.add("priceExVat");
+  }
+
+  if (sanitized.size > 0) {
+    return defaultColumnIds.filter((columnId) => sanitized.has(columnId));
+  }
+
+  return defaultColumnIds;
 }
 
 export function getBookingArchiveExportColumns(

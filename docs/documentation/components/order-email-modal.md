@@ -25,4 +25,4 @@ Renders the Alert Center modal for admins, combining order email conversation to
 | `ProductChanges` | Renders product-card-specific change groups in order history. |
 | `StatusChange` | Renders status-change events and their optional notes. |
 | `ConversationMessageCard` | Renders an expandable email conversation bubble. |
-| `OrderEmailModal` | Main Alert Center modal. Loads conversation, notifications, and history; shows the renamed alert-center tabs; lets admins send email replies; lets admins mark email conversations complete; and lets admins resolve order notifications so yellow archive alerts clear. |
+| `OrderEmailModal` | Main Alert Center modal. Loads conversation, notifications, and history; shows the renamed alert-center tabs; lets admins send email replies; refreshes the conversation after failed sends so stored `FAILED` messages appear immediately; lets admins mark email conversations complete; and lets admins resolve order notifications so yellow archive alerts clear. |

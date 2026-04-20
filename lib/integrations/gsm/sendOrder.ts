@@ -1,7 +1,9 @@
 // path: lib/integrations/gsm/sendOrder.ts
-import type { Order } from "@prisma/client";
 import { gsmFetch } from "@/lib/integrations/gsm/client";
-import { buildOrderPayload } from "@/lib/integrations/gsm/buildOrderPayload";
+import {
+  buildOrderPayload,
+  type GsmOrderInput,
+} from "@/lib/integrations/gsm/buildOrderPayload";
 
 type GsmCreateOrderResponse = {
   id?: string;
@@ -23,7 +25,7 @@ function extractTaskIdFromUrl(taskUrl: string) {
   return match ? match[1] : null;
 }
 
-export async function sendOrderToGsm(order: Order) {
+export async function sendOrderToGsm(order: GsmOrderInput) {
   const payload = buildOrderPayload(order);
 
   const response = await gsmFetch<GsmCreateOrderResponse>("/orders/", {

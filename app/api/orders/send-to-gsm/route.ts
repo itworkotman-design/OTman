@@ -69,6 +69,9 @@ export async function POST(req: Request) {
       id: { in: orderIds },
       companyId: session.activeCompanyId,
     },
+    include: {
+      items: true,
+    },
   });
 
   if (orders.length === 0) {

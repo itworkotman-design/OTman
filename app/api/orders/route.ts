@@ -45,6 +45,11 @@ import {
   hasOpenCapacityNotification,
 } from "@/lib/orders/orderNotifications";
 import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
+import {
+  buildLegacyOrderSummaryGroups,
+  buildOrderSummaryGroups,
+  formatOrderSummaryText,
+} from "@/lib/orders/orderSummary";
 import type { AppPermission } from "@/lib/users/types";
 
 function parsePositiveInt(value: string | null, fallback: number) {
@@ -775,6 +780,18 @@ export async function GET(req: Request) {
       extraPickupContacts: true,
       deliveryAddress: true,
       returnAddress: true,
+      items: {
+        select: {
+          cardId: true,
+          productName: true,
+          deliveryType: true,
+          itemType: true,
+          optionCode: true,
+          optionLabel: true,
+          quantity: true,
+          rawData: true,
+        },
+      },
       productsSummary: true,
       deliveryTypeSummary: true,
       servicesSummary: true,
@@ -825,59 +842,73 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    orders: orders.map((order) => ({
-      id: order.id,
-      displayId: order.displayId ?? 0,
-      status: order.status ?? "",
-      statusNotes: order.statusNotes ?? "",
-      deliveryDate: order.deliveryDate ?? "",
-      timeWindow: order.timeWindow ?? "",
-      expressDelivery: order.expressDelivery,
-      customer: order.customerLabel ?? "",
-      customerLabel: order.customerLabel ?? "",
-      customerName: order.customerName ?? "",
-      orderNumber: order.orderNumber ?? "",
-      phone: order.phone ?? "",
-      email: order.email ?? "",
-      pickupAddress: order.pickupAddress ?? "",
-      extraPickupAddress: order.extraPickupAddress ?? [],
-      extraPickupContacts: order.extraPickupContacts ?? [],
-      deliveryAddress: order.deliveryAddress ?? "",
-      returnAddress: order.returnAddress ?? "",
-      productsSummary: order.productsSummary ?? "",
-      deliveryTypeSummary: order.deliveryTypeSummary ?? "",
-      servicesSummary: order.servicesSummary ?? "",
-      description: order.description ?? "",
-      cashierName: order.cashierName ?? "",
-      cashierPhone: order.cashierPhone ?? "",
-      customerComments: order.customerComments ?? "",
-      driverInfo: order.driverInfo ?? "",
-      subcontractorMembershipId: order.subcontractorMembershipId ?? "",
-      subcontractor: order.subcontractor ?? "",
-      driver: order.driver ?? "",
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-      lastInboundEmailAt: order.lastInboundEmailAt,
-      lastOutboundEmailAt: order.lastOutboundEmailAt,
-      lastNotificationAt: order.lastNotificationAt,
-      needsEmailAttention: order.needsEmailAttention,
-      unreadInboundEmailCount: order.unreadInboundEmailCount,
-      needsNotificationAttention: order.needsNotificationAttention,
-      unreadNotificationCount: order.unreadNotificationCount,
-      priceExVat: order.priceExVat,
-      priceSubcontractor: order.priceSubcontractor,
-      createdByMembershipId: order.createdByMembershipId,
-      lastEditedByMembershipId: order.lastEditedByMembershipId ?? "",
-      customerMembershipId: order.customerMembershipId ?? "",
-      createdBy:
-        order.createdByMembership.user.username ||
-        order.createdByMembership.user.email ||
-        "",
-      lastEditedBy:
-        order.lastEditedByMembership?.user.username ||
-        order.lastEditedByMembership?.user.email ||
-        "",
-    })),
+    orders: orders.map((order) => {
+      const orderItems = order.items ?? [];
+      const orderSummaryGroups =
+        orderItems.length > 0
+          ? buildOrderSummaryGroups(orderItems)
+          : buildLegacyOrderSummaryGroups({
+              productsSummary: order.productsSummary,
+              deliveryTypeSummary: order.deliveryTypeSummary,
+              servicesSummary: order.servicesSummary,
+            });
+
+      return {
+        id: order.id,
+        displayId: order.displayId ?? 0,
+        status: order.status ?? "",
+        statusNotes: order.statusNotes ?? "",
+        deliveryDate: order.deliveryDate ?? "",
+        timeWindow: order.timeWindow ?? "",
+        expressDelivery: order.expressDelivery,
+        customer: order.customerLabel ?? "",
+        customerLabel: order.customerLabel ?? "",
+        customerName: order.customerName ?? "",
+        orderNumber: order.orderNumber ?? "",
+        phone: order.phone ?? "",
+        email: order.email ?? "",
+        pickupAddress: order.pickupAddress ?? "",
+        extraPickupAddress: order.extraPickupAddress ?? [],
+        extraPickupContacts: order.extraPickupContacts ?? [],
+        deliveryAddress: order.deliveryAddress ?? "",
+        returnAddress: order.returnAddress ?? "",
+        orderSummaryGroups,
+        orderSummaryText: formatOrderSummaryText(orderSummaryGroups),
+        productsSummary: order.productsSummary ?? "",
+        deliveryTypeSummary: order.deliveryTypeSummary ?? "",
+        servicesSummary: order.servicesSummary ?? "",
+        description: order.description ?? "",
+        cashierName: order.cashierName ?? "",
+        cashierPhone: order.cashierPhone ?? "",
+        customerComments: order.customerComments ?? "",
+        driverInfo: order.driverInfo ?? "",
+        subcontractorMembershipId: order.subcontractorMembershipId ?? "",
+        subcontractor: order.subcontractor ?? "",
+        driver: order.driver ?? "",
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        lastInboundEmailAt: order.lastInboundEmailAt,
+        lastOutboundEmailAt: order.lastOutboundEmailAt,
+        lastNotificationAt: order.lastNotificationAt,
+        needsEmailAttention: order.needsEmailAttention,
+        unreadInboundEmailCount: order.unreadInboundEmailCount,
+        needsNotificationAttention: order.needsNotificationAttention,
+        unreadNotificationCount: order.unreadNotificationCount,
+        priceExVat: order.priceExVat,
+        priceSubcontractor: order.priceSubcontractor,
+        createdByMembershipId: order.createdByMembershipId,
+        lastEditedByMembershipId: order.lastEditedByMembershipId ?? "",
+        customerMembershipId: order.customerMembershipId ?? "",
+        createdBy:
+          order.createdByMembership.user.username ||
+          order.createdByMembership.user.email ||
+          "",
+        lastEditedBy:
+          order.lastEditedByMembership?.user.username ||
+          order.lastEditedByMembership?.user.email ||
+          "",
+      };
+    }),
     page,
     rowsPerPage,
   });

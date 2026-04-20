@@ -1,5 +1,10 @@
 // path: lib/integrations/gsm/buildOrderPayload.ts
-import type { Order } from "@prisma/client";
+import type { Order, OrderItem } from "@prisma/client";
+import {
+  buildLegacyOrderSummaryGroups,
+  buildOrderSummaryGroups,
+  formatOrderSummaryText,
+} from "@/lib/orders/orderSummary";
 
 type GsmContact = {
   name?: string;
@@ -27,6 +32,10 @@ type GsmOrderPayload = {
   metafields: Record<string, string>;
 };
 
+export type GsmOrderInput = Order & {
+  items?: OrderItem[] | null;
+};
+
 const NO_PICKUP_ADDRESS = "no shop pickup address";
 
 function normalizePhone(value?: string | null) {
@@ -50,7 +59,7 @@ function normalizePhones(...values: Array<string | null | undefined>) {
   );
 }
 
-function hasMontering(order: Order) {
+function hasMontering(order: GsmOrderInput) {
   return !!order.servicesSummary?.trim();
 }
 
@@ -64,11 +73,18 @@ function normalizePickupAddress(value?: string | null) {
   return normalized.toLocaleLowerCase() === NO_PICKUP_ADDRESS ? "" : normalized;
 }
 
-function buildDescription(order: Order) {
+function buildDescription(order: GsmOrderInput) {
+  const summaryGroups =
+    order.items && order.items.length > 0
+      ? buildOrderSummaryGroups(order.items)
+      : buildLegacyOrderSummaryGroups({
+          productsSummary: order.productsSummary,
+          deliveryTypeSummary: order.deliveryTypeSummary,
+          servicesSummary: order.servicesSummary,
+        });
+
   return [
-    order.productsSummary?.trim(),
-    order.deliveryTypeSummary?.trim(),
-    order.servicesSummary?.trim(),
+    formatOrderSummaryText(summaryGroups),
     order.description?.trim(),
     order.customerComments?.trim(),
     order.driverInfo?.trim(),
@@ -78,7 +94,7 @@ function buildDescription(order: Order) {
     .join("\n");
 }
 
-function getTimeWindowIso(order: Order) {
+function getTimeWindowIso(order: GsmOrderInput) {
   if (!order.deliveryDate) {
     return { complete_after: undefined, complete_before: undefined };
   }
@@ -106,7 +122,7 @@ function getTimeWindowIso(order: Order) {
   };
 }
 
-export function buildOrderPayload(order: Order): GsmOrderPayload {
+export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   const account = process.env.GSM_ACCOUNT_URL;
 
   if (!account) {

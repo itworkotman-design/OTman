@@ -16,5 +16,6 @@ Renders the archive table for admin, subcontractor, and order-creator views usin
 | `formatDateTime` | Formats ISO timestamps into Norwegian date-time strings for archive cells. |
 | `formatMoney` | Formats numeric archive totals as `NOK` strings. |
 | `formatStatusCell` | Wraps status text in the status-style badge used throughout the archive. |
+| `renderOrderSummary` | Renders the compact grouped product summary with a blue product title and per-product detail lines under it. |
 | `Cell` | Constrains tall cell content to a scrollable container without forcing the whole row taller than needed. |
-| `BookingArchiveTable` | Main archive table renderer. It now shows the admin `Alerts` cell as a full-cell button, rendering blue `M` mail alerts, yellow `A` notification alerts, or a split blue/yellow state when an order has both at once, while still keeping the subcontractor and order-creator `ID` column support. |
+| `BookingArchiveTable` | Main archive table renderer. It now shows the admin `Alerts` cell as a full-cell button, always renders the grouped `Products` column for admin and subcontractor views, and renders archive headers in English. |

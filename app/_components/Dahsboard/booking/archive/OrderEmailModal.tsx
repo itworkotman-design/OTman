@@ -769,6 +769,20 @@ export default function OrderEmailModal({
 
       if (!response.ok || !data?.ok) {
         setSendError(data?.reason || "Failed to send email");
+
+        const conversationResponse = await fetch(`/api/orders/${order.id}/emails`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const conversationData: OrderEmailsResponse | null =
+          await conversationResponse.json().catch(() => null);
+
+        if (conversationResponse.ok && conversationData?.ok) {
+          setConversation(conversationData.conversation ?? null);
+        }
+
+        onAlertsChanged?.();
         return;
       }
 

@@ -1,3 +1,5 @@
+import type { OrderSummaryGroup } from "@/lib/orders/orderSummary";
+
 export type BookingArchiveViewMode =
   | "ADMIN"
   | "SUBCONTRACTOR"
@@ -45,6 +47,8 @@ export type OrderRow = {
   pickupAddress: string;
   extraPickupAddress: string[];
   deliveryAddress: string;
+  orderSummaryGroups: OrderSummaryGroup[];
+  orderSummaryText: string;
   productsSummary: string;
   deliveryTypeSummary: string;
   servicesSummary: string;
