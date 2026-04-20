@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplayNew";
+import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 

@@ -8,9 +8,20 @@ import type {
   ProductBreakdown,
 } from "@/lib/booking/pricing/types";
 
+function roundPriceRule(n: number) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
 
 function formatNOK(n: number) {
-  return `${n.toFixed(2)} NOK`;
+  const rounded = Math.round((n + Number.EPSILON) * 100) / 100;
+
+  return Number.isInteger(rounded)
+    ? `${rounded} NOK`
+    : `${rounded.toFixed(2)} NOK`;
+}
+
+function formatSumNOK(n: number) {
+  return roundPriceRule(n).toFixed(2);
 }
 
 function formatQty(qty: number) {
@@ -64,7 +75,10 @@ export function CalculatorDisplayNew({
   );
 
   useEffect(() => {
-    onPriceChange?.(result.totals.totalExVat, result.totals.subcontractorTotal);
+    onPriceChange?.(
+      roundPriceRule(result.totals.totalExVat),
+      roundPriceRule(result.totals.subcontractorTotal),
+    );
   }, [result, onPriceChange]);
 
   return (
@@ -113,7 +127,7 @@ export function CalculatorDisplayNew({
                     </h1>
 
                     <p className="font-semibold text-sm whitespace-nowrap">
-                      {line.lineTotal} NOK
+                      {formatNOK(line.lineTotal)}
                     </p>
                   </div>
                 ))
@@ -127,7 +141,7 @@ export function CalculatorDisplayNew({
         <div className="priceRow">
           <h1 className="font-bold text-2xl">Total</h1>
           <p className="font-bold text-2xl">
-            {formatNOK(result.totals.totalExVat)}
+            {formatSumNOK(result.totals.totalExVat)} NOK
           </p>
         </div>
 

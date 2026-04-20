@@ -13,6 +13,10 @@ function parseNOK(input: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function roundPriceRule(n: number) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 export function calculateBookingPricing(params: {
   productBreakdowns: ProductBreakdown[];
   priceLookup: PriceLookup;
@@ -20,10 +24,14 @@ export function calculateBookingPricing(params: {
 }): CalculatorResult {
   const { productBreakdowns, priceLookup, adjustments = {} } = params;
 
-  const rabatt = parseNOK(adjustments.rabatt ?? "");
-  const leggTil = parseNOK(adjustments.leggTil ?? "");
-  const subcontractorMinus = parseNOK(adjustments.subcontractorMinus ?? "");
-  const subcontractorPlus = parseNOK(adjustments.subcontractorPlus ?? "");
+  const rabatt = roundPriceRule(parseNOK(adjustments.rabatt ?? ""));
+  const leggTil = roundPriceRule(parseNOK(adjustments.leggTil ?? ""));
+  const subcontractorMinus = roundPriceRule(
+    parseNOK(adjustments.subcontractorMinus ?? ""),
+  );
+  const subcontractorPlus = roundPriceRule(
+    parseNOK(adjustments.subcontractorPlus ?? ""),
+  );
 
   const breakdowns: CalculatedBreakdown[] = [];
 
@@ -35,10 +43,10 @@ export function calculateBookingPricing(params: {
 
     for (const item of product.items) {
       if (item.kind === "deliveryType") {
-        const unitPrice = item.unitPrice;
-        const lineTotal = unitPrice * item.qty;
+        const unitPrice = roundPriceRule(item.unitPrice);
+        const lineTotal = roundPriceRule(unitPrice * item.qty);
 
-        subtotalExVat += lineTotal;
+        subtotalExVat = roundPriceRule(subtotalExVat + lineTotal);
 
         lines.push({
           label: item.label,
@@ -63,18 +71,25 @@ export function calculateBookingPricing(params: {
       }
 
       if (item.kind === "customPrice") {
-        const lineTotal = item.unitPrice * item.qty;
-        const subcontractorLineTotal =
-          (item.subcontractorUnitPrice ?? 0) * item.qty;
+        const unitPrice = roundPriceRule(item.unitPrice);
+        const subcontractorUnitPrice = roundPriceRule(
+          item.subcontractorUnitPrice ?? 0,
+        );
+        const lineTotal = roundPriceRule(unitPrice * item.qty);
+        const subcontractorLineTotal = roundPriceRule(
+          subcontractorUnitPrice * item.qty,
+        );
 
-        subtotalExVat += lineTotal;
-        subcontractorBase += subcontractorLineTotal;
+        subtotalExVat = roundPriceRule(subtotalExVat + lineTotal);
+        subcontractorBase = roundPriceRule(
+          subcontractorBase + subcontractorLineTotal,
+        );
 
         lines.push({
           label: item.label,
           code: item.code,
           qty: item.qty,
-          unitPrice: item.unitPrice,
+          unitPrice,
           lineTotal,
         });
 
@@ -84,16 +99,22 @@ export function calculateBookingPricing(params: {
       const lookup = priceLookup[item.productOptionId];
       if (!lookup) continue;
 
-      const unitPrice =
+      const unitPrice = roundPriceRule(
         item.priceOverride !== undefined
           ? item.priceOverride
-          : lookup.customerPrice;
+          : lookup.customerPrice,
+      );
 
-      const lineTotal = unitPrice * item.qty;
-      const subcontractorLineTotal = lookup.subcontractorPrice * item.qty;
+      const subcontractorUnitPrice = roundPriceRule(lookup.subcontractorPrice);
+      const lineTotal = roundPriceRule(unitPrice * item.qty);
+      const subcontractorLineTotal = roundPriceRule(
+        subcontractorUnitPrice * item.qty,
+      );
 
-      subtotalExVat += lineTotal;
-      subcontractorBase += subcontractorLineTotal;
+      subtotalExVat = roundPriceRule(subtotalExVat + lineTotal);
+      subcontractorBase = roundPriceRule(
+        subcontractorBase + subcontractorLineTotal,
+      );
 
       lines.push({
         label: lookup.label,
@@ -111,24 +132,25 @@ export function calculateBookingPricing(params: {
     });
   }
 
-  const totalExVat = Math.max(0, subtotalExVat - rabatt + leggTil);
-  const vat = totalExVat * 0.25;
-  const totalIncVat = totalExVat + vat;
-  const subcontractorTotal = Math.max(
-    0,
-    subcontractorBase - subcontractorMinus + subcontractorPlus,
+  const totalExVat = roundPriceRule(
+    Math.max(0, subtotalExVat - rabatt + leggTil),
+  );
+  const vat = roundPriceRule(totalExVat * 0.25);
+  const totalIncVat = roundPriceRule(totalExVat + vat);
+  const subcontractorTotal = roundPriceRule(
+    Math.max(0, subcontractorBase - subcontractorMinus + subcontractorPlus),
   );
 
   return {
     breakdowns,
     totals: {
-      subtotalExVat,
+      subtotalExVat: roundPriceRule(subtotalExVat),
       discount: rabatt,
       extra: leggTil,
       totalExVat,
       vat,
       totalIncVat,
-      subcontractorBase,
+      subcontractorBase: roundPriceRule(subcontractorBase),
       subcontractorMinus,
       subcontractorPlus,
       subcontractorTotal,

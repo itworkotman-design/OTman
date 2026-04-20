@@ -1227,7 +1227,7 @@ export default function OrderEmailModal({
                                 handleResolveNotification(notification.id)
                               }
                               disabled={isResolving}
-                              className="rounded-full bg-logored px-4 py-2 text-sm font-semibold text-white transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="rounded-full bg-logored px-4 py-2 text-sm font-semibold text-logoBlue transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {isResolving ? "Updating..." : "Mark as fixed"}
                             </button>

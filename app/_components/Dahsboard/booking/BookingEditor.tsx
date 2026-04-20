@@ -19,7 +19,7 @@ import type {
   CatalogProduct,
   CatalogSpecialOption,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/ProductCardNew";
+import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
