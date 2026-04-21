@@ -1,7 +1,14 @@
+import { unlink } from "fs/promises";
+import path from "path";
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
 import { prisma } from "@/lib/db";
+import {
+  isManagedUserLogoPath,
+  normalizeUserLogoPath,
+  normalizeUsernameDisplayColor,
+} from "@/lib/users/profileAppearance";
 
 type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
 
@@ -69,6 +76,14 @@ export async function PATCH(
   const phoneNumber = parseOptionalString(body?.phoneNumber);
   const address = parseOptionalString(body?.address);
   const description = parseOptionalString(body?.description);
+  const logoPath = normalizeUserLogoPath(
+    typeof body?.logoPath === "string" ? body.logoPath : null,
+  );
+  const usernameDisplayColor = normalizeUsernameDisplayColor(
+    typeof body?.usernameDisplayColor === "string"
+      ? body.usernameDisplayColor
+      : null,
+  );
   const priceListId =
     typeof body?.priceListId === "string" && body.priceListId.trim()
       ? body.priceListId.trim()
@@ -124,6 +139,13 @@ export async function PATCH(
   }
 
   try {
+    const previousUser = await prisma.user.findUnique({
+      where: { id: targetMembership.userId },
+      select: {
+        logoPath: true,
+      },
+    });
+
     const user = await prisma.user.update({
       where: { id: targetMembership.userId },
       data: {
@@ -132,6 +154,8 @@ export async function PATCH(
         phoneNumber,
         address,
         description,
+        logoPath,
+        usernameDisplayColor,
       },
       select: {
         id: true,
@@ -140,9 +164,27 @@ export async function PATCH(
         phoneNumber: true,
         address: true,
         description: true,
+        logoPath: true,
+        usernameDisplayColor: true,
         status: true,
       },
     });
+
+    const previousLogoPath = previousUser?.logoPath ?? null;
+
+    if (
+      previousLogoPath &&
+      isManagedUserLogoPath(previousLogoPath) &&
+      previousLogoPath !== user.logoPath
+    ) {
+      const absolutePath = path.join(
+        process.cwd(),
+        "public",
+        previousLogoPath.replace(/^\//, ""),
+      );
+
+      unlink(absolutePath).catch(() => {});
+    }
 
     await prisma.membership.update({
       where: { id: targetMembership.id },

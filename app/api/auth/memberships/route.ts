@@ -58,6 +58,8 @@ export async function GET(req: Request) {
           phoneNumber: true,
           address: true,
           description: true,
+          logoPath: true,
+          usernameDisplayColor: true,
           status: true,
         },
       },

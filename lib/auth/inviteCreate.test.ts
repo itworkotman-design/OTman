@@ -225,6 +225,8 @@ describe("createInvite", () => {
         phoneNumber: null,
         address: null,
         description: null,
+        logoPath: null,
+        usernameDisplayColor: null,
         priceListId: null,
       },
       select: {
@@ -250,6 +252,8 @@ describe("createInvite", () => {
         username: null,
         phoneNumber: null,
         address: null,
+        logoPath: null,
+        usernameDisplayColor: null,
         priceListId: null,
         permissions: [],
       },

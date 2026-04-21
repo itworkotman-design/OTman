@@ -5,6 +5,8 @@ export type CurrentUser = {
   id: string;
   email: string;
   username: string;
+  logoPath: string | null;
+  usernameDisplayColor: string | null;
   role: Role;
   permissions: AppPermission[];
 };
@@ -23,9 +25,6 @@ export function useCurrentUser() {
 
         const data = await res.json().catch(() => null);
 
-        console.log("ME res.ok", res.ok);
-        console.log("ME data", data);
-
         if (!res.ok || !data?.ok) {
           setCurrentUser(null);
           return;
@@ -35,6 +34,8 @@ export function useCurrentUser() {
           id: data.user?.id ?? "",
           email: data.user?.email ?? "",
           username: data.user?.username ?? "",
+          logoPath: data.user?.logoPath ?? null,
+          usernameDisplayColor: data.user?.usernameDisplayColor ?? null,
           role: (data.activeTenant?.role ?? "USER") as Role,
           permissions: data.activeTenant?.permissions ?? [],
         });

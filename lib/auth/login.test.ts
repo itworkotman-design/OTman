@@ -4,6 +4,7 @@ import { AuthEventType } from "@prisma/client";
 const mocks = vi.hoisted(() => {
   return {
     findUniqueMock: vi.fn(),
+    findFirstMock: vi.fn(),
     findManyMock: vi.fn(),
     verifyPasswordMock: vi.fn(),
     logAuthEventMock: vi.fn(),
@@ -18,6 +19,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     user: {
       findUnique: mocks.findUniqueMock,
+      findFirst: mocks.findFirstMock,
     },
     membership: {
       findMany: mocks.findManyMock,
@@ -46,9 +48,9 @@ vi.mock("@/lib/auth/rateLimit", () => ({
   LOGIN_WINDOW_MS: 15 * 60 * 1000,
 }));
 
-import { loginWithEmailPassword } from "./login";
+import { loginWithIdentifierPassword } from "./login";
 
-describe("loginWithEmailPassword", () => {
+describe("loginWithIdentifierPassword", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -69,8 +71,8 @@ describe("loginWithEmailPassword", () => {
       retryAfterMs: 1000,
     });
 
-    const result = await loginWithEmailPassword({
-      email: "test@example.com",
+    const result = await loginWithIdentifierPassword({
+      identifier: "test@example.com",
       password: "wrong-password",
       ip: "127.0.0.1",
       userAgent: "vitest",
@@ -85,8 +87,8 @@ describe("loginWithEmailPassword", () => {
   it("returns INVALID_CREDENTIALS and increments both buckets when user does not exist", async () => {
     mocks.findUniqueMock.mockResolvedValue(null);
 
-    const result = await loginWithEmailPassword({
-      email: "test@example.com",
+    const result = await loginWithIdentifierPassword({
+      identifier: "test@example.com",
       password: "wrong-password",
       ip: "127.0.0.1",
       userAgent: "vitest",
@@ -99,6 +101,10 @@ describe("loginWithEmailPassword", () => {
       email: "test@example.com",
       ip: "127.0.0.1",
       userAgent: "vitest",
+      meta: {
+        identifier: "test@example.com",
+        identifierType: "email",
+      },
     });
 
     expect(mocks.incrementRateLimitMock).toHaveBeenCalledTimes(2);
@@ -112,17 +118,64 @@ describe("loginWithEmailPassword", () => {
     });
   });
 
-  it("returns success and auto-selects tenant when exactly one active membership exists", async () => {
-    mocks.findUniqueMock.mockResolvedValue({
+  it("looks up users by username with a case-insensitive match", async () => {
+    mocks.findFirstMock.mockResolvedValue({
       id: "user-1",
+      email: "user@example.com",
       passwordHash: "hashed-password",
       status: "ACTIVE",
     });
     mocks.verifyPasswordMock.mockResolvedValue(true);
     mocks.findManyMock.mockResolvedValue([{ companyId: "company-1" }]);
 
-    const result = await loginWithEmailPassword({
+    const result = await loginWithIdentifierPassword({
+      identifier: "TestUser",
+      password: "correct-password",
+      ip: "127.0.0.1",
+      userAgent: "vitest",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      userId: "user-1",
+      sessionToken: "session-token",
+      sessionExpiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      activeCompanyId: "company-1",
+    });
+
+    expect(mocks.findUniqueMock).not.toHaveBeenCalled();
+    expect(mocks.findFirstMock).toHaveBeenCalledWith({
+      where: {
+        username: {
+          equals: "testuser",
+          mode: "insensitive",
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        status: true,
+      },
+    });
+
+    expect(mocks.clearRateLimitMock).toHaveBeenCalledWith(
+      "login:username:testuser"
+    );
+  });
+
+  it("returns success and auto-selects tenant when exactly one active membership exists", async () => {
+    mocks.findUniqueMock.mockResolvedValue({
+      id: "user-1",
       email: "test@example.com",
+      passwordHash: "hashed-password",
+      status: "ACTIVE",
+    });
+    mocks.verifyPasswordMock.mockResolvedValue(true);
+    mocks.findManyMock.mockResolvedValue([{ companyId: "company-1" }]);
+
+    const result = await loginWithIdentifierPassword({
+      identifier: "test@example.com",
       password: "correct-password",
       ip: "127.0.0.1",
       userAgent: "vitest",
@@ -176,6 +229,7 @@ describe("loginWithEmailPassword", () => {
   it("returns success with null activeCompanyId when multiple active memberships exist", async () => {
     mocks.findUniqueMock.mockResolvedValue({
       id: "user-1",
+      email: "test@example.com",
       passwordHash: "hashed-password",
       status: "ACTIVE",
     });
@@ -185,8 +239,8 @@ describe("loginWithEmailPassword", () => {
       { companyId: "company-2" },
     ]);
 
-    const result = await loginWithEmailPassword({
-      email: "test@example.com",
+    const result = await loginWithIdentifierPassword({
+      identifier: "test@example.com",
       password: "correct-password",
       ip: "127.0.0.1",
       userAgent: "vitest",

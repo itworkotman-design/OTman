@@ -14,4 +14,4 @@ Receives dashboard invite requests, normalizes the request body, and delegates i
 | --- | --- |
 | `getClientIp` | Reads the first forwarded IP address from the request headers when present. |
 | `parsePermissions` | Filters request permission values down to the supported booking permissions. |
-| `POST` | Validates session and tenant context, forwards the invite payload to the invite helper, and now includes the optional profile address in the invite seed data. |
+| `POST` | Validates session and tenant context, forwards the invite payload to the invite helper, and now includes the optional profile address and sidebar appearance fields in the invite seed data. |

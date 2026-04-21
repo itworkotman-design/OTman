@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loginWithEmailPassword } from "@/lib/auth/login";
+import { loginWithIdentifierPassword } from "@/lib/auth/login";
 import { setSessionCookie } from "@/lib/auth/session";
 
 function getClientIp(req: Request): string | null {
@@ -14,14 +14,19 @@ function getClientIp(req: Request): string | null {
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
 
-  const email = typeof body?.email === "string" ? body.email : "";
+  const identifier =
+    typeof body?.identifier === "string"
+      ? body.identifier
+      : typeof body?.email === "string"
+        ? body.email
+        : "";
   const password = typeof body?.password === "string" ? body.password : "";
 
   const userAgent = req.headers.get("user-agent");
   const ip = getClientIp(req);
 
-  const result = await loginWithEmailPassword({
-    email,
+  const result = await loginWithIdentifierPassword({
+    identifier,
     password,
     ip,
     userAgent,

@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   return {
-    loginWithEmailPasswordMock: vi.fn(),
+    loginWithIdentifierPasswordMock: vi.fn(),
     setSessionCookieMock: vi.fn(),
   };
 });
 
 vi.mock("@/lib/auth/login", () => ({
-  loginWithEmailPassword: mocks.loginWithEmailPasswordMock,
+  loginWithIdentifierPassword: mocks.loginWithIdentifierPasswordMock,
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -21,7 +21,7 @@ describe("POST /api/auth/login", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mocks.loginWithEmailPasswordMock.mockResolvedValue({
+    mocks.loginWithIdentifierPasswordMock.mockResolvedValue({
       ok: true,
       userId: "user-1",
       sessionToken: "session-token",
@@ -32,7 +32,7 @@ describe("POST /api/auth/login", () => {
   it("returns 200, ok true, and sets session cookie on success", async () => {
     const expiresAt = new Date("2030-01-01T00:00:00.000Z");
 
-    mocks.loginWithEmailPasswordMock.mockResolvedValueOnce({
+    mocks.loginWithIdentifierPasswordMock.mockResolvedValueOnce({
       ok: true,
       userId: "user-1",
       sessionToken: "session-token",
@@ -47,7 +47,7 @@ describe("POST /api/auth/login", () => {
         "x-forwarded-for": "203.0.113.10, 10.0.0.1",
       },
       body: JSON.stringify({
-        email: "user@example.com",
+        identifier: "user@example.com",
         password: "correct-password",
       }),
     });
@@ -57,8 +57,8 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ ok: true });
 
-    expect(mocks.loginWithEmailPasswordMock).toHaveBeenCalledWith({
-      email: "user@example.com",
+    expect(mocks.loginWithIdentifierPasswordMock).toHaveBeenCalledWith({
+      identifier: "user@example.com",
       password: "correct-password",
       ip: "203.0.113.10",
       userAgent: "vitest-agent",
@@ -73,7 +73,7 @@ describe("POST /api/auth/login", () => {
   });
 
   it("returns 429 and reason when helper reports RATE_LIMITED", async () => {
-    mocks.loginWithEmailPasswordMock.mockResolvedValueOnce({
+    mocks.loginWithIdentifierPasswordMock.mockResolvedValueOnce({
       ok: false,
       reason: "RATE_LIMITED",
     });
@@ -84,7 +84,7 @@ describe("POST /api/auth/login", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        email: "user@example.com",
+        identifier: "user@example.com",
         password: "wrong-password",
       }),
     });
@@ -101,7 +101,7 @@ describe("POST /api/auth/login", () => {
   });
 
   it("returns 401 and reason when helper reports INVALID_CREDENTIALS", async () => {
-    mocks.loginWithEmailPasswordMock.mockResolvedValueOnce({
+    mocks.loginWithIdentifierPasswordMock.mockResolvedValueOnce({
       ok: false,
       reason: "INVALID_CREDENTIALS",
     });
@@ -112,7 +112,7 @@ describe("POST /api/auth/login", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        email: "user@example.com",
+        identifier: "user@example.com",
         password: "wrong-password",
       }),
     });
@@ -144,8 +144,8 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ ok: true });
 
-    expect(mocks.loginWithEmailPasswordMock).toHaveBeenCalledWith({
-      email: "",
+    expect(mocks.loginWithIdentifierPasswordMock).toHaveBeenCalledWith({
+      identifier: "",
       password: "",
       ip: "203.0.113.11",
       userAgent: "vitest-agent",
@@ -169,9 +169,34 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ ok: true });
 
-    expect(mocks.loginWithEmailPasswordMock).toHaveBeenCalledWith({
-      email: "",
+    expect(mocks.loginWithIdentifierPasswordMock).toHaveBeenCalledWith({
+      identifier: "",
       password: "",
+      ip: null,
+      userAgent: null,
+    });
+  });
+
+  it("accepts the legacy email field when identifier is missing", async () => {
+    const req = new Request("http://localhost/api/auth/login", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "user@example.com",
+        password: "correct-password",
+      }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ ok: true });
+
+    expect(mocks.loginWithIdentifierPasswordMock).toHaveBeenCalledWith({
+      identifier: "user@example.com",
+      password: "correct-password",
       ip: null,
       userAgent: null,
     });
@@ -186,7 +211,7 @@ describe("POST /api/auth/login", () => {
         "x-forwarded-for": "198.51.100.7, 10.0.0.1, 10.0.0.2",
       },
       body: JSON.stringify({
-        email: "user@example.com",
+        identifier: "user@example.com",
         password: "correct-password",
       }),
     });
@@ -196,8 +221,8 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ ok: true });
 
-    expect(mocks.loginWithEmailPasswordMock).toHaveBeenCalledWith({
-      email: "user@example.com",
+    expect(mocks.loginWithIdentifierPasswordMock).toHaveBeenCalledWith({
+      identifier: "user@example.com",
       password: "correct-password",
       ip: "198.51.100.7",
       userAgent: "custom-agent/1.0",

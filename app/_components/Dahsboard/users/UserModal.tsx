@@ -1,7 +1,9 @@
 // app/_components/Dahsboard/users/UserModal.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import type { ChangeEvent } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 
 import {
@@ -18,6 +20,7 @@ import {
 
 export default function UserModal({
   isOpen,
+  formResetKey,
   onClose,
   onSave,
   onToggleActive,
@@ -28,6 +31,8 @@ export default function UserModal({
   initialValuePhoneNumber,
   initialValueAddress,
   initialValueDescription,
+  initialValueLogoPath,
+  initialValueUsernameDisplayColor,
   initialValueRole,
   initialValueActive,
   initialValuePermissions,
@@ -43,6 +48,8 @@ export default function UserModal({
       initialValuePhoneNumber,
       initialValueAddress,
       initialValueDescription,
+      initialValueLogoPath,
+      initialValueUsernameDisplayColor,
       initialValueRole,
       initialValueActive,
       initialValuePermissions,
@@ -59,25 +66,19 @@ export default function UserModal({
         initialValuePhoneNumber,
         initialValueAddress,
         initialValueDescription,
+        initialValueLogoPath,
+        initialValueUsernameDisplayColor,
         initialValueRole,
         initialValueActive,
         initialValuePermissions,
         initialPriceListId,
       }),
     );
-  }, [
-    isOpen,
-    initialValueUsername,
-    initialValueEmail,
-    initialValuePhoneNumber,
-    initialValueAddress,
-    initialValueDescription,
-    initialValueRole,
-    initialValueActive,
-    initialValuePermissions,
-    initialPriceListId,
-  ]);
+  }, [isOpen, formResetKey]);
   const [sendingReset, setSendingReset] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(
+    initialValueLogoPath ?? null,
+  );
 
   const { isActorOwner, canEditTarget, canToggleActive } = getPermissions(
     actorRole,
@@ -86,14 +87,39 @@ export default function UserModal({
   );
 
   const updateField = (
-    key: "username" | "email" | "phoneNumber" | "description",
+    key:
+      | "username"
+      | "email"
+      | "phoneNumber"
+      | "description"
+      | "password"
+      | "confirmPassword",
   ) => makeFieldUpdater(key, setForm);
   const updateAddress = (value: string) =>
     setForm((prev) => ({ ...prev, address: value }));
+  const updateUsernameDisplayColor = (value: string) =>
+    setForm((prev) => ({ ...prev, usernameDisplayColor: value }));
 
   const updatePriceList = makeSelectUpdater("priceListId", setForm);
+  const updateProvisionMode = makeSelectUpdater("provisionMode", setForm);
 
-  const updateRole = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setLogoPreviewUrl(initialValueLogoPath ?? null);
+  }, [isOpen, formResetKey, initialValueLogoPath]);
+
+  useEffect(() => {
+    return () => {
+      if (logoPreviewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(logoPreviewUrl);
+      }
+    };
+  }, [logoPreviewUrl]);
+
+  const updateRole = (e: ChangeEvent<HTMLSelectElement>) => {
     const nextRole = e.target.value;
 
     setForm((prev) => ({
@@ -109,8 +135,12 @@ export default function UserModal({
   };
 
   const accessType = getAccessTypeFromPermissions(form.permissions);
+  const shouldShowProvisionSelector = isCreateMode;
+  const shouldShowPasswordInputs =
+    isCreateMode && form.provisionMode === "DIRECT_PASSWORD";
+  const colorPreview = form.usernameDisplayColor || "#273097";
 
-  const updateAccessType = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const updateAccessType = (e: ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value as UserAccessType;
 
     setForm((prev) => ({
@@ -153,6 +183,59 @@ export default function UserModal({
     }
   }
 
+  async function handleSave() {
+    if (shouldShowPasswordInputs && form.password.length < 8) {
+      alert("Password must be at least 8 characters");
+      return;
+    }
+
+    if (shouldShowPasswordInputs && form.password !== form.confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+
+    await onSave(form);
+  }
+
+  function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
+    const nextFile = e.target.files?.[0] ?? null;
+
+    if (!nextFile) {
+      return;
+    }
+
+    const nextPreviewUrl = URL.createObjectURL(nextFile);
+
+    setLogoPreviewUrl((prev) => {
+      if (prev?.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+
+      return nextPreviewUrl;
+    });
+
+    setForm((prev) => ({
+      ...prev,
+      logoFile: nextFile,
+    }));
+  }
+
+  function handleRemoveLogo() {
+    setLogoPreviewUrl((prev) => {
+      if (prev?.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+
+      return null;
+    });
+
+    setForm((prev) => ({
+      ...prev,
+      logoPath: null,
+      logoFile: null,
+    }));
+  }
+
   if (!isOpen) return null;
 
   return (
@@ -183,6 +266,7 @@ export default function UserModal({
                 value={form.username || ""}
                 onChange={updateField("username")}
                 type="text"
+                autoComplete="off"
                 disabled={!canEditTarget}
               />
 
@@ -191,7 +275,8 @@ export default function UserModal({
                 className="customInput mb-2 w-full"
                 value={form.email}
                 onChange={updateField("email")}
-                type="text"
+                type="email"
+                autoComplete={isCreateMode ? "off" : "email"}
                 disabled={!canEditTarget}
               />
 
@@ -200,7 +285,8 @@ export default function UserModal({
                 className="customInput mb-2 w-full"
                 value={form.phoneNumber || ""}
                 onChange={updateField("phoneNumber")}
-                type="text"
+                type="tel"
+                autoComplete="off"
                 disabled={!canEditTarget}
               />
 
@@ -222,6 +308,62 @@ export default function UserModal({
                 placeholder="Description"
                 disabled={!canEditTarget}
               />
+
+              <label className="block pl-2 pb-2">Logo</label>
+              <div className="mb-4 rounded-lg border border-lineSecondary p-4">
+                {logoPreviewUrl ? (
+                  <div className="mb-3 flex items-center gap-3">
+                    <Image
+                      src={logoPreviewUrl}
+                      alt="User logo preview"
+                      width={56}
+                      height={56}
+                      className="h-14 w-14 object-contain"
+                      unoptimized={logoPreviewUrl.startsWith("blob:")}
+                    />
+                    <button
+                      type="button"
+                      className="customButtonDefault"
+                      onClick={handleRemoveLogo}
+                      disabled={!canEditTarget}
+                    >
+                      Remove logo
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mb-3 text-sm text-textColorSecond">
+                    No logo uploaded
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleLogoChange}
+                  disabled={!canEditTarget}
+                />
+              </div>
+
+              <label className="block pl-2 pb-2">Username display color</label>
+              <div className="mb-4 flex items-center gap-3">
+                <input
+                  type="color"
+                  value={colorPreview}
+                  onChange={(e) => updateUsernameDisplayColor(e.target.value)}
+                  disabled={!canEditTarget}
+                />
+                <div className="font-semibold" style={{ color: colorPreview }}>
+                  {form.username || form.email || "Preview"}
+                </div>
+                <button
+                  type="button"
+                  className="customButtonDefault"
+                  onClick={() => updateUsernameDisplayColor("")}
+                  disabled={!canEditTarget}
+                >
+                  Clear color
+                </button>
+              </div>
             </div>
 
             <div className="flex-1">
@@ -278,16 +420,54 @@ export default function UserModal({
                 Security
               </h2>
 
+              {shouldShowProvisionSelector && (
+                <>
+                  <label className="block pl-2 pb-2">Setup method</label>
+                  <select
+                    className="customInput mb-4 w-full"
+                    value={form.provisionMode}
+                    onChange={updateProvisionMode}
+                    disabled={!canEditTarget}
+                  >
+                    <option value="DIRECT_PASSWORD">Set password now</option>
+                    <option value="INVITE">Send invite link</option>
+                  </select>
+                </>
+              )}
+
               <label className="block pl-2 pb-2">Password</label>
-              <input
-                className="customInput mb-4 w-full"
-                type="text"
-                value={
-                  isCreateMode ? "Will be set by invited user" : "********"
-                }
-                readOnly
-                disabled={!canEditTarget}
-              />
+              {shouldShowPasswordInputs ? (
+                <>
+                  <input
+                    className="customInput mb-2 w-full"
+                    type="password"
+                    value={form.password}
+                    onChange={updateField("password")}
+                    placeholder="Enter password"
+                    autoComplete="new-password"
+                    disabled={!canEditTarget}
+                  />
+                  <input
+                    className="customInput mb-4 w-full"
+                    type="password"
+                    value={form.confirmPassword}
+                    onChange={updateField("confirmPassword")}
+                    placeholder="Confirm password"
+                    autoComplete="new-password"
+                    disabled={!canEditTarget}
+                  />
+                </>
+              ) : (
+                <input
+                  className="customInput mb-4 w-full"
+                  type="text"
+                  value={
+                    isCreateMode ? "Will be set by invited user" : "********"
+                  }
+                  readOnly
+                  disabled={!canEditTarget}
+                />
+              )}
 
               <div className="flex gap-4">
                 <button
@@ -353,13 +533,17 @@ export default function UserModal({
           <div className="mt-10 flex justify-center">
             <button
               onClick={() => {
-                onSave(form);
+                void handleSave();
               }}
               className="customButtonEnabled h-10 w-96"
               type="button"
               disabled={!canEditTarget}
             >
-              {getSaveButtonLabel(isCreateMode, canEditTarget)}
+              {getSaveButtonLabel(
+                isCreateMode,
+                canEditTarget,
+                form.provisionMode,
+              )}
             </button>
           </div>
         </div>

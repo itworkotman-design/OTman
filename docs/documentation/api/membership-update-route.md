@@ -15,4 +15,4 @@ Updates the editable user-profile fields and membership-level permissions for an
 | `parseOptionalString` | Normalizes optional text input into a trimmed string or `null`. |
 | `parseEmail` | Normalizes the email field into a trimmed lowercase value or `null`. |
 | `parsePermissions` | Filters request permission values down to the supported booking permissions. |
-| `PATCH` | Validates actor access, updates the linked user profile, refreshes membership permissions, and now saves the optional profile address together with the other profile fields. |
+| `PATCH` | Validates actor access, updates the linked user profile, refreshes membership permissions, saves the optional profile address together with the other profile fields, and replaces or clears the optional sidebar logo and username display color. |

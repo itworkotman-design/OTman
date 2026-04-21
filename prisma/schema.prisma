@@ -71,6 +71,8 @@ model User {
   phoneNumber  String?
   address      String?
   description  String?
+  logoPath     String?
+  usernameDisplayColor String?
   passwordHash String
   status       UserStatus @default(ACTIVE)
 
@@ -157,6 +159,8 @@ model Invite {
   phoneNumber String?
   address     String?
   description String?
+  logoPath    String?
+  usernameDisplayColor String?
   priceListId String?
 
   tokenHash  String    @unique

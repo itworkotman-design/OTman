@@ -49,6 +49,9 @@ describe("GET /api/auth/me", () => {
       sessionId: "session-1",
       userId: "user-1",
       email: "user@example.com",
+      username: "User One",
+      logoPath: "/uploads/user-logos/user-1/logo.webp",
+      usernameDisplayColor: "#112233",
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
       activeCompanyId: "company-1",
@@ -94,6 +97,9 @@ describe("GET /api/auth/me", () => {
       user: {
         id: "user-1",
         email: "user@example.com",
+        username: "User One",
+        logoPath: "/uploads/user-logos/user-1/logo.webp",
+        usernameDisplayColor: "#112233",
         status: "ACTIVE",
       },
       session: {
@@ -147,10 +153,10 @@ describe("GET /api/auth/me", () => {
           },
         },
         permissions: {
-      select: {
-        permission: true,
-      },
-    },
+          select: {
+            permission: true,
+          },
+        },
       },
     });
   });
@@ -160,6 +166,9 @@ describe("GET /api/auth/me", () => {
       sessionId: "session-1",
       userId: "user-1",
       email: "user@example.com",
+      username: "User One",
+      logoPath: null,
+      usernameDisplayColor: null,
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
       activeCompanyId: null,
@@ -205,6 +214,9 @@ describe("GET /api/auth/me", () => {
       user: {
         id: "user-1",
         email: "user@example.com",
+        username: "User One",
+        logoPath: null,
+        usernameDisplayColor: null,
         status: "ACTIVE",
       },
       session: {
@@ -240,6 +252,9 @@ describe("GET /api/auth/me", () => {
       sessionId: "session-1",
       userId: "user-1",
       email: "user@example.com",
+      username: "User One",
+      logoPath: null,
+      usernameDisplayColor: null,
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
       activeCompanyId: null,
@@ -275,6 +290,9 @@ describe("GET /api/auth/me", () => {
       user: {
         id: "user-1",
         email: "user@example.com",
+        username: "User One",
+        logoPath: null,
+        usernameDisplayColor: null,
         status: "ACTIVE",
       },
       session: {
@@ -302,6 +320,9 @@ describe("GET /api/auth/me", () => {
       sessionId: "session-1",
       userId: "user-1",
       email: "user@example.com",
+      username: "User One",
+      logoPath: null,
+      usernameDisplayColor: null,
       userStatus: "ACTIVE",
       expiresAt: new Date("2030-01-01T00:00:00.000Z"),
       activeCompanyId: "company-stale",
@@ -347,6 +368,9 @@ describe("GET /api/auth/me", () => {
       user: {
         id: "user-1",
         email: "user@example.com",
+        username: "User One",
+        logoPath: null,
+        usernameDisplayColor: null,
         status: "ACTIVE",
       },
       session: {

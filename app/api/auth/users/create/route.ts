@@ -1,8 +1,6 @@
-// app/api/auth/invites/create/route.ts
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
-import { createInvite } from "@/lib/auth/inviteCreate";
-import { ensureInviteDeliveryRegistered } from "@/lib/auth/registerInviteDelivery";
+import { createUserWithPassword } from "@/lib/auth/userCreate";
 import {
   normalizeUserLogoPath,
   normalizeUsernameDisplayColor,
@@ -10,17 +8,10 @@ import {
 
 type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
 
-function getClientIp(req: Request): string | null {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    return first || null;
-  }
-  return null;
-}
-
 function parsePermissions(value: unknown): AppPermission[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
 
   return value.filter(
     (permission: unknown): permission is AppPermission =>
@@ -29,8 +20,6 @@ function parsePermissions(value: unknown): AppPermission[] {
 }
 
 export async function POST(req: Request) {
-  ensureInviteDeliveryRegistered();
-
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
@@ -51,6 +40,9 @@ export async function POST(req: Request) {
 
   const email = typeof body?.email === "string" ? body.email : "";
   const role = typeof body?.role === "string" ? body.role : "";
+  const password = typeof body?.password === "string" ? body.password : "";
+  const confirmPassword =
+    typeof body?.confirmPassword === "string" ? body.confirmPassword : "";
   const username = typeof body?.username === "string" ? body.username : "";
   const phoneNumber =
     typeof body?.phoneNumber === "string" ? body.phoneNumber : "";
@@ -69,14 +61,19 @@ export async function POST(req: Request) {
     typeof body?.priceListId === "string" ? body.priceListId : null;
   const permissions = parsePermissions(body?.permissions);
 
-  const userAgent = req.headers.get("user-agent");
-  const ip = getClientIp(req);
+  if (password !== confirmPassword) {
+    return NextResponse.json(
+      { ok: false, reason: "PASSWORD_MISMATCH" },
+      { status: 400 },
+    );
+  }
 
-  const result = await createInvite({
+  const result = await createUserWithPassword({
     actorUserId: session.userId,
     companyId: session.activeCompanyId,
     email,
     role,
+    password,
     username,
     phoneNumber,
     address,
@@ -85,16 +82,15 @@ export async function POST(req: Request) {
     usernameDisplayColor,
     priceListId,
     permissions,
-    ip,
-    userAgent,
   });
 
   if (!result.ok) {
     const status =
       result.reason === "FORBIDDEN"
         ? 403
-        : result.reason === "INVALID_INPUT"
-          ? 400
+        : result.reason === "EMAIL_ALREADY_EXISTS" ||
+            result.reason === "EMAIL_ALREADY_MEMBER"
+          ? 409
           : 400;
 
     return NextResponse.json({ ok: false, reason: result.reason }, { status });

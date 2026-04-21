@@ -44,6 +44,25 @@ export default function UserPage() {
 
   const router = useRouter();
 
+  const uploadUserLogo = useCallback(async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/auth/users/logo", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok || typeof data.logoPath !== "string") {
+      throw new Error(data?.reason || "Failed to upload logo");
+    }
+
+    return data.logoPath;
+  }, []);
+
   useEffect(() => {
     fetch("/api/products/pricelists")
       .then((res) => res.json())
@@ -83,6 +102,7 @@ export default function UserPage() {
 
   useEffect(() => {
     const refreshPresence = () => {
+      if (open) return;
       if (document.visibilityState !== "visible") return;
       void loadUsers();
     };
@@ -96,7 +116,7 @@ export default function UserPage() {
       document.removeEventListener("visibilitychange", refreshPresence);
       window.removeEventListener("focus", refreshPresence);
     };
-  }, [loadUsers]);
+  }, [loadUsers, open]);
 
   const filteredUsers = useMemo(() => {
     return users
@@ -214,6 +234,7 @@ export default function UserPage() {
         <UserModal
           key={`${selectedUser?.id ?? "new"}-${modalKey}`}
           isOpen={open}
+          formResetKey={`${selectedUser?.id ?? "new"}-${modalKey}`}
           onClose={() => {
             setOpen(false);
             setSelectedUser(null);
@@ -225,6 +246,10 @@ export default function UserPage() {
           initialValuePhoneNumber={selectedUser?.user.phoneNumber ?? ""}
           initialValueAddress={selectedUser?.user.address ?? ""}
           initialValueDescription={selectedUser?.user.description ?? ""}
+          initialValueLogoPath={selectedUser?.user.logoPath ?? null}
+          initialValueUsernameDisplayColor={
+            selectedUser?.user.usernameDisplayColor ?? null
+          }
           initialValueRole={selectedUser?.role ?? "USER"}
           initialValueActive={
             selectedUser ? selectedUser.status === "ACTIVE" : true
@@ -237,27 +262,73 @@ export default function UserPage() {
           priceLists={priceLists}
           initialPriceListId={selectedUser?.priceListId ?? null}
           onSave={async (data) => {
+            let logoPath = data.logoPath;
+
+            if (data.logoFile) {
+              try {
+                logoPath = await uploadUserLogo(data.logoFile);
+              } catch (error) {
+                alert(
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to upload logo",
+                );
+                return;
+              }
+            }
+
             if (!selectedUser) {
-              const res = await fetch("/api/auth/invites/create", {
+              const endpoint =
+                data.provisionMode === "INVITE"
+                  ? "/api/auth/invites/create"
+                  : "/api/auth/users/create";
+              const body =
+                data.provisionMode === "INVITE"
+                  ? {
+                      email: data.email,
+                      role: data.role,
+                      username: data.username,
+                      phoneNumber: data.phoneNumber,
+                      address: data.address,
+                      description: data.description,
+                      logoPath,
+                      usernameDisplayColor:
+                        data.usernameDisplayColor || null,
+                      priceListId: data.priceListId ?? null,
+                      permissions: data.permissions,
+                    }
+                  : {
+                      email: data.email,
+                      role: data.role,
+                      username: data.username,
+                      phoneNumber: data.phoneNumber,
+                      address: data.address,
+                      description: data.description,
+                      logoPath,
+                      usernameDisplayColor:
+                        data.usernameDisplayColor || null,
+                      priceListId: data.priceListId ?? null,
+                      permissions: data.permissions,
+                      password: data.password,
+                      confirmPassword: data.confirmPassword,
+                    };
+
+              const res = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify({
-                  email: data.email,
-                  role: data.role,
-                  username: data.username,
-                  phoneNumber: data.phoneNumber,
-                  address: data.address,
-                  description: data.description,
-                  priceListId: data.priceListId ?? null,
-                  permissions: data.permissions,
-                }),
+                body: JSON.stringify(body),
               });
 
               const result = await res.json().catch(() => null);
 
               if (!res.ok || !result?.ok) {
-                alert(result?.reason || "Failed to create invite");
+                alert(
+                  result?.reason ||
+                    (data.provisionMode === "INVITE"
+                      ? "Failed to create invite"
+                      : "Failed to create user"),
+                );
                 return;
               }
 
@@ -278,6 +349,8 @@ export default function UserPage() {
                   phoneNumber: data.phoneNumber,
                   address: data.address,
                   description: data.description,
+                  logoPath,
+                  usernameDisplayColor: data.usernameDisplayColor || null,
                   priceListId: data.priceListId ?? null,
                   permissions: data.permissions,
                 }),
@@ -323,6 +396,9 @@ export default function UserPage() {
             <input
               className="customInput w-60"
               placeholder="Search email, role, id"
+              type="search"
+              name="membership-search"
+              autoComplete="off"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -450,8 +526,10 @@ export default function UserPage() {
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {u.user.phoneNumber || "-"}
                     </td>
-                    <td className="max-w-[220] truncate border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {u.user.description || "-"}
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      <div className="max-w-[220px] truncate">
+                        {u.user.description || "-"}
+                      </div>
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       <div className="flex items-center gap-2">

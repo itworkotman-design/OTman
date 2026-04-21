@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
     getAuthenticatedSessionMock: vi.fn(),
     getActiveMembershipMock: vi.fn(),
     findUniqueMock: vi.fn(),
+    userFindUniqueMock: vi.fn(),
     userUpdateMock: vi.fn(),
     membershipPermissionDeleteManyMock: vi.fn(),
     membershipPermissionCreateManyMock: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("@/lib/db", () => ({
       update: mocks.membershipUpdateMock,
     },
     user: {
+      findUnique: mocks.userFindUniqueMock,
       update: mocks.userUpdateMock,
     },
     membershipPermission: {
@@ -49,9 +51,14 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       phoneNumber: "12345678",
       address: "Karl Johans gate 1, Oslo",
       description: "Updated description",
+      logoPath: "/uploads/user-logos/u2/logo.webp",
+      usernameDisplayColor: "#112233",
       status: "ACTIVE",
     });
 
+    mocks.userFindUniqueMock.mockResolvedValue({
+      logoPath: "/uploads/user-logos/u2/old-logo.webp",
+    });
     mocks.membershipPermissionDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.membershipPermissionCreateManyMock.mockResolvedValue({ count: 0 });
   });
@@ -371,6 +378,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         phoneNumber: "12345678",
         address: "Karl Johans gate 1, Oslo",
         description: "Updated description",
+        logoPath: "/uploads/user-logos/u2/logo.webp",
+        usernameDisplayColor: "#112233",
         permissions: ["BOOKING_VIEW"],
       }),
     });
@@ -389,6 +398,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         phoneNumber: "12345678",
         address: "Karl Johans gate 1, Oslo",
         description: "Updated description",
+        logoPath: "/uploads/user-logos/u2/logo.webp",
+        usernameDisplayColor: "#112233",
         status: "ACTIVE",
       },
     });
@@ -401,6 +412,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         phoneNumber: "12345678",
         address: "Karl Johans gate 1, Oslo",
         description: "Updated description",
+        logoPath: "/uploads/user-logos/u2/logo.webp",
+        usernameDisplayColor: "#112233",
       },
       select: {
         id: true,
@@ -409,6 +422,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         phoneNumber: true,
         address: true,
         description: true,
+        logoPath: true,
+        usernameDisplayColor: true,
         status: true,
       },
     });
@@ -463,6 +478,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         phoneNumber: "12345678",
         address: "Karl Johans gate 1, Oslo",
         description: "Updated description",
+        logoPath: "/uploads/user-logos/u2/logo.webp",
+        usernameDisplayColor: "#112233",
         permissions: ["BOOKING_VIEW", "BOOKING_CREATE"],
       }),
     });
@@ -481,6 +498,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         phoneNumber: "12345678",
         address: "Karl Johans gate 1, Oslo",
         description: "Updated description",
+        logoPath: "/uploads/user-logos/u2/logo.webp",
+        usernameDisplayColor: "#112233",
         status: "ACTIVE",
       },
     });
@@ -493,6 +512,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         phoneNumber: "12345678",
         address: "Karl Johans gate 1, Oslo",
         description: "Updated description",
+        logoPath: "/uploads/user-logos/u2/logo.webp",
+        usernameDisplayColor: "#112233",
       },
       select: {
         id: true,
@@ -501,6 +522,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         phoneNumber: true,
         address: true,
         description: true,
+        logoPath: true,
+        usernameDisplayColor: true,
         status: true,
       },
     });

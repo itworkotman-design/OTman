@@ -63,6 +63,8 @@ export async function acceptInvite(params: {
       phoneNumber: true,
       address: true,
       description: true,
+      logoPath: true,
+      usernameDisplayColor: true,
       priceListId: true,
       permissions: {
         select: {
@@ -92,6 +94,8 @@ export async function acceptInvite(params: {
       phoneNumber: true,
       address: true,
       description: true,
+      logoPath: true,
+      usernameDisplayColor: true,
     },
   });
 
@@ -126,6 +130,8 @@ export async function acceptInvite(params: {
           phoneNumber: invite.phoneNumber?.trim() || null,
           address: invite.address?.trim() || null,
           description: invite.description?.trim() || null,
+          logoPath: invite.logoPath?.trim() || null,
+          usernameDisplayColor: invite.usernameDisplayColor?.trim() || null,
           passwordHash,
           status: "ACTIVE",
         },
@@ -154,6 +160,11 @@ export async function acceptInvite(params: {
           description: preferInviteValue(
             invite.description,
             existingUser.description,
+          ),
+          logoPath: preferInviteValue(invite.logoPath, existingUser.logoPath),
+          usernameDisplayColor: preferInviteValue(
+            invite.usernameDisplayColor,
+            existingUser.usernameDisplayColor,
           ),
           passwordHash,
           status: "ACTIVE",

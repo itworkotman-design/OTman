@@ -20,6 +20,8 @@ export type MembershipUser = {
   phoneNumber: string | null;
   address: string | null;
   description: string | null;
+  logoPath: string | null;
+  usernameDisplayColor: string | null;
   status: UserStatus;
 };
 

@@ -25,7 +25,6 @@ export async function GET(req: Request) {
           slug: true,
         },
       },
-      //RALFS ADDED
       permissions: {
         select: {
           permission: true,
@@ -40,10 +39,9 @@ export async function GET(req: Request) {
     companySlug: m.company.slug,
     role: m.role,
     status: m.status,
-    //RALFS ADDED
     permissions: (m.permissions ?? []).map(
-  (p: { permission: "BOOKING_VIEW" | "BOOKING_CREATE" }) => p.permission
-),
+      (p: { permission: "BOOKING_VIEW" | "BOOKING_CREATE" }) => p.permission,
+    ),
   }));
 
   const activeMembership =
@@ -60,8 +58,9 @@ export async function GET(req: Request) {
       user: {
         id: session.userId,
         email: session.email,
-        //RALFS ADDED
         username: session.username,
+        logoPath: session.logoPath,
+        usernameDisplayColor: session.usernameDisplayColor,
         status: session.userStatus,
       },
       session: {
@@ -75,7 +74,6 @@ export async function GET(req: Request) {
             companyId: activeMembership.companyId,
             companyName: activeMembership.companyName,
             companySlug: activeMembership.companySlug,
-            //RALFS ADDED
             role: activeMembership.role,
             status: activeMembership.status,
             permissions: activeMembership.permissions,

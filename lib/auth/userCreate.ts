@@ -1,25 +1,34 @@
-// lib/auth/inviteCreate.ts
-import { AuthEventType, Role } from "@prisma/client";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getActiveMembership } from "@/lib/auth/membership";
-import { logAuthEvent } from "@/lib/auth/authEvent";
-import { generateInviteToken, hashInviteToken } from "@/lib/auth/inviteToken";
-import { deliverInvite } from "@/lib/auth/inviteDelivery";
-
-const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+import { hashPassword } from "@/lib/auth/password";
 
 type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
 
-type CreateInviteResult =
-  | { ok: true }
-  | { ok: false; reason: "INVALID_INPUT" | "FORBIDDEN" };
+type CreateUserResult =
+  | {
+      ok: true;
+      userId: string;
+      membershipId: string;
+    }
+  | {
+      ok: false;
+      reason:
+        | "INVALID_INPUT"
+        | "FORBIDDEN"
+        | "EMAIL_ALREADY_EXISTS"
+        | "EMAIL_ALREADY_MEMBER";
+    };
 
 const ALLOWED_ROLES = new Set<Role>(["OWNER", "ADMIN", "USER"]);
 
 function normalizeOptionalString(
   value: string | null | undefined,
 ): string | null {
-  if (typeof value !== "string") return null;
+  if (typeof value !== "string") {
+    return null;
+  }
+
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
 }
@@ -29,23 +38,24 @@ function normalizePermissions(
 ): AppPermission[] {
   const list = Array.isArray(value) ? value : [];
 
-  const filtered: AppPermission[] = list.filter(
+  const filtered = list.filter(
     (permission): permission is AppPermission =>
       permission === "BOOKING_VIEW" || permission === "BOOKING_CREATE",
   );
 
-  const withDependencies: AppPermission[] = filtered.includes("BOOKING_CREATE")
+  const withDependencies = filtered.includes("BOOKING_CREATE")
     ? ["BOOKING_VIEW", ...filtered]
     : filtered;
 
   return Array.from(new Set(withDependencies)) as AppPermission[];
 }
 
-export async function createInvite(params: {
+export async function createUserWithPassword(params: {
   actorUserId: string;
   companyId: string;
   email: string;
   role: string;
+  password: string;
   username?: string | null;
   phoneNumber?: string | null;
   address?: string | null;
@@ -54,12 +64,11 @@ export async function createInvite(params: {
   usernameDisplayColor?: string | null;
   priceListId?: string | null;
   permissions?: AppPermission[];
-  ip?: string | null;
-  userAgent?: string | null;
-}): Promise<CreateInviteResult> {
+}): Promise<CreateUserResult> {
   const email = params.email.trim().toLowerCase();
-  const nextRole = params.role.trim() as Role;
   const companyId = params.companyId.trim();
+  const nextRole = params.role.trim() as Role;
+  const password = params.password;
 
   const username = normalizeOptionalString(params.username);
   const phoneNumber = normalizeOptionalString(params.phoneNumber);
@@ -76,7 +85,8 @@ export async function createInvite(params: {
     !params.actorUserId ||
     !companyId ||
     !email ||
-    !ALLOWED_ROLES.has(nextRole)
+    !ALLOWED_ROLES.has(nextRole) ||
+    password.trim().length < 8
   ) {
     return { ok: false, reason: "INVALID_INPUT" };
   }
@@ -105,11 +115,47 @@ export async function createInvite(params: {
     }
   }
 
-  const token = generateInviteToken();
-  const tokenHash = hashInviteToken(token);
-  const expiresAt = new Date(Date.now() + INVITE_TOKEN_TTL_MS);
+  const passwordHash = await hashPassword(password);
 
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
+    const existingUser = await tx.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      const existingMembership = await tx.membership.findUnique({
+        where: {
+          userId_companyId: {
+            userId: existingUser.id,
+            companyId,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (existingMembership) {
+        return { ok: false as const, reason: "EMAIL_ALREADY_MEMBER" as const };
+      }
+
+      return { ok: false as const, reason: "EMAIL_ALREADY_EXISTS" as const };
+    }
+
+    const user = await tx.user.create({
+      data: {
+        email,
+        username,
+        phoneNumber,
+        address,
+        description,
+        logoPath,
+        usernameDisplayColor,
+        passwordHash,
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+
     await tx.invite.updateMany({
       where: {
         companyId,
@@ -122,62 +168,30 @@ export async function createInvite(params: {
       },
     });
 
-    const invite = await tx.invite.create({
+    const membership = await tx.membership.create({
       data: {
+        userId: user.id,
         companyId,
-        email,
         role: nextRole,
-        username,
-        phoneNumber,
-        address,
-        description,
-        logoPath,
-        usernameDisplayColor,
+        status: "ACTIVE",
         priceListId,
-        status: "PENDING",
-        tokenHash,
-        expiresAt,
-        createdByUserId: params.actorUserId,
       },
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
 
     if (permissions.length > 0) {
-      await tx.invitePermission.createMany({
+      await tx.membershipPermission.createMany({
         data: permissions.map((permission) => ({
-          inviteId: invite.id,
+          membershipId: membership.id,
           permission,
         })),
       });
     }
-  });
 
-  await deliverInvite({
-    email,
-    token,
+    return {
+      ok: true as const,
+      userId: user.id,
+      membershipId: membership.id,
+    };
   });
-
-  await logAuthEvent({
-    type: AuthEventType.INVITE_SENT,
-    userId: params.actorUserId,
-    companyId,
-    email,
-    ip: params.ip,
-    userAgent: params.userAgent,
-    meta: {
-      invitedEmail: email,
-      role: nextRole,
-      username,
-      phoneNumber,
-      address,
-      logoPath,
-      usernameDisplayColor,
-      priceListId,
-      permissions,
-    },
-  });
-
-  return { ok: true };
 }

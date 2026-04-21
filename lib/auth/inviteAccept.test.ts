@@ -68,6 +68,8 @@ describe("acceptInvite", () => {
       phoneNumber: null,
       address: null,
       description: null,
+      logoPath: null,
+      usernameDisplayColor: null,
       priceListId: null,
       permissions: [],
     });
@@ -167,6 +169,8 @@ describe("acceptInvite", () => {
         phoneNumber: true,
         address: true,
         description: true,
+        logoPath: true,
+        usernameDisplayColor: true,
         priceListId: true,
         permissions: {
           select: {
@@ -253,6 +257,8 @@ describe("acceptInvite", () => {
         phoneNumber: true,
         address: true,
         description: true,
+        logoPath: true,
+        usernameDisplayColor: true,
       },
     });
 
@@ -267,6 +273,8 @@ describe("acceptInvite", () => {
         phoneNumber: null,
         address: null,
         description: null,
+        logoPath: null,
+        usernameDisplayColor: null,
         passwordHash: "password-hash",
         status: "ACTIVE",
       },
@@ -356,6 +364,8 @@ describe("acceptInvite", () => {
         phoneNumber: undefined,
         address: undefined,
         description: undefined,
+        logoPath: undefined,
+        usernameDisplayColor: undefined,
         passwordHash: "password-hash",
         status: "ACTIVE",
       },

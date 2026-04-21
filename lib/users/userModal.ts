@@ -3,6 +3,8 @@ import type { Role, AppPermission } from "@/lib/users/types";
 
 export type { Role, AppPermission };
 
+export type UserProvisionMode = "DIRECT_PASSWORD" | "INVITE";
+
 export interface UserFormData {
   username: string;
   email: string;
@@ -11,12 +13,19 @@ export interface UserFormData {
   role: string;
   active: boolean;
   description: string;
+  logoPath: string | null;
+  logoFile: File | null;
+  usernameDisplayColor: string;
   priceListId: string | null;
   permissions: AppPermission[];
+  provisionMode: UserProvisionMode;
+  password: string;
+  confirmPassword: string;
 }
 
 export interface UserModalProps {
   isOpen: boolean;
+  formResetKey: string;
   onClose: () => void;
   onSave: (data: UserFormData) => void | Promise<void>;
   onToggleActive: () => void | Promise<void>;
@@ -25,6 +34,8 @@ export interface UserModalProps {
   initialValuePhoneNumber: string;
   initialValueAddress: string;
   initialValueDescription: string;
+  initialValueLogoPath?: string | null;
+  initialValueUsernameDisplayColor?: string | null;
   initialValueRole: string;
   initialValueActive: boolean;
   initialValuePermissions?: AppPermission[];
@@ -41,6 +52,8 @@ export type UserFormSource = Pick<
   | "initialValuePhoneNumber"
   | "initialValueAddress"
   | "initialValueDescription"
+  | "initialValueLogoPath"
+  | "initialValueUsernameDisplayColor"
   | "initialValueRole"
   | "initialValueActive"
   | "initialValuePermissions"
@@ -54,10 +67,16 @@ export function buildInitialForm(source: UserFormSource): UserFormData {
     phoneNumber: source.initialValuePhoneNumber ?? "",
     address: source.initialValueAddress ?? "",
     description: source.initialValueDescription ?? "",
+    logoPath: source.initialValueLogoPath ?? null,
+    logoFile: null,
+    usernameDisplayColor: source.initialValueUsernameDisplayColor ?? "",
     role: source.initialValueRole || "USER",
     active: source.initialValueActive,
     priceListId: source.initialPriceListId ?? null,
     permissions: source.initialValuePermissions ?? ["BOOKING_VIEW"],
+    provisionMode: "DIRECT_PASSWORD",
+    password: "",
+    confirmPassword: "",
   };
 }
 
@@ -84,14 +103,23 @@ export function getPermissions(
 export function getSaveButtonLabel(
   isCreateMode: boolean,
   canEditTarget: boolean,
+  provisionMode: UserProvisionMode,
 ) {
-  if (isCreateMode) return "Send Invite";
+  if (isCreateMode) {
+    return provisionMode === "INVITE" ? "Send Invite" : "Create User";
+  }
   if (!canEditTarget) return "You cannot edit this user";
   return "Save Changes";
 }
 
 export function makeFieldUpdater(
-  key: "username" | "email" | "phoneNumber" | "description",
+  key:
+    | "username"
+    | "email"
+    | "phoneNumber"
+    | "description"
+    | "password"
+    | "confirmPassword",
   setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
 ) {
   return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -99,7 +127,7 @@ export function makeFieldUpdater(
 }
 
 export function makeSelectUpdater(
-  key: "role" | "priceListId",
+  key: "role" | "priceListId" | "provisionMode",
   setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
 ) {
   return (e: React.ChangeEvent<HTMLSelectElement>) =>

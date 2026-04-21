@@ -8,7 +8,7 @@ import { useState } from "react";
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,7 @@ export default function LoginPage() {
         },
         credentials: "include",
         body: JSON.stringify({
-          email: email.trim(),
+          identifier: identifier.trim(),
           password,
         }),
       });
@@ -39,7 +39,7 @@ export default function LoginPage() {
         } else if (loginData?.reason === "USER_DISABLED") {
           setError("This user account is disabled.");
         } else {
-          setError("Invalid email or password.");
+          setError("Invalid username, e-mail, or password.");
         }
         return;
       }
@@ -115,19 +115,19 @@ export default function LoginPage() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
               <label
-                htmlFor="email"
+                htmlFor="identifier"
                 className="text-[20px] pl-2 font-semibold text-logoblue"
               >
-                E-mail
+                Username / E-mail
               </label>
               <input
-                id="email"
+                id="identifier"
                 required
-                name="email"
-                type="email"
+                name="identifier"
+                type="text"
                 autoComplete="username"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="h-10 w-full rounded-lg border border-logoblue/30 px-3 text-sm outline-none focus:border-logoblue/60"
               />
             </div>

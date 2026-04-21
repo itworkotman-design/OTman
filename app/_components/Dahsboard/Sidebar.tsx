@@ -69,6 +69,9 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
   const router = useRouter();
 
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const usernameStyle = currentUser?.usernameDisplayColor
+    ? { color: currentUser.usernameDisplayColor }
+    : undefined;
 
   const isActive = (href: string) =>
     href === "/dashboard"
@@ -126,8 +129,24 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
         </div>
 
         <div className="px-4">
-          <div className="mt-6 flex px-2 py-1 text-logoblue">
-            <h1 className="mx-auto">{currentUser?.username ?? "error"}</h1>
+          <div className="mt-6 flex border-b border-lineSecondary px-2 py-1 pb-4">
+            <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
+              {currentUser?.logoPath ? (
+                <Image
+                  src={currentUser.logoPath}
+                  alt={`${currentUser.username || currentUser.email} logo`}
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 shrink-0 object-contain"
+                />
+              ) : null}
+              <h1
+                className="break-words font-medium text-logoblue"
+                style={usernameStyle}
+              >
+                {currentUser?.username ?? currentUser?.email ?? "error"}
+              </h1>
+            </div>
           </div>
 
           <h1 className="text-right lg:text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond">

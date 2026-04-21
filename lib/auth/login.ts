@@ -26,11 +26,11 @@ type LoginResult =
     };
 
 async function incrementLoginRateLimits(
-  emailKey: string,
+  identifierKey: string,
   ipKey: string | null
 ): Promise<void> {
   await incrementRateLimit({
-    key: emailKey,
+    key: identifierKey,
     windowMs: LOGIN_WINDOW_MS,
   });
 
@@ -42,28 +42,52 @@ async function incrementLoginRateLimits(
   }
 }
 
-export async function loginWithEmailPassword(params: {
-  email: string;
+type LoginIdentifier =
+  | { kind: "email"; value: string }
+  | { kind: "username"; value: string };
+
+function normalizeLoginIdentifier(rawIdentifier: string): LoginIdentifier | null {
+  const trimmed = rawIdentifier.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.includes("@")) {
+    return {
+      kind: "email",
+      value: trimmed.toLowerCase(),
+    };
+  }
+
+  return {
+    kind: "username",
+    value: trimmed.toLowerCase(),
+  };
+}
+
+export async function loginWithIdentifierPassword(params: {
+  identifier: string;
   password: string;
   ip?: string | null;
   userAgent?: string | null;
 }): Promise<LoginResult> {
-  const email = params.email.trim().toLowerCase();
+  const normalizedIdentifier = normalizeLoginIdentifier(params.identifier);
   const password = params.password;
 
-  if (!email || !password) {
+  if (!normalizedIdentifier || !password) {
     return { ok: false, reason: "INVALID_CREDENTIALS" };
   }
 
-  const emailKey = `login:email:${email}`;
+  const identifierKey = `login:${normalizedIdentifier.kind}:${normalizedIdentifier.value}`;
   const ipKey = params.ip ? `login:ip:${params.ip}` : null;
 
-  const emailCheck = await checkRateLimit({
-    key: emailKey,
+  const identifierCheck = await checkRateLimit({
+    key: identifierKey,
     limit: LOGIN_EMAIL_LIMIT,
   });
 
-  if (!emailCheck.allowed) {
+  if (!identifierCheck.allowed) {
     return { ok: false, reason: "RATE_LIMITED" };
   }
 
@@ -78,20 +102,48 @@ export async function loginWithEmailPassword(params: {
     }
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, passwordHash: true, status: true },
-  });
+  const user =
+    normalizedIdentifier.kind === "email"
+      ? await prisma.user.findUnique({
+          where: { email: normalizedIdentifier.value },
+          select: {
+            id: true,
+            email: true,
+            passwordHash: true,
+            status: true,
+          },
+        })
+      : await prisma.user.findFirst({
+          where: {
+            username: {
+              equals: normalizedIdentifier.value,
+              mode: "insensitive",
+            },
+          },
+          select: {
+            id: true,
+            email: true,
+            passwordHash: true,
+            status: true,
+          },
+        });
 
   if (!user) {
     await logAuthEvent({
       type: AuthEventType.LOGIN_FAIL,
-      email,
+      email:
+        normalizedIdentifier.kind === "email"
+          ? normalizedIdentifier.value
+          : null,
       ip: params.ip,
       userAgent: params.userAgent,
+      meta: {
+        identifier: normalizedIdentifier.value,
+        identifierType: normalizedIdentifier.kind,
+      },
     });
 
-    await incrementLoginRateLimits(emailKey, ipKey);
+    await incrementLoginRateLimits(identifierKey, ipKey);
 
     return { ok: false, reason: "INVALID_CREDENTIALS" };
   }
@@ -100,13 +152,17 @@ export async function loginWithEmailPassword(params: {
     await logAuthEvent({
       type: AuthEventType.LOGIN_FAIL,
       userId: user.id,
-      email,
+      email: user.email,
       ip: params.ip,
       userAgent: params.userAgent,
-      meta: { reason: "USER_DISABLED" },
+      meta: {
+        reason: "USER_DISABLED",
+        identifier: normalizedIdentifier.value,
+        identifierType: normalizedIdentifier.kind,
+      },
     });
 
-    await incrementLoginRateLimits(emailKey, ipKey);
+    await incrementLoginRateLimits(identifierKey, ipKey);
 
     return { ok: false, reason: "USER_DISABLED" };
   }
@@ -117,13 +173,17 @@ export async function loginWithEmailPassword(params: {
     await logAuthEvent({
       type: AuthEventType.LOGIN_FAIL,
       userId: user.id,
-      email,
+      email: user.email,
       ip: params.ip,
       userAgent: params.userAgent,
-      meta: { reason: "INVALID_PASSWORD" },
+      meta: {
+        reason: "INVALID_PASSWORD",
+        identifier: normalizedIdentifier.value,
+        identifierType: normalizedIdentifier.kind,
+      },
     });
 
-    await incrementLoginRateLimits(emailKey, ipKey);
+    await incrementLoginRateLimits(identifierKey, ipKey);
 
     return { ok: false, reason: "INVALID_CREDENTIALS" };
   }
@@ -163,7 +223,7 @@ export async function loginWithEmailPassword(params: {
     meta: activeCompanyId ? { autoSelectedTenant: true } : { autoSelectedTenant: false },
   });
 
-  await clearRateLimit(emailKey);
+  await clearRateLimit(identifierKey);
 
   return {
     ok: true,
