@@ -137,7 +137,7 @@ describe("routes in /api/orders", () => {
     });
   });
 
-  it("GET scopes order creators to their own membership and returns mapped rows", async () => {
+  it("GET scopes order creators to their customer or creator membership and returns mapped rows", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -215,7 +215,10 @@ describe("routes in /api/orders", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           companyId: "company-1",
-          customerMembershipId: "membership-1",
+          OR: [
+            { customerMembershipId: "membership-1" },
+            { createdByMembershipId: "membership-1" },
+          ],
         }),
         skip: 10,
         take: 10,

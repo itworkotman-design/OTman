@@ -74,6 +74,9 @@ function buildOrder(overrides?: Partial<Order>): Order {
     unreadNotificationCount: 0,
     productCardsSnapshot: null,
     lastEditedByMembershipId: null,
+    legacyWordpressOrderId: null,
+    legacyWordpressAuthorId: null,
+    legacyWordpressRawMeta: null,
     ...overrides,
   };
 }

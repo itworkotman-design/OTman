@@ -658,7 +658,10 @@ export async function GET(req: Request) {
       where.createdByMembershipId = createdById;
     }
   } else if (isOrderCreator) {
-    where.customerMembershipId = membership.id;
+    where.OR = [
+      { customerMembershipId: membership.id },
+      { createdByMembershipId: membership.id },
+    ];
   } else {
     where.subcontractorMembershipId = membership.id;
   }
