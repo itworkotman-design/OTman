@@ -225,8 +225,9 @@ describe("POST /api/integrations/wordpress/orders", () => {
             kundens_navn: "WordPress Customer",
             pickup_address: "Pickup 1",
             delivery_address: "Delivery 1",
-            leveringsdato: "2026-04-25",
-            tidsvindu_for_levering: "08:00 - 12:00",
+            leveringsdato: "20260425",
+            tidsvindu_for_levering: "10:00 - 16:00",
+            heis: "NEI",
             ekstra_kundens_telefon: "12 34 56 78",
             "e-postadresse": "wp@example.com",
             contact_notes: "Leave by the side door",
@@ -236,6 +237,10 @@ describe("POST /api/integrations/wordpress/orders", () => {
             extra_products_0_velg_produkt: "Washer",
             extra_products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
             extra_products_0_antall_produkter: "2",
+            extra_products_0_montering_vaskemaskin: [
+              "399:Install only:INSTALLDOOR",
+            ],
+            extra_products_0_retur: "200:Return to store:RETURNSTORE",
             price_breakdown_html: `
               <div class="price-breakdown-wrapper">
                 <div class="price-group">
@@ -243,14 +248,6 @@ describe("POST /api/integrations/wordpress/orders", () => {
                   <div class="price-breakdown-row">
                     <span class="price-breakdown-label">Indoor carry (INDOOR)</span>
                     <span class="price-breakdown-price">100 NOK</span>
-                  </div>
-                  <div class="price-breakdown-row">
-                    <span class="price-breakdown-label">Install only (INSTALLDOOR)</span>
-                    <span class="price-breakdown-price">399 NOK</span>
-                  </div>
-                  <div class="price-breakdown-row">
-                    <span class="price-breakdown-label">Return to store (RETURNSTORE)</span>
-                    <span class="price-breakdown-price">200 NOK</span>
                   </div>
                 </div>
               </div>
@@ -287,8 +284,12 @@ describe("POST /api/integrations/wordpress/orders", () => {
         email: "wp@example.com",
         customerComments: "Leave by the side door",
         floorNo: "4",
+        lift: "no",
         cashierName: "Cashier WP",
         cashierPhone: "90 12 34 56",
+        deliveryDate: "2026-04-25",
+        timeWindow: "10:00-16:00",
+        status: "processing",
         productCardsSnapshot: expect.any(Array),
         deliveryTypeSummary: "Indoor carry",
         servicesSummary: "Install only x2, Return to store x2",
@@ -345,6 +346,22 @@ describe("POST /api/integrations/wordpress/orders", () => {
         }),
       ],
     });
+    expect(mocks.mapWordpressImportToProductCardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedServices: expect.arrayContaining([
+          expect.objectContaining({
+            itemType: "INSTALL_OPTION",
+            label: "Install only",
+            code: "INSTALLDOOR",
+          }),
+          expect.objectContaining({
+            itemType: "RETURN_OPTION",
+            label: "Return to store",
+            code: "RETURNSTORE",
+          }),
+        ]),
+      }),
+    );
   });
 
   it("creates supplemental extra rows when a mapped wordpress service is not emitted by the native builder", async () => {

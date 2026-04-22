@@ -69,6 +69,26 @@ const products: CatalogProduct[] = [
     customSections: [],
     options: [],
   },
+  {
+    id: "product-3",
+    code: "PRODUCT-3",
+    label: "Timepris",
+    active: true,
+    productType: "PHYSICAL",
+    allowDeliveryTypes: false,
+    allowInstallOptions: false,
+    allowReturnOptions: false,
+    allowExtraServices: false,
+    allowDemont: false,
+    allowQuantity: false,
+    allowPeopleCount: false,
+    allowHoursInput: true,
+    allowModelNumber: false,
+    autoXtraPerPallet: false,
+    deliveryTypes: [],
+    customSections: [],
+    options: [],
+  },
 ];
 
 const specialOptions: CatalogSpecialOption[] = [
@@ -223,5 +243,32 @@ describe("mapWordpressImportToProductCards", () => {
     expect(result.resolvedServices).toEqual([]);
     expect(result.unresolvedProducts).toHaveLength(1);
     expect(result.unresolvedServices).toHaveLength(1);
+  });
+
+  it("maps hourly wordpress products into hours input cards", () => {
+    const result = mapWordpressImportToProductCards({
+      parsedProducts: [
+        {
+          cardId: 3,
+          productName: "timepris_flugger",
+          quantity: 3.5,
+          deliveryType: undefined,
+        },
+      ],
+      parsedServices: [],
+      catalogProducts: products,
+      catalogSpecialOptions: specialOptions,
+    });
+
+    expect(result.unresolvedProducts).toEqual([]);
+    expect(result.unresolvedServices).toEqual([]);
+    expect(result.productCards).toEqual([
+      expect.objectContaining({
+        cardId: 3,
+        productId: "product-3",
+        amount: 1,
+        hoursInput: 3.5,
+      }),
+    ]);
   });
 });

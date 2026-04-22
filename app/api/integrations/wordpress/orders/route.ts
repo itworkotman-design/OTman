@@ -24,6 +24,8 @@ type WordpressOrderSyncPayload = {
 
 type ParsedWordpressProductItem = {
   cardId: number;
+  metaPrefix: string;
+  metaIndex: number;
   productName: string;
   quantity: number;
   deliveryType?: string;
@@ -188,6 +190,101 @@ const cleanDeliveryType = (raw?: string): string | undefined => {
   return raw;
 };
 
+const cleanLegacyProductName = (raw: string): string => {
+  const parsed = parseBreakdownLabelAndCode(raw);
+  return parsed.label || normalizeWhitespace(stripHtml(raw));
+};
+
+const normalizeImportedDate = (raw?: string): string | undefined => {
+  if (!raw) return undefined;
+
+  const normalized = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return normalized;
+  }
+
+  const compactIsoMatch = normalized.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compactIsoMatch) {
+    const [, year, month, day] = compactIsoMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const dottedMatch = normalized.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (dottedMatch) {
+    const [, day, month, year] = dottedMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  return normalized;
+};
+
+const normalizeImportedTimeWindow = (raw?: string): string | undefined => {
+  if (!raw) return undefined;
+
+  const normalized = raw.trim();
+  const rangeMatch = normalized.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/u);
+  if (!rangeMatch) {
+    return normalized;
+  }
+
+  const [, from, to] = rangeMatch;
+  return `${from}-${to}`;
+};
+
+const normalizeImportedLift = (raw?: string): "yes" | "no" | undefined => {
+  if (!raw) return undefined;
+
+  const normalized = raw.trim().toLowerCase();
+  if (["ja", "yes", "y", "true", "1"].includes(normalized)) {
+    return "yes";
+  }
+
+  if (["nei", "no", "n", "false", "0"].includes(normalized)) {
+    return "no";
+  }
+
+  return undefined;
+};
+
+const normalizeImportedStatus = (raw?: string): string | undefined => {
+  if (!raw) return undefined;
+
+  const normalized = raw.trim().toLowerCase();
+  switch (normalized) {
+    case "behandles":
+    case "behandling":
+    case "processing":
+      return "processing";
+    case "bekreftet":
+    case "confirmed":
+      return "confirmed";
+    case "aktiv":
+    case "active":
+      return "active";
+    case "kansellert":
+    case "kanselert":
+    case "cancelled":
+    case "canceled":
+    case "avbrutt":
+      return "cancelled";
+    case "failed":
+    case "feilet":
+      return "failed";
+    case "ferdig":
+    case "completed":
+      return "completed";
+    case "fakturert":
+    case "fakturet":
+    case "invoiced":
+      return "invoiced";
+    case "betalt":
+    case "paid":
+      return "paid";
+    default:
+      return normalized || undefined;
+  }
+};
+
 const PRODUCT_REPEATER_KEY_PATTERN = /^(.*)_(\d+)_velg_produkt$/;
 
 const PRODUCT_NAME_FIELD_SUFFIXES = ["velg_produkt"];
@@ -202,6 +299,12 @@ const QUANTITY_FIELD_SUFFIXES = [
   "quantity",
   "qty",
 ];
+const PRODUCT_META_CONTROL_SUFFIXES = new Set([
+  ...PRODUCT_NAME_FIELD_SUFFIXES,
+  ...DELIVERY_TYPE_FIELD_SUFFIXES,
+  ...QUANTITY_FIELD_SUFFIXES,
+  "acfe_flexible_toggle",
+]);
 
 const getIndexedMetaString = (params: {
   meta: Record<string, unknown>;
@@ -256,15 +359,17 @@ const buildProductItemsFromMeta = (
     });
 
   for (const [position, entry] of entries.entries()) {
-    const productName = getIndexedMetaString({
+    const productNameRaw = getIndexedMetaString({
       meta,
       prefix: entry.prefix,
       index: entry.index,
       suffixes: PRODUCT_NAME_FIELD_SUFFIXES,
     });
-    if (!productName) {
+    if (!productNameRaw) {
       continue;
     }
+
+    const productName = cleanLegacyProductName(productNameRaw);
 
     const deliveryTypeRaw = getIndexedMetaString({
       meta,
@@ -284,6 +389,8 @@ const buildProductItemsFromMeta = (
 
     items.push({
       cardId: position + 1,
+      metaPrefix: entry.prefix,
+      metaIndex: entry.index,
       productName,
       quantity,
       deliveryType,
@@ -291,6 +398,7 @@ const buildProductItemsFromMeta = (
         source: "wordpress_sync",
         metaPrefix: entry.prefix,
         metaIndex: entry.index,
+        productNameRaw,
         productName,
         quantity,
         deliveryTypeRaw: deliveryTypeRaw ?? null,
@@ -370,6 +478,83 @@ const classifyServiceItemType = (
   return "EXTRA_OPTION";
 };
 
+const getMetaStringList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    const items: string[] = [];
+
+    for (const entry of value) {
+      const parsed = asString(entry);
+      if (parsed) {
+        items.push(parsed);
+      }
+    }
+
+    return items;
+  }
+
+  const parsed = asString(value);
+  return parsed ? [parsed] : [];
+};
+
+const looksLikeLegacyServiceValue = (value: string): boolean =>
+  value.includes(":") || /\([A-Z0-9_]+\)/u.test(value);
+
+const buildServiceItemsFromMeta = (
+  meta: Record<string, unknown>,
+  productItems: ParsedWordpressProductItem[],
+): ParsedWordpressServiceItem[] => {
+  const serviceItems: ParsedWordpressServiceItem[] = [];
+
+  for (const productItem of productItems) {
+    const prefixBase = `${productItem.metaPrefix}_${productItem.metaIndex}_`;
+
+    for (const [key, rawValue] of Object.entries(meta)) {
+      if (!key.startsWith(prefixBase) || key.startsWith(`_${prefixBase}`)) {
+        continue;
+      }
+
+      const suffix = key.slice(prefixBase.length);
+      if (!suffix || PRODUCT_META_CONTROL_SUFFIXES.has(suffix)) {
+        continue;
+      }
+
+      for (const entry of getMetaStringList(rawValue)) {
+        if (!looksLikeLegacyServiceValue(entry)) {
+          continue;
+        }
+
+        const row = parseBreakdownLabelAndCode(entry);
+        if (!row.label || isSummaryLabel(row.label) || isDeliveryTypeRow(row)) {
+          continue;
+        }
+
+        serviceItems.push({
+          cardId: productItem.cardId,
+          productName: productItem.productName,
+          quantity: productItem.quantity,
+          itemType: classifyServiceItemType(row),
+          label: row.label,
+          code: row.code,
+          rawData: {
+            source: "wordpress_sync",
+            sourceType: `meta:${suffix}`,
+            cardId: productItem.cardId,
+            groupLabel: productItem.productName,
+            label: row.label,
+            description: row.label,
+            code: row.code ?? null,
+            quantity: productItem.quantity,
+            metaKey: key,
+            metaValue: entry,
+          },
+        });
+      }
+    }
+  }
+
+  return serviceItems;
+};
+
 const buildServiceItemsFromBreakdown = (
   meta: Record<string, unknown>,
   productItems: ParsedWordpressProductItem[],
@@ -412,6 +597,22 @@ const buildServiceItemsFromBreakdown = (
   });
 
   return serviceItems;
+};
+
+const dedupeServiceItems = (
+  serviceItems: ParsedWordpressServiceItem[],
+): ParsedWordpressServiceItem[] => {
+  const seen = new Set<string>();
+
+  return serviceItems.filter((item) => {
+    const signature = buildServiceSignature(item);
+    if (seen.has(signature)) {
+      return false;
+    }
+
+    seen.add(signature);
+    return true;
+  });
 };
 
 const buildServicesSummary = (
@@ -818,6 +1019,9 @@ export async function POST(req: NextRequest) {
       "kunde_kommentar",
     ]);
     const floorNo = getFirstMetaString(meta, ["etasje_nr", "floor_no", "floor"]);
+    const lift = normalizeImportedLift(
+      getFirstMetaString(meta, ["heis", "lift"]),
+    );
     const cashierName = getFirstMetaString(meta, [
       "kasserers_navn",
       "cashier_name",
@@ -827,27 +1031,31 @@ export async function POST(req: NextRequest) {
       "kasserers_telefon",
       "cashier_phone",
     ]);
-    const deliveryDate = getFirstMetaString(meta, [
-      "leveringsdato",
-      "delivery_date",
-    ]);
-    const timeWindow = getFirstMetaString(meta, [
-      "tidsvindu_for_levering",
-      "delivery_time_window",
-      "time_window",
-    ]);
+    const deliveryDate = normalizeImportedDate(
+      getFirstMetaString(meta, ["leveringsdato", "delivery_date"]),
+    );
+    const timeWindow = normalizeImportedTimeWindow(
+      getFirstMetaString(meta, [
+        "tidsvindu_for_levering",
+        "delivery_time_window",
+        "time_window",
+      ]),
+    );
     const orderNumber = getFirstMetaString(meta, ["bestillingsnr", "order_number"]);
-    const status = getFirstMetaString(meta, ["status"]) ?? asString(body.status);
+    const status =
+      normalizeImportedStatus(getFirstMetaString(meta, ["status"])) ??
+      normalizeImportedStatus(asString(body.status)) ??
+      "processing";
     const description =
       getFirstMetaString(meta, ["beskrivelse", "description"]) ??
       orderNumber ??
       asString(body.title);
 
     const parsedProductItems = buildProductItemsFromMeta(meta);
-    const parsedServiceItems = buildServiceItemsFromBreakdown(
-      meta,
-      parsedProductItems,
-    );
+    const parsedServiceItems = dedupeServiceItems([
+      ...buildServiceItemsFromMeta(meta, parsedProductItems),
+      ...buildServiceItemsFromBreakdown(meta, parsedProductItems),
+    ]);
     const productItems = attachServiceLabelsToProductItems(
       parsedProductItems,
       parsedServiceItems,
@@ -972,6 +1180,7 @@ export async function POST(req: NextRequest) {
               email,
               customerComments,
               floorNo,
+              lift,
               cashierName,
               cashierPhone,
               deliveryDate,
@@ -1043,6 +1252,7 @@ export async function POST(req: NextRequest) {
               email,
               customerComments,
               floorNo,
+              lift,
               cashierName,
               cashierPhone,
               deliveryDate,

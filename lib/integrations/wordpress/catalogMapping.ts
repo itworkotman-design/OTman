@@ -362,7 +362,12 @@ export function mapWordpressImportToProductCards(params: {
 
     const card = createEmptyProductCard(parsedProduct.cardId);
     card.productId = product.id;
-    card.amount = parsedProduct.quantity;
+    if (product.allowHoursInput) {
+      card.amount = 1;
+      card.hoursInput = Math.max(0.5, parsedProduct.quantity || 1);
+    } else {
+      card.amount = parsedProduct.quantity;
+    }
 
     const productServices = parsedServices.filter(
       (service) => service.cardId === parsedProduct.cardId,

@@ -879,14 +879,14 @@ export default function OrderFieldsForm({
             className="customInput w-full"
           >
             <option value="">Choose</option>
-            <option>Processing</option>
-            <option>Confirmed</option>
-            <option>Active</option>
-            <option>Cancelled</option>
-            <option>Failed</option>
-            <option>Completed</option>
-            <option>Invoiced</option>
-            <option>Paid</option>
+            <option value="processing">Processing</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="active">Active</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="failed">Failed</option>
+            <option value="completed">Completed</option>
+            <option value="invoiced">Invoiced</option>
+            <option value="paid">Paid</option>
           </select>
         </>
       )}

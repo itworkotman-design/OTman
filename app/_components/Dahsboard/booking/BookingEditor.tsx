@@ -186,7 +186,7 @@ function parseDistanceKm(value: string) {
 }
 
 function parseTimeWindowState(value: string | undefined) {
-  const normalized = value?.trim() ?? "";
+  const normalized = normalizeInitialTimeWindow(value);
 
   if (!normalized) {
     return {
@@ -225,6 +225,99 @@ function parseTimeWindowState(value: string | undefined) {
     customTimeFrom: from,
     customTimeTo: to,
   };
+}
+
+function normalizeInitialDeliveryDate(value: string | null | undefined) {
+  const normalized = value?.trim() ?? "";
+  if (!normalized) {
+    return "";
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return normalized;
+  }
+
+  const compactIsoMatch = normalized.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compactIsoMatch) {
+    const [, year, month, day] = compactIsoMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const dottedMatch = normalized.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (dottedMatch) {
+    const [, day, month, year] = dottedMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  return normalized;
+}
+
+function normalizeInitialTimeWindow(value: string | null | undefined) {
+  const normalized = value?.trim() ?? "";
+  if (!normalized) {
+    return "";
+  }
+
+  const rangeMatch = normalized.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
+  if (!rangeMatch) {
+    return normalized;
+  }
+
+  const [, from, to] = rangeMatch;
+  return `${from}-${to}`;
+}
+
+function normalizeInitialLift(
+  value: string | null | undefined,
+): "yes" | "no" | "" {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  if (["ja", "yes", "y", "true", "1"].includes(normalized)) {
+    return "yes";
+  }
+
+  if (["nei", "no", "n", "false", "0"].includes(normalized)) {
+    return "no";
+  }
+
+  return "";
+}
+
+function normalizeInitialStatus(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase() ?? "";
+
+  switch (normalized) {
+    case "behandles":
+    case "behandling":
+    case "processing":
+      return "processing";
+    case "bekreftet":
+    case "confirmed":
+      return "confirmed";
+    case "aktiv":
+    case "active":
+      return "active";
+    case "kansellert":
+    case "kanselert":
+    case "cancelled":
+    case "canceled":
+    case "avbrutt":
+      return "cancelled";
+    case "failed":
+    case "feilet":
+      return "failed";
+    case "ferdig":
+    case "completed":
+      return "completed";
+    case "fakturert":
+    case "fakturet":
+    case "invoiced":
+      return "invoiced";
+    case "betalt":
+    case "paid":
+      return "paid";
+    default:
+      return normalized || "processing";
+  }
 }
 
 function isRecyclingReturnOption(
@@ -321,7 +414,7 @@ export default function BookingEditor({
     initialValues?.timeWindow,
   );
   const [deliveryDate, setDeliveryDate] = useState(
-    initialValues?.deliveryDate ?? "",
+    normalizeInitialDeliveryDate(initialValues?.deliveryDate),
   );
   const [timeWindow, setTimeWindow] = useState(
     initialTimeWindowState.selectedTimeWindow,
@@ -350,7 +443,7 @@ export default function BookingEditor({
   );
   const [floorNo, setFloorNo] = useState(initialValues?.floorNo ?? "");
   const [lift, setLift] = useState<"yes" | "no" | "">(
-    initialValues?.lift ?? "",
+    normalizeInitialLift(initialValues?.lift),
   );
   const [cashierName, setCashierName] = useState(
     initialValues?.cashierName ?? "",
@@ -382,7 +475,9 @@ export default function BookingEditor({
   const [customerMembershipId, setCustomerMembershipId] = useState(
     initialValues?.customerMembershipId ?? "",
   );
-  const [status, setStatus] = useState(initialValues?.status ?? "processing");
+  const [status, setStatus] = useState(
+    normalizeInitialStatus(initialValues?.status),
+  );
   const [dontSendEmail, setDontSendEmail] = useState(
     initialValues?.dontSendEmail ?? false,
   );
@@ -518,7 +613,7 @@ export default function BookingEditor({
     setOrderNumber(initialValues.orderNumber ?? "");
     setDescription(initialValues.description ?? "");
     setModelNr(initialValues.modelNr ?? "");
-    setDeliveryDate(initialValues.deliveryDate ?? "");
+    setDeliveryDate(normalizeInitialDeliveryDate(initialValues.deliveryDate));
     setTimeWindow(nextTimeWindowState.selectedTimeWindow);
     setExpressDelivery(initialValues.expressDelivery ?? false);
     setDeliveryAddress(initialValues.deliveryAddress ?? "");
@@ -529,7 +624,7 @@ export default function BookingEditor({
     setEmail(initialValues.email ?? "");
     setCustomerComments(initialValues.customerComments ?? "");
     setFloorNo(initialValues.floorNo ?? "");
-    setLift(initialValues.lift ?? "");
+    setLift(normalizeInitialLift(initialValues.lift));
     setCashierName(initialValues.cashierName ?? "");
     setCashierPhone(initialValues.cashierPhone ?? "");
     setSubcontractorId(initialValues.subcontractorId ?? "");
@@ -544,7 +639,7 @@ export default function BookingEditor({
     setCustomerMembershipId(initialValues.customerMembershipId ?? "");
     previousSelectedCustomerIdRef.current =
       initialValues.customerMembershipId ?? null;
-    setStatus(initialValues.status ?? "");
+    setStatus(normalizeInitialStatus(initialValues.status));
     setDontSendEmail(initialValues.dontSendEmail ?? false);
     setContactCustomerForCustomTimeWindow(
       initialValues.contactCustomerForCustomTimeWindow ?? false,

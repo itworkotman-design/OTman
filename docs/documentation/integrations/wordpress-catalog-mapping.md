@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Maps parsed WordPress product rows and WordPress service rows onto the native booking catalog. The helper resolves catalog products from WordPress product names, translates WordPress delivery labels into native delivery types, maps generic or product-specific install labels to native install option codes, and returns both normalized product cards and any unresolved legacy rows that still need fallback handling.
+Maps parsed WordPress product rows and WordPress service rows onto the native booking catalog. The helper resolves catalog products from WordPress product names, translates WordPress delivery labels into native delivery types, maps generic or product-specific install labels to native install option codes, preserves return selections, converts hourly WordPress products into native cards with `hoursInput`, and returns both normalized product cards and any unresolved legacy rows that still need fallback handling.
 
 ## Functions
 
@@ -26,4 +26,4 @@ Maps parsed WordPress product rows and WordPress service rows onto the native bo
 | `buildResolvedService` | Builds the resolved service metadata payload returned to the importer route. |
 | `resolveSpecialServiceCode` | Maps WordPress return or extra-service labels to shared native service codes. |
 | `resolveService` | Resolves a parsed WordPress service row to a native install, return, or extra option when possible. |
-| `mapWordpressImportToProductCards` | Converts parsed WordPress products and services into native saved product cards, resolved service metadata, and unresolved fallback rows. |
+| `mapWordpressImportToProductCards` | Converts parsed WordPress products and services into native saved product cards, including return selections and hourly-card `hoursInput`, plus resolved service metadata and unresolved fallback rows. |

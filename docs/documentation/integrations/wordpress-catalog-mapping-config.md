@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Stores the static alias tables used by the WordPress importer. The file defines which WordPress product names match which native booking products, which generic WordPress install labels map to which native install option codes, which WordPress delivery labels map to native delivery types, and which shared WordPress service labels map to native return or extra-service codes.
+Stores the static alias tables used by the WordPress importer. The file defines which WordPress product names match which native booking products, including legacy encoded choice values and `timepris_flugger`, which generic WordPress install labels map to which native install option codes, which WordPress delivery labels map to native delivery types, and which shared WordPress service labels map to native return or extra-service codes.
 
 ## Functions
 

@@ -333,8 +333,19 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
     wordpressAliases: ["mikrobolgeovn", "microwave"],
   },
   {
-    catalogAliases: ["timepris", "hourly", "hourly rate"],
-    wordpressAliases: ["timepris", "hourly", "hourly rate"],
+    catalogAliases: [
+      "timepris",
+      "timepris flugger",
+      "hourly",
+      "hourly rate",
+    ],
+    wordpressAliases: [
+      "timepris",
+      "timepris flugger",
+      "timepris_flugger",
+      "hourly",
+      "hourly rate",
+    ],
   },
 ];
 
