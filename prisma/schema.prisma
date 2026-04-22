@@ -7,6 +7,615 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id                    String               @id @default(cuid())
+  email                 String               @unique
+  passwordHash          String
+  status                UserStatus           @default(ACTIVE)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  description           String?
+  phoneNumber           String?
+  username              String?              @unique
+  address               String?
+  logoPath              String?
+  usernameDisplayColor  String?
+  legacyWordpressUserId Int?                 @unique
+  authEvents            AuthEvent[]
+  invitesSent           Invite[]             @relation("InviteCreatedBy")
+  memberships           Membership[]
+  resetTokens           PasswordResetToken[]
+  sessions              Session[]
+
+  @@index([status])
+}
+
+model Company {
+  id             String        @id @default(cuid())
+  name           String
+  slug           String?       @unique
+  status         CompanyStatus @default(ACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  authEvents     AuthEvent[]
+  invites        Invite[]
+  memberships    Membership[]
+  orders         Order[]
+  activeSessions Session[]     @relation("SessionActiveCompany")
+
+  @@index([status])
+}
+
+model Membership {
+  id                         String                 @id @default(cuid())
+  userId                     String
+  companyId                  String
+  role                       Role
+  status                     MembershipStatus       @default(ACTIVE)
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  priceListId                String?
+  legacyWordpressUserId      Int?                   @unique
+  company                    Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  priceList                  PriceList?             @relation(fields: [priceListId], references: [id])
+  user                       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions                MembershipPermission[]
+  createdOrders              Order[]                @relation("OrderCreatedByMembership")
+  orders                     Order[]
+  ordersLastEdited           Order[]                @relation("OrderLastEditedByMembership")
+  sentOrderEmails            OrderEmailMessage[]    @relation("OrderEmailSentByMembership")
+  orderEvents                OrderEvent[]
+  resolvedOrderNotifications OrderNotification[]    @relation("OrderNotificationResolvedByMembership")
+
+  @@unique([userId, companyId])
+  @@index([companyId, status])
+  @@index([userId, status])
+}
+
+model MembershipPermission {
+  id           String     @id @default(cuid())
+  membershipId String
+  permission   Permission
+  createdAt    DateTime   @default(now())
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, permission])
+  @@index([permission])
+}
+
+model Invite {
+  id                   String             @id @default(cuid())
+  companyId            String
+  email                String
+  role                 Role               @default(USER)
+  status               InviteStatus       @default(PENDING)
+  tokenHash            String             @unique
+  expiresAt            DateTime
+  acceptedAt           DateTime?
+  revokedAt            DateTime?
+  createdByUserId      String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  description          String?
+  phoneNumber          String?
+  priceListId          String?
+  username             String?
+  address              String?
+  logoPath             String?
+  usernameDisplayColor String?
+  company              Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUser        User?              @relation("InviteCreatedBy", fields: [createdByUserId], references: [id])
+  priceList            PriceList?         @relation(fields: [priceListId], references: [id])
+  permissions          InvitePermission[]
+
+  @@index([companyId, status])
+  @@index([email, status])
+  @@index([priceListId])
+}
+
+model InvitePermission {
+  id         String     @id @default(cuid())
+  inviteId   String
+  permission Permission
+  createdAt  DateTime   @default(now())
+  invite     Invite     @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+
+  @@unique([inviteId, permission])
+  @@index([permission])
+}
+
+model Session {
+  id              String    @id @default(cuid())
+  userId          String
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  ipHash          String?
+  userAgentHash   String?
+  lastSeenAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  activeCompanyId String?
+  activeCompany   Company?  @relation("SessionActiveCompany", fields: [activeCompanyId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([activeCompanyId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model AuthEvent {
+  id            String        @id @default(cuid())
+  type          AuthEventType
+  userId        String?
+  companyId     String?
+  email         String?
+  ipHash        String?
+  userAgentHash String?
+  meta          Json?
+  createdAt     DateTime      @default(now())
+  company       Company?      @relation(fields: [companyId], references: [id])
+  user          User?         @relation(fields: [userId], references: [id])
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  services  Service[]
+
+  @@index([isActive, sortOrder])
+}
+
+model Service {
+  id           String        @id @default(cuid())
+  title        String
+  description  String
+  pricingMode  PricingMode   @default(FIXED)
+  priceCents   Int?
+  isActive     Boolean       @default(true)
+  sortOrder    Int           @default(0)
+  categoryId   String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  requestItems RequestItem[]
+  category     Category      @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([isActive, sortOrder])
+}
+
+model Request {
+  id            String        @id @default(cuid())
+  status        RequestStatus @default(NEW)
+  customerName  String
+  customerEmail String
+  customerPhone String?
+  message       String?
+  preferredFrom DateTime?
+  preferredTo   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  items         RequestItem[]
+
+  @@index([status, createdAt])
+}
+
+model RequestItem {
+  id            String   @id @default(cuid())
+  requestId     String
+  serviceId     String?
+  titleSnapshot String
+  quantity      Int      @default(1)
+  notes         String?
+  createdAt     DateTime @default(now())
+  request       Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  service       Service? @relation(fields: [serviceId], references: [id])
+
+  @@index([requestId])
+  @@index([serviceId])
+}
+
+model Product {
+  id                  String          @id @default(cuid())
+  name                String
+  code                String          @unique
+  description         String?
+  sortOrder           Int             @default(0)
+  isActive            Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  allowDeliveryTypes  Boolean         @default(true)
+  allowDemont         Boolean         @default(true)
+  allowExtraServices  Boolean         @default(true)
+  allowHoursInput     Boolean         @default(false)
+  allowInstallOptions Boolean         @default(true)
+  allowPeopleCount    Boolean         @default(false)
+  allowQuantity       Boolean         @default(true)
+  allowReturnOptions  Boolean         @default(true)
+  autoXtraPerPallet   Boolean         @default(false)
+  productType         ProductType     @default(PHYSICAL)
+  customSections      Json?
+  deliveryTypes       Json?
+  allowModelNumber    Boolean         @default(true)
+  options             ProductOption[]
+}
+
+model ProductOption {
+  id             String          @id @default(cuid())
+  productId      String
+  code           String
+  label          String
+  description    String?
+  category       String?
+  sortOrder      Int             @default(0)
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  priceListItems PriceListItem[]
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, code])
+  @@index([productId, isActive, sortOrder])
+}
+
+model PriceListItem {
+  id                      String        @id @default(cuid())
+  priceListId             String
+  customerPriceCents      Int
+  subcontractorPriceCents Int
+  isActive                Boolean       @default(true)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  productOptionId         String
+  discountAmountCents     Int?
+  discountEndsAt          DateTime?
+  priceList               PriceList     @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  productOption           ProductOption @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productOptionId])
+  @@index([priceListId, isActive])
+  @@index([productOptionId, isActive])
+}
+
+model PriceList {
+  id             String                   @id @default(cuid())
+  name           String
+  code           String                   @unique
+  description    String?
+  isActive       Boolean                  @default(true)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  invites        Invite[]
+  memberships    Membership[]
+  items          PriceListItem[]
+  specialOptions PriceListSpecialOption[]
+}
+
+model PriceListSpecialOption {
+  id                 String            @id @default(cuid())
+  priceListId        String
+  type               SpecialOptionType
+  code               String
+  label              String?
+  description        String?
+  customerPrice      Decimal           @db.Decimal(10, 2)
+  subcontractorPrice Decimal           @db.Decimal(10, 2)
+  discountAmount     String?
+  discountEndsAt     DateTime?
+  isActive           Boolean           @default(true)
+  sortOrder          Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  attachments        OrderAttachment[]
+  priceList          PriceList         @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, type, code])
+  @@index([priceListId, type])
+}
+
+model Order {
+  id                                 String              @id @default(cuid())
+  createdAt                          DateTime            @default(now())
+  updatedAt                          DateTime            @updatedAt
+  companyId                          String
+  createdByMembershipId              String
+  description                        String?
+  modelNr                            String?
+  deliveryDate                       String?
+  timeWindow                         String?
+  pickupAddress                      String?
+  deliveryAddress                    String?
+  returnAddress                      String?
+  drivingDistance                    String?
+  customerName                       String?
+  phone                              String?
+  phoneTwo                           String?
+  email                              String?
+  customerComments                   String?
+  floorNo                            String?
+  lift                               String?
+  cashierName                        String?
+  cashierPhone                       String?
+  subcontractor                      String?
+  driver                             String?
+  secondDriver                       String?
+  driverInfo                         String?
+  licensePlate                       String?
+  deviation                          String?
+  feeExtraWork                       Boolean             @default(false)
+  feeAddToOrder                      Boolean             @default(false)
+  statusNotes                        String?
+  status                             String?
+  dontSendEmail                      Boolean             @default(false)
+  priceExVat                         Int                 @default(0)
+  priceSubcontractor                 Int                 @default(0)
+  rabatt                             String?
+  leggTil                            String?
+  subcontractorMinus                 String?
+  subcontractorPlus                  String?
+  productsSummary                    String?
+  deliveryTypeSummary                String?
+  servicesSummary                    String?
+  productCardsSnapshot               Json?
+  extraPickupAddress                 String[]
+  customerMembershipId               String?
+  subcontractorMembershipId          String?
+  customerLabel                      String?
+  priceListId                        String?
+  orderNumber                        String?
+  displayId                          Int
+  lastEditedByMembershipId           String?
+  gsmExternalId                      String?
+  gsmLastSyncedAt                    DateTime?
+  gsmLastTaskState                   String?
+  gsmLastWebhookAt                   DateTime?
+  gsmOrderId                         String?
+  gsmSentAt                          DateTime?
+  gsmSyncStatus                      String?
+  emailThreadToken                   String?             @unique
+  lastInboundEmailAt                 DateTime?
+  lastOutboundEmailAt                DateTime?
+  needsEmailAttention                Boolean             @default(false)
+  unreadInboundEmailCount            Int                 @default(0)
+  expressDelivery                    Boolean             @default(false)
+  extraPickupContacts                Json?
+  contactCustomerForCustomTimeWindow Boolean             @default(false)
+  customTimeContactNote              String?
+  lastNotificationAt                 DateTime?
+  needsNotificationAttention         Boolean             @default(false)
+  unreadNotificationCount            Int                 @default(0)
+  gsmWebhookEvents                   GsmWebhookEvent[]
+  company                            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByMembership                Membership          @relation("OrderCreatedByMembership", fields: [createdByMembershipId], references: [id])
+  customerMembership                 Membership?         @relation(fields: [customerMembershipId], references: [id])
+  lastEditedByMembership             Membership?         @relation("OrderLastEditedByMembership", fields: [lastEditedByMembershipId], references: [id])
+  orderAttachments                   OrderAttachment[]
+  emailMessages                      OrderEmailMessage[]
+  events                             OrderEvent[]
+  gsmTasks                           OrderGsmTask[]
+  items                              OrderItem[]
+  notifications                      OrderNotification[]
+  legacyWordpressOrderId Int? @unique
+  legacyWordpressAuthorId Int?
+  legacyWordpressRawMeta Json?
+
+  @@unique([companyId, displayId])
+  @@index([companyId, createdAt])
+  @@index([status])
+  @@index([deliveryDate])
+  @@index([customerMembershipId])
+  @@index([subcontractorMembershipId])
+  @@index([gsmOrderId])
+  @@index([gsmExternalId])
+  @@index([gsmSyncStatus])
+  @@index([needsEmailAttention, lastInboundEmailAt])
+  @@index([needsNotificationAttention, lastNotificationAt])
+}
+
+model OrderEvent {
+  id                String         @id @default(cuid())
+  orderId           String
+  companyId         String
+  type              OrderEventType
+  actorMembershipId String?
+  actorName         String?
+  actorEmail        String?
+  actorSource       String?
+  payload           Json
+  createdAt         DateTime       @default(now())
+  actorMembership   Membership?    @relation(fields: [actorMembershipId], references: [id])
+  order             Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([type, createdAt])
+  @@index([actorMembershipId, createdAt])
+}
+
+model OrderEmailMessage {
+  id                 String              @id @default(cuid())
+  orderId            String
+  companyId          String
+  direction          OrderEmailDirection
+  status             OrderEmailStatus
+  sentByMembershipId String?
+  externalMessageId  String?
+  subject            String
+  bodyText           String?
+  bodyHtml           String?
+  fromEmail          String
+  fromName           String?
+  toEmail            String
+  toName             String?
+  createdAt          DateTime            @default(now())
+  sentAt             DateTime?
+  receivedAt         DateTime?
+  order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sentByMembership   Membership?         @relation("OrderEmailSentByMembership", fields: [sentByMembershipId], references: [id])
+
+  @@index([orderId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([direction, createdAt])
+  @@index([status, createdAt])
+  @@index([sentByMembershipId, createdAt])
+  @@index([externalMessageId])
+}
+
+model OrderNotification {
+  id                     String                @id @default(cuid())
+  orderId                String
+  companyId              String
+  type                   OrderNotificationType
+  title                  String
+  message                String
+  payload                Json?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  resolvedAt             DateTime?
+  resolvedByMembershipId String?
+  order                  Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  resolvedByMembership   Membership?           @relation("OrderNotificationResolvedByMembership", fields: [resolvedByMembershipId], references: [id])
+
+  @@index([orderId, createdAt])
+  @@index([companyId, resolvedAt, createdAt])
+  @@index([resolvedByMembershipId, createdAt])
+}
+
+model OrderItem {
+  id                      String   @id @default(cuid())
+  createdAt               DateTime @default(now())
+  orderId                 String
+  cardId                  Int
+  productId               String?
+  productCode             String?
+  productName             String?
+  deliveryType            String?
+  itemType                String
+  optionId                String?
+  optionCode              String?
+  optionLabel             String?
+  quantity                Float    @default(1)
+  customerPriceCents      Int?
+  subcontractorPriceCents Int?
+  rawData                 Json?
+  order                   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([optionId])
+}
+
+model OrderGsmTask {
+  id            String    @id @default(cuid())
+  orderId       String
+  gsmTaskId     String    @unique
+  gsmOrderId    String?
+  category      String?
+  reference     String?
+  state         String?
+  address       String?
+  completedAt   DateTime?
+  lastWebhookAt DateTime?
+  lastSyncedAt  DateTime?
+  rawPayload    Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([gsmOrderId])
+  @@index([state])
+}
+
+model GsmWebhookEvent {
+  id              String    @id @default(cuid())
+  gsmRequestId    String?
+  gsmTaskId       String?
+  gsmOrderId      String?
+  topic           String?
+  eventType       String?
+  orderId         String?
+  processed       Boolean   @default(false)
+  processingError String?
+  payload         Json
+  receivedAt      DateTime  @default(now())
+  processedAt     DateTime?
+  order           Order?    @relation(fields: [orderId], references: [id])
+
+  @@index([gsmRequestId])
+  @@index([gsmTaskId])
+  @@index([gsmOrderId])
+  @@index([orderId])
+  @@index([processed, receivedAt])
+}
+
+model OrderAttachment {
+  id                       String                  @id @default(cuid())
+  orderId                  String
+  filename                 String
+  mimeType                 String?
+  sizeBytes                Int?
+  storagePath              String
+  createdAt                DateTime                @default(now())
+  priceListSpecialOptionId String?
+  gsmDocumentId            String?
+  gsmTaskId                String?
+  source                   String?
+  category                 AttachmentCategory      @default(ATTACHMENT)
+  order                    Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  priceListSpecialOption   PriceListSpecialOption? @relation(fields: [priceListSpecialOptionId], references: [id])
+
+  @@index([orderId, createdAt])
+}
+
+model PendingOrderAttachment {
+  id          String             @id @default(cuid())
+  sessionId   String
+  filename    String
+  mimeType    String?
+  sizeBytes   Int?
+  storagePath String
+  createdAt   DateTime           @default(now())
+  category    AttachmentCategory @default(ATTACHMENT)
+
+  @@index([sessionId, createdAt])
+}
+
+model CompanyOrderCounter {
+  companyId  String   @id
+  nextNumber Int
+  updatedAt  DateTime @updatedAt
+}
+
 enum UserStatus {
   ACTIVE
   DISABLED
@@ -64,214 +673,6 @@ enum ProductType {
   LABOR
 }
 
-model User {
-  id           String     @id @default(cuid())
-  legacyWordpressUserId Int? @unique
-  email        String     @unique
-  username     String?    @unique
-  phoneNumber  String?
-  address      String?
-  description  String?
-  logoPath     String?
-  usernameDisplayColor String?
-  passwordHash String
-  status       UserStatus @default(ACTIVE)
-
-  memberships Membership[]
-  sessions    Session[]
-  resetTokens PasswordResetToken[]
-  authEvents  AuthEvent[]
-  invitesSent Invite[]             @relation("InviteCreatedBy")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-}
-
-model Company {
-  id     String        @id @default(cuid())
-  name   String
-  slug   String?       @unique
-  status CompanyStatus @default(ACTIVE)
-
-  memberships    Membership[]
-  invites        Invite[]
-  authEvents     AuthEvent[]
-  activeSessions Session[]    @relation("SessionActiveCompany")
-  orders         Order[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-}
-
-model Membership {
-  id        String           @id @default(cuid())
-  userId    String
-  companyId String
-  legacyWordpressUserId Int? @unique
-  role      Role
-  status    MembershipStatus @default(ACTIVE)
-
-  permissions MembershipPermission[]
-
-  priceListId String?
-  priceList   PriceList? @relation(fields: [priceListId], references: [id], onDelete: SetNull)
-
-  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company          Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdOrders    Order[] @relation("OrderCreatedByMembership")
-  ordersLastEdited Order[] @relation("OrderLastEditedByMembership")
-  orderEvents      OrderEvent[]
-  sentOrderEmails  OrderEmailMessage[] @relation("OrderEmailSentByMembership")
-  resolvedOrderNotifications OrderNotification[] @relation("OrderNotificationResolvedByMembership")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  orders    Order[]
-
-  @@unique([userId, companyId])
-  @@index([companyId, status])
-  @@index([userId, status])
-}
-
-model MembershipPermission {
-  id           String     @id @default(cuid())
-  membershipId String
-  permission   Permission
-
-  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@unique([membershipId, permission])
-  @@index([permission])
-}
-
-model Invite {
-  id        String       @id @default(cuid())
-  companyId String
-  email     String
-  role      Role         @default(USER)
-  status    InviteStatus @default(PENDING)
-
-  username    String?
-  phoneNumber String?
-  address     String?
-  description String?
-  logoPath    String?
-  usernameDisplayColor String?
-  priceListId String?
-
-  tokenHash  String    @unique
-  expiresAt  DateTime
-  acceptedAt DateTime?
-  revokedAt  DateTime?
-
-  createdByUserId String?
-  createdByUser   User?   @relation("InviteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  priceList PriceList? @relation(fields: [priceListId], references: [id], onDelete: SetNull)
-
-  permissions InvitePermission[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([companyId, status])
-  @@index([email, status])
-  @@index([priceListId])
-}
-
-model InvitePermission {
-  id         String     @id @default(cuid())
-  inviteId   String
-  permission Permission
-
-  invite Invite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@unique([inviteId, permission])
-  @@index([permission])
-}
-
-model Session {
-  id              String    @id @default(cuid())
-  userId          String
-  tokenHash       String    @unique
-  expiresAt       DateTime
-  revokedAt       DateTime?
-  activeCompanyId String?
-
-  ipHash        String?
-  userAgentHash String?
-
-  lastSeenAt DateTime?
-
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activeCompany Company? @relation("SessionActiveCompany", fields: [activeCompanyId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId, expiresAt])
-  @@index([activeCompanyId])
-}
-
-model PasswordResetToken {
-  id        String    @id @default(cuid())
-  userId    String
-  tokenHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId, expiresAt])
-}
-
-model AuthEvent {
-  id   String        @id @default(cuid())
-  type AuthEventType
-
-  userId    String?
-  companyId String?
-
-  // Keep for failed login attempts where userId is unknown
-  email String?
-
-  ipHash        String?
-  userAgentHash String?
-
-  // Small metadata; never store secrets
-  meta Json?
-
-  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-
-  @@index([type, createdAt])
-  @@index([userId, createdAt])
-  @@index([companyId, createdAt])
-}
-
-model RateLimitBucket {
-  key       String   @id
-  count     Int
-  resetAt   DateTime
-  updatedAt DateTime @updatedAt
-
-  @@index([resetAt])
-}
-
 enum PricingMode {
   FIXED
   REQUEST
@@ -312,496 +713,8 @@ enum AttachmentCategory {
   RECEIPT
 }
 
-model Category {
-  id        String  @id @default(cuid())
-  name      String  @unique
-  isActive  Boolean @default(true)
-  sortOrder Int     @default(0)
-
-  services Service[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive, sortOrder])
-}
-
-model Service {
-  id          String      @id @default(cuid())
-  title       String
-  description String
-  pricingMode PricingMode @default(FIXED)
-  priceCents  Int?
-  isActive    Boolean     @default(true)
-  sortOrder   Int         @default(0)
-
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  requestItems RequestItem[]
-
-  @@index([categoryId])
-  @@index([isActive, sortOrder])
-}
-
-model Request {
-  id     String        @id @default(cuid())
-  status RequestStatus @default(NEW)
-
-  customerName  String
-  customerEmail String
-  customerPhone String?
-
-  message String?
-
-  preferredFrom DateTime?
-  preferredTo   DateTime?
-
-  items RequestItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status, createdAt])
-}
-
-model RequestItem {
-  id String @id @default(cuid())
-
-  requestId String
-  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
-
-  serviceId String?
-  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-
-  titleSnapshot String
-  quantity      Int     @default(1)
-  notes         String?
-
-  createdAt DateTime @default(now())
-
-  @@index([requestId])
-  @@index([serviceId])
-}
-
-model Product {
-  id          String      @id @default(cuid())
-  name        String
-  code        String      @unique
-  description String?
-  sortOrder   Int         @default(0)
-  isActive    Boolean     @default(true)
-
-  productType         ProductType @default(PHYSICAL)
-  allowDeliveryTypes  Boolean     @default(true)
-  allowInstallOptions Boolean     @default(true)
-  allowReturnOptions  Boolean     @default(true)
-  allowExtraServices  Boolean     @default(true)
-  allowDemont         Boolean     @default(true)
-  allowQuantity       Boolean     @default(true)
-  allowPeopleCount    Boolean     @default(false)
-  allowHoursInput     Boolean     @default(false)
-  allowModelNumber    Boolean     @default(true)
-  autoXtraPerPallet   Boolean     @default(false)
-  deliveryTypes       Json?
-  customSections      Json?
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  options ProductOption[]
-}
-
-model ProductOption {
-  id          String   @id @default(cuid())
-  productId   String
-  code        String
-  label       String
-  description String?
-  category    String?
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  priceListItems PriceListItem[]
-
-  @@unique([productId, code])
-  @@index([productId, isActive, sortOrder])
-}
-
-model PriceListItem {
-  id                      String    @id @default(cuid())
-  priceListId             String
-  productOptionId         String
-  customerPriceCents      Int
-  subcontractorPriceCents Int
-  discountAmountCents     Int?
-  discountEndsAt          DateTime?
-  isActive                Boolean   @default(true)
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
-
-  priceList     PriceList     @relation(fields: [priceListId], references: [id], onDelete: Cascade)
-  productOption ProductOption @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
-
-  @@unique([priceListId, productOptionId])
-  @@index([priceListId, isActive])
-  @@index([productOptionId, isActive])
-}
-
-model PriceList {
-  id          String  @id @default(cuid())
-  name        String
-  code        String  @unique
-  description String?
-  isActive    Boolean @default(true)
-
-  items          PriceListItem[]
-  specialOptions PriceListSpecialOption[]
-
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  memberships Membership[]
-  invites     Invite[]
-}
-
 enum SpecialOptionType {
   RETURN
   XTRA
   EXTRA_SERVICE
-}
-
-model PriceListSpecialOption {
-  id          String    @id @default(cuid())
-  priceListId String
-  priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
-
-  type               SpecialOptionType
-  code               String
-  label              String?
-  description        String?
-  customerPrice      Decimal           @db.Decimal(10, 2)
-  subcontractorPrice Decimal           @db.Decimal(10, 2)
-  discountAmount     String?
-  discountEndsAt     DateTime?
-  isActive           Boolean           @default(true)
-  sortOrder          Int               @default(0)
-
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  attachments OrderAttachment[]
-
-  @@unique([priceListId, type, code])
-  @@index([priceListId, type])
-}
-
-model Order {
-  id String @id @default(cuid())
-
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  companyId             String
-  createdByMembershipId String
-
-  customerMembershipId String?
-  priceListId          String?
-
-  displayId   Int
-  orderNumber String?
-  description String?
-  modelNr     String?
-
-  deliveryDate String?
-  timeWindow   String?
-  expressDelivery Boolean @default(false)
-  contactCustomerForCustomTimeWindow Boolean @default(false)
-  customTimeContactNote String?
-
-  pickupAddress      String?
-  extraPickupAddress String[]
-  extraPickupContacts Json?
-  deliveryAddress    String?
-  returnAddress      String?
-  drivingDistance    String?
-
-  customerName     String?
-  customerLabel    String?
-  phone            String?
-  phoneTwo         String?
-  email            String?
-  customerComments String?
-
-  floorNo String?
-  lift    String?
-
-  cashierName  String?
-  cashierPhone String?
-
-  subcontractorMembershipId String?
-  subcontractor             String?
-
-  driver       String?
-  secondDriver String?
-  driverInfo   String?
-  licensePlate String?
-
-  deviation     String?
-  feeExtraWork  Boolean @default(false)
-  feeAddToOrder Boolean @default(false)
-  statusNotes   String?
-  status        String?
-  dontSendEmail Boolean @default(false)
-
-  priceExVat         Int @default(0)
-  priceSubcontractor Int @default(0)
-
-  rabatt             String?
-  leggTil            String?
-  subcontractorMinus String?
-  subcontractorPlus  String?
-
-  productsSummary     String?
-  deliveryTypeSummary String?
-  servicesSummary     String?
-
-  gsmOrderId         String?
-  gsmExternalId      String?
-  gsmLastTaskState   String?
-  gsmSyncStatus      String?  
-  gsmSentAt          DateTime?
-  gsmLastWebhookAt   DateTime?
-  gsmLastSyncedAt    DateTime?
-  emailThreadToken   String?   @unique
-  lastInboundEmailAt DateTime?
-  lastOutboundEmailAt DateTime?
-  needsEmailAttention Boolean @default(false)
-  unreadInboundEmailCount Int @default(0)
-  lastNotificationAt DateTime?
-  needsNotificationAttention Boolean @default(false)
-  unreadNotificationCount Int @default(0)
-
-  productCardsSnapshot Json?
-
-  company             Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdByMembership Membership @relation("OrderCreatedByMembership", fields: [createdByMembershipId], references: [id], onDelete: Restrict)
-
-  customerMembership Membership? @relation(fields: [customerMembershipId], references: [id])
-
-  lastEditedByMembershipId String?
-  lastEditedByMembership   Membership? @relation("OrderLastEditedByMembership", fields: [lastEditedByMembershipId], references: [id], onDelete: SetNull)
-
-  items            OrderItem[]
-  orderAttachments OrderAttachment[]
-  gsmTasks         OrderGsmTask[]
-  gsmWebhookEvents GsmWebhookEvent[]
-  events           OrderEvent[]
-  emailMessages    OrderEmailMessage[]
-  notifications    OrderNotification[]
-
-  @@index([companyId, createdAt])
-  @@index([status])
-  @@index([deliveryDate])
-  @@index([customerMembershipId])
-  @@index([subcontractorMembershipId])
-  @@unique([companyId, displayId])
-  @@index([gsmOrderId])
-  @@index([gsmExternalId])
-  @@index([gsmSyncStatus])
-  @@index([needsEmailAttention, lastInboundEmailAt])
-  @@index([needsNotificationAttention, lastNotificationAt])
-}
-
-model OrderEvent {
-  id                String         @id @default(cuid())
-  orderId           String
-  companyId         String
-  type              OrderEventType
-  actorMembershipId String?
-  actorName         String?
-  actorEmail        String?
-  actorSource       String?
-  payload           Json
-  createdAt         DateTime       @default(now())
-
-  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  actorMembership Membership? @relation(fields: [actorMembershipId], references: [id], onDelete: SetNull)
-
-  @@index([orderId, createdAt])
-  @@index([companyId, createdAt])
-  @@index([type, createdAt])
-  @@index([actorMembershipId, createdAt])
-}
-
-model OrderEmailMessage {
-  id                 String              @id @default(cuid())
-  orderId            String
-  companyId          String
-  direction          OrderEmailDirection
-  status             OrderEmailStatus
-  sentByMembershipId String?
-  externalMessageId  String?
-  subject            String
-  bodyText           String?
-  bodyHtml           String?
-  fromEmail          String
-  fromName           String?
-  toEmail            String
-  toName             String?
-  createdAt          DateTime            @default(now())
-  sentAt             DateTime?
-  receivedAt         DateTime?
-
-  order            Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  sentByMembership Membership? @relation("OrderEmailSentByMembership", fields: [sentByMembershipId], references: [id], onDelete: SetNull)
-
-  @@index([orderId, createdAt])
-  @@index([companyId, createdAt])
-  @@index([direction, createdAt])
-  @@index([status, createdAt])
-  @@index([sentByMembershipId, createdAt])
-  @@index([externalMessageId])
-}
-
-model OrderNotification {
-  id                     String                @id @default(cuid())
-  orderId                String
-  companyId              String
-  type                   OrderNotificationType
-  title                  String
-  message                String
-  payload                Json?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
-  resolvedAt             DateTime?
-  resolvedByMembershipId String?
-
-  order                Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  resolvedByMembership Membership? @relation("OrderNotificationResolvedByMembership", fields: [resolvedByMembershipId], references: [id], onDelete: SetNull)
-
-  @@index([orderId, createdAt])
-  @@index([companyId, resolvedAt, createdAt])
-  @@index([resolvedByMembershipId, createdAt])
-}
-
-model OrderItem {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-
-  orderId String
-
-  cardId      Int
-  productId   String?
-  productCode String?
-  productName String?
-
-  deliveryType String?
-
-  itemType    String
-  optionId    String?
-  optionCode  String?
-  optionLabel String?
-
-  quantity Float @default(1)
-
-  customerPriceCents      Int?
-  subcontractorPriceCents Int?
-
-  rawData Json?
-
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  @@index([orderId])
-  @@index([productId])
-  @@index([optionId])
-}
-
-model OrderGsmTask {
-  id            String   @id @default(cuid())
-  orderId       String
-  gsmTaskId     String   @unique
-  gsmOrderId    String?
-  category      String?
-  reference     String?
-  state         String?
-  address       String?
-  completedAt   DateTime?
-  lastWebhookAt DateTime?
-  lastSyncedAt  DateTime?
-  rawPayload    Json?
-
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([orderId])
-  @@index([gsmOrderId])
-  @@index([state])
-}
-
-model GsmWebhookEvent {
-  id             String   @id @default(cuid())
-  gsmRequestId   String?
-  gsmTaskId      String?
-  gsmOrderId     String?
-  topic          String?
-  eventType      String?
-  orderId        String?
-  processed      Boolean  @default(false)
-  processingError String?
-  payload        Json
-  receivedAt     DateTime @default(now())
-  processedAt    DateTime?
-
-  order          Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
-
-  @@index([gsmRequestId])
-  @@index([gsmTaskId])
-  @@index([gsmOrderId])
-  @@index([orderId])
-  @@index([processed, receivedAt])
-}
-
-model OrderAttachment {
-  id          String   @id @default(cuid())
-  orderId     String
-  category    AttachmentCategory @default(ATTACHMENT)
-  filename    String
-  mimeType    String?
-  sizeBytes   Int?
-  storagePath String
-  createdAt   DateTime @default(now())
-  source        String?
-  gsmTaskId     String?
-  gsmDocumentId String?
-
-  order                    Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  priceListSpecialOption   PriceListSpecialOption? @relation(fields: [priceListSpecialOptionId], references: [id])
-  priceListSpecialOptionId String?
-
-  @@index([orderId, createdAt])
-}
-
-model PendingOrderAttachment {
-  id          String   @id @default(cuid())
-  sessionId   String
-  category    AttachmentCategory @default(ATTACHMENT)
-  filename    String
-  mimeType    String?
-  sizeBytes   Int?
-  storagePath String
-  createdAt   DateTime @default(now())
-
-  @@index([sessionId, createdAt])
-}
-
-model CompanyOrderCounter {
-  companyId  String   @id
-  nextNumber Int
-  updatedAt  DateTime @updatedAt
 }

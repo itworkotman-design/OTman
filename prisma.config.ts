@@ -1,5 +1,6 @@
-// prisma.config.ts
-export default {
+import "dotenv/config";
+
+const config = {
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
@@ -8,3 +9,5 @@ export default {
     url: process.env.DATABASE_URL!,
   },
 };
+
+export default config;
