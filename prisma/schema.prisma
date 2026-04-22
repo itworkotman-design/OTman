@@ -66,7 +66,6 @@ enum ProductType {
 
 model User {
   id           String     @id @default(cuid())
-  legacyWordpressUserId Int?    @unique
   email        String     @unique
   username     String?    @unique
   phoneNumber  String?
@@ -111,7 +110,6 @@ model Membership {
   id        String           @id @default(cuid())
   userId    String
   companyId String
-  legacyWordpressUserId Int?    @unique
   role      Role
   status    MembershipStatus @default(ACTIVE)
 
