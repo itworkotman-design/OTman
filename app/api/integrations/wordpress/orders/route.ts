@@ -26,6 +26,17 @@ const asString = (value: unknown): string | undefined => {
   return trimmed === "" ? undefined : trimmed;
 };
 
+const cleanDeliveryType = (raw?: string): string | undefined => {
+  if (!raw) return undefined;
+
+  const parts = raw.split(":");
+  if (parts.length >= 2) {
+    return parts[1]?.trim() || raw;
+  }
+
+  return raw;
+};
+
 const buildItemsFromMeta = (
   meta: Record<string, unknown>,
 ): ParsedWordpressItem[] => {
@@ -36,9 +47,11 @@ const buildItemsFromMeta = (
     const productName = asString(meta[`extra_products_${index}_velg_produkt`]);
     if (!productName) break;
 
-    const deliveryType = asString(
+    const deliveryTypeRaw = asString(
       meta[`extra_products_${index}_velg_leveringstype`],
     );
+    const deliveryType = cleanDeliveryType(deliveryTypeRaw);
+
     const qtyRaw = asString(meta[`extra_products_${index}_antall_produkter`]);
     const quantity = qtyRaw ? Number.parseFloat(qtyRaw) || 1 : 1;
 
@@ -48,11 +61,12 @@ const buildItemsFromMeta = (
       quantity,
       deliveryType,
       rawData: {
-        productName,
-        deliveryType: deliveryType ?? null,
-        quantity,
         source: "wordpress_sync",
         metaIndex: index,
+        productName,
+        quantity,
+        deliveryTypeRaw: deliveryTypeRaw ?? null,
+        deliveryType: deliveryType ?? null,
       },
     });
 
@@ -120,15 +134,21 @@ export async function POST(req: NextRequest) {
     const pickupAddress = asString(meta.pickup_address);
     const deliveryAddress = asString(meta.delivery_address);
     const returnAddress = asString(meta.returadresse);
-    const description = asString(meta.beskrivelse) ?? asString(body.title);
     const customerName = asString(meta.kundens_navn);
+    const customerLabel =
+      asString(meta.kundens_navn) ?? asString(meta.bestillingsnr);
     const phone = asString(meta.telefon);
     const deliveryDate = asString(meta.leveringsdato);
     const timeWindow = asString(meta.tidsvindu_for_levering);
     const orderNumber = asString(meta.bestillingsnr);
     const status = asString(meta.status) ?? asString(body.status);
+    const description =
+      asString(meta.beskrivelse) ??
+      asString(meta.bestillingsnr) ??
+      asString(body.title);
 
     const items = buildItemsFromMeta(meta);
+
     const productsSummary =
       items.length > 0
         ? items
@@ -141,10 +161,12 @@ export async function POST(req: NextRequest) {
         : undefined;
 
     const deliveryTypeSummary =
-      items
-        .map((item) => item.deliveryType)
-        .filter((value): value is string => Boolean(value))
-        .join(", ") || undefined;
+      items.length > 0
+        ? items
+            .map((item) => item.deliveryType)
+            .filter((value): value is string => Boolean(value))
+            .join(", ")
+        : undefined;
 
     const existing = await prisma.order.findUnique({
       where: {
@@ -171,6 +193,7 @@ export async function POST(req: NextRequest) {
               deliveryAddress,
               returnAddress,
               customerName,
+              customerLabel,
               phone,
               deliveryDate,
               timeWindow,
@@ -237,6 +260,7 @@ export async function POST(req: NextRequest) {
               deliveryAddress,
               returnAddress,
               customerName,
+              customerLabel,
               phone,
               deliveryDate,
               timeWindow,
@@ -280,6 +304,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       order,
+      importedItemCount: items.length,
     });
   } catch (error) {
     console.error("wordpress order sync failed", error);

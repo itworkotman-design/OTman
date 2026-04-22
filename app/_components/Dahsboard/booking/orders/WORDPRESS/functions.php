@@ -346,18 +346,33 @@ if ($has_manual) {
     $status_label = $status_obj['choices'][$status_val] ?? $status_val;
     $price_html   = val($acf, 'field_6835ca7fb0cfd', 'price_breakdown_html',$post_id);
 
-    $sync_meta = [
-    'beskrivelse' => $beskrivelse,
-    'bestillingsnr' => $order_number,
-    'pickup_address' => $pickup,
-    'delivery_address' => $delivery,
-    'returadresse' => $retur,
-    'kundens_navn' => $kunde_navn,
-    'telefon' => $telefon,
-    'leveringsdato' => $leveringsdato,
-    'tidsvindu_for_levering' => $tidsvindu,
-    'status' => $status_label,
-];
+    $all_meta = get_post_meta($post_id);
+$sync_meta = [];
+
+foreach ($all_meta as $key => $values) {
+    if (strpos($key, '_') === 0) {
+        continue; // skip ACF/internal helper keys
+    }
+
+    if (!is_array($values) || count($values) === 0) {
+        $sync_meta[$key] = null;
+        continue;
+    }
+
+    $sync_meta[$key] = maybe_unserialize($values[0]);
+}
+
+// overwrite a few important normalized values
+$sync_meta['beskrivelse'] = $beskrivelse;
+$sync_meta['bestillingsnr'] = $order_number;
+$sync_meta['pickup_address'] = $pickup;
+$sync_meta['delivery_address'] = $delivery;
+$sync_meta['returadresse'] = $retur;
+$sync_meta['kundens_navn'] = $kunde_navn;
+$sync_meta['telefon'] = $telefon;
+$sync_meta['leveringsdato'] = $leveringsdato;
+$sync_meta['tidsvindu_for_levering'] = $tidsvindu;
+$sync_meta['status'] = $status_label;
 
 $sync_payload = [
     'legacyWordpressOrderId' => (int) $post_id,
@@ -378,14 +393,12 @@ $sync_response = wp_remote_post('https://otman.onrender.com/api/integrations/wor
 ]);
 
 if (is_wp_error($sync_response)) {
-    update_post_meta($post_id, '_otman_sync_error', $sync_response->get_error_message());
-    update_post_meta($post_id, '_otman_sync_code', 'wp_error');
+    error_log('WP SYNC ERROR post_id=' . $post_id . ' error=' . $sync_response->get_error_message());
 } else {
     $sync_code = wp_remote_retrieve_response_code($sync_response);
-    $sync_body = wp_remote_retrieve_body($sync_response);
-
-    update_post_meta($post_id, '_otman_sync_code', (string) $sync_code);
-    update_post_meta($post_id, '_otman_sync_body', wp_strip_all_tags($sync_body));
+    if ($sync_code !== 200) {
+        error_log('WP SYNC NON-200 post_id=' . $post_id . ' code=' . $sync_code);
+    }
 }
 
 error_log('POWER ORDER SYNC RESPONSE post_id=' . $post_id . ' response=' . print_r($sync_response, true));
