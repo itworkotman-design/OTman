@@ -62,7 +62,9 @@ export default function ResetPasswordClient() {
         } else if (data.reason === "INVALID_INPUT") {
           setError("Password does not meet the requirements.");
         } else {
-          setError(`Could not reset password${data?.reason ? `: ${data.reason}` : "."}`);
+          setError(
+            `Could not reset password${data?.reason ? `: ${data.reason}` : "."}`,
+          );
         }
         return;
       }
@@ -89,7 +91,7 @@ export default function ResetPasswordClient() {
         <section className="w-full max-w-[420]">
           <div className="flex justify-center">
             <Image
-              src="/logoSVG.svg"
+              src="/LogoSVG.svg"
               alt="Otman Transport"
               width={260}
               height={120}

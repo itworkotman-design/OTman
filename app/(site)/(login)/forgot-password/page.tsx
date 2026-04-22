@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
         <section className="w-full max-w-[420]">
           <div className="flex justify-center">
             <Image
-              src="/logoSVG.svg"
+              src="/LogoSVG.svg"
               alt="Otman Transport"
               width={260}
               height={120}

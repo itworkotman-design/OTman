@@ -107,7 +107,9 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
                   {content.contactLabel[locale]}
                 </Link>
               </li>
-              <li className={`block md:hidden px-10 py-4 md:py-0 text-lg md:text-sm transition-colors duration-140 border-t border-logoblue`}>
+              <li
+                className={`block md:hidden px-10 py-4 md:py-0 text-lg md:text-sm transition-colors duration-140 border-t border-logoblue`}
+              >
                 <LanguageSwitcher />
               </li>
             </ul>

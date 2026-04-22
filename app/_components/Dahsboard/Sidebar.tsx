@@ -212,8 +212,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
       <FeatureRequestModal
         open={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
-        onSubmit={(payload) => {
-        }}
+        onSubmit={(payload) => {}}
       />
     </div>
   );
