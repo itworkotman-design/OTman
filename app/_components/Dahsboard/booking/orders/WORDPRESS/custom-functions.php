@@ -1,5 +1,9 @@
 <?php
 
+add_action('init', function () {
+    error_log('WP CUSTOM FUNCTIONS LOADED');
+}, 1);
+
 // === ORDER HISTORY SHORTCODE AND MODAL ===
 if ( ! function_exists( 'power_get_order_modal_html' ) ) {
     /**
@@ -3756,3 +3760,121 @@ add_filter('acf/load_field/key=field_682b0fe895c6a', function ($field) {
 
     return $field;
 }, 999);
+
+// add_action('acf/save_post', function ($post_id) {
+//     // Normalize post_id from ACF
+//     if (is_string($post_id) && strpos($post_id, 'post_') === 0) {
+//         $post_id = (int) substr($post_id, 5);
+//     }
+
+//     $post_id = (int) $post_id;
+//     if ($post_id <= 0) return;
+//     if (get_post_type($post_id) !== 'power_order') return;
+//     if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) return;
+
+//     $post = get_post($post_id);
+//     if (!$post) return;
+//     if ($post->post_status !== 'publish') return;
+
+//     $author_id = (int) $post->post_author;
+//     if ($author_id <= 0) return;
+
+//     // Collect postmeta, skip ACF/internal helper keys that start with "_"
+//     $all_meta = get_post_meta($post_id);
+//     $meta = [];
+
+//     foreach ($all_meta as $key => $values) {
+//         if (strpos($key, '_') === 0) continue;
+
+//         if (!is_array($values) || count($values) === 0) {
+//             $meta[$key] = null;
+//             continue;
+//         }
+
+//         $meta[$key] = maybe_unserialize($values[0]);
+//     }
+
+//     $payload = [
+//         'legacyWordpressOrderId' => $post_id,
+//         'legacyWordpressUserId'  => $author_id,
+//         'createdAt'              => $post->post_date,
+//         'status'                 => get_post_meta($post_id, 'status', true) ?: $post->post_status,
+//         'title'                  => $post->post_title,
+//         'meta'                   => $meta,
+//     ];
+
+//     $response = wp_remote_post('https://otman.onrender.com/api/integrations/wordpress/orders', [
+//         'timeout' => 20,
+//         'headers' => [
+//             'Content-Type'     => 'application/json',
+//             'x-wp-sync-secret' => 'asfasfasfuasytfoi21t3uioy12t3iu21ytobastfaosuftaszxc',
+//         ],
+//         'body' => wp_json_encode($payload),
+//     ]);
+
+//     if (is_wp_error($response)) {
+//         error_log('WP order sync failed for post ' . $post_id . ': ' . $response->get_error_message());
+//         return;
+//     }
+
+//     $code = wp_remote_retrieve_response_code($response);
+//     if ($code < 200 || $code >= 300) {
+//         error_log(
+//             'WP order sync failed for post ' . $post_id .
+//             ': HTTP ' . $code .
+//             ' body=' . wp_remote_retrieve_body($response)
+//         );
+//     }
+// }, 200);
+
+add_action('save_post_power_order', function ($post_id, $post, $update) {
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) return;
+    if (!$post || $post->post_type !== 'power_order') return;
+    if ($post->post_status !== 'publish') return;
+
+    $author_id = (int) $post->post_author;
+    if ($author_id <= 0) return;
+
+    $all_meta = get_post_meta($post_id);
+    $meta = [];
+
+    foreach ($all_meta as $key => $values) {
+        if (strpos($key, '_') === 0) continue;
+
+        if (!is_array($values) || count($values) === 0) {
+            $meta[$key] = null;
+            continue;
+        }
+
+        $meta[$key] = maybe_unserialize($values[0]);
+    }
+
+    $payload = [
+        'legacyWordpressOrderId' => (int) $post_id,
+        'legacyWordpressUserId'  => $author_id,
+        'createdAt'              => $post->post_date,
+        'status'                 => $meta['status'] ?? $post->post_status,
+        'title'                  => $post->post_title,
+        'meta'                   => $meta,
+    ];
+
+    $response = wp_remote_post('https://otman.onrender.com/api/integrations/wordpress/orders', [
+        'timeout' => 20,
+        'headers' => [
+            'Content-Type'     => 'application/json',
+            'x-wp-sync-secret' => 'asfasfasfuasytfoi21t3uioy12t3iu21ytobastfaosuftaszxc',
+        ],
+        'body' => wp_json_encode($payload),
+    ]);
+
+    if (is_wp_error($response)) {
+        error_log('WP SYNC ERROR post_id=' . $post_id . ' msg=' . $response->get_error_message());
+        return;
+    }
+
+    $code = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+
+    error_log('WP SYNC RESPONSE post_id=' . $post_id . ' code=' . $code . ' body=' . $body);
+}, 20, 3);

@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
-
 type WordpressOrderSyncPayload = {
   legacyWordpressOrderId: number;
   legacyWordpressUserId: number;
@@ -63,6 +62,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const meta =
+      body.meta && typeof body.meta === "object" && !Array.isArray(body.meta)
+        ? (body.meta as Record<string, unknown>)
+        : {};
+
+    const asString = (value: unknown): string | undefined => {
+      if (typeof value !== "string") return undefined;
+      const trimmed = value.trim();
+      return trimmed === "" ? undefined : trimmed;
+    };
+
+    const pickupAddress = asString(meta.pickup_address);
+    const deliveryAddress = asString(meta.delivery_address);
+    const returnAddress = asString(meta.returadresse);
+    const description = asString(meta.beskrivelse) ?? asString(body.title);
+    const customerName = asString(meta.kundens_navn);
+    const phone = asString(meta.telefon);
+    const deliveryDate = asString(meta.leveringsdato);
+    const timeWindow = asString(meta.tidsvindu_for_levering);
+    const orderNumber = asString(meta.bestillingsnr);
+    const status = asString(meta.status) ?? asString(body.status);
+
     const existing = await prisma.order.findUnique({
       where: {
         legacyWordpressOrderId: body.legacyWordpressOrderId,
@@ -81,8 +102,16 @@ export async function POST(req: NextRequest) {
           data: {
             legacyWordpressAuthorId: body.legacyWordpressUserId,
             legacyWordpressRawMeta: body.meta ?? Prisma.JsonNull,
-            status: body.status ?? undefined,
-            description: body.title ?? undefined,
+            status,
+            description,
+            pickupAddress,
+            deliveryAddress,
+            returnAddress,
+            customerName,
+            phone,
+            deliveryDate,
+            timeWindow,
+            orderNumber,
           },
           select: {
             id: true,
@@ -113,8 +142,16 @@ export async function POST(req: NextRequest) {
               createdAt: body.createdAt ? new Date(body.createdAt) : undefined,
               updatedAt: body.createdAt ? new Date(body.createdAt) : undefined,
               displayId: currentCounter.nextNumber,
-              status: body.status ?? undefined,
-              description: body.title ?? undefined,
+              status,
+              description,
+              pickupAddress,
+              deliveryAddress,
+              returnAddress,
+              customerName,
+              phone,
+              deliveryDate,
+              timeWindow,
+              orderNumber,
               dontSendEmail: true,
               extraPickupAddress: [],
             },

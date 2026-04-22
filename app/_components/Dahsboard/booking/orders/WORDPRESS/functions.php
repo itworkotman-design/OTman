@@ -245,6 +245,8 @@ add_action('save_post', function($post_id) {
     // 1️⃣ Only run for your front-end ACF form on power_order
     if (!isset($_POST['acff']['post'])) return;
     if (get_post_type($post_id) !== 'power_order') return;
+    update_post_meta($post_id, '_otman_sync_hook_seen', current_time('mysql'));
+    error_log('POWER ORDER SAVE HIT post_id=' . $post_id);
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
     if (wp_is_post_revision($post_id)) return;
 
@@ -273,19 +275,21 @@ if (in_array('Ikke send epost', (array)$skip_checkbox, true)) return;
     if (!is_email($customer_email)) return;
 
     // 3️⃣ Helper: always use POST if present, else DB
-    function val($acf, $key, $fname, $pid) {
-        if (isset($acf[$key])) {
-            return $acf[$key];
+    if (!function_exists('val')) {
+        function val($acf, $key, $fname, $pid) {
+            if (isset($acf[$key])) {
+                return $acf[$key];
+            }
+            return get_field($fname, $pid);
         }
-        return get_field($fname, $pid);
     }
 
     // 4️⃣ Gather fields
-    $order_number = val($acf, 'field_681b2396296cf', 'bestillingsnr',        $post_id) ?: '(ukjent)';
-    $pickup       = val($acf, 'field_68248210acd3d', 'pickup_address',      $post_id);
+    $order_number = val($acf, 'field_681b2396296cf', 'bestillingsnr', $post_id) ?: '(ukjent)';
+    $pickup       = val($acf, 'field_68248210acd3d', 'pickup_address', $post_id);
     $rows         = isset($acf['field_68248234acd3e'])
                   ? $acf['field_68248234acd3e']
-                  : get_field('extra_pickup_locations',$post_id);
+                  : get_field('extra_pickup_locations', $post_id);
     $extra_pts    = [];
     if (is_array($rows)) {
         foreach ($rows as $r) {
@@ -341,6 +345,50 @@ if ($has_manual) {
 	  $status_notes       = val($acf, 'field_682dda05fccb7', 'status_notes',              $post_id);
     $status_label = $status_obj['choices'][$status_val] ?? $status_val;
     $price_html   = val($acf, 'field_6835ca7fb0cfd', 'price_breakdown_html',$post_id);
+
+    $sync_meta = [
+    'beskrivelse' => $beskrivelse,
+    'bestillingsnr' => $order_number,
+    'pickup_address' => $pickup,
+    'delivery_address' => $delivery,
+    'returadresse' => $retur,
+    'kundens_navn' => $kunde_navn,
+    'telefon' => $telefon,
+    'leveringsdato' => $leveringsdato,
+    'tidsvindu_for_levering' => $tidsvindu,
+    'status' => $status_label,
+];
+
+$sync_payload = [
+    'legacyWordpressOrderId' => (int) $post_id,
+    'legacyWordpressUserId'  => (int) $author_id,
+    'createdAt'              => $post->post_date,
+    'status'                 => $status_label,
+    'title'                  => $post->post_title,
+    'meta'                   => $sync_meta,
+];
+
+$sync_response = wp_remote_post('https://otman.onrender.com/api/integrations/wordpress/orders', [
+    'timeout' => 20,
+    'headers' => [
+        'Content-Type'     => 'application/json',
+        'x-wp-sync-secret' => 'asfasfasfuasytfoi21t3uioy12t3iu21ytobastfaosuftaszxc',
+    ],
+    'body' => wp_json_encode($sync_payload),
+]);
+
+if (is_wp_error($sync_response)) {
+    update_post_meta($post_id, '_otman_sync_error', $sync_response->get_error_message());
+    update_post_meta($post_id, '_otman_sync_code', 'wp_error');
+} else {
+    $sync_code = wp_remote_retrieve_response_code($sync_response);
+    $sync_body = wp_remote_retrieve_body($sync_response);
+
+    update_post_meta($post_id, '_otman_sync_code', (string) $sync_code);
+    update_post_meta($post_id, '_otman_sync_body', wp_strip_all_tags($sync_body));
+}
+
+error_log('POWER ORDER SYNC RESPONSE post_id=' . $post_id . ' response=' . print_r($sync_response, true));
 
     // 5️⃣ Inline CSS
     $css = '<style>
@@ -422,6 +470,7 @@ if ($has_manual) {
   . "<p>Med vennlig hilsen,<br>Otman Transport AS | <a href=\"https://otman.no\">otman.no</a> <br> +47 402 84 977 | <a href=\"mailto:bestilling@otman.no\">bestilling@otman.no</a></p>"
   . "<p><img src=\"https://otman.no/wp-content/uploads/2025/05/logo-removebg.png\" alt=\"Otman Transport Logo\" style=\"max-width: 300px; height: auto; margin-top: 10px;\"></p>";
     }
+    error_log('POWER ORDER EMAIL FLOW HIT post_id=' . $post_id);
     wp_mail($customer_email, $sub_c, $body_c, $headers);
 
     // Admin
@@ -433,6 +482,7 @@ if ($has_manual) {
 	 . "<p>For å se bestillingen, <a href=\"https://otman.no/client-login\">logg inn</a>.</p>"
 		  . "<p>Med vennlig hilsen,<br>Otman Transport AS | <a href=\"https://otman.no\">otman.no</a> <br> +47 402 84 977 | <a href=\"mailto:bestilling@otman.no\">bestilling@otman.no</a></p>"
   . "<p><img src=\"https://otman.no/wp-content/uploads/2025/05/logo-removebg.png\" alt=\"Otman Transport Logo\" style=\"max-width: 300px; height: auto; margin-top: 10px;\"></p>"; 
+  error_log('POWER ORDER EMAIL FLOW HIT post_id=' . $post_id);
     wp_mail('bestilling@otman.no',$sub_a,$body_a,$headers);
 
     // ←— NEW: mark that “new” mail has been sent
