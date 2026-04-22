@@ -504,6 +504,46 @@ describe("routes in /api/orders", () => {
     );
   });
 
+  it("POST skips order notification emails when company order emails are disabled", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      company: {
+        orderEmailsEnabled: false,
+      },
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          customerLabel: "Power Grunerlokka",
+          deliveryDate: "2026-04-09",
+          pickupAddress: "Pickup 1",
+          deliveryAddress: "Delivery 1",
+          orderNumber: "11340837806",
+          priceExVat: 3699,
+          status: "processing",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.sendOrderNotificationEmailMock).not.toHaveBeenCalled();
+    expect(mocks.sendExtraPickupNotificationEmailMock).not.toHaveBeenCalled();
+  });
+
   it("POST creates an order notification when extra pickups are present", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

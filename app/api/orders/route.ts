@@ -116,6 +116,11 @@ export async function POST(req: Request) {
       id: true,
       role: true,
       priceListId: true,
+      company: {
+        select: {
+          orderEmailsEnabled: true,
+        },
+      },
       user: {
         select: {
           username: true,
@@ -514,54 +519,57 @@ export async function POST(req: Request) {
   }
 
   try {
-    const notificationOrder = {
-      id: order.id,
-      displayId: order.displayId,
-      orderNumber: order.orderNumber,
-      customerLabel,
-      customerEmail: membership.user.email,
-      deliveryDate,
-      pickupAddress: optionalString(body.pickupAddress),
-      extraPickupAddress: extraPickups.map((pickup) => pickup.address),
-      deliveryAddress: optionalString(body.deliveryAddress),
-      returnAddress: optionalString(body.returnAddress),
-      drivingDistance: optionalString(body.drivingDistance),
-      timeWindow: optionalString(body.timeWindow),
-      expressDelivery: effectiveExpressDelivery,
-      description: optionalString(body.description),
-      customerName,
-      email,
-      phone,
-      floorNo: optionalString(body.floorNo),
-      lift: optionalString(body.lift),
-      cashierName: optionalString(body.cashierName),
-      cashierPhone,
-      status: optionalString(body.status) || "processing",
-      createdAt: order.createdAt,
-      productsSummary: summaries.productsSummary,
-      priceExVat: Math.round(safeNumber(body.priceExVat)),
-    };
+    const orderEmailsEnabled = membership.company?.orderEmailsEnabled !== false;
+    if (orderEmailsEnabled) {
+      const notificationOrder = {
+        id: order.id,
+        displayId: order.displayId,
+        orderNumber: order.orderNumber,
+        customerLabel,
+        customerEmail: membership.user.email,
+        deliveryDate,
+        pickupAddress: optionalString(body.pickupAddress),
+        extraPickupAddress: extraPickups.map((pickup) => pickup.address),
+        deliveryAddress: optionalString(body.deliveryAddress),
+        returnAddress: optionalString(body.returnAddress),
+        drivingDistance: optionalString(body.drivingDistance),
+        timeWindow: optionalString(body.timeWindow),
+        expressDelivery: effectiveExpressDelivery,
+        description: optionalString(body.description),
+        customerName,
+        email,
+        phone,
+        floorNo: optionalString(body.floorNo),
+        lift: optionalString(body.lift),
+        cashierName: optionalString(body.cashierName),
+        cashierPhone,
+        status: optionalString(body.status) || "processing",
+        createdAt: order.createdAt,
+        productsSummary: summaries.productsSummary,
+        priceExVat: Math.round(safeNumber(body.priceExVat)),
+      };
 
-    await sendOrderNotificationEmail({
-      kind: "created",
-      order: notificationOrder,
-      items: builtItems,
-    });
-
-    for (const pickup of extraPickups) {
-      if (!pickup.sendEmail) continue;
-
-      const pickupEmail = normalizeOptionalEmail(pickup.email);
-      if (!pickupEmail) continue;
-
-      await sendExtraPickupNotificationEmail({
+      await sendOrderNotificationEmail({
+        kind: "created",
         order: notificationOrder,
-        extraPickup: {
-          address: pickup.address,
-          phone: normalizeOptionalPhone(pickup.phone) ?? "",
-          email: pickupEmail,
-        },
+        items: builtItems,
       });
+
+      for (const pickup of extraPickups) {
+        if (!pickup.sendEmail) continue;
+
+        const pickupEmail = normalizeOptionalEmail(pickup.email);
+        if (!pickupEmail) continue;
+
+        await sendExtraPickupNotificationEmail({
+          order: notificationOrder,
+          extraPickup: {
+            address: pickup.address,
+            phone: normalizeOptionalPhone(pickup.phone) ?? "",
+            email: pickupEmail,
+          },
+        });
+      }
     }
   } catch (error) {
     console.error("Failed to send order creation notification email", error);

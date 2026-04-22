@@ -362,24 +362,28 @@ export function mapWordpressImportToProductCards(params: {
 
     const card = createEmptyProductCard(parsedProduct.cardId);
     card.productId = product.id;
-    if (product.allowHoursInput) {
-      card.amount = 1;
-      card.hoursInput = Math.max(0.5, parsedProduct.quantity || 1);
-    } else {
-      card.amount = parsedProduct.quantity;
-    }
+    card.amount = product.allowHoursInput ? 1 : parsedProduct.quantity;
 
     const productServices = parsedServices.filter(
       (service) => service.cardId === parsedProduct.cardId,
     );
+    const laborServiceQuantity =
+      product.allowHoursInput &&
+      productServices.length > 0 &&
+      productServices.every((service) => service.quantity > 0)
+        ? productServices[0]?.quantity
+        : undefined;
 
-    const inferredDeliveryType =
-      resolveDeliveryType(parsedProduct.deliveryType) ||
-      (productServices.some((service) => service.itemType === "INSTALL_OPTION")
-        ? "INSTALL_ONLY"
-        : productServices.some((service) => service.itemType === "RETURN_OPTION")
-          ? "RETURN_ONLY"
-          : "");
+    if (product.allowHoursInput) {
+      const resolvedHoursInput =
+        laborServiceQuantity ?? parsedProduct.quantity ?? 1;
+      card.hoursInput = Math.max(
+        0.5,
+        resolvedHoursInput,
+      );
+    }
+
+    const inferredDeliveryType = resolveDeliveryType(parsedProduct.deliveryType);
 
     if (product.allowDeliveryTypes) {
       card.deliveryType = inferredDeliveryType;

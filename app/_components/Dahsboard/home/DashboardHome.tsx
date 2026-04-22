@@ -22,6 +22,7 @@ type StatusItem = {
 type DashboardResponse = {
   ok: boolean;
   stats: DashboardStats;
+  orderEmailsEnabled: boolean;
   statusBreakdown: StatusItem[];
   dailyActivity: DailyActivityItem[];
   reason?: string;
@@ -44,6 +45,12 @@ type FinishMonthResponse = {
   sentCount?: number;
   skippedCount?: number;
   message?: string;
+  reason?: string;
+};
+
+type OrderEmailSettingResponse = {
+  ok: boolean;
+  orderEmailsEnabled?: boolean;
   reason?: string;
 };
 
@@ -396,6 +403,10 @@ export default function DashboardHome() {
   const [finishingMonth, setFinishingMonth] = useState(false);
   const [finishMonthMessage, setFinishMonthMessage] = useState("");
   const [finishMonthError, setFinishMonthError] = useState("");
+  const [updatingOrderEmails, setUpdatingOrderEmails] = useState(false);
+  const [orderEmailsEnabled, setOrderEmailsEnabled] = useState(true);
+  const [orderEmailsMessage, setOrderEmailsMessage] = useState("");
+  const [orderEmailsError, setOrderEmailsError] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -417,6 +428,7 @@ export default function DashboardHome() {
         }
 
         setData(json);
+        setOrderEmailsEnabled(json.orderEmailsEnabled);
       } catch {
         setError("Failed to load dashboard");
       } finally {
@@ -533,6 +545,49 @@ export default function DashboardHome() {
     }
   }
 
+  async function handleToggleOrderEmails() {
+    const nextValue = !orderEmailsEnabled;
+
+    try {
+      setUpdatingOrderEmails(true);
+      setOrderEmailsError("");
+      setOrderEmailsMessage("");
+
+      const res = await fetch("/api/dashboard/home", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderEmailsEnabled: nextValue,
+        }),
+      });
+
+      const json: OrderEmailSettingResponse | null = await res
+        .json()
+        .catch(() => null);
+
+      if (!res.ok || !json?.ok || typeof json.orderEmailsEnabled !== "boolean") {
+        setOrderEmailsError(
+          json?.reason || "Failed to update order email setting",
+        );
+        return;
+      }
+
+      setOrderEmailsEnabled(json.orderEmailsEnabled);
+      setOrderEmailsMessage(
+        json.orderEmailsEnabled
+          ? "Order emails are enabled."
+          : "Order emails are disabled.",
+      );
+    } catch {
+      setOrderEmailsError("Failed to update order email setting");
+    } finally {
+      setUpdatingOrderEmails(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
       <div className="mx-auto max-w-7xl">
@@ -585,6 +640,51 @@ export default function DashboardHome() {
               {finishMonthError ? (
                 <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {finishMonthError}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-base font-semibold text-slate-800">
+                    Order emails
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    Disable outbound order emails while import and pricing work is in progress.
+                  </div>
+                  <div className="mt-2 text-sm font-medium text-slate-700">
+                    Current status: {orderEmailsEnabled ? "Enabled" : "Disabled"}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleToggleOrderEmails}
+                  disabled={updatingOrderEmails}
+                  className={`inline-flex min-w-[180] items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${
+                    orderEmailsEnabled
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
+                >
+                  {updatingOrderEmails
+                    ? "Saving..."
+                    : orderEmailsEnabled
+                      ? "Disable emails"
+                      : "Enable emails"}
+                </button>
+              </div>
+
+              {orderEmailsMessage ? (
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {orderEmailsMessage}
+                </div>
+              ) : null}
+
+              {orderEmailsError ? (
+                <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {orderEmailsError}
                 </div>
               ) : null}
             </div>

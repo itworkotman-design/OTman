@@ -572,6 +572,11 @@ export async function PATCH(
       id: true,
       role: true,
       priceListId: true,
+      company: {
+        select: {
+          orderEmailsEnabled: true,
+        },
+      },
       user: {
         select: {
           username: true,
@@ -1005,66 +1010,69 @@ export async function PATCH(
   }
 
   try {
-    const notificationOrder = {
-      id: orderId,
-      displayId: existingOrder.displayId,
-      orderNumber:
-        optionalString(body.orderNumber) || existingOrder.orderNumber,
-      customerLabel:
-        optionalString(body.customerLabel) || existingOrder.customerLabel,
-      deliveryDate:
-        optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
-      pickupAddress:
-        optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
-      extraPickupAddress: extraPickups.map((pickup) => pickup.address),
-      deliveryAddress:
-        optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
-      returnAddress:
-        optionalString(body.returnAddress) ?? existingOrder.returnAddress,
-      drivingDistance:
-        optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
-      timeWindow: optionalString(body.timeWindow) ?? existingOrder.timeWindow,
-      expressDelivery:
-        body.expressDelivery === undefined
-          ? existingOrder.expressDelivery
-          : optionalBoolean(body.expressDelivery),
-      description:
-        optionalString(body.description) ?? existingOrder.description,
-      customerName:
-        optionalString(body.customerName) ?? existingOrder.customerName,
-      email,
-      phone,
-      floorNo: optionalString(body.floorNo),
-      lift: optionalString(body.lift),
-      cashierName:
-        optionalString(body.cashierName) ?? existingOrder.cashierName,
-      cashierPhone,
-      status: optionalString(body.status) ?? existingOrder.status,
-      createdAt: existingOrder.createdAt,
-      productsSummary: summaries.productsSummary,
-      priceExVat: Math.round(safeNumber(body.priceExVat)),
-    };
+    const orderEmailsEnabled = membership.company?.orderEmailsEnabled !== false;
+    if (orderEmailsEnabled) {
+      const notificationOrder = {
+        id: orderId,
+        displayId: existingOrder.displayId,
+        orderNumber:
+          optionalString(body.orderNumber) || existingOrder.orderNumber,
+        customerLabel:
+          optionalString(body.customerLabel) || existingOrder.customerLabel,
+        deliveryDate:
+          optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
+        pickupAddress:
+          optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
+        extraPickupAddress: extraPickups.map((pickup) => pickup.address),
+        deliveryAddress:
+          optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
+        returnAddress:
+          optionalString(body.returnAddress) ?? existingOrder.returnAddress,
+        drivingDistance:
+          optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
+        timeWindow: optionalString(body.timeWindow) ?? existingOrder.timeWindow,
+        expressDelivery:
+          body.expressDelivery === undefined
+            ? existingOrder.expressDelivery
+            : optionalBoolean(body.expressDelivery),
+        description:
+          optionalString(body.description) ?? existingOrder.description,
+        customerName:
+          optionalString(body.customerName) ?? existingOrder.customerName,
+        email,
+        phone,
+        floorNo: optionalString(body.floorNo),
+        lift: optionalString(body.lift),
+        cashierName:
+          optionalString(body.cashierName) ?? existingOrder.cashierName,
+        cashierPhone,
+        status: optionalString(body.status) ?? existingOrder.status,
+        createdAt: existingOrder.createdAt,
+        productsSummary: summaries.productsSummary,
+        priceExVat: Math.round(safeNumber(body.priceExVat)),
+      };
 
-    await sendOrderNotificationEmail({
-      kind: "updated",
-      order: notificationOrder,
-      items: builtItems,
-    });
-
-    for (const pickup of extraPickups) {
-      if (!pickup.sendEmail) continue;
-
-      const pickupEmail = normalizeOptionalEmail(pickup.email);
-      if (!pickupEmail) continue;
-
-      await sendExtraPickupNotificationEmail({
+      await sendOrderNotificationEmail({
+        kind: "updated",
         order: notificationOrder,
-        extraPickup: {
-          address: pickup.address,
-          phone: normalizeOptionalPhone(pickup.phone) ?? "",
-          email: pickupEmail,
-        },
+        items: builtItems,
       });
+
+      for (const pickup of extraPickups) {
+        if (!pickup.sendEmail) continue;
+
+        const pickupEmail = normalizeOptionalEmail(pickup.email);
+        if (!pickupEmail) continue;
+
+        await sendExtraPickupNotificationEmail({
+          order: notificationOrder,
+          extraPickup: {
+            address: pickup.address,
+            phone: normalizeOptionalPhone(pickup.phone) ?? "",
+            email: pickupEmail,
+          },
+        });
+      }
     }
   } catch (error) {
     console.error("Failed to send order update notification email", error);

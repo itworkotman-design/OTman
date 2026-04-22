@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
+  companyUpdateMock: vi.fn(),
   orderCountMock: vi.fn(),
   orderFindManyMock: vi.fn(),
   orderGroupByMock: vi.fn(),
@@ -18,6 +19,9 @@ vi.mock("@/lib/db", () => ({
     membership: {
       findFirst: mocks.membershipFindFirstMock,
     },
+    company: {
+      update: mocks.companyUpdateMock,
+    },
     order: {
       count: mocks.orderCountMock,
       findMany: mocks.orderFindManyMock,
@@ -27,7 +31,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { GET } from "./route";
+import { GET, PATCH } from "./route";
 
 describe("GET /api/dashboard/home", () => {
   beforeEach(() => {
@@ -55,6 +59,9 @@ describe("GET /api/dashboard/home", () => {
     });
     mocks.membershipFindFirstMock.mockResolvedValue({
       role: "ADMIN",
+      company: {
+        orderEmailsEnabled: true,
+      },
     });
     mocks.orderCountMock
       .mockResolvedValueOnce(12)
@@ -102,6 +109,7 @@ describe("GET /api/dashboard/home", () => {
         cancelledOrders: 1,
         bookingEmailCount: 5,
       },
+      orderEmailsEnabled: true,
       statusBreakdown: [
         {
           status: "processing",
@@ -130,6 +138,11 @@ describe("GET /api/dashboard/home", () => {
       },
       select: {
         role: true,
+        company: {
+          select: {
+            orderEmailsEnabled: true,
+          },
+        },
       },
     });
 
@@ -142,6 +155,45 @@ describe("GET /api/dashboard/home", () => {
       },
       _sum: {
         unreadInboundEmailCount: true,
+      },
+    });
+  });
+
+  it("PATCH updates the company order email toggle", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      role: "ADMIN",
+    });
+    mocks.companyUpdateMock.mockResolvedValue({
+      orderEmailsEnabled: false,
+    });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/dashboard/home", {
+        method: "PATCH",
+        body: JSON.stringify({
+          orderEmailsEnabled: false,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      orderEmailsEnabled: false,
+    });
+    expect(mocks.companyUpdateMock).toHaveBeenCalledWith({
+      where: {
+        id: "company-1",
+      },
+      data: {
+        orderEmailsEnabled: false,
+      },
+      select: {
+        orderEmailsEnabled: true,
       },
     });
   });

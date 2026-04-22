@@ -395,6 +395,53 @@ describe("routes in /api/orders/[orderId]", () => {
     );
   });
 
+  it("PATCH skips order notification emails when company order emails are disabled", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      company: {
+        orderEmailsEnabled: false,
+      },
+      user: {
+        username: "admin",
+        email: "admin@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          customerLabel: "POWER Slependen",
+          orderNumber: "11191323551",
+          status: "ferdig",
+          priceExVat: 1019,
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.sendOrderNotificationEmailMock).not.toHaveBeenCalled();
+    expect(mocks.sendExtraPickupNotificationEmailMock).not.toHaveBeenCalled();
+  });
+
   it("PATCH creates an order notification when extra pickups change", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

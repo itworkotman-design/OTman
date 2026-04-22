@@ -11,7 +11,7 @@ const products: CatalogProduct[] = [
     code: "PRODUCT-1",
     label: "Vaskemaskin",
     active: true,
-    productType: "PHYSICAL",
+    productType: "LABOR",
     allowDeliveryTypes: true,
     allowInstallOptions: true,
     allowReturnOptions: true,
@@ -76,7 +76,7 @@ const products: CatalogProduct[] = [
     active: true,
     productType: "PHYSICAL",
     allowDeliveryTypes: false,
-    allowInstallOptions: false,
+    allowInstallOptions: true,
     allowReturnOptions: false,
     allowExtraServices: false,
     allowDemont: false,
@@ -87,7 +87,52 @@ const products: CatalogProduct[] = [
     autoXtraPerPallet: false,
     deliveryTypes: [],
     customSections: [],
-    options: [],
+    options: [
+      {
+        id: "labor-1",
+        code: "MANNU1",
+        label: "1 mann uten bil",
+        description: null,
+        category: "install",
+        customerPrice: "450",
+        subcontractorPrice: "0",
+        effectiveCustomerPrice: "450",
+        active: true,
+      },
+      {
+        id: "labor-2",
+        code: "MANNU2",
+        label: "2 mann uten bil",
+        description: null,
+        category: "install",
+        customerPrice: "850",
+        subcontractorPrice: "0",
+        effectiveCustomerPrice: "850",
+        active: true,
+      },
+      {
+        id: "labor-3",
+        code: "MANN1",
+        label: "1 mann med varebil",
+        description: null,
+        category: "install",
+        customerPrice: "700",
+        subcontractorPrice: "0",
+        effectiveCustomerPrice: "700",
+        active: true,
+      },
+      {
+        id: "labor-4",
+        code: "MANN2",
+        label: "2 mann med varebil",
+        description: null,
+        category: "install",
+        customerPrice: "1000",
+        subcontractorPrice: "0",
+        effectiveCustomerPrice: "1000",
+        active: true,
+      },
+    ],
   },
 ];
 
@@ -251,11 +296,44 @@ describe("mapWordpressImportToProductCards", () => {
         {
           cardId: 3,
           productName: "timepris_flugger",
-          quantity: 3.5,
+          quantity: 1,
           deliveryType: undefined,
         },
       ],
-      parsedServices: [],
+      parsedServices: [
+        {
+          cardId: 3,
+          productName: "timepris_flugger",
+          quantity: 0.5,
+          itemType: "EXTRA_OPTION",
+          label: "1 mann uten bil",
+          code: "MANNU1",
+        },
+        {
+          cardId: 3,
+          productName: "timepris_flugger",
+          quantity: 0.5,
+          itemType: "EXTRA_OPTION",
+          label: "2 mann uten bil",
+          code: "MANNU2",
+        },
+        {
+          cardId: 3,
+          productName: "timepris_flugger",
+          quantity: 0.5,
+          itemType: "EXTRA_OPTION",
+          label: "1 mann med varebil",
+          code: "MANN1",
+        },
+        {
+          cardId: 3,
+          productName: "timepris_flugger",
+          quantity: 0.5,
+          itemType: "EXTRA_OPTION",
+          label: "2 mann med varebil",
+          code: "MANN2",
+        },
+      ],
       catalogProducts: products,
       catalogSpecialOptions: specialOptions,
     });
@@ -267,7 +345,50 @@ describe("mapWordpressImportToProductCards", () => {
         cardId: 3,
         productId: "product-3",
         amount: 1,
-        hoursInput: 3.5,
+        hoursInput: 0.5,
+        selectedInstallOptionIds: ["labor-1", "labor-2", "labor-3", "labor-4"],
+      }),
+    ]);
+  });
+
+  it("keeps delivery type blank when wordpress only selected install and return services", () => {
+    const result = mapWordpressImportToProductCards({
+      parsedProducts: [
+        {
+          cardId: 4,
+          productName: "Washing machine",
+          quantity: 1,
+          deliveryType: undefined,
+        },
+      ],
+      parsedServices: [
+        {
+          cardId: 4,
+          productName: "Washing machine",
+          quantity: 1,
+          itemType: "INSTALL_OPTION",
+          label: "Install only",
+          code: "INSTALLDOOR",
+        },
+        {
+          cardId: 4,
+          productName: "Washing machine",
+          quantity: 1,
+          itemType: "RETURN_OPTION",
+          label: "Retur til butikk",
+          code: "RETURNSTORE",
+        },
+      ],
+      catalogProducts: products,
+      catalogSpecialOptions: specialOptions,
+    });
+
+    expect(result.productCards).toEqual([
+      expect.objectContaining({
+        cardId: 4,
+        deliveryType: "",
+        selectedInstallOptionIds: ["install-1"],
+        selectedReturnOptionId: "return-store",
       }),
     ]);
   });

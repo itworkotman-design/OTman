@@ -1,0 +1,2 @@
+ALTER TABLE "Company"
+ADD COLUMN "orderEmailsEnabled" BOOLEAN NOT NULL DEFAULT true;

@@ -128,6 +128,40 @@ describe("POST /api/orders/send-selected-email", () => {
     );
   });
 
+  it("returns 409 when company order emails are disabled", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      company: {
+        orderEmailsEnabled: false,
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders/send-selected-email", {
+        method: "POST",
+        body: JSON.stringify({
+          orderIds: ["order-1"],
+          to: "customer@example.com",
+          subject: "Selected orders",
+          message: "Here are your orders",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "ORDER_EMAILS_DISABLED",
+    });
+    expect(mocks.sendEmailMock).not.toHaveBeenCalled();
+  });
+
   it("stores failed outbound messages so the email center can show the error", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

@@ -45,6 +45,7 @@ type ParsedWordpressServiceItem = {
 type ParsedBreakdownRow = {
   label: string;
   code?: string;
+  quantity?: number;
 };
 
 type ParsedBreakdownGroup = {
@@ -177,6 +178,23 @@ const parseBreakdownLabelAndCode = (value: string): ParsedBreakdownRow => {
   return {
     label: cleanLegacyBreakdownLabel(normalizedValue),
   };
+};
+
+const extractBreakdownQuantity = (value: string): number | undefined => {
+  const normalizedValue = normalizeWhitespace(stripHtml(value));
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  const quantityMatch = normalizedValue.match(
+    /\bx\s*(\d+(?:[.,]\d+)?)\s*(?:time|timer?)\b/iu,
+  );
+  if (!quantityMatch) {
+    return undefined;
+  }
+
+  const parsed = Number.parseFloat((quantityMatch[1] ?? "").replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 };
 
 const cleanDeliveryType = (raw?: string): string | undefined => {
@@ -428,7 +446,13 @@ const parseBreakdownGroups = (value: string | undefined): ParsedBreakdownGroup[]
         /<span class="price-breakdown-label">([\s\S]*?)<\/span>/gi,
       ),
     )
-      .map((match) => parseBreakdownLabelAndCode(match[1] ?? ""))
+      .map((match) => {
+        const labelValue = match[1] ?? "";
+        return {
+          ...parseBreakdownLabelAndCode(labelValue),
+          quantity: extractBreakdownQuantity(labelValue),
+        };
+      })
       .filter((row) => row.label);
 
     const groupLabel = stripHtml(groupLabelMatch?.[1] ?? "");
@@ -578,7 +602,7 @@ const buildServiceItemsFromBreakdown = (
       serviceItems.push({
         cardId,
         productName,
-        quantity,
+        quantity: row.quantity ?? quantity,
         itemType: classifyServiceItemType(row),
         label: row.label,
         code: row.code,
@@ -590,7 +614,7 @@ const buildServiceItemsFromBreakdown = (
           label: row.label,
           description: row.label,
           code: row.code ?? null,
-          quantity,
+          quantity: row.quantity ?? quantity,
         },
       });
     }

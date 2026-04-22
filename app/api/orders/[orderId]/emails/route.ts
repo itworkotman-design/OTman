@@ -60,6 +60,11 @@ async function getAdminMembership(req: Request) {
     select: {
       id: true,
       role: true,
+      company: {
+        select: {
+          orderEmailsEnabled: true,
+        },
+      },
       user: {
         select: {
           username: true,
@@ -244,6 +249,13 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
 
   if (auth.response || !auth.session || !auth.membership) {
     return auth.response;
+  }
+
+  if (auth.membership.company?.orderEmailsEnabled === false) {
+    return NextResponse.json(
+      { ok: false, reason: "ORDER_EMAILS_DISABLED" },
+      { status: 409 },
+    );
   }
 
   const companyId = auth.companyId;

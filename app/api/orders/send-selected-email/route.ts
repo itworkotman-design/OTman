@@ -132,6 +132,11 @@ export async function POST(req: Request) {
     select: {
       id: true,
       role: true,
+      company: {
+        select: {
+          orderEmailsEnabled: true,
+        },
+      },
       permissions: {
         select: {
           permission: true,
@@ -155,6 +160,13 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { ok: false, reason: "FORBIDDEN" },
       { status: 403 },
+    );
+  }
+
+  if (membership.company?.orderEmailsEnabled === false) {
+    return NextResponse.json(
+      { ok: false, reason: "ORDER_EMAILS_DISABLED" },
+      { status: 409 },
     );
   }
 

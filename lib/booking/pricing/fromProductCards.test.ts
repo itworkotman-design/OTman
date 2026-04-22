@@ -4,6 +4,7 @@ import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { createDefaultProductDeliveryTypes } from "@/lib/products/deliveryTypes";
 import type {
   CatalogProduct,
+  CatalogSpecialOption,
   SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 
@@ -66,6 +67,20 @@ function buildCard(overrides: Partial<SavedProductCard>): SavedProductCard {
     ...overrides,
   };
 }
+
+const returnOptions: CatalogSpecialOption[] = [
+  {
+    id: "return-store",
+    type: "return",
+    code: "RETURNSTORE",
+    label: "Return",
+    description: "Retur til butikk",
+    customerPrice: "300",
+    subcontractorPrice: "0",
+    effectiveCustomerPrice: "300",
+    active: true,
+  },
+];
 
 describe("buildProductBreakdowns", () => {
   it("uses standard and XTRA indoor delivery display values", () => {
@@ -364,5 +379,45 @@ describe("buildProductBreakdowns", () => {
       productName: "Seng",
       productModelNumber: "WM-42",
     });
+  });
+
+  it("keeps imported install and return selections visible without inventing an install-only delivery line", () => {
+    const product = buildProduct({
+      allowReturnOptions: true,
+    });
+
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          selectedInstallOptionIds: ["install-1"],
+          selectedReturnOptionId: "return-store",
+        }),
+      ],
+      [product],
+      returnOptions,
+    );
+
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "install-1",
+          qty: 1,
+        }),
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "return-store",
+          qty: 1,
+        }),
+      ]),
+    );
+    expect(result[0]?.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "deliveryType",
+          code: "INSTALL_ONLY",
+        }),
+      ]),
+    );
   });
 });

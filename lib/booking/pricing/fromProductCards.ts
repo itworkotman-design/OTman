@@ -219,10 +219,14 @@ function buildItemsForCard(
   const hoursInput = getHoursInput(card, product);
   const showInstallOptions =
     product.allowInstallOptions &&
-    (!product.allowDeliveryTypes || showsInstallOptions(card.deliveryType));
+    (!product.allowDeliveryTypes ||
+      showsInstallOptions(card.deliveryType) ||
+      card.selectedInstallOptionIds.length > 0);
   const showReturnOptions =
     product.allowReturnOptions &&
-    (!product.allowDeliveryTypes || showsReturnOptions(card.deliveryType));
+    (!product.allowDeliveryTypes ||
+      showsReturnOptions(card.deliveryType) ||
+      !!card.selectedReturnOptionId);
   const installSelected = card.selectedInstallOptionIds.length > 0;
   const showExtras =
     product.allowExtraServices &&
