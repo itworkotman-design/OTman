@@ -340,7 +340,7 @@ if ($has_manual) {
     $kasserers_nn = val($acf, 'field_681b2417d6a19', 'kasserers_navn',      $post_id);
     $kasserers_tel= val($acf, 'field_6823595de4d61', 'kasserers_telefon',   $post_id);
     $driver       = val($acf, 'field_682dd55f46404', 'driver',              $post_id);
-    $status_val   = val($acf, 'field_682dd6dba40f7', 'status',              $post_id) ?: 'processing';
+    $status_val   = val($acf, 'field_682dd6dba40f7', 'status',              $post_id) ?: 'Behandles';
     $status_obj   = get_field_object('field_682dd6dba40f7',$post_id);
 	  $status_notes       = val($acf, 'field_682dda05fccb7', 'status_notes',              $post_id);
     $status_label = $status_obj['choices'][$status_val] ?? $status_val;
@@ -993,7 +993,7 @@ add_action('save_post_power_order', function($post_id, $post, $update){
 
   $cur = get_post_meta($post_id,'status',true);
   if ($cur === '' || $cur === null) {
-    update_post_meta($post_id,'status','processing');
+    update_post_meta($post_id,'status','Behandles');
   }
 }, 10, 3);
 
