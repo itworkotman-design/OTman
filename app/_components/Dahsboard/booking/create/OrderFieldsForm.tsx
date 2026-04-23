@@ -842,7 +842,7 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.ChangeCustomer) && (
         <>
-          <h1 className="font-bold py-2">Change customer</h1>
+          <h1 className="font-bold py-2">Change store</h1>
           <select
             value={customerMembershipId}
             onChange={(e) => {

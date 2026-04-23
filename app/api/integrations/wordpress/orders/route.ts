@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
+import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
+import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
+import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import {
   buildOrderItemsFromCards,
   type BuiltOrderItem,
@@ -12,6 +15,7 @@ import {
   type ResolvedWordpressService,
 } from "@/lib/integrations/wordpress/catalogMapping";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
+import { createOrderNotification } from "@/lib/orders/orderNotifications";
 
 type WordpressOrderSyncPayload = {
   legacyWordpressOrderId: number;
@@ -46,6 +50,7 @@ type ParsedBreakdownRow = {
   label: string;
   code?: string;
   quantity?: number;
+  priceCents?: number;
 };
 
 type ParsedBreakdownGroup = {
@@ -69,6 +74,8 @@ const SUMMARY_LABEL_PATTERNS = [
   /^mva\b/i,
   /^total\b/i,
   /^total inkl/i,
+  /^pris uten mva\b/i,
+  /^sum\b/i,
   /^km pris\b/i,
   /^rabatt\b/i,
   /^ekstra\b/i,
@@ -96,6 +103,35 @@ const getFirstMetaString = (
 
 const normalizeWhitespace = (value: string): string =>
   value.replace(/\s+/g, " ").trim();
+
+const parseLegacyMoneyToCents = (value: unknown): number | undefined => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.round(value * 100) : undefined;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value
+    .replace(/\s+/g, "")
+    .replace(/NOK/giu, "")
+    .replace(/[^\d,.-]/g, "")
+    .replace(",", ".");
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : undefined;
+};
+
+const TOTAL_BREAKDOWN_LABEL_PATTERNS = [
+  /^total\b/i,
+  /^pris uten mva\b/i,
+  /^sum\b/i,
+];
 
 const decodeHtmlEntities = (value: string): string =>
   value
@@ -285,6 +321,7 @@ const normalizeImportedStatus = (raw?: string): string | undefined => {
     case "canceled":
     case "avbrutt":
       return "cancelled";
+    case "fail":
     case "failed":
     case "feilet":
       return "failed";
@@ -443,14 +480,16 @@ const parseBreakdownGroups = (value: string | undefined): ParsedBreakdownGroup[]
 
     const rows = Array.from(
       segment.matchAll(
-        /<span class="price-breakdown-label">([\s\S]*?)<\/span>/gi,
+        /<div class="price-breakdown-row[\s\S]*?<span class="price-breakdown-label">([\s\S]*?)<\/span>[\s\S]*?<span class="price-breakdown-price">([\s\S]*?)<\/span>[\s\S]*?<\/div>/gi,
       ),
     )
       .map((match) => {
         const labelValue = match[1] ?? "";
+        const priceValue = match[2] ?? "";
         return {
           ...parseBreakdownLabelAndCode(labelValue),
           quantity: extractBreakdownQuantity(labelValue),
+          priceCents: parseLegacyMoneyToCents(stripHtml(priceValue)),
         };
       })
       .filter((row) => row.label);
@@ -656,6 +695,163 @@ const buildServicesSummary = (
     quantity > 1 ? `${label} x${quantity}` : label,
   ).join(", ");
 };
+
+const parseDistanceKm = (value?: string): number => {
+  if (!value) return 0;
+
+  const normalized = value
+    .replace(",", ".")
+    .replace(/[^\d.-]/g, "");
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getImportedWordpressPriceExVatCents = (
+  meta: Record<string, unknown>,
+): number | undefined => {
+  const explicitTotal = parseLegacyMoneyToCents(meta.total_price);
+  if (typeof explicitTotal === "number") {
+    return explicitTotal;
+  }
+
+  const breakdownHtml = asString(meta.price_breakdown_html);
+  if (!breakdownHtml) {
+    return undefined;
+  }
+
+  const breakdownRows = Array.from(
+    breakdownHtml.matchAll(
+      /price-breakdown-label">([\s\S]*?)<\/span>[\s\S]*?price-breakdown-price">([\s\S]*?)<\/span>/giu,
+    ),
+  );
+
+  for (let index = breakdownRows.length - 1; index >= 0; index -= 1) {
+    const row = breakdownRows[index];
+    const label = stripHtml(row?.[1] ?? "");
+
+    if (
+      !TOTAL_BREAKDOWN_LABEL_PATTERNS.some((pattern) => pattern.test(label))
+    ) {
+      continue;
+    }
+
+    const priceCents = parseLegacyMoneyToCents(stripHtml(row?.[2] ?? ""));
+    if (typeof priceCents === "number") {
+      return priceCents;
+    }
+  }
+
+  return undefined;
+};
+
+const getNativeCalculatedPriceExVatCents = (params: {
+  productCards: ReturnType<typeof mapWordpressImportToProductCards>["productCards"];
+  catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
+  catalogSpecialOptions: Awaited<ReturnType<typeof getBookingCatalog>>["specialOptions"];
+  drivingDistance: string | undefined;
+}): number => {
+  const productBreakdowns = buildProductBreakdowns(
+    params.productCards,
+    params.catalogProducts,
+    params.catalogSpecialOptions,
+    {
+      zeroBaseDeliveryPricesOver100Km: parseDistanceKm(params.drivingDistance) > 100,
+    },
+  );
+  const priceLookup = buildPriceLookup(
+    params.catalogProducts,
+    params.catalogSpecialOptions,
+  );
+  const result = calculateBookingPricing({
+    productBreakdowns,
+    priceLookup,
+  });
+
+  return Math.round(result.totals.totalExVat * 100);
+};
+
+async function syncWordpressPriceMismatchNotification(
+  tx: Prisma.TransactionClient,
+  params: {
+    orderId: string;
+    companyId: string;
+    wordpressPriceExVatCents?: number;
+    nativePriceExVatCents: number;
+  },
+) {
+  const { orderId, companyId, wordpressPriceExVatCents, nativePriceExVatCents } =
+    params;
+
+  const existing = await tx.orderNotification.findFirst({
+    where: {
+      orderId,
+      companyId,
+      type: "MANUAL_REVIEW",
+      title: "WordPress price mismatch",
+      resolvedAt: null,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  const hasMismatch =
+    typeof wordpressPriceExVatCents === "number" &&
+    wordpressPriceExVatCents !== nativePriceExVatCents;
+
+  if (!hasMismatch) {
+    if (!existing) {
+      return;
+    }
+
+    await tx.orderNotification.update({
+      where: {
+        id: existing.id,
+      },
+      data: {
+        resolvedAt: new Date(),
+      },
+    });
+
+    const unreadNotificationCount = await tx.orderNotification.count({
+      where: {
+        orderId,
+        companyId,
+        resolvedAt: null,
+      },
+    });
+
+    await tx.order.update({
+      where: {
+        id: orderId,
+      },
+      data: {
+        needsNotificationAttention: unreadNotificationCount > 0,
+        unreadNotificationCount,
+      },
+    });
+
+    return;
+  }
+
+  if (existing) {
+    return;
+  }
+
+  await createOrderNotification(tx, {
+    orderId,
+    companyId,
+    type: "MANUAL_REVIEW",
+    title: "WordPress price mismatch",
+    message:
+      "Imported WordPress price does not match the rebuilt native total. Review the order manually.",
+    payload: {
+      source: "wordpress_import",
+      wordpressPriceExVatCents,
+      nativePriceExVatCents,
+    },
+  });
+}
 
 const attachServiceLabelsToProductItems = (
   productItems: ParsedWordpressProductItem[],
@@ -1067,9 +1263,12 @@ export async function POST(req: NextRequest) {
     );
     const orderNumber = getFirstMetaString(meta, ["bestillingsnr", "order_number"]);
     const status =
-      normalizeImportedStatus(getFirstMetaString(meta, ["status"])) ??
+      normalizeImportedStatus(
+        getFirstMetaString(meta, ["status", "order_status", "post_status"]),
+      ) ??
       normalizeImportedStatus(asString(body.status)) ??
       "processing";
+    const drivingDistance = getFirstMetaString(meta, ["total_km", "driving_distance"]);
     const description =
       getFirstMetaString(meta, ["beskrivelse", "description"]) ??
       orderNumber ??
@@ -1123,6 +1322,13 @@ export async function POST(req: NextRequest) {
       })),
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
+    });
+    const wordpressPriceExVatCents = getImportedWordpressPriceExVatCents(meta);
+    const nativePriceExVatCents = getNativeCalculatedPriceExVatCents({
+      productCards: mappedImport.productCards,
+      catalogProducts: catalog.products,
+      catalogSpecialOptions: catalog.specialOptions,
+      drivingDistance,
     });
 
     const resolvedServiceQueues = buildResolvedServiceQueues(
@@ -1205,6 +1411,7 @@ export async function POST(req: NextRequest) {
               customerComments,
               floorNo,
               lift,
+              drivingDistance,
               cashierName,
               cashierPhone,
               deliveryDate,
@@ -1213,6 +1420,10 @@ export async function POST(req: NextRequest) {
               productsSummary,
               deliveryTypeSummary,
               servicesSummary,
+              priceExVat:
+                typeof wordpressPriceExVatCents === "number"
+                  ? Math.round(wordpressPriceExVatCents / 100)
+                  : Math.round(nativePriceExVatCents / 100),
               productCardsSnapshot:
                 mappedImport.productCards.length > 0
                   ? (mappedImport.productCards as unknown as Prisma.InputJsonValue)
@@ -1236,6 +1447,13 @@ export async function POST(req: NextRequest) {
               data: importedItems.map((item) => toCreateManyItem(updated.id, item)),
             });
           }
+
+          await syncWordpressPriceMismatchNotification(tx, {
+            orderId: updated.id,
+            companyId,
+            wordpressPriceExVatCents,
+            nativePriceExVatCents,
+          });
 
           return updated;
         })
@@ -1277,6 +1495,7 @@ export async function POST(req: NextRequest) {
               customerComments,
               floorNo,
               lift,
+              drivingDistance,
               cashierName,
               cashierPhone,
               deliveryDate,
@@ -1285,6 +1504,10 @@ export async function POST(req: NextRequest) {
               productsSummary,
               deliveryTypeSummary,
               servicesSummary,
+              priceExVat:
+                typeof wordpressPriceExVatCents === "number"
+                  ? Math.round(wordpressPriceExVatCents / 100)
+                  : Math.round(nativePriceExVatCents / 100),
               productCardsSnapshot:
                 mappedImport.productCards.length > 0
                   ? (mappedImport.productCards as unknown as Prisma.InputJsonValue)
@@ -1304,6 +1527,13 @@ export async function POST(req: NextRequest) {
               data: importedItems.map((item) => toCreateManyItem(created.id, item)),
             });
           }
+
+          await syncWordpressPriceMismatchNotification(tx, {
+            orderId: created.id,
+            companyId,
+            wordpressPriceExVatCents,
+            nativePriceExVatCents,
+          });
 
           await tx.companyOrderCounter.update({
             where: { companyId },

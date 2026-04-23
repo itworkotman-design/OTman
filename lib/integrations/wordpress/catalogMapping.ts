@@ -10,6 +10,7 @@ import type { DeliveryType } from "@/lib/booking/pricing/types";
 import {
   WORDPRESS_DELIVERY_TYPE_ALIASES,
   WORDPRESS_PRODUCT_MAPPINGS,
+  WORDPRESS_SERVICE_CODE_ALIASES,
   WORDPRESS_SPECIAL_SERVICE_ALIASES,
   type WordpressProductMapping,
 } from "@/lib/integrations/wordpress/catalogMappingConfig";
@@ -35,6 +36,7 @@ export type ResolvedWordpressService = WordpressParsedService & {
   optionId: string | null;
   optionCode: string;
   optionLabel: string | null;
+  customSectionId?: string | null;
   customerPriceCents: number | null;
   subcontractorPriceCents: number | null;
 };
@@ -82,6 +84,47 @@ function matchesAlias(
   if (!normalizedValue) return false;
 
   return aliases.some((alias) => normalizeKey(alias) === normalizedValue);
+}
+
+function matchesOptionCode(
+  candidateCode: string | null | undefined,
+  expectedCode: string | null | undefined,
+): boolean {
+  const normalizedCandidateCode = normalizeKey(candidateCode);
+  const normalizedExpectedCode = normalizeKey(expectedCode);
+
+  if (!normalizedCandidateCode || !normalizedExpectedCode) {
+    return false;
+  }
+
+  return normalizedCandidateCode === normalizedExpectedCode;
+}
+
+function getOptionCodeCandidates(
+  optionCode: string | null | undefined,
+): string[] {
+  const normalizedCode = normalizeKey(optionCode);
+  if (!normalizedCode) {
+    return [];
+  }
+
+  const directCode = typeof optionCode === "string" ? optionCode.trim() : "";
+  const configuredAliases = Object.entries(WORDPRESS_SERVICE_CODE_ALIASES).find(
+    ([aliasCode]) => matchesOptionCode(aliasCode, directCode),
+  )?.[1] ?? [];
+
+  const seenCodes = new Set<string>();
+  const codes = [directCode, ...configuredAliases].filter((candidate) => {
+    const normalizedCandidate = normalizeKey(candidate);
+    if (!normalizedCandidate || seenCodes.has(normalizedCandidate)) {
+      return false;
+    }
+
+    seenCodes.add(normalizedCandidate);
+    return true;
+  });
+
+  return codes;
 }
 
 function decimalStringToCents(value: string | null | undefined): number | null {
@@ -144,22 +187,65 @@ function findProductOption(
   product: CatalogProduct,
   optionCode: string,
 ): CatalogOption | null {
-  return (
-    product.options.find(
-      (option) => normalizeKey(option.code) === normalizeKey(optionCode),
-    ) ?? null
-  );
+  const candidateCodes = getOptionCodeCandidates(optionCode);
+
+  for (const candidateCode of candidateCodes) {
+    const option =
+      product.options.find((productOption) =>
+        matchesOptionCode(productOption.code, candidateCode),
+      ) ?? null;
+
+    if (option) {
+      return option;
+    }
+  }
+
+  return null;
 }
 
 function findSpecialOption(
   catalogSpecialOptions: CatalogSpecialOption[],
   optionCode: string,
 ): CatalogSpecialOption | null {
-  return (
-    catalogSpecialOptions.find(
-      (option) => normalizeKey(option.code) === normalizeKey(optionCode),
-    ) ?? null
-  );
+  const candidateCodes = getOptionCodeCandidates(optionCode);
+
+  for (const candidateCode of candidateCodes) {
+    const option =
+      catalogSpecialOptions.find((specialOption) =>
+        matchesOptionCode(specialOption.code, candidateCode),
+      ) ?? null;
+
+    if (option) {
+      return option;
+    }
+  }
+
+  return null;
+}
+
+function findCustomSectionOption(
+  product: CatalogProduct,
+  optionCode: string,
+): { sectionId: string; option: CatalogProduct["customSections"][number]["options"][number] } | null {
+  const candidateCodes = getOptionCodeCandidates(optionCode);
+
+  for (const candidateCode of candidateCodes) {
+    for (const section of product.customSections) {
+      const option =
+        section.options.find((candidate) =>
+          matchesOptionCode(candidate.code, candidateCode),
+        ) ?? null;
+
+      if (option) {
+        return {
+          sectionId: section.id,
+          option,
+        };
+      }
+    }
+  }
+
+  return null;
 }
 
 function resolveInstallAlias(
@@ -190,6 +276,7 @@ function buildResolvedService(params: {
   optionId: string | null;
   optionCode: string;
   optionLabel: string | null;
+  customSectionId?: string | null;
   customerPrice: string | null | undefined;
   subcontractorPrice: string | null | undefined;
 }): ResolvedWordpressService {
@@ -199,6 +286,7 @@ function buildResolvedService(params: {
     optionId,
     optionCode,
     optionLabel,
+    customSectionId,
     customerPrice,
     subcontractorPrice,
   } = params;
@@ -209,6 +297,7 @@ function buildResolvedService(params: {
     optionId,
     optionCode,
     optionLabel,
+    customSectionId: customSectionId ?? null,
     customerPriceCents: decimalStringToCents(customerPrice),
     subcontractorPriceCents: decimalStringToCents(subcontractorPrice),
   };
@@ -252,6 +341,20 @@ function resolveService(
         optionLabel: productOption.label,
         customerPrice: productOption.customerPrice,
         subcontractorPrice: productOption.subcontractorPrice,
+      });
+    }
+
+    const customSectionOption = findCustomSectionOption(product, service.code);
+    if (customSectionOption) {
+      return buildResolvedService({
+        service,
+        resolvedItemType: "EXTRA_OPTION",
+        optionId: customSectionOption.option.id,
+        optionCode: customSectionOption.option.code,
+        optionLabel: customSectionOption.option.label,
+        customSectionId: customSectionOption.sectionId,
+        customerPrice: customSectionOption.option.price,
+        subcontractorPrice: "0",
       });
     }
 
@@ -383,7 +486,13 @@ export function mapWordpressImportToProductCards(params: {
       );
     }
 
-    const inferredDeliveryType = resolveDeliveryType(parsedProduct.deliveryType);
+    const inferredDeliveryType =
+      resolveDeliveryType(parsedProduct.deliveryType) ||
+      (productServices.some((service) => service.itemType === "INSTALL_OPTION")
+        ? "INSTALL_ONLY"
+        : productServices.some((service) => service.itemType === "RETURN_OPTION")
+          ? "RETURN_ONLY"
+          : "");
 
     if (product.allowDeliveryTypes) {
       card.deliveryType = inferredDeliveryType;
@@ -427,6 +536,30 @@ export function mapWordpressImportToProductCards(params: {
         }
 
         card.selectedReturnOptionId = resolvedService.optionId;
+        resolvedServices.push(resolvedService);
+        continue;
+      }
+
+      if (resolvedService.customSectionId) {
+        if (!resolvedService.optionId) {
+          unresolvedServices.push(service);
+          continue;
+        }
+
+        const existingSelection =
+          card.customSectionSelections.find(
+            (selection) => selection.sectionId === resolvedService.customSectionId,
+          ) ?? null;
+
+        if (existingSelection) {
+          pushUnique(existingSelection.optionIds, resolvedService.optionId);
+        } else {
+          card.customSectionSelections.push({
+            sectionId: resolvedService.customSectionId,
+            optionIds: [resolvedService.optionId],
+          });
+        }
+
         resolvedServices.push(resolvedService);
         continue;
       }

@@ -10,7 +10,10 @@ import {
   sanitizeVisibleBookingArchiveColumns,
   type BookingArchiveColumnId,
 } from "@/lib/booking/archiveColumns";
-import { getOrderStatusStyle } from "@/lib/orders/statusPresentation";
+import {
+  getOrderStatusLabel,
+  getOrderStatusStyle,
+} from "@/lib/orders/statusPresentation";
 
 type BookingArchiveTableProps = {
   orders: OrderRow[];
@@ -84,14 +87,15 @@ function formatMoney(value: number | null | undefined) {
 }
 
 function formatStatusCell(value: string | null | undefined) {
-  const cell = formatCell(value);
+  const cell = formatCell(getOrderStatusLabel(value));
   if (cell === "-") return cell;
+  const normalizedStatus = getOrderStatusLabel(value);
 
   return (
     <span
       className="inline-block rounded px-2 py-0.5 text-xs font-semibold"
       style={getOrderStatusStyle(value)}
-      title={value ?? ""}
+      title={normalizedStatus}
     >
       {cell}
     </span>
@@ -236,9 +240,9 @@ export default function BookingArchiveTable({
                     Time window
                   </th>
                 ) : null}
-                {isColumnVisible("customerLabel") ? (
+                {isColumnVisible("createdBy") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Customer
+                    Store
                   </th>
                 ) : null}
                 {isColumnVisible("orderNumber") ? (
@@ -246,7 +250,7 @@ export default function BookingArchiveTable({
                     Order no.
                   </th>
                 ) : null}
-                {isColumnVisible("customerName") ? (
+                {isColumnVisible("customerLabel") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
                     Customer name
                   </th>
@@ -353,7 +357,7 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("customerName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Customer
+                    Customer name
                   </th>
                 ) : null}
                 {isColumnVisible("orderNumber") ? (
@@ -408,7 +412,7 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("createdBy") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Created by
+                    Store
                   </th>
                 ) : null}
                 {isColumnVisible("createdAt") ? (
@@ -589,9 +593,9 @@ export default function BookingArchiveTable({
                       <Cell>{formatCell(order.timeWindow)}</Cell>
                     </td>
                   ) : null}
-                  {isColumnVisible("customerLabel") ? (
+                  {isColumnVisible("createdBy") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatCell(order.customerLabel)}</Cell>
+                      <Cell>{formatCell(order.createdBy)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("orderNumber") ? (
@@ -599,7 +603,7 @@ export default function BookingArchiveTable({
                       <Cell>{formatCell(order.orderNumber)}</Cell>
                     </td>
                   ) : null}
-                  {isColumnVisible("customerName") ? (
+                  {isColumnVisible("customerLabel") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                       <Cell>{formatCell(order.customerName)}</Cell>
                     </td>

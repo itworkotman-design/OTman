@@ -50,6 +50,7 @@ import {
   buildOrderSummaryGroups,
   formatOrderSummaryText,
 } from "@/lib/orders/orderSummary";
+import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import type { AppPermission } from "@/lib/users/types";
 
 function parsePositiveInt(value: string | null, fallback: number) {
@@ -57,6 +58,16 @@ function parsePositiveInt(value: string | null, fallback: number) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(1, Math.floor(n));
+}
+
+function getMembershipUserLabel(user: {
+  username: string | null;
+  email: string;
+} | null | undefined): string {
+  if (!user) return "";
+  const username = user.username?.trim();
+  if (username) return username;
+  return user.email.trim();
 }
 
 async function reserveNextOrderNumber(companyId: string): Promise<number> {
@@ -675,7 +686,15 @@ export async function GET(req: Request) {
   }
 
   if (status) {
-    where.status = status;
+    const normalizedStatus = normalizeOrderStatus(status);
+
+    if (normalizedStatus === "failed") {
+      where.status = {
+        in: ["failed", "fail"],
+      };
+    } else {
+      where.status = normalizedStatus;
+    }
   }
 
   if (isAdminOrOwner && customerMembershipId) {
@@ -828,6 +847,7 @@ export async function GET(req: Request) {
       createdByMembershipId: true,
       lastEditedByMembershipId: true,
       customerMembershipId: true,
+      legacyWordpressAuthorId: true,
       createdByMembership: {
         select: {
           user: {
@@ -851,6 +871,53 @@ export async function GET(req: Request) {
     },
   });
 
+  const legacyAuthorIds = Array.from(
+    new Set(
+      orders
+        .map((order) => order.legacyWordpressAuthorId)
+        .filter((legacyWordpressAuthorId): legacyWordpressAuthorId is number =>
+          typeof legacyWordpressAuthorId === "number",
+        ),
+    ),
+  );
+
+  const legacyCreatorMemberships =
+    legacyAuthorIds.length > 0
+      ? await prisma.membership.findMany({
+          where: {
+            companyId: session.activeCompanyId,
+            legacyWordpressUserId: {
+              in: legacyAuthorIds,
+            },
+            status: "ACTIVE",
+          },
+          select: {
+            legacyWordpressUserId: true,
+            user: {
+              select: {
+                username: true,
+                email: true,
+              },
+            },
+          },
+        })
+      : [];
+
+  const legacyCreatorLabels = new Map(
+    legacyCreatorMemberships
+      .filter(
+        (
+          legacyCreatorMembership,
+        ): legacyCreatorMembership is typeof legacyCreatorMembership & {
+          legacyWordpressUserId: number;
+        } => typeof legacyCreatorMembership.legacyWordpressUserId === "number",
+      )
+      .map((legacyCreatorMembership) => [
+        legacyCreatorMembership.legacyWordpressUserId,
+        getMembershipUserLabel(legacyCreatorMembership.user),
+      ]),
+  );
+
   return NextResponse.json({
     ok: true,
     orders: orders.map((order) => {
@@ -867,7 +934,7 @@ export async function GET(req: Request) {
       return {
         id: order.id,
         displayId: order.displayId ?? 0,
-        status: order.status ?? "",
+        status: normalizeOrderStatus(order.status),
         statusNotes: order.statusNotes ?? "",
         deliveryDate: order.deliveryDate ?? "",
         timeWindow: order.timeWindow ?? "",
@@ -911,13 +978,10 @@ export async function GET(req: Request) {
         lastEditedByMembershipId: order.lastEditedByMembershipId ?? "",
         customerMembershipId: order.customerMembershipId ?? "",
         createdBy:
-          order.createdByMembership.user.username ||
-          order.createdByMembership.user.email ||
-          "",
-        lastEditedBy:
-          order.lastEditedByMembership?.user.username ||
-          order.lastEditedByMembership?.user.email ||
-          "",
+          (typeof order.legacyWordpressAuthorId === "number"
+            ? legacyCreatorLabels.get(order.legacyWordpressAuthorId)
+            : undefined) ?? getMembershipUserLabel(order.createdByMembership.user),
+        lastEditedBy: getMembershipUserLabel(order.lastEditedByMembership?.user),
       };
     }),
     page,

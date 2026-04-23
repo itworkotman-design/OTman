@@ -35,4 +35,14 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
       ]),
     ).toEqual(["displayId", "orderSummary", "description"]);
   });
+
+  it("migrates the legacy admin customer-name column to the creator column", () => {
+    expect(
+      sanitizeVisibleBookingArchiveColumns("ADMIN", [
+        "displayId",
+        "customerName",
+        "description",
+      ]),
+    ).toEqual(["displayId", "createdBy", "orderSummary", "description"]);
+  });
 });

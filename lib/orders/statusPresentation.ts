@@ -1,5 +1,34 @@
-export function getOrderStatusStyle(status: string | null | undefined) {
+export function normalizeOrderStatus(status: string | null | undefined) {
   const key = (status ?? "").toString().trim().toLowerCase();
+
+  switch (key) {
+    case "behandles":
+    case "behandling":
+      return "processing";
+    case "bekreftet":
+      return "confirmed";
+    case "aktiv":
+      return "active";
+    case "kanselert":
+    case "avbrutt":
+      return "cancelled";
+    case "fail":
+    case "feilet":
+      return "failed";
+    case "ferdig":
+      return "completed";
+    case "fakturet":
+    case "fakturert":
+      return "invoiced";
+    case "betalt":
+      return "paid";
+    default:
+      return key;
+  }
+}
+
+export function getOrderStatusStyle(status: string | null | undefined) {
+  const key = normalizeOrderStatus(status);
 
   switch (key) {
     case "processing":
@@ -31,6 +60,6 @@ export function getOrderStatusStyle(status: string | null | undefined) {
 }
 
 export function getOrderStatusLabel(status: string | null | undefined) {
-  const value = (status ?? "").trim();
+  const value = normalizeOrderStatus(status);
   return value || "unknown";
 }

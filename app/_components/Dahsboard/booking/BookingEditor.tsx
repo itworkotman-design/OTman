@@ -302,6 +302,7 @@ function normalizeInitialStatus(value: string | null | undefined) {
     case "canceled":
     case "avbrutt":
       return "cancelled";
+    case "fail":
     case "failed":
     case "feilet":
       return "failed";

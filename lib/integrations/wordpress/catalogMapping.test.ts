@@ -134,6 +134,64 @@ const products: CatalogProduct[] = [
       },
     ],
   },
+  {
+    id: "product-4",
+    code: "PRODUCT-4",
+    label: "Side by side",
+    active: true,
+    productType: "PHYSICAL",
+    allowDeliveryTypes: true,
+    allowInstallOptions: true,
+    allowReturnOptions: false,
+    allowExtraServices: false,
+    allowDemont: false,
+    allowQuantity: true,
+    allowPeopleCount: false,
+    allowHoursInput: false,
+    allowModelNumber: false,
+    autoXtraPerPallet: false,
+    deliveryTypes: [],
+    customSections: [
+      {
+        id: "custom-return-section",
+        title: "Return services",
+        usePrices: true,
+        allowMultiple: false,
+        options: [
+          {
+            id: "custom-return-option",
+            code: "SBSRETURN",
+            label: "Hardcoded return",
+            price: "499",
+          },
+        ],
+      },
+    ],
+    options: [
+      {
+        id: "install-sbs-1",
+        code: "INSSBS1",
+        label: "Install side by side",
+        description: null,
+        category: "install",
+        customerPrice: "0",
+        subcontractorPrice: "0",
+        effectiveCustomerPrice: "0",
+        active: true,
+      },
+      {
+        id: "install-sbs-2",
+        code: "INSSBS2",
+        label: "Install side by side with water connection",
+        description: null,
+        category: "install",
+        customerPrice: "0",
+        subcontractorPrice: "0",
+        effectiveCustomerPrice: "0",
+        active: true,
+      },
+    ],
+  },
 ];
 
 const specialOptions: CatalogSpecialOption[] = [
@@ -351,7 +409,7 @@ describe("mapWordpressImportToProductCards", () => {
     ]);
   });
 
-  it("keeps delivery type blank when wordpress only selected install and return services", () => {
+  it("infers delivery type from wordpress install and return services when the product row has no explicit delivery type", () => {
     const result = mapWordpressImportToProductCards({
       parsedProducts: [
         {
@@ -386,9 +444,88 @@ describe("mapWordpressImportToProductCards", () => {
     expect(result.productCards).toEqual([
       expect.objectContaining({
         cardId: 4,
-        deliveryType: "",
+        deliveryType: "INSTALL_ONLY",
         selectedInstallOptionIds: ["install-1"],
         selectedReturnOptionId: "return-store",
+      }),
+    ]);
+  });
+
+  it("matches side-by-side install codes directly and resolves hardcoded side-by-side return codes through the code checker", () => {
+    const result = mapWordpressImportToProductCards({
+      parsedProducts: [
+        {
+          cardId: 5,
+          productName: "Side by side",
+          quantity: 1,
+          deliveryType: "Side by side",
+        },
+      ],
+      parsedServices: [
+        {
+          cardId: 5,
+          productName: "Side by side",
+          quantity: 1,
+          itemType: "INSTALL_OPTION",
+          label: "Montering av SBS uten vanntilkobling",
+          code: "INSSBS1",
+        },
+        {
+          cardId: 5,
+          productName: "Side by side",
+          quantity: 1,
+          itemType: "INSTALL_OPTION",
+          label: "Montering av SBS til godkjent vanntilkobling",
+          code: "INSSBS2",
+        },
+        {
+          cardId: 5,
+          productName: "Side by side",
+          quantity: 1,
+          itemType: "RETURN_OPTION",
+          label: "Retur av SBS til butikk",
+          code: "RETURNSBSSTORE",
+        },
+      ],
+      catalogProducts: products,
+      catalogSpecialOptions: specialOptions,
+    });
+
+    expect(result.unresolvedProducts).toEqual([]);
+    expect(result.unresolvedServices).toEqual([]);
+    expect(result.productCards).toEqual([
+      expect.objectContaining({
+        cardId: 5,
+        productId: "product-4",
+        deliveryType: "FIRST_STEP",
+        selectedInstallOptionIds: ["install-sbs-1", "install-sbs-2"],
+        customSectionSelections: [
+          {
+            sectionId: "custom-return-section",
+            optionIds: ["custom-return-option"],
+          },
+        ],
+      }),
+    ]);
+    expect(result.resolvedServices).toEqual([
+      expect.objectContaining({
+        cardId: 5,
+        resolvedItemType: "INSTALL_OPTION",
+        optionCode: "INSSBS1",
+        optionId: "install-sbs-1",
+      }),
+      expect.objectContaining({
+        cardId: 5,
+        resolvedItemType: "INSTALL_OPTION",
+        optionCode: "INSSBS2",
+        optionId: "install-sbs-2",
+      }),
+      expect.objectContaining({
+        cardId: 5,
+        resolvedItemType: "EXTRA_OPTION",
+        optionCode: "SBSRETURN",
+        optionId: "custom-return-option",
+        customSectionId: "custom-return-section",
       }),
     ]);
   });

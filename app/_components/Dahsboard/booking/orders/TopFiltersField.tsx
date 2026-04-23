@@ -154,7 +154,7 @@ export default function TopFilters({
               <option value="confirmed">Confirmed</option>
               <option value="active">Active</option>
               <option value="cancelled">Cancelled</option>
-              <option value="failed">Fail</option>
+              <option value="failed">Failed</option>
               <option value="completed">Completed</option>
               <option value="invoiced">Invoiced</option>
               <option value="paid">Paid</option>

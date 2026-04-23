@@ -2,7 +2,7 @@ import type { BookingArchiveFilters } from "@/app/_components/Dahsboard/booking/
 
 export const DEFAULT_BOOKING_ARCHIVE_FILTERS: BookingArchiveFilters = {
   status: "",
-  customerMembershipId: "",
+  createdById: "",
   subcontractorId: "",
   fromDate: "",
   toDate: "",

@@ -14,9 +14,9 @@ import {
 type Props = {
   initialApplied: BookingArchiveFilters;
   access: {
-    canFilterCustomer: boolean;
+    canFilterCreatedBy: boolean;
     canFilterSubcontractor: boolean;
-    lockedCustomerMembershipId?: string;
+    lockedCreatedById?: string;
     lockedSubcontractorId?: string;
   };
   subcontractors: BookingArchiveOption[];
@@ -144,8 +144,8 @@ export default function BookingFilters({
   onReset,
 }: Props) {
   const [status, setStatus] = useState(initialApplied.status);
-  const [customerMembershipId, setCustomerMembershipId] = useState(
-    access.lockedCustomerMembershipId ?? initialApplied.customerMembershipId,
+  const [createdById, setCreatedById] = useState(
+    access.lockedCreatedById ?? initialApplied.createdById,
   );
   const [subcontractorId, setSubcontractorId] = useState(
     access.lockedSubcontractorId ?? initialApplied.subcontractorId,
@@ -178,8 +178,7 @@ export default function BookingFilters({
   const handleApply = () => {
     onApply({
       status,
-      customerMembershipId:
-        access.lockedCustomerMembershipId ?? customerMembershipId,
+      createdById: access.lockedCreatedById ?? createdById,
       subcontractorId: access.lockedSubcontractorId ?? subcontractorId,
       fromDate,
       toDate,
@@ -191,9 +190,8 @@ export default function BookingFilters({
 
   const handleReset = () => {
     setStatus(DEFAULT_BOOKING_ARCHIVE_FILTERS.status);
-    setCustomerMembershipId(
-      access.lockedCustomerMembershipId ??
-        DEFAULT_BOOKING_ARCHIVE_FILTERS.customerMembershipId,
+    setCreatedById(
+      access.lockedCreatedById ?? DEFAULT_BOOKING_ARCHIVE_FILTERS.createdById,
     );
     setSubcontractorId(
       access.lockedSubcontractorId ??
@@ -274,25 +272,25 @@ export default function BookingFilters({
               className="customInput w-full"
             >
               <option value="">All statuses</option>
-              <option value="Processing">Processing</option>
+              <option value="processing">Processing</option>
               <option value="confirmed">Confirmed</option>
               <option value="active">Active</option>
               <option value="cancelled">Cancelled</option>
-              <option value="failed">Fail</option>
+              <option value="failed">Failed</option>
               <option value="completed">Completed</option>
               <option value="invoiced">Invoiced</option>
               <option value="paid">Paid</option>
             </select>
           </Field>
 
-          {access.canFilterCustomer && (
-            <Field label="Customer">
+          {access.canFilterCreatedBy && (
+            <Field label="Store">
               <select
-                value={customerMembershipId}
-                onChange={(e) => setCustomerMembershipId(e.target.value)}
+                value={createdById}
+                onChange={(e) => setCreatedById(e.target.value)}
                 className="customInput w-full"
               >
-                <option value="">All customers</option>
+                <option value="">All stores</option>
                 {creators.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}

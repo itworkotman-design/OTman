@@ -74,9 +74,7 @@ export default function BookingPage() {
       if (filters.subcontractorId) {
         params.set("subcontractorId", filters.subcontractorId);
       }
-      if (filters.customerMembershipId) {
-        params.set("customerMembershipId", filters.customerMembershipId);
-      }
+      if (filters.createdById) params.set("createdById", filters.createdById);
       if (filters.fromDate) params.set("fromDate", filters.fromDate);
       if (filters.toDate) params.set("toDate", filters.toDate);
       if (filters.search) params.set("search", filters.search);

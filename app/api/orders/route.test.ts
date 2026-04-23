@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   sendExtraPickupNotificationEmailMock: vi.fn(),
   createOrderNotificationMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
+  membershipFindManyMock: vi.fn(),
   orderFindManyMock: vi.fn(),
   orderCreateMock: vi.fn(),
   orderItemCreateManyMock: vi.fn(),
@@ -59,6 +60,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     membership: {
       findFirst: mocks.membershipFindFirstMock,
+      findMany: mocks.membershipFindManyMock,
     },
     order: {
       findMany: mocks.orderFindManyMock,
@@ -103,6 +105,7 @@ describe("routes in /api/orders", () => {
       products: [],
       specialOptions: [],
     });
+    mocks.membershipFindManyMock.mockResolvedValue([]);
     mocks.pendingFindManyMock.mockResolvedValue([]);
     mocks.pendingDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.orderCreateMock.mockResolvedValue({
@@ -151,7 +154,7 @@ describe("routes in /api/orders", () => {
       {
         id: "order-1",
         displayId: 20001,
-        status: "processing",
+        status: "fail",
         statusNotes: null,
         deliveryDate: "2030-01-15",
         timeWindow: "08-12",
@@ -181,6 +184,7 @@ describe("routes in /api/orders", () => {
         createdByMembershipId: "membership-1",
         lastEditedByMembershipId: null,
         customerMembershipId: "membership-1",
+        legacyWordpressAuthorId: null,
         createdByMembership: {
           user: {
             username: "creator",
@@ -193,7 +197,7 @@ describe("routes in /api/orders", () => {
 
     const res = await GET(
       new Request(
-        "http://localhost/api/orders?search=Acme&page=2&rowsPerPage=10",
+        "http://localhost/api/orders?search=Acme&status=failed&page=2&rowsPerPage=10",
       ),
     );
 
@@ -204,6 +208,7 @@ describe("routes in /api/orders", () => {
         expect.objectContaining({
           id: "order-1",
           customer: "Acme",
+          status: "failed",
           createdBy: "creator",
           lastEditedBy: "",
         }),
@@ -215,6 +220,9 @@ describe("routes in /api/orders", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           companyId: "company-1",
+          status: {
+            in: ["failed", "fail"],
+          },
           OR: [
             { customerMembershipId: "membership-1" },
             { createdByMembershipId: "membership-1" },
@@ -224,6 +232,115 @@ describe("routes in /api/orders", () => {
         take: 10,
       }),
     );
+  });
+
+  it("GET prefers the mapped legacy wordpress author for the creator label", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      companyId: "company-1",
+      role: "USER",
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        displayId: 20001,
+        status: "processing",
+        statusNotes: null,
+        deliveryDate: "2030-01-15",
+        timeWindow: "08-12",
+        customerLabel: "Acme",
+        customerName: "Alice",
+        orderNumber: "PO-1",
+        phone: "12345678",
+        email: null,
+        pickupAddress: "Pickup 1",
+        extraPickupAddress: [],
+        extraPickupContacts: null,
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        items: [],
+        productsSummary: "Van",
+        deliveryTypeSummary: "Standard",
+        servicesSummary: "Carry",
+        description: null,
+        cashierName: null,
+        cashierPhone: null,
+        customerComments: null,
+        driverInfo: null,
+        subcontractorMembershipId: null,
+        subcontractor: null,
+        driver: null,
+        createdAt: new Date("2030-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2030-01-02T00:00:00.000Z"),
+        lastInboundEmailAt: null,
+        lastOutboundEmailAt: null,
+        lastNotificationAt: null,
+        needsEmailAttention: false,
+        unreadInboundEmailCount: 0,
+        needsNotificationAttention: false,
+        unreadNotificationCount: 0,
+        priceExVat: 1000,
+        priceSubcontractor: 700,
+        createdByMembershipId: "membership-1",
+        lastEditedByMembershipId: null,
+        customerMembershipId: "membership-1",
+        legacyWordpressAuthorId: 15,
+        createdByMembership: {
+          user: {
+            username: "wrong-creator",
+            email: "wrong@example.com",
+          },
+        },
+        lastEditedByMembership: null,
+      },
+    ]);
+    mocks.membershipFindManyMock.mockResolvedValue([
+      {
+        legacyWordpressUserId: 15,
+        user: {
+          username: "legacy-creator",
+          email: "legacy@example.com",
+        },
+      },
+    ]);
+
+    const res = await GET(new Request("http://localhost/api/orders"));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      orders: [
+        expect.objectContaining({
+          id: "order-1",
+          createdBy: "legacy-creator",
+        }),
+      ],
+      page: 1,
+      rowsPerPage: 25,
+    });
+    expect(mocks.membershipFindManyMock).toHaveBeenCalledWith({
+      where: {
+        companyId: "company-1",
+        legacyWordpressUserId: {
+          in: [15],
+        },
+        status: "ACTIVE",
+      },
+      select: {
+        legacyWordpressUserId: true,
+        user: {
+          select: {
+            username: true,
+            email: true,
+          },
+        },
+      },
+    });
   });
 
   it("POST returns 400 when product cards are missing", async () => {

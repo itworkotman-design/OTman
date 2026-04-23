@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Defines the column sets, export metadata, and visibility helpers used by the booking archive across each dashboard role view.
+Defines the column sets, export metadata, and visibility helpers used by the booking archive across each dashboard role view. The admin view now labels the creator column as `Store`, keeps that store column ahead of `Customer name`, uses the order `customerName` field for the admin customer column, and visibility sanitizing migrates older saved admin layouts from `customerName` to `createdBy`.
 
 ## Functions
 
@@ -17,7 +17,7 @@ Defines the column sets, export metadata, and visibility helpers used by the boo
 | `formatMoney` | Formats archive numeric totals as `NOK` strings for export. |
 | `getBookingArchiveColumns` | Returns the configured column list for a given archive view mode. |
 | `getDefaultVisibleBookingArchiveColumns` | Returns the default visible-column order for a given view mode. |
-| `sanitizeVisibleBookingArchiveColumns` | Filters persisted column ids down to the valid ids for the current view mode. |
+| `sanitizeVisibleBookingArchiveColumns` | Filters persisted column ids down to the valid ids for the current view mode and migrates older admin `customerName` visibility to `createdBy`. |
 | `getBookingArchiveExportColumns` | Returns the currently visible columns that are exportable. |
 | `getBookingArchiveVisibilityStorageKey` | Builds the local-storage key used to persist archive column visibility. |
 

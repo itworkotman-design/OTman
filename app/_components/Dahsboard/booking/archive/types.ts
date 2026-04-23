@@ -12,7 +12,7 @@ export type BookingArchiveFilters = {
   toDate: string;
 
   subcontractorId: string;
-  customerMembershipId: string;
+  createdById: string;
 
   page: number;
   rowsPerPage: number;

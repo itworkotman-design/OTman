@@ -107,11 +107,18 @@ const adminColumns: BookingArchiveColumn[] = [
     getExportValue: (row) => formatCell(row.timeWindow),
   },
   {
+    id: "createdBy",
+    label: "Store",
+    exportHeader: "Store",
+    exportWidth: 20,
+    getExportValue: (row) => formatCell(row.createdBy),
+  },
+  {
     id: "customerLabel",
-    label: "Customer",
-    exportHeader: "Customer",
+    label: "Customer name",
+    exportHeader: "Customer name",
     exportWidth: 18,
-    getExportValue: (row) => formatCell(row.customerLabel),
+    getExportValue: (row) => formatCell(row.customerName),
   },
   {
     id: "orderNumber",
@@ -119,13 +126,6 @@ const adminColumns: BookingArchiveColumn[] = [
     exportHeader: "Order no.",
     exportWidth: 14,
     getExportValue: (row) => formatCell(row.orderNumber),
-  },
-  {
-    id: "customerName",
-    label: "Customer name",
-    exportHeader: "Customer name",
-    exportWidth: 20,
-    getExportValue: (row) => formatCell(row.customerName),
   },
   {
     id: "phone",
@@ -269,8 +269,8 @@ const subcontractorColumns: BookingArchiveColumn[] = [
   },
   {
     id: "customerName",
-    label: "Customer",
-    exportHeader: "Customer",
+    label: "Customer name",
+    exportHeader: "Customer name",
     exportWidth: 20,
     getExportValue: (row) => formatCell(row.customerName),
   },
@@ -347,8 +347,8 @@ const subcontractorColumns: BookingArchiveColumn[] = [
   },
   {
     id: "createdBy",
-    label: "Created by",
-    exportHeader: "Created by",
+    label: "Store",
+    exportHeader: "Store",
     exportWidth: 18,
     getExportValue: (row) => formatCell(row.createdBy),
   },
@@ -452,10 +452,13 @@ export function sanitizeVisibleBookingArchiveColumns(
   viewMode: BookingArchiveViewMode,
   columnIds: string[],
 ): BookingArchiveColumnId[] {
+  const normalizedColumnIds = columnIds.map((columnId) =>
+    viewMode === "ADMIN" && columnId === "customerName" ? "createdBy" : columnId,
+  );
   const defaultColumnIds = getDefaultVisibleBookingArchiveColumns(viewMode);
   const validColumnIds = new Set(defaultColumnIds);
   const sanitized = new Set(
-    columnIds.filter((columnId): columnId is BookingArchiveColumnId =>
+    normalizedColumnIds.filter((columnId): columnId is BookingArchiveColumnId =>
       validColumnIds.has(columnId as BookingArchiveColumnId),
     ),
   );
@@ -463,7 +466,7 @@ export function sanitizeVisibleBookingArchiveColumns(
   const shouldForceOrderSummary =
     viewMode === "ADMIN" || viewMode === "SUBCONTRACTOR";
 
-  const hadLegacySummaryColumn = columnIds.some((columnId) =>
+  const hadLegacySummaryColumn = normalizedColumnIds.some((columnId) =>
     LEGACY_SUMMARY_COLUMN_IDS.has(columnId),
   );
 

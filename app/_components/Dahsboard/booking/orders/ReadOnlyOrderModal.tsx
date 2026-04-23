@@ -71,8 +71,8 @@ function downloadOrderPdf(order: NonNullable<Props["order"]>) {
       <body>
         <h1>Ordredetaljer</h1>
 
-        <div class="row"><span class="label">Customer:</span> ${order.customerLabel || "-"}</div>
-        <div class="row"><span class="label">Kundens navn:</span> ${order.customerName || "-"}</div>
+        <div class="row"><span class="label">Store:</span> ${order.customerLabel || "-"}</div>
+        <div class="row"><span class="label">Customer name:</span> ${order.customerName || "-"}</div>
         <div class="row"><span class="label">Bilagsnummer:</span> ${order.orderNumber || "-"}</div>
         <div class="row"><span class="label">Leveringsdato:</span> ${order.deliveryDate || "-"}</div>
         <div class="row"><span class="label">Tidsvindu:</span> ${order.timeWindow || "-"}</div>
@@ -140,11 +140,11 @@ export default function ReadOnlyOrderModal({ open, order, onClose }: Props) {
 
         <div className="space-y-2 text-sm text-slate-800">
           <p>
-            <span className="font-semibold">Customer:</span>{" "}
+            <span className="font-semibold">Store:</span>{" "}
             {formatCell(order.customerLabel)}
           </p>
           <p>
-            <span className="font-semibold">Kundens navn:</span>{" "}
+            <span className="font-semibold">Customer name:</span>{" "}
             {formatCell(order.customerName)}
           </p>
           <p>

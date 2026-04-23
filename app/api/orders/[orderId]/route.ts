@@ -53,6 +53,7 @@ import {
   isDeliverySlotOverCapacity,
 } from "@/lib/orders/capacity";
 import { buildCapacityWarningNotification } from "@/lib/orders/notificationTemplates/capacityWarningNotification";
+import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 
 type ProductChangeValue = {
   label: string;
@@ -522,7 +523,7 @@ export async function GET(
       feeExtraWork: order.feeExtraWork,
       feeAddToOrder: order.feeAddToOrder,
       statusNotes: order.statusNotes ?? "",
-      status: order.status ?? "",
+      status: normalizeOrderStatus(order.status),
       dontSendEmail: order.dontSendEmail,
       priceExVat: order.priceExVat,
       priceSubcontractor: order.priceSubcontractor,

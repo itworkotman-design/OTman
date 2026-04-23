@@ -2,10 +2,10 @@ export type BookingArchiveAccess = {
   viewMode: "ADMIN" | "ORDER_CREATOR" | "SUBCONTRACTOR";
 
   canCreate: boolean;
-  canFilterCustomer: boolean;
+  canFilterCreatedBy: boolean;
   canFilterSubcontractor: boolean;
 
-  lockedCustomerMembershipId?: string;
+  lockedCreatedById?: string;
   lockedSubcontractorId?: string;
 };
 
@@ -20,7 +20,7 @@ export function getBookingArchiveAccess(
     return {
       viewMode: "SUBCONTRACTOR",
       canCreate: false,
-      canFilterCustomer: false,
+      canFilterCreatedBy: false,
       canFilterSubcontractor: false,
     };
   }
@@ -37,7 +37,7 @@ export function getBookingArchiveAccess(
     return {
       viewMode: "ADMIN",
       canCreate: true,
-      canFilterCustomer: true,
+      canFilterCreatedBy: true,
       canFilterSubcontractor: true,
     };
   }
@@ -47,9 +47,9 @@ export function getBookingArchiveAccess(
     return {
       viewMode: "ORDER_CREATOR",
       canCreate: true,
-      canFilterCustomer: false,
+      canFilterCreatedBy: false,
       canFilterSubcontractor: true,
-      lockedCustomerMembershipId: id,
+      lockedCreatedById: id,
     };
   }
 
@@ -57,7 +57,7 @@ export function getBookingArchiveAccess(
   return {
     viewMode: "SUBCONTRACTOR",
     canCreate: false,
-    canFilterCustomer: false,
+    canFilterCreatedBy: false,
     canFilterSubcontractor: false,
     lockedSubcontractorId: id,
   };

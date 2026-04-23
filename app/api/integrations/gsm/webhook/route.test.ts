@@ -212,4 +212,51 @@ describe("POST /api/integrations/gsm/webhook", () => {
       }),
     });
   });
+
+  it("normalizes fail webhook states to failed", async () => {
+    mocks.fetchGsmTaskMock.mockResolvedValue({
+      id: "task-1",
+      external_id: "order:order-1",
+      state: "fail",
+      metafields: {},
+    });
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "fail" }]);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "status" }]);
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({
+          task: {
+            id: "task-1",
+            external_id: "order:order-1",
+            state: "fail",
+          },
+          to_state: "fail",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
+      where: { id: "order-1" },
+      data: expect.objectContaining({
+        gsmLastTaskState: "fail",
+        status: "failed",
+      }),
+    });
+    expect(mocks.createOrderStatusChangedEventMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        orderId: "order-1",
+        fromStatus: "processing",
+        toStatus: "failed",
+      }),
+    );
+  });
 });

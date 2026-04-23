@@ -12,7 +12,7 @@ Processes GSM task webhooks, stores the raw webhook event, refreshes the full GS
 
 | Function | Description |
 | --- | --- |
-| `mapStatus` | Maps GSM task states to OTman order statuses. |
+| `mapStatus` | Maps GSM task states to OTman order statuses and normalizes both `fail` and `failed` onto the canonical `failed` key. |
 | `getRecord` | Safely narrows unknown webhook payload values into plain objects. |
 | `getTrimmedString` | Normalizes optional string values by trimming and dropping blanks. |
 | `getFirstNonEmptyString` | Returns the first usable non-empty string from several webhook or task candidates. |

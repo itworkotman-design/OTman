@@ -14,7 +14,7 @@ import {
 function mapStatus(state?: string | null) {
   const value = (state ?? "").toLowerCase();
 
-  if (value === "failed") return "fail";
+  if (value === "failed" || value === "fail") return "failed";
   if (value === "cancelled" || value === "canceled") return "cancelled";
   if (
     value === "active" ||

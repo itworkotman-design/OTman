@@ -7,7 +7,7 @@ import type { BookingArchiveOption } from "./types";
 type EmailType = "prepare_orders" | "confirmed_delivery" | "custom" | "";
 
 type Props = {
-  customers: (BookingArchiveOption & { email?: string | null })[];
+  creators: (BookingArchiveOption & { email?: string | null })[];
   selectedCount: number;
   onSendEmail: (payload: {
     to: string;
@@ -26,7 +26,7 @@ type Props = {
 };
 
 export default function SelectionActionBar({
-  customers,
+  creators,
   selectedCount,
   onSendEmail,
   onSendGsm,
@@ -38,7 +38,7 @@ export default function SelectionActionBar({
   loading = false,
   error = "",
 }: Props) {
-  const [customerMembershipId, setCustomerMembershipId] = useState("");
+  const [creatorId, setCreatorId] = useState("");
   const [emailType, setEmailType] = useState<EmailType>("");
   const [customMessage, setCustomMessage] = useState("");
   const [successFlash, setSuccessFlash] = useState(false);
@@ -46,9 +46,9 @@ export default function SelectionActionBar({
 
   const disabled = selectedCount === 0 || loading;
 
-  const selectedCustomer = useMemo(
-    () => customers.find((item) => item.id === customerMembershipId),
-    [customers, customerMembershipId],
+  const selectedCreator = useMemo(
+    () => creators.find((item) => item.id === creatorId),
+    [creators, creatorId],
   );
 
   const subject = useMemo(() => {
@@ -69,7 +69,7 @@ export default function SelectionActionBar({
       case "prepare_orders":
         return "Hei,\n\nSe valgte bestillinger nedenfor.";
       case "confirmed_delivery":
-        return "Hei,\n\nFølgende bestillinger er bekreftet for levering.";
+        return "Hei,\n\nFÃ¸lgende bestillinger er bekreftet for levering.";
       case "custom":
         return customMessage.trim();
       default:
@@ -78,7 +78,7 @@ export default function SelectionActionBar({
   }, [emailType, customMessage]);
 
   const canSendEmail =
-    !!selectedCustomer?.email &&
+    !!selectedCreator?.email &&
     !!emailType &&
     (emailType !== "custom" || !!customMessage.trim());
 
@@ -103,13 +103,13 @@ export default function SelectionActionBar({
   }, [gsmSuccessFlash]);
 
   async function handleSendEmailClick() {
-    if (!canSendEmail || disabled || !selectedCustomer?.email) return;
+    if (!canSendEmail || disabled || !selectedCreator?.email) return;
 
     const ok = await onSendEmail({
-      to: selectedCustomer.email,
+      to: selectedCreator.email,
       subject,
       message: message || undefined,
-      recipientName: selectedCustomer.label,
+      recipientName: selectedCreator.label,
     });
 
     if (!ok) return;
@@ -133,16 +133,16 @@ export default function SelectionActionBar({
       <div className="grid items-start gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
         <div>
           <label className="mb-1 block text-xs font-medium text-textColorThird">
-            Customer
+            Creator
           </label>
           <select
-            value={customerMembershipId}
-            onChange={(e) => setCustomerMembershipId(e.target.value)}
+            value={creatorId}
+            onChange={(e) => setCreatorId(e.target.value)}
             className="customInput w-full"
             disabled={loading}
           >
-            <option value="">Select customer…</option>
-            {customers.map((item) => (
+            <option value="">Select creator...</option>
+            {creators.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.label}
               </option>
@@ -160,7 +160,7 @@ export default function SelectionActionBar({
             className="customInput w-full"
             disabled={loading}
           >
-            <option value="">Select type…</option>
+            <option value="">Select type...</option>
             <option value="prepare_orders">Forbered bestillinger</option>
             <option value="confirmed_delivery">Bekreftet for levering</option>
             <option value="custom">Custom</option>

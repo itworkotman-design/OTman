@@ -386,3 +386,8 @@ export const WORDPRESS_SPECIAL_SERVICE_ALIASES: Record<string, string[]> = {
     "return recycling",
   ],
 };
+
+export const WORDPRESS_SERVICE_CODE_ALIASES: Record<string, string[]> = {
+  RETURNSBSSTORE: ["RETURNSBSSTORE", "RETURNSTORE", "SBSRETURN"],
+  RETURNSBS: ["RETURNSBS", "RETURNREC"],
+};

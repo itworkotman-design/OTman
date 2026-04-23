@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { hasFullAccess, isOrderCreatorAccess } from "@/lib/users/access";
+import {
+  hasFullAccess,
+  isOrderCreatorAccess,
+  isSubcontractorAccess,
+} from "@/lib/users/access";
 import type { AppPermission, Role } from "@/lib/users/types";
+
+function getMembershipName(user: {
+  email: string;
+  username: string | null;
+}) {
+  return user.username?.trim() || user.email;
+}
 
 export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -24,14 +35,11 @@ export async function GET(req: Request) {
   const memberships = await prisma.membership.findMany({
     where: {
       companyId: session.activeCompanyId,
-      status: "ACTIVE",
-      user: {
-        status: "ACTIVE",
-      },
     },
     select: {
       id: true,
       role: true,
+      legacyWordpressUserId: true,
       user: {
         select: {
           email: true,
@@ -56,12 +64,17 @@ export async function GET(req: Request) {
         (p) => p.permission,
       ) as AppPermission[];
 
+      if (isSubcontractorAccess(permissions)) {
+        return false;
+      }
+
       if (hasFullAccess(membership.role as Role)) return true;
-      return isOrderCreatorAccess(permissions);
+      if (isOrderCreatorAccess(permissions)) return true;
+      return true;
     })
     .map((membership) => ({
       id: membership.id,
-      name: membership.user.username?.trim() || membership.user.email,
+      name: getMembershipName(membership.user),
       email: membership.user.email,
       address: membership.user.address?.trim() || "",
     }))
