@@ -105,6 +105,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
     mocks.calculateBookingPricingMock.mockReturnValue({
       totals: {
         totalExVat: 0,
+        subcontractorTotal: 0,
       },
     });
     mocks.createOrderNotificationMock.mockResolvedValue({
@@ -285,6 +286,11 @@ describe("POST /api/integrations/wordpress/orders", () => {
             etasje_nr: "4",
             kasserers_navn: "Cashier WP",
             kasserers_telefon: "90 12 34 56",
+            field_684c3ad580b60: ["Express"],
+            field_68248234acd3e: [
+              { field_68248274acd3f: "Pickup 2" },
+              { pickup: "Pickup 3" },
+            ],
             extra_products_0_velg_produkt: "Washer",
             extra_products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
             extra_products_0_antall_produkter: "2",
@@ -340,6 +346,22 @@ describe("POST /api/integrations/wordpress/orders", () => {
         cashierPhone: "90 12 34 56",
         deliveryDate: "2026-04-25",
         timeWindow: "10:00-16:00",
+        expressDelivery: true,
+        extraPickupAddress: ["Pickup 2", "Pickup 3"],
+        extraPickupContacts: [
+          {
+            address: "Pickup 2",
+            phone: "",
+            email: "",
+            sendEmail: true,
+          },
+          {
+            address: "Pickup 3",
+            phone: "",
+            email: "",
+            sendEmail: true,
+          },
+        ],
         status: "failed",
         productCardsSnapshot: expect.any(Array),
         deliveryTypeSummary: "Indoor carry",
@@ -638,10 +660,382 @@ describe("POST /api/integrations/wordpress/orders", () => {
     });
   });
 
+  it("imports admin price adjustments into native totals and persisted fields", async () => {
+    mocks.calculateBookingPricingMock.mockReturnValue({
+      totals: {
+        totalExVat: 12.5,
+        subcontractorTotal: 7.5,
+      },
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 9996,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Processing",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-9996",
+            kundens_navn: "WordPress Customer",
+            pickup_address: "Pickup 1",
+            delivery_address: "Delivery 1",
+            leveringsdato: "2026-04-25",
+            field_686e217030aaa: "100 NOK",
+            field_689db2aa4db4a: "50 NOK",
+            field_6889f3e2ca127: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-summary">
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label"><strong>Minus</strong></span>
+                    <span class="price-breakdown-price">- 20 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label"><strong>Ekstra</strong></span>
+                    <span class="price-breakdown-price">+ 30 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label"><strong>Total</strong></span>
+                    <span class="price-breakdown-price">750 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+            products_0_velg_produkt: "Washer",
+            products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
+            products_0_antall_produkter: "1",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.calculateBookingPricingMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adjustments: {
+          rabatt: "100",
+          leggTil: "50",
+          subcontractorMinus: "20",
+          subcontractorPlus: "30",
+        },
+      }),
+    );
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        rabatt: "100",
+        leggTil: "50",
+        subcontractorMinus: "20",
+        subcontractorPlus: "30",
+        priceExVat: 13,
+        priceSubcontractor: 8,
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+  });
+
+  it("imports checkbox-style express and return selections when legacy meta stores truthy values instead of labels", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 9997,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Processing",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-9997",
+            kundens_navn: "WordPress Customer",
+            pickup_address: "Pickup 1",
+            delivery_address: "Delivery 1",
+            leveringsdato: "2026-04-25",
+            field_684c3ad580b60: 1,
+            extra_products_0_velg_produkt: "Washer",
+            extra_products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            extra_products_0_field_682206a2252d2: 1,
+            extra_products_0_montering_vaskemaskin: "1",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        expressDelivery: true,
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+    expect(mocks.mapWordpressImportToProductCardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedServices: expect.arrayContaining([
+          expect.objectContaining({
+            itemType: "RETURN_OPTION",
+            label: "Retur til butikk",
+            code: "RETURNSTORE",
+          }),
+          expect.objectContaining({
+            itemType: "INSTALL_OPTION",
+            label: "Montering",
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it("imports discount values when wordpress stores them as arrays", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 9998,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Processing",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-9998",
+            kundens_navn: "WordPress Customer",
+            pickup_address: "Pickup 1",
+            delivery_address: "Delivery 1",
+            leveringsdato: "2026-04-25",
+            field_686e217030aaa: ["1780"],
+            field_689db2aa4db4a: ["300"],
+            extra_products_0_velg_produkt: "Washer",
+            extra_products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
+            extra_products_0_antall_produkter: "1",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.calculateBookingPricingMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adjustments: expect.objectContaining({
+          rabatt: "1780",
+          leggTil: "300",
+        }),
+      }),
+    );
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        rabatt: "1780",
+        leggTil: "300",
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+  });
+
+  it("imports manual discount, express, and return selection from the real wordpress payload shape", async () => {
+    mocks.mapWordpressImportToProductCardsMock.mockReturnValueOnce({
+      productCards: [
+        {
+          cardId: 1,
+          productId: "product-1",
+          modelNumber: "",
+          deliveryType: "INDOOR",
+          amount: 1,
+          peopleCount: 1,
+          hoursInput: 1,
+          selectedInstallOptionIds: [],
+          selectedExtraOptionIds: [],
+          selectedReturnOptionId: null,
+          demontEnabled: false,
+          selectedTimeOptionIds: [],
+          extraTimeHours: 0.5,
+          extraPalletEnabled: false,
+          extraPalletQty: 1,
+          etterEnabled: false,
+          etterQty: 1,
+          customSectionSelections: [],
+        },
+      ],
+      resolvedServices: [
+        {
+          cardId: 1,
+          productName: "Vaskemaskin",
+          quantity: 1,
+          itemType: "RETURN_OPTION",
+          label: "Retur til butikk",
+          code: "RETURNSTORE",
+          resolvedItemType: "RETURN_OPTION",
+          optionId: "return-option-1",
+          optionCode: "RETURNSTORE",
+          optionLabel: "Return",
+          customerPriceCents: 30000,
+          subcontractorPriceCents: 20000,
+        },
+      ],
+      unresolvedProducts: [],
+      unresolvedServices: [],
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10000,
+          legacyWordpressUserId: 31,
+          createdAt: "2026-04-24 11:34:00",
+          status: "Behandles",
+          title: "TEST",
+          meta: {
+            express: ["Express"],
+            total_price: "969",
+            bestillingsnr: "TEST",
+            leveringsdato: "29.04.2026",
+            manual_discount: "500",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Vaskemaskin</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Retur til butikk (RETURNSTORE)</span>
+                    <span class="price-breakdown-price">300 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Innbæring (INDOOR)</span>
+                    <span class="price-breakdown-price">669 NOK</span>
+                  </div>
+                </div>
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>EXPRESS DELIVERY (EXPRESS)</strong></span>
+                  <span class="price-breakdown-price">500 NOK</span>
+                </div>
+                <div class="price-summary">
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label"><strong>Rabatt</strong></span>
+                    <span class="price-breakdown-price">- 500.00 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row total-highlight">
+                    <span class="price-breakdown-label"><strong>Total</strong></span>
+                    <span class="price-breakdown-price">969.00 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+            extra_products_0_velg_produkt: "Vaskemaskin",
+            extra_products_0_velg_leveringstype: "669:Innbæring:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            extra_products_0_retur: "300:Retur til butikk:RETURNSTORE",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        expressDelivery: true,
+        rabatt: "500",
+        priceExVat: 969,
+        productCardsSnapshot: expect.arrayContaining([
+          expect.objectContaining({
+            selectedReturnOptionId: "return-option-1",
+          }),
+        ]),
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+  });
+
+  it("treats express rows in the breakdown as imported express delivery even without the checkbox field", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 9999,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Processing",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-9999",
+            kundens_navn: "WordPress Customer",
+            pickup_address: "Pickup 1",
+            delivery_address: "Delivery 1",
+            leveringsdato: "2026-04-25",
+            extra_products_0_velg_produkt: "Washer",
+            extra_products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Washer</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Indoor carry (INDOOR)</span>
+                    <span class="price-breakdown-price">100 NOK</span>
+                  </div>
+                </div>
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>EXPRESS DELIVERY (EXPRESS)</strong></span>
+                  <span class="price-breakdown-price">500 NOK</span>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        expressDelivery: true,
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+  });
+
   it("creates a manual-review alert when the imported wordpress total mismatches the rebuilt native total", async () => {
     mocks.calculateBookingPricingMock.mockReturnValue({
       totals: {
         totalExVat: 25,
+        subcontractorTotal: 0,
       },
     });
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDisplayDate } from "@/lib/dateDisplay";
+
 type Props = {
   open: boolean;
   order: {
@@ -74,7 +76,7 @@ function downloadOrderPdf(order: NonNullable<Props["order"]>) {
         <div class="row"><span class="label">Store:</span> ${order.customerLabel || "-"}</div>
         <div class="row"><span class="label">Customer name:</span> ${order.customerName || "-"}</div>
         <div class="row"><span class="label">Bilagsnummer:</span> ${order.orderNumber || "-"}</div>
-        <div class="row"><span class="label">Leveringsdato:</span> ${order.deliveryDate || "-"}</div>
+        <div class="row"><span class="label">Leveringsdato:</span> ${formatDisplayDate(order.deliveryDate)}</div>
         <div class="row"><span class="label">Tidsvindu:</span> ${order.timeWindow || "-"}</div>
         <div class="row"><span class="label">Telefon:</span> ${order.phone || "-"}</div>
         <div class="row"><span class="label">Henteadresse:</span> ${order.pickupAddress || "-"}</div>
@@ -153,7 +155,7 @@ export default function ReadOnlyOrderModal({ open, order, onClose }: Props) {
           </p>
           <p>
             <span className="font-semibold">Leveringsdato:</span>{" "}
-            {formatCell(order.deliveryDate)}
+            {formatDisplayDate(order.deliveryDate)}
           </p>
           <p>
             <span className="font-semibold">Tidsvindu:</span>{" "}

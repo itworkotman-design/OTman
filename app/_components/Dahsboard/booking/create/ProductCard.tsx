@@ -198,13 +198,7 @@ export function ProductCardNew({
       nextValue.selectedExtraOptionIds = [];
     }
 
-    if (
-      (!supportsReturnOptions ||
-        (supportsDeliveryTypes &&
-          !showsReturnOptions(nextDeliveryType) &&
-          nextDeliveryType !== "")) &&
-      value.selectedReturnOptionId
-    ) {
+    if (!supportsReturnOptions && value.selectedReturnOptionId) {
       nextValue.selectedReturnOptionId = null;
     }
 
@@ -336,6 +330,13 @@ export function ProductCardNew({
       ...(field === "selectedInstallOptionIds" && !exists
         ? { demontEnabled: false }
         : {}),
+    });
+  }
+
+  function toggleReturnOption(optionId: string) {
+    update({
+      selectedReturnOptionId:
+        value.selectedReturnOptionId === optionId ? null : optionId,
     });
   }
 
@@ -649,14 +650,18 @@ export function ProductCardNew({
                       className="inline mr-2"
                       type="radio"
                       checked={value.selectedReturnOptionId === opt.id}
-                      onChange={() =>
-                        update({
-                          selectedReturnOptionId:
-                            value.selectedReturnOptionId === opt.id
-                              ? null
-                              : opt.id,
-                        })
-                      }
+                      onClick={(event) => {
+                        if (value.selectedReturnOptionId === opt.id) {
+                          event.preventDefault();
+                        }
+
+                        toggleReturnOption(opt.id);
+                      }}
+                      onChange={() => {
+                        if (value.selectedReturnOptionId !== opt.id) {
+                          toggleReturnOption(opt.id);
+                        }
+                      }}
                     />
                     <span className="inline">
                       {opt.description || opt.label || opt.code}

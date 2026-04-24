@@ -132,13 +132,11 @@ export function calculateBookingPricing(params: {
     });
   }
 
-  const totalExVat = roundPriceRule(
-    Math.max(0, subtotalExVat - rabatt + leggTil),
-  );
+  const totalExVat = roundPriceRule(subtotalExVat - rabatt + leggTil);
   const vat = roundPriceRule(totalExVat * 0.25);
   const totalIncVat = roundPriceRule(totalExVat + vat);
   const subcontractorTotal = roundPriceRule(
-    Math.max(0, subcontractorBase - subcontractorMinus + subcontractorPlus),
+    subcontractorBase - subcontractorMinus + subcontractorPlus,
   );
 
   return {

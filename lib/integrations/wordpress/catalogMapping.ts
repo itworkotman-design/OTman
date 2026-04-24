@@ -67,8 +67,8 @@ function repairLegacyEncoding(value: string): string {
   );
 }
 
-function normalizeKey(value: string | null | undefined): string {
-  return repairLegacyEncoding(value ?? "")
+function normalizeKey(value: unknown): string {
+  return repairLegacyEncoding(String(value ?? ""))
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]+/g, " ")
@@ -362,8 +362,9 @@ function resolveService(
     if (specialOption) {
       return buildResolvedService({
         service,
-        resolvedItemType:
-          specialOption.type === "return" ? "RETURN_OPTION" : "EXTRA_OPTION",
+        resolvedItemType: isReturnSpecialOption(specialOption.type)
+          ? "RETURN_OPTION"
+          : "EXTRA_OPTION",
         optionId: specialOption.id,
         optionCode: specialOption.code,
         optionLabel: specialOption.label,
@@ -373,7 +374,10 @@ function resolveService(
     }
   }
 
-  const installAliasCode = resolveInstallAlias(product, service);
+  const installAliasCode =
+    service.itemType === "INSTALL_OPTION"
+      ? resolveInstallAlias(product, service)
+      : null;
   if (installAliasCode) {
     const installOption = findProductOption(product, installAliasCode);
     if (!installOption) {
@@ -424,14 +428,19 @@ function resolveService(
 
   return buildResolvedService({
     service,
-    resolvedItemType:
-      specialOption.type === "return" ? "RETURN_OPTION" : "EXTRA_OPTION",
+    resolvedItemType: isReturnSpecialOption(specialOption.type)
+      ? "RETURN_OPTION"
+      : "EXTRA_OPTION",
     optionId: specialOption.id,
     optionCode: specialOption.code,
     optionLabel: specialOption.label,
     customerPrice: specialOption.customerPrice,
     subcontractorPrice: specialOption.subcontractorPrice,
   });
+}
+
+function isReturnSpecialOption(type: unknown) {
+  return normalizeKey(String(type)) === "return";
 }
 
 export function mapWordpressImportToProductCards(params: {

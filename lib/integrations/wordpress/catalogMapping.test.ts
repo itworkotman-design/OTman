@@ -451,6 +451,48 @@ describe("mapWordpressImportToProductCards", () => {
     ]);
   });
 
+  it("does not map non-install legacy services onto install selections through generic aliases", () => {
+    const result = mapWordpressImportToProductCards({
+      parsedProducts: [
+        {
+          cardId: 6,
+          productName: "Washing machine",
+          quantity: 1,
+          deliveryType: "Indoor carry",
+        },
+      ],
+      parsedServices: [
+        {
+          cardId: 6,
+          productName: "Washing machine",
+          quantity: 1,
+          itemType: "EXTRA_OPTION",
+          label: "Montering",
+          code: undefined,
+        },
+      ],
+      catalogProducts: products,
+      catalogSpecialOptions: specialOptions,
+    });
+
+    expect(result.productCards).toEqual([
+      expect.objectContaining({
+        cardId: 6,
+        productId: "product-1",
+        deliveryType: "INDOOR",
+        selectedInstallOptionIds: [],
+      }),
+    ]);
+    expect(result.resolvedServices).toEqual([]);
+    expect(result.unresolvedServices).toEqual([
+      expect.objectContaining({
+        cardId: 6,
+        itemType: "EXTRA_OPTION",
+        label: "Montering",
+      }),
+    ]);
+  });
+
   it("matches side-by-side install codes directly and resolves hardcoded side-by-side return codes through the code checker", () => {
     const result = mapWordpressImportToProductCards({
       parsedProducts: [

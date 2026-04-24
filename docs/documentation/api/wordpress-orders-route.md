@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Imports legacy WordPress `power_order` posts into the new `Order` table. The route authenticates the sync secret, maps the legacy WordPress author to an active membership, resolves contact fields through multiple legacy key aliases, normalizes legacy delivery dates, time windows, lift values, and statuses into the editor's native formats, reads status from `status`, `order_status`, or `post_status`, parses legacy product and service rows from any WordPress repeater prefix that ends in `_velg_produkt`, reads install and return selections from both repeater meta and `price_breakdown_html`, converts recognized WordPress products into native product cards, rebuilds native `OrderItem` rows, keeps the original WordPress labels in `rawData`, stores imported distance and price totals, and raises a manual-review alert when the imported WordPress ex-VAT total does not match the rebuilt native price.
+Imports legacy WordPress `power_order` posts into the new `Order` table. The route authenticates the sync secret, maps the legacy WordPress author to an active membership, resolves contact fields through multiple legacy key aliases, normalizes legacy delivery dates, time windows, lift values, and statuses into the editor's native formats, reads status from `status`, `order_status`, or `post_status`, reconstructs legacy extra pickup addresses from both nested repeater data and flattened ACF meta keys, preserves legacy express-delivery state from the saved checkbox, from `price_breakdown_html`, or from parsed express service rows, parses legacy product and service rows from any WordPress repeater prefix that ends in `_velg_produkt`, reads install and return selections from both structured repeater labels and checkbox-style truthy legacy fields including fixed ACF field ids such as the old return selector, converts recognized WordPress products into native product cards, re-applies resolved install/return/extra selections onto the saved product-card snapshot before persisting it, parses customer and subcontractor admin adjustments from legacy meta and subcontractor breakdown HTML including array-shaped values plus legacy `manual_discount` and `manual_plus` keys, rebuilds native `OrderItem` rows, keeps the original WordPress labels in `rawData`, stores imported distance and price totals, and raises a manual-review alert when the imported WordPress ex-VAT total does not match the rebuilt native price.
 
 ## Functions
 
@@ -15,7 +15,8 @@ Imports legacy WordPress `power_order` posts into the new `Order` table. The rou
 | `asString` | Normalizes unknown sync payload values into trimmed strings. |
 | `getFirstMetaString` | Returns the first non-empty string found across a list of possible legacy WordPress meta keys. |
 | `normalizeWhitespace` | Collapses repeated whitespace when parsing legacy labels. |
-| `parseLegacyMoneyToCents` | Converts legacy WordPress money strings such as `10 000 NOK` and numeric totals into integer cents for importer comparisons. |
+| `parseLegacyMoneyToCents` | Converts legacy WordPress money strings such as `10 000 NOK`, numeric totals, and array-wrapped field values into integer cents for importer comparisons. |
+| `formatImportedAdjustment` | Converts imported adjustment cents back into the plain numeric string format stored on native orders. |
 | `decodeHtmlEntities` | Decodes the HTML entities commonly produced by the legacy WordPress breakdown markup. |
 | `stripHtml` | Removes HTML tags from legacy breakdown fragments before label parsing. |
 | `cleanLegacyBreakdownLabel` | Converts legacy `price:label:code` and `Label (CODE)` strings into a user-facing label. |
@@ -29,24 +30,34 @@ Imports legacy WordPress `power_order` posts into the new `Order` table. The rou
 | `getIndexedMetaString` | Reads a product repeater subfield by prefix, index, and a set of possible field suffixes. |
 | `buildProductItemsFromMeta` | Builds parsed product rows from the flattened WordPress repeater meta. |
 | `parseBreakdownGroups` | Splits `price_breakdown_html` into product groups and row labels plus row prices. |
+| `extractBreakdownRows` | Extracts flattened label and price pairs from legacy breakdown HTML so the importer can reuse summary rows outside grouped product parsing. |
+| `findBreakdownRowValueCents` | Finds the last matching legacy summary row value for a set of label patterns and normalizes negative discount rows into positive adjustment amounts. |
 | `isSummaryLabel` | Filters out summary rows such as `Total`, `MVA`, and `Rabatt`. |
 | `isDeliveryTypeRow` | Detects rows that represent a delivery type rather than a service option. |
 | `classifyServiceItemType` | Maps parsed legacy service rows to `INSTALL_OPTION`, `RETURN_OPTION`, or `EXTRA_OPTION`. |
 | `getMetaStringList` | Normalizes a WordPress meta value into a list of non-empty strings so repeater arrays and scalar fields share the same service parser. |
 | `looksLikeLegacyServiceValue` | Filters repeater subfield values so plain counters do not get mistaken for service rows. |
-| `buildServiceItemsFromMeta` | Parses install and return selections directly from structured WordPress repeater meta when the HTML breakdown is missing or incomplete. |
+| `hasTruthyLegacySelection` | Detects checkbox-style truthy legacy values such as `1`, `true`, and `ja` so the importer can recover service selections even when the old form stored no label in the value. |
+| `normalizeLegacyServiceSuffix` | Converts a legacy repeater subfield suffix into a comparison-friendly label candidate. |
+| `inferLegacyServiceFromMetaSuffix` | Rebuilds install, return, demont, and unpacking service rows from truthy legacy checkbox keys when the value itself does not contain a WordPress label or code string, including fixed ACF field ids used by the old return selector. |
+| `buildServiceItemsFromMeta` | Parses install and return selections directly from structured WordPress repeater meta when the HTML breakdown is missing or incomplete, including checkbox-style truthy legacy fields whose labels live in the meta key. |
 | `buildServiceItemsFromBreakdown` | Creates parsed service rows from `price_breakdown_html`, linked back to the parsed product card ids. |
+| `isExpressServiceItem` | Detects parsed service rows that represent legacy express delivery so the importer can preserve express state even when the checkbox meta is missing. |
 | `dedupeServiceItems` | Removes duplicate service rows when the same legacy option is present in both structured meta and the HTML breakdown. |
 | `buildServicesSummary` | Builds a counted `servicesSummary` string from the parsed legacy service rows. |
 | `parseDistanceKm` | Converts imported distance strings such as `125 km` into numeric kilometers for pricing flags. |
-| `getImportedWordpressPriceExVatCents` | Reads the imported ex-VAT total from `total_price` or from supported summary labels in `price_breakdown_html`, such as `Total`, `Pris uten MVA`, or `Sum`. |
-| `getNativeCalculatedPriceExVatCents` | Rebuilds the native ex-VAT total from mapped product cards and the current booking catalog. |
+| `getImportedWordpressPriceExVatCents` | Reads the imported ex-VAT total from `total_price` or from supported ex-VAT summary labels in `price_breakdown_html`, while skipping `Total inkl. MVA`. |
+| `getImportedWordpressAdjustments` | Reads legacy admin discount and plus values from raw WordPress meta, plus subcontractor minus and plus values from the saved subcontractor breakdown HTML. |
+| `getNativeCalculatedPricing` | Rebuilds the native ex-VAT and subcontractor totals from mapped product cards, the current booking catalog, and the imported admin adjustment fields. |
 | `syncWordpressPriceMismatchNotification` | Creates or resolves the WordPress manual-review alert when the imported total and rebuilt native total diverge. |
 | `attachServiceLabelsToProductItems` | Adds grouped install, return, and extra labels onto each parsed product row so the imported product raw data keeps the original WordPress context. |
 | `toJsonRecord` | Normalizes JSON-like raw data into a record shape before the importer merges WordPress labels into native items. |
 | `buildResolvedServiceKey` | Creates a stable key for matching resolved WordPress services against native built items. |
 | `buildServiceSignature` | Creates a stable key for matching parsed WordPress service rows against fallback or supplemental rows. |
 | `buildResolvedServiceQueues` | Groups resolved WordPress services into per-item queues so native items can consume them without losing duplicates. |
+| `cloneMappedProductCard` | Deep-clones mapped product cards before the importer reapplies resolved selections onto the saved snapshot. |
+| `pushUniqueSelection` | Adds an option id to a saved-card selection array only when it is not already present. |
+| `ensureResolvedSelectionsOnProductCards` | Re-applies resolved install, return, extra, demont, and custom-section selections onto the saved product-card snapshot before it is persisted. |
 | `takeResolvedServiceMatch` | Pulls the next matching resolved service for a native built item. |
 | `buildProductRawDataLookup` | Maps parsed product card ids to their WordPress raw-data payloads. |
 | `buildParsedServiceLookup` | Groups parsed WordPress service raw-data payloads by signature for later reuse. |
@@ -55,4 +66,4 @@ Imports legacy WordPress `power_order` posts into the new `Order` table. The rou
 | `buildSupplementalResolvedServiceItems` | Creates extra imported rows for mapped WordPress services that the native card builder does not emit on its own. |
 | `buildFallbackImportedItems` | Creates fallback imported rows for unmatched WordPress products and services. |
 | `toCreateManyItem` | Normalizes imported item data into the Prisma `createMany` shape used by the importer transaction. |
-| `POST` | Validates the request, resolves the legacy author membership, normalizes legacy field formats, maps WordPress products and service choices to native catalog cards, stores imported distance and price totals on the order, creates or resolves a WordPress price-mismatch alert when needed, creates or updates the imported order, stores the product-card snapshot, and recreates the imported `OrderItem` rows on every sync. |
+| `POST` | Validates the request, resolves the legacy author membership, normalizes legacy field formats, reconstructs legacy extra pickup addresses and default extra-pickup contacts, preserves the imported express-delivery flag, maps WordPress products and service choices to native catalog cards, imports admin adjustment fields into `rabatt`, `leggTil`, `subcontractorMinus`, and `subcontractorPlus`, stores imported distance and price totals on the order, creates or resolves a WordPress price-mismatch alert when needed, creates or updates the imported order, stores the product-card snapshot, and recreates the imported `OrderItem` rows on every sync. |

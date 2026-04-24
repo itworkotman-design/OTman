@@ -2,6 +2,7 @@ import type {
   BookingArchiveViewMode,
   OrderRow,
 } from "@/app/_components/Dahsboard/booking/archive/types";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
 
 export type BookingArchiveColumnId =
   | "displayId"
@@ -52,22 +53,6 @@ function formatCell(value: string | number | null | undefined): string {
   return value;
 }
 
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "-";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-
-  return date.toLocaleString("no-NO", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
 function formatMoney(value: number | null | undefined): string {
   if (typeof value !== "number") return "-";
   return `NOK ${value}`;
@@ -97,7 +82,7 @@ const adminColumns: BookingArchiveColumn[] = [
     label: "Delivery date",
     exportHeader: "Delivery date",
     exportWidth: 16,
-    getExportValue: (row) => formatCell(row.deliveryDate),
+    getExportValue: (row) => formatDisplayDate(row.deliveryDate),
   },
   {
     id: "timeWindow",
@@ -210,7 +195,7 @@ const adminColumns: BookingArchiveColumn[] = [
     label: "Created at",
     exportHeader: "Created at",
     exportWidth: 20,
-    getExportValue: (row) => formatDateTime(row.createdAt),
+    getExportValue: (row) => formatDisplayDateTime(row.createdAt),
   },
   {
     id: "updatedAt",
@@ -219,7 +204,7 @@ const adminColumns: BookingArchiveColumn[] = [
     exportWidth: 24,
     getExportValue: (row) =>
       row.lastEditedBy
-        ? `${formatDateTime(row.updatedAt)} (${row.lastEditedBy})`
+        ? `${formatDisplayDateTime(row.updatedAt)} (${row.lastEditedBy})`
         : "-",
   },
   {
@@ -258,7 +243,7 @@ const subcontractorColumns: BookingArchiveColumn[] = [
     label: "Delivery date",
     exportHeader: "Delivery date",
     exportWidth: 16,
-    getExportValue: (row) => formatCell(row.deliveryDate),
+    getExportValue: (row) => formatDisplayDate(row.deliveryDate),
   },
   {
     id: "timeWindow",
@@ -357,7 +342,7 @@ const subcontractorColumns: BookingArchiveColumn[] = [
     label: "Created at",
     exportHeader: "Created at",
     exportWidth: 20,
-    getExportValue: (row) => formatDateTime(row.createdAt),
+    getExportValue: (row) => formatDisplayDateTime(row.createdAt),
   },
   {
     id: "priceExVat",
@@ -416,7 +401,7 @@ const orderCreatorColumns: BookingArchiveColumn[] = [
     label: "Delivery date",
     exportHeader: "Delivery date",
     exportWidth: 16,
-    getExportValue: (row) => formatCell(row.deliveryDate),
+    getExportValue: (row) => formatDisplayDate(row.deliveryDate),
   },
   {
     id: "priceExVat",

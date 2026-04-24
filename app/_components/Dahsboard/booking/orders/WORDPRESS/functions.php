@@ -346,62 +346,9 @@ if ($has_manual) {
     $status_label = $status_obj['choices'][$status_val] ?? $status_val;
     $price_html   = val($acf, 'field_6835ca7fb0cfd', 'price_breakdown_html',$post_id);
 
-    $all_meta = get_post_meta($post_id);
-$sync_meta = [];
-
-foreach ($all_meta as $key => $values) {
-    if (strpos($key, '_') === 0) {
-        continue; // skip ACF/internal helper keys
+    if (function_exists('otman_queue_power_order_sync')) {
+        otman_queue_power_order_sync((int) $post_id);
     }
-
-    if (!is_array($values) || count($values) === 0) {
-        $sync_meta[$key] = null;
-        continue;
-    }
-
-    $sync_meta[$key] = maybe_unserialize($values[0]);
-}
-
-// overwrite a few important normalized values
-$sync_meta['beskrivelse'] = $beskrivelse;
-$sync_meta['bestillingsnr'] = $order_number;
-$sync_meta['pickup_address'] = $pickup;
-$sync_meta['delivery_address'] = $delivery;
-$sync_meta['returadresse'] = $retur;
-$sync_meta['kundens_navn'] = $kunde_navn;
-$sync_meta['telefon'] = $telefon;
-$sync_meta['leveringsdato'] = $leveringsdato;
-$sync_meta['tidsvindu_for_levering'] = $tidsvindu;
-$sync_meta['status'] = $status_label;
-
-$sync_payload = [
-    'legacyWordpressOrderId' => (int) $post_id,
-    'legacyWordpressUserId'  => (int) $author_id,
-    'createdAt'              => $post->post_date,
-    'status'                 => $status_label,
-    'title'                  => $post->post_title,
-    'meta'                   => $sync_meta,
-];
-
-$sync_response = wp_remote_post('https://otman.onrender.com/api/integrations/wordpress/orders', [
-    'timeout' => 20,
-    'headers' => [
-        'Content-Type'     => 'application/json',
-        'x-wp-sync-secret' => 'asfasfasfuasytfoi21t3uioy12t3iu21ytobastfaosuftaszxc',
-    ],
-    'body' => wp_json_encode($sync_payload),
-]);
-
-if (is_wp_error($sync_response)) {
-    error_log('WP SYNC ERROR post_id=' . $post_id . ' error=' . $sync_response->get_error_message());
-} else {
-    $sync_code = wp_remote_retrieve_response_code($sync_response);
-    if ($sync_code !== 200) {
-        error_log('WP SYNC NON-200 post_id=' . $post_id . ' code=' . $sync_code);
-    }
-}
-
-error_log('POWER ORDER SYNC RESPONSE post_id=' . $post_id . ' response=' . print_r($sync_response, true));
 
     // 5️⃣ Inline CSS
     $css = '<style>

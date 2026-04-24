@@ -1578,8 +1578,12 @@ export default function BookingEditor({
     }
   };
 
-  //for controling express delivery checkbox, if delivery is in less than 2 days, turns on
+  // Auto-enable express delivery for new orders only; saved orders keep their persisted value.
   useEffect(() => {
+    if (existingOrderId) {
+      return;
+    }
+
     if (!deliveryDate) {
       setExpressDelivery(false);
       return;
@@ -1595,7 +1599,7 @@ export default function BookingEditor({
       (delivery.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
 
     setExpressDelivery(diffDays <= 1);
-  }, [deliveryDate]);
+  }, [deliveryDate, existingOrderId]);
 
   //For locking pickupadress when isonlyreturn or install
   useEffect(() => {

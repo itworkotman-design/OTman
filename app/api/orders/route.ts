@@ -52,6 +52,11 @@ import {
 } from "@/lib/orders/orderSummary";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import type { AppPermission } from "@/lib/users/types";
+import {
+  buildWordpressExtraPickupContacts,
+  getWordpressExtraPickupAddresses,
+  toWordpressMetaRecord,
+} from "@/lib/integrations/wordpress/orderMeta";
 
 function parsePositiveInt(value: string | null, fallback: number) {
   if (!value) return fallback;
@@ -808,6 +813,7 @@ export async function GET(req: Request) {
       pickupAddress: true,
       extraPickupAddress: true,
       extraPickupContacts: true,
+      legacyWordpressRawMeta: true,
       deliveryAddress: true,
       returnAddress: true,
       items: {
@@ -922,6 +928,15 @@ export async function GET(req: Request) {
     ok: true,
     orders: orders.map((order) => {
       const orderItems = order.items ?? [];
+      const fallbackExtraPickupAddresses =
+        order.extraPickupAddress.length > 0
+          ? order.extraPickupAddress
+          : getWordpressExtraPickupAddresses(
+              toWordpressMetaRecord(order.legacyWordpressRawMeta),
+            );
+      const extraPickupContacts = Array.isArray(order.extraPickupContacts)
+        ? order.extraPickupContacts
+        : buildWordpressExtraPickupContacts(fallbackExtraPickupAddresses);
       const orderSummaryGroups =
         orderItems.length > 0
           ? buildOrderSummaryGroups(orderItems)
@@ -946,8 +961,8 @@ export async function GET(req: Request) {
         phone: order.phone ?? "",
         email: order.email ?? "",
         pickupAddress: order.pickupAddress ?? "",
-        extraPickupAddress: order.extraPickupAddress ?? [],
-        extraPickupContacts: order.extraPickupContacts ?? [],
+        extraPickupAddress: fallbackExtraPickupAddresses,
+        extraPickupContacts,
         deliveryAddress: order.deliveryAddress ?? "",
         returnAddress: order.returnAddress ?? "",
         orderSummaryGroups,

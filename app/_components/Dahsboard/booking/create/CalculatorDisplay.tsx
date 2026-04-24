@@ -13,11 +13,7 @@ function roundPriceRule(n: number) {
 }
 
 function formatNOK(n: number) {
-  const rounded = Math.round((n + Number.EPSILON) * 100) / 100;
-
-  return Number.isInteger(rounded)
-    ? `${rounded} NOK`
-    : `${rounded.toFixed(2)} NOK`;
+  return `${Math.round(n)} NOK`;
 }
 
 function formatSumNOK(n: number) {
@@ -138,6 +134,25 @@ export function CalculatorDisplayNew({
       </div>
 
       <div className="pb-4">
+        {result.totals.discount !== 0 && (
+          <div className="priceRow">
+            <h1 className="text-md">Rabatt</h1>
+            <p className="font-semibold">
+              -{formatSumNOK(result.totals.discount)} NOK
+            </p>
+          </div>
+        )}
+
+        {result.totals.extra !== 0 && (
+          <div className="priceRow">
+            <h1 className="text-md">Ekstra</h1>
+            <p className="font-semibold">
+              {result.totals.extra > 0 ? "+" : ""}
+              {formatSumNOK(result.totals.extra)} NOK
+            </p>
+          </div>
+        )}
+
         <div className="priceRow">
           <h1 className="font-bold text-2xl">Total</h1>
           <p className="font-bold text-2xl">
@@ -147,13 +162,15 @@ export function CalculatorDisplayNew({
 
         <div className="priceRow">
           <h1 className="text-md">VAT (25%)</h1>
-          <p className="font-semibold">{formatNOK(result.totals.vat)}</p>
+          <p className="font-semibold">
+            {formatSumNOK(result.totals.vat)} NOK
+          </p>
         </div>
 
         <div className="priceRow">
           <h1 className="text-md">Total incl. VAT</h1>
           <p className="font-semibold">
-            {formatNOK(result.totals.totalIncVat)}
+            {formatSumNOK(result.totals.totalIncVat)} NOK
           </p>
         </div>
 

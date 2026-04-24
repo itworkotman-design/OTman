@@ -125,6 +125,97 @@ describe("routes in /api/orders/[orderId]", () => {
     });
   });
 
+  it("GET rebuilds legacy extra pickups from wordpress raw meta when contacts are missing", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      displayId: 20001,
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      productCardsSnapshot: [],
+      orderNumber: "11191323551",
+      description: "",
+      modelNr: "",
+      deliveryDate: "2026-04-25",
+      timeWindow: "10:00-16:00",
+      expressDelivery: false,
+      contactCustomerForCustomTimeWindow: false,
+      customTimeContactNote: "",
+      pickupAddress: "Pickup 1",
+      extraPickupAddress: [],
+      extraPickupContacts: null,
+      legacyWordpressRawMeta: {
+        field_68248234acd3e: [
+          { field_68248274acd3f: "Pickup 2" },
+          { pickup: "Pickup 3" },
+        ],
+      },
+      deliveryAddress: "Delivery 1",
+      returnAddress: "",
+      drivingDistance: "",
+      customerName: "Customer",
+      customerLabel: "Customer",
+      phone: "",
+      phoneTwo: "",
+      email: "",
+      customerComments: "",
+      floorNo: "",
+      lift: "",
+      cashierName: "",
+      cashierPhone: "",
+      subcontractorMembershipId: "",
+      subcontractor: "",
+      driver: "",
+      secondDriver: "",
+      driverInfo: "",
+      licensePlate: "",
+      deviation: "",
+      feeExtraWork: false,
+      feeAddToOrder: false,
+      statusNotes: "",
+      status: "processing",
+      dontSendEmail: false,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      lastEditedByMembershipId: "",
+      createdByMembership: null,
+      lastEditedByMembership: null,
+    });
+
+    const res = await GET(new Request("http://localhost/api/orders/order-1"), {
+      params: Promise.resolve({ orderId: "order-1" }),
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      order: {
+        extraPickupAddress: ["Pickup 2", "Pickup 3"],
+        extraPickups: [
+          {
+            address: "Pickup 2",
+            phone: "",
+            email: "",
+            sendEmail: true,
+          },
+          {
+            address: "Pickup 3",
+            phone: "",
+            email: "",
+            sendEmail: true,
+          },
+        ],
+      },
+    });
+  });
+
   it("PATCH returns 400 when product cards are missing", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

@@ -14,6 +14,12 @@ import {
   mapWordpressImportToProductCards,
   type ResolvedWordpressService,
 } from "@/lib/integrations/wordpress/catalogMapping";
+import {
+  buildWordpressExtraPickupContacts,
+  getWordpressExpressDelivery,
+  getWordpressExtraPickupAddresses,
+} from "@/lib/integrations/wordpress/orderMeta";
+import { OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 
@@ -56,6 +62,13 @@ type ParsedBreakdownRow = {
 type ParsedBreakdownGroup = {
   groupLabel: string;
   rows: ParsedBreakdownRow[];
+};
+
+type ImportedWordpressAdjustments = {
+  rabatt?: string;
+  leggTil?: string;
+  subcontractorMinus?: string;
+  subcontractorPlus?: string;
 };
 
 const DELIVERY_TYPE_CODES = new Set([
@@ -105,6 +118,29 @@ const normalizeWhitespace = (value: string): string =>
   value.replace(/\s+/g, " ").trim();
 
 const parseLegacyMoneyToCents = (value: unknown): number | undefined => {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const parsedEntry = parseLegacyMoneyToCents(entry);
+      if (typeof parsedEntry === "number") {
+        return parsedEntry;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["value", "amount", "text"]) {
+      const parsedEntry = parseLegacyMoneyToCents(record[key]);
+      if (typeof parsedEntry === "number") {
+        return parsedEntry;
+      }
+    }
+
+    return undefined;
+  }
+
   if (typeof value === "number") {
     return Number.isFinite(value) ? Math.round(value * 100) : undefined;
   }
@@ -128,10 +164,32 @@ const parseLegacyMoneyToCents = (value: unknown): number | undefined => {
 };
 
 const TOTAL_BREAKDOWN_LABEL_PATTERNS = [
-  /^total\b/i,
+  /^total$/i,
   /^pris uten mva\b/i,
-  /^sum\b/i,
+  /^sum$/i,
 ];
+
+const IMPORTED_CUSTOMER_DISCOUNT_KEYS = [
+  "field_686e217030aaa",
+  "manual_discount",
+  "rabatt",
+  "discount",
+] as const;
+
+const IMPORTED_CUSTOMER_PLUS_KEYS = [
+  "field_689db2aa4db4a",
+  "manual_plus",
+  "legg_til",
+  "leggtil",
+  "plus",
+] as const;
+
+const formatImportedAdjustment = (cents: number): string => {
+  const amount = cents / 100;
+  return Number.isInteger(amount)
+    ? String(amount)
+    : amount.toFixed(2).replace(/\.?0+$/u, "");
+};
 
 const decodeHtmlEntities = (value: string): string =>
   value
@@ -159,8 +217,10 @@ const cleanLegacyBreakdownLabel = (value: string): string => {
   if (!normalizedValue) return "";
 
   const parenMatch = normalizedValue.match(/^(.*?)\s*\(([^)]+)\)\s*$/u);
-  const withoutParen = parenMatch ? parenMatch[1] ?? "" : normalizedValue;
-  const parts = withoutParen.split(":").map((part) => normalizeWhitespace(part));
+  const withoutParen = parenMatch ? (parenMatch[1] ?? "") : normalizedValue;
+  const parts = withoutParen
+    .split(":")
+    .map((part) => normalizeWhitespace(part));
 
   if (parts.length >= 3 && parts[1]) {
     return parts[1];
@@ -192,7 +252,9 @@ const parseBreakdownLabelAndCode = (value: string): ParsedBreakdownRow => {
     };
   }
 
-  const parts = normalizedValue.split(":").map((part) => normalizeWhitespace(part));
+  const parts = normalizedValue
+    .split(":")
+    .map((part) => normalizeWhitespace(part));
   if (parts.length >= 3) {
     return {
       label: cleanLegacyBreakdownLabel(normalizedValue),
@@ -398,7 +460,9 @@ const buildProductItemsFromMeta = (
 
       return { prefix, index };
     })
-    .filter((entry): entry is { prefix: string; index: number } => entry !== null)
+    .filter(
+      (entry): entry is { prefix: string; index: number } => entry !== null,
+    )
     .sort((left, right) => {
       const leftExtra = left.prefix.includes("extra") ? 1 : 0;
       const rightExtra = right.prefix.includes("extra") ? 1 : 0;
@@ -465,7 +529,9 @@ const buildProductItemsFromMeta = (
   return items;
 };
 
-const parseBreakdownGroups = (value: string | undefined): ParsedBreakdownGroup[] => {
+const parseBreakdownGroups = (
+  value: string | undefined,
+): ParsedBreakdownGroup[] => {
   if (!value) return [];
 
   const html = value.replace(/\r/g, "");
@@ -473,7 +539,8 @@ const parseBreakdownGroups = (value: string | undefined): ParsedBreakdownGroup[]
   const groups: ParsedBreakdownGroup[] = [];
 
   for (const rawSegment of rawSegments) {
-    const segment = rawSegment.split(/<div class="price-group">|<hr\b/i)[0] ?? "";
+    const segment =
+      rawSegment.split(/<div class="price-group">|<hr\b/i)[0] ?? "";
     const groupLabelMatch = segment.match(
       /<div class="price-group-label">\s*<strong>([\s\S]*?)<\/strong>\s*<\/div>/i,
     );
@@ -506,6 +573,41 @@ const parseBreakdownGroups = (value: string | undefined): ParsedBreakdownGroup[]
   }
 
   return groups;
+};
+
+const extractBreakdownRows = (
+  value: string | undefined,
+): Array<{ label: string; priceCents: number | undefined }> => {
+  if (!value) {
+    return [];
+  }
+
+  return Array.from(
+    value.matchAll(
+      /price-breakdown-label">([\s\S]*?)<\/span>[\s\S]*?price-breakdown-price">([\s\S]*?)<\/span>/giu,
+    ),
+  ).map((row) => ({
+    label: stripHtml(row[1] ?? ""),
+    priceCents: parseLegacyMoneyToCents(stripHtml(row[2] ?? "")),
+  }));
+};
+
+const findBreakdownRowValueCents = (
+  rows: Array<{ label: string; priceCents: number | undefined }>,
+  patterns: RegExp[],
+): number | undefined => {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const row = rows[index];
+    if (!row || !patterns.some((pattern) => pattern.test(row.label))) {
+      continue;
+    }
+
+    if (typeof row.priceCents === "number") {
+      return Math.abs(row.priceCents);
+    }
+  }
+
+  return undefined;
 };
 
 const isSummaryLabel = (label: string): boolean =>
@@ -562,6 +664,132 @@ const getMetaStringList = (value: unknown): string[] => {
 const looksLikeLegacyServiceValue = (value: string): boolean =>
   value.includes(":") || /\([A-Z0-9_]+\)/u.test(value);
 
+const hasTruthyLegacySelection = (value: unknown): boolean => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value !== 0;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((entry) => hasTruthyLegacySelection(entry));
+  }
+
+  const normalized = asString(value)?.toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return !["0", "false", "no", "nei", "off"].includes(normalized);
+};
+
+const normalizeLegacyServiceSuffix = (suffix: string): string =>
+  suffix.replace(/[_-]+/g, " ").trim().toLowerCase();
+
+const LEGACY_RETURN_FIELD_SUFFIXES = new Set(["field_682206a2252d2"]);
+const LEGACY_DEMONT_FIELD_SUFFIXES = new Set(["field_682206f2252d3"]);
+
+const inferLegacyServiceFromMetaSuffix = (params: {
+  cardId: number;
+  productName: string;
+  quantity: number;
+  suffix: string;
+  key: string;
+  rawValue: unknown;
+}): ParsedWordpressServiceItem | null => {
+  const { cardId, productName, quantity, suffix, key, rawValue } = params;
+  const normalizedSuffix = normalizeLegacyServiceSuffix(suffix);
+  if (!normalizedSuffix) {
+    return null;
+  }
+
+  const buildSyntheticService = (
+    itemType: ParsedWordpressServiceItem["itemType"],
+    label: string,
+    code?: string,
+  ): ParsedWordpressServiceItem => ({
+    cardId,
+    productName,
+    quantity,
+    itemType,
+    label,
+    code,
+    rawData: {
+      source: "wordpress_sync",
+      sourceType: `meta:${suffix}`,
+      cardId,
+      groupLabel: productName,
+      label,
+      description: label,
+      code: code ?? null,
+      quantity,
+      metaKey: key,
+      metaValue:
+        rawValue === undefined ? null : (rawValue as Prisma.InputJsonValue),
+      inferredFromMetaKey: true,
+    },
+  });
+
+  if (LEGACY_RETURN_FIELD_SUFFIXES.has(suffix)) {
+    return buildSyntheticService(
+      "RETURN_OPTION",
+      "Retur til butikk",
+      "RETURNSTORE",
+    );
+  }
+
+  if (LEGACY_DEMONT_FIELD_SUFFIXES.has(suffix)) {
+    return buildSyntheticService(
+      "EXTRA_OPTION",
+      "Demontering gamle vare",
+      "DEMONT",
+    );
+  }
+
+  if (
+    /\b(return|retur)\b/.test(normalizedSuffix) &&
+    /\b(recycling|gjenvinning)\b/.test(normalizedSuffix)
+  ) {
+    return buildSyntheticService(
+      "RETURN_OPTION",
+      "Retur til gjenvinning",
+      "RETURNREC",
+    );
+  }
+
+  if (/\b(return|retur)\b/.test(normalizedSuffix)) {
+    return buildSyntheticService(
+      "RETURN_OPTION",
+      "Retur til butikk",
+      "RETURNSTORE",
+    );
+  }
+
+  if (/\b(?:demont\w*|demonter\w*)\b/.test(normalizedSuffix)) {
+    return buildSyntheticService(
+      "EXTRA_OPTION",
+      "Demontering gamle vare",
+      "DEMONT",
+    );
+  }
+
+  if (/\b(?:unpacking|utpakking\w*)\b/.test(normalizedSuffix)) {
+    return buildSyntheticService(
+      "EXTRA_OPTION",
+      "Utpakking og kasting av emballasje",
+      "UNPACKING",
+    );
+  }
+
+  if (/\b(?:install\w*|monter\w*)\b/.test(normalizedSuffix)) {
+    return buildSyntheticService("INSTALL_OPTION", "Montering");
+  }
+
+  return null;
+};
+
 const buildServiceItemsFromMeta = (
   meta: Record<string, unknown>,
   productItems: ParsedWordpressProductItem[],
@@ -581,11 +809,14 @@ const buildServiceItemsFromMeta = (
         continue;
       }
 
+      let matchedExplicitLegacyValue = false;
+
       for (const entry of getMetaStringList(rawValue)) {
         if (!looksLikeLegacyServiceValue(entry)) {
           continue;
         }
 
+        matchedExplicitLegacyValue = true;
         const row = parseBreakdownLabelAndCode(entry);
         if (!row.label || isSummaryLabel(row.label) || isDeliveryTypeRow(row)) {
           continue;
@@ -611,6 +842,22 @@ const buildServiceItemsFromMeta = (
             metaValue: entry,
           },
         });
+      }
+
+      if (matchedExplicitLegacyValue || !hasTruthyLegacySelection(rawValue)) {
+        continue;
+      }
+
+      const inferredService = inferLegacyServiceFromMetaSuffix({
+        cardId: productItem.cardId,
+        productName: productItem.productName,
+        quantity: productItem.quantity,
+        suffix,
+        key,
+        rawValue,
+      });
+      if (inferredService) {
+        serviceItems.push(inferredService);
       }
     }
   }
@@ -662,6 +909,13 @@ const buildServiceItemsFromBreakdown = (
   return serviceItems;
 };
 
+const isExpressServiceItem = (
+  serviceItem: Pick<ParsedWordpressServiceItem, "label" | "code">,
+): boolean => {
+  const signal = `${serviceItem.code ?? ""} ${serviceItem.label}`.toUpperCase();
+  return signal.includes("EXPRESS") || signal.includes("EKSPRESS");
+};
+
 const dedupeServiceItems = (
   serviceItems: ParsedWordpressServiceItem[],
 ): ParsedWordpressServiceItem[] => {
@@ -699,9 +953,7 @@ const buildServicesSummary = (
 const parseDistanceKm = (value?: string): number => {
   if (!value) return 0;
 
-  const normalized = value
-    .replace(",", ".")
-    .replace(/[^\d.-]/g, "");
+  const normalized = value.replace(",", ".").replace(/[^\d.-]/g, "");
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 };
@@ -719,43 +971,78 @@ const getImportedWordpressPriceExVatCents = (
     return undefined;
   }
 
-  const breakdownRows = Array.from(
-    breakdownHtml.matchAll(
-      /price-breakdown-label">([\s\S]*?)<\/span>[\s\S]*?price-breakdown-price">([\s\S]*?)<\/span>/giu,
-    ),
+  return findBreakdownRowValueCents(
+    extractBreakdownRows(breakdownHtml),
+    TOTAL_BREAKDOWN_LABEL_PATTERNS,
   );
-
-  for (let index = breakdownRows.length - 1; index >= 0; index -= 1) {
-    const row = breakdownRows[index];
-    const label = stripHtml(row?.[1] ?? "");
-
-    if (
-      !TOTAL_BREAKDOWN_LABEL_PATTERNS.some((pattern) => pattern.test(label))
-    ) {
-      continue;
-    }
-
-    const priceCents = parseLegacyMoneyToCents(stripHtml(row?.[2] ?? ""));
-    if (typeof priceCents === "number") {
-      return priceCents;
-    }
-  }
-
-  return undefined;
 };
 
-const getNativeCalculatedPriceExVatCents = (params: {
-  productCards: ReturnType<typeof mapWordpressImportToProductCards>["productCards"];
+const getImportedWordpressAdjustments = (
+  meta: Record<string, unknown>,
+): ImportedWordpressAdjustments => {
+  const customerRows = extractBreakdownRows(
+    asString(meta.price_breakdown_html),
+  );
+  const subcontractorRows = extractBreakdownRows(
+    asString(meta.field_6889f3e2ca127),
+  );
+
+  const rabattCents =
+    IMPORTED_CUSTOMER_DISCOUNT_KEYS.map((key) =>
+      parseLegacyMoneyToCents(meta[key]),
+    ).find((value): value is number => typeof value === "number") ??
+    findBreakdownRowValueCents(customerRows, [/^rabatt\b/i]);
+  const leggTilCents =
+    IMPORTED_CUSTOMER_PLUS_KEYS.map((key) =>
+      parseLegacyMoneyToCents(meta[key]),
+    ).find((value): value is number => typeof value === "number") ??
+    findBreakdownRowValueCents(customerRows, [/^ekstra$/i]);
+  const subcontractorMinusCents = findBreakdownRowValueCents(
+    subcontractorRows,
+    [/^minus$/i],
+  );
+  const subcontractorPlusCents = findBreakdownRowValueCents(subcontractorRows, [
+    /^ekstra$/i,
+  ]);
+
+  return {
+    rabatt:
+      typeof rabattCents === "number"
+        ? formatImportedAdjustment(rabattCents)
+        : undefined,
+    leggTil:
+      typeof leggTilCents === "number"
+        ? formatImportedAdjustment(leggTilCents)
+        : undefined,
+    subcontractorMinus:
+      typeof subcontractorMinusCents === "number"
+        ? formatImportedAdjustment(subcontractorMinusCents)
+        : undefined,
+    subcontractorPlus:
+      typeof subcontractorPlusCents === "number"
+        ? formatImportedAdjustment(subcontractorPlusCents)
+        : undefined,
+  };
+};
+
+const getNativeCalculatedPricing = (params: {
+  productCards: ReturnType<
+    typeof mapWordpressImportToProductCards
+  >["productCards"];
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
-  catalogSpecialOptions: Awaited<ReturnType<typeof getBookingCatalog>>["specialOptions"];
+  catalogSpecialOptions: Awaited<
+    ReturnType<typeof getBookingCatalog>
+  >["specialOptions"];
   drivingDistance: string | undefined;
-}): number => {
+  adjustments: ImportedWordpressAdjustments;
+}): { totalExVatCents: number; subcontractorTotalCents: number } => {
   const productBreakdowns = buildProductBreakdowns(
     params.productCards,
     params.catalogProducts,
     params.catalogSpecialOptions,
     {
-      zeroBaseDeliveryPricesOver100Km: parseDistanceKm(params.drivingDistance) > 100,
+      zeroBaseDeliveryPricesOver100Km:
+        parseDistanceKm(params.drivingDistance) > 100,
     },
   );
   const priceLookup = buildPriceLookup(
@@ -765,9 +1052,15 @@ const getNativeCalculatedPriceExVatCents = (params: {
   const result = calculateBookingPricing({
     productBreakdowns,
     priceLookup,
+    adjustments: params.adjustments,
   });
 
-  return Math.round(result.totals.totalExVat * 100);
+  return {
+    totalExVatCents: Math.round(result.totals.totalExVat * 100),
+    subcontractorTotalCents: Math.round(
+      (result.totals.subcontractorTotal ?? 0) * 100,
+    ),
+  };
 };
 
 async function syncWordpressPriceMismatchNotification(
@@ -779,8 +1072,12 @@ async function syncWordpressPriceMismatchNotification(
     nativePriceExVatCents: number;
   },
 ) {
-  const { orderId, companyId, wordpressPriceExVatCents, nativePriceExVatCents } =
-    params;
+  const {
+    orderId,
+    companyId,
+    wordpressPriceExVatCents,
+    nativePriceExVatCents,
+  } = params;
 
   const existing = await tx.orderNotification.findFirst({
     where: {
@@ -866,7 +1163,9 @@ const attachServiceLabelsToProductItems = (
       ...item,
       rawData: {
         ...(item.rawData as Record<string, Prisma.InputJsonValue>),
-        serviceLabels: linkedServiceItems.map((serviceItem) => serviceItem.label),
+        serviceLabels: linkedServiceItems.map(
+          (serviceItem) => serviceItem.label,
+        ),
         installLabels: linkedServiceItems
           .filter((serviceItem) => serviceItem.itemType === "INSTALL_OPTION")
           .map((serviceItem) => serviceItem.label),
@@ -903,7 +1202,8 @@ const buildServiceSignature = (service: {
   itemType: string;
   label: string;
   code?: string | null;
-}): string => `${service.cardId}|${service.itemType}|${service.code ?? ""}|${service.label}`;
+}): string =>
+  `${service.cardId}|${service.itemType}|${service.code ?? ""}|${service.label}`;
 
 const buildResolvedServiceQueues = (
   services: ResolvedWordpressService[],
@@ -924,6 +1224,97 @@ const buildResolvedServiceQueues = (
   return queues;
 };
 
+const cloneMappedProductCard = (
+  card: ReturnType<
+    typeof mapWordpressImportToProductCards
+  >["productCards"][number],
+) => ({
+  ...card,
+  selectedInstallOptionIds: [...card.selectedInstallOptionIds],
+  selectedExtraOptionIds: [...card.selectedExtraOptionIds],
+  selectedTimeOptionIds: [...card.selectedTimeOptionIds],
+  customSectionSelections: card.customSectionSelections.map((selection) => ({
+    ...selection,
+    optionIds: [...selection.optionIds],
+  })),
+});
+
+const pushUniqueSelection = (
+  target: string[],
+  value: string | null | undefined,
+) => {
+  if (!value || target.includes(value)) {
+    return;
+  }
+
+  target.push(value);
+};
+
+const ensureResolvedSelectionsOnProductCards = (params: {
+  productCards: ReturnType<
+    typeof mapWordpressImportToProductCards
+  >["productCards"];
+  resolvedServices: ResolvedWordpressService[];
+}) => {
+  const productCards = params.productCards.map(cloneMappedProductCard);
+  const cardLookup = new Map(productCards.map((card) => [card.cardId, card]));
+
+  for (const resolvedService of params.resolvedServices) {
+    const card = cardLookup.get(resolvedService.cardId);
+    if (!card) {
+      continue;
+    }
+
+    if (
+      resolvedService.optionCode &&
+      resolvedService.optionCode.trim().toUpperCase() === OPTION_CODES.DEMONT
+    ) {
+      card.demontEnabled = true;
+      continue;
+    }
+
+    if (resolvedService.resolvedItemType === "INSTALL_OPTION") {
+      pushUniqueSelection(
+        card.selectedInstallOptionIds,
+        resolvedService.optionId,
+      );
+      continue;
+    }
+
+    if (resolvedService.resolvedItemType === "RETURN_OPTION") {
+      if (!card.selectedReturnOptionId && resolvedService.optionId) {
+        card.selectedReturnOptionId = resolvedService.optionId;
+      }
+      continue;
+    }
+
+    if (resolvedService.customSectionId && resolvedService.optionId) {
+      const existingSelection =
+        card.customSectionSelections.find(
+          (selection) =>
+            selection.sectionId === resolvedService.customSectionId,
+        ) ?? null;
+
+      if (existingSelection) {
+        pushUniqueSelection(
+          existingSelection.optionIds,
+          resolvedService.optionId,
+        );
+      } else {
+        card.customSectionSelections.push({
+          sectionId: resolvedService.customSectionId,
+          optionIds: [resolvedService.optionId],
+        });
+      }
+      continue;
+    }
+
+    pushUniqueSelection(card.selectedExtraOptionIds, resolvedService.optionId);
+  }
+
+  return productCards;
+};
+
 const takeResolvedServiceMatch = (
   queues: Map<string, ResolvedWordpressService[]>,
   item: BuiltOrderItem,
@@ -932,7 +1323,11 @@ const takeResolvedServiceMatch = (
     return null;
   }
 
-  const key = buildResolvedServiceKey(item.cardId, item.itemType, item.optionCode);
+  const key = buildResolvedServiceKey(
+    item.cardId,
+    item.itemType,
+    item.optionCode,
+  );
   const queue = queues.get(key);
   if (!queue || queue.length === 0) {
     return null;
@@ -1010,7 +1405,10 @@ const enrichNativeItemsWithWordpressRawData = (params: {
       };
     }
 
-    const matchedService = takeResolvedServiceMatch(resolvedServiceQueues, item);
+    const matchedService = takeResolvedServiceMatch(
+      resolvedServiceQueues,
+      item,
+    );
     if (!matchedService) {
       return item;
     }
@@ -1032,20 +1430,32 @@ const enrichNativeItemsWithWordpressRawData = (params: {
 
 const buildSupplementalResolvedServiceItems = (params: {
   resolvedServices: ResolvedWordpressService[];
-  productCards: ReturnType<typeof mapWordpressImportToProductCards>["productCards"];
+  productCards: ReturnType<
+    typeof mapWordpressImportToProductCards
+  >["productCards"];
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
   parsedServiceLookup: Map<string, JsonRecord[]>;
 }): ImportedOrderItemData[] => {
-  const { resolvedServices, productCards, catalogProducts, parsedServiceLookup } =
-    params;
+  const {
+    resolvedServices,
+    productCards,
+    catalogProducts,
+    parsedServiceLookup,
+  } = params;
   const cardLookup = new Map(productCards.map((card) => [card.cardId, card]));
-  const productLookup = new Map(catalogProducts.map((product) => [product.id, product]));
+  const productLookup = new Map(
+    catalogProducts.map((product) => [product.id, product]),
+  );
 
   return resolvedServices.map((service) => {
     const card = cardLookup.get(service.cardId) ?? null;
-    const product =
-      card?.productId ? (productLookup.get(card.productId) ?? null) : null;
-    const parsedRawData = takeParsedServiceRawData(parsedServiceLookup, service);
+    const product = card?.productId
+      ? (productLookup.get(card.productId) ?? null)
+      : null;
+    const parsedRawData = takeParsedServiceRawData(
+      parsedServiceLookup,
+      service,
+    );
 
     return {
       cardId: service.cardId,
@@ -1054,7 +1464,10 @@ const buildSupplementalResolvedServiceItems = (params: {
       productName: product?.label ?? service.productName,
       deliveryType:
         product?.allowDeliveryTypes && card?.deliveryType
-          ? getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType)
+          ? getProductDeliveryTypeLabel(
+              product.deliveryTypes,
+              card.deliveryType,
+            )
           : null,
       itemType: service.resolvedItemType,
       optionId: service.optionId,
@@ -1077,14 +1490,24 @@ const buildSupplementalResolvedServiceItems = (params: {
 };
 
 const buildFallbackImportedItems = (params: {
-  unresolvedProducts: ReturnType<typeof mapWordpressImportToProductCards>["unresolvedProducts"];
-  unresolvedServices: ReturnType<typeof mapWordpressImportToProductCards>["unresolvedServices"];
+  unresolvedProducts: ReturnType<
+    typeof mapWordpressImportToProductCards
+  >["unresolvedProducts"];
+  unresolvedServices: ReturnType<
+    typeof mapWordpressImportToProductCards
+  >["unresolvedServices"];
   productItems: ParsedWordpressProductItem[];
   parsedServiceLookup: Map<string, JsonRecord[]>;
 }): ImportedOrderItemData[] => {
-  const { unresolvedProducts, unresolvedServices, productItems, parsedServiceLookup } =
-    params;
-  const productLookup = new Map(productItems.map((item) => [item.cardId, item]));
+  const {
+    unresolvedProducts,
+    unresolvedServices,
+    productItems,
+    parsedServiceLookup,
+  } = params;
+  const productLookup = new Map(
+    productItems.map((item) => [item.cardId, item]),
+  );
 
   const fallbackProducts = unresolvedProducts.map((item) => ({
     cardId: item.cardId,
@@ -1219,9 +1642,17 @@ export async function POST(req: NextRequest) {
       "returadresse",
       "return_address",
     ]);
-    const customerName = getFirstMetaString(meta, ["kundens_navn", "customer_name"]);
-    const customerLabel = customerName ?? getFirstMetaString(meta, ["bestillingsnr"]);
-    const phone = getFirstMetaString(meta, ["telefon_full", "telefon", "phone"]);
+    const customerName = getFirstMetaString(meta, [
+      "kundens_navn",
+      "customer_name",
+    ]);
+    const customerLabel =
+      customerName ?? getFirstMetaString(meta, ["bestillingsnr"]);
+    const phone = getFirstMetaString(meta, [
+      "telefon_full",
+      "telefon",
+      "phone",
+    ]);
     const phoneTwo = getFirstMetaString(meta, [
       "ekstra_kundens_telefon",
       "additional_customer_phone",
@@ -1238,7 +1669,11 @@ export async function POST(req: NextRequest) {
       "customer_comments",
       "kunde_kommentar",
     ]);
-    const floorNo = getFirstMetaString(meta, ["etasje_nr", "floor_no", "floor"]);
+    const floorNo = getFirstMetaString(meta, [
+      "etasje_nr",
+      "floor_no",
+      "floor",
+    ]);
     const lift = normalizeImportedLift(
       getFirstMetaString(meta, ["heis", "lift"]),
     );
@@ -1261,28 +1696,50 @@ export async function POST(req: NextRequest) {
         "time_window",
       ]),
     );
-    const orderNumber = getFirstMetaString(meta, ["bestillingsnr", "order_number"]);
+    const orderNumber = getFirstMetaString(meta, [
+      "bestillingsnr",
+      "order_number",
+    ]);
     const status =
       normalizeImportedStatus(
         getFirstMetaString(meta, ["status", "order_status", "post_status"]),
       ) ??
       normalizeImportedStatus(asString(body.status)) ??
       "processing";
-    const drivingDistance = getFirstMetaString(meta, ["total_km", "driving_distance"]);
+    const drivingDistance = getFirstMetaString(meta, [
+      "total_km",
+      "driving_distance",
+    ]);
     const description =
       getFirstMetaString(meta, ["beskrivelse", "description"]) ??
       orderNumber ??
       asString(body.title);
+    const extraPickupAddresses = getWordpressExtraPickupAddresses(meta);
+    const extraPickupContacts =
+      buildWordpressExtraPickupContacts(extraPickupAddresses);
+    const importedAdjustments = getImportedWordpressAdjustments(meta);
 
     const parsedProductItems = buildProductItemsFromMeta(meta);
     const parsedServiceItems = dedupeServiceItems([
       ...buildServiceItemsFromMeta(meta, parsedProductItems),
       ...buildServiceItemsFromBreakdown(meta, parsedProductItems),
     ]);
+    const expressDelivery =
+      getWordpressExpressDelivery(meta) ||
+      parsedServiceItems.some(isExpressServiceItem);
     const productItems = attachServiceLabelsToProductItems(
       parsedProductItems,
       parsedServiceItems,
     );
+    console.log("WP EXPRESS DEBUG", {
+      legacyWordpressOrderId: body.legacyWordpressOrderId,
+      metaExpress: meta.express,
+      metaExpressDelivery: meta.express_delivery,
+      priceBreakdownHasExpress: String(
+        meta.price_breakdown_html ?? "",
+      ).includes("EXPRESS"),
+      expressDelivery,
+    });
 
     const productsSummary =
       productItems.length > 0
@@ -1305,7 +1762,7 @@ export async function POST(req: NextRequest) {
 
     const servicesSummary = buildServicesSummary(parsedServiceItems);
     const catalog = await getBookingCatalog(membership.priceListId ?? null);
-    const mappedImport = mapWordpressImportToProductCards({
+    const rawMappedImport = mapWordpressImportToProductCards({
       parsedProducts: productItems.map((item) => ({
         cardId: item.cardId,
         productName: item.productName,
@@ -1323,13 +1780,23 @@ export async function POST(req: NextRequest) {
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
     });
+    const mappedImport = {
+      ...rawMappedImport,
+      productCards: ensureResolvedSelectionsOnProductCards({
+        productCards: rawMappedImport.productCards,
+        resolvedServices: rawMappedImport.resolvedServices,
+      }),
+    };
     const wordpressPriceExVatCents = getImportedWordpressPriceExVatCents(meta);
-    const nativePriceExVatCents = getNativeCalculatedPriceExVatCents({
+    const nativePricing = getNativeCalculatedPricing({
       productCards: mappedImport.productCards,
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
       drivingDistance,
+      adjustments: importedAdjustments,
     });
+    const nativePriceExVatCents = nativePricing.totalExVatCents;
+    const nativePriceSubcontractorCents = nativePricing.subcontractorTotalCents;
 
     const resolvedServiceQueues = buildResolvedServiceQueues(
       mappedImport.resolvedServices,
@@ -1416,14 +1883,27 @@ export async function POST(req: NextRequest) {
               cashierPhone,
               deliveryDate,
               timeWindow,
+              expressDelivery,
               orderNumber,
               productsSummary,
               deliveryTypeSummary,
               servicesSummary,
+              extraPickupAddress: extraPickupAddresses,
+              extraPickupContacts:
+                extraPickupContacts.length > 0
+                  ? (extraPickupContacts as unknown as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
+              rabatt: importedAdjustments.rabatt,
+              leggTil: importedAdjustments.leggTil,
+              subcontractorMinus: importedAdjustments.subcontractorMinus,
+              subcontractorPlus: importedAdjustments.subcontractorPlus,
               priceExVat:
                 typeof wordpressPriceExVatCents === "number"
                   ? Math.round(wordpressPriceExVatCents / 100)
                   : Math.round(nativePriceExVatCents / 100),
+              priceSubcontractor: Math.round(
+                nativePriceSubcontractorCents / 100,
+              ),
               productCardsSnapshot:
                 mappedImport.productCards.length > 0
                   ? (mappedImport.productCards as unknown as Prisma.InputJsonValue)
@@ -1444,7 +1924,9 @@ export async function POST(req: NextRequest) {
 
           if (importedItems.length > 0) {
             await tx.orderItem.createMany({
-              data: importedItems.map((item) => toCreateManyItem(updated.id, item)),
+              data: importedItems.map((item) =>
+                toCreateManyItem(updated.id, item),
+              ),
             });
           }
 
@@ -1500,20 +1982,32 @@ export async function POST(req: NextRequest) {
               cashierPhone,
               deliveryDate,
               timeWindow,
+              expressDelivery,
               orderNumber,
               productsSummary,
               deliveryTypeSummary,
               servicesSummary,
+              extraPickupAddress: extraPickupAddresses,
+              extraPickupContacts:
+                extraPickupContacts.length > 0
+                  ? (extraPickupContacts as unknown as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
+              rabatt: importedAdjustments.rabatt,
+              leggTil: importedAdjustments.leggTil,
+              subcontractorMinus: importedAdjustments.subcontractorMinus,
+              subcontractorPlus: importedAdjustments.subcontractorPlus,
               priceExVat:
                 typeof wordpressPriceExVatCents === "number"
                   ? Math.round(wordpressPriceExVatCents / 100)
                   : Math.round(nativePriceExVatCents / 100),
+              priceSubcontractor: Math.round(
+                nativePriceSubcontractorCents / 100,
+              ),
               productCardsSnapshot:
                 mappedImport.productCards.length > 0
                   ? (mappedImport.productCards as unknown as Prisma.InputJsonValue)
                   : Prisma.JsonNull,
               dontSendEmail: true,
-              extraPickupAddress: [],
             },
             select: {
               id: true,
@@ -1524,7 +2018,9 @@ export async function POST(req: NextRequest) {
 
           if (importedItems.length > 0) {
             await tx.orderItem.createMany({
-              data: importedItems.map((item) => toCreateManyItem(created.id, item)),
+              data: importedItems.map((item) =>
+                toCreateManyItem(created.id, item),
+              ),
             });
           }
 

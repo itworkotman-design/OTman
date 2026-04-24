@@ -54,6 +54,11 @@ import {
 } from "@/lib/orders/capacity";
 import { buildCapacityWarningNotification } from "@/lib/orders/notificationTemplates/capacityWarningNotification";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import {
+  buildWordpressExtraPickupContacts,
+  getWordpressExtraPickupAddresses,
+  toWordpressMetaRecord,
+} from "@/lib/integrations/wordpress/orderMeta";
 
 type ProductChangeValue = {
   label: string;
@@ -391,6 +396,7 @@ export async function GET(
       pickupAddress: true,
       extraPickupAddress: true,
       extraPickupContacts: true,
+      legacyWordpressRawMeta: true,
       deliveryAddress: true,
       returnAddress: true,
       drivingDistance: true,
@@ -453,6 +459,17 @@ export async function GET(
     );
   }
 
+  const fallbackExtraPickupAddresses =
+    order.extraPickupAddress.length > 0
+      ? order.extraPickupAddress
+      : getWordpressExtraPickupAddresses(
+          toWordpressMetaRecord(order.legacyWordpressRawMeta),
+        );
+
+  const extraPickupContacts = Array.isArray(order.extraPickupContacts)
+    ? order.extraPickupContacts
+    : buildWordpressExtraPickupContacts(fallbackExtraPickupAddresses);
+
   return NextResponse.json({
     ok: true,
     order: {
@@ -475,30 +492,25 @@ export async function GET(
         order.contactCustomerForCustomTimeWindow,
       customTimeContactNote: order.customTimeContactNote ?? "",
       pickupAddress: order.pickupAddress ?? "",
-      extraPickupAddress: order.extraPickupAddress ?? [],
-      extraPickups: Array.isArray(order.extraPickupContacts)
-        ? order.extraPickupContacts.map((pickup) => {
-            const candidate =
-              pickup && typeof pickup === "object" && !Array.isArray(pickup)
-                ? (pickup as {
-                    address?: unknown;
-                    phone?: unknown;
-                    email?: unknown;
-                    sendEmail?: unknown;
-                  })
-                : null;
+      extraPickupAddress: fallbackExtraPickupAddresses,
+      extraPickups: extraPickupContacts.map((pickup) => {
+        const candidate =
+          pickup && typeof pickup === "object" && !Array.isArray(pickup)
+            ? (pickup as {
+                address?: unknown;
+                phone?: unknown;
+                email?: unknown;
+                sendEmail?: unknown;
+              })
+            : null;
 
-            return {
-              address:
-                typeof candidate?.address === "string" ? candidate.address : "",
-              phone:
-                typeof candidate?.phone === "string" ? candidate.phone : "",
-              email:
-                typeof candidate?.email === "string" ? candidate.email : "",
-              sendEmail: candidate?.sendEmail === false ? false : true,
-            };
-          })
-        : [],
+        return {
+          address: typeof candidate?.address === "string" ? candidate.address : "",
+          phone: typeof candidate?.phone === "string" ? candidate.phone : "",
+          email: typeof candidate?.email === "string" ? candidate.email : "",
+          sendEmail: candidate?.sendEmail === false ? false : true,
+        };
+      }),
       deliveryAddress: order.deliveryAddress ?? "",
       returnAddress: order.returnAddress ?? "",
       drivingDistance: order.drivingDistance ?? "",

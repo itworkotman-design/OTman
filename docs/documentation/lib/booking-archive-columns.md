@@ -6,14 +6,13 @@
 
 ## Responsibility
 
-Defines the column sets, export metadata, and visibility helpers used by the booking archive across each dashboard role view. The admin view now labels the creator column as `Store`, keeps that store column ahead of `Customer name`, uses the order `customerName` field for the admin customer column, and visibility sanitizing migrates older saved admin layouts from `customerName` to `createdBy`.
+Defines the column sets, export metadata, and visibility helpers used by the booking archive across each dashboard role view. The admin view now labels the creator column as `Store`, keeps that store column ahead of `Customer name`, uses the order `customerName` field for the admin customer column, visibility sanitizing migrates older saved admin layouts from `customerName` to `createdBy`, and exported archive dates now use explicit slash-formatted dates.
 
 ## Functions
 
 | Function | Description |
 | --- | --- |
 | `formatCell` | Normalizes empty export values into `-`. |
-| `formatDateTime` | Formats archive timestamps for export. |
 | `formatMoney` | Formats archive numeric totals as `NOK` strings for export. |
 | `getBookingArchiveColumns` | Returns the configured column list for a given archive view mode. |
 | `getDefaultVisibleBookingArchiveColumns` | Returns the default visible-column order for a given view mode. |
@@ -28,3 +27,4 @@ Defines the column sets, export metadata, and visibility helpers used by the boo
 - Admin and subcontractor views now use a single `orderSummary` column instead of separate `productsSummary`, `deliveryTypeSummary`, and `servicesSummary` columns. The export value comes from the shared compact summary text.
 - Saved column visibility now migrates the removed legacy summary ids to `orderSummary`, keeps `orderSummary` always visible for admin and subcontractor archive views, and automatically restores `priceExVat` when `priceSubcontractor` is still visible.
 - Column labels and export headers are now English.
+- `deliveryDate` exports now use `dd/mm/yyyy`, while `createdAt` and `updatedAt` exports use `dd/mm/yyyy HH:mm`.

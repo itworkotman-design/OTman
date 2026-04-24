@@ -14,6 +14,7 @@ import {
   getOrderStatusLabel,
   getOrderStatusStyle,
 } from "@/lib/orders/statusPresentation";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
 
 type BookingArchiveTableProps = {
   orders: OrderRow[];
@@ -63,22 +64,6 @@ function formatCell(value: string | number | null | undefined) {
   if (typeof value === "number") return String(value);
   if (!value.trim()) return "-";
   return value;
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "-";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-
-  return date.toLocaleString("no-NO", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
 }
 
 function formatMoney(value: number | null | undefined) {
@@ -585,7 +570,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("deliveryDate") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatCell(order.deliveryDate)}</Cell>
+                      <Cell>{formatDisplayDate(order.deliveryDate)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("timeWindow") ? (
@@ -674,14 +659,14 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("createdAt") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatDateTime(order.createdAt)}</Cell>
+                      <Cell>{formatDisplayDateTime(order.createdAt)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("updatedAt") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
                       <Cell>
                         {order.lastEditedBy
-                          ? `${formatDateTime(order.updatedAt)} (${order.lastEditedBy})`
+                          ? `${formatDisplayDateTime(order.updatedAt)} (${order.lastEditedBy})`
                           : "-"}
                       </Cell>
                     </td>
@@ -713,7 +698,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("deliveryDate") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatCell(order.deliveryDate)}</Cell>
+                      <Cell>{formatDisplayDate(order.deliveryDate)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("timeWindow") ? (
@@ -792,7 +777,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("createdAt") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatDateTime(order.createdAt)}</Cell>
+                      <Cell>{formatDisplayDateTime(order.createdAt)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("priceExVat") ? (
@@ -837,7 +822,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("deliveryDate") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatCell(order.deliveryDate)}</Cell>
+                      <Cell>{formatDisplayDate(order.deliveryDate)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("priceExVat") ? (
