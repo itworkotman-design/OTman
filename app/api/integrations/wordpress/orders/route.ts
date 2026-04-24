@@ -71,6 +71,24 @@ type ImportedWordpressAdjustments = {
   subcontractorPlus?: string;
 };
 
+const WORDPRESS_DEFAULT_TIME_HOURS = 0.5;
+
+const getImportedProductQuantity = (
+  item: ParsedWordpressProductItem,
+  catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"],
+): number => {
+  const product = catalogProducts.find(
+    (candidate) =>
+      candidate.label.toLowerCase() === item.productName.toLowerCase(),
+  );
+
+  if (product?.allowHoursInput && item.quantity === 1) {
+    return WORDPRESS_DEFAULT_TIME_HOURS;
+  }
+
+  return item.quantity;
+};
+
 const DELIVERY_TYPE_CODES = new Set([
   "SIDEBYSIDETRAPP",
   "SIDEBYSIDE",
@@ -1731,16 +1749,6 @@ export async function POST(req: NextRequest) {
       parsedProductItems,
       parsedServiceItems,
     );
-    console.log("WP EXPRESS DEBUG", {
-      legacyWordpressOrderId: body.legacyWordpressOrderId,
-      metaExpress: meta.express,
-      metaExpressDelivery: meta.express_delivery,
-      priceBreakdownHasExpress: String(
-        meta.price_breakdown_html ?? "",
-      ).includes("EXPRESS"),
-      expressDelivery,
-    });
-
     const productsSummary =
       productItems.length > 0
         ? productItems
@@ -1773,55 +1781,23 @@ export async function POST(req: NextRequest) {
       parsedProducts: productItems.map((item) => ({
         cardId: item.cardId,
         productName: item.productName,
-        quantity: item.quantity,
+        quantity: getImportedProductQuantity(item, catalog.products),
         deliveryType: item.deliveryType,
       })),
 
       parsedServices: parsedServiceItems.map((item) => ({
         cardId: item.cardId,
         productName: item.productName,
-        quantity: item.quantity,
+        quantity:
+          item.label.toLowerCase().includes("time") && item.quantity === 1
+            ? WORDPRESS_DEFAULT_TIME_HOURS
+            : item.quantity,
         itemType: item.itemType,
         label: item.label,
         code: item.code,
       })),
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
-    });
-    console.log("WP RETURN DEBUG", {
-      parsedServiceItems: parsedServiceItems.map((s) => ({
-        cardId: s.cardId,
-        itemType: s.itemType,
-        label: s.label,
-        code: s.code,
-      })),
-      catalogReturnOptions: catalog.specialOptions
-        .filter((o) => ["RETURNREC", "RETURNSTORE"].includes(o.code))
-        .map((o) => ({
-          id: o.id,
-          code: o.code,
-          type: o.type,
-          label: o.label,
-        })),
-      resolvedServices: rawMappedImport.resolvedServices.map((s) => ({
-        cardId: s.cardId,
-        label: s.label,
-        code: s.code,
-        optionCode: s.optionCode,
-        optionId: s.optionId,
-        resolvedItemType: s.resolvedItemType,
-      })),
-      unresolvedServices: rawMappedImport.unresolvedServices.map((s) => ({
-        cardId: s.cardId,
-        label: s.label,
-        code: s.code,
-        itemType: s.itemType,
-      })),
-      productCards: rawMappedImport.productCards.map((c) => ({
-        cardId: c.cardId,
-        productId: c.productId,
-        selectedReturnOptionId: c.selectedReturnOptionId,
-      })),
     });
     const mappedImport = {
       ...rawMappedImport,

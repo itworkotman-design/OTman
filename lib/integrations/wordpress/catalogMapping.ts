@@ -59,6 +59,7 @@ const LEGACY_ENCODING_REPLACEMENTS: Array<[string, string]> = [
   ["å", "a"],
   ["æ", "ae"],
 ];
+const WORDPRESS_DEFAULT_TIME_HOURS = 0.5;
 
 function repairLegacyEncoding(value: string): string {
   return LEGACY_ENCODING_REPLACEMENTS.reduce(
@@ -488,9 +489,12 @@ export function mapWordpressImportToProductCards(params: {
 
     if (product.allowHoursInput) {
       const resolvedHoursInput =
-        laborServiceQuantity ?? parsedProduct.quantity ?? 1;
+        laborServiceQuantity ??
+        parsedProduct.quantity ??
+        WORDPRESS_DEFAULT_TIME_HOURS;
+
       card.hoursInput = Math.max(
-        0.5,
+        WORDPRESS_DEFAULT_TIME_HOURS,
         resolvedHoursInput,
       );
     }
