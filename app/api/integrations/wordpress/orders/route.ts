@@ -72,7 +72,10 @@ type ImportedWordpressAdjustments = {
 };
 
 const WORDPRESS_DEFAULT_TIME_HOURS = 0.5;
-
+const hasWordpressKmPrice = (meta: Record<string, unknown>): boolean =>
+  extractBreakdownRows(asString(meta.price_breakdown_html)).some((row) =>
+    /^km pris\b/i.test(row.label),
+  );
 const getImportedProductQuantity = (
   item: ParsedWordpressProductItem,
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"],
@@ -1841,7 +1844,7 @@ export async function POST(req: NextRequest) {
       productCards: mappedImport.productCards,
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
-      drivingDistance,
+      drivingDistance: hasWordpressKmPrice(meta) ? drivingDistance : undefined,
       adjustments: importedAdjustments,
     });
     const nativePriceExVatCents = nativePricing.totalExVatCents;
