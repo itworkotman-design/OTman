@@ -47,14 +47,19 @@ function shouldUseXtraDeliveryPricing(
   return xtraDeliveryCardIds.has(currentCardId);
 }
 
-function usesSharedDeliveryPricing(card: SavedProductCard, product: CatalogProduct) {
+function usesSharedDeliveryPricing(
+  card: SavedProductCard,
+  product: CatalogProduct,
+) {
   if (!product.allowDeliveryTypes) {
     return false;
   }
 
   return (
     card.deliveryType === DELIVERY_TYPES.FIRST_STEP ||
-    card.deliveryType === DELIVERY_TYPES.INDOOR
+    card.deliveryType === DELIVERY_TYPES.INDOOR ||
+    card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY ||
+    card.deliveryType === DELIVERY_TYPES.RETURN_ONLY
   );
 }
 
@@ -86,8 +91,9 @@ function getXtraDeliveryCardIds(
       }
 
       const product =
-        catalogProducts.find((item) => item.id === card.productId && item.active) ??
-        null;
+        catalogProducts.find(
+          (item) => item.id === card.productId && item.active,
+        ) ?? null;
 
       if (!product || !usesSharedDeliveryPricing(card, product)) {
         return null;
@@ -307,32 +313,36 @@ function buildItemsForCard(
     }
 
     if (showReturnOptions && card.selectedReturnOptionId) {
-      const selectedReturn = findSelectedReturnSpecialOption(
-        catalogSpecialOptions,
-        card.selectedReturnOptionId,
-      );
+  const selectedReturn = findSelectedReturnSpecialOption(
+    catalogSpecialOptions,
+    card.selectedReturnOptionId,
+  );
 
-      if (selectedReturn) {
-        if (shouldPriceReturnOption(card.deliveryType)) {
-          items.push({
-            kind: "productOption",
-            productOptionId: selectedReturn.id,
-            qty: amount,
-          });
-        } else {
-          items.push({
-            kind: "info",
-            label:
-              selectedReturn.description ||
-              selectedReturn.label ||
-              selectedReturn.code ||
-              "Return",
-            qty: amount,
-          });
-        }
-      }
-    }
+  if (!selectedReturn) {
+    return items;
+  }
 
+  const forcePriceReturnOption =
+    card.deliveryType === DELIVERY_TYPES.RETURN_ONLY && useXtraDeliveryPricing;
+
+  if (shouldPriceReturnOption(card.deliveryType) || forcePriceReturnOption) {
+    items.push({
+      kind: "productOption",
+      productOptionId: selectedReturn.id,
+      qty: amount,
+    });
+  } else {
+    items.push({
+      kind: "info",
+      label:
+        selectedReturn.description ||
+        selectedReturn.label ||
+        selectedReturn.code ||
+        "Return",
+      qty: amount,
+    });
+  }
+}
     appendCustomSectionItems(items, card, product, 1);
     return items;
   }
@@ -410,7 +420,11 @@ function buildItemsForCard(
       return items;
     }
 
-    if (shouldPriceReturnOption(card.deliveryType)) {
+    const forcePriceReturnOption =
+      card.deliveryType === DELIVERY_TYPES.RETURN_ONLY &&
+      useXtraDeliveryPricing;
+
+    if (shouldPriceReturnOption(card.deliveryType) || forcePriceReturnOption) {
       items.push({
         kind: "productOption",
         productOptionId: selectedReturn.id,

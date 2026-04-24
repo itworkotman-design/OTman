@@ -65,6 +65,36 @@ type ProductChangeValue = {
   value: string;
 };
 
+function normalizeReturnSelectionsForAddress(params: {
+  productCards: SavedProductCard[];
+  returnAddress: string | null | undefined;
+  specialOptions: CatalogSpecialOption[];
+}) {
+  const { productCards, returnAddress, specialOptions } = params;
+  if (!returnAddress?.trim()) {
+    return productCards;
+  }
+
+  const returnStoreOption = specialOptions.find(
+    (option) =>
+      option.type === "return" &&
+      option.code.trim().toUpperCase() === "RETURNSTORE",
+  );
+
+  if (!returnStoreOption) {
+    return productCards;
+  }
+
+  return productCards.map((card) =>
+    card.selectedReturnOptionId
+      ? {
+          ...card,
+          selectedReturnOptionId: returnStoreOption.id,
+        }
+      : card,
+  );
+}
+
 function formatList(values: string[]) {
   return values.length > 0 ? values.join(", ") : "-";
 }
@@ -382,6 +412,7 @@ export async function GET(
     select: {
       id: true,
       displayId: true,
+      legacyWordpressOrderId: true,
       priceListId: true,
       customerMembershipId: true,
       productCardsSnapshot: true,
@@ -469,19 +500,33 @@ export async function GET(
   const extraPickupContacts = Array.isArray(order.extraPickupContacts)
     ? order.extraPickupContacts
     : buildWordpressExtraPickupContacts(fallbackExtraPickupAddresses);
+  const defaultPriceList = order.priceListId
+    ? null
+    : await prisma.priceList.findUnique({
+        where: { code: "DEFAULT" },
+        select: { id: true },
+      });
+  const effectivePriceListId = order.priceListId ?? defaultPriceList?.id ?? null;
+  const catalog = await getBookingCatalog(effectivePriceListId);
+  const normalizedProductCards = normalizeReturnSelectionsForAddress({
+    productCards: Array.isArray(order.productCardsSnapshot)
+      ? order.productCardsSnapshot.map((card, index) =>
+          normalizeSavedProductCard(card as Partial<SavedProductCard>, index),
+        )
+      : [],
+    returnAddress: order.returnAddress,
+    specialOptions: catalog.specialOptions,
+  });
 
   return NextResponse.json({
     ok: true,
     order: {
       id: order.id,
       displayId: order.displayId ?? 0,
-      priceListId: order.priceListId ?? "",
+      legacyWordpressOrderId: order.legacyWordpressOrderId,
+      priceListId: effectivePriceListId ?? "",
       customerMembershipId: order.customerMembershipId ?? "",
-      productCards: Array.isArray(order.productCardsSnapshot)
-        ? order.productCardsSnapshot.map((card, index) =>
-            normalizeSavedProductCard(card as Partial<SavedProductCard>, index),
-          )
-        : [],
+      productCards: normalizedProductCards,
       orderNumber: order.orderNumber ?? "",
       description: order.description ?? "",
       modelNr: order.modelNr ?? "",
@@ -505,7 +550,8 @@ export async function GET(
             : null;
 
         return {
-          address: typeof candidate?.address === "string" ? candidate.address : "",
+          address:
+            typeof candidate?.address === "string" ? candidate.address : "",
           phone: typeof candidate?.phone === "string" ? candidate.phone : "",
           email: typeof candidate?.email === "string" ? candidate.email : "",
           sendEmail: candidate?.sendEmail === false ? false : true,
@@ -746,7 +792,9 @@ export async function PATCH(
   const phoneTwo = normalizeOptionalPhone(body.phoneTwo);
   const cashierPhone = normalizeOptionalPhone(body.cashierPhone);
   const parsedBodyExtraPickups =
-    body.extraPickups !== undefined ? parseExtraPickups(body.extraPickups) : null;
+    body.extraPickups !== undefined
+      ? parseExtraPickups(body.extraPickups)
+      : null;
 
   if (parsedBodyExtraPickups) {
     const extraPickupError = getExtraPickupApiError(parsedBodyExtraPickups);
@@ -1100,66 +1148,64 @@ export async function PATCH(
       type: "MANUAL_REVIEW",
       title: extraPickupNotification.title,
       message: extraPickupNotification.message,
-      payload: extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
+      payload:
+        extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
     });
   }
 
-      const nextDeliveryDate =
-        optionalString(body.deliveryDate) ?? existingOrder.deliveryDate;
-      const nextTimeWindow =
-        optionalString(body.timeWindow) ?? existingOrder.timeWindow;
+  const nextDeliveryDate =
+    optionalString(body.deliveryDate) ?? existingOrder.deliveryDate;
+  const nextTimeWindow =
+    optionalString(body.timeWindow) ?? existingOrder.timeWindow;
 
-      if (nextDeliveryDate && nextTimeWindow) {
-        await resolveOutdatedCapacityNotifications(prisma, {
+  if (nextDeliveryDate && nextTimeWindow) {
+    await resolveOutdatedCapacityNotifications(prisma, {
+      orderId,
+      companyId: existingOrder.companyId,
+      deliveryDate: nextDeliveryDate,
+      timeWindow: nextTimeWindow,
+      resolvedByMembershipId: membership.id,
+    });
+
+    const slotCount = await countOrdersInDeliverySlot(prisma, {
+      companyId: existingOrder.companyId,
+      deliveryDate: nextDeliveryDate,
+      timeWindow: nextTimeWindow,
+      excludeOrderId: orderId,
+    });
+
+    const totalCountIncludingCurrent = slotCount + 1;
+
+    if (
+      isDeliverySlotOverCapacity(totalCountIncludingCurrent, ORDER_SLOT_LIMIT)
+    ) {
+      const alreadyExists = await hasOpenCapacityNotification(prisma, {
+        orderId,
+        companyId: existingOrder.companyId,
+        deliveryDate: nextDeliveryDate,
+        timeWindow: nextTimeWindow,
+      });
+
+      if (!alreadyExists) {
+        const capacityNotification = buildCapacityWarningNotification({
+          deliveryDate: nextDeliveryDate,
+          timeWindow: nextTimeWindow,
+          count: totalCountIncludingCurrent,
+          limit: ORDER_SLOT_LIMIT,
+        });
+
+        await createOrderNotification(prisma, {
           orderId,
           companyId: existingOrder.companyId,
-          deliveryDate: nextDeliveryDate,
-          timeWindow: nextTimeWindow,
-          resolvedByMembershipId: membership.id,
+          type: "CAPACITY_REVIEW",
+          title: capacityNotification.title,
+          message: capacityNotification.message,
+          payload:
+            capacityNotification.payload as unknown as Prisma.InputJsonValue,
         });
-
-        const slotCount = await countOrdersInDeliverySlot(prisma, {
-          companyId: existingOrder.companyId,
-          deliveryDate: nextDeliveryDate,
-          timeWindow: nextTimeWindow,
-          excludeOrderId: orderId,
-        });
-
-        const totalCountIncludingCurrent = slotCount + 1;
-
-        if (
-          isDeliverySlotOverCapacity(
-            totalCountIncludingCurrent,
-            ORDER_SLOT_LIMIT,
-          )
-        ) {
-          const alreadyExists = await hasOpenCapacityNotification(prisma, {
-            orderId,
-            companyId: existingOrder.companyId,
-            deliveryDate: nextDeliveryDate,
-            timeWindow: nextTimeWindow,
-          });
-
-          if (!alreadyExists) {
-            const capacityNotification = buildCapacityWarningNotification({
-              deliveryDate: nextDeliveryDate,
-              timeWindow: nextTimeWindow,
-              count: totalCountIncludingCurrent,
-              limit: ORDER_SLOT_LIMIT,
-            });
-
-            await createOrderNotification(prisma, {
-              orderId,
-              companyId: existingOrder.companyId,
-              type: "CAPACITY_REVIEW",
-              title: capacityNotification.title,
-              message: capacityNotification.message,
-              payload:
-                capacityNotification.payload as unknown as Prisma.InputJsonValue,
-            });
-          }
-        }
       }
+    }
+  }
 
   return NextResponse.json({
     ok: true,

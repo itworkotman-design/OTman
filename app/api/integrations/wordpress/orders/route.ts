@@ -1002,6 +1002,19 @@ const getImportedWordpressPriceExVatCents = (
   );
 };
 
+const getImportedWordpressKmPriceCents = (
+  meta: Record<string, unknown>,
+): number | undefined => {
+  const breakdownHtml = asString(meta.price_breakdown_html);
+  if (!breakdownHtml) {
+    return undefined;
+  }
+
+  return findBreakdownRowValueCents(extractBreakdownRows(breakdownHtml), [
+    /^km pris\b/i,
+  ]);
+};
+
 const getImportedWordpressAdjustments = (
   meta: Record<string, unknown>,
 ): ImportedWordpressAdjustments => {
@@ -1388,6 +1401,31 @@ const buildParsedServiceLookup = (
   return lookup;
 };
 
+const coerceReturnServicesToStoreWhenAddressExists = (
+  serviceItems: ParsedWordpressServiceItem[],
+  hasReturnAddress: boolean,
+): ParsedWordpressServiceItem[] => {
+  if (!hasReturnAddress) {
+    return serviceItems;
+  }
+
+  return serviceItems.map((item) =>
+    item.itemType === "RETURN_OPTION"
+      ? {
+          ...item,
+          label: "Retur til butikk",
+          code: "RETURNSTORE",
+          rawData: {
+            ...(toJsonRecord(item.rawData) as Record<string, Prisma.InputJsonValue>),
+            originalReturnLabel: item.label,
+            originalReturnCode: item.code ?? null,
+            forcedReturnStoreBecauseReturnAddressExists: true,
+          },
+        }
+      : item,
+  );
+};
+
 const takeParsedServiceRawData = (
   lookup: Map<string, JsonRecord[]>,
   service: {
@@ -1745,10 +1783,17 @@ export async function POST(req: NextRequest) {
     const importedAdjustments = getImportedWordpressAdjustments(meta);
 
     const parsedProductItems = buildProductItemsFromMeta(meta);
-    const parsedServiceItems = dedupeServiceItems([
+    const parsedServiceItemsRaw = dedupeServiceItems([
       ...buildServiceItemsFromMeta(meta, parsedProductItems),
       ...buildServiceItemsFromBreakdown(meta, parsedProductItems),
     ]);
+
+    const hasReturnAddress = Boolean(returnAddress?.trim());
+
+    const parsedServiceItems = coerceReturnServicesToStoreWhenAddressExists(
+      parsedServiceItemsRaw,
+      hasReturnAddress,
+    );
     const expressDelivery =
       getWordpressExpressDelivery(meta) ||
       parsedServiceItems.some(isExpressServiceItem);
@@ -1806,6 +1851,8 @@ export async function POST(req: NextRequest) {
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
     });
+    
+
     const mappedImport = {
       ...rawMappedImport,
       productCards: ensureResolvedSelectionsOnProductCards({
@@ -1813,38 +1860,62 @@ export async function POST(req: NextRequest) {
         resolvedServices: rawMappedImport.resolvedServices,
       }),
     };
-    console.log("WP TIME DEBUG", {
-      parsedProducts: productItems.map((item) => ({
-        cardId: item.cardId,
-        productName: item.productName,
-        quantity: item.quantity,
-      })),
-      parsedServices: parsedServiceItems.map((item) => ({
-        cardId: item.cardId,
-        label: item.label,
-        code: item.code,
-        quantity: item.quantity,
-        itemType: item.itemType,
-      })),
-      rawCards: rawMappedImport.productCards.map((card) => ({
-        cardId: card.cardId,
-        productId: card.productId,
-        amount: card.amount,
-        hoursInput: card.hoursInput,
-      })),
-      finalCards: mappedImport.productCards.map((card) => ({
-        cardId: card.cardId,
-        productId: card.productId,
-        amount: card.amount,
-        hoursInput: card.hoursInput,
-      })),
-    });
     const wordpressPriceExVatCents = getImportedWordpressPriceExVatCents(meta);
+    const wordpressKmPriceCents = getImportedWordpressKmPriceCents(meta);
+    if (
+      typeof wordpressKmPriceCents === "number" &&
+      wordpressKmPriceCents > 0
+    ) {
+      const existingPlusCents =
+        parseLegacyMoneyToCents(importedAdjustments.leggTil ?? "") ?? 0;
+
+      importedAdjustments.leggTil = formatImportedAdjustment(
+        existingPlusCents + wordpressKmPriceCents,
+      );
+    }
+    const returnStoreOption = catalog.specialOptions.find(
+      (option) =>
+        option.type === "return" &&
+        option.code.trim().toUpperCase() === "RETURNSTORE",
+    );
+
+    if (returnAddress?.trim() && returnStoreOption) {
+      const cardIdsWithImportedReturn = new Set(
+        parsedServiceItems
+          .filter((service) => service.itemType === "RETURN_OPTION")
+          .map((service) => service.cardId),
+      );
+
+      mappedImport.productCards = mappedImport.productCards.map((card) => ({
+        ...card,
+        selectedReturnOptionId: cardIdsWithImportedReturn.has(card.cardId)
+          ? returnStoreOption.id
+          : card.selectedReturnOptionId,
+      }));
+
+      mappedImport.resolvedServices = mappedImport.resolvedServices.map(
+        (service) =>
+          service.resolvedItemType === "RETURN_OPTION"
+            ? {
+                ...service,
+                optionId: returnStoreOption.id,
+                optionCode: returnStoreOption.code,
+                optionLabel: returnStoreOption.label,
+                customerPriceCents: Math.round(
+                  Number(returnStoreOption.customerPrice) * 100,
+                ),
+                subcontractorPriceCents: Math.round(
+                  Number(returnStoreOption.subcontractorPrice) * 100,
+                ),
+              }
+            : service,
+      );
+    }
     const nativePricing = getNativeCalculatedPricing({
       productCards: mappedImport.productCards,
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
-      drivingDistance: hasWordpressKmPrice(meta) ? drivingDistance : undefined,
+      drivingDistance: undefined,
       adjustments: importedAdjustments,
     });
     const nativePriceExVatCents = nativePricing.totalExVatCents;

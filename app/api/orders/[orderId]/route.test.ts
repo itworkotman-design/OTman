@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   sendExtraPickupNotificationEmailMock: vi.fn(),
   createOrderNotificationMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
+  priceListFindUniqueMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
   orderDeleteManyMock: vi.fn(),
   orderUpdateMock: vi.fn(),
@@ -61,6 +62,9 @@ vi.mock("@/lib/db", () => ({
     membership: {
       findFirst: mocks.membershipFindFirstMock,
     },
+    priceList: {
+      findUnique: mocks.priceListFindUniqueMock,
+    },
     order: {
       findFirst: mocks.orderFindFirstMock,
       deleteMany: mocks.orderDeleteManyMock,
@@ -78,6 +82,9 @@ describe("routes in /api/orders/[orderId]", () => {
     mocks.getBookingCatalogMock.mockResolvedValue({
       products: [],
       specialOptions: [],
+    });
+    mocks.priceListFindUniqueMock.mockResolvedValue({
+      id: "default-price-list-id",
     });
     mocks.buildOrderSummariesMock.mockReturnValue({
       productsSummary: "Product summary",
@@ -211,6 +218,135 @@ describe("routes in /api/orders/[orderId]", () => {
             email: "",
             sendEmail: true,
           },
+        ],
+      },
+    });
+  });
+
+  it("GET rewrites saved return selections to return-to-store when a return address exists", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.getBookingCatalogMock.mockResolvedValueOnce({
+      products: [],
+      specialOptions: [
+        {
+          id: "return-store-id",
+          type: "return",
+          code: "RETURNSTORE",
+          label: "Retur til butikk",
+          description: "Return to store",
+          customerPrice: "300",
+          subcontractorPrice: "200",
+          effectiveCustomerPrice: "300",
+          active: true,
+        },
+        {
+          id: "return-rec-id",
+          type: "return",
+          code: "RETURNREC",
+          label: "Retur til gjenvinning",
+          description: "Return to recycling",
+          customerPrice: "250",
+          subcontractorPrice: "150",
+          effectiveCustomerPrice: "250",
+          active: true,
+        },
+      ],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      displayId: 20001,
+      legacyWordpressOrderId: 3954,
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      productCardsSnapshot: [
+        {
+          cardId: 1,
+          productId: "product-1",
+          modelNumber: "",
+          deliveryType: "INDOOR",
+          amount: 1,
+          peopleCount: 1,
+          hoursInput: 1,
+          selectedInstallOptionIds: [],
+          selectedExtraOptionIds: [],
+          selectedReturnOptionId: "return-rec-id",
+          demontEnabled: false,
+          selectedTimeOptionIds: [],
+          extraTimeHours: 0.5,
+          extraPalletEnabled: false,
+          extraPalletQty: 1,
+          etterEnabled: false,
+          etterQty: 1,
+          customSectionSelections: [],
+        },
+      ],
+      orderNumber: "11191323551",
+      description: "",
+      modelNr: "",
+      deliveryDate: "2026-04-25",
+      timeWindow: "",
+      expressDelivery: true,
+      contactCustomerForCustomTimeWindow: false,
+      customTimeContactNote: "",
+      pickupAddress: "Pickup 1",
+      extraPickupAddress: [],
+      extraPickupContacts: null,
+      legacyWordpressRawMeta: {
+        returadresse: "POWER Slependen, Nesbruveien 33, 1396 Hvalstad, Norway",
+      },
+      deliveryAddress: "Delivery 1",
+      returnAddress: "POWER Slependen, Nesbruveien 33, 1396 Hvalstad, Norway",
+      drivingDistance: "",
+      customerName: "Customer",
+      customerLabel: "Customer",
+      phone: "",
+      phoneTwo: "",
+      email: "",
+      customerComments: "",
+      floorNo: "",
+      lift: "",
+      cashierName: "",
+      cashierPhone: "",
+      subcontractorMembershipId: "",
+      subcontractor: "",
+      driver: "",
+      secondDriver: "",
+      driverInfo: "",
+      licensePlate: "",
+      deviation: "",
+      feeExtraWork: false,
+      feeAddToOrder: false,
+      statusNotes: "",
+      status: "processing",
+      dontSendEmail: false,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      lastEditedByMembershipId: "",
+      createdByMembership: null,
+      lastEditedByMembership: null,
+    });
+
+    const res = await GET(new Request("http://localhost/api/orders/order-1"), {
+      params: Promise.resolve({ orderId: "order-1" }),
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      order: {
+        priceListId: "price-list-1",
+        productCards: [
+          expect.objectContaining({
+            cardId: 1,
+            selectedReturnOptionId: "return-store-id",
+          }),
         ],
       },
     });

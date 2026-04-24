@@ -43,11 +43,11 @@ export function createDefaultPriceListSettings(): PriceListSettings {
     ),
     kmFrom21: createDefaultChargeSetting(
       "KM_FROM_21",
-      "Per km from 21 km",
+      "Per km when distance is 21–100 km",
     ),
     kmOver100: createDefaultChargeSetting(
       "KM_OVER_100",
-      "Per km over 100 km",
+      "Per km when distance is over 100 km",
     ),
   };
 }

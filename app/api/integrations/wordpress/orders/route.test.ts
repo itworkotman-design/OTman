@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   membershipFindFirstMock: vi.fn(),
+  priceListFindUniqueMock: vi.fn(),
   orderFindUniqueMock: vi.fn(),
   transactionMock: vi.fn(),
   companyOrderCounterUpsertMock: vi.fn(),
@@ -27,6 +28,9 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     membership: {
       findFirst: mocks.membershipFindFirstMock,
+    },
+    priceList: {
+      findUnique: mocks.priceListFindUniqueMock,
     },
     order: {
       findUnique: mocks.orderFindUniqueMock,
@@ -75,6 +79,9 @@ describe("POST /api/integrations/wordpress/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       priceListId: "price-list-1",
+    });
+    mocks.priceListFindUniqueMock.mockResolvedValue({
+      id: "default-price-list-id",
     });
     mocks.orderFindUniqueMock.mockResolvedValue(null);
     mocks.companyOrderCounterUpsertMock.mockResolvedValue({
@@ -975,6 +982,125 @@ describe("POST /api/integrations/wordpress/orders", () => {
     });
   });
 
+  it("forces return to store when a return address exists even if wordpress marked recycling", async () => {
+    mocks.getBookingCatalogMock.mockResolvedValueOnce({
+      products: [],
+      specialOptions: [
+        {
+          id: "return-store-id",
+          type: "return",
+          code: "RETURNSTORE",
+          label: "Retur til butikk",
+          description: "Return to store",
+          customerPrice: "300",
+          subcontractorPrice: "200",
+          effectiveCustomerPrice: "300",
+          active: true,
+        },
+      ],
+    });
+
+    mocks.mapWordpressImportToProductCardsMock.mockReturnValueOnce({
+      productCards: [
+        {
+          cardId: 1,
+          productId: "product-1",
+          modelNumber: "",
+          deliveryType: "INDOOR",
+          amount: 1,
+          peopleCount: 1,
+          hoursInput: 1,
+          selectedInstallOptionIds: [],
+          selectedExtraOptionIds: [],
+          selectedReturnOptionId: null,
+          demontEnabled: false,
+          selectedTimeOptionIds: [],
+          extraTimeHours: 0.5,
+          extraPalletEnabled: false,
+          extraPalletQty: 1,
+          etterEnabled: false,
+          etterQty: 1,
+          customSectionSelections: [],
+        },
+      ],
+      resolvedServices: [
+        {
+          cardId: 1,
+          productName: "TV",
+          quantity: 1,
+          itemType: "RETURN_OPTION",
+          label: "Retur til gjenvinning",
+          code: "RETURNREC",
+          resolvedItemType: "RETURN_OPTION",
+          optionId: "return-rec-id",
+          optionCode: "RETURNREC",
+          optionLabel: "Recycling",
+          customerPriceCents: 25000,
+          subcontractorPriceCents: 15000,
+        },
+      ],
+      unresolvedProducts: [],
+      unresolvedServices: [],
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10001,
+          legacyWordpressUserId: 31,
+          createdAt: "2026-04-24 12:23:00",
+          status: "Behandles",
+          title: "TEST",
+          meta: {
+            bestillingsnr: "TEST",
+            leveringsdato: "20260426",
+            returadresse: "POWER Drammen, C O Lunds gate 25, 3043 Drammen, Norway",
+            extra_products_0_velg_produkt: "TV",
+            extra_products_0_velg_leveringstype: "229:Innbæring:XTRA",
+            extra_products_0_antall_produkter: "1",
+            extra_products_0_retur: "250:Retur til gjenvinning:RETURNREC",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mapWordpressImportToProductCardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedServices: expect.arrayContaining([
+          expect.objectContaining({
+            cardId: 1,
+            itemType: "RETURN_OPTION",
+            label: "Retur til butikk",
+            code: "RETURNSTORE",
+          }),
+        ]),
+      }),
+    );
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        returnAddress:
+          "POWER Drammen, C O Lunds gate 25, 3043 Drammen, Norway",
+        productCardsSnapshot: expect.arrayContaining([
+          expect.objectContaining({
+            cardId: 1,
+            selectedReturnOptionId: "return-store-id",
+          }),
+        ]),
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+  });
+
   it("treats express rows in the breakdown as imported express delivery even without the checkbox field", async () => {
     const response = await POST(
       new NextRequest("http://localhost/api/integrations/wordpress/orders", {
@@ -1087,7 +1213,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
       [],
       [],
       {
-        zeroBaseDeliveryPricesOver100Km: true,
+        zeroBaseDeliveryPricesOver100Km: false,
       },
     );
     expect(mocks.createOrderNotificationMock).toHaveBeenCalledWith(

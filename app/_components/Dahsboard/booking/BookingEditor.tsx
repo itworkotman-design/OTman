@@ -139,6 +139,7 @@ type Props = {
   onSubmit?: (payload: OrderFormPayload) => void | Promise<void>;
   initialValues?: Partial<OrderFormPayload> & {
     id?: string;
+    legacyWordpressOrderId?: number | null;
   };
 };
 
@@ -764,8 +765,12 @@ export default function BookingEditor({
       priceListSettings.extraPickup.price.replace(",", "."),
     );
     const totalDistanceKm = parseDistanceKm(drivingDistance);
-    const kmFrom21Qty = Math.max(0, Math.min(totalDistanceKm, 100) - 21);
-    const kmOver100Qty = Math.max(0, totalDistanceKm - 100);
+    const kmFrom21Qty =
+      totalDistanceKm >= 21 && totalDistanceKm <= 100
+        ? totalDistanceKm - 20
+        : 0;
+
+    const kmOver100Qty = totalDistanceKm > 100 ? totalDistanceKm - 20 : 0;
     const kmFrom21Price = Number(
       priceListSettings.kmFrom21.price.replace(",", "."),
     );
@@ -1204,6 +1209,14 @@ export default function BookingEditor({
   }, [floorNo, lift]);
 
   useEffect(() => {
+    const isImportedWordpressOrder = Boolean(
+      initialValues?.legacyWordpressOrderId,
+    );
+
+    if (isImportedWordpressOrder) {
+      return;
+    }
+
     const extraPickupAddresses = extraPickups
       .map((pickup) => pickup.address)
       .filter((address) => address.trim().length > 0);
@@ -1275,6 +1288,7 @@ export default function BookingEditor({
   }, [
     deliveryAddress,
     extraPickups,
+    initialValues?.legacyWordpressOrderId,
     pickupAddress,
     returnAddress,
     shouldShowReturnAddress,
