@@ -110,9 +110,10 @@ function getOptionCodeCandidates(
   }
 
   const directCode = typeof optionCode === "string" ? optionCode.trim() : "";
-  const configuredAliases = Object.entries(WORDPRESS_SERVICE_CODE_ALIASES).find(
-    ([aliasCode]) => matchesOptionCode(aliasCode, directCode),
-  )?.[1] ?? [];
+  const configuredAliases =
+    Object.entries(WORDPRESS_SERVICE_CODE_ALIASES).find(([aliasCode]) =>
+      matchesOptionCode(aliasCode, directCode),
+    )?.[1] ?? [];
 
   const seenCodes = new Set<string>();
   const codes = [directCode, ...configuredAliases].filter((candidate) => {
@@ -142,7 +143,9 @@ function pushUnique(target: string[], value: string | null | undefined) {
   }
 }
 
-function getProductMapping(product: CatalogProduct): WordpressProductMapping | null {
+function getProductMapping(
+  product: CatalogProduct,
+): WordpressProductMapping | null {
   return (
     WORDPRESS_PRODUCT_MAPPINGS.find((mapping) =>
       matchesAlias(product.label, mapping.catalogAliases),
@@ -163,7 +166,10 @@ function resolveCatalogProduct(
   if (exact) return exact;
 
   const aliasMatch = catalogProducts.find((product) =>
-    matchesAlias(legacyProductName, getProductMapping(product)?.wordpressAliases ?? []),
+    matchesAlias(
+      legacyProductName,
+      getProductMapping(product)?.wordpressAliases ?? [],
+    ),
   );
 
   return aliasMatch ?? null;
@@ -227,7 +233,10 @@ function findSpecialOption(
 function findCustomSectionOption(
   product: CatalogProduct,
   optionCode: string,
-): { sectionId: string; option: CatalogProduct["customSections"][number]["options"][number] } | null {
+): {
+  sectionId: string;
+  option: CatalogProduct["customSections"][number]["options"][number];
+} | null {
   const candidateCodes = getOptionCodeCandidates(optionCode);
 
   for (const candidateCode of candidateCodes) {
@@ -304,10 +313,13 @@ function buildResolvedService(params: {
   };
 }
 
-function resolveSpecialServiceCode(service: WordpressParsedService): string | null {
+function resolveSpecialServiceCode(
+  service: WordpressParsedService,
+): string | null {
   const aliasCodeEntry = Object.entries(WORDPRESS_SPECIAL_SERVICE_ALIASES).find(
     ([, aliases]) =>
-      matchesAlias(service.code, aliases) || matchesAlias(service.label, aliases),
+      matchesAlias(service.code, aliases) ||
+      matchesAlias(service.label, aliases),
   );
 
   return aliasCodeEntry?.[0] ?? null;
@@ -328,7 +340,8 @@ function resolveService(
 
       if (
         resolvedItemType === "EXTRA_OPTION" &&
-        normalizeKey(productOption.code) === normalizeKey(OPTION_CODES.DEMONT) &&
+        normalizeKey(productOption.code) ===
+          normalizeKey(OPTION_CODES.DEMONT) &&
         !product.allowDemont
       ) {
         return null;
@@ -359,7 +372,10 @@ function resolveService(
       });
     }
 
-    const specialOption = findSpecialOption(catalogSpecialOptions, service.code);
+    const specialOption = findSpecialOption(
+      catalogSpecialOptions,
+      service.code,
+    );
     if (specialOption) {
       return buildResolvedService({
         service,
@@ -422,7 +438,10 @@ function resolveService(
     });
   }
 
-  const specialOption = findSpecialOption(catalogSpecialOptions, specialAliasCode);
+  const specialOption = findSpecialOption(
+    catalogSpecialOptions,
+    specialAliasCode,
+  );
   if (!specialOption) {
     return null;
   }
@@ -463,47 +482,51 @@ export function mapWordpressImportToProductCards(params: {
   const unresolvedServices: WordpressParsedService[] = [];
 
   for (const parsedProduct of parsedProducts) {
-    const product = resolveCatalogProduct(parsedProduct.productName, catalogProducts);
+    const product = resolveCatalogProduct(
+      parsedProduct.productName,
+      catalogProducts,
+    );
 
     if (!product) {
       unresolvedProducts.push(parsedProduct);
       unresolvedServices.push(
-        ...parsedServices.filter((service) => service.cardId === parsedProduct.cardId),
+        ...parsedServices.filter(
+          (service) => service.cardId === parsedProduct.cardId,
+        ),
       );
       continue;
     }
 
     const card = createEmptyProductCard(parsedProduct.cardId);
     card.productId = product.id;
-    card.amount = product.allowHoursInput ? 1 : parsedProduct.quantity;
+    card.amount = product.allowHoursInput
+      ? WORDPRESS_DEFAULT_TIME_HOURS
+      : parsedProduct.quantity;
+
+    console.log("WP MAP CARD DEBUG", {
+      cardId: parsedProduct.cardId,
+      productName: parsedProduct.productName,
+      productId: product.id,
+      allowHoursInput: product.allowHoursInput,
+      amount: card.amount,
+      hoursInput: card.hoursInput,
+    });
 
     const productServices = parsedServices.filter(
       (service) => service.cardId === parsedProduct.cardId,
     );
-    const laborServiceQuantity =
-      product.allowHoursInput &&
-      productServices.length > 0 &&
-      productServices.every((service) => service.quantity > 0)
-        ? productServices[0]?.quantity
-        : undefined;
 
     if (product.allowHoursInput) {
-      const resolvedHoursInput =
-        laborServiceQuantity ??
-        parsedProduct.quantity ??
-        WORDPRESS_DEFAULT_TIME_HOURS;
-
-      card.hoursInput = Math.max(
-        WORDPRESS_DEFAULT_TIME_HOURS,
-        resolvedHoursInput,
-      );
+      card.hoursInput = WORDPRESS_DEFAULT_TIME_HOURS;
     }
 
     const inferredDeliveryType =
       resolveDeliveryType(parsedProduct.deliveryType) ||
       (productServices.some((service) => service.itemType === "INSTALL_OPTION")
         ? "INSTALL_ONLY"
-        : productServices.some((service) => service.itemType === "RETURN_OPTION")
+        : productServices.some(
+              (service) => service.itemType === "RETURN_OPTION",
+            )
           ? "RETURN_ONLY"
           : "");
 
@@ -524,7 +547,8 @@ export function mapWordpressImportToProductCards(params: {
       }
 
       if (
-        normalizeKey(resolvedService.optionCode) === normalizeKey(OPTION_CODES.DEMONT)
+        normalizeKey(resolvedService.optionCode) ===
+        normalizeKey(OPTION_CODES.DEMONT)
       ) {
         card.demontEnabled = true;
         resolvedServices.push(resolvedService);
@@ -561,7 +585,8 @@ export function mapWordpressImportToProductCards(params: {
 
         const existingSelection =
           card.customSectionSelections.find(
-            (selection) => selection.sectionId === resolvedService.customSectionId,
+            (selection) =>
+              selection.sectionId === resolvedService.customSectionId,
           ) ?? null;
 
         if (existingSelection) {

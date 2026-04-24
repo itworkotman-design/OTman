@@ -826,6 +826,10 @@ const buildServiceItemsFromMeta = (
       if (!suffix || PRODUCT_META_CONTROL_SUFFIXES.has(suffix)) {
         continue;
       }
+      const serviceQuantity =
+        suffix === "timepris" || suffix === "timepris_flugger"
+          ? 0.5
+          : productItem.quantity;
 
       let matchedExplicitLegacyValue = false;
 
@@ -843,7 +847,7 @@ const buildServiceItemsFromMeta = (
         serviceItems.push({
           cardId: productItem.cardId,
           productName: productItem.productName,
-          quantity: productItem.quantity,
+          quantity: serviceQuantity,
           itemType: classifyServiceItemType(row),
           label: row.label,
           code: row.code,
@@ -855,7 +859,7 @@ const buildServiceItemsFromMeta = (
             label: row.label,
             description: row.label,
             code: row.code ?? null,
-            quantity: productItem.quantity,
+            quantity: serviceQuantity,
             metaKey: key,
             metaValue: entry,
           },
@@ -869,7 +873,7 @@ const buildServiceItemsFromMeta = (
       const inferredService = inferLegacyServiceFromMetaSuffix({
         cardId: productItem.cardId,
         productName: productItem.productName,
-        quantity: productItem.quantity,
+        quantity: serviceQuantity,
         suffix,
         key,
         rawValue,
@@ -1806,6 +1810,32 @@ export async function POST(req: NextRequest) {
         resolvedServices: rawMappedImport.resolvedServices,
       }),
     };
+    console.log("WP TIME DEBUG", {
+      parsedProducts: productItems.map((item) => ({
+        cardId: item.cardId,
+        productName: item.productName,
+        quantity: item.quantity,
+      })),
+      parsedServices: parsedServiceItems.map((item) => ({
+        cardId: item.cardId,
+        label: item.label,
+        code: item.code,
+        quantity: item.quantity,
+        itemType: item.itemType,
+      })),
+      rawCards: rawMappedImport.productCards.map((card) => ({
+        cardId: card.cardId,
+        productId: card.productId,
+        amount: card.amount,
+        hoursInput: card.hoursInput,
+      })),
+      finalCards: mappedImport.productCards.map((card) => ({
+        cardId: card.cardId,
+        productId: card.productId,
+        amount: card.amount,
+        hoursInput: card.hoursInput,
+      })),
+    });
     const wordpressPriceExVatCents = getImportedWordpressPriceExVatCents(meta);
     const nativePricing = getNativeCalculatedPricing({
       productCards: mappedImport.productCards,
