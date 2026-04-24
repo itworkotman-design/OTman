@@ -1761,7 +1761,14 @@ export async function POST(req: NextRequest) {
         : undefined;
 
     const servicesSummary = buildServicesSummary(parsedServiceItems);
-    const catalog = await getBookingCatalog(membership.priceListId ?? null);
+    const defaultPriceList = await prisma.priceList.findUnique({
+      where: { code: "DEFAULT" },
+      select: { id: true },
+    });
+
+    const priceListId = membership.priceListId ?? defaultPriceList?.id ?? null;
+
+    const catalog = await getBookingCatalog(priceListId);
     const rawMappedImport = mapWordpressImportToProductCards({
       parsedProducts: productItems.map((item) => ({
         cardId: item.cardId,
@@ -1769,6 +1776,7 @@ export async function POST(req: NextRequest) {
         quantity: item.quantity,
         deliveryType: item.deliveryType,
       })),
+
       parsedServices: parsedServiceItems.map((item) => ({
         cardId: item.cardId,
         productName: item.productName,
@@ -1779,6 +1787,41 @@ export async function POST(req: NextRequest) {
       })),
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
+    });
+    console.log("WP RETURN DEBUG", {
+      parsedServiceItems: parsedServiceItems.map((s) => ({
+        cardId: s.cardId,
+        itemType: s.itemType,
+        label: s.label,
+        code: s.code,
+      })),
+      catalogReturnOptions: catalog.specialOptions
+        .filter((o) => ["RETURNREC", "RETURNSTORE"].includes(o.code))
+        .map((o) => ({
+          id: o.id,
+          code: o.code,
+          type: o.type,
+          label: o.label,
+        })),
+      resolvedServices: rawMappedImport.resolvedServices.map((s) => ({
+        cardId: s.cardId,
+        label: s.label,
+        code: s.code,
+        optionCode: s.optionCode,
+        optionId: s.optionId,
+        resolvedItemType: s.resolvedItemType,
+      })),
+      unresolvedServices: rawMappedImport.unresolvedServices.map((s) => ({
+        cardId: s.cardId,
+        label: s.label,
+        code: s.code,
+        itemType: s.itemType,
+      })),
+      productCards: rawMappedImport.productCards.map((c) => ({
+        cardId: c.cardId,
+        productId: c.productId,
+        selectedReturnOptionId: c.selectedReturnOptionId,
+      })),
     });
     const mappedImport = {
       ...rawMappedImport,
@@ -1862,7 +1905,7 @@ export async function POST(req: NextRequest) {
             data: {
               createdByMembershipId: membership.id,
               customerMembershipId: membership.id,
-              priceListId: membership.priceListId ?? null,
+              priceListId,
               legacyWordpressAuthorId: body.legacyWordpressUserId,
               legacyWordpressRawMeta: body.meta ?? Prisma.JsonNull,
               status,
@@ -1957,7 +2000,7 @@ export async function POST(req: NextRequest) {
               companyId,
               createdByMembershipId: membership.id,
               customerMembershipId: membership.id,
-              priceListId: membership.priceListId ?? null,
+              priceListId,
               legacyWordpressOrderId: body.legacyWordpressOrderId,
               legacyWordpressAuthorId: body.legacyWordpressUserId,
               legacyWordpressRawMeta: body.meta ?? Prisma.JsonNull,
