@@ -121,6 +121,9 @@ const DELIVERY_TYPE_CODES = new Set([
   "INSSBS2",
   "INSTALLONLY",
   "KUNMONTERING",
+  "PALLS1",
+  "PALLXTRAS1",
+  "FIRST_STEP",
 ]);
 
 const GLOBAL_FEE_CODES = new Set([
@@ -618,9 +621,41 @@ const fillMissingProductDeliveryTypesFromBreakdown = (params: {
   );
 
   return params.productItems.map((item, index) => {
-    if (item.deliveryType) {
-      return item;
-    }
+    const fillMissingProductDeliveryTypesFromBreakdown = (params: {
+      meta: Record<string, unknown>;
+      productItems: ParsedWordpressProductItem[];
+    }): ParsedWordpressProductItem[] => {
+      const groups = parseBreakdownGroups(
+        asString(params.meta.price_breakdown_html),
+      );
+
+      return params.productItems.map((item, index) => {
+        const group = groups[index];
+        if (!group) {
+          return item;
+        }
+
+        const deliveryRow = group.rows.find((row) => isDeliveryTypeRow(row));
+        const inferredDeliveryType =
+          deliveryRow?.code?.trim() || deliveryRow?.label?.trim();
+
+        if (!inferredDeliveryType) {
+          return item;
+        }
+
+        return {
+          ...item,
+          deliveryType: inferredDeliveryType,
+          rawData: {
+            ...(item.rawData as Record<string, Prisma.InputJsonValue>),
+            deliveryTypeRaw: deliveryRow?.code ?? inferredDeliveryType,
+            deliveryType: inferredDeliveryType,
+            inferredDeliveryTypeFromBreakdown: true,
+            overriddenDeliveryTypeFromBreakdown: item.deliveryType ?? null,
+          },
+        };
+      });
+    };
 
     const group = groups[index];
     if (!group) {
