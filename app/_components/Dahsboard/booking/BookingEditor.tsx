@@ -969,11 +969,7 @@ export default function BookingEditor({
       pricingSource.priceListSettings.extraPickup.price.replace(",", "."),
     );
 
-    if (
-      extraPickupCount > 0 &&
-      shouldUseNativeDistancePricing &&
-      Number.isFinite(extraPickupPrice)
-    ) {
+    if (extraPickupCount > 0 && Number.isFinite(extraPickupPrice)) {
       extraItems.push({
         kind: "customPrice",
         code: pricingSource.priceListSettings.extraPickup.code,
