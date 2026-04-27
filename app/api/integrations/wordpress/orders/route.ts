@@ -123,7 +123,12 @@ const DELIVERY_TYPE_CODES = new Set([
   "KUNMONTERING",
 ]);
 
-const GLOBAL_FEE_CODES = new Set([EXTRA_WORK_FEE_CODE, ADD_TO_ORDER_FEE_CODE]);
+const GLOBAL_FEE_CODES = new Set([
+  EXTRA_WORK_FEE_CODE,
+  ADD_TO_ORDER_FEE_CODE,
+  "EXPRESS",
+  "BOMTUR",
+]);
 const WORDPRESS_PRICE_MISMATCH_COMMENT =
   "New system was unable to match to old price";
 const EXTRA_PICKUP_CODE = "EXTRAPICKUP";
@@ -755,8 +760,16 @@ const classifyServiceItemType = (
   return "EXTRA_OPTION";
 };
 
-const isGlobalFeeRow = (row: ParsedBreakdownRow): boolean =>
-  Boolean(row.code && GLOBAL_FEE_CODES.has(row.code));
+const isGlobalFeeRow = (row: ParsedBreakdownRow): boolean => {
+  const signal = `${row.code ?? ""} ${row.label}`.toUpperCase();
+
+  return (
+    Boolean(row.code && GLOBAL_FEE_CODES.has(row.code)) ||
+    signal.includes("EXPRESS") ||
+    signal.includes("EKSPRESS") ||
+    signal.includes("BOMTUR")
+  );
+};
 
 const getMetaStringList = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -1217,7 +1230,8 @@ const isGlobalWordpressPriceRow = (row: ParsedBreakdownRow): boolean =>
   isKmBreakdownRow(row) ||
   isExtraPickupBreakdownRow(row) ||
   isExpressBreakdownRow(row) ||
-  isBomturBreakdownRow(row);
+  isBomturBreakdownRow(row) ||
+  isGlobalFeeRow(row);
 
 const getExtraWorkBlocksFromLabel = (label: string): number | undefined => {
   const match = label.match(/\bx\s*(\d+)\b/iu);
@@ -1457,12 +1471,16 @@ const applyWordpressPriceMatchPolicy = (params: {
   const allRows = getBreakdownRowsWithCodes(
     asString(params.meta.price_breakdown_html),
   );
- const extraPickupRows = allRows.filter(isExtraPickupBreakdownRow);
- const kmRows = allRows.filter(isKmBreakdownRow);
- const expressRows = allRows.filter(isExpressBreakdownRow);
- const bomturRows = allRows.filter(isBomturBreakdownRow);
+  const extraPickupRows = allRows.filter(isExtraPickupBreakdownRow);
+  const kmRows = allRows.filter(isKmBreakdownRow);
+  const expressRows = allRows.filter(isExpressBreakdownRow);
+  const bomturRows = allRows.filter(isBomturBreakdownRow);
 
- const globalReadOnlyRows = [...extraPickupRows, ...expressRows, ...bomturRows];
+  const globalReadOnlyRows = [
+    ...extraPickupRows,
+    ...expressRows,
+    ...bomturRows,
+  ];
 
   if (globalReadOnlyRows.length === 0) {
     return nextCards;
