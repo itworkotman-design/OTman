@@ -66,6 +66,7 @@ export async function acceptInvite(params: {
       logoPath: true,
       usernameDisplayColor: true,
       priceListId: true,
+      warehouseEmail: true,
       permissions: {
         select: {
           permission: true,
@@ -179,6 +180,7 @@ export async function acceptInvite(params: {
         role: invite.role,
         status: "ACTIVE",
         priceListId: invite.priceListId,
+        warehouseEmail: invite.warehouseEmail?.trim() || null,
       },
       select: {
         id: true,

@@ -56,6 +56,7 @@ model Membership {
   createdAt                  DateTime               @default(now())
   updatedAt                  DateTime               @updatedAt
   priceListId                String?
+  warehouseEmail             String?
   legacyWordpressUserId      Int?                   @unique
   company                    Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
   priceList                  PriceList?             @relation(fields: [priceListId], references: [id])
@@ -100,6 +101,7 @@ model Invite {
   description          String?
   phoneNumber          String?
   priceListId          String?
+  warehouseEmail       String?
   username             String?
   address              String?
   logoPath             String?

@@ -194,6 +194,49 @@ const products: CatalogProduct[] = [
   },
 ];
 
+const duplicateOtherProducts: CatalogProduct[] = [
+  {
+    id: "other-products-labor",
+    code: "OTHER-LABOR",
+    label: "Andre produkter",
+    active: true,
+    productType: "PHYSICAL",
+    allowDeliveryTypes: false,
+    allowInstallOptions: true,
+    allowReturnOptions: false,
+    allowExtraServices: false,
+    allowDemont: false,
+    allowQuantity: false,
+    allowPeopleCount: false,
+    allowHoursInput: true,
+    allowModelNumber: false,
+    autoXtraPerPallet: false,
+    deliveryTypes: [],
+    customSections: [],
+    options: [],
+  },
+  {
+    id: "other-products-delivery",
+    code: "OTHER-DELIVERY",
+    label: "Andre produkter",
+    active: true,
+    productType: "PHYSICAL",
+    allowDeliveryTypes: true,
+    allowInstallOptions: false,
+    allowReturnOptions: false,
+    allowExtraServices: false,
+    allowDemont: false,
+    allowQuantity: true,
+    allowPeopleCount: false,
+    allowHoursInput: false,
+    allowModelNumber: false,
+    autoXtraPerPallet: false,
+    deliveryTypes: [],
+    customSections: [],
+    options: [],
+  },
+];
+
 const specialOptions: CatalogSpecialOption[] = [
   {
     id: "return-store",
@@ -402,7 +445,7 @@ describe("mapWordpressImportToProductCards", () => {
       expect.objectContaining({
         cardId: 3,
         productId: "product-3",
-        amount: 1,
+        amount: 0.5,
         hoursInput: 0.5,
         selectedInstallOptionIds: ["labor-1", "labor-2", "labor-3", "labor-4"],
       }),
@@ -489,6 +532,32 @@ describe("mapWordpressImportToProductCards", () => {
         cardId: 6,
         itemType: "EXTRA_OPTION",
         label: "Montering",
+      }),
+    ]);
+  });
+
+  it("prefers a delivery-capable Andre produkter product when wordpress provides a delivery type", () => {
+    const result = mapWordpressImportToProductCards({
+      parsedProducts: [
+        {
+          cardId: 7,
+          productName: "Andre produkter",
+          quantity: 1,
+          deliveryType: "Innbæring",
+        },
+      ],
+      parsedServices: [],
+      catalogProducts: duplicateOtherProducts,
+      catalogSpecialOptions: [],
+    });
+
+    expect(result.productCards).toEqual([
+      expect.objectContaining({
+        cardId: 7,
+        productId: "other-products-delivery",
+        deliveryType: "INDOOR",
+        amount: 1,
+        hoursInput: 1,
       }),
     ]);
   });

@@ -82,6 +82,16 @@ export async function POST(
     },
   });
 
+  await prisma.user.updateMany({
+    where: {
+      id: targetMembership.userId,
+      status: "DISABLED",
+    },
+    data: {
+      status: "ACTIVE",
+    },
+  });
+
   await logAuthEvent({
     type: AuthEventType.MEMBERSHIP_ENABLED,
     userId: targetMembership.userId,

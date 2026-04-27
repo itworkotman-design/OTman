@@ -22,6 +22,7 @@ import type {
 import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
+import { getStartedChargeableKilometers } from "@/lib/booking/pricing/distanceCharges";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import {
   OrderFields,
@@ -47,6 +48,12 @@ import {
   normalizePriceListSettings,
   type PriceListSettings,
 } from "@/lib/products/priceListSettings";
+import {
+  applyOrderPricingSnapshot,
+  buildOrderPricingSnapshot,
+  getSavedOrderPricingSnapshot,
+  pricingSnapshotsEqual,
+} from "@/lib/booking/pricing/snapshot";
 import {
   type AttachmentCategory,
   type AttachmentItem,
@@ -105,6 +112,7 @@ export type OrderFormPayload = {
   priceListId?: string;
   status: string;
   dontSendEmail: boolean;
+  dontSendWarehouseEmail: boolean;
 
   priceExVat: number;
   priceSubcontractor: number;
@@ -483,6 +491,9 @@ export default function BookingEditor({
   const [dontSendEmail, setDontSendEmail] = useState(
     initialValues?.dontSendEmail ?? false,
   );
+  const [dontSendWarehouseEmail, setDontSendWarehouseEmail] = useState(
+    initialValues?.dontSendWarehouseEmail ?? !initialValues?.id,
+  );
   const [
     contactCustomerForCustomTimeWindow,
     setContactCustomerForCustomTimeWindow,
@@ -643,6 +654,9 @@ export default function BookingEditor({
       initialValues.customerMembershipId ?? null;
     setStatus(normalizeInitialStatus(initialValues.status));
     setDontSendEmail(initialValues.dontSendEmail ?? false);
+    setDontSendWarehouseEmail(
+      initialValues.dontSendWarehouseEmail ?? !initialValues.id,
+    );
     setContactCustomerForCustomTimeWindow(
       initialValues.contactCustomerForCustomTimeWindow ?? false,
     );
@@ -735,18 +749,59 @@ export default function BookingEditor({
     setExpandedCardId((current) => (current === cardId ? null : current));
   }, []);
 
+  const savedPricingSnapshot = useMemo(
+    () => getSavedOrderPricingSnapshot(productCards),
+    [productCards],
+  );
+
+  const currentPricingSnapshot = useMemo(
+    () =>
+      buildOrderPricingSnapshot({
+        productCards,
+        catalogProducts,
+        catalogSpecialOptions,
+        priceListSettings,
+      }),
+    [productCards, catalogProducts, catalogSpecialOptions, priceListSettings],
+  );
+
+  const hasCurrentPriceUpdates =
+    Boolean(initialValues?.id && savedPricingSnapshot) &&
+    !pricingSnapshotsEqual(savedPricingSnapshot, currentPricingSnapshot);
+
+  const pricingSource = useMemo(
+    () =>
+      applyOrderPricingSnapshot({
+        catalogProducts,
+        catalogSpecialOptions,
+        priceListSettings,
+        pricingSnapshot: savedPricingSnapshot,
+      }),
+    [
+      catalogProducts,
+      catalogSpecialOptions,
+      priceListSettings,
+      savedPricingSnapshot,
+    ],
+  );
+
   const productBreakdowns = useMemo(
     () =>
       buildProductBreakdowns(
         productCards,
-        catalogProducts,
-        catalogSpecialOptions,
+        pricingSource.catalogProducts,
+        pricingSource.catalogSpecialOptions,
         {
           zeroBaseDeliveryPricesOver100Km:
             parseDistanceKm(drivingDistance) > 100,
         },
       ),
-    [productCards, catalogProducts, catalogSpecialOptions, drivingDistance],
+    [
+      productCards,
+      pricingSource.catalogProducts,
+      pricingSource.catalogSpecialOptions,
+      drivingDistance,
+    ],
   );
 
   const calculatorBreakdowns = useMemo(() => {
@@ -758,49 +813,31 @@ export default function BookingEditor({
       qty: number;
       unitPrice: number;
     }> = [];
-    const extraPickupCount = extraPickups
-      .map((pickup) => pickup.address.trim())
-      .filter(Boolean).length;
-    const extraPickupPrice = Number(
-      priceListSettings.extraPickup.price.replace(",", "."),
-    );
     const totalDistanceKm = parseDistanceKm(drivingDistance);
+    const chargeableDistanceKm =
+      getStartedChargeableKilometers(totalDistanceKm);
     const kmFrom21Qty =
-      totalDistanceKm >= 21 && totalDistanceKm <= 100
-        ? totalDistanceKm - 20
+      totalDistanceKm > 20 && totalDistanceKm <= 100
+        ? chargeableDistanceKm
         : 0;
 
-    const kmOver100Qty = totalDistanceKm > 100 ? totalDistanceKm - 20 : 0;
+    const kmOver100Qty = totalDistanceKm > 100 ? chargeableDistanceKm : 0;
     const kmFrom21Price = Number(
-      priceListSettings.kmFrom21.price.replace(",", "."),
+      pricingSource.priceListSettings.kmFrom21.price.replace(",", "."),
     );
     const kmOver100Price = Number(
-      priceListSettings.kmOver100.price.replace(",", "."),
+      pricingSource.priceListSettings.kmOver100.price.replace(",", "."),
     );
 
-    if (
-      extraPickupCount > 0 &&
-      Number.isFinite(extraPickupPrice) &&
-      extraPickupPrice > 0
-    ) {
-      extraItems.push({
-        kind: "customPrice",
-        code: priceListSettings.extraPickup.code,
-        label: priceListSettings.extraPickup.description,
-        qty: extraPickupCount,
-        unitPrice: extraPickupPrice,
-      });
-    }
-
     const expressDeliveryPrice = Number(
-      priceListSettings.expressDelivery.price.replace(",", "."),
+      pricingSource.priceListSettings.expressDelivery.price.replace(",", "."),
     );
 
     if (expressDelivery && Number.isFinite(expressDeliveryPrice)) {
       extraItems.push({
         kind: "customPrice",
-        code: priceListSettings.expressDelivery.code,
-        label: priceListSettings.expressDelivery.description,
+        code: pricingSource.priceListSettings.expressDelivery.code,
+        label: pricingSource.priceListSettings.expressDelivery.description,
         qty: 1,
         unitPrice: expressDeliveryPrice,
       });
@@ -809,8 +846,8 @@ export default function BookingEditor({
     if (kmFrom21Qty > 0 && Number.isFinite(kmFrom21Price)) {
       extraItems.push({
         kind: "customPrice",
-        code: priceListSettings.kmFrom21.code,
-        label: priceListSettings.kmFrom21.description,
+        code: pricingSource.priceListSettings.kmFrom21.code,
+        label: pricingSource.priceListSettings.kmFrom21.description,
         qty: kmFrom21Qty,
         unitPrice: kmFrom21Price,
       });
@@ -819,8 +856,8 @@ export default function BookingEditor({
     if (kmOver100Qty > 0 && Number.isFinite(kmOver100Price)) {
       extraItems.push({
         kind: "customPrice",
-        code: priceListSettings.kmOver100.code,
-        label: priceListSettings.kmOver100.description,
+        code: pricingSource.priceListSettings.kmOver100.code,
+        label: pricingSource.priceListSettings.kmOver100.description,
         qty: kmOver100Qty,
         unitPrice: kmOver100Price,
       });
@@ -837,25 +874,25 @@ export default function BookingEditor({
   }, [
     drivingDistance,
     expressDelivery,
-    extraPickups,
-    priceListSettings.extraPickup.code,
-    priceListSettings.extraPickup.description,
-    priceListSettings.extraPickup.price,
-    priceListSettings.expressDelivery.code,
-    priceListSettings.expressDelivery.description,
-    priceListSettings.expressDelivery.price,
-    priceListSettings.kmFrom21.code,
-    priceListSettings.kmFrom21.description,
-    priceListSettings.kmFrom21.price,
-    priceListSettings.kmOver100.code,
-    priceListSettings.kmOver100.description,
-    priceListSettings.kmOver100.price,
+    pricingSource.priceListSettings.expressDelivery.code,
+    pricingSource.priceListSettings.expressDelivery.description,
+    pricingSource.priceListSettings.expressDelivery.price,
+    pricingSource.priceListSettings.kmFrom21.code,
+    pricingSource.priceListSettings.kmFrom21.description,
+    pricingSource.priceListSettings.kmFrom21.price,
+    pricingSource.priceListSettings.kmOver100.code,
+    pricingSource.priceListSettings.kmOver100.description,
+    pricingSource.priceListSettings.kmOver100.price,
     productBreakdowns,
   ]);
 
   const priceLookup = useMemo(
-    () => buildPriceLookup(catalogProducts, catalogSpecialOptions),
-    [catalogProducts, catalogSpecialOptions],
+    () =>
+      buildPriceLookup(
+        pricingSource.catalogProducts,
+        pricingSource.catalogSpecialOptions,
+      ),
+    [pricingSource.catalogProducts, pricingSource.catalogSpecialOptions],
   );
 
   const isInstallationOnly = useMemo(
@@ -1138,6 +1175,15 @@ export default function BookingEditor({
     },
     [],
   );
+
+  const handleUseCurrentPrices = useCallback(() => {
+    setProductCards((current) =>
+      current.map((card) => ({
+        ...card,
+        pricingSnapshot: currentPricingSnapshot,
+      })),
+    );
+  }, [currentPricingSnapshot]);
 
   useEffect(() => {
     if (!shouldShowReturnAddress && returnAddress) {
@@ -1492,8 +1538,19 @@ export default function BookingEditor({
       extraPickups.map(({ id: _id, ...pickup }) => pickup),
     ).filter((pickup) => pickup.address);
 
-    const payload: OrderFormPayload = {
+    const appliedPricingSnapshot = buildOrderPricingSnapshot({
       productCards,
+      catalogProducts: pricingSource.catalogProducts,
+      catalogSpecialOptions: pricingSource.catalogSpecialOptions,
+      priceListSettings: pricingSource.priceListSettings,
+    });
+    const productCardsForSubmit = productCards.map((card) => ({
+      ...card,
+      pricingSnapshot: appliedPricingSnapshot,
+    }));
+
+    const payload: OrderFormPayload = {
+      productCards: productCardsForSubmit,
 
       orderNumber,
       description,
@@ -1537,6 +1594,7 @@ export default function BookingEditor({
       customerLabel,
       status,
       dontSendEmail: dontSendEmail || shouldSuppressEmailForCustomTimeWindow,
+      dontSendWarehouseEmail,
 
       priceExVat,
       priceSubcontractor,
@@ -1768,6 +1826,9 @@ export default function BookingEditor({
             setStatus={setStatus}
             dontSendEmail={dontSendEmail}
             setDontSendEmail={setDontSendEmail}
+            showWarehouseEmailToggle={!existingOrderId}
+            dontSendWarehouseEmail={dontSendWarehouseEmail}
+            setDontSendWarehouseEmail={setDontSendWarehouseEmail}
             attachments={attachments}
             attachmentsUploading={attachmentsUploading}
             attachmentsError={attachmentsError}
@@ -1798,6 +1859,8 @@ export default function BookingEditor({
               subcontractorMinus={subcontractorMinus}
               subcontractorPlus={subcontractorPlus}
               onAdjustmentsChange={handleAdjustmentsChange}
+              priceUpdateAvailable={hasCurrentPriceUpdates}
+              onUseCurrentPrices={handleUseCurrentPrices}
               sidebarMode
             />
           </div>
@@ -1816,6 +1879,8 @@ export default function BookingEditor({
             subcontractorMinus={subcontractorMinus}
             subcontractorPlus={subcontractorPlus}
             onAdjustmentsChange={handleAdjustmentsChange}
+            priceUpdateAvailable={hasCurrentPriceUpdates}
+            onUseCurrentPrices={handleUseCurrentPrices}
           />
         </div>
       </div>

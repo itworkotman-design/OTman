@@ -73,6 +73,8 @@ export async function PATCH(
 
   const username = parseOptionalString(body?.username);
   const email = parseEmail(body?.email);
+  const warehouseEmail =
+    body?.warehouseEmail === "" ? null : parseEmail(body?.warehouseEmail);
   const phoneNumber = parseOptionalString(body?.phoneNumber);
   const address = parseOptionalString(body?.address);
   const description = parseOptionalString(body?.description);
@@ -190,6 +192,7 @@ export async function PATCH(
       where: { id: targetMembership.id },
       data: {
         priceListId,
+        warehouseEmail,
       },
     });
     

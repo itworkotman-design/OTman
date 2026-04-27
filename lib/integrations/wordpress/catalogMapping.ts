@@ -156,23 +156,52 @@ function getProductMapping(
 function resolveCatalogProduct(
   legacyProductName: string,
   catalogProducts: CatalogProduct[],
+  options?: {
+    preferDeliveryTypeProduct?: boolean;
+  },
 ): CatalogProduct | null {
   const normalizedLegacy = normalizeKey(legacyProductName);
   if (!normalizedLegacy) return null;
 
-  const exact = catalogProducts.find(
+  const preferDeliveryTypeProduct = !!options?.preferDeliveryTypeProduct;
+  const exactMatches = catalogProducts.filter(
     (product) => normalizeKey(product.label) === normalizedLegacy,
   );
-  if (exact) return exact;
 
-  const aliasMatch = catalogProducts.find((product) =>
+  if (exactMatches.length > 0) {
+    if (preferDeliveryTypeProduct) {
+      const deliveryTypeMatch = exactMatches.find(
+        (product) => product.allowDeliveryTypes,
+      );
+      if (deliveryTypeMatch) {
+        return deliveryTypeMatch;
+      }
+    }
+
+    return exactMatches[0] ?? null;
+  }
+
+  const aliasMatches = catalogProducts.filter((product) =>
     matchesAlias(
       legacyProductName,
       getProductMapping(product)?.wordpressAliases ?? [],
     ),
   );
 
-  return aliasMatch ?? null;
+  if (aliasMatches.length === 0) {
+    return null;
+  }
+
+  if (preferDeliveryTypeProduct) {
+    const deliveryTypeMatch = aliasMatches.find(
+      (product) => product.allowDeliveryTypes,
+    );
+    if (deliveryTypeMatch) {
+      return deliveryTypeMatch;
+    }
+  }
+
+  return aliasMatches[0] ?? null;
 }
 
 function resolveDeliveryType(value: string | undefined): DeliveryType {
@@ -485,6 +514,9 @@ export function mapWordpressImportToProductCards(params: {
     const product = resolveCatalogProduct(
       parsedProduct.productName,
       catalogProducts,
+      {
+        preferDeliveryTypeProduct: !!parsedProduct.deliveryType,
+      },
     );
 
     if (!product) {
@@ -502,15 +534,6 @@ export function mapWordpressImportToProductCards(params: {
     card.amount = product.allowHoursInput
       ? WORDPRESS_DEFAULT_TIME_HOURS
       : parsedProduct.quantity;
-
-    console.log("WP MAP CARD DEBUG", {
-      cardId: parsedProduct.cardId,
-      productName: parsedProduct.productName,
-      productId: product.id,
-      allowHoursInput: product.allowHoursInput,
-      amount: card.amount,
-      hoursInput: card.hoursInput,
-    });
 
     const productServices = parsedServices.filter(
       (service) => service.cardId === parsedProduct.cardId,

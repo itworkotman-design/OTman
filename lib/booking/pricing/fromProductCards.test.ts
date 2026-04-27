@@ -82,6 +82,31 @@ const returnOptions: CatalogSpecialOption[] = [
   },
 ];
 
+const automaticXtraOptions: CatalogSpecialOption[] = [
+  {
+    id: "xtra-indoor",
+    type: "xtra",
+    code: "XTRA",
+    label: "XTRA",
+    description: "Ekstra innbæring",
+    customerPrice: "229",
+    subcontractorPrice: "0",
+    effectiveCustomerPrice: "229",
+    active: true,
+  },
+  {
+    id: "xtra-first-step",
+    type: "xtra",
+    code: "XTRAFIRST",
+    label: "XTRA",
+    description: "Ekstra levering",
+    customerPrice: "150",
+    subcontractorPrice: "0",
+    effectiveCustomerPrice: "150",
+    active: true,
+  },
+];
+
 describe("buildProductBreakdowns", () => {
   it("uses standard and XTRA indoor delivery display values", () => {
     const product = buildProduct();
@@ -106,9 +131,9 @@ describe("buildProductBreakdowns", () => {
     });
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: "INDOOR",
+      code: "XTRA",
       unitPrice: 229,
-      label: "Innbæring (XTRA)",
+      label: "Innbæring",
     });
   });
 
@@ -129,9 +154,9 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: "FIRST_STEP",
+      code: "XTRA",
       unitPrice: 150,
-      label: "Første trinn (XTRA)",
+      label: "Første trinn",
     });
   });
 
@@ -161,13 +186,15 @@ describe("buildProductBreakdowns", () => {
     });
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
+      code: "XTRA",
       unitPrice: 229,
-      label: "Innbæring (XTRA)",
+      label: "Innbæring",
     });
     expect(result[2]?.items[0]).toMatchObject({
       kind: "deliveryType",
+      code: "XTRA",
       unitPrice: 229,
-      label: "Innbæring (XTRA)",
+      label: "Innbæring",
     });
   });
 
@@ -268,8 +295,9 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
+      code: "XTRA",
       unitPrice: 250,
-      label: "Innbæring (XTRA)",
+      label: "Innbæring",
     });
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
@@ -294,9 +322,9 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: "FIRST_STEP",
+      code: "XTRA",
       unitPrice: 150,
-      label: "Første trinn (XTRA)",
+      label: "Første trinn",
     });
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
@@ -324,7 +352,7 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: "FIRST_STEP",
+      code: "XTRA",
       unitPrice: 150,
     });
     expect(result[1]?.items[0]).toMatchObject({
@@ -352,7 +380,7 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: "INSTALL_ONLY",
+      code: "XTRA",
       unitPrice: 0,
       label: "Kun Installasjon/Montering",
     });
@@ -416,6 +444,66 @@ describe("buildProductBreakdowns", () => {
         expect.objectContaining({
           kind: "deliveryType",
           code: "INSTALL_ONLY",
+        }),
+      ]),
+    );
+  });
+
+  it("uses the matching automatic XTRA option for first-step and indoor quantity extras", () => {
+    const product = buildProduct({
+      allowInstallOptions: false,
+      options: [
+        {
+          id: "base-option",
+          code: "BASE",
+          label: "Base",
+          description: "Base",
+          category: null,
+          customerPrice: "300",
+          subcontractorPrice: "100",
+          effectiveCustomerPrice: "300",
+          active: true,
+        },
+      ],
+    });
+
+    const firstStepResult = buildProductBreakdowns(
+      [
+        buildCard({
+          amount: 2,
+          deliveryType: DELIVERY_TYPES.FIRST_STEP,
+        }),
+      ],
+      [product],
+      automaticXtraOptions,
+    );
+
+    const indoorResult = buildProductBreakdowns(
+      [
+        buildCard({
+          amount: 2,
+          deliveryType: DELIVERY_TYPES.INDOOR,
+        }),
+      ],
+      [product],
+      automaticXtraOptions,
+    );
+
+    expect(firstStepResult[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "xtra-first-step",
+          qty: 1,
+        }),
+      ]),
+    );
+    expect(indoorResult[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "xtra-indoor",
+          qty: 1,
         }),
       ]),
     );

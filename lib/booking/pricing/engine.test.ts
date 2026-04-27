@@ -43,4 +43,38 @@ describe("calculateBookingPricing", () => {
     expect(result.totals.totalIncVat).toBe(-1112.5);
     expect(result.totals.subcontractorTotal).toBe(-890);
   });
+
+  it("applies manual plus adjustments for native calculator flows", () => {
+    const result = calculateBookingPricing({
+      productBreakdowns: [
+        {
+          productName: "Washer",
+          items: [
+            {
+              kind: "customPrice",
+              code: "DELIVERY",
+              label: "Delivery",
+              qty: 1,
+              unitPrice: 1000,
+              subcontractorUnitPrice: 600,
+            },
+          ],
+        },
+      ],
+      priceLookup: {},
+      adjustments: {
+        rabatt: "100",
+        leggTil: "500",
+        subcontractorMinus: "50",
+        subcontractorPlus: "250",
+      },
+    });
+
+    expect(result.totals.discount).toBe(100);
+    expect(result.totals.extra).toBe(500);
+    expect(result.totals.totalExVat).toBe(1400);
+    expect(result.totals.subcontractorMinus).toBe(50);
+    expect(result.totals.subcontractorPlus).toBe(250);
+    expect(result.totals.subcontractorTotal).toBe(800);
+  });
 });

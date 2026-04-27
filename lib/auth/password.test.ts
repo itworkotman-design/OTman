@@ -1,5 +1,11 @@
+import crypto from "node:crypto";
 import { describe, it, expect } from "vitest";
-import { hashPassword, verifyPassword } from "./password";
+import bcrypt from "bcryptjs";
+import {
+  hashPassword,
+  verifyPassword,
+  verifyPasswordWithMetadata,
+} from "./password";
 
 describe("password hashing", () => {
   it("hashes and verifies a valid password", async () => {
@@ -23,5 +29,36 @@ describe("password hashing", () => {
 
   it("rejects short passwords", async () => {
     await expect(hashPassword("short")).rejects.toThrow();
+  });
+
+  it("verifies a WordPress phpass hash and marks it for rehash", async () => {
+    const result = await verifyPasswordWithMetadata(
+      "$P$B55D6LjfHDkINU5wF.v2BuuzO0/XPk/",
+      "test"
+    );
+
+    expect(result).toEqual({ valid: true, needsRehash: true });
+  });
+
+  it("verifies a current WordPress bcrypt hash and marks it for rehash", async () => {
+    const password = "valid-password";
+    const wordpressPassword = crypto
+      .createHmac("sha384", "wp-sha384")
+      .update(password)
+      .digest("base64");
+    const hash = `$wp${await bcrypt.hash(wordpressPassword, 10)}`;
+
+    const result = await verifyPasswordWithMetadata(hash, password);
+
+    expect(result).toEqual({ valid: true, needsRehash: true });
+  });
+
+  it("verifies a WordPress legacy MD5 hash and marks it for rehash", async () => {
+    const result = await verifyPasswordWithMetadata(
+      "1a1dc91c907325c69271ddf0c944bc72",
+      "pass"
+    );
+
+    expect(result).toEqual({ valid: true, needsRehash: true });
   });
 });

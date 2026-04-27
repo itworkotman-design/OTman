@@ -51,12 +51,105 @@ import {
   formatOrderSummaryText,
 } from "@/lib/orders/orderSummary";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import {
+  normalizedIncludes,
+  normalizeSearchText,
+} from "@/lib/searchNormalization";
 import type { AppPermission } from "@/lib/users/types";
 import {
   buildWordpressExtraPickupContacts,
   getWordpressExtraPickupAddresses,
   toWordpressMetaRecord,
 } from "@/lib/integrations/wordpress/orderMeta";
+import {
+  applyOrderPricingSnapshot,
+  getSavedOrderPricingSnapshot,
+} from "@/lib/booking/pricing/snapshot";
+import { createDefaultPriceListSettings } from "@/lib/products/priceListSettings";
+
+const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
+  id: true,
+  displayId: true,
+  status: true,
+  statusNotes: true,
+  deliveryDate: true,
+  timeWindow: true,
+  expressDelivery: true,
+  customerLabel: true,
+  customerName: true,
+  orderNumber: true,
+  phone: true,
+  phoneTwo: true,
+  email: true,
+  pickupAddress: true,
+  extraPickupAddress: true,
+  extraPickupContacts: true,
+  legacyWordpressRawMeta: true,
+  deliveryAddress: true,
+  returnAddress: true,
+  items: {
+    select: {
+      cardId: true,
+      productName: true,
+      deliveryType: true,
+      itemType: true,
+      optionCode: true,
+      optionLabel: true,
+      quantity: true,
+      rawData: true,
+    },
+  },
+  productsSummary: true,
+  deliveryTypeSummary: true,
+  servicesSummary: true,
+  description: true,
+  cashierName: true,
+  cashierPhone: true,
+  customerComments: true,
+  driverInfo: true,
+  subcontractorMembershipId: true,
+  subcontractor: true,
+  driver: true,
+  createdAt: true,
+  updatedAt: true,
+  lastInboundEmailAt: true,
+  lastOutboundEmailAt: true,
+  lastNotificationAt: true,
+  needsEmailAttention: true,
+  unreadInboundEmailCount: true,
+  needsNotificationAttention: true,
+  unreadNotificationCount: true,
+  priceExVat: true,
+  priceSubcontractor: true,
+  createdByMembershipId: true,
+  lastEditedByMembershipId: true,
+  customerMembershipId: true,
+  legacyWordpressAuthorId: true,
+  createdByMembership: {
+    select: {
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
+    },
+  },
+  lastEditedByMembership: {
+    select: {
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
+    },
+  },
+});
+
+type OrderArchiveRecord = Prisma.OrderGetPayload<{
+  select: typeof orderArchiveSelect;
+}>;
 
 function parsePositiveInt(value: string | null, fallback: number) {
   if (!value) return fallback;
@@ -73,6 +166,37 @@ function getMembershipUserLabel(user: {
   const username = user.username?.trim();
   if (username) return username;
   return user.email.trim();
+}
+
+function orderMatchesSearch(order: OrderArchiveRecord, search: string) {
+  const fields: Array<string | number | null | undefined> = [
+    order.id,
+    order.displayId,
+    order.orderNumber,
+    order.customerLabel,
+    order.customerName,
+    order.phone,
+    order.phoneTwo,
+    order.email,
+    order.pickupAddress,
+    ...order.extraPickupAddress,
+    order.deliveryAddress,
+    order.returnAddress,
+    order.productsSummary,
+    order.deliveryTypeSummary,
+    order.servicesSummary,
+    order.subcontractor,
+    order.driver,
+    order.description,
+    order.cashierName,
+    order.cashierPhone,
+    order.customerComments,
+    order.driverInfo,
+    order.createdByMembership.user.username,
+    order.createdByMembership.user.email,
+  ];
+
+  return fields.some((field) => normalizedIncludes(field, search));
 }
 
 async function reserveNextOrderNumber(companyId: string): Promise<number> {
@@ -132,6 +256,7 @@ export async function POST(req: Request) {
       id: true,
       role: true,
       priceListId: true,
+      warehouseEmail: true,
       company: {
         select: {
           orderEmailsEnabled: true,
@@ -170,6 +295,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
+  const dontSendWarehouseEmail = optionalBoolean(body?.dontSendWarehouseEmail);
 
   if (
     !body ||
@@ -292,17 +418,23 @@ export async function POST(req: Request) {
   }
 
   const catalog = await getBookingCatalog(effectivePriceListId);
+  const pricingSource = applyOrderPricingSnapshot({
+    catalogProducts: catalog.products,
+    catalogSpecialOptions: catalog.specialOptions,
+    priceListSettings: createDefaultPriceListSettings(),
+    pricingSnapshot: getSavedOrderPricingSnapshot(productCards),
+  });
 
   const summaries = buildOrderSummaries(
     productCards,
-    catalog.products,
-    catalog.specialOptions,
+    pricingSource.catalogProducts,
+    pricingSource.catalogSpecialOptions,
   );
 
   const builtItems = buildOrderItemsFromCards(
     productCards,
-    catalog.products,
-    catalog.specialOptions,
+    pricingSource.catalogProducts,
+    pricingSource.catalogSpecialOptions,
   );
 
   const nextDisplayId = await reserveNextOrderNumber(session.activeCompanyId);
@@ -571,6 +703,16 @@ export async function POST(req: Request) {
         items: builtItems,
       });
 
+      const warehouseEmail = normalizeOptionalEmail(membership.warehouseEmail);
+      if (warehouseEmail && !dontSendWarehouseEmail) {
+        await sendOrderNotificationEmail({
+          kind: "created",
+          order: notificationOrder,
+          items: builtItems,
+          recipientEmail: warehouseEmail,
+        });
+      }
+
       for (const pickup of extraPickups) {
         if (!pickup.sendEmail) continue;
 
@@ -654,6 +796,7 @@ export async function GET(req: Request) {
   const fromDate = optionalString(searchParams.get("fromDate"));
   const toDate = optionalString(searchParams.get("toDate"));
   const search = optionalString(searchParams.get("search"));
+  const normalizedSearch = normalizeSearchText(search);
   const sortBy = optionalString(searchParams.get("sortBy"));
   const sortOrder =
     optionalString(searchParams.get("sortOrder")) === "asc" ? "asc" : "desc";
@@ -718,40 +861,6 @@ export async function GET(req: Request) {
     }
   }
 
-  if (search) {
-    where.AND = [
-      ...(Array.isArray(where.AND) ? where.AND : []),
-      {
-        OR: [
-          { id: { contains: search, mode: "insensitive" } },
-          ...(Number.isFinite(Number(search))
-            ? [{ displayId: Number(search) }]
-            : []),
-          { orderNumber: { contains: search, mode: "insensitive" } },
-          { customerLabel: { contains: search, mode: "insensitive" } },
-          { customerName: { contains: search, mode: "insensitive" } },
-          { phone: { contains: search, mode: "insensitive" } },
-          { pickupAddress: { contains: search, mode: "insensitive" } },
-          { deliveryAddress: { contains: search, mode: "insensitive" } },
-          { productsSummary: { contains: search, mode: "insensitive" } },
-          { subcontractor: { contains: search, mode: "insensitive" } },
-          { driver: { contains: search, mode: "insensitive" } },
-          { description: { contains: search, mode: "insensitive" } },
-          {
-            createdByMembership: {
-              user: {
-                OR: [
-                  { username: { contains: search, mode: "insensitive" } },
-                  { email: { contains: search, mode: "insensitive" } },
-                ],
-              },
-            },
-          },
-        ],
-      },
-    ];
-  }
-
   const baseOrderBy = (() => {
     if (!sortBy) {
       return [
@@ -792,90 +901,28 @@ export async function GET(req: Request) {
     );
   }
 
-  const orders = await prisma.order.findMany({
+  const orderFindManyArgs: Prisma.OrderFindManyArgs & {
+    select: typeof orderArchiveSelect;
+  } = {
     where,
     orderBy,
-    skip: (page - 1) * rowsPerPage,
-    take: rowsPerPage,
-    select: {
-      id: true,
-      displayId: true,
-      status: true,
-      statusNotes: true,
-      deliveryDate: true,
-      timeWindow: true,
-      expressDelivery: true,
-      customerLabel: true,
-      customerName: true,
-      orderNumber: true,
-      phone: true,
-      email: true,
-      pickupAddress: true,
-      extraPickupAddress: true,
-      extraPickupContacts: true,
-      legacyWordpressRawMeta: true,
-      deliveryAddress: true,
-      returnAddress: true,
-      items: {
-        select: {
-          cardId: true,
-          productName: true,
-          deliveryType: true,
-          itemType: true,
-          optionCode: true,
-          optionLabel: true,
-          quantity: true,
-          rawData: true,
-        },
-      },
-      productsSummary: true,
-      deliveryTypeSummary: true,
-      servicesSummary: true,
-      description: true,
-      cashierName: true,
-      cashierPhone: true,
-      customerComments: true,
-      driverInfo: true,
-      subcontractorMembershipId: true,
-      subcontractor: true,
-      driver: true,
-      createdAt: true,
-      updatedAt: true,
-      lastInboundEmailAt: true,
-      lastOutboundEmailAt: true,
-      lastNotificationAt: true,
-      needsEmailAttention: true,
-      unreadInboundEmailCount: true,
-      needsNotificationAttention: true,
-      unreadNotificationCount: true,
-      priceExVat: true,
-      priceSubcontractor: true,
-      createdByMembershipId: true,
-      lastEditedByMembershipId: true,
-      customerMembershipId: true,
-      legacyWordpressAuthorId: true,
-      createdByMembership: {
-        select: {
-          user: {
-            select: {
-              username: true,
-              email: true,
-            },
-          },
-        },
-      },
-      lastEditedByMembership: {
-        select: {
-          user: {
-            select: {
-              username: true,
-              email: true,
-            },
-          },
-        },
-      },
-    },
-  });
+    select: orderArchiveSelect,
+  };
+
+  if (!normalizedSearch) {
+    orderFindManyArgs.skip = (page - 1) * rowsPerPage;
+    orderFindManyArgs.take = rowsPerPage;
+  }
+
+  const orderCandidates = (await prisma.order.findMany(
+    orderFindManyArgs,
+  )) as OrderArchiveRecord[];
+
+  const orders = normalizedSearch
+    ? orderCandidates
+        .filter((order) => orderMatchesSearch(order, normalizedSearch))
+        .slice((page - 1) * rowsPerPage, page * rowsPerPage)
+    : orderCandidates;
 
   const legacyAuthorIds = Array.from(
     new Set(

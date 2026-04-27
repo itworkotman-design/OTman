@@ -22,6 +22,8 @@ type Props = {
     subcontractorMinus: string;
     subcontractorPlus: string;
   }) => void;
+  priceUpdateAvailable?: boolean;
+  onUseCurrentPrices?: () => void;
   sidebarMode?: boolean;
 };
 
@@ -37,8 +39,23 @@ export default function BookingCalculatorPanel({
   subcontractorMinus,
   subcontractorPlus,
   onAdjustmentsChange,
+  priceUpdateAvailable = false,
+  onUseCurrentPrices,
   sidebarMode = false,
 }: Props) {
+  const priceUpdateNotice = priceUpdateAvailable ? (
+    <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+      <p className="font-semibold">Hey, this product changed prices.</p>
+      <button
+        type="button"
+        className="mt-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"
+        onClick={onUseCurrentPrices}
+      >
+        Use new price
+      </button>
+    </div>
+  ) : null;
+
   return (
     <>
       <div className="lg:hidden fixed right-0 top-1/2 -translate-y-1/2 z-40">
@@ -65,6 +82,7 @@ export default function BookingCalculatorPanel({
             </button>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {priceUpdateNotice}
               <CalculatorDisplayNew
                 productBreakdowns={productBreakdowns}
                 priceLookup={priceLookup}
@@ -83,6 +101,7 @@ export default function BookingCalculatorPanel({
       </div>
 
       <div className="hidden lg:block w-full">
+        {priceUpdateNotice}
         <CalculatorDisplayNew
           productBreakdowns={productBreakdowns}
           priceLookup={priceLookup}

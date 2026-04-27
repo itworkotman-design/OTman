@@ -28,6 +28,7 @@ export default function UserModal({
   targetRole,
   initialValueUsername,
   initialValueEmail,
+  initialValueWarehouseEmail,
   initialValuePhoneNumber,
   initialValueAddress,
   initialValueDescription,
@@ -45,6 +46,7 @@ export default function UserModal({
     buildInitialForm({
       initialValueUsername,
       initialValueEmail,
+      initialValueWarehouseEmail,
       initialValuePhoneNumber,
       initialValueAddress,
       initialValueDescription,
@@ -63,6 +65,7 @@ export default function UserModal({
       buildInitialForm({
         initialValueUsername,
         initialValueEmail,
+        initialValueWarehouseEmail,
         initialValuePhoneNumber,
         initialValueAddress,
         initialValueDescription,
@@ -90,6 +93,7 @@ export default function UserModal({
     key:
       | "username"
       | "email"
+      | "warehouseEmail"
       | "phoneNumber"
       | "description"
       | "password"
@@ -277,6 +281,16 @@ export default function UserModal({
                 onChange={updateField("email")}
                 type="email"
                 autoComplete={isCreateMode ? "off" : "email"}
+                disabled={!canEditTarget}
+              />
+
+              <label className="block pl-2 pb-2">Warehouse email</label>
+              <input
+                className="customInput mb-2 w-full"
+                value={form.warehouseEmail}
+                onChange={updateField("warehouseEmail")}
+                type="email"
+                autoComplete="off"
                 disabled={!canEditTarget}
               />
 

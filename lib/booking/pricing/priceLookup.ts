@@ -1,6 +1,7 @@
 import type { CatalogProduct } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { CatalogSpecialOption } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { PriceLookup } from "@/lib/booking/pricing/types";
+import { OPTION_CODES } from "@/lib/booking/constants";
 
 function parsePrice(value: string): number {
   const n = Number(value);
@@ -29,7 +30,7 @@ export function buildPriceLookup(
   for (const option of catalogSpecialOptions) {
     lookup[option.id] = {
       label: option.description || option.label || option.code,
-      code: option.code,
+      code: option.type === "xtra" ? OPTION_CODES.XTRA : option.code,
       customerPrice: parsePrice(option.effectiveCustomerPrice),
       subcontractorPrice: parsePrice(option.subcontractorPrice),
     };

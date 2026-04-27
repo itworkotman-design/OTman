@@ -44,6 +44,8 @@ export async function POST(req: Request) {
   const confirmPassword =
     typeof body?.confirmPassword === "string" ? body.confirmPassword : "";
   const username = typeof body?.username === "string" ? body.username : "";
+  const warehouseEmail =
+    typeof body?.warehouseEmail === "string" ? body.warehouseEmail : "";
   const phoneNumber =
     typeof body?.phoneNumber === "string" ? body.phoneNumber : "";
   const address = typeof body?.address === "string" ? body.address : "";
@@ -75,6 +77,7 @@ export async function POST(req: Request) {
     role,
     password,
     username,
+    warehouseEmail,
     phoneNumber,
     address,
     description,

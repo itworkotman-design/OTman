@@ -2,7 +2,10 @@ import { AuthEventType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logAuthEvent } from "@/lib/auth/authEvent";
 import { createSession } from "@/lib/auth/createSession";
-import { verifyPassword } from "@/lib/auth/password";
+import {
+  hashPassword,
+  verifyPasswordWithMetadata,
+} from "@/lib/auth/password";
 import {
   checkRateLimit,
   clearRateLimit,
@@ -167,9 +170,12 @@ export async function loginWithIdentifierPassword(params: {
     return { ok: false, reason: "USER_DISABLED" };
   }
 
-  const valid = await verifyPassword(user.passwordHash, password);
+  const passwordVerification = await verifyPasswordWithMetadata(
+    user.passwordHash,
+    password
+  );
 
-  if (!valid) {
+  if (!passwordVerification.valid) {
     await logAuthEvent({
       type: AuthEventType.LOGIN_FAIL,
       userId: user.id,
@@ -186,6 +192,15 @@ export async function loginWithIdentifierPassword(params: {
     await incrementLoginRateLimits(identifierKey, ipKey);
 
     return { ok: false, reason: "INVALID_CREDENTIALS" };
+  }
+
+  if (passwordVerification.needsRehash) {
+    const upgradedPasswordHash = await hashPassword(password);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: upgradedPasswordHash },
+    });
   }
 
   const memberships = await prisma.membership.findMany({

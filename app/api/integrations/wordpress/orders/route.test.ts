@@ -667,6 +667,139 @@ describe("POST /api/integrations/wordpress/orders", () => {
     });
   });
 
+  it("fills missing Andre produkter delivery type from the breakdown and keeps quantity-based cards at quantity 1", async () => {
+    mocks.getBookingCatalogMock.mockResolvedValue({
+      products: [
+        {
+          id: "dryer-product",
+          code: "DRYER",
+          label: "Torketrommel",
+          active: true,
+          productType: "PHYSICAL",
+          allowDeliveryTypes: true,
+          allowInstallOptions: true,
+          allowReturnOptions: false,
+          allowExtraServices: false,
+          allowDemont: false,
+          allowQuantity: true,
+          allowPeopleCount: false,
+          allowHoursInput: false,
+          allowModelNumber: false,
+          autoXtraPerPallet: false,
+          deliveryTypes: [],
+          customSections: [],
+          options: [],
+        },
+        {
+          id: "other-products-labor",
+          code: "OTHER-LABOR",
+          label: "Andre produkter",
+          active: true,
+          productType: "PHYSICAL",
+          allowDeliveryTypes: false,
+          allowInstallOptions: true,
+          allowReturnOptions: false,
+          allowExtraServices: false,
+          allowDemont: false,
+          allowQuantity: false,
+          allowPeopleCount: false,
+          allowHoursInput: true,
+          allowModelNumber: false,
+          autoXtraPerPallet: false,
+          deliveryTypes: [],
+          customSections: [],
+          options: [],
+        },
+        {
+          id: "other-products-delivery",
+          code: "OTHER-DELIVERY",
+          label: "Andre produkter",
+          active: true,
+          productType: "PHYSICAL",
+          allowDeliveryTypes: true,
+          allowInstallOptions: false,
+          allowReturnOptions: false,
+          allowExtraServices: false,
+          allowDemont: false,
+          allowQuantity: true,
+          allowPeopleCount: false,
+          allowHoursInput: false,
+          allowModelNumber: false,
+          autoXtraPerPallet: false,
+          deliveryTypes: [],
+          customSections: [],
+          options: [],
+        },
+      ],
+      specialOptions: [],
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 9996,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-24 15:47:11",
+          status: "confirmed",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "11202499338",
+            kundens_navn: "Roger Carson",
+            pickup_address: "Power Alnabru, Smalvollveien 65, 0667 Oslo, Norge",
+            delivery_address: "Trolldalsveien 25, 0672 Oslo, Norge",
+            leveringsdato: "20260528",
+            tidsvindu_for_levering: "16:00 - 21:00",
+            extra_products_0_velg_produkt: "Torketrommel",
+            extra_products_0_velg_leveringstype: "669:Innbaering:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            extra_products_1_velg_produkt: "Andre produkter",
+            extra_products_1_velg_leveringstype: "",
+            extra_products_1_velg_leveringstype_andre:
+              "229:Innbaering:XTRA",
+            extra_products_1_antall_produkter: "1",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Torketrommel</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Innbaering (INDOOR)</span>
+                    <span class="price-breakdown-price">669 NOK</span>
+                  </div>
+                </div>
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Andre produkter</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Innbaering (XTRA)</span>
+                    <span class="price-breakdown-price">229 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mapWordpressImportToProductCardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedProducts: expect.arrayContaining([
+          expect.objectContaining({
+            cardId: 2,
+            productName: "Andre produkter",
+            deliveryType: "Innbaering",
+            quantity: 1,
+          }),
+        ]),
+      }),
+    );
+  });
+
   it("imports admin price adjustments into native totals and persisted fields", async () => {
     mocks.calculateBookingPricingMock.mockReturnValue({
       totals: {
@@ -727,18 +860,18 @@ describe("POST /api/integrations/wordpress/orders", () => {
       expect.objectContaining({
         adjustments: {
           rabatt: "100",
-          leggTil: "50",
+          leggTil: undefined,
           subcontractorMinus: "20",
-          subcontractorPlus: "30",
+          subcontractorPlus: undefined,
         },
       }),
     );
     expect(mocks.orderCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
         rabatt: "100",
-        leggTil: "50",
+        leggTil: undefined,
         subcontractorMinus: "20",
-        subcontractorPlus: "30",
+        subcontractorPlus: undefined,
         priceExVat: 13,
         priceSubcontractor: 8,
       }),
@@ -844,14 +977,14 @@ describe("POST /api/integrations/wordpress/orders", () => {
       expect.objectContaining({
         adjustments: expect.objectContaining({
           rabatt: "1780",
-          leggTil: "300",
+          leggTil: undefined,
         }),
       }),
     );
     expect(mocks.orderCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
         rabatt: "1780",
-        leggTil: "300",
+        leggTil: undefined,
       }),
       select: {
         id: true,
@@ -859,6 +992,95 @@ describe("POST /api/integrations/wordpress/orders", () => {
         legacyWordpressOrderId: true,
       },
     });
+  });
+
+  it("does not import KM pris as manual extra", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10002,
+          legacyWordpressUserId: 18,
+          createdAt: "2026-04-24 16:23:00",
+          status: "Behandles",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "VV78V8Z",
+            kundens_navn: "Grete Walborg Dokken Engebretsen",
+            pickup_address: "POWER Strømmen, Støperiveien 5, 2010 Strømmen, Norway",
+            delivery_address: "Veslefjellet 12, 2015 Leirsund, Norge",
+            returadresse: "POWER Strømmen, Støperiveien 5, 2010 Strømmen, Norway",
+            leveringsdato: "20260427",
+            tidsvindu_for_levering: "16:00 - 21:00",
+            total_km: "20.95",
+            total_price: "1536",
+            extra_products_0_velg_produkt: "Vaskemaskin",
+            extra_products_0_velg_leveringstype: "669:Innbæring:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            extra_products_0_retur: "250:Retur til gjenvinning:RETURNREC",
+            extra_products_0_montering_av_vaskemaskin: [
+              "590:Montering av vaskemaskin på våtrom:INSWASH1",
+            ],
+            extra_products_0_extra_pickup: "590:EXTRA PICKUP:EXTRAPICKUP",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Vaskemaskin</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Montering av vaskemaskin på våtrom (INSWASH1)</span>
+                    <span class="price-breakdown-price">590 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Retur til gjenvinning (RETURNREC)</span>
+                    <span class="price-breakdown-price">250 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Innbæring (INDOOR)</span>
+                    <span class="price-breakdown-price">669 NOK</span>
+                  </div>
+                </div>
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>KM pris</strong></span>
+                  <span class="price-breakdown-price">27 NOK</span>
+                </div>
+                <div class="price-summary">
+                  <div class="price-breakdown-row total-highlight">
+                    <span class="price-breakdown-label"><strong>Total</strong></span>
+                    <span class="price-breakdown-price">1536.00 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        leggTil: undefined,
+        priceExVat: 1536,
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+    expect(mocks.mapWordpressImportToProductCardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedServices: expect.not.arrayContaining([
+          expect.objectContaining({
+            code: "EXTRAPICKUP",
+          }),
+        ]),
+      }),
+    );
   });
 
   it("imports manual discount, express, and return selection from the real wordpress payload shape", async () => {
@@ -1235,6 +1457,98 @@ describe("POST /api/integrations/wordpress/orders", () => {
           nativePriceExVatCents: 2500,
         },
       },
+    );
+  });
+
+  it("reads the alternate delivery-type field for Andre produkter imports", async () => {
+    mocks.mapWordpressImportToProductCardsMock.mockReturnValueOnce({
+      productCards: [
+        {
+          cardId: 1,
+          productId: "product-1",
+          modelNumber: "",
+          deliveryType: "INDOOR",
+          amount: 1,
+          peopleCount: 1,
+          hoursInput: 1,
+          selectedInstallOptionIds: [],
+          selectedExtraOptionIds: [],
+          selectedReturnOptionId: null,
+          demontEnabled: false,
+          selectedTimeOptionIds: [],
+          extraTimeHours: 0.5,
+          extraPalletEnabled: false,
+          extraPalletQty: 1,
+          etterEnabled: false,
+          etterQty: 1,
+          customSectionSelections: [],
+        },
+        {
+          cardId: 2,
+          productId: "product-2",
+          modelNumber: "",
+          deliveryType: "INDOOR",
+          amount: 1,
+          peopleCount: 1,
+          hoursInput: 0.5,
+          selectedInstallOptionIds: [],
+          selectedExtraOptionIds: [],
+          selectedReturnOptionId: null,
+          demontEnabled: false,
+          selectedTimeOptionIds: [],
+          extraTimeHours: 0.5,
+          extraPalletEnabled: false,
+          extraPalletQty: 1,
+          etterEnabled: false,
+          etterQty: 1,
+          customSectionSelections: [],
+        },
+      ],
+      resolvedServices: [],
+      unresolvedProducts: [],
+      unresolvedServices: [],
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10003,
+          legacyWordpressUserId: 31,
+          createdAt: "2026-04-24 15:47:11",
+          status: "confirmed",
+          title: "11202499338",
+          meta: {
+            bestillingsnr: "11202499338",
+            leveringsdato: "20260528",
+            extra_products: ["main_produkt", "extra_produkt"],
+            extra_products_0_velg_produkt: "Tørketrommel",
+            extra_products_0_velg_leveringstype: "669:Innbæring:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            extra_products_1_velg_produkt: "Andre produkter",
+            extra_products_1_velg_leveringstype: "",
+            extra_products_1_velg_leveringstype_andre: "229:Innbæring:XTRA",
+            extra_products_1_antall_produkter: "1",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mapWordpressImportToProductCardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedProducts: expect.arrayContaining([
+          expect.objectContaining({
+            cardId: 2,
+            productName: "Andre produkter",
+            deliveryType: "Innbæring",
+          }),
+        ]),
+      }),
     );
   });
 });

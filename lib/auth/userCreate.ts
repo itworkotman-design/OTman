@@ -57,6 +57,7 @@ export async function createUserWithPassword(params: {
   role: string;
   password: string;
   username?: string | null;
+  warehouseEmail?: string | null;
   phoneNumber?: string | null;
   address?: string | null;
   description?: string | null;
@@ -71,6 +72,7 @@ export async function createUserWithPassword(params: {
   const password = params.password;
 
   const username = normalizeOptionalString(params.username);
+  const warehouseEmail = normalizeOptionalString(params.warehouseEmail);
   const phoneNumber = normalizeOptionalString(params.phoneNumber);
   const address = normalizeOptionalString(params.address);
   const description = normalizeOptionalString(params.description);
@@ -175,6 +177,7 @@ export async function createUserWithPassword(params: {
         role: nextRole,
         status: "ACTIVE",
         priceListId,
+        warehouseEmail,
       },
       select: { id: true },
     });

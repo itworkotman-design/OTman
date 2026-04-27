@@ -40,6 +40,51 @@ function findXtraSpecialOption(catalogSpecialOptions: CatalogSpecialOption[]) {
   );
 }
 
+function normalizeAutomaticXtraText(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function isFirstStepAutomaticXtra(option: CatalogSpecialOption) {
+  const signal = [
+    normalizeAutomaticXtraText(option.code),
+    normalizeAutomaticXtraText(option.label),
+    normalizeAutomaticXtraText(option.description),
+  ].join(" ");
+
+  return (
+    signal.includes("first_step") ||
+    signal.includes("first step") ||
+    signal.includes("levering") ||
+    signal.includes("delivery")
+  );
+}
+
+function findAutomaticXtraSpecialOption(params: {
+  catalogSpecialOptions: CatalogSpecialOption[];
+  deliveryType: SavedProductCard["deliveryType"];
+}) {
+  const { catalogSpecialOptions, deliveryType } = params;
+  const activeXtraOptions = catalogSpecialOptions.filter(
+    (option) => option.active && option.type === "xtra",
+  );
+
+  if (activeXtraOptions.length === 0) {
+    return null;
+  }
+
+  if (deliveryType === DELIVERY_TYPES.FIRST_STEP) {
+    return (
+      activeXtraOptions.find((option) => isFirstStepAutomaticXtra(option)) ??
+      activeXtraOptions[0]
+    );
+  }
+
+  return (
+    activeXtraOptions.find((option) => !isFirstStepAutomaticXtra(option)) ??
+    activeXtraOptions[0]
+  );
+}
+
 function shouldUseXtraDeliveryPricing(
   xtraDeliveryCardIds: Set<number>,
   currentCardId: number,
@@ -267,11 +312,9 @@ function buildItemsForCard(
 
     items.push({
       kind: "deliveryType",
-      code: deliveryTypeCode,
-      label:
-        xtraDeliveryPrice !== undefined
-          ? `${deliveryTypeLabel} (${OPTION_CODES.XTRA})`
-          : deliveryTypeLabel,
+      code:
+        xtraDeliveryPrice !== undefined ? OPTION_CODES.XTRA : deliveryTypeCode,
+      label: deliveryTypeLabel,
       qty: 1,
       unitPrice: shouldZeroBaseDeliveryPrice(
         card.deliveryType,
@@ -283,7 +326,10 @@ function buildItemsForCard(
     });
 
     if (isDeliveryTypeWithExtraAmount(card.deliveryType) && amount > 1) {
-      const xtraOption = findXtraSpecialOption(catalogSpecialOptions);
+      const xtraOption = findAutomaticXtraSpecialOption({
+        catalogSpecialOptions,
+        deliveryType: card.deliveryType,
+      });
 
       if (xtraOption) {
         items.push({

@@ -92,6 +92,8 @@ describe("getAuthenticatedSession", () => {
           select: {
             email: true,
             username: true,
+            logoPath: true,
+            usernameDisplayColor: true,
             status: true,
           },
         },

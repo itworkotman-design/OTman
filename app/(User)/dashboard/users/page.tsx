@@ -7,6 +7,10 @@ import { useRouter } from "next/navigation";
 import type { Role, Membership } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { getAccessLabel } from "@/lib/users/access";
+import {
+  normalizedIncludes,
+  normalizeSearchText,
+} from "@/lib/searchNormalization";
 
 const ROLE_PRIORITY: Record<Role, number> = {
   OWNER: 0,
@@ -107,7 +111,7 @@ export default function UserPage() {
       void loadUsers();
     };
 
-    const intervalId = window.setInterval(refreshPresence, 30_000);
+    const intervalId = window.setInterval(refreshPresence, 300_000);
     document.addEventListener("visibilitychange", refreshPresence);
     window.addEventListener("focus", refreshPresence);
 
@@ -119,19 +123,20 @@ export default function UserPage() {
   }, [loadUsers, open]);
 
   const filteredUsers = useMemo(() => {
+    const normalizedQuery = normalizeSearchText(query);
+
     return users
       .filter((u) => {
         const roleOk = !roleFilter || u.role === roleFilter;
-        const q = query.trim().toLowerCase();
         const queryOk =
-          !q ||
-          (u.user.username ?? "").toLowerCase().includes(q) ||
-          u.user.email.toLowerCase().includes(q) ||
-          (u.user.phoneNumber ?? "").toLowerCase().includes(q) ||
-          (u.user.address ?? "").toLowerCase().includes(q) ||
-          (u.user.description ?? "").toLowerCase().includes(q) ||
-          u.role.toLowerCase().includes(q) ||
-          u.id.toLowerCase().includes(q);
+          !normalizedQuery ||
+          normalizedIncludes(u.user.username, normalizedQuery) ||
+          normalizedIncludes(u.user.email, normalizedQuery) ||
+          normalizedIncludes(u.user.phoneNumber, normalizedQuery) ||
+          normalizedIncludes(u.user.address, normalizedQuery) ||
+          normalizedIncludes(u.user.description, normalizedQuery) ||
+          normalizedIncludes(u.role, normalizedQuery) ||
+          normalizedIncludes(u.id, normalizedQuery);
 
         return roleOk && queryOk;
       })
@@ -243,6 +248,7 @@ export default function UserPage() {
           targetRole={selectedUser?.role ?? "USER"}
           initialValueUsername={selectedUser?.user.username ?? ""}
           initialValueEmail={selectedUser?.user.email ?? ""}
+          initialValueWarehouseEmail={selectedUser?.warehouseEmail ?? ""}
           initialValuePhoneNumber={selectedUser?.user.phoneNumber ?? ""}
           initialValueAddress={selectedUser?.user.address ?? ""}
           initialValueDescription={selectedUser?.user.description ?? ""}
@@ -286,27 +292,27 @@ export default function UserPage() {
                 data.provisionMode === "INVITE"
                   ? {
                       email: data.email,
+                      warehouseEmail: data.warehouseEmail,
                       role: data.role,
                       username: data.username,
                       phoneNumber: data.phoneNumber,
                       address: data.address,
                       description: data.description,
                       logoPath,
-                      usernameDisplayColor:
-                        data.usernameDisplayColor || null,
+                      usernameDisplayColor: data.usernameDisplayColor || null,
                       priceListId: data.priceListId ?? null,
                       permissions: data.permissions,
                     }
                   : {
                       email: data.email,
+                      warehouseEmail: data.warehouseEmail,
                       role: data.role,
                       username: data.username,
                       phoneNumber: data.phoneNumber,
                       address: data.address,
                       description: data.description,
                       logoPath,
-                      usernameDisplayColor:
-                        data.usernameDisplayColor || null,
+                      usernameDisplayColor: data.usernameDisplayColor || null,
                       priceListId: data.priceListId ?? null,
                       permissions: data.permissions,
                       password: data.password,
@@ -345,6 +351,7 @@ export default function UserPage() {
                 credentials: "include",
                 body: JSON.stringify({
                   email: data.email,
+                  warehouseEmail: data.warehouseEmail,
                   username: data.username,
                   phoneNumber: data.phoneNumber,
                   address: data.address,
@@ -527,7 +534,7 @@ export default function UserPage() {
                       {u.user.phoneNumber || "-"}
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      <div className="max-w-[220px] truncate">
+                      <div className="max-w-[220] truncate">
                         {u.user.description || "-"}
                       </div>
                     </td>

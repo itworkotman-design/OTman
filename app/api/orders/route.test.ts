@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+type OrderCounterTransactionCallback = (tx: {
+  companyOrderCounter: {
+    findUnique: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+}) => unknown;
+
 const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   canCreateOrdersMock: vi.fn(),
@@ -115,16 +123,17 @@ describe("routes in /api/orders", () => {
       orderNumber: "PO-1",
       createdAt: new Date("2030-01-01T00:00:00.000Z"),
     });
-    mocks.transactionMock.mockImplementation(async (callback: any) =>
-      callback({
-        companyOrderCounter: {
-          findUnique: vi.fn().mockResolvedValue(null),
-          create: vi
-            .fn()
-            .mockResolvedValue({ companyId: "company-1", nextNumber: 20001 }),
-          update: vi.fn(),
-        },
-      }),
+    mocks.transactionMock.mockImplementation(
+      async (callback: OrderCounterTransactionCallback) =>
+        callback({
+          companyOrderCounter: {
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi
+              .fn()
+              .mockResolvedValue({ companyId: "company-1", nextNumber: 20001 }),
+            update: vi.fn(),
+          },
+        }),
     );
   });
 
@@ -197,7 +206,7 @@ describe("routes in /api/orders", () => {
 
     const res = await GET(
       new Request(
-        "http://localhost/api/orders?search=Acme&status=failed&page=2&rowsPerPage=10",
+        "http://localhost/api/orders?search=A%20C%20M%20E&status=failed&page=1&rowsPerPage=10",
       ),
     );
 
@@ -213,7 +222,7 @@ describe("routes in /api/orders", () => {
           lastEditedBy: "",
         }),
       ],
-      page: 2,
+      page: 1,
       rowsPerPage: 10,
     });
     expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
@@ -228,8 +237,6 @@ describe("routes in /api/orders", () => {
             { createdByMembershipId: "membership-1" },
           ],
         }),
-        skip: 10,
-        take: 10,
       }),
     );
   });
@@ -619,6 +626,130 @@ describe("routes in /api/orders", () => {
         }),
       }),
     );
+  });
+
+  it("POST also sends to the membership warehouse email unless disabled", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      warehouseEmail: "warehouse@example.com",
+      user: {
+        username: "Power Grunerlokka",
+        email: "power@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    let res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          customerLabel: "Power Grunerlokka",
+          deliveryDate: "2026-04-09",
+          pickupAddress: "Pickup 1",
+          deliveryAddress: "Delivery 1",
+          orderNumber: "11340837806",
+          priceExVat: 3699,
+          status: "processing",
+          dontSendWarehouseEmail: false,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.sendOrderNotificationEmailMock).toHaveBeenCalledTimes(2);
+    expect(mocks.sendOrderNotificationEmailMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        kind: "created",
+        recipientEmail: "warehouse@example.com",
+      }),
+    );
+
+    vi.clearAllMocks();
+    mocks.canCreateOrdersMock.mockReturnValue(true);
+    mocks.buildOrderSummariesMock.mockReturnValue({
+      productsSummary: "Product summary",
+      deliveryTypeSummary: "Delivery summary",
+      servicesSummary: "Service summary",
+    });
+    mocks.buildOrderEventSnapshotMock.mockReturnValue({
+      status: "processing",
+      statusNotes: "",
+    });
+    mocks.createOrderCreatedEventMock.mockResolvedValue(undefined);
+    mocks.createOrderNotificationMock.mockResolvedValue({
+      id: "notification-1",
+      createdAt: new Date("2030-01-01T00:00:00.000Z"),
+    });
+    mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
+    mocks.getBookingCatalogMock.mockResolvedValue({
+      products: [],
+      specialOptions: [],
+    });
+    mocks.membershipFindManyMock.mockResolvedValue([]);
+    mocks.pendingFindManyMock.mockResolvedValue([]);
+    mocks.pendingDeleteManyMock.mockResolvedValue({ count: 0 });
+    mocks.orderCreateMock.mockResolvedValue({
+      id: "order-1",
+      companyId: "company-1",
+      displayId: 20000,
+      orderNumber: "PO-1",
+      createdAt: new Date("2030-01-01T00:00:00.000Z"),
+    });
+    mocks.transactionMock.mockImplementation(
+      async (callback: OrderCounterTransactionCallback) =>
+        callback({
+          companyOrderCounter: {
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi
+              .fn()
+              .mockResolvedValue({ companyId: "company-1", nextNumber: 20001 }),
+            update: vi.fn(),
+          },
+        }),
+    );
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      warehouseEmail: "warehouse@example.com",
+      user: {
+        username: "Power Grunerlokka",
+        email: "power@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          customerLabel: "Power Grunerlokka",
+          deliveryDate: "2026-04-09",
+          pickupAddress: "Pickup 1",
+          deliveryAddress: "Delivery 1",
+          orderNumber: "11340837806",
+          priceExVat: 3699,
+          status: "processing",
+          dontSendWarehouseEmail: true,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.sendOrderNotificationEmailMock).toHaveBeenCalledTimes(1);
   });
 
   it("POST skips order notification emails when company order emails are disabled", async () => {

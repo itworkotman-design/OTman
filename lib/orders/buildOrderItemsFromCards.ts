@@ -51,6 +51,13 @@ function decimalStringToCents(value: string | null | undefined) {
   return Math.round(n * 100);
 }
 
+function getEffectiveCustomerPrice(option: {
+  customerPrice: string;
+  effectiveCustomerPrice?: string;
+}) {
+  return option.effectiveCustomerPrice ?? option.customerPrice;
+}
+
 function getAmount(card: SavedProductCard, product: CatalogProduct | null) {
   if (!product) return Math.max(1, card.amount || 1);
   if (!product.allowQuantity && product.productType !== "PALLET") return 1;
@@ -157,7 +164,7 @@ export function buildOrderItemsFromCards(
             optionLabel: option?.label ?? null,
             quantity: hoursInput,
             customerPriceCents: option
-              ? decimalStringToCents(option.customerPrice)
+              ? decimalStringToCents(getEffectiveCustomerPrice(option))
               : null,
             subcontractorPriceCents: option
               ? decimalStringToCents(option.subcontractorPrice)
@@ -181,7 +188,9 @@ export function buildOrderItemsFromCards(
           optionCode: baseOption.code,
           optionLabel: baseOption.label ?? null,
           quantity: hoursInput,
-          customerPriceCents: decimalStringToCents(baseOption.customerPrice),
+          customerPriceCents: decimalStringToCents(
+            getEffectiveCustomerPrice(baseOption),
+          ),
           subcontractorPriceCents: decimalStringToCents(
             baseOption.subcontractorPrice,
           ),
@@ -209,7 +218,7 @@ export function buildOrderItemsFromCards(
             optionLabel: option?.label ?? null,
             quantity: 1,
             customerPriceCents: option
-              ? decimalStringToCents(option.customerPrice)
+              ? decimalStringToCents(getEffectiveCustomerPrice(option))
               : null,
             subcontractorPriceCents: option
               ? decimalStringToCents(option.subcontractorPrice)
@@ -229,7 +238,9 @@ export function buildOrderItemsFromCards(
           optionCode: baseOption.code,
           optionLabel: baseOption.label ?? null,
           quantity: 1,
-          customerPriceCents: decimalStringToCents(baseOption.customerPrice),
+          customerPriceCents: decimalStringToCents(
+            getEffectiveCustomerPrice(baseOption),
+          ),
           subcontractorPriceCents: decimalStringToCents(
             baseOption.subcontractorPrice,
           ),
@@ -318,7 +329,7 @@ export function buildOrderItemsFromCards(
         optionLabel: option?.label ?? null,
         quantity: amount,
         customerPriceCents: option
-          ? decimalStringToCents(option.customerPrice)
+          ? decimalStringToCents(getEffectiveCustomerPrice(option))
           : null,
         subcontractorPriceCents: option
           ? decimalStringToCents(option.subcontractorPrice)
@@ -349,7 +360,7 @@ export function buildOrderItemsFromCards(
           optionLabel: option?.label ?? null,
           quantity: amount,
           customerPriceCents: option
-            ? decimalStringToCents(option.customerPrice)
+            ? decimalStringToCents(getEffectiveCustomerPrice(option))
             : null,
           subcontractorPriceCents: option
             ? decimalStringToCents(option.subcontractorPrice)
@@ -376,7 +387,9 @@ export function buildOrderItemsFromCards(
         optionCode: demontOption.code,
         optionLabel: demontOption.label ?? null,
         quantity: amount,
-        customerPriceCents: decimalStringToCents(demontOption.customerPrice),
+        customerPriceCents: decimalStringToCents(
+          getEffectiveCustomerPrice(demontOption),
+        ),
         subcontractorPriceCents: decimalStringToCents(
           demontOption.subcontractorPrice,
         ),
@@ -402,7 +415,7 @@ export function buildOrderItemsFromCards(
         optionLabel: special?.label ?? null,
         quantity: amount,
         customerPriceCents: special
-          ? decimalStringToCents(special.customerPrice)
+          ? decimalStringToCents(getEffectiveCustomerPrice(special))
           : null,
         subcontractorPriceCents: special
           ? decimalStringToCents(special.subcontractorPrice)

@@ -8,6 +8,7 @@ export type UserProvisionMode = "DIRECT_PASSWORD" | "INVITE";
 export interface UserFormData {
   username: string;
   email: string;
+  warehouseEmail: string;
   phoneNumber: string;
   address: string;
   role: string;
@@ -31,6 +32,7 @@ export interface UserModalProps {
   onToggleActive: () => void | Promise<void>;
   initialValueUsername: string;
   initialValueEmail: string;
+  initialValueWarehouseEmail?: string;
   initialValuePhoneNumber: string;
   initialValueAddress: string;
   initialValueDescription: string;
@@ -49,6 +51,7 @@ export type UserFormSource = Pick<
   UserModalProps,
   | "initialValueUsername"
   | "initialValueEmail"
+  | "initialValueWarehouseEmail"
   | "initialValuePhoneNumber"
   | "initialValueAddress"
   | "initialValueDescription"
@@ -64,6 +67,7 @@ export function buildInitialForm(source: UserFormSource): UserFormData {
   return {
     username: source.initialValueUsername ?? "",
     email: source.initialValueEmail ?? "",
+    warehouseEmail: source.initialValueWarehouseEmail ?? "",
     phoneNumber: source.initialValuePhoneNumber ?? "",
     address: source.initialValueAddress ?? "",
     description: source.initialValueDescription ?? "",
@@ -116,6 +120,7 @@ export function makeFieldUpdater(
   key:
     | "username"
     | "email"
+    | "warehouseEmail"
     | "phoneNumber"
     | "description"
     | "password"

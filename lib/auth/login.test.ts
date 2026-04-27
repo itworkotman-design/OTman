@@ -5,8 +5,10 @@ const mocks = vi.hoisted(() => {
   return {
     findUniqueMock: vi.fn(),
     findFirstMock: vi.fn(),
+    updateMock: vi.fn(),
     findManyMock: vi.fn(),
-    verifyPasswordMock: vi.fn(),
+    hashPasswordMock: vi.fn(),
+    verifyPasswordWithMetadataMock: vi.fn(),
     logAuthEventMock: vi.fn(),
     createSessionMock: vi.fn(),
     checkRateLimitMock: vi.fn(),
@@ -20,6 +22,7 @@ vi.mock("@/lib/db", () => ({
     user: {
       findUnique: mocks.findUniqueMock,
       findFirst: mocks.findFirstMock,
+      update: mocks.updateMock,
     },
     membership: {
       findMany: mocks.findManyMock,
@@ -28,7 +31,8 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/auth/password", () => ({
-  verifyPassword: mocks.verifyPasswordMock,
+  hashPassword: mocks.hashPasswordMock,
+  verifyPasswordWithMetadata: mocks.verifyPasswordWithMetadataMock,
 }));
 
 vi.mock("@/lib/auth/authEvent", () => ({
@@ -58,6 +62,7 @@ describe("loginWithIdentifierPassword", () => {
     mocks.clearRateLimitMock.mockResolvedValue(undefined);
     mocks.incrementRateLimitMock.mockResolvedValue(undefined);
     mocks.logAuthEventMock.mockResolvedValue(undefined);
+    mocks.hashPasswordMock.mockResolvedValue("upgraded-password-hash");
     mocks.findManyMock.mockResolvedValue([]);
     mocks.createSessionMock.mockResolvedValue({
       sessionToken: "session-token",
@@ -125,7 +130,10 @@ describe("loginWithIdentifierPassword", () => {
       passwordHash: "hashed-password",
       status: "ACTIVE",
     });
-    mocks.verifyPasswordMock.mockResolvedValue(true);
+    mocks.verifyPasswordWithMetadataMock.mockResolvedValue({
+      valid: true,
+      needsRehash: false,
+    });
     mocks.findManyMock.mockResolvedValue([{ companyId: "company-1" }]);
 
     const result = await loginWithIdentifierPassword({
@@ -171,7 +179,10 @@ describe("loginWithIdentifierPassword", () => {
       passwordHash: "hashed-password",
       status: "ACTIVE",
     });
-    mocks.verifyPasswordMock.mockResolvedValue(true);
+    mocks.verifyPasswordWithMetadataMock.mockResolvedValue({
+      valid: true,
+      needsRehash: false,
+    });
     mocks.findManyMock.mockResolvedValue([{ companyId: "company-1" }]);
 
     const result = await loginWithIdentifierPassword({
@@ -233,7 +244,10 @@ describe("loginWithIdentifierPassword", () => {
       passwordHash: "hashed-password",
       status: "ACTIVE",
     });
-    mocks.verifyPasswordMock.mockResolvedValue(true);
+    mocks.verifyPasswordWithMetadataMock.mockResolvedValue({
+      valid: true,
+      needsRehash: false,
+    });
     mocks.findManyMock.mockResolvedValue([
       { companyId: "company-1" },
       { companyId: "company-2" },
@@ -268,6 +282,33 @@ describe("loginWithIdentifierPassword", () => {
       ip: "127.0.0.1",
       userAgent: "vitest",
       meta: { autoSelectedTenant: false },
+    });
+  });
+
+  it("rehashes the stored password after a valid legacy password match", async () => {
+    mocks.findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      email: "test@example.com",
+      passwordHash: "$P$B55D6LjfHDkINU5wF.v2BuuzO0/XPk/",
+      status: "ACTIVE",
+    });
+    mocks.verifyPasswordWithMetadataMock.mockResolvedValue({
+      valid: true,
+      needsRehash: true,
+    });
+
+    const result = await loginWithIdentifierPassword({
+      identifier: "test@example.com",
+      password: "correct-password",
+      ip: "127.0.0.1",
+      userAgent: "vitest",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.hashPasswordMock).toHaveBeenCalledWith("correct-password");
+    expect(mocks.updateMock).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { passwordHash: "upgraded-password-hash" },
     });
   });
 });

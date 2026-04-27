@@ -187,6 +187,9 @@ type Props = {
   setStatus: React.Dispatch<React.SetStateAction<string>>;
   dontSendEmail: boolean;
   setDontSendEmail: React.Dispatch<React.SetStateAction<boolean>>;
+  showWarehouseEmailToggle: boolean;
+  dontSendWarehouseEmail: boolean;
+  setDontSendWarehouseEmail: React.Dispatch<React.SetStateAction<boolean>>;
   attachments: AttachmentItem[];
   attachmentsUploading: boolean;
   attachmentsError: string;
@@ -302,6 +305,9 @@ export default function OrderFieldsForm({
   setStatus,
   dontSendEmail,
   setDontSendEmail,
+  showWarehouseEmailToggle,
+  dontSendWarehouseEmail,
+  setDontSendWarehouseEmail,
   attachments,
   attachmentsUploading,
   attachmentsError,
@@ -928,6 +934,16 @@ export default function OrderFieldsForm({
             onChange={(e) => setDontSendEmail(e.target.checked)}
           />
           <span>Don&apos;t send email</span>
+        </label>
+      )}
+      {showWarehouseEmailToggle && (
+        <label className="flex items-center gap-2 py-2">
+          <input
+            type="checkbox"
+            checked={dontSendWarehouseEmail}
+            onChange={(e) => setDontSendWarehouseEmail(e.target.checked)}
+          />
+          <span>Don&apos;t send to warehouse email</span>
         </label>
       )}
       {!hideSubmitButton && (

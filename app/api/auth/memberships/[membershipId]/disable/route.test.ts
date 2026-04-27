@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     findUniqueMock: vi.fn(),
     countMock: vi.fn(),
     updateManyMock: vi.fn(),
+    userUpdateManyMock: vi.fn(),
     logAuthEventMock: vi.fn(),
   };
 });
@@ -27,6 +28,9 @@ vi.mock("@/lib/db", () => ({
       count: mocks.countMock,
       updateMany: mocks.updateManyMock,
     },
+    user: {
+      updateMany: mocks.userUpdateManyMock,
+    },
   },
 }));
 
@@ -41,6 +45,7 @@ describe("POST /api/auth/memberships/[membershipId]/disable", () => {
     vi.clearAllMocks();
     mocks.countMock.mockResolvedValue(2);
     mocks.updateManyMock.mockResolvedValue({ count: 1 });
+    mocks.userUpdateManyMock.mockResolvedValue({ count: 1 });
     mocks.logAuthEventMock.mockResolvedValue(undefined);
   });
 
@@ -362,6 +367,15 @@ describe("POST /api/auth/memberships/[membershipId]/disable", () => {
     expect(mocks.updateManyMock).toHaveBeenCalledWith({
       where: {
         id: "membership-2",
+        status: "ACTIVE",
+      },
+      data: {
+        status: "DISABLED",
+      },
+    });
+    expect(mocks.userUpdateManyMock).toHaveBeenCalledWith({
+      where: {
+        id: "user-2",
         status: "ACTIVE",
       },
       data: {

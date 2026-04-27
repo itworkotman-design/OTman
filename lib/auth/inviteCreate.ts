@@ -47,6 +47,7 @@ export async function createInvite(params: {
   email: string;
   role: string;
   username?: string | null;
+  warehouseEmail?: string | null;
   phoneNumber?: string | null;
   address?: string | null;
   description?: string | null;
@@ -62,6 +63,7 @@ export async function createInvite(params: {
   const companyId = params.companyId.trim();
 
   const username = normalizeOptionalString(params.username);
+  const warehouseEmail = normalizeOptionalString(params.warehouseEmail);
   const phoneNumber = normalizeOptionalString(params.phoneNumber);
   const address = normalizeOptionalString(params.address);
   const description = normalizeOptionalString(params.description);
@@ -128,6 +130,7 @@ export async function createInvite(params: {
         email,
         role: nextRole,
         username,
+        warehouseEmail,
         phoneNumber,
         address,
         description,
@@ -170,6 +173,7 @@ export async function createInvite(params: {
       invitedEmail: email,
       role: nextRole,
       username,
+      warehouseEmail,
       phoneNumber,
       address,
       logoPath,

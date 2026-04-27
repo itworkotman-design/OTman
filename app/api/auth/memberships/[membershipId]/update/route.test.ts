@@ -380,6 +380,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         description: "Updated description",
         logoPath: "/uploads/user-logos/u2/logo.webp",
         usernameDisplayColor: "#112233",
+        warehouseEmail: "warehouse@example.com",
         permissions: ["BOOKING_VIEW"],
       }),
     });
@@ -425,6 +426,14 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         logoPath: true,
         usernameDisplayColor: true,
         status: true,
+      },
+    });
+
+    expect(mocks.membershipUpdateMock).toHaveBeenCalledWith({
+      where: { id: "m2" },
+      data: {
+        priceListId: null,
+        warehouseEmail: "warehouse@example.com",
       },
     });
 
@@ -480,6 +489,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         description: "Updated description",
         logoPath: "/uploads/user-logos/u2/logo.webp",
         usernameDisplayColor: "#112233",
+        warehouseEmail: "",
         permissions: ["BOOKING_VIEW", "BOOKING_CREATE"],
       }),
     });
@@ -545,6 +555,14 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
           permission: "BOOKING_CREATE",
         },
       ],
+    });
+
+    expect(mocks.membershipUpdateMock).toHaveBeenCalledWith({
+      where: { id: "m2" },
+      data: {
+        priceListId: null,
+        warehouseEmail: null,
+      },
     });
   });
 });

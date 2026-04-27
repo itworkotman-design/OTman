@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
     getActiveMembershipMock: vi.fn(),
     findUniqueMock: vi.fn(),
     updateManyMock: vi.fn(),
+    userUpdateManyMock: vi.fn(),
     logAuthEventMock: vi.fn(),
   };
 });
@@ -25,6 +26,9 @@ vi.mock("@/lib/db", () => ({
       findUnique: mocks.findUniqueMock,
       updateMany: mocks.updateManyMock,
     },
+    user: {
+      updateMany: mocks.userUpdateManyMock,
+    },
   },
 }));
 
@@ -38,6 +42,7 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.updateManyMock.mockResolvedValue({ count: 1 });
+    mocks.userUpdateManyMock.mockResolvedValue({ count: 1 });
     mocks.logAuthEventMock.mockResolvedValue(undefined);
   });
 
@@ -229,6 +234,10 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
       companyId: "company-1",
       role: "USER",
       status: "DISABLED",
+      user: {
+        email: "target@example.com",
+        passwordHash: "$argon2id$valid",
+      },
     });
 
     mocks.getActiveMembershipMock.mockResolvedValue({
@@ -303,7 +312,15 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
         status: "ACTIVE",
       },
     });
-
+    expect(mocks.userUpdateManyMock).toHaveBeenCalledWith({
+      where: {
+        id: "user-2",
+        status: "DISABLED",
+      },
+      data: {
+        status: "ACTIVE",
+      },
+    });
     expect(mocks.logAuthEventMock).toHaveBeenCalledWith({
       type: AuthEventType.MEMBERSHIP_ENABLED,
       userId: "user-2",

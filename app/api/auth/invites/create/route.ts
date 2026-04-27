@@ -52,6 +52,8 @@ export async function POST(req: Request) {
   const email = typeof body?.email === "string" ? body.email : "";
   const role = typeof body?.role === "string" ? body.role : "";
   const username = typeof body?.username === "string" ? body.username : "";
+  const warehouseEmail =
+    typeof body?.warehouseEmail === "string" ? body.warehouseEmail : "";
   const phoneNumber =
     typeof body?.phoneNumber === "string" ? body.phoneNumber : "";
   const address = typeof body?.address === "string" ? body.address : "";
@@ -78,6 +80,7 @@ export async function POST(req: Request) {
     email,
     role,
     username,
+    warehouseEmail,
     phoneNumber,
     address,
     description,

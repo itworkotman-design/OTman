@@ -15,4 +15,4 @@ Displays the live booking price breakdown and totals for the selected product ca
 | `formatNOK` | Formats product and adjustment rows as whole-kroner `NOK` strings without decimal places. |
 | `formatSumNOK` | Formats summary totals with two decimals for the calculator footer rows. |
 | `formatQty` | Formats a quantity for display, keeping half steps when needed. |
-| `CalculatorDisplayNew` | Main calculator display component. It renders a saved product-card `modelNumber` in muted gray parentheses beside the product heading when one exists, shows applied customer discount and extra rows above the total, and leaves negative totals visible instead of hiding them. |
+| `CalculatorDisplayNew` | Main calculator display component. It renders a saved product-card `modelNumber` in muted gray parentheses beside the product heading when one exists, shows applied customer discount and extra rows above the total, exposes manual plus inputs for native admin edits, and leaves negative totals visible instead of hiding them. |

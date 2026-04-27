@@ -1,4 +1,5 @@
 import type { DeliveryType } from "@/lib/booking/pricing/types";
+import type { OrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
 import type { ProductCustomSection } from "@/lib/products/customSections";
 import {
   normalizeDeliveryTypeKey,
@@ -37,6 +38,7 @@ export type SavedProductCard = {
   etterQty: number;
 
   customSectionSelections: ProductCardCustomSectionSelection[];
+  pricingSnapshot?: OrderPricingSnapshot | null;
 };
 
 export type CatalogOption = {
@@ -110,6 +112,7 @@ export function createEmptyProductCard(cardId: number): SavedProductCard {
     etterQty: 1,
 
     customSectionSelections: [],
+    pricingSnapshot: null,
   };
 }
 
@@ -206,5 +209,6 @@ export function normalizeSavedProductCard(
             ): selection is ProductCardCustomSectionSelection => selection !== null,
           )
       : base.customSectionSelections,
+    pricingSnapshot: value?.pricingSnapshot ?? base.pricingSnapshot,
   };
 }

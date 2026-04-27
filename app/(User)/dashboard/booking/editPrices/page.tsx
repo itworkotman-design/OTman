@@ -166,9 +166,9 @@ function buildProductSettingsDefaults(
 function getDeliveryTypeEditorTitle(key: ProductDeliveryType["key"]) {
   switch (key) {
     case "FIRST_STEP":
-      return "First step";
+      return "Delivery";
     case "INDOOR":
-      return "Indoor";
+      return "Innbæring";
     case "INSTALL_ONLY":
       return "Install only";
     case "RETURN_ONLY":
@@ -180,6 +180,32 @@ function getDeliveryTypeEditorTitle(key: ProductDeliveryType["key"]) {
 
 function supportsXtraPrice(key: ProductDeliveryType["key"]) {
   return key === "FIRST_STEP" || key === "INDOOR";
+}
+
+function getDeliveryTypePricePlaceholder(key: ProductDeliveryType["key"]) {
+  switch (key) {
+    case "FIRST_STEP":
+      return "Delivery price";
+    case "INDOOR":
+      return "Innbæring price";
+    case "INSTALL_ONLY":
+      return "Install only price";
+    case "RETURN_ONLY":
+      return "Return only price";
+    default:
+      return "Price";
+  }
+}
+
+function getDeliveryTypeXtraPlaceholder(key: ProductDeliveryType["key"]) {
+  switch (key) {
+    case "FIRST_STEP":
+      return "Extra levering price";
+    case "INDOOR":
+      return "Extra innbæring price";
+    default:
+      return "XTRA price";
+  }
 }
 
 const PRODUCT_SETTING_FIELDS: Array<{
@@ -232,6 +258,49 @@ function isXtraRow(
   >,
 ) {
   return !item.productId && item.type === "xtra";
+}
+
+type AutomaticXtraKind = "INDOOR" | "FIRST_STEP";
+
+function normalizeAutomaticXtraText(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function inferAutomaticXtraKind(
+  item: Pick<EditableRow, "optionCode" | "optionLabel" | "description">,
+): AutomaticXtraKind {
+  const signal = [
+    normalizeAutomaticXtraText(item.optionCode),
+    normalizeAutomaticXtraText(item.optionLabel),
+    normalizeAutomaticXtraText(item.description),
+  ].join(" ");
+
+  if (
+    signal.includes("first_step") ||
+    signal.includes("first step") ||
+    signal.includes("levering") ||
+    signal.includes("delivery")
+  ) {
+    return "FIRST_STEP";
+  }
+
+  return "INDOOR";
+}
+
+function buildAutomaticXtraDraft(kind: AutomaticXtraKind) {
+  if (kind === "FIRST_STEP") {
+    return {
+      code: "XTRAFIRST",
+      label: "XTRA",
+      description: "Ekstra levering",
+    };
+  }
+
+  return {
+    code: "XTRA",
+    label: "XTRA",
+    description: "Ekstra innbæring",
+  };
 }
 
 function isExtraServiceRow(
@@ -1079,7 +1148,14 @@ export default function EditPricesPage() {
     }));
   }
 
-  async function addSpecialOption(type: "return" | "xtra" | "extra_service") {
+  async function addSpecialOption(
+    type: "return" | "xtra" | "extra_service",
+    overrides?: {
+      code?: string;
+      label?: string;
+      description?: string;
+    },
+  ) {
     if (!priceList) return;
 
     const res = await fetch(
@@ -1089,7 +1165,12 @@ export default function EditPricesPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({
+          type,
+          code: overrides?.code,
+          label: overrides?.label,
+          description: overrides?.description,
+        }),
       },
     );
 
@@ -1207,6 +1288,15 @@ export default function EditPricesPage() {
   );
 
   const xtraRows = useMemo(() => rows.filter((row) => isXtraRow(row)), [rows]);
+  const missingAutomaticXtraKinds = useMemo(() => {
+    const presentKinds = new Set<AutomaticXtraKind>(
+      xtraRows.map((row) => inferAutomaticXtraKind(row)),
+    );
+
+    return (["INDOOR", "FIRST_STEP"] as const).filter(
+      (kind) => !presentKinds.has(kind),
+    );
+  }, [xtraRows]);
 
   const extraServiceRows = useMemo(
     () => rows.filter((row) => isExtraServiceRow(row)),
@@ -1255,7 +1345,7 @@ export default function EditPricesPage() {
     [editingProductId, groupedProducts],
   );
 
-  const hasAutomaticXtra = xtraRows.length > 0;
+  const hasAutomaticXtra = missingAutomaticXtraKinds.length === 0;
 
   if (loading) {
     return (
@@ -2062,10 +2152,20 @@ export default function EditPricesPage() {
               {!hasAutomaticXtra && (
                 <button
                   type="button"
-                  onClick={() => addSpecialOption("xtra")}
+                  onClick={() => {
+                    const nextKind = missingAutomaticXtraKinds[0];
+                    if (!nextKind) return;
+
+                    void addSpecialOption(
+                      "xtra",
+                      buildAutomaticXtraDraft(nextKind),
+                    );
+                  }}
                   className="customButtonEnabled"
                 >
-                  Add Automatic XTRA
+                  {missingAutomaticXtraKinds[0] === "FIRST_STEP"
+                    ? "Add Automatic XTRA for Delivery"
+                    : "Add Automatic XTRA for Innbæring"}
                 </button>
               )}
             </div>
@@ -2713,7 +2813,9 @@ export default function EditPricesPage() {
                               })
                             }
                             className="customInput w-full"
-                            placeholder="Price"
+                            placeholder={getDeliveryTypePricePlaceholder(
+                              deliveryType.key,
+                            )}
                           />
                           {supportsXtraPrice(deliveryType.key) && (
                             <input
@@ -2727,7 +2829,9 @@ export default function EditPricesPage() {
                                 })
                               }
                               className="customInput w-full"
-                              placeholder="XTRA price"
+                              placeholder={getDeliveryTypeXtraPlaceholder(
+                                deliveryType.key,
+                              )}
                             />
                           )}
                         </div>

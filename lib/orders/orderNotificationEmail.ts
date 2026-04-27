@@ -276,10 +276,12 @@ export async function sendOrderNotificationEmail({
   kind,
   order,
   items,
+  recipientEmail,
 }: {
   kind: "created" | "updated";
   order: NotificationOrder;
   items: BuiltOrderItem[];
+  recipientEmail?: string | null;
 }) {
   const reference =
     order.orderNumber?.trim() ||
@@ -308,7 +310,7 @@ export async function sendOrderNotificationEmail({
 
   await sendEmail({
     to: {
-      email: ORDER_NOTIFICATION_EMAIL,
+      email: recipientEmail?.trim() || ORDER_NOTIFICATION_EMAIL,
     },
     subject,
     html,

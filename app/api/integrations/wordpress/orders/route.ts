@@ -72,18 +72,19 @@ type ImportedWordpressAdjustments = {
 };
 
 const WORDPRESS_DEFAULT_TIME_HOURS = 0.5;
-const hasWordpressKmPrice = (meta: Record<string, unknown>): boolean =>
-  extractBreakdownRows(asString(meta.price_breakdown_html)).some((row) =>
-    /^km pris\b/i.test(row.label),
-  );
 const getImportedProductQuantity = (
   item: ParsedWordpressProductItem,
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"],
 ): number => {
-  const product = catalogProducts.find(
+  const exactMatches = catalogProducts.filter(
     (candidate) =>
       candidate.label.toLowerCase() === item.productName.toLowerCase(),
   );
+  const product =
+    item.deliveryType && exactMatches.length > 0
+      ? exactMatches.find((candidate) => candidate.allowDeliveryTypes) ??
+        exactMatches[0]
+      : exactMatches[0];
 
   if (product?.allowHoursInput && item.quantity === 1) {
     return WORDPRESS_DEFAULT_TIME_HOURS;
@@ -111,6 +112,7 @@ const SUMMARY_LABEL_PATTERNS = [
   /^pris uten mva\b/i,
   /^sum\b/i,
   /^km pris\b/i,
+  /^extra\b/i,
   /^rabatt\b/i,
   /^ekstra\b/i,
 ];
@@ -195,14 +197,6 @@ const IMPORTED_CUSTOMER_DISCOUNT_KEYS = [
   "manual_discount",
   "rabatt",
   "discount",
-] as const;
-
-const IMPORTED_CUSTOMER_PLUS_KEYS = [
-  "field_689db2aa4db4a",
-  "manual_plus",
-  "legg_til",
-  "leggtil",
-  "plus",
 ] as const;
 
 const formatImportedAdjustment = (cents: number): string => {
@@ -428,6 +422,7 @@ const PRODUCT_REPEATER_KEY_PATTERN = /^(.*)_(\d+)_velg_produkt$/;
 const PRODUCT_NAME_FIELD_SUFFIXES = ["velg_produkt"];
 const DELIVERY_TYPE_FIELD_SUFFIXES = [
   "velg_leveringstype",
+  "velg_leveringstype_andre",
   "leveringstype",
   "delivery_type",
 ];
@@ -548,6 +543,41 @@ const buildProductItemsFromMeta = (
   }
 
   return items;
+};
+
+const fillMissingProductDeliveryTypesFromBreakdown = (params: {
+  meta: Record<string, unknown>;
+  productItems: ParsedWordpressProductItem[];
+}): ParsedWordpressProductItem[] => {
+  const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
+
+  return params.productItems.map((item, index) => {
+    if (item.deliveryType) {
+      return item;
+    }
+
+    const group = groups[index];
+    if (!group) {
+      return item;
+    }
+
+    const deliveryRow = group.rows.find((row) => isDeliveryTypeRow(row));
+    const inferredDeliveryType = deliveryRow?.label?.trim();
+    if (!inferredDeliveryType) {
+      return item;
+    }
+
+    return {
+      ...item,
+      deliveryType: inferredDeliveryType,
+      rawData: {
+        ...(item.rawData as Record<string, Prisma.InputJsonValue>),
+        deliveryTypeRaw: deliveryRow?.code ?? inferredDeliveryType,
+        deliveryType: inferredDeliveryType,
+        inferredDeliveryTypeFromBreakdown: true,
+      },
+    };
+  });
 };
 
 const parseBreakdownGroups = (
@@ -1002,19 +1032,6 @@ const getImportedWordpressPriceExVatCents = (
   );
 };
 
-const getImportedWordpressKmPriceCents = (
-  meta: Record<string, unknown>,
-): number | undefined => {
-  const breakdownHtml = asString(meta.price_breakdown_html);
-  if (!breakdownHtml) {
-    return undefined;
-  }
-
-  return findBreakdownRowValueCents(extractBreakdownRows(breakdownHtml), [
-    /^km pris\b/i,
-  ]);
-};
-
 const getImportedWordpressAdjustments = (
   meta: Record<string, unknown>,
 ): ImportedWordpressAdjustments => {
@@ -1030,36 +1047,22 @@ const getImportedWordpressAdjustments = (
       parseLegacyMoneyToCents(meta[key]),
     ).find((value): value is number => typeof value === "number") ??
     findBreakdownRowValueCents(customerRows, [/^rabatt\b/i]);
-  const leggTilCents =
-    IMPORTED_CUSTOMER_PLUS_KEYS.map((key) =>
-      parseLegacyMoneyToCents(meta[key]),
-    ).find((value): value is number => typeof value === "number") ??
-    findBreakdownRowValueCents(customerRows, [/^ekstra$/i]);
   const subcontractorMinusCents = findBreakdownRowValueCents(
     subcontractorRows,
     [/^minus$/i],
   );
-  const subcontractorPlusCents = findBreakdownRowValueCents(subcontractorRows, [
-    /^ekstra$/i,
-  ]);
 
   return {
     rabatt:
       typeof rabattCents === "number"
         ? formatImportedAdjustment(rabattCents)
         : undefined,
-    leggTil:
-      typeof leggTilCents === "number"
-        ? formatImportedAdjustment(leggTilCents)
-        : undefined,
+    leggTil: undefined,
     subcontractorMinus:
       typeof subcontractorMinusCents === "number"
         ? formatImportedAdjustment(subcontractorMinusCents)
         : undefined,
-    subcontractorPlus:
-      typeof subcontractorPlusCents === "number"
-        ? formatImportedAdjustment(subcontractorPlusCents)
-        : undefined,
+    subcontractorPlus: undefined,
   };
 };
 
@@ -1782,7 +1785,10 @@ export async function POST(req: NextRequest) {
       buildWordpressExtraPickupContacts(extraPickupAddresses);
     const importedAdjustments = getImportedWordpressAdjustments(meta);
 
-    const parsedProductItems = buildProductItemsFromMeta(meta);
+    const parsedProductItems = fillMissingProductDeliveryTypesFromBreakdown({
+      meta,
+      productItems: buildProductItemsFromMeta(meta),
+    });
     const parsedServiceItemsRaw = dedupeServiceItems([
       ...buildServiceItemsFromMeta(meta, parsedProductItems),
       ...buildServiceItemsFromBreakdown(meta, parsedProductItems),
@@ -1861,18 +1867,6 @@ export async function POST(req: NextRequest) {
       }),
     };
     const wordpressPriceExVatCents = getImportedWordpressPriceExVatCents(meta);
-    const wordpressKmPriceCents = getImportedWordpressKmPriceCents(meta);
-    if (
-      typeof wordpressKmPriceCents === "number" &&
-      wordpressKmPriceCents > 0
-    ) {
-      const existingPlusCents =
-        parseLegacyMoneyToCents(importedAdjustments.leggTil ?? "") ?? 0;
-
-      importedAdjustments.leggTil = formatImportedAdjustment(
-        existingPlusCents + wordpressKmPriceCents,
-      );
-    }
     const returnStoreOption = catalog.specialOptions.find(
       (option) =>
         option.type === "return" &&

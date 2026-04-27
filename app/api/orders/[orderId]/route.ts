@@ -59,6 +59,11 @@ import {
   getWordpressExtraPickupAddresses,
   toWordpressMetaRecord,
 } from "@/lib/integrations/wordpress/orderMeta";
+import {
+  applyOrderPricingSnapshot,
+  getSavedOrderPricingSnapshot,
+} from "@/lib/booking/pricing/snapshot";
+import { createDefaultPriceListSettings } from "@/lib/products/priceListSettings";
 
 type ProductChangeValue = {
   label: string;
@@ -825,24 +830,30 @@ export async function PATCH(
   const catalog = await getBookingCatalog(
     existingOrder.priceListId ?? membership.priceListId ?? null,
   );
+  const pricingSource = applyOrderPricingSnapshot({
+    catalogProducts: catalog.products,
+    catalogSpecialOptions: catalog.specialOptions,
+    priceListSettings: createDefaultPriceListSettings(),
+    pricingSnapshot: getSavedOrderPricingSnapshot(productCards),
+  });
 
   const summaries = buildOrderSummaries(
     productCards,
-    catalog.products,
-    catalog.specialOptions,
+    pricingSource.catalogProducts,
+    pricingSource.catalogSpecialOptions,
   );
 
   const builtItems = buildOrderItemsFromCards(
     productCards,
-    catalog.products,
-    catalog.specialOptions,
+    pricingSource.catalogProducts,
+    pricingSource.catalogSpecialOptions,
   );
   const optionLookup = buildOptionLookup(
-    catalog.products,
-    catalog.specialOptions,
+    pricingSource.catalogProducts,
+    pricingSource.catalogSpecialOptions,
   );
   const productLookup = new Map(
-    catalog.products.map((product) => [product.id, product]),
+    pricingSource.catalogProducts.map((product) => [product.id, product]),
   );
   const previousProductCards = Array.isArray(existingOrder.productCardsSnapshot)
     ? existingOrder.productCardsSnapshot.map((card, index) =>
