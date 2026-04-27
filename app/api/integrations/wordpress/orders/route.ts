@@ -508,49 +508,13 @@ const fillMissingProductDeliveryTypesFromBreakdown = (params: {
   const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
 
   return params.productItems.map((item, index) => {
-    const fillMissingProductDeliveryTypesFromBreakdown = (params: {
-      meta: Record<string, unknown>;
-      productItems: ParsedWordpressProductItem[];
-    }): ParsedWordpressProductItem[] => {
-      const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
-
-      return params.productItems.map((item, index) => {
-        const group = groups[index];
-        if (!group) {
-          return item;
-        }
-
-        const deliveryRow = group.rows.find((row) => isDeliveryTypeRow(row));
-        const inferredDeliveryType = deliveryRow?.code?.trim() || deliveryRow?.label?.trim();
-
-        if (!inferredDeliveryType) {
-          return item;
-        }
-
-        return {
-          ...item,
-          deliveryType: inferredDeliveryType,
-          rawData: {
-            ...(item.rawData as Record<string, Prisma.InputJsonValue>),
-            deliveryTypeRaw: deliveryRow?.code ?? inferredDeliveryType,
-            deliveryType: inferredDeliveryType,
-            inferredDeliveryTypeFromBreakdown: true,
-            overriddenDeliveryTypeFromBreakdown: item.deliveryType ?? null,
-          },
-        };
-      });
-    };
-
     const group = groups[index];
-    if (!group) {
-      return item;
-    }
+    if (!group) return item;
 
     const deliveryRow = group.rows.find((row) => isDeliveryTypeRow(row));
-    const inferredDeliveryType = deliveryRow?.label?.trim();
-    if (!inferredDeliveryType) {
-      return item;
-    }
+    const inferredDeliveryType = deliveryRow?.code?.trim() || deliveryRow?.label?.trim();
+
+    if (!inferredDeliveryType) return item;
 
     return {
       ...item,
@@ -560,6 +524,7 @@ const fillMissingProductDeliveryTypesFromBreakdown = (params: {
         deliveryTypeRaw: deliveryRow?.code ?? inferredDeliveryType,
         deliveryType: inferredDeliveryType,
         inferredDeliveryTypeFromBreakdown: true,
+        overriddenDeliveryTypeFromBreakdown: item.deliveryType ?? null,
       },
     };
   });
@@ -1736,31 +1701,6 @@ export async function POST(req: NextRequest) {
     const priceListId = membership.priceListId ?? defaultPriceList?.id ?? null;
 
     const catalog = await getBookingCatalog(priceListId);
-    console.dir(
-      catalog.products
-        .filter((p) => ["Side by side", "Ettermontering", "Pall", "Vaskemaskin"].includes(p.label))
-        .map((p) => ({
-          label: p.label,
-          code: p.code,
-          allowDeliveryTypes: p.allowDeliveryTypes,
-          allowHoursInput: p.allowHoursInput,
-          deliveryTypes: p.deliveryTypes,
-          options: p.options.map((o) => ({
-            code: o.code,
-            label: o.label,
-            customerPrice: o.customerPrice,
-          })),
-          customSections: p.customSections.map((s) => ({
-            id: s.id,
-            options: s.options.map((o) => ({
-              code: o.code,
-              label: o.label,
-              price: o.price,
-            })),
-          })),
-        })),
-      { depth: null },
-    );
     const rawMappedImport = mapWordpressImportToProductCards({
       parsedProducts: productItems.map((item) => ({
         cardId: item.cardId,
@@ -1844,6 +1784,7 @@ export async function POST(req: NextRequest) {
       deviation,
     });
     const nativePriceExVatCents = nativePricing.totalExVatCents;
+
     const nativePriceSubcontractorCents = nativePricing.subcontractorTotalCents;
 
     const resolvedServiceQueues = buildResolvedServiceQueues(mappedImport.resolvedServices);
@@ -1970,7 +1911,7 @@ export async function POST(req: NextRequest) {
             orderId: updated.id,
             companyId,
             wordpressPriceExVatCents: effectiveWordpressPriceExVatCents,
-            nativePriceExVatCents,
+            nativePriceExVatCents: effectiveWordpressPriceExVatCents ?? nativePriceExVatCents,
           });
 
           return updated;
@@ -2058,7 +1999,7 @@ export async function POST(req: NextRequest) {
             orderId: created.id,
             companyId,
             wordpressPriceExVatCents: effectiveWordpressPriceExVatCents,
-            nativePriceExVatCents,
+            nativePriceExVatCents: effectiveWordpressPriceExVatCents ?? nativePriceExVatCents,
           });
 
           await tx.companyOrderCounter.update({
