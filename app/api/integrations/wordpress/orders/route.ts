@@ -512,7 +512,8 @@ const fillMissingProductDeliveryTypesFromBreakdown = (params: {
     if (!group) return item;
 
     const deliveryRow = group.rows.find((row) => isDeliveryTypeRow(row));
-    const inferredDeliveryType = deliveryRow?.code?.trim() || deliveryRow?.label?.trim();
+    const inferredDeliveryType =
+      deliveryRow?.code?.trim().toUpperCase() === "XTRA" ? deliveryRow.label?.trim() : deliveryRow?.code?.trim() || deliveryRow?.label?.trim();
 
     if (!inferredDeliveryType) return item;
 
