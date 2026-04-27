@@ -1226,11 +1226,15 @@ const isExpressBreakdownRow = (row: ParsedBreakdownRow): boolean =>
 const isBomturBreakdownRow = (row: ParsedBreakdownRow): boolean =>
   getBreakdownCodeSignal(row).includes("BOMTUR");
 
+const isDeviationBreakdownRow = (row: ParsedBreakdownRow): boolean =>
+  Boolean(getDeviationFeeOption(`${row.label}:${row.code ?? ""}`));
+
 const isGlobalWordpressPriceRow = (row: ParsedBreakdownRow): boolean =>
   isKmBreakdownRow(row) ||
   isExtraPickupBreakdownRow(row) ||
   isExpressBreakdownRow(row) ||
   isBomturBreakdownRow(row) ||
+  isDeviationBreakdownRow(row) ||
   isGlobalFeeRow(row);
 
 const getExtraWorkBlocksFromLabel = (label: string): number | undefined => {
@@ -1475,14 +1479,16 @@ const applyWordpressPriceMatchPolicy = (params: {
   const kmRows = allRows.filter(isKmBreakdownRow);
   const expressRows = allRows.filter(isExpressBreakdownRow);
   const bomturRows = allRows.filter(isBomturBreakdownRow);
+  const deviationRows = allRows.filter(isDeviationBreakdownRow);
 
   const nativeCoveredGlobalRows = [
     ...expressRows,
     ...extraPickupRows,
     ...bomturRows,
+    ...deviationRows,
   ];
 
-  const readOnlyGlobalRows = [ ...kmRows].filter(
+  const readOnlyGlobalRows = [...kmRows].filter(
     (row) =>
       !nativeCoveredGlobalRows.some(
         (nativeRow) =>
