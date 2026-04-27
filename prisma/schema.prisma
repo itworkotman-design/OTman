@@ -584,6 +584,7 @@ model GsmWebhookEvent {
 
 model OrderAttachment {
   id                       String                  @id @default(cuid())
+  legacyWordpressAttachmentId Int?
   orderId                  String
   filename                 String
   mimeType                 String?
@@ -594,10 +595,12 @@ model OrderAttachment {
   gsmDocumentId            String?
   gsmTaskId                String?
   source                   String?
+  sourceUrl                String?
   category                 AttachmentCategory      @default(ATTACHMENT)
   order                    Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   priceListSpecialOption   PriceListSpecialOption? @relation(fields: [priceListSpecialOptionId], references: [id])
 
+  @@unique([orderId, legacyWordpressAttachmentId])
   @@index([orderId, createdAt])
 }
 

@@ -24,6 +24,12 @@ type WordpressOrderSyncPayload = {
   status?: string | null;
   title?: string | null;
   meta?: Prisma.InputJsonValue | null;
+  attachments?: {
+    legacyAttachmentId: number;
+    filename: string;
+    mimeType?: string | null;
+    url: string;
+  }[];
 };
 
 type ParsedWordpressProductItem = {
@@ -1669,6 +1675,32 @@ export async function POST(req: NextRequest) {
     }
 
     const meta = body.meta && typeof body.meta === "object" && !Array.isArray(body.meta) ? (body.meta as Record<string, unknown>) : {};
+    function extractWpImages(meta: Record<string, unknown>): string[] {
+      const images: string[] = [];
+
+      for (const value of Object.values(meta)) {
+        if (!value) continue;
+
+        if (typeof value === "string" && value.startsWith("http")) {
+          if (value.match(/\.(jpg|jpeg|png|webp)$/i)) {
+            images.push(value);
+          }
+        }
+
+        if (Array.isArray(value)) {
+          for (const v of value) {
+            if (typeof v === "string" && v.startsWith("http")) {
+              if (v.match(/\.(jpg|jpeg|png|webp)$/i)) {
+                images.push(v);
+              }
+            }
+          }
+        }
+      }
+
+      return images;
+    }
+    const wpImages = extractWpImages(meta);
 
     const pickupAddress = getFirstMetaString(meta, ["pickup_address", "henteadresse"]);
     const deliveryAddress = getFirstMetaString(meta, ["delivery_address", "leveringsadresse"]);
@@ -1930,6 +1962,20 @@ export async function POST(req: NextRequest) {
             },
           });
 
+          if (wpImages.length > 0) {
+            await tx.orderAttachment.createMany({
+              data: wpImages.map((url, index) => ({
+                orderId: created.id,
+                sourceUrl: url,
+                legacyWordpressAttachmentId: index,
+                filename: `wp-${index}`,
+                storagePath: url, // temporary
+                source: "wordpress_import",
+              })),
+              skipDuplicates: true,
+            });
+          }
+
           await tx.orderItem.deleteMany({
             where: {
               orderId: updated.id,
@@ -2023,6 +2069,20 @@ export async function POST(req: NextRequest) {
               legacyWordpressOrderId: true,
             },
           });
+
+          if (wpImages.length > 0) {
+            await tx.orderAttachment.createMany({
+              data: wpImages.map((url, index) => ({
+                orderId: created.id,
+                sourceUrl: url,
+                legacyWordpressAttachmentId: index,
+                filename: `wp-${index}`,
+                storagePath: url, // temporary
+                source: "wordpress_import",
+              })),
+              skipDuplicates: true,
+            });
+          }
 
           if (importedItems.length > 0) {
             await tx.orderItem.createMany({
