@@ -603,6 +603,26 @@ export function mapWordpressImportToProductCards(params: {
     }
 
     for (const service of productServices) {
+      const serviceCode = service.code?.trim().toUpperCase();
+
+      if (serviceCode === "PALLXTRAS1") {
+        card.extraPalletEnabled = true;
+        card.extraPalletQty = service.quantity > 0 ? service.quantity : 1;
+
+        resolvedServices.push({
+          ...service,
+          resolvedItemType: "EXTRA_OPTION",
+          optionId: null,
+          optionCode: "PALLXTRAS1",
+          optionLabel: service.label,
+          customSectionId: null,
+          customerPriceCents: service.priceCents ?? null,
+          subcontractorPriceCents: null,
+        });
+
+        continue;
+      }
+      
       const resolvedService = resolveService(
         service,
         product,

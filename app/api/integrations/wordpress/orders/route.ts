@@ -1444,12 +1444,6 @@ const getNativeProductTotalCents = (params: {
     params.catalogProducts,
     params.catalogSpecialOptions,
   );
-  console.log("NATIVE BREAKDOWN ITEMS", {
-    cardId: params.productCard.cardId,
-    productId: params.productCard.productId,
-    deliveryType: params.productCard.deliveryType,
-    items: breakdowns.flatMap((breakdown) => breakdown.items),
-  });
   const result = calculateBookingPricing({
     productBreakdowns: breakdowns,
     priceLookup: buildPriceLookup(
@@ -1509,6 +1503,9 @@ const applyWordpressPriceMatchPolicy = (params: {
       if (!row.label || isGlobalWordpressPriceRow(row)) {
         return false;
       }
+      if (isDeliveryTypeRow(row)) {
+        return false;
+      }
 
       const code = (row.code ?? "").trim().toUpperCase();
 
@@ -1528,7 +1525,9 @@ const applyWordpressPriceMatchPolicy = (params: {
       wordpressImportReadOnly: {
         productName: group.groupLabel || `WordPress product ${index + 1}`,
         comment: WORDPRESS_PRICE_MISMATCH_COMMENT,
-        rows: toReadOnlyRows(unresolvedRows),
+        rows: toReadOnlyRows(
+          (group.rows ?? []).filter((row) => !isGlobalWordpressPriceRow(row)),
+        ),
       },
     };
   });
