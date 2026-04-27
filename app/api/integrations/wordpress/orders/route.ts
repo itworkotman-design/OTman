@@ -100,8 +100,8 @@ const getImportedProductQuantity = (
   );
   const product =
     item.deliveryType && exactMatches.length > 0
-      ? exactMatches.find((candidate) => candidate.allowDeliveryTypes) ??
-        exactMatches[0]
+      ? (exactMatches.find((candidate) => candidate.allowDeliveryTypes) ??
+        exactMatches[0])
       : exactMatches[0];
 
   if (product?.allowHoursInput && item.quantity === 1) {
@@ -608,7 +608,9 @@ const fillMissingProductDeliveryTypesFromBreakdown = (params: {
   meta: Record<string, unknown>;
   productItems: ParsedWordpressProductItem[];
 }): ParsedWordpressProductItem[] => {
-  const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
+  const groups = parseBreakdownGroups(
+    asString(params.meta.price_breakdown_html),
+  );
 
   return params.productItems.map((item, index) => {
     if (item.deliveryType) {
@@ -1204,8 +1206,18 @@ const isExtraPickupBreakdownRow = (row: ParsedBreakdownRow): boolean =>
 const isKmBreakdownRow = (row: ParsedBreakdownRow): boolean =>
   /^km pris\b/i.test(row.label);
 
+const isExpressBreakdownRow = (row: ParsedBreakdownRow): boolean =>
+  getBreakdownCodeSignal(row).includes("EXPRESS") ||
+  getBreakdownCodeSignal(row).includes("EKSPRESS");
+
+const isBomturBreakdownRow = (row: ParsedBreakdownRow): boolean =>
+  getBreakdownCodeSignal(row).includes("BOMTUR");
+
 const isGlobalWordpressPriceRow = (row: ParsedBreakdownRow): boolean =>
-  isKmBreakdownRow(row) || isExtraPickupBreakdownRow(row);
+  isKmBreakdownRow(row) ||
+  isExtraPickupBreakdownRow(row) ||
+  isExpressBreakdownRow(row) ||
+  isBomturBreakdownRow(row);
 
 const getExtraWorkBlocksFromLabel = (label: string): number | undefined => {
   const match = label.match(/\bx\s*(\d+)\b/iu);
@@ -1224,8 +1236,7 @@ const getImportedWordpressFees = (
   const extraWorkRow = rows.find((row) => {
     const signal = getBreakdownCodeSignal(row);
     return (
-      signal.includes(EXTRA_WORK_FEE_CODE) ||
-      /ekstra\s+arbeid/i.test(row.label)
+      signal.includes(EXTRA_WORK_FEE_CODE) || /ekstra\s+arbeid/i.test(row.label)
     );
   });
   const addToOrderRow = rows.find((row) => {
@@ -1411,7 +1422,9 @@ const applyWordpressPriceMatchPolicy = (params: {
     ReturnType<typeof getBookingCatalog>
   >["specialOptions"];
 }) => {
-  const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
+  const groups = parseBreakdownGroups(
+    asString(params.meta.price_breakdown_html),
+  );
   const nextCards = params.productCards.map((card, index) => {
     const group = groups[index];
     const wordpressTotalCents = getBreakdownGroupTotalCents(group);
@@ -1441,10 +1454,15 @@ const applyWordpressPriceMatchPolicy = (params: {
     };
   });
 
-  const allRows = getBreakdownRowsWithCodes(asString(params.meta.price_breakdown_html));
-  const extraPickupRows = allRows.filter(isExtraPickupBreakdownRow);
-  const kmRows = allRows.filter(isKmBreakdownRow);
-  const globalReadOnlyRows = [...kmRows, ...extraPickupRows];
+  const allRows = getBreakdownRowsWithCodes(
+    asString(params.meta.price_breakdown_html),
+  );
+ const extraPickupRows = allRows.filter(isExtraPickupBreakdownRow);
+ const kmRows = allRows.filter(isKmBreakdownRow);
+ const expressRows = allRows.filter(isExpressBreakdownRow);
+ const bomturRows = allRows.filter(isBomturBreakdownRow);
+
+ const globalReadOnlyRows = [...extraPickupRows, ...expressRows, ...bomturRows];
 
   if (globalReadOnlyRows.length === 0) {
     return nextCards;
@@ -1775,7 +1793,10 @@ const coerceReturnServicesToStoreWhenAddressExists = (
           label: "Retur til butikk",
           code: "RETURNSTORE",
           rawData: {
-            ...(toJsonRecord(item.rawData) as Record<string, Prisma.InputJsonValue>),
+            ...(toJsonRecord(item.rawData) as Record<
+              string,
+              Prisma.InputJsonValue
+            >),
             originalReturnLabel: item.label,
             originalReturnCode: item.code ?? null,
             forcedReturnStoreBecauseReturnAddressExists: true,
@@ -2158,9 +2179,7 @@ export async function POST(req: NextRequest) {
       parsedServiceItemsRaw,
       hasReturnAddress,
     );
-    const expressDelivery =
-      getWordpressExpressDelivery(meta) ||
-      parsedServiceItems.some(isExpressServiceItem);
+    const expressDelivery = getWordpressExpressDelivery(meta);
     const productItems = attachServiceLabelsToProductItems(
       parsedProductItems,
       parsedServiceItems,
@@ -2216,7 +2235,6 @@ export async function POST(req: NextRequest) {
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
     });
-    
 
     const mappedImport = {
       ...rawMappedImport,
