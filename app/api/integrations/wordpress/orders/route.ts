@@ -1476,9 +1476,13 @@ const applyWordpressPriceMatchPolicy = (params: {
   const expressRows = allRows.filter(isExpressBreakdownRow);
   const bomturRows = allRows.filter(isBomturBreakdownRow);
 
-  const nativeCoveredGlobalRows = [...expressRows, ...extraPickupRows];
+  const nativeCoveredGlobalRows = [
+    ...expressRows,
+    ...extraPickupRows,
+    ...bomturRows,
+  ];
 
-  const readOnlyGlobalRows = [...bomturRows, ...kmRows].filter(
+  const readOnlyGlobalRows = [ ...kmRows].filter(
     (row) =>
       !nativeCoveredGlobalRows.some(
         (nativeRow) =>
