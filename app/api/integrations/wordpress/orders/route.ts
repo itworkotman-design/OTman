@@ -1110,14 +1110,22 @@ const getBreakdownGroupTotalCents = (group: ParsedBreakdownGroup | undefined): n
 const getNativeProductTotalCents = (params: {
   forcedXtraDeliveryCardIds?: Set<number>;
   productCard: ReturnType<typeof mapWordpressImportToProductCards>["productCards"][number];
+  allProductCards: ReturnType<typeof mapWordpressImportToProductCards>["productCards"];
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
   catalogSpecialOptions: Awaited<ReturnType<typeof getBookingCatalog>>["specialOptions"];
 }): number => {
-  const breakdowns = buildProductBreakdowns([params.productCard], params.catalogProducts, params.catalogSpecialOptions, {
+  const breakdowns = buildProductBreakdowns(params.allProductCards, params.catalogProducts, params.catalogSpecialOptions, {
     forcedXtraDeliveryCardIds: params.forcedXtraDeliveryCardIds,
   });
+
+  const matchingBreakdown = breakdowns.find((breakdown, index) => params.allProductCards[index]?.cardId === params.productCard.cardId);
+
+  if (!matchingBreakdown) {
+    return 0;
+  }
+
   const result = calculateBookingPricing({
-    productBreakdowns: breakdowns,
+    productBreakdowns: [matchingBreakdown],
     priceLookup: buildPriceLookup(params.catalogProducts, params.catalogSpecialOptions),
   });
 
@@ -1154,6 +1162,7 @@ const applyWordpressPriceMatchPolicy = (params: {
 
     const nativeTotalCents = getNativeProductTotalCents({
       productCard: card,
+      allProductCards: params.productCards,
       catalogProducts: params.catalogProducts,
       catalogSpecialOptions: params.catalogSpecialOptions,
       forcedXtraDeliveryCardIds,
