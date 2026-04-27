@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Applies bulk updates to orders for the active company and records the matching order events for those changes.
+Applies bulk updates to orders for the active company and records the matching order events for those changes, preserving hardcoded fee fields in the event snapshots.
 
 ## Functions
 

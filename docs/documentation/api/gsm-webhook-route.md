@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Processes GSM task webhooks, stores the raw webhook event, refreshes the full GSM task payload when possible, syncs order task state back into OTman, and records order history updates.
+Processes GSM task webhooks, stores the raw webhook event, refreshes the full GSM task payload when possible, syncs order task state back into OTman, and records order history updates while preserving hardcoded fee fields in event snapshots.
 
 ## Functions
 

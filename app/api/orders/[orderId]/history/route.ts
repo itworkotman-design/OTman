@@ -145,6 +145,7 @@ export async function GET(
       licensePlate: true,
       deviation: true,
       feeExtraWork: true,
+      extraWorkMinutes: true,
       feeAddToOrder: true,
       dontSendEmail: true,
       priceExVat: true,

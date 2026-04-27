@@ -1083,6 +1083,84 @@ describe("POST /api/integrations/wordpress/orders", () => {
     );
   });
 
+  it("imports wordpress hardcoded order fees without mapping them as services", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10003,
+          legacyWordpressUserId: 18,
+          createdAt: "2026-04-24 16:23:00",
+          status: "Behandles",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "FEE123",
+            kundens_navn: "Fee Customer",
+            pickup_address: "Pickup",
+            delivery_address: "Delivery",
+            leveringsdato: "20260427",
+            field_68760a149a59b: ["Tillegg:XTRAARBEID"],
+            field_68760ebfe7f33: "45",
+            field_690216d860a13: ["Gebyr:ADDORDER"],
+            extra_products_0_velg_produkt: "Washer",
+            extra_products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Washer</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Indoor carry (INDOOR)</span>
+                    <span class="price-breakdown-price">100 NOK</span>
+                  </div>
+                </div>
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>Tillegg for ekstra arbeid per pÃ¥begynt 20 min x3 (XTRAARBEID)</strong></span>
+                  <span class="price-breakdown-price">450 NOK</span>
+                </div>
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>Gebyr for tillegg av bestilling (ADDORDER)</strong></span>
+                  <span class="price-breakdown-price">99 NOK</span>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        feeExtraWork: true,
+        extraWorkMinutes: 45,
+        feeAddToOrder: true,
+        priceExVat: 549,
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+    expect(mocks.mapWordpressImportToProductCardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedServices: expect.not.arrayContaining([
+          expect.objectContaining({
+            code: "XTRAARBEID",
+          }),
+          expect.objectContaining({
+            code: "ADDORDER",
+          }),
+        ]),
+      }),
+    );
+  });
+
   it("imports manual discount, express, and return selection from the real wordpress payload shape", async () => {
     mocks.mapWordpressImportToProductCardsMock.mockReturnValueOnce({
       productCards: [

@@ -44,6 +44,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     licensePlate: null,
     deviation: null,
     feeExtraWork: false,
+    extraWorkMinutes: 0,
     feeAddToOrder: false,
     statusNotes: null,
     status: null,

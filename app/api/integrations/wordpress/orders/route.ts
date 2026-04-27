@@ -7,9 +7,15 @@ import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import {
+  ADD_TO_ORDER_FEE_CODE,
+  calculateExtraWorkFee,
+  EXTRA_WORK_FEE_CODE,
+} from "@/lib/booking/pricing/hardcodedFees";
+import {
   buildOrderItemsFromCards,
   type BuiltOrderItem,
 } from "@/lib/orders/buildOrderItemsFromCards";
+import { safeInteger } from "@/lib/orders/normalizeOrderInput";
 import {
   mapWordpressImportToProductCards,
   type ResolvedWordpressService,
@@ -71,6 +77,12 @@ type ImportedWordpressAdjustments = {
   subcontractorPlus?: string;
 };
 
+type ImportedWordpressFees = {
+  feeExtraWork: boolean;
+  extraWorkMinutes: number;
+  feeAddToOrder: boolean;
+};
+
 const WORDPRESS_DEFAULT_TIME_HOURS = 0.5;
 const getImportedProductQuantity = (
   item: ParsedWordpressProductItem,
@@ -104,6 +116,8 @@ const DELIVERY_TYPE_CODES = new Set([
   "INSTALLONLY",
   "KUNMONTERING",
 ]);
+
+const GLOBAL_FEE_CODES = new Set([EXTRA_WORK_FEE_CODE, ADD_TO_ORDER_FEE_CODE]);
 
 const SUMMARY_LABEL_PATTERNS = [
   /^mva\b/i,
@@ -197,6 +211,24 @@ const IMPORTED_CUSTOMER_DISCOUNT_KEYS = [
   "manual_discount",
   "rabatt",
   "discount",
+] as const;
+
+const IMPORTED_EXTRA_WORK_KEYS = [
+  "field_68760a149a59b",
+  "ekstra_arbeid",
+  "extra_work",
+] as const;
+
+const IMPORTED_EXTRA_WORK_MINUTES_KEYS = [
+  "field_68760ebfe7f33",
+  "extra_work_minutes",
+  "ekstra_arbeid_minutter",
+] as const;
+
+const IMPORTED_ADD_TO_ORDER_KEYS = [
+  "field_690216d860a13",
+  "gebyr_for_tillegg_av_bestilling",
+  "add_order_fee",
 ] as const;
 
 const formatImportedAdjustment = (cents: number): string => {
@@ -694,6 +726,9 @@ const classifyServiceItemType = (
   return "EXTRA_OPTION";
 };
 
+const isGlobalFeeRow = (row: ParsedBreakdownRow): boolean =>
+  Boolean(row.code && GLOBAL_FEE_CODES.has(row.code));
+
 const getMetaStringList = (value: unknown): string[] => {
   if (Array.isArray(value)) {
     const items: string[] = [];
@@ -873,7 +908,12 @@ const buildServiceItemsFromMeta = (
 
         matchedExplicitLegacyValue = true;
         const row = parseBreakdownLabelAndCode(entry);
-        if (!row.label || isSummaryLabel(row.label) || isDeliveryTypeRow(row)) {
+        if (
+          !row.label ||
+          isSummaryLabel(row.label) ||
+          isDeliveryTypeRow(row) ||
+          isGlobalFeeRow(row)
+        ) {
           continue;
         }
 
@@ -936,7 +976,12 @@ const buildServiceItemsFromBreakdown = (
     const quantity = productItem?.quantity ?? 1;
 
     for (const row of group.rows) {
-      if (!row.label || isSummaryLabel(row.label) || isDeliveryTypeRow(row)) {
+      if (
+        !row.label ||
+        isSummaryLabel(row.label) ||
+        isDeliveryTypeRow(row) ||
+        isGlobalFeeRow(row)
+      ) {
         continue;
       }
 
@@ -1066,6 +1111,115 @@ const getImportedWordpressAdjustments = (
   };
 };
 
+const parseLegacyInteger = (value: unknown): number | undefined => {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const parsed = parseLegacyInteger(entry);
+      if (typeof parsed === "number") {
+        return parsed;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["value", "amount", "text"]) {
+      const parsed = parseLegacyInteger(record[key]);
+      if (typeof parsed === "number") {
+        return parsed;
+      }
+    }
+
+    return undefined;
+  }
+
+  const parsed = safeInteger(value);
+  return parsed > 0 ? parsed : undefined;
+};
+
+const getFirstLegacyInteger = (
+  meta: Record<string, unknown>,
+  keys: readonly string[],
+): number | undefined => {
+  for (const key of keys) {
+    const parsed = parseLegacyInteger(meta[key]);
+    if (typeof parsed === "number") {
+      return parsed;
+    }
+  }
+
+  return undefined;
+};
+
+const hasLegacySelection = (
+  meta: Record<string, unknown>,
+  keys: readonly string[],
+): boolean => keys.some((key) => hasTruthyLegacySelection(meta[key]));
+
+const getBreakdownRowsWithCodes = (
+  breakdownHtml: string | undefined,
+): ParsedBreakdownRow[] =>
+  extractBreakdownRows(breakdownHtml).map((row) => ({
+    ...parseBreakdownLabelAndCode(row.label),
+    priceCents: row.priceCents,
+  }));
+
+const getBreakdownCodeSignal = (row: ParsedBreakdownRow): string =>
+  `${row.code ?? ""} ${row.label}`.toUpperCase();
+
+const getExtraWorkBlocksFromLabel = (label: string): number | undefined => {
+  const match = label.match(/\bx\s*(\d+)\b/iu);
+  if (!match) {
+    return undefined;
+  }
+
+  const blocks = Number.parseInt(match[1] ?? "", 10);
+  return Number.isInteger(blocks) && blocks > 0 ? blocks : undefined;
+};
+
+const getImportedWordpressFees = (
+  meta: Record<string, unknown>,
+): ImportedWordpressFees => {
+  const rows = getBreakdownRowsWithCodes(asString(meta.price_breakdown_html));
+  const extraWorkRow = rows.find((row) => {
+    const signal = getBreakdownCodeSignal(row);
+    return (
+      signal.includes(EXTRA_WORK_FEE_CODE) ||
+      /ekstra\s+arbeid/i.test(row.label)
+    );
+  });
+  const addToOrderRow = rows.find((row) => {
+    const signal = getBreakdownCodeSignal(row);
+    return (
+      signal.includes(ADD_TO_ORDER_FEE_CODE) ||
+      /gebyr\s+for\s+tillegg\s+av\s+bestilling/i.test(row.label)
+    );
+  });
+  const minutesFromMeta = getFirstLegacyInteger(
+    meta,
+    IMPORTED_EXTRA_WORK_MINUTES_KEYS,
+  );
+  const blocksFromBreakdown = extraWorkRow
+    ? getExtraWorkBlocksFromLabel(extraWorkRow.label)
+    : undefined;
+  const extraWorkMinutes =
+    minutesFromMeta ?? (blocksFromBreakdown ? blocksFromBreakdown * 20 : 0);
+  const feeExtraWork =
+    hasLegacySelection(meta, IMPORTED_EXTRA_WORK_KEYS) ||
+    Boolean(extraWorkRow) ||
+    extraWorkMinutes > 0;
+
+  return {
+    feeExtraWork,
+    extraWorkMinutes: feeExtraWork ? extraWorkMinutes : 0,
+    feeAddToOrder:
+      hasLegacySelection(meta, IMPORTED_ADD_TO_ORDER_KEYS) ||
+      Boolean(addToOrderRow),
+  };
+};
+
 const getNativeCalculatedPricing = (params: {
   productCards: ReturnType<
     typeof mapWordpressImportToProductCards
@@ -1076,6 +1230,7 @@ const getNativeCalculatedPricing = (params: {
   >["specialOptions"];
   drivingDistance: string | undefined;
   adjustments: ImportedWordpressAdjustments;
+  importedFees?: ImportedWordpressFees;
 }): { totalExVatCents: number; subcontractorTotalCents: number } => {
   const productBreakdowns = buildProductBreakdowns(
     params.productCards,
@@ -1095,9 +1250,17 @@ const getNativeCalculatedPricing = (params: {
     priceLookup,
     adjustments: params.adjustments,
   });
+  const extraWorkFeeCents =
+    params.importedFees?.feeExtraWork === true
+      ? calculateExtraWorkFee(params.importedFees.extraWorkMinutes).price * 100
+      : 0;
+  const addToOrderFeeCents =
+    params.importedFees?.feeAddToOrder === true ? 99 * 100 : 0;
 
   return {
-    totalExVatCents: Math.round(result.totals.totalExVat * 100),
+    totalExVatCents: Math.round(
+      result.totals.totalExVat * 100 + extraWorkFeeCents + addToOrderFeeCents,
+    ),
     subcontractorTotalCents: Math.round(
       (result.totals.subcontractorTotal ?? 0) * 100,
     ),
@@ -1784,6 +1947,7 @@ export async function POST(req: NextRequest) {
     const extraPickupContacts =
       buildWordpressExtraPickupContacts(extraPickupAddresses);
     const importedAdjustments = getImportedWordpressAdjustments(meta);
+    const importedFees = getImportedWordpressFees(meta);
 
     const parsedProductItems = fillMissingProductDeliveryTypesFromBreakdown({
       meta,
@@ -1911,6 +2075,7 @@ export async function POST(req: NextRequest) {
       catalogSpecialOptions: catalog.specialOptions,
       drivingDistance: undefined,
       adjustments: importedAdjustments,
+      importedFees,
     });
     const nativePriceExVatCents = nativePricing.totalExVatCents;
     const nativePriceSubcontractorCents = nativePricing.subcontractorTotalCents;
@@ -2014,6 +2179,9 @@ export async function POST(req: NextRequest) {
               leggTil: importedAdjustments.leggTil,
               subcontractorMinus: importedAdjustments.subcontractorMinus,
               subcontractorPlus: importedAdjustments.subcontractorPlus,
+              feeExtraWork: importedFees.feeExtraWork,
+              extraWorkMinutes: importedFees.extraWorkMinutes,
+              feeAddToOrder: importedFees.feeAddToOrder,
               priceExVat:
                 typeof wordpressPriceExVatCents === "number"
                   ? Math.round(wordpressPriceExVatCents / 100)
@@ -2113,6 +2281,9 @@ export async function POST(req: NextRequest) {
               leggTil: importedAdjustments.leggTil,
               subcontractorMinus: importedAdjustments.subcontractorMinus,
               subcontractorPlus: importedAdjustments.subcontractorPlus,
+              feeExtraWork: importedFees.feeExtraWork,
+              extraWorkMinutes: importedFees.extraWorkMinutes,
+              feeAddToOrder: importedFees.feeAddToOrder,
               priceExVat:
                 typeof wordpressPriceExVatCents === "number"
                   ? Math.round(wordpressPriceExVatCents / 100)

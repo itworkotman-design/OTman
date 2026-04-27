@@ -23,6 +23,13 @@ import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/Produ
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { getStartedChargeableKilometers } from "@/lib/booking/pricing/distanceCharges";
+import {
+  ADD_TO_ORDER_FEE_CODE,
+  ADD_TO_ORDER_FEE_LABEL,
+  calculateExtraWorkFee,
+  EXTRA_WORK_FEE_CODE,
+  EXTRA_WORK_FEE_LABEL,
+} from "@/lib/booking/pricing/hardcodedFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import {
   OrderFields,
@@ -105,6 +112,7 @@ export type OrderFormPayload = {
 
   deviation: string;
   feeExtraWork: boolean;
+  extraWorkMinutes: number;
   feeAddToOrder: boolean;
   statusNotes: string;
   customerMembershipId: string;
@@ -476,6 +484,9 @@ export default function BookingEditor({
   const [feeExtraWork, setFeeExtraWork] = useState(
     initialValues?.feeExtraWork ?? false,
   );
+  const [extraWorkMinutes, setExtraWorkMinutes] = useState(
+    initialValues?.extraWorkMinutes ?? 0,
+  );
   const [feeAddToOrder, setFeeAddToOrder] = useState(
     initialValues?.feeAddToOrder ?? false,
   );
@@ -647,6 +658,7 @@ export default function BookingEditor({
     setLicensePlate(initialValues.licensePlate ?? "");
     setDeviation(initialValues.deviation ?? "");
     setFeeExtraWork(initialValues.feeExtraWork ?? false);
+    setExtraWorkMinutes(initialValues.extraWorkMinutes ?? 0);
     setFeeAddToOrder(initialValues.feeAddToOrder ?? false);
     setStatusNotes(initialValues.statusNotes ?? "");
     setCustomerMembershipId(initialValues.customerMembershipId ?? "");
@@ -828,6 +840,9 @@ export default function BookingEditor({
     const kmOver100Price = Number(
       pricingSource.priceListSettings.kmOver100.price.replace(",", "."),
     );
+    const extraWorkFee = feeExtraWork
+      ? calculateExtraWorkFee(extraWorkMinutes)
+      : { blocks: 0, price: 0 };
 
     const expressDeliveryPrice = Number(
       pricingSource.priceListSettings.expressDelivery.price.replace(",", "."),
@@ -863,6 +878,26 @@ export default function BookingEditor({
       });
     }
 
+    if (extraWorkFee.price > 0) {
+      extraItems.push({
+        kind: "customPrice",
+        code: EXTRA_WORK_FEE_CODE,
+        label: `${EXTRA_WORK_FEE_LABEL} x${extraWorkFee.blocks}`,
+        qty: 1,
+        unitPrice: extraWorkFee.price,
+      });
+    }
+
+    if (feeAddToOrder) {
+      extraItems.push({
+        kind: "customPrice",
+        code: ADD_TO_ORDER_FEE_CODE,
+        label: ADD_TO_ORDER_FEE_LABEL,
+        qty: 1,
+        unitPrice: 99,
+      });
+    }
+
     if (extraItems.length > 0) {
       nextBreakdowns.push({
         productName: "Order extras",
@@ -874,6 +909,9 @@ export default function BookingEditor({
   }, [
     drivingDistance,
     expressDelivery,
+    extraWorkMinutes,
+    feeAddToOrder,
+    feeExtraWork,
     pricingSource.priceListSettings.expressDelivery.code,
     pricingSource.priceListSettings.expressDelivery.description,
     pricingSource.priceListSettings.expressDelivery.price,
@@ -1588,6 +1626,7 @@ export default function BookingEditor({
 
       deviation,
       feeExtraWork,
+      extraWorkMinutes: feeExtraWork ? extraWorkMinutes : 0,
       feeAddToOrder,
       statusNotes,
       customerMembershipId,
@@ -1816,6 +1855,8 @@ export default function BookingEditor({
             setDeviation={setDeviation}
             feeExtraWork={feeExtraWork}
             setFeeExtraWork={setFeeExtraWork}
+            extraWorkMinutes={extraWorkMinutes}
+            setExtraWorkMinutes={setExtraWorkMinutes}
             feeAddToOrder={feeAddToOrder}
             setFeeAddToOrder={setFeeAddToOrder}
             statusNotes={statusNotes}

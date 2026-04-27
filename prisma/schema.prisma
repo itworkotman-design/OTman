@@ -375,6 +375,7 @@ model Order {
   licensePlate                       String?
   deviation                          String?
   feeExtraWork                       Boolean             @default(false)
+  extraWorkMinutes                   Int                 @default(0)
   feeAddToOrder                      Boolean             @default(false)
   statusNotes                        String?
   status                             String?

@@ -6,6 +6,7 @@ import { canCreateOrders } from "@/lib/users/orderAccess";
 import {
   optionalBoolean,
   optionalString,
+  safeInteger,
   safeNumber,
 } from "@/lib/orders/normalizeOrderInput";
 import {
@@ -492,6 +493,9 @@ export async function POST(req: Request) {
 
       deviation: optionalString(body.deviation),
       feeExtraWork: optionalBoolean(body.feeExtraWork),
+      extraWorkMinutes: optionalBoolean(body.feeExtraWork)
+        ? safeInteger(body.extraWorkMinutes)
+        : 0,
       feeAddToOrder: optionalBoolean(body.feeAddToOrder),
       statusNotes: optionalString(body.statusNotes),
       status: optionalString(body.status) || "processing",
@@ -601,6 +605,7 @@ export async function POST(req: Request) {
       licensePlate: order.licensePlate,
       deviation: order.deviation,
       feeExtraWork: order.feeExtraWork,
+      extraWorkMinutes: order.extraWorkMinutes,
       feeAddToOrder: order.feeAddToOrder,
       dontSendEmail: order.dontSendEmail,
       priceExVat: order.priceExVat,

@@ -184,6 +184,7 @@ export async function POST(req: Request) {
 
           deviation: sourceOrder.deviation,
           feeExtraWork: sourceOrder.feeExtraWork,
+          extraWorkMinutes: sourceOrder.extraWorkMinutes,
           feeAddToOrder: sourceOrder.feeAddToOrder,
           statusNotes: null,
           status: "processing",
@@ -275,6 +276,7 @@ export async function POST(req: Request) {
           licensePlate: newOrder.licensePlate,
           deviation: newOrder.deviation,
           feeExtraWork: newOrder.feeExtraWork,
+          extraWorkMinutes: newOrder.extraWorkMinutes,
           feeAddToOrder: newOrder.feeAddToOrder,
           dontSendEmail: newOrder.dontSendEmail,
           priceExVat: newOrder.priceExVat,

@@ -53,6 +53,7 @@ export type OrderEventSnapshot = {
   licensePlate: string | null;
   deviation: string | null;
   feeExtraWork: boolean;
+  extraWorkMinutes: number | null;
   feeAddToOrder: boolean;
   dontSendEmail: boolean;
   priceExVat: number | null;
@@ -141,6 +142,7 @@ const FIELD_LABELS: Record<keyof OrderEventSnapshot, string> = {
   licensePlate: "License plate",
   deviation: "Deviation",
   feeExtraWork: "Extra work fee",
+  extraWorkMinutes: "Extra work minutes",
   feeAddToOrder: "Add fee to order",
   dontSendEmail: "Do not send email",
   priceExVat: "Price ex. VAT",
@@ -310,6 +312,7 @@ export function buildOrderEventSnapshot(
     licensePlate: normalizeString(source.licensePlate),
     deviation: normalizeString(source.deviation),
     feeExtraWork: normalizeBoolean(source.feeExtraWork),
+    extraWorkMinutes: normalizeNumber(source.extraWorkMinutes),
     feeAddToOrder: normalizeBoolean(source.feeAddToOrder),
     dontSendEmail: normalizeBoolean(source.dontSendEmail),
     priceExVat: normalizeNumber(source.priceExVat),

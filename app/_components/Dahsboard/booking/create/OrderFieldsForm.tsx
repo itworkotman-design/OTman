@@ -177,6 +177,8 @@ type Props = {
   setDeviation: React.Dispatch<React.SetStateAction<string>>;
   feeExtraWork: boolean;
   setFeeExtraWork: React.Dispatch<React.SetStateAction<boolean>>;
+  extraWorkMinutes: number;
+  setExtraWorkMinutes: React.Dispatch<React.SetStateAction<number>>;
   feeAddToOrder: boolean;
   setFeeAddToOrder: React.Dispatch<React.SetStateAction<boolean>>;
   statusNotes: string;
@@ -295,6 +297,8 @@ export default function OrderFieldsForm({
   setDeviation,
   feeExtraWork,
   setFeeExtraWork,
+  extraWorkMinutes,
+  setExtraWorkMinutes,
   feeAddToOrder,
   setFeeAddToOrder,
   statusNotes,
@@ -828,9 +832,34 @@ export default function OrderFieldsForm({
             type="checkbox"
             className="inline"
             checked={feeExtraWork}
-            onChange={(e) => setFeeExtraWork(e.target.checked)}
+            onChange={(e) => {
+              setFeeExtraWork(e.target.checked);
+              if (!e.target.checked) {
+                setExtraWorkMinutes(0);
+              }
+            }}
           />
           <p className="inline pl-2">Fee for extra work per started</p>
+          {feeExtraWork && (
+            <div className="mt-2 max-w-[220px]">
+              <label className="block text-sm font-semibold text-textColorSecond">
+                Total minutes
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                className="customInput mt-1 w-full"
+                value={extraWorkMinutes || ""}
+                onChange={(e) =>
+                  setExtraWorkMinutes(
+                    Math.max(0, Number.parseInt(e.target.value, 10) || 0),
+                  )
+                }
+                placeholder="e.g. 25"
+              />
+            </div>
+          )}
         </div>
       )}
 

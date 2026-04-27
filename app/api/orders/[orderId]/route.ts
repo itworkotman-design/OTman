@@ -6,6 +6,7 @@ import { canEditOrders } from "@/lib/users/orderAccess";
 import {
   optionalBoolean,
   optionalString,
+  safeInteger,
   safeNumber,
 } from "@/lib/orders/normalizeOrderInput";
 import {
@@ -454,6 +455,7 @@ export async function GET(
       licensePlate: true,
       deviation: true,
       feeExtraWork: true,
+      extraWorkMinutes: true,
       feeAddToOrder: true,
       statusNotes: true,
       status: true,
@@ -584,6 +586,7 @@ export async function GET(
       licensePlate: order.licensePlate ?? "",
       deviation: order.deviation ?? "",
       feeExtraWork: order.feeExtraWork,
+      extraWorkMinutes: order.extraWorkMinutes,
       feeAddToOrder: order.feeAddToOrder,
       statusNotes: order.statusNotes ?? "",
       status: normalizeOrderStatus(order.status),
@@ -733,6 +736,7 @@ export async function PATCH(
       licensePlate: true,
       deviation: true,
       feeExtraWork: true,
+      extraWorkMinutes: true,
       feeAddToOrder: true,
       dontSendEmail: true,
       priceExVat: true,
@@ -925,6 +929,9 @@ export async function PATCH(
       optionalString(body.licensePlate) ?? existingOrder.licensePlate,
     deviation: optionalString(body.deviation) ?? existingOrder.deviation,
     feeExtraWork: optionalBoolean(body.feeExtraWork),
+    extraWorkMinutes: optionalBoolean(body.feeExtraWork)
+      ? safeInteger(body.extraWorkMinutes)
+      : 0,
     feeAddToOrder: optionalBoolean(body.feeAddToOrder),
     dontSendEmail: optionalBoolean(body.dontSendEmail),
     priceExVat: Math.round(safeNumber(body.priceExVat)),
@@ -995,6 +1002,9 @@ export async function PATCH(
 
         deviation: optionalString(body.deviation),
         feeExtraWork: optionalBoolean(body.feeExtraWork),
+        extraWorkMinutes: optionalBoolean(body.feeExtraWork)
+          ? safeInteger(body.extraWorkMinutes)
+          : 0,
         feeAddToOrder: optionalBoolean(body.feeAddToOrder),
         statusNotes: optionalString(body.statusNotes),
         status: optionalString(body.status),
