@@ -1456,6 +1456,19 @@ const applyWordpressPriceMatchPolicy = (params: {
       catalogSpecialOptions: params.catalogSpecialOptions,
     });
 
+    console.log("WP PRICE MATCH CHECK", {
+      index,
+      wpGroup: group?.groupLabel,
+      cardProductId: card.productId,
+      deliveryType: card.deliveryType,
+      selectedInstallOptionIds: card.selectedInstallOptionIds,
+      selectedExtraOptionIds: card.selectedExtraOptionIds,
+      selectedReturnOptionId: card.selectedReturnOptionId,
+      customSectionSelections: card.customSectionSelections,
+      wordpressTotalCents,
+      nativeTotalCents,
+    });
+    
     if (nativeTotalCents === wordpressTotalCents) {
       return card;
     }
