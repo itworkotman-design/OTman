@@ -1,4 +1,4 @@
-import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
+import { OPTION_CODES } from "@/lib/booking/constants";
 import type { DeliveryType } from "@/lib/booking/pricing/types";
 
 export type WordpressInstallAlias = {
@@ -32,18 +32,24 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         optionCode: "INSWASH1",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "inswash1",
           "install washer",
           "washer install",
           "montering av vaskemaskin pa vatrom",
+          "montering av vaskemaskin på våtrom",
           "montering av vaskemaskin",
         ],
       },
       {
         optionCode: "INSWASH2",
         aliases: [
+          "inswash2",
           "montering av vaskemaskin pa ikke godkjent vatrom",
+          "montering av vaskemaskin på ikke godkjent våtrom",
           "ikke godkjent vatrom",
+          "ikke godkjent våtrom",
           "ikke vatrom",
+          "ikke våtrom",
         ],
       },
       {
@@ -51,26 +57,34 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         aliases: [
           "dryerontop",
           "torketrommel legges ovenpa vaskemaskinen",
+          "tørketrommel legges ovenpå vaskemaskinen",
           "dryer on top",
         ],
       },
       {
         optionCode: "STABLERAMME",
-        aliases: ["stableramme", "stacking kit", "stacking frame"],
+        aliases: [
+          "stableramme",
+          "montering av flatpakket stableramme",
+          "stacking kit",
+          "stacking frame",
+        ],
       },
     ],
   },
   {
-    catalogAliases: ["torketrommel", "dryer"],
-    wordpressAliases: ["torketrommel", "dryer"],
+    catalogAliases: ["torketrommel", "tørketrommel", "dryer"],
+    wordpressAliases: ["torketrommel", "tørketrommel", "dryer"],
     installAliases: [
       {
         optionCode: "INSDRYER",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "insdryer",
           "install dryer",
           "dryer install",
           "montering av torketrommel",
+          "montering av tørketrommel",
         ],
       },
       {
@@ -78,12 +92,18 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         aliases: [
           "dryerontop",
           "torketrommel legges ovenpa vaskemaskinen",
+          "tørketrommel legges ovenpå vaskemaskinen",
           "dryer on top",
         ],
       },
       {
         optionCode: "STABLERAMME",
-        aliases: ["stableramme", "stacking kit", "stacking frame"],
+        aliases: [
+          "stableramme",
+          "montering av flatpakket stableramme",
+          "stacking kit",
+          "stacking frame",
+        ],
       },
     ],
   },
@@ -95,6 +115,7 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         optionCode: "INSDISHW2",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "insdishw2",
           "install dishwasher",
           "dishwasher install",
           "montering av oppvaskmaskin",
@@ -105,8 +126,11 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
   {
     catalogAliases: [
       "kjoleskap kombiskap",
+      "kjøleskap kombiskap",
       "kjoleskap/kombiskap",
+      "kjøleskap/kombiskap",
       "kjoleskap",
+      "kjøleskap",
       "kombiskap",
       "fridge freezer",
       "fridge",
@@ -114,8 +138,11 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
     ],
     wordpressAliases: [
       "kjoleskap kombiskap",
+      "kjøleskap kombiskap",
       "kjoleskap/kombiskap",
+      "kjøleskap/kombiskap",
       "kjoleskap",
+      "kjøleskap",
       "kombiskap",
       "fridge freezer",
       "fridge",
@@ -126,29 +153,44 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         optionCode: "INSFRIDGE",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "insfridge",
           "install fridge",
           "fridge install",
           "montering av kjoleskap",
+          "montering av kjøleskap",
           "montering av kombiskap",
         ],
       },
       {
         optionCode: "INSINTFRIDGE",
         aliases: [
+          "insintfridge",
           "integrert kjoleskap",
+          "integrert kjøleskap",
           "integrert kombiskap",
           "integrated fridge",
           "built in fridge",
           "innbygging kjoleskap",
+          "innbygging kjøleskap",
         ],
       },
       {
         optionCode: "REHANGDOOR1",
-        aliases: ["rehangdoor1", "omhengsling av dor", "rehang door"],
+        aliases: [
+          "rehangdoor1",
+          "omhengsling av dor",
+          "omhengsling av dør",
+          "rehang door",
+        ],
       },
       {
         optionCode: "REHANGDOOR2",
-        aliases: ["rehangdoor2", "ombeygging dor", "re hang door advanced"],
+        aliases: [
+          "rehangdoor2",
+          "omhengsling av dor etter levering tillegg til indoor",
+          "omhengsling av dør etter levering tillegg til indoor",
+          "re hang door advanced",
+        ],
       },
     ],
   },
@@ -160,6 +202,7 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         optionCode: "INSFRIDGE",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "insfridge",
           "install freezer",
           "freezer install",
           "montering av fryseskap",
@@ -168,6 +211,7 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
       {
         optionCode: "INSINTFRIDGE",
         aliases: [
+          "insintfridge",
           "integrert fryseskap",
           "integrated freezer",
           "built in freezer",
@@ -183,17 +227,23 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         optionCode: "INSSBS1",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "inssbs1",
           "install side by side",
           "side by side install",
           "montering av side by side",
+          "montering av sbs uten vanntilkobling",
+          "montering av side by side uten vanntilkobling",
         ],
       },
       {
         optionCode: "INSSBS2",
         aliases: [
+          "inssbs2",
           "vannkobling side by side",
           "water connection side by side",
           "side by side vann",
+          "montering av sbs til godkjent vanntilkobling",
+          "montering av side by side til godkjent vanntilkobling",
         ],
       },
     ],
@@ -206,6 +256,7 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         optionCode: "INSCOOKER",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "inscooker",
           "install cooker",
           "cooker install",
           "montering av komfyr",
@@ -214,6 +265,7 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
       {
         optionCode: "INSCOOKER2",
         aliases: [
+          "inscooker2",
           "komfyr spesial",
           "cooker advanced",
           "komfyr med kabel",
@@ -229,6 +281,7 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         optionCode: "INSINTOVEN",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "insintoven",
           "install oven",
           "oven install",
           "montering av ovn",
@@ -242,30 +295,28 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
     installAliases: [
       {
         optionCode: "INSHOB",
-        aliases: [
-          ...DEFAULT_INSTALL_ALIASES,
-          "install hob",
-          "install cooktop",
-          "montering av platetopp",
-        ],
-      },
-      {
-        optionCode: "INSHOB2",
-        aliases: ["platetopp spesial", "hob advanced", "cooktop advanced"],
+        aliases: ["inshob", "montering av platetopp"],
       },
       {
         optionCode: "INSHOBFAN",
+        aliases: ["inshobfan", "montering av platetopp med ventilator"],
+      },
+      {
+        optionCode: "INSHOB2",
         aliases: [
-          "platetopp med ventilator",
-          "hob with fan",
-          "cooktop with fan",
+          "inshob2",
+          "montering av platetopp med utskjaering",
+          "montering av platetopp med utskjaring",
+          "montering av platetopp med utskjæring",
         ],
       },
       {
         optionCode: "INSHOBFAN2",
         aliases: [
-          "platetopp med ventilator spesial",
-          "hob with fan advanced",
+          "inshobfan2",
+          "montering av platetopp med ventilator med utskjaering",
+          "montering av platetopp med ventilator med utskjaring",
+          "montering av platetopp med ventilator med utskjæring",
         ],
       },
     ],
@@ -278,6 +329,7 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         optionCode: "INSFAN",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "insfan",
           "install fan",
           "install hood",
           "montering av ventilator",
@@ -286,6 +338,7 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
       {
         optionCode: "INSINTFAN",
         aliases: [
+          "insintfan",
           "integrert ventilator",
           "integrated fan",
           "integrated hood",
@@ -301,9 +354,18 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
         optionCode: "INSFRIDGE",
         aliases: [
           ...DEFAULT_INSTALL_ALIASES,
+          "insfridge",
           "install wine cooler",
           "wine cooler install",
           "montering av vinskap",
+        ],
+      },
+      {
+        optionCode: "REHANGDOOR2",
+        aliases: [
+          "rehangdoor2",
+          "omhengsling av dor etter levering tillegg til indoor",
+          "omhengsling av dør etter levering tillegg til indoor",
         ],
       },
     ],
@@ -329,16 +391,11 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
     wordpressAliases: ["tv", "television"],
   },
   {
-    catalogAliases: ["mikrobolgeovn", "microwave"],
-    wordpressAliases: ["mikrobolgeovn", "microwave"],
+    catalogAliases: ["mikrobolgeovn", "mikrobølgeovn", "microwave"],
+    wordpressAliases: ["mikrobolgeovn", "mikrobølgeovn", "microwave"],
   },
   {
-    catalogAliases: [
-      "timepris",
-      "timepris flugger",
-      "hourly",
-      "hourly rate",
-    ],
+    catalogAliases: ["timepris", "timepris flugger", "hourly", "hourly rate"],
     wordpressAliases: [
       "timepris",
       "timepris flugger",
@@ -351,15 +408,20 @@ export const WORDPRESS_PRODUCT_MAPPINGS: WordpressProductMapping[] = [
 
 export const WORDPRESS_DELIVERY_TYPE_ALIASES: Record<DeliveryType, string[]> = {
   "": [],
-  FIRST_STEP: [
-    "delivery",
-    "forste trinn",
-    "first step",
+  FIRST_STEP: ["delivery", "forste trinn", "første trinn", "first step"],
+  INDOOR: [
+    "indoor",
+    "indoor carry",
+    "innbaering",
+    "innbæring",
+    "carry in",
+    "xtra",
+    "sidbyside",
     "sidebyside",
     "side by side",
     "sidetrapp",
+    "side by side trapp",
   ],
-  INDOOR: ["indoor", "indoor carry", "innbaering", "carry in"],
   INSTALL_ONLY: [
     "installonly",
     "kun installasjon",
@@ -379,7 +441,11 @@ export const WORDPRESS_SPECIAL_SERVICE_ALIASES: Record<string, string[]> = {
     "utpakking og kasting av emballasje",
     "unpacking",
   ],
-  RETURNSTORE: ["retur til butikk", "tillegg retur til butikk", "return to store"],
+  RETURNSTORE: [
+    "retur til butikk",
+    "tillegg retur til butikk",
+    "return to store",
+  ],
   RETURNREC: [
     "retur til gjenvinning",
     "tillegg retur til gjenvinning",
@@ -390,4 +456,38 @@ export const WORDPRESS_SPECIAL_SERVICE_ALIASES: Record<string, string[]> = {
 export const WORDPRESS_SERVICE_CODE_ALIASES: Record<string, string[]> = {
   RETURNSBSSTORE: ["RETURNSBSSTORE", "RETURNSTORE", "SBSRETURN"],
   RETURNSBS: ["RETURNSBS", "RETURNREC"],
+
+  INSSBS1: ["INSSBS1"],
+  INSSBS2: ["INSSBS2"],
+
+  INSHOB: ["INSHOB"],
+  INSHOBFAN: ["INSHOBFAN"],
+  INSHOB2: ["INSHOB2"],
+  INSHOBFAN2: ["INSHOBFAN2"],
+
+  INSWASH1: ["INSWASH1"],
+  INSWASH2: ["INSWASH2"],
+  DRYERONTOP: ["DRYERONTOP"],
+  STABLERAMME: ["STABLERAMME"],
+
+  REHANGDOOR1: ["REHANGDOOR1"],
+  REHANGDOOR2: ["REHANGDOOR2"],
+
+  MANNU1: ["MANNU1", "1 mann uten bil"],
+  MANNU2: ["MANNU2", "2 mann uten bil"],
+  MANN1: ["MANN1", "1 mann med varebil"],
+  MANN2: ["MANN2", "2 mann med varebil"],
+  ANDRE: [
+    "ANDRE",
+    "snekker rorlegger",
+    "snekker/rørlegger",
+    "snekker/rorlegger",
+    "timearbeid",
+  ],
+
+  PALLS1: ["PALLS1"],
+  PALLXTRAS1: ["PALLXTRAS1"],
+
+  RETURNREC: ["RETURNREC"],
+  RETURNSTORE: ["RETURNSTORE"],
 };

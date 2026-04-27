@@ -2306,6 +2306,35 @@ export async function POST(req: NextRequest) {
     const priceListId = membership.priceListId ?? defaultPriceList?.id ?? null;
 
     const catalog = await getBookingCatalog(priceListId);
+    console.dir(
+      catalog.products
+        .filter((p) =>
+          ["Side by side", "Ettermontering", "Pall", "Vaskemaskin"].includes(
+            p.label,
+          ),
+        )
+        .map((p) => ({
+          label: p.label,
+          code: p.code,
+          allowDeliveryTypes: p.allowDeliveryTypes,
+          allowHoursInput: p.allowHoursInput,
+          deliveryTypes: p.deliveryTypes,
+          options: p.options.map((o) => ({
+            code: o.code,
+            label: o.label,
+            customerPrice: o.customerPrice,
+          })),
+          customSections: p.customSections.map((s) => ({
+            id: s.id,
+            options: s.options.map((o) => ({
+              code: o.code,
+              label: o.label,
+              price: o.price,
+            })),
+          })),
+        })),
+      { depth: null },
+    );
     const rawMappedImport = mapWordpressImportToProductCards({
       parsedProducts: productItems.map((item) => ({
         cardId: item.cardId,
