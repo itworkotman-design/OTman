@@ -1965,7 +1965,7 @@ export async function POST(req: NextRequest) {
           if (wpImages.length > 0) {
             await tx.orderAttachment.createMany({
               data: wpImages.map((url, index) => ({
-                orderId: created.id,
+                orderId: updated.id,
                 sourceUrl: url,
                 legacyWordpressAttachmentId: index,
                 filename: `wp-${index}`,
