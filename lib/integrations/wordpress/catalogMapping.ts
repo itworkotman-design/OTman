@@ -603,7 +603,26 @@ export function mapWordpressImportToProductCards(params: {
     }
 
     for (const service of productServices) {
+
       const serviceCode = service.code?.trim().toUpperCase();
+
+      if (["MANNU1", "MANNU2", "MANN1", "MANN2", "ANDRE"].includes(serviceCode ?? "")) {
+        card.hoursInput = service.quantity > 0 ? service.quantity : WORDPRESS_DEFAULT_TIME_HOURS;
+        card.amount = card.hoursInput;
+
+        resolvedServices.push({
+          ...service,
+          resolvedItemType: "EXTRA_OPTION",
+          optionId: null,
+          optionCode: serviceCode ?? service.code ?? "",
+          optionLabel: service.label,
+          customSectionId: null,
+          customerPriceCents: service.priceCents ?? null,
+          subcontractorPriceCents: null,
+        });
+
+        continue;
+      }
 
       if (serviceCode === "PALLXTRAS1") {
         card.extraPalletEnabled = true;
@@ -622,7 +641,7 @@ export function mapWordpressImportToProductCards(params: {
 
         continue;
       }
-      
+
       const resolvedService = resolveService(
         service,
         product,

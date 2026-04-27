@@ -415,7 +415,6 @@ export const WORDPRESS_DELIVERY_TYPE_ALIASES: Record<DeliveryType, string[]> = {
     "innbaering",
     "innbæring",
     "carry in",
-    "xtra",
     "sidbyside",
     "sidebyside",
     "side by side",
