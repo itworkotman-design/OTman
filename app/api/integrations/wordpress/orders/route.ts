@@ -12,6 +12,10 @@ import {
   EXTRA_WORK_FEE_CODE,
 } from "@/lib/booking/pricing/hardcodedFees";
 import {
+  getDeviationFeeOption,
+  normalizeDeviationLabel,
+} from "@/lib/booking/pricing/deviationFees";
+import {
   buildOrderItemsFromCards,
   type BuiltOrderItem,
 } from "@/lib/orders/buildOrderItemsFromCards";
@@ -28,6 +32,7 @@ import {
 import { OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import { createEmptyProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 
 type WordpressOrderSyncPayload = {
   legacyWordpressOrderId: number;
@@ -55,6 +60,7 @@ type ParsedWordpressServiceItem = {
   itemType: "INSTALL_OPTION" | "RETURN_OPTION" | "EXTRA_OPTION";
   label: string;
   code?: string;
+  priceCents?: number;
   rawData: Prisma.InputJsonValue;
 };
 
@@ -118,6 +124,9 @@ const DELIVERY_TYPE_CODES = new Set([
 ]);
 
 const GLOBAL_FEE_CODES = new Set([EXTRA_WORK_FEE_CODE, ADD_TO_ORDER_FEE_CODE]);
+const WORDPRESS_PRICE_MISMATCH_COMMENT =
+  "New system was unable to match to old price";
+const EXTRA_PICKUP_CODE = "EXTRAPICKUP";
 
 const SUMMARY_LABEL_PATTERNS = [
   /^mva\b/i,
@@ -231,6 +240,13 @@ const IMPORTED_ADD_TO_ORDER_KEYS = [
   "add_order_fee",
 ] as const;
 
+const IMPORTED_DEVIATION_KEYS = [
+  "field_682e0baebb080",
+  "bomtur",
+  "deviation",
+  "avvik",
+] as const;
+
 const formatImportedAdjustment = (cents: number): string => {
   const amount = cents / 100;
   return Number.isInteger(amount)
@@ -263,7 +279,9 @@ const cleanLegacyBreakdownLabel = (value: string): string => {
   const normalizedValue = normalizeWhitespace(stripHtml(value));
   if (!normalizedValue) return "";
 
-  const parenMatch = normalizedValue.match(/^(.*?)\s*\(([^)]+)\)\s*$/u);
+  const parenMatch = normalizedValue.match(
+    /^(.*?)\s*\(([^)]+)\)(?:\s*x\s*\d+(?:[.,]\d+)?)?\s*$/u,
+  );
   const withoutParen = parenMatch ? (parenMatch[1] ?? "") : normalizedValue;
   const parts = withoutParen
     .split(":")
@@ -291,7 +309,9 @@ const parseBreakdownLabelAndCode = (value: string): ParsedBreakdownRow => {
     return { label: "" };
   }
 
-  const parenMatch = normalizedValue.match(/^(.*?)\s*\(([^)]+)\)\s*$/u);
+  const parenMatch = normalizedValue.match(
+    /^(.*?)\s*\(([^)]+)\)(?:\s*x\s*\d+(?:[.,]\d+)?)?\s*$/u,
+  );
   if (parenMatch) {
     return {
       label: cleanLegacyBreakdownLabel(parenMatch[1] ?? ""),
@@ -325,6 +345,13 @@ const parseBreakdownLabelAndCode = (value: string): ParsedBreakdownRow => {
   };
 };
 
+const parseLegacyServiceValuePriceCents = (
+  value: string,
+): number | undefined => {
+  const firstPart = value.split(":")[0];
+  return parseLegacyMoneyToCents(firstPart);
+};
+
 const extractBreakdownQuantity = (value: string): number | undefined => {
   const normalizedValue = normalizeWhitespace(stripHtml(value));
   if (!normalizedValue) {
@@ -332,7 +359,7 @@ const extractBreakdownQuantity = (value: string): number | undefined => {
   }
 
   const quantityMatch = normalizedValue.match(
-    /\bx\s*(\d+(?:[.,]\d+)?)\s*(?:time|timer?)\b/iu,
+    /\bx\s*(\d+(?:[.,]\d+)?)(?:\s*(?:time|timer?))?\b/iu,
   );
   if (!quantityMatch) {
     return undefined;
@@ -924,6 +951,7 @@ const buildServiceItemsFromMeta = (
           itemType: classifyServiceItemType(row),
           label: row.label,
           code: row.code,
+          priceCents: parseLegacyServiceValuePriceCents(entry),
           rawData: {
             source: "wordpress_sync",
             sourceType: `meta:${suffix}`,
@@ -992,6 +1020,7 @@ const buildServiceItemsFromBreakdown = (
         itemType: classifyServiceItemType(row),
         label: row.label,
         code: row.code,
+        priceCents: row.priceCents,
         rawData: {
           source: "wordpress_sync",
           sourceType: "price_breakdown_html",
@@ -1169,6 +1198,15 @@ const getBreakdownRowsWithCodes = (
 const getBreakdownCodeSignal = (row: ParsedBreakdownRow): string =>
   `${row.code ?? ""} ${row.label}`.toUpperCase();
 
+const isExtraPickupBreakdownRow = (row: ParsedBreakdownRow): boolean =>
+  getBreakdownCodeSignal(row).includes(EXTRA_PICKUP_CODE);
+
+const isKmBreakdownRow = (row: ParsedBreakdownRow): boolean =>
+  /^km pris\b/i.test(row.label);
+
+const isGlobalWordpressPriceRow = (row: ParsedBreakdownRow): boolean =>
+  isKmBreakdownRow(row) || isExtraPickupBreakdownRow(row);
+
 const getExtraWorkBlocksFromLabel = (label: string): number | undefined => {
   const match = label.match(/\bx\s*(\d+)\b/iu);
   if (!match) {
@@ -1220,6 +1258,47 @@ const getImportedWordpressFees = (
   };
 };
 
+const getImportedWordpressDeviation = (
+  meta: Record<string, unknown>,
+): string | undefined => {
+  const metaDeviation = getFirstMetaString(
+    meta,
+    Array.from(IMPORTED_DEVIATION_KEYS),
+  );
+  const normalizedMetaDeviation = normalizeDeviationLabel(metaDeviation);
+  if (normalizedMetaDeviation) {
+    return normalizedMetaDeviation;
+  }
+
+  const breakdownRows = getBreakdownRowsWithCodes(
+    asString(meta.price_breakdown_html),
+  );
+  const matchingRow = breakdownRows.find((row) =>
+    Boolean(getDeviationFeeOption(`${row.label}:${row.code ?? ""}`)),
+  );
+
+  return normalizeDeviationLabel(
+    matchingRow ? `${matchingRow.label}:${matchingRow.code ?? ""}` : undefined,
+  );
+};
+
+const getProtectedFailureFeeCents = (params: {
+  importedFees: ImportedWordpressFees;
+  deviation?: string;
+}): number => {
+  const extraWorkFeeCents = params.importedFees.feeExtraWork
+    ? calculateExtraWorkFee(params.importedFees.extraWorkMinutes).price * 100
+    : 0;
+  const addToOrderFeeCents = params.importedFees.feeAddToOrder ? 99 * 100 : 0;
+  const deviationFeeCents =
+    (getDeviationFeeOption(params.deviation)?.price ?? 0) * 100;
+
+  return extraWorkFeeCents + addToOrderFeeCents + deviationFeeCents;
+};
+
+const isFailureDiscountStatus = (status: string): boolean =>
+  status === "cancelled" || status === "failed";
+
 const getNativeCalculatedPricing = (params: {
   productCards: ReturnType<
     typeof mapWordpressImportToProductCards
@@ -1231,6 +1310,7 @@ const getNativeCalculatedPricing = (params: {
   drivingDistance: string | undefined;
   adjustments: ImportedWordpressAdjustments;
   importedFees?: ImportedWordpressFees;
+  deviation?: string;
 }): { totalExVatCents: number; subcontractorTotalCents: number } => {
   const productBreakdowns = buildProductBreakdowns(
     params.productCards,
@@ -1256,15 +1336,128 @@ const getNativeCalculatedPricing = (params: {
       : 0;
   const addToOrderFeeCents =
     params.importedFees?.feeAddToOrder === true ? 99 * 100 : 0;
+  const deviationFeeCents =
+    (getDeviationFeeOption(params.deviation)?.price ?? 0) * 100;
 
   return {
     totalExVatCents: Math.round(
-      result.totals.totalExVat * 100 + extraWorkFeeCents + addToOrderFeeCents,
+      result.totals.totalExVat * 100 +
+        extraWorkFeeCents +
+        addToOrderFeeCents +
+        deviationFeeCents,
     ),
     subcontractorTotalCents: Math.round(
       (result.totals.subcontractorTotal ?? 0) * 100,
     ),
   };
+};
+
+const getBreakdownGroupTotalCents = (
+  group: ParsedBreakdownGroup | undefined,
+): number | undefined => {
+  if (!group) {
+    return undefined;
+  }
+
+  const total = group.rows
+    .filter((row) => !isGlobalWordpressPriceRow(row))
+    .reduce((sum, row) => sum + (row.priceCents ?? 0), 0);
+
+  return Number.isFinite(total) ? total : undefined;
+};
+
+const getNativeProductTotalCents = (params: {
+  productCard: ReturnType<
+    typeof mapWordpressImportToProductCards
+  >["productCards"][number];
+  catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
+  catalogSpecialOptions: Awaited<
+    ReturnType<typeof getBookingCatalog>
+  >["specialOptions"];
+}): number => {
+  const breakdowns = buildProductBreakdowns(
+    [params.productCard],
+    params.catalogProducts,
+    params.catalogSpecialOptions,
+  );
+  const result = calculateBookingPricing({
+    productBreakdowns: breakdowns,
+    priceLookup: buildPriceLookup(
+      params.catalogProducts,
+      params.catalogSpecialOptions,
+    ),
+  });
+
+  return Math.round(result.totals.totalExVat * 100);
+};
+
+const toReadOnlyRows = (rows: ParsedBreakdownRow[]) =>
+  rows
+    .filter((row) => typeof row.priceCents === "number")
+    .map((row) => ({
+      label: row.label,
+      code: row.code ?? null,
+      quantity: 1,
+      priceCents: row.priceCents ?? 0,
+    }));
+
+const applyWordpressPriceMatchPolicy = (params: {
+  meta: Record<string, unknown>;
+  productCards: ReturnType<
+    typeof mapWordpressImportToProductCards
+  >["productCards"];
+  catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
+  catalogSpecialOptions: Awaited<
+    ReturnType<typeof getBookingCatalog>
+  >["specialOptions"];
+}) => {
+  const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
+  const nextCards = params.productCards.map((card, index) => {
+    const group = groups[index];
+    const wordpressTotalCents = getBreakdownGroupTotalCents(group);
+    if (typeof wordpressTotalCents !== "number") {
+      return card;
+    }
+
+    const nativeTotalCents = getNativeProductTotalCents({
+      productCard: card,
+      catalogProducts: params.catalogProducts,
+      catalogSpecialOptions: params.catalogSpecialOptions,
+    });
+
+    if (nativeTotalCents === wordpressTotalCents) {
+      return card;
+    }
+
+    return {
+      ...card,
+      wordpressImportReadOnly: {
+        productName: group?.groupLabel || `WordPress product ${index + 1}`,
+        comment: WORDPRESS_PRICE_MISMATCH_COMMENT,
+        rows: toReadOnlyRows(
+          (group?.rows ?? []).filter((row) => !isGlobalWordpressPriceRow(row)),
+        ),
+      },
+    };
+  });
+
+  const allRows = getBreakdownRowsWithCodes(asString(params.meta.price_breakdown_html));
+  const extraPickupRows = allRows.filter(isExtraPickupBreakdownRow);
+  const kmRows = allRows.filter(isKmBreakdownRow);
+  const globalReadOnlyRows = [...kmRows, ...extraPickupRows];
+
+  if (globalReadOnlyRows.length === 0) {
+    return nextCards;
+  }
+
+  const globalReadOnlyCard = createEmptyProductCard(nextCards.length + 1);
+  globalReadOnlyCard.wordpressImportReadOnly = {
+    productName: "WordPress order prices",
+    comment: WORDPRESS_PRICE_MISMATCH_COMMENT,
+    rows: toReadOnlyRows(globalReadOnlyRows),
+  };
+
+  return [...nextCards, globalReadOnlyCard];
 };
 
 async function syncWordpressPriceMismatchNotification(
@@ -1946,8 +2139,9 @@ export async function POST(req: NextRequest) {
     const extraPickupAddresses = getWordpressExtraPickupAddresses(meta);
     const extraPickupContacts =
       buildWordpressExtraPickupContacts(extraPickupAddresses);
-    const importedAdjustments = getImportedWordpressAdjustments(meta);
+    let importedAdjustments = getImportedWordpressAdjustments(meta);
     const importedFees = getImportedWordpressFees(meta);
+    const deviation = getImportedWordpressDeviation(meta);
 
     const parsedProductItems = fillMissingProductDeliveryTypesFromBreakdown({
       meta,
@@ -2017,6 +2211,7 @@ export async function POST(req: NextRequest) {
         itemType: item.itemType,
         label: item.label,
         code: item.code,
+        priceCents: item.priceCents,
       })),
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
@@ -2031,6 +2226,24 @@ export async function POST(req: NextRequest) {
       }),
     };
     const wordpressPriceExVatCents = getImportedWordpressPriceExVatCents(meta);
+    const protectedFailureFeeCents = getProtectedFailureFeeCents({
+      importedFees,
+      deviation,
+    });
+    const shouldApplyFailureDiscount =
+      isFailureDiscountStatus(status) &&
+      typeof wordpressPriceExVatCents === "number";
+    if (shouldApplyFailureDiscount) {
+      importedAdjustments = {
+        ...importedAdjustments,
+        rabatt: formatImportedAdjustment(
+          Math.max(0, wordpressPriceExVatCents - protectedFailureFeeCents),
+        ),
+      };
+    }
+    const effectiveWordpressPriceExVatCents = shouldApplyFailureDiscount
+      ? protectedFailureFeeCents
+      : wordpressPriceExVatCents;
     const returnStoreOption = catalog.specialOptions.find(
       (option) =>
         option.type === "return" &&
@@ -2069,6 +2282,14 @@ export async function POST(req: NextRequest) {
             : service,
       );
     }
+
+    mappedImport.productCards = applyWordpressPriceMatchPolicy({
+      meta,
+      productCards: mappedImport.productCards,
+      catalogProducts: catalog.products,
+      catalogSpecialOptions: catalog.specialOptions,
+    });
+
     const nativePricing = getNativeCalculatedPricing({
       productCards: mappedImport.productCards,
       catalogProducts: catalog.products,
@@ -2076,6 +2297,7 @@ export async function POST(req: NextRequest) {
       drivingDistance: undefined,
       adjustments: importedAdjustments,
       importedFees,
+      deviation,
     });
     const nativePriceExVatCents = nativePricing.totalExVatCents;
     const nativePriceSubcontractorCents = nativePricing.subcontractorTotalCents;
@@ -2148,6 +2370,7 @@ export async function POST(req: NextRequest) {
               legacyWordpressAuthorId: body.legacyWordpressUserId,
               legacyWordpressRawMeta: body.meta ?? Prisma.JsonNull,
               status,
+              deviation,
               description,
               pickupAddress,
               deliveryAddress,
@@ -2183,8 +2406,8 @@ export async function POST(req: NextRequest) {
               extraWorkMinutes: importedFees.extraWorkMinutes,
               feeAddToOrder: importedFees.feeAddToOrder,
               priceExVat:
-                typeof wordpressPriceExVatCents === "number"
-                  ? Math.round(wordpressPriceExVatCents / 100)
+                typeof effectiveWordpressPriceExVatCents === "number"
+                  ? Math.round(effectiveWordpressPriceExVatCents / 100)
                   : Math.round(nativePriceExVatCents / 100),
               priceSubcontractor: Math.round(
                 nativePriceSubcontractorCents / 100,
@@ -2218,7 +2441,7 @@ export async function POST(req: NextRequest) {
           await syncWordpressPriceMismatchNotification(tx, {
             orderId: updated.id,
             companyId,
-            wordpressPriceExVatCents,
+            wordpressPriceExVatCents: effectiveWordpressPriceExVatCents,
             nativePriceExVatCents,
           });
 
@@ -2250,6 +2473,7 @@ export async function POST(req: NextRequest) {
               updatedAt: body.createdAt ? new Date(body.createdAt) : undefined,
               displayId: currentCounter.nextNumber,
               status,
+              deviation,
               description,
               pickupAddress,
               deliveryAddress,
@@ -2285,8 +2509,8 @@ export async function POST(req: NextRequest) {
               extraWorkMinutes: importedFees.extraWorkMinutes,
               feeAddToOrder: importedFees.feeAddToOrder,
               priceExVat:
-                typeof wordpressPriceExVatCents === "number"
-                  ? Math.round(wordpressPriceExVatCents / 100)
+                typeof effectiveWordpressPriceExVatCents === "number"
+                  ? Math.round(effectiveWordpressPriceExVatCents / 100)
                   : Math.round(nativePriceExVatCents / 100),
               priceSubcontractor: Math.round(
                 nativePriceSubcontractorCents / 100,
@@ -2315,7 +2539,7 @@ export async function POST(req: NextRequest) {
           await syncWordpressPriceMismatchNotification(tx, {
             orderId: created.id,
             companyId,
-            wordpressPriceExVatCents,
+            wordpressPriceExVatCents: effectiveWordpressPriceExVatCents,
             nativePriceExVatCents,
           });
 

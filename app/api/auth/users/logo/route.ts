@@ -10,7 +10,8 @@ function isAllowedUserLogoFile(file: File): boolean {
   return (
     file.type === "image/png" ||
     file.type === "image/jpeg" ||
-    file.type === "image/webp"
+    file.type === "image/webp" ||
+    file.type === "image/svg+xml"
   );
 }
 
@@ -58,6 +59,14 @@ export async function POST(req: Request) {
   const bytes = Buffer.from(await file.arrayBuffer());
   const originalName = file.name?.trim() || "logo";
   const ext = path.extname(originalName).toLowerCase();
+  const allowedExt = [".png", ".jpg", ".jpeg", ".webp", ".svg"];
+
+  if (!allowedExt.includes(ext)) {
+    return NextResponse.json(
+      { ok: false, reason: "INVALID_FILE_EXTENSION" },
+      { status: 400 },
+    );
+  }
   const safeBaseName = path
     .basename(originalName, ext)
     .replace(/[^a-zA-Z0-9-_]/g, "_")

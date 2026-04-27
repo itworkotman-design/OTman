@@ -64,6 +64,49 @@ function buildCard(): SavedProductCard {
 }
 
 describe("buildOrderItemsFromCards", () => {
+  it("stores read-only WordPress mismatch rows with their original prices", () => {
+    const items = buildOrderItemsFromCards(
+      [
+        {
+          ...buildCard(),
+          productId: null,
+          wordpressImportReadOnly: {
+            productName: "WP Washer",
+            comment: "New system was unable to match to old price",
+            rows: [
+              {
+                label: "EXTRA PICKUP",
+                code: "EXTRAPICKUP",
+                quantity: 1,
+                priceCents: 59000,
+              },
+            ],
+          },
+        },
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          itemType: "PRODUCT_CARD",
+          productName: "WP Washer",
+          rawData: expect.objectContaining({
+            readOnly: true,
+          }),
+        }),
+        expect.objectContaining({
+          itemType: "EXTRA_OPTION",
+          optionCode: "EXTRAPICKUP",
+          optionLabel: "EXTRA PICKUP",
+          customerPriceCents: 59000,
+        }),
+      ]),
+    );
+  });
+
   it("stores discounted effective customer prices on order items", () => {
     const items = buildOrderItemsFromCards([buildCard()], [buildProduct()], []);
 

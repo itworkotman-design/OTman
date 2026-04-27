@@ -3719,11 +3719,20 @@ add_filter('acf/prepare_field/key=field_690886f3b67da', function ($field) {
     return strtolower(trim((string)$item));
 }, $allowed);
 
-if (
-    !in_array('timepris', $allowed_norm, true) &&
-    !in_array('timepris_flugger', $allowed_norm, true) &&
-    !in_array('timepris flugger', $allowed_norm, true)
-) {
+$has_timepris = false;
+
+foreach ($allowed_norm as $item) {
+    if (
+        stripos($item, 'timepris') !== false ||
+        stripos($item, 'timepris_flugger') !== false ||
+        stripos($item, 'timepris flugger') !== false
+    ) {
+        $has_timepris = true;
+        break;
+    }
+}
+
+if (!$has_timepris) {
     return false;
 }
 

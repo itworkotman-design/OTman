@@ -108,6 +108,48 @@ const automaticXtraOptions: CatalogSpecialOption[] = [
 ];
 
 describe("buildProductBreakdowns", () => {
+  it("keeps WordPress price mismatches as read-only custom price rows", () => {
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          productId: null,
+          wordpressImportReadOnly: {
+            productName: "WP Washer",
+            comment: "New system was unable to match to old price",
+            rows: [
+              {
+                label: "EXTRA PICKUP",
+                code: "EXTRAPICKUP",
+                quantity: 1,
+                priceCents: 59000,
+              },
+            ],
+          },
+        }),
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(result).toEqual([
+      {
+        productName: "WP Washer",
+        readOnly: true,
+        comment: "New system was unable to match to old price",
+        items: [
+          {
+            kind: "customPrice",
+            code: "EXTRAPICKUP",
+            label: "EXTRA PICKUP",
+            qty: 1,
+            unitPrice: 590,
+            subcontractorUnitPrice: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
   it("uses standard and XTRA indoor delivery display values", () => {
     const product = buildProduct();
     const cards = [

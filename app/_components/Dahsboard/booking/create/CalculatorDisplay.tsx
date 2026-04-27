@@ -89,7 +89,15 @@ export function CalculatorDisplayNew({
           <p className="text-sm opacity-30">No products selected.</p>
         ) : (
           result.breakdowns.map((product, productIdx) => (
-            <div key={productIdx} className="mb-4 last:mb-0">
+            <div
+              key={productIdx}
+              className={[
+                "mb-4 last:mb-0",
+                product.readOnly
+                  ? "rounded-lg border border-gray-300 bg-gray-100 p-3 text-gray-600"
+                  : "",
+              ].join(" ")}
+            >
               <h1 className="font-bold text-md mb-2">
                 {product.productName}
                 {product.productModelNumber ? (
@@ -98,6 +106,11 @@ export function CalculatorDisplayNew({
                   </span>
                 ) : null}
               </h1>
+              {product.comment ? (
+                <p className="mb-2 text-sm font-semibold text-gray-600">
+                  {product.comment}
+                </p>
+              ) : null}
 
               {product.lines.length === 0 ? (
                 <p className="text-sm opacity-30 ml-2">

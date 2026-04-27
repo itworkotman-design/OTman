@@ -391,6 +391,52 @@ describe("mapWordpressImportToProductCards", () => {
     expect(result.unresolvedServices).toHaveLength(1);
   });
 
+  it("maps return options by exact price when labels and codes do not match", () => {
+    const result = mapWordpressImportToProductCards({
+      parsedProducts: [
+        {
+          cardId: 8,
+          productName: "Washing machine",
+          quantity: 1,
+          deliveryType: "Indoor carry",
+        },
+      ],
+      parsedServices: [
+        {
+          cardId: 8,
+          productName: "Washing machine",
+          quantity: 1,
+          itemType: "RETURN_OPTION",
+          label: "Old WP return label",
+          code: "OLDRETURN",
+          priceCents: 25000,
+        },
+      ],
+      catalogProducts: products,
+      catalogSpecialOptions: [
+        {
+          id: "return-price-match",
+          type: "return",
+          code: "NEWRETURN",
+          label: "New return label",
+          description: "New return label",
+          customerPrice: "250",
+          subcontractorPrice: "0",
+          effectiveCustomerPrice: "250",
+          active: true,
+        },
+      ],
+    });
+
+    expect(result.unresolvedServices).toEqual([]);
+    expect(result.productCards).toEqual([
+      expect.objectContaining({
+        cardId: 8,
+        selectedReturnOptionId: "return-price-match",
+      }),
+    ]);
+  });
+
   it("maps hourly wordpress products into hours input cards", () => {
     const result = mapWordpressImportToProductCards({
       parsedProducts: [

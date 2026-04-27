@@ -393,6 +393,73 @@ export function ProductCardNew({
     });
   }
 
+  if (value.wordpressImportReadOnly) {
+    const totalCents = value.wordpressImportReadOnly.rows.reduce(
+      (sum, row) => sum + row.priceCents,
+      0,
+    );
+
+    return (
+      <div className="customContainer relative w-full mb-4 border border-gray-300 bg-gray-100 text-gray-600">
+        <button
+          type="button"
+          onClick={() => onRemove?.(cardId)}
+          disabled={disableRemove}
+          className={
+            "absolute top-3 right-3 text-white text-xs font-bold px-2 py-1 rounded-2xl " +
+            (disableRemove
+              ? "cursor-not-allowed"
+              : "bg-red-500/20 hover:bg-red-600 cursor-pointer")
+          }
+        >
+          X
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggle}
+          className="items-center flex-1 text-left w-full pt-6 cursor-pointer"
+        >
+          <div className="flex pb-2 mb-4">
+            <div className="w-6 h-6 bg-gray-500 text-white font-semibold flex items-center justify-center rounded-2xl mr-2">
+              <span>{shownCardNumber}</span>
+            </div>
+            <h1 className="items-center font-semibold text-gray-700 text-md">
+              {value.wordpressImportReadOnly.productName}
+            </h1>
+          </div>
+        </button>
+
+        {isExpanded && (
+          <div className="space-y-2 pb-4">
+            <p className="text-sm font-semibold">
+              {value.wordpressImportReadOnly.comment}
+            </p>
+            {value.wordpressImportReadOnly.rows.map((row, index) => (
+              <div key={index} className="priceRow">
+                <h1 className="text-sm">
+                  {row.code ? (
+                    <span className="text-gray-500 mr-1">({row.code})</span>
+                  ) : null}
+                  {row.label}
+                </h1>
+                <p className="font-semibold text-sm whitespace-nowrap">
+                  {Math.round(row.priceCents / 100)} NOK
+                </p>
+              </div>
+            ))}
+            <div className="priceRow border-t border-gray-300 pt-2">
+              <h1 className="font-bold text-sm">WP total</h1>
+              <p className="font-bold text-sm whitespace-nowrap">
+                {Math.round(totalCents / 100)} NOK
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="customContainer relative w-full mb-4">
       <button

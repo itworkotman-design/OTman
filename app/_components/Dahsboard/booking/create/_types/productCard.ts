@@ -13,6 +13,19 @@ export type ProductCardCustomSectionSelection = {
   optionIds: string[];
 };
 
+export type WordpressImportPriceRow = {
+  label: string;
+  code?: string | null;
+  quantity: number;
+  priceCents: number;
+};
+
+export type WordpressImportReadOnlySnapshot = {
+  productName: string;
+  comment: string;
+  rows: WordpressImportPriceRow[];
+};
+
 export type SavedProductCard = {
   cardId: number;
   productId: string | null;
@@ -39,6 +52,7 @@ export type SavedProductCard = {
 
   customSectionSelections: ProductCardCustomSectionSelection[];
   pricingSnapshot?: OrderPricingSnapshot | null;
+  wordpressImportReadOnly?: WordpressImportReadOnlySnapshot | null;
 };
 
 export type CatalogOption = {
@@ -113,6 +127,7 @@ export function createEmptyProductCard(cardId: number): SavedProductCard {
 
     customSectionSelections: [],
     pricingSnapshot: null,
+    wordpressImportReadOnly: null,
   };
 }
 
@@ -210,5 +225,7 @@ export function normalizeSavedProductCard(
           )
       : base.customSectionSelections,
     pricingSnapshot: value?.pricingSnapshot ?? base.pricingSnapshot,
+    wordpressImportReadOnly:
+      value?.wordpressImportReadOnly ?? base.wordpressImportReadOnly,
   };
 }

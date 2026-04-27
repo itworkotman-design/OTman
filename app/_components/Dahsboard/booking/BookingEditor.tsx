@@ -22,6 +22,7 @@ import type {
 import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
+import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import { getStartedChargeableKilometers } from "@/lib/booking/pricing/distanceCharges";
 import {
   ADD_TO_ORDER_FEE_CODE,
@@ -30,7 +31,13 @@ import {
   EXTRA_WORK_FEE_CODE,
   EXTRA_WORK_FEE_LABEL,
 } from "@/lib/booking/pricing/hardcodedFees";
+import {
+  DEVIATION_FEE_OPTIONS,
+  getDeviationFeeOption,
+  normalizeDeviationLabel,
+} from "@/lib/booking/pricing/deviationFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
+import type { ProductBreakdown } from "@/lib/booking/pricing/types";
 import {
   OrderFields,
   shown,
@@ -202,6 +209,19 @@ function parseDistanceKm(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function normalizeRouteAddress(value: string | null | undefined) {
+  return (value ?? "").trim();
+}
+
+function normalizeExtraPickupAddresses(
+  values: Array<{ address: string }> | undefined,
+) {
+  return (values ?? [])
+    .map((pickup) => normalizeRouteAddress(pickup.address))
+    .filter(Boolean)
+    .join("|");
+}
+
 function parseTimeWindowState(value: string | undefined) {
   const normalized = normalizeInitialTimeWindow(value);
 
@@ -336,6 +356,40 @@ function normalizeInitialStatus(value: string | null | undefined) {
     default:
       return normalized || "processing";
   }
+}
+
+const PROTECTED_AUTO_DISCOUNT_CODES = new Set([
+  EXTRA_WORK_FEE_CODE,
+  ADD_TO_ORDER_FEE_CODE,
+  ...DEVIATION_FEE_OPTIONS.map((option) => option.code),
+]);
+
+function isCancelledOrFailedStatus(status: string): boolean {
+  const normalized = normalizeInitialStatus(status);
+  return normalized === "cancelled" || normalized === "failed";
+}
+
+function removeProtectedAutoDiscountItems(
+  breakdowns: ProductBreakdown[],
+): ProductBreakdown[] {
+  return breakdowns
+    .map((breakdown) => ({
+      ...breakdown,
+      items: breakdown.items.filter(
+        (item) =>
+          item.kind !== "customPrice" ||
+          !PROTECTED_AUTO_DISCOUNT_CODES.has(item.code),
+      ),
+    }))
+    .filter((breakdown) => breakdown.items.length > 0);
+}
+
+function formatAutoDiscountAmount(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "";
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
 function isRecyclingReturnOption(
@@ -480,7 +534,11 @@ export default function BookingEditor({
   const [licensePlate, setLicensePlate] = useState(
     initialValues?.licensePlate ?? "",
   );
-  const [deviation, setDeviation] = useState(initialValues?.deviation ?? "");
+  const [deviation, setDeviation] = useState(
+    normalizeDeviationLabel(initialValues?.deviation) ??
+      initialValues?.deviation ??
+      "",
+  );
   const [feeExtraWork, setFeeExtraWork] = useState(
     initialValues?.feeExtraWork ?? false,
   );
@@ -656,7 +714,11 @@ export default function BookingEditor({
     setSecondDriver(initialValues.secondDriver ?? "");
     setDriverInfo(initialValues.driverInfo ?? "");
     setLicensePlate(initialValues.licensePlate ?? "");
-    setDeviation(initialValues.deviation ?? "");
+    setDeviation(
+      normalizeDeviationLabel(initialValues.deviation) ??
+        initialValues.deviation ??
+        "",
+    );
     setFeeExtraWork(initialValues.feeExtraWork ?? false);
     setExtraWorkMinutes(initialValues.extraWorkMinutes ?? 0);
     setFeeAddToOrder(initialValues.feeAddToOrder ?? false);
@@ -797,6 +859,43 @@ export default function BookingEditor({
     ],
   );
 
+  const importedWordpressRouteChanged = useMemo(() => {
+    if (!initialValues?.legacyWordpressOrderId) {
+      return true;
+    }
+
+    return (
+      normalizeRouteAddress(pickupAddress) !==
+        normalizeRouteAddress(initialValues.pickupAddress) ||
+      normalizeRouteAddress(deliveryAddress) !==
+        normalizeRouteAddress(initialValues.deliveryAddress) ||
+      normalizeRouteAddress(returnAddress) !==
+        normalizeRouteAddress(initialValues.returnAddress) ||
+      normalizeExtraPickupAddresses(extraPickups) !==
+        normalizeExtraPickupAddresses(initialValues.extraPickups)
+    );
+  }, [
+    deliveryAddress,
+    extraPickups,
+    initialValues?.deliveryAddress,
+    initialValues?.extraPickups,
+    initialValues?.legacyWordpressOrderId,
+    initialValues?.pickupAddress,
+    initialValues?.returnAddress,
+    pickupAddress,
+    returnAddress,
+  ]);
+
+  const importedWordpressDistanceChanged =
+    Boolean(initialValues?.legacyWordpressOrderId) &&
+    normalizeRouteAddress(drivingDistance) !==
+      normalizeRouteAddress(initialValues?.drivingDistance);
+
+  const shouldUseNativeDistancePricing =
+    !initialValues?.legacyWordpressOrderId ||
+    importedWordpressRouteChanged ||
+    importedWordpressDistanceChanged;
+
   const productBreakdowns = useMemo(
     () =>
       buildProductBreakdowns(
@@ -805,6 +904,7 @@ export default function BookingEditor({
         pricingSource.catalogSpecialOptions,
         {
           zeroBaseDeliveryPricesOver100Km:
+            shouldUseNativeDistancePricing &&
             parseDistanceKm(drivingDistance) > 100,
         },
       ),
@@ -813,6 +913,7 @@ export default function BookingEditor({
       pricingSource.catalogProducts,
       pricingSource.catalogSpecialOptions,
       drivingDistance,
+      shouldUseNativeDistancePricing,
     ],
   );
 
@@ -825,7 +926,9 @@ export default function BookingEditor({
       qty: number;
       unitPrice: number;
     }> = [];
-    const totalDistanceKm = parseDistanceKm(drivingDistance);
+    const totalDistanceKm = shouldUseNativeDistancePricing
+      ? parseDistanceKm(drivingDistance)
+      : 0;
     const chargeableDistanceKm =
       getStartedChargeableKilometers(totalDistanceKm);
     const kmFrom21Qty =
@@ -843,6 +946,7 @@ export default function BookingEditor({
     const extraWorkFee = feeExtraWork
       ? calculateExtraWorkFee(extraWorkMinutes)
       : { blocks: 0, price: 0 };
+    const deviationFee = getDeviationFeeOption(deviation);
 
     const expressDeliveryPrice = Number(
       pricingSource.priceListSettings.expressDelivery.price.replace(",", "."),
@@ -855,6 +959,27 @@ export default function BookingEditor({
         label: pricingSource.priceListSettings.expressDelivery.description,
         qty: 1,
         unitPrice: expressDeliveryPrice,
+      });
+    }
+
+    const extraPickupCount = extraPickups.filter(
+      (pickup) => pickup.address.trim().length > 0,
+    ).length;
+    const extraPickupPrice = Number(
+      pricingSource.priceListSettings.extraPickup.price.replace(",", "."),
+    );
+
+    if (
+      extraPickupCount > 0 &&
+      shouldUseNativeDistancePricing &&
+      Number.isFinite(extraPickupPrice)
+    ) {
+      extraItems.push({
+        kind: "customPrice",
+        code: pricingSource.priceListSettings.extraPickup.code,
+        label: pricingSource.priceListSettings.extraPickup.description,
+        qty: extraPickupCount,
+        unitPrice: extraPickupPrice,
       });
     }
 
@@ -875,6 +1000,16 @@ export default function BookingEditor({
         label: pricingSource.priceListSettings.kmOver100.description,
         qty: kmOver100Qty,
         unitPrice: kmOver100Price,
+      });
+    }
+
+    if (deviationFee) {
+      extraItems.push({
+        kind: "customPrice",
+        code: deviationFee.code,
+        label: deviationFee.englishLabel,
+        qty: 1,
+        unitPrice: deviationFee.price,
       });
     }
 
@@ -907,6 +1042,7 @@ export default function BookingEditor({
 
     return nextBreakdowns;
   }, [
+    deviation,
     drivingDistance,
     expressDelivery,
     extraWorkMinutes,
@@ -915,6 +1051,9 @@ export default function BookingEditor({
     pricingSource.priceListSettings.expressDelivery.code,
     pricingSource.priceListSettings.expressDelivery.description,
     pricingSource.priceListSettings.expressDelivery.price,
+    pricingSource.priceListSettings.extraPickup.code,
+    pricingSource.priceListSettings.extraPickup.description,
+    pricingSource.priceListSettings.extraPickup.price,
     pricingSource.priceListSettings.kmFrom21.code,
     pricingSource.priceListSettings.kmFrom21.description,
     pricingSource.priceListSettings.kmFrom21.price,
@@ -922,6 +1061,8 @@ export default function BookingEditor({
     pricingSource.priceListSettings.kmOver100.description,
     pricingSource.priceListSettings.kmOver100.price,
     productBreakdowns,
+    extraPickups,
+    shouldUseNativeDistancePricing,
   ]);
 
   const priceLookup = useMemo(
@@ -932,6 +1073,27 @@ export default function BookingEditor({
       ),
     [pricingSource.catalogProducts, pricingSource.catalogSpecialOptions],
   );
+
+  const automaticStatusDiscount = useMemo(() => {
+    if (!isCancelledOrFailedStatus(status)) {
+      return "";
+    }
+
+    const discountableBreakdowns =
+      removeProtectedAutoDiscountItems(calculatorBreakdowns);
+    const result = calculateBookingPricing({
+      productBreakdowns: discountableBreakdowns,
+      priceLookup,
+      adjustments: {
+        rabatt: "",
+        leggTil,
+        subcontractorMinus: "",
+        subcontractorPlus: "",
+      },
+    });
+
+    return formatAutoDiscountAmount(result.totals.totalExVat);
+  }, [calculatorBreakdowns, leggTil, priceLookup, status]);
 
   const isInstallationOnly = useMemo(
     () =>
@@ -1224,6 +1386,14 @@ export default function BookingEditor({
   }, [currentPricingSnapshot]);
 
   useEffect(() => {
+    if (!isCancelledOrFailedStatus(status) || rabatt === automaticStatusDiscount) {
+      return;
+    }
+
+    setRabatt(automaticStatusDiscount);
+  }, [automaticStatusDiscount, rabatt, status]);
+
+  useEffect(() => {
     if (!shouldShowReturnAddress && returnAddress) {
       setReturnAddress("");
     }
@@ -1293,11 +1463,10 @@ export default function BookingEditor({
   }, [floorNo, lift]);
 
   useEffect(() => {
-    const isImportedWordpressOrder = Boolean(
-      initialValues?.legacyWordpressOrderId,
-    );
-
-    if (isImportedWordpressOrder) {
+    if (
+      initialValues?.legacyWordpressOrderId &&
+      !importedWordpressRouteChanged
+    ) {
       return;
     }
 
@@ -1372,6 +1541,7 @@ export default function BookingEditor({
   }, [
     deliveryAddress,
     extraPickups,
+    importedWordpressRouteChanged,
     initialValues?.legacyWordpressOrderId,
     pickupAddress,
     returnAddress,

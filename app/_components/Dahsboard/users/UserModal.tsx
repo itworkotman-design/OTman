@@ -327,14 +327,23 @@ export default function UserModal({
               <div className="mb-4 rounded-lg border border-lineSecondary p-4">
                 {logoPreviewUrl ? (
                   <div className="mb-3 flex items-center gap-3">
-                    <Image
-                      src={logoPreviewUrl}
-                      alt="User logo preview"
-                      width={56}
-                      height={56}
-                      className="h-14 w-14 object-contain"
-                      unoptimized={logoPreviewUrl.startsWith("blob:")}
-                    />
+                    {logoPreviewUrl.endsWith(".svg") ||
+                    logoPreviewUrl.startsWith("blob:") ? (
+                      <img
+                        src={logoPreviewUrl}
+                        alt="User logo preview"
+                        className="h-14 w-14 object-contain"
+                      />
+                    ) : (
+                      <Image
+                        src={logoPreviewUrl}
+                        alt="User logo preview"
+                        width={56}
+                        height={56}
+                        className="h-14 w-14 object-contain"
+                        unoptimized={logoPreviewUrl.startsWith("blob:")}
+                      />
+                    )}
                     <button
                       type="button"
                       className="customButtonDefault"
@@ -352,7 +361,7 @@ export default function UserModal({
 
                 <input
                   type="file"
-                  accept="image/png,image/jpeg,image/webp"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
                   onChange={handleLogoChange}
                   disabled={!canEditTarget}
                 />

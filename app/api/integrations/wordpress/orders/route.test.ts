@@ -667,6 +667,55 @@ describe("POST /api/integrations/wordpress/orders", () => {
     });
   });
 
+  it("normalizes wordpress deviations and discounts failed orders except protected fees", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 9994,
+          legacyWordpressUserId: 15,
+          status: "failed",
+          meta: {
+            bestillingsnr: "PO-9994",
+            kundens_navn: "WordPress Customer",
+            field_682e0baebb080:
+              "590:Avvik, bomtur; Kunde ikke hjemme:NOTHOME",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>Avvik, bomtur; Kunde ikke hjemme (NOTHOME)</strong></span>
+                  <span class="price-breakdown-price">590 NOK</span>
+                </div>
+                <div class="price-breakdown-row total-highlight">
+                  <span class="price-breakdown-label"><strong>Total</strong></span>
+                  <span class="price-breakdown-price">1590 NOK</span>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        deviation: "Deviation, missed trip; Customer not at home",
+        rabatt: "1000",
+        priceExVat: 590,
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+  });
+
   it("fills missing Andre produkter delivery type from the breakdown and keeps quantity-based cards at quantity 1", async () => {
     mocks.getBookingCatalogMock.mockResolvedValue({
       products: [
@@ -1047,6 +1096,10 @@ describe("POST /api/integrations/wordpress/orders", () => {
                   <span class="price-breakdown-label"><strong>KM pris</strong></span>
                   <span class="price-breakdown-price">27 NOK</span>
                 </div>
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>EXTRA PICKUP (EXTRAPICKUP) x1</strong></span>
+                  <span class="price-breakdown-price">590 NOK</span>
+                </div>
                 <div class="price-summary">
                   <div class="price-breakdown-row total-highlight">
                     <span class="price-breakdown-label"><strong>Total</strong></span>
@@ -1065,6 +1118,23 @@ describe("POST /api/integrations/wordpress/orders", () => {
       data: expect.objectContaining({
         leggTil: undefined,
         priceExVat: 1536,
+        productCardsSnapshot: expect.arrayContaining([
+          expect.objectContaining({
+            wordpressImportReadOnly: expect.objectContaining({
+              productName: "WordPress order prices",
+              rows: expect.arrayContaining([
+                expect.objectContaining({
+                  label: expect.stringContaining("EXTRA PICKUP"),
+                  priceCents: 59000,
+                }),
+                expect.objectContaining({
+                  label: "KM pris",
+                  priceCents: 2700,
+                }),
+              ]),
+            }),
+          }),
+        ]),
       }),
       select: {
         id: true,
@@ -1079,6 +1149,114 @@ describe("POST /api/integrations/wordpress/orders", () => {
             code: "EXTRAPICKUP",
           }),
         ]),
+      }),
+    );
+  });
+
+  it("keeps extra pickup as a global wordpress price when it appears after a product group", async () => {
+    mocks.calculateBookingPricingMock
+      .mockReturnValueOnce({
+        totals: {
+          totalExVat: 1509,
+          subcontractorTotal: 0,
+        },
+      })
+      .mockReturnValue({
+        totals: {
+          totalExVat: 2099,
+          subcontractorTotal: 0,
+        },
+      });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10012,
+          legacyWordpressUserId: 18,
+          status: "Bekreftet",
+          meta: {
+            bestillingsnr: "11340837253",
+            kundens_navn: "Mathias Hollen",
+            total_price: "2099",
+            extra_pickup_locations: "1",
+            extra_pickup_locations_0_pickup:
+              "POWER Grunerlokka, Sannergata 2, 0557 Oslo, Norway",
+            extra_products_0_velg_produkt: "Vaskemaskin",
+            extra_products_0_velg_leveringstype: "669:Innbaring:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            extra_products_0_retur: "250:Retur til gjenvinning:RETURNREC",
+            extra_products_0_montering_av_vaskemaskin: [
+              "590:Montering av vaskemaskin pa vatrom:INSWASH1",
+            ],
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Vaskemaskin</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Montering av vaskemaskin pa vatrom (INSWASH1)</span>
+                    <span class="price-breakdown-price">590 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Retur til gjenvinning (RETURNREC)</span>
+                    <span class="price-breakdown-price">250 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Innbaring (INDOOR)</span>
+                    <span class="price-breakdown-price">669 NOK</span>
+                  </div>
+                </div>
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>EXTRA PICKUP (EXTRAPICKUP) x1</strong></span>
+                  <span class="price-breakdown-price">590 NOK</span>
+                </div>
+                <hr>
+                <div class="price-summary">
+                  <div class="price-breakdown-row total-highlight">
+                    <span class="price-breakdown-label"><strong>Total</strong></span>
+                    <span class="price-breakdown-price">2099.00 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const createCall = mocks.orderCreateMock.mock.calls[0]?.[0];
+    expect(createCall?.data).toEqual(
+      expect.objectContaining({
+        priceExVat: 2099,
+        extraPickupAddress: [
+          "POWER Grunerlokka, Sannergata 2, 0557 Oslo, Norway",
+        ],
+      }),
+    );
+    expect(createCall?.data.productCardsSnapshot[0]).toEqual(
+      expect.objectContaining({
+        productId: "product-1",
+      }),
+    );
+    expect(
+      createCall?.data.productCardsSnapshot[0].wordpressImportReadOnly,
+    ).toBeUndefined();
+    expect(createCall?.data.productCardsSnapshot[1]).toEqual(
+      expect.objectContaining({
+        wordpressImportReadOnly: expect.objectContaining({
+          productName: "WordPress order prices",
+          rows: expect.arrayContaining([
+            expect.objectContaining({
+              code: "EXTRAPICKUP",
+              priceCents: 59000,
+            }),
+          ]),
+        }),
       }),
     );
   });

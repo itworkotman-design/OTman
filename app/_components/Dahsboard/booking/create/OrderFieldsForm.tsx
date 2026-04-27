@@ -14,6 +14,7 @@ import {
   type AttachmentCategory,
   type AttachmentItem,
 } from "@/lib/orders/attachmentCategories";
+import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 
 const CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
@@ -812,16 +813,11 @@ export default function OrderFieldsForm({
             className="customInput w-full"
           >
             <option value="">Choose</option>
-            <option>Deviation, missed trip; Customer not at home</option>
-            <option>Deviation, dead end; Customer cancelled</option>
-            <option>Deviation, missed delivery; Damaged goods</option>
-            <option>Deviation, delivery toll stairs; Wrong item</option>
-            <option>Deviation, toll; Wrong address</option>
-            <option>Deviation, toll trip; New driving date</option>
-            <option>
-              Deviation, missed trip; Warehouse cannot find the product
-            </option>
-            <option>Deviation, toll trip; Cancelled the day before</option>
+            {DEVIATION_FEE_OPTIONS.map((option) => (
+              <option key={option.code} value={option.englishLabel}>
+                {option.englishLabel}
+              </option>
+            ))}
           </select>
         </>
       )}

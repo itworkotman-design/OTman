@@ -29,6 +29,7 @@ export type WordpressParsedService = {
   itemType: "INSTALL_OPTION" | "RETURN_OPTION" | "EXTRA_OPTION";
   label: string;
   code?: string;
+  priceCents?: number;
 };
 
 export type ResolvedWordpressService = WordpressParsedService & {
@@ -134,6 +135,13 @@ function decimalStringToCents(value: string | null | undefined): number | null {
   const parsed = Number(value.replace(",", "."));
   if (!Number.isFinite(parsed)) return null;
   return Math.round(parsed * 100);
+}
+
+function getEffectiveCustomerPriceCents(option: {
+  customerPrice: string;
+  effectiveCustomerPrice?: string;
+}): number | null {
+  return decimalStringToCents(option.effectiveCustomerPrice ?? option.customerPrice);
 }
 
 function pushUnique(target: string[], value: string | null | undefined) {
@@ -257,6 +265,24 @@ function findSpecialOption(
   }
 
   return null;
+}
+
+function findReturnSpecialOptionByPrice(
+  catalogSpecialOptions: CatalogSpecialOption[],
+  priceCents: number | undefined,
+): CatalogSpecialOption | null {
+  if (typeof priceCents !== "number") {
+    return null;
+  }
+
+  return (
+    catalogSpecialOptions.find(
+      (specialOption) =>
+        specialOption.active &&
+        isReturnSpecialOption(specialOption.type) &&
+        getEffectiveCustomerPriceCents(specialOption) === priceCents,
+    ) ?? null
+  );
 }
 
 function findCustomSectionOption(
@@ -416,6 +442,25 @@ function resolveService(
         optionLabel: specialOption.label,
         customerPrice: specialOption.customerPrice,
         subcontractorPrice: specialOption.subcontractorPrice,
+      });
+    }
+  }
+
+  if (service.itemType === "RETURN_OPTION") {
+    const returnOption = findReturnSpecialOptionByPrice(
+      catalogSpecialOptions,
+      service.priceCents,
+    );
+
+    if (returnOption) {
+      return buildResolvedService({
+        service,
+        resolvedItemType: "RETURN_OPTION",
+        optionId: returnOption.id,
+        optionCode: returnOption.code,
+        optionLabel: returnOption.label,
+        customerPrice: returnOption.customerPrice,
+        subcontractorPrice: returnOption.subcontractorPrice,
       });
     }
   }

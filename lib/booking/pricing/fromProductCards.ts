@@ -504,7 +504,25 @@ export function buildProductBreakdowns(
   const zeroBaseDeliveryPricesOver100Km =
     options?.zeroBaseDeliveryPricesOver100Km ?? false;
 
-  return cards.flatMap((card) => {
+  return cards.flatMap<ProductBreakdown>((card) => {
+    if (card.wordpressImportReadOnly) {
+      return [
+        {
+          productName: card.wordpressImportReadOnly.productName,
+          readOnly: true,
+          comment: card.wordpressImportReadOnly.comment,
+          items: card.wordpressImportReadOnly.rows.map((row) => ({
+            kind: "customPrice" as const,
+            code: row.code ?? "WP_PRICE",
+            label: row.label,
+            qty: row.quantity,
+            unitPrice: row.priceCents / 100,
+            subcontractorUnitPrice: 0,
+          })),
+        },
+      ];
+    }
+
     if (!card.productId) return [];
 
     const product =

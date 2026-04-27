@@ -115,6 +115,53 @@ export function buildOrderItemsFromCards(
   const items: BuiltOrderItem[] = [];
 
   for (const card of productCards) {
+    if (card.wordpressImportReadOnly) {
+      items.push({
+        cardId: card.cardId,
+        productId: null,
+        productCode: null,
+        productName: card.wordpressImportReadOnly.productName,
+        deliveryType: null,
+        itemType: "PRODUCT_CARD",
+        optionId: null,
+        optionCode: null,
+        optionLabel: null,
+        quantity: 1,
+        customerPriceCents: null,
+        subcontractorPriceCents: null,
+        rawData: {
+          source: "wordpress_sync",
+          readOnly: true,
+          comment: card.wordpressImportReadOnly.comment,
+        },
+      });
+
+      for (const row of card.wordpressImportReadOnly.rows) {
+        items.push({
+          cardId: card.cardId,
+          productId: null,
+          productCode: null,
+          productName: card.wordpressImportReadOnly.productName,
+          deliveryType: null,
+          itemType: "EXTRA_OPTION",
+          optionId: null,
+          optionCode: row.code ?? null,
+          optionLabel: row.label,
+          quantity: row.quantity,
+          customerPriceCents: row.priceCents,
+          subcontractorPriceCents: null,
+          rawData: {
+            source: "wordpress_sync",
+            readOnly: true,
+            label: row.label,
+            code: row.code ?? null,
+          },
+        });
+      }
+
+      continue;
+    }
+
     const product =
       catalogProducts.find((p) => p.id === card.productId) ?? null;
     const deliveryTypeLabel =
