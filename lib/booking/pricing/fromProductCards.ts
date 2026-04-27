@@ -1,18 +1,7 @@
-import type {
-  CatalogProduct,
-  CatalogSpecialOption,
-  SavedProductCard,
-} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import type { CatalogProduct, CatalogSpecialOption, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
-import {
-  getProductDeliveryTypeCode,
-  getProductDeliveryTypeLabel,
-  getProductDeliveryTypePrice,
-} from "@/lib/products/deliveryTypes";
-import type {
-  ProductBreakdown,
-  ProductCardLineItem,
-} from "@/lib/booking/pricing/types";
+import { getProductDeliveryTypeCode, getProductDeliveryTypeLabel, getProductDeliveryTypePrice } from "@/lib/products/deliveryTypes";
+import type { ProductBreakdown, ProductCardLineItem } from "@/lib/booking/pricing/types";
 import {
   isInstallOption,
   isReturnOption,
@@ -32,70 +21,39 @@ const PALLET_EXTRA_UNIT_PRICE = 250;
 
 type BuildProductBreakdownsOptions = {
   zeroBaseDeliveryPricesOver100Km?: boolean;
+  forcedXtraDeliveryCardIds?: Set<number>;
 };
-
-function findXtraSpecialOption(catalogSpecialOptions: CatalogSpecialOption[]) {
-  return (
-    catalogSpecialOptions.find((o) => o.active && o.type === "xtra") ?? null
-  );
-}
 
 function normalizeAutomaticXtraText(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
 
 function isFirstStepAutomaticXtra(option: CatalogSpecialOption) {
-  const signal = [
-    normalizeAutomaticXtraText(option.code),
-    normalizeAutomaticXtraText(option.label),
-    normalizeAutomaticXtraText(option.description),
-  ].join(" ");
+  const signal = [normalizeAutomaticXtraText(option.code), normalizeAutomaticXtraText(option.label), normalizeAutomaticXtraText(option.description)].join(" ");
 
-  return (
-    signal.includes("first_step") ||
-    signal.includes("first step") ||
-    signal.includes("levering") ||
-    signal.includes("delivery")
-  );
+  return signal.includes("first_step") || signal.includes("first step") || signal.includes("levering") || signal.includes("delivery");
 }
 
-function findAutomaticXtraSpecialOption(params: {
-  catalogSpecialOptions: CatalogSpecialOption[];
-  deliveryType: SavedProductCard["deliveryType"];
-}) {
+function findAutomaticXtraSpecialOption(params: { catalogSpecialOptions: CatalogSpecialOption[]; deliveryType: SavedProductCard["deliveryType"] }) {
   const { catalogSpecialOptions, deliveryType } = params;
-  const activeXtraOptions = catalogSpecialOptions.filter(
-    (option) => option.active && option.type === "xtra",
-  );
+  const activeXtraOptions = catalogSpecialOptions.filter((option) => option.active && option.type === "xtra");
 
   if (activeXtraOptions.length === 0) {
     return null;
   }
 
   if (deliveryType === DELIVERY_TYPES.FIRST_STEP) {
-    return (
-      activeXtraOptions.find((option) => isFirstStepAutomaticXtra(option)) ??
-      activeXtraOptions[0]
-    );
+    return activeXtraOptions.find((option) => isFirstStepAutomaticXtra(option)) ?? activeXtraOptions[0];
   }
 
-  return (
-    activeXtraOptions.find((option) => !isFirstStepAutomaticXtra(option)) ??
-    activeXtraOptions[0]
-  );
+  return activeXtraOptions.find((option) => !isFirstStepAutomaticXtra(option)) ?? activeXtraOptions[0];
 }
 
-function shouldUseXtraDeliveryPricing(
-  xtraDeliveryCardIds: Set<number>,
-  currentCardId: number,
-) {
+function shouldUseXtraDeliveryPricing(xtraDeliveryCardIds: Set<number>, currentCardId: number) {
   return xtraDeliveryCardIds.has(currentCardId);
 }
 
-function usesSharedDeliveryPricing(
-  card: SavedProductCard,
-  product: CatalogProduct,
-) {
+function usesSharedDeliveryPricing(card: SavedProductCard, product: CatalogProduct) {
   if (!product.allowDeliveryTypes) {
     return false;
   }
@@ -125,20 +83,14 @@ function shouldZeroBaseDeliveryPrice(
   );
 }
 
-function getXtraDeliveryCardIds(
-  cards: SavedProductCard[],
-  catalogProducts: CatalogProduct[],
-) {
+function getXtraDeliveryCardIds(cards: SavedProductCard[], catalogProducts: CatalogProduct[]) {
   const candidates = cards
     .map((card, index) => {
       if (!card.productId) {
         return null;
       }
 
-      const product =
-        catalogProducts.find(
-          (item) => item.id === card.productId && item.active,
-        ) ?? null;
+      const product = catalogProducts.find((item) => item.id === card.productId && item.active) ?? null;
 
       if (!product || !usesSharedDeliveryPricing(card, product)) {
         return null;
@@ -164,31 +116,19 @@ function getXtraDeliveryCardIds(
   for (const candidate of candidates.slice(1)) {
     if (
       candidate.standardPrice > mainCandidate.standardPrice ||
-      (candidate.standardPrice === mainCandidate.standardPrice &&
-        candidate.index < mainCandidate.index)
+      (candidate.standardPrice === mainCandidate.standardPrice && candidate.index < mainCandidate.index)
     ) {
       mainCandidate = candidate;
     }
   }
 
-  return new Set(
-    candidates
-      .filter((candidate) => candidate.cardId !== mainCandidate.cardId)
-      .map((candidate) => candidate.cardId),
-  );
+  return new Set(candidates.filter((candidate) => candidate.cardId !== mainCandidate.cardId).map((candidate) => candidate.cardId));
 }
 
-function findSelectedReturnSpecialOption(
-  catalogSpecialOptions: CatalogSpecialOption[],
-  selectedReturnOptionId: string | null,
-) {
+function findSelectedReturnSpecialOption(catalogSpecialOptions: CatalogSpecialOption[], selectedReturnOptionId: string | null) {
   if (!selectedReturnOptionId) return null;
 
-  return (
-    catalogSpecialOptions.find(
-      (o) => o.active && o.type === "return" && o.id === selectedReturnOptionId,
-    ) ?? null
-  );
+  return catalogSpecialOptions.find((o) => o.active && o.type === "return" && o.id === selectedReturnOptionId) ?? null;
 }
 
 function findBaseProductOption(product: CatalogProduct) {
@@ -207,11 +147,7 @@ function findBaseProductOption(product: CatalogProduct) {
 }
 
 function findDemontOption(product: CatalogProduct) {
-  return (
-    product.options.find(
-      (option) => normalizedUpper(option.code) === OPTION_CODES.DEMONT,
-    ) ?? null
-  );
+  return product.options.find((option) => normalizedUpper(option.code) === OPTION_CODES.DEMONT) ?? null;
 }
 
 function getAmount(card: SavedProductCard, product: CatalogProduct) {
@@ -227,16 +163,9 @@ function getHoursInput(card: SavedProductCard, product: CatalogProduct) {
   return Math.max(0.5, card.hoursInput || 1);
 }
 
-function appendCustomSectionItems(
-  items: ProductCardLineItem[],
-  card: SavedProductCard,
-  product: CatalogProduct,
-  qty: number,
-) {
+function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProductCard, product: CatalogProduct, qty: number) {
   for (const selection of card.customSectionSelections) {
-    const section = product.customSections.find(
-      (item) => item.id === selection.sectionId,
-    );
+    const section = product.customSections.find((item) => item.id === selection.sectionId);
     if (!section) continue;
 
     for (const optionId of selection.optionIds) {
@@ -269,23 +198,12 @@ function buildItemsForCard(
   const amount = getAmount(card, product);
   const hoursInput = getHoursInput(card, product);
   const showInstallOptions =
-    product.allowInstallOptions &&
-    (!product.allowDeliveryTypes ||
-      showsInstallOptions(card.deliveryType) ||
-      card.selectedInstallOptionIds.length > 0);
+    product.allowInstallOptions && (!product.allowDeliveryTypes || showsInstallOptions(card.deliveryType) || card.selectedInstallOptionIds.length > 0);
   const showReturnOptions =
-    product.allowReturnOptions &&
-    (!product.allowDeliveryTypes ||
-      showsReturnOptions(card.deliveryType) ||
-      !!card.selectedReturnOptionId);
+    product.allowReturnOptions && (!product.allowDeliveryTypes || showsReturnOptions(card.deliveryType) || !!card.selectedReturnOptionId);
   const installSelected = card.selectedInstallOptionIds.length > 0;
-  const showExtras =
-    product.allowExtraServices &&
-    (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType)) &&
-    !installSelected;
-  const showDemont =
-    product.allowDemont &&
-    (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType));
+  const showExtras = product.allowExtraServices && (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType)) && !installSelected;
+  const showDemont = product.allowDemont && (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType));
   const demontOption = findDemontOption(product);
   const baseProductOption = findBaseProductOption(product);
 
@@ -301,26 +219,15 @@ function buildItemsForCard(
       deliveryTypes: product.deliveryTypes,
       key: card.deliveryType,
     });
-    const deliveryTypeCode = getProductDeliveryTypeCode(
-      product.deliveryTypes,
-      card.deliveryType,
-    );
-    const deliveryTypeLabel = getProductDeliveryTypeLabel(
-      product.deliveryTypes,
-      card.deliveryType,
-    );
+    const deliveryTypeCode = getProductDeliveryTypeCode(product.deliveryTypes, card.deliveryType);
+    const deliveryTypeLabel = getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType);
 
     items.push({
       kind: "deliveryType",
-      code:
-        xtraDeliveryPrice !== undefined ? OPTION_CODES.XTRA : deliveryTypeCode,
+      code: xtraDeliveryPrice !== undefined ? OPTION_CODES.XTRA : deliveryTypeCode,
       label: deliveryTypeLabel,
       qty: 1,
-      unitPrice: shouldZeroBaseDeliveryPrice(
-        card.deliveryType,
-        useXtraDeliveryPricing,
-        zeroBaseDeliveryPricesOver100Km,
-      )
+      unitPrice: shouldZeroBaseDeliveryPrice(card.deliveryType, useXtraDeliveryPricing, zeroBaseDeliveryPricesOver100Km)
         ? 0
         : (xtraDeliveryPrice ?? standardDeliveryPrice),
     });
@@ -359,36 +266,28 @@ function buildItemsForCard(
     }
 
     if (showReturnOptions && card.selectedReturnOptionId) {
-  const selectedReturn = findSelectedReturnSpecialOption(
-    catalogSpecialOptions,
-    card.selectedReturnOptionId,
-  );
+      const selectedReturn = findSelectedReturnSpecialOption(catalogSpecialOptions, card.selectedReturnOptionId);
 
-  if (!selectedReturn) {
-    return items;
-  }
+      if (!selectedReturn) {
+        return items;
+      }
 
-  const forcePriceReturnOption =
-    card.deliveryType === DELIVERY_TYPES.RETURN_ONLY && useXtraDeliveryPricing;
+      const forcePriceReturnOption = card.deliveryType === DELIVERY_TYPES.RETURN_ONLY && useXtraDeliveryPricing;
 
-  if (shouldPriceReturnOption(card.deliveryType) || forcePriceReturnOption) {
-    items.push({
-      kind: "productOption",
-      productOptionId: selectedReturn.id,
-      qty: amount,
-    });
-  } else {
-    items.push({
-      kind: "info",
-      label:
-        selectedReturn.description ||
-        selectedReturn.label ||
-        selectedReturn.code ||
-        "Return",
-      qty: amount,
-    });
-  }
-}
+      if (shouldPriceReturnOption(card.deliveryType) || forcePriceReturnOption) {
+        items.push({
+          kind: "productOption",
+          productOptionId: selectedReturn.id,
+          qty: amount,
+        });
+      } else {
+        items.push({
+          kind: "info",
+          label: selectedReturn.description || selectedReturn.label || selectedReturn.code || "Return",
+          qty: amount,
+        });
+      }
+    }
     appendCustomSectionItems(items, card, product, 1);
     return items;
   }
@@ -410,11 +309,7 @@ function buildItemsForCard(
       });
     }
 
-    if (
-      amount > 1 &&
-      ((showInstallOptions && card.selectedInstallOptionIds.length > 0) ||
-        (!product.allowInstallOptions && !!baseProductOption))
-    ) {
+    if (amount > 1 && ((showInstallOptions && card.selectedInstallOptionIds.length > 0) || (!product.allowInstallOptions && !!baseProductOption))) {
       items.push({
         kind: "customPrice",
         code: PALLET_EXTRA_CODE,
@@ -457,18 +352,13 @@ function buildItemsForCard(
   }
 
   if (showReturnOptions && card.selectedReturnOptionId) {
-    const selectedReturn = findSelectedReturnSpecialOption(
-      catalogSpecialOptions,
-      card.selectedReturnOptionId,
-    );
+    const selectedReturn = findSelectedReturnSpecialOption(catalogSpecialOptions, card.selectedReturnOptionId);
 
     if (!selectedReturn) {
       return items;
     }
 
-    const forcePriceReturnOption =
-      card.deliveryType === DELIVERY_TYPES.RETURN_ONLY &&
-      useXtraDeliveryPricing;
+    const forcePriceReturnOption = card.deliveryType === DELIVERY_TYPES.RETURN_ONLY && useXtraDeliveryPricing;
 
     if (shouldPriceReturnOption(card.deliveryType) || forcePriceReturnOption) {
       items.push({
@@ -479,11 +369,7 @@ function buildItemsForCard(
     } else {
       items.push({
         kind: "info",
-        label:
-          selectedReturn.description ||
-          selectedReturn.label ||
-          selectedReturn.code ||
-          "Return",
+        label: selectedReturn.description || selectedReturn.label || selectedReturn.code || "Return",
         qty: amount,
       });
     }
@@ -500,9 +386,11 @@ export function buildProductBreakdowns(
   catalogSpecialOptions: CatalogSpecialOption[],
   options?: BuildProductBreakdownsOptions,
 ): ProductBreakdown[] {
-  const xtraDeliveryCardIds = getXtraDeliveryCardIds(cards, catalogProducts);
-  const zeroBaseDeliveryPricesOver100Km =
-    options?.zeroBaseDeliveryPricesOver100Km ?? false;
+  const automaticXtraDeliveryCardIds = getXtraDeliveryCardIds(cards, catalogProducts);
+  const forcedXtraDeliveryCardIds = options?.forcedXtraDeliveryCardIds ?? new Set<number>();
+
+  const xtraDeliveryCardIds = new Set([...automaticXtraDeliveryCardIds, ...forcedXtraDeliveryCardIds]);
+  const zeroBaseDeliveryPricesOver100Km = options?.zeroBaseDeliveryPricesOver100Km ?? false;
 
   return cards.flatMap<ProductBreakdown>((card) => {
     if (card.wordpressImportReadOnly) {
@@ -525,21 +413,14 @@ export function buildProductBreakdowns(
 
     if (!card.productId) return [];
 
-    const product =
-      catalogProducts.find((p) => p.id === card.productId && p.active) ?? null;
+    const product = catalogProducts.find((p) => p.id === card.productId && p.active) ?? null;
 
     if (!product) return [];
 
     return [
       {
-        productName:
-          product.productType === "LABOR"
-            ? `${product.label} (${getHoursInput(card, product)} h)`
-            : product.label,
-        productModelNumber:
-          product.allowModelNumber && card.modelNumber.trim()
-            ? card.modelNumber.trim()
-            : null,
+        productName: product.productType === "LABOR" ? `${product.label} (${getHoursInput(card, product)} h)` : product.label,
+        productModelNumber: product.allowModelNumber && card.modelNumber.trim() ? card.modelNumber.trim() : null,
         items: buildItemsForCard(
           card,
           product,

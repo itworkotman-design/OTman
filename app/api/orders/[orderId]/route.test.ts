@@ -101,7 +101,7 @@ describe("routes in /api/orders/[orderId]", () => {
     });
     mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
     mocks.orderUpdateMock.mockResolvedValue({ id: "order-1" });
-    mocks.transactionMock.mockImplementation(async (callback: any) =>
+    mocks.transactionMock.mockImplementation(async (callback) =>
       callback({
         order: {
           update: mocks.orderUpdateMock,

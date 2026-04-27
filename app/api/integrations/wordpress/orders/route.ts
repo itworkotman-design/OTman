@@ -607,6 +607,27 @@ const isDeliveryTypeRow = (row: ParsedBreakdownRow): boolean => {
   return /kun\s+installasjon|kun\s+installasjon\/?montering|kun\s+montering/i.test(row.label);
 };
 
+const getForcedXtraDeliveryCardIds = (
+  meta: Record<string, unknown>,
+  productCards: ReturnType<typeof mapWordpressImportToProductCards>["productCards"],
+): Set<number> => {
+  const groups = parseBreakdownGroups(asString(meta.price_breakdown_html));
+  const cardIds = new Set<number>();
+
+  productCards.forEach((card, index) => {
+    const group = groups[index];
+    if (!group) return;
+
+    const hasXtraDeliveryRow = group.rows.some((row) => row.code?.trim().toUpperCase() === "XTRA");
+
+    if (hasXtraDeliveryRow) {
+      cardIds.add(card.cardId);
+    }
+  });
+
+  return cardIds;
+};
+
 const classifyServiceItemType = (row: ParsedBreakdownRow): ParsedWordpressServiceItem["itemType"] => {
   const signal = `${row.code ?? ""} ${row.label}`.toUpperCase();
 
@@ -855,11 +876,6 @@ const buildServiceItemsFromBreakdown = (meta: Record<string, unknown>, productIt
   return serviceItems;
 };
 
-const isExpressServiceItem = (serviceItem: Pick<ParsedWordpressServiceItem, "label" | "code">): boolean => {
-  const signal = `${serviceItem.code ?? ""} ${serviceItem.label}`.toUpperCase();
-  return signal.includes("EXPRESS") || signal.includes("EKSPRESS");
-};
-
 const dedupeServiceItems = (serviceItems: ParsedWordpressServiceItem[]): ParsedWordpressServiceItem[] => {
   const seen = new Set<string>();
 
@@ -1051,6 +1067,7 @@ const getProtectedFailureFeeCents = (params: { importedFees: ImportedWordpressFe
 const isFailureDiscountStatus = (status: string): boolean => status === "cancelled" || status === "failed";
 
 const getNativeCalculatedPricing = (params: {
+  forcedXtraDeliveryCardIds?: Set<number>;
   productCards: ReturnType<typeof mapWordpressImportToProductCards>["productCards"];
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
   catalogSpecialOptions: Awaited<ReturnType<typeof getBookingCatalog>>["specialOptions"];
@@ -1061,6 +1078,7 @@ const getNativeCalculatedPricing = (params: {
 }): { totalExVatCents: number; subcontractorTotalCents: number } => {
   const productBreakdowns = buildProductBreakdowns(params.productCards, params.catalogProducts, params.catalogSpecialOptions, {
     zeroBaseDeliveryPricesOver100Km: parseDistanceKm(params.drivingDistance) > 100,
+    forcedXtraDeliveryCardIds: params.forcedXtraDeliveryCardIds,
   });
   const priceLookup = buildPriceLookup(params.catalogProducts, params.catalogSpecialOptions);
   const result = calculateBookingPricing({
@@ -1089,11 +1107,14 @@ const getBreakdownGroupTotalCents = (group: ParsedBreakdownGroup | undefined): n
 };
 
 const getNativeProductTotalCents = (params: {
+  forcedXtraDeliveryCardIds?: Set<number>;
   productCard: ReturnType<typeof mapWordpressImportToProductCards>["productCards"][number];
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
   catalogSpecialOptions: Awaited<ReturnType<typeof getBookingCatalog>>["specialOptions"];
 }): number => {
-  const breakdowns = buildProductBreakdowns([params.productCard], params.catalogProducts, params.catalogSpecialOptions);
+  const breakdowns = buildProductBreakdowns([params.productCard], params.catalogProducts, params.catalogSpecialOptions, {
+    forcedXtraDeliveryCardIds: params.forcedXtraDeliveryCardIds,
+  });
   const result = calculateBookingPricing({
     productBreakdowns: breakdowns,
     priceLookup: buildPriceLookup(params.catalogProducts, params.catalogSpecialOptions),
@@ -1119,6 +1140,7 @@ const applyWordpressPriceMatchPolicy = (params: {
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
   catalogSpecialOptions: Awaited<ReturnType<typeof getBookingCatalog>>["specialOptions"];
 }) => {
+  const forcedXtraDeliveryCardIds = getForcedXtraDeliveryCardIds(params.meta, params.productCards);
   const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
 
   const nextCards = params.productCards.map((card, index) => {
@@ -1133,6 +1155,7 @@ const applyWordpressPriceMatchPolicy = (params: {
       productCard: card,
       catalogProducts: params.catalogProducts,
       catalogSpecialOptions: params.catalogSpecialOptions,
+      forcedXtraDeliveryCardIds,
     });
 
     if (nativeTotalCents === wordpressTotalCents) {
@@ -1773,6 +1796,7 @@ export async function POST(req: NextRequest) {
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
     });
+    const forcedXtraDeliveryCardIds = getForcedXtraDeliveryCardIds(meta, mappedImport.productCards);
 
     const nativePricing = getNativeCalculatedPricing({
       productCards: mappedImport.productCards,
@@ -1782,6 +1806,7 @@ export async function POST(req: NextRequest) {
       adjustments: importedAdjustments,
       importedFees,
       deviation,
+      forcedXtraDeliveryCardIds,
     });
     const nativePriceExVatCents = nativePricing.totalExVatCents;
 
