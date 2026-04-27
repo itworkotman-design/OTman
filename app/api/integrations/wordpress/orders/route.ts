@@ -210,7 +210,7 @@ const cleanLegacyBreakdownLabel = (value: string): string => {
   const normalizedValue = normalizeWhitespace(stripHtml(value));
   if (!normalizedValue) return "";
 
-  const parenMatch = normalizedValue.match(/^(.*?)\s*\(([^)]+)\)(?:\s*x\s*\d+(?:[.,]\d+)?)?\s*$/u);
+  const parenMatch = normalizedValue.match(/^(.*?)\s*\(([^)]+)\)(?:\s*x\s*\d+(?:[.,]\d+)?(?:\s*(?:time|timer?))?)?\s*$/iu);
   const withoutParen = parenMatch ? (parenMatch[1] ?? "") : normalizedValue;
   const parts = withoutParen.split(":").map((part) => normalizeWhitespace(part));
 
@@ -236,7 +236,7 @@ const parseBreakdownLabelAndCode = (value: string): ParsedBreakdownRow => {
     return { label: "" };
   }
 
-  const parenMatch = normalizedValue.match(/^(.*?)\s*\(([^)]+)\)(?:\s*x\s*\d+(?:[.,]\d+)?)?\s*$/u);
+  const parenMatch = normalizedValue.match(/^(.*?)\s*\(([^)]+)\)(?:\s*x\s*\d+(?:[.,]\d+)?(?:\s*(?:time|timer?))?)?\s*$/iu);
   if (parenMatch) {
     return {
       label: cleanLegacyBreakdownLabel(parenMatch[1] ?? ""),
