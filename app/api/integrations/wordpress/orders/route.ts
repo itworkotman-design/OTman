@@ -1476,11 +1476,21 @@ const applyWordpressPriceMatchPolicy = (params: {
   const expressRows = allRows.filter(isExpressBreakdownRow);
   const bomturRows = allRows.filter(isBomturBreakdownRow);
 
-  const globalReadOnlyRows = [
+  const nativeCoveredGlobalRows = [...expressRows];
+
+  const readOnlyGlobalRows = [
     ...extraPickupRows,
-    ...expressRows,
     ...bomturRows,
-  ];
+    ...kmRows,
+  ].filter(
+    (row) =>
+      !nativeCoveredGlobalRows.some(
+        (nativeRow) =>
+          getBreakdownCodeSignal(nativeRow) === getBreakdownCodeSignal(row),
+      ),
+  );
+
+  const globalReadOnlyRows = readOnlyGlobalRows;
 
   if (globalReadOnlyRows.length === 0) {
     return nextCards;
