@@ -1409,6 +1409,12 @@ const getNativeProductTotalCents = (params: {
     params.catalogProducts,
     params.catalogSpecialOptions,
   );
+  console.log("NATIVE BREAKDOWN ITEMS", {
+    cardId: params.productCard.cardId,
+    productId: params.productCard.productId,
+    deliveryType: params.productCard.deliveryType,
+    items: breakdowns.flatMap((breakdown) => breakdown.items),
+  });
   const result = calculateBookingPricing({
     productBreakdowns: breakdowns,
     priceLookup: buildPriceLookup(
@@ -1435,6 +1441,7 @@ const applyWordpressPriceMatchPolicy = (params: {
   productCards: ReturnType<
     typeof mapWordpressImportToProductCards
   >["productCards"];
+  resolvedServices: ResolvedWordpressService[];
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
   catalogSpecialOptions: Awaited<
     ReturnType<typeof getBookingCatalog>
@@ -1443,44 +1450,50 @@ const applyWordpressPriceMatchPolicy = (params: {
   const groups = parseBreakdownGroups(
     asString(params.meta.price_breakdown_html),
   );
+  const resolvedCodesByCardId = new Map<number, Set<string>>();
+
+  for (const service of params.resolvedServices) {
+    const code = (service.code ?? service.optionCode ?? "")
+      .trim()
+      .toUpperCase();
+    if (!code) continue;
+
+    const set = resolvedCodesByCardId.get(service.cardId) ?? new Set<string>();
+    set.add(code);
+    resolvedCodesByCardId.set(service.cardId, set);
+  }
+
   const nextCards = params.productCards.map((card, index) => {
     const group = groups[index];
-    const wordpressTotalCents = getBreakdownGroupTotalCents(group);
-    if (typeof wordpressTotalCents !== "number") {
+
+    if (!group) {
       return card;
     }
 
-    const nativeTotalCents = getNativeProductTotalCents({
-      productCard: card,
-      catalogProducts: params.catalogProducts,
-      catalogSpecialOptions: params.catalogSpecialOptions,
+    const unresolvedRows = group.rows.filter((row) => {
+      if (!row.label || isGlobalWordpressPriceRow(row)) {
+        return false;
+      }
+
+      const code = (row.code ?? "").trim().toUpperCase();
+
+      if (!code) {
+        return true;
+      }
+
+      return !resolvedCodesByCardId.get(card.cardId)?.has(code);
     });
 
-    console.log("WP PRICE MATCH CHECK", {
-      index,
-      wpGroup: group?.groupLabel,
-      cardProductId: card.productId,
-      deliveryType: card.deliveryType,
-      selectedInstallOptionIds: card.selectedInstallOptionIds,
-      selectedExtraOptionIds: card.selectedExtraOptionIds,
-      selectedReturnOptionId: card.selectedReturnOptionId,
-      customSectionSelections: card.customSectionSelections,
-      wordpressTotalCents,
-      nativeTotalCents,
-    });
-    
-    if (nativeTotalCents === wordpressTotalCents) {
+    if (unresolvedRows.length === 0) {
       return card;
     }
 
     return {
       ...card,
       wordpressImportReadOnly: {
-        productName: group?.groupLabel || `WordPress product ${index + 1}`,
+        productName: group.groupLabel || `WordPress product ${index + 1}`,
         comment: WORDPRESS_PRICE_MISMATCH_COMMENT,
-        rows: toReadOnlyRows(
-          (group?.rows ?? []).filter((row) => !isGlobalWordpressPriceRow(row)),
-        ),
+        rows: toReadOnlyRows(unresolvedRows),
       },
     };
   });
@@ -2351,6 +2364,7 @@ export async function POST(req: NextRequest) {
     mappedImport.productCards = applyWordpressPriceMatchPolicy({
       meta,
       productCards: mappedImport.productCards,
+      resolvedServices: mappedImport.resolvedServices,
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
     });
