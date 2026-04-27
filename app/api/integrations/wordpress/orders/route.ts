@@ -1155,54 +1155,22 @@ const applyWordpressPriceMatchPolicy = (params: {
   catalogSpecialOptions: Awaited<ReturnType<typeof getBookingCatalog>>["specialOptions"];
 }) => {
   const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
-  const resolvedCodesByCardId = new Map<number, Set<string>>();
-
-  for (const service of params.resolvedServices) {
-    const code = (service.code ?? service.optionCode ?? "").trim().toUpperCase();
-    if (!code) continue;
-
-    const set = resolvedCodesByCardId.get(service.cardId) ?? new Set<string>();
-    set.add(code);
-    resolvedCodesByCardId.set(service.cardId, set);
-  }
 
   const nextCards = params.productCards.map((card, index) => {
     const group = groups[index];
+    const wordpressTotalCents = getBreakdownGroupTotalCents(group);
 
-    if (!group) {
+    if (!group || typeof wordpressTotalCents !== "number") {
       return card;
     }
 
-    const unresolvedRows = group.rows.filter((row) => {
-      if (!row.label || isGlobalWordpressPriceRow(row)) {
-        return false;
-      }
-      if (isDeliveryTypeRow(row)) {
-        const code = (row.code ?? "").trim().toUpperCase();
-
-        if (code === "XTRA") {
-          if (/første trinn|forste trinn/i.test(row.label)) {
-            // map/preserve as XTRALEVERING
-          }
-
-          if (/innbæring|innbaering/i.test(row.label)) {
-            // map/preserve as XTRAINB
-          }
-        }
-
-        return false;
-      }
-
-      const code = (row.code ?? "").trim().toUpperCase();
-
-      if (!code) {
-        return true;
-      }
-
-      return !resolvedCodesByCardId.get(card.cardId)?.has(code);
+    const nativeTotalCents = getNativeProductTotalCents({
+      productCard: card,
+      catalogProducts: params.catalogProducts,
+      catalogSpecialOptions: params.catalogSpecialOptions,
     });
 
-    if (unresolvedRows.length === 0) {
+    if (nativeTotalCents === wordpressTotalCents) {
       return card;
     }
 
@@ -1211,27 +1179,16 @@ const applyWordpressPriceMatchPolicy = (params: {
       wordpressImportReadOnly: {
         productName: group.groupLabel || `WordPress product ${index + 1}`,
         comment: WORDPRESS_PRICE_MISMATCH_COMMENT,
-        rows: toReadOnlyRows((group.rows ?? []).filter((row) => !isGlobalWordpressPriceRow(row))),
+        rows: toReadOnlyRows(group.rows.filter((row) => !isGlobalWordpressPriceRow(row))),
       },
     };
   });
 
   const allRows = getBreakdownRowsWithCodes(asString(params.meta.price_breakdown_html));
-  const extraPickupRows = allRows.filter(isExtraPickupBreakdownRow);
+
   const kmRows = allRows.filter(isKmBreakdownRow);
-  const expressRows = allRows.filter(isExpressBreakdownRow);
-  const bomturRows = allRows.filter(isBomturBreakdownRow);
-  const deviationRows = allRows.filter(isDeviationBreakdownRow);
 
-  const nativeCoveredGlobalRows = [...expressRows, ...extraPickupRows, ...bomturRows, ...deviationRows];
-
-  const readOnlyGlobalRows = [...kmRows].filter(
-    (row) => !nativeCoveredGlobalRows.some((nativeRow) => getBreakdownCodeSignal(nativeRow) === getBreakdownCodeSignal(row)),
-  );
-
-  const globalReadOnlyRows = readOnlyGlobalRows;
-
-  if (globalReadOnlyRows.length === 0) {
+  if (kmRows.length === 0) {
     return nextCards;
   }
 
@@ -1239,7 +1196,7 @@ const applyWordpressPriceMatchPolicy = (params: {
   globalReadOnlyCard.wordpressImportReadOnly = {
     productName: "WordPress order prices",
     comment: WORDPRESS_PRICE_MISMATCH_COMMENT,
-    rows: toReadOnlyRows(globalReadOnlyRows),
+    rows: toReadOnlyRows(kmRows),
   };
 
   return [...nextCards, globalReadOnlyCard];

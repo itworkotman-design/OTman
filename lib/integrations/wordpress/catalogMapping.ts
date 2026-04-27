@@ -60,13 +60,9 @@ const LEGACY_ENCODING_REPLACEMENTS: Array<[string, string]> = [
   ["å", "a"],
   ["æ", "ae"],
 ];
-const WORDPRESS_DEFAULT_TIME_HOURS = 0.5;
 
 function repairLegacyEncoding(value: string): string {
-  return LEGACY_ENCODING_REPLACEMENTS.reduce(
-    (currentValue, [from, to]) => currentValue.replaceAll(from, to),
-    value,
-  );
+  return LEGACY_ENCODING_REPLACEMENTS.reduce((currentValue, [from, to]) => currentValue.replaceAll(from, to), value);
 }
 
 function normalizeKey(value: unknown): string {
@@ -78,20 +74,14 @@ function normalizeKey(value: unknown): string {
     .toLowerCase();
 }
 
-function matchesAlias(
-  value: string | null | undefined,
-  aliases: readonly string[],
-): boolean {
+function matchesAlias(value: string | null | undefined, aliases: readonly string[]): boolean {
   const normalizedValue = normalizeKey(value);
   if (!normalizedValue) return false;
 
   return aliases.some((alias) => normalizeKey(alias) === normalizedValue);
 }
 
-function matchesOptionCode(
-  candidateCode: string | null | undefined,
-  expectedCode: string | null | undefined,
-): boolean {
+function matchesOptionCode(candidateCode: string | null | undefined, expectedCode: string | null | undefined): boolean {
   const normalizedCandidateCode = normalizeKey(candidateCode);
   const normalizedExpectedCode = normalizeKey(expectedCode);
 
@@ -102,19 +92,14 @@ function matchesOptionCode(
   return normalizedCandidateCode === normalizedExpectedCode;
 }
 
-function getOptionCodeCandidates(
-  optionCode: string | null | undefined,
-): string[] {
+function getOptionCodeCandidates(optionCode: string | null | undefined): string[] {
   const normalizedCode = normalizeKey(optionCode);
   if (!normalizedCode) {
     return [];
   }
 
   const directCode = typeof optionCode === "string" ? optionCode.trim() : "";
-  const configuredAliases =
-    Object.entries(WORDPRESS_SERVICE_CODE_ALIASES).find(([aliasCode]) =>
-      matchesOptionCode(aliasCode, directCode),
-    )?.[1] ?? [];
+  const configuredAliases = Object.entries(WORDPRESS_SERVICE_CODE_ALIASES).find(([aliasCode]) => matchesOptionCode(aliasCode, directCode))?.[1] ?? [];
 
   const seenCodes = new Set<string>();
   const codes = [directCode, ...configuredAliases].filter((candidate) => {
@@ -137,10 +122,7 @@ function decimalStringToCents(value: string | null | undefined): number | null {
   return Math.round(parsed * 100);
 }
 
-function getEffectiveCustomerPriceCents(option: {
-  customerPrice: string;
-  effectiveCustomerPrice?: string;
-}): number | null {
+function getEffectiveCustomerPriceCents(option: { customerPrice: string; effectiveCustomerPrice?: string }): number | null {
   return decimalStringToCents(option.effectiveCustomerPrice ?? option.customerPrice);
 }
 
@@ -151,14 +133,8 @@ function pushUnique(target: string[], value: string | null | undefined) {
   }
 }
 
-function getProductMapping(
-  product: CatalogProduct,
-): WordpressProductMapping | null {
-  return (
-    WORDPRESS_PRODUCT_MAPPINGS.find((mapping) =>
-      matchesAlias(product.label, mapping.catalogAliases),
-    ) ?? null
-  );
+function getProductMapping(product: CatalogProduct): WordpressProductMapping | null {
+  return WORDPRESS_PRODUCT_MAPPINGS.find((mapping) => matchesAlias(product.label, mapping.catalogAliases)) ?? null;
 }
 
 function resolveCatalogProduct(
@@ -168,19 +144,19 @@ function resolveCatalogProduct(
     preferDeliveryTypeProduct?: boolean;
   },
 ): CatalogProduct | null {
+  const activeCatalogProducts = catalogProducts.filter((product) => product.active);
+
   const normalizedLegacy = normalizeKey(legacyProductName);
   if (!normalizedLegacy) return null;
 
   const preferDeliveryTypeProduct = !!options?.preferDeliveryTypeProduct;
-  const exactMatches = catalogProducts.filter(
-    (product) => normalizeKey(product.label) === normalizedLegacy,
-  );
+
+  const exactMatches = activeCatalogProducts.filter((product) => normalizeKey(product.label) === normalizedLegacy);
 
   if (exactMatches.length > 0) {
     if (preferDeliveryTypeProduct) {
-      const deliveryTypeMatch = exactMatches.find(
-        (product) => product.allowDeliveryTypes,
-      );
+      const deliveryTypeMatch = exactMatches.find((product) => product.allowDeliveryTypes);
+
       if (deliveryTypeMatch) {
         return deliveryTypeMatch;
       }
@@ -189,21 +165,15 @@ function resolveCatalogProduct(
     return exactMatches[0] ?? null;
   }
 
-  const aliasMatches = catalogProducts.filter((product) =>
-    matchesAlias(
-      legacyProductName,
-      getProductMapping(product)?.wordpressAliases ?? [],
-    ),
-  );
+  const aliasMatches = activeCatalogProducts.filter((product) => matchesAlias(legacyProductName, getProductMapping(product)?.wordpressAliases ?? []));
 
   if (aliasMatches.length === 0) {
     return null;
   }
 
   if (preferDeliveryTypeProduct) {
-    const deliveryTypeMatch = aliasMatches.find(
-      (product) => product.allowDeliveryTypes,
-    );
+    const deliveryTypeMatch = aliasMatches.find((product) => product.allowDeliveryTypes);
+
     if (deliveryTypeMatch) {
       return deliveryTypeMatch;
     }
@@ -216,9 +186,7 @@ function resolveDeliveryType(value: string | undefined): DeliveryType {
   const normalizedValue = normalizeKey(value);
   if (!normalizedValue) return "";
 
-  for (const [deliveryType, aliases] of Object.entries(
-    WORDPRESS_DELIVERY_TYPE_ALIASES,
-  ) as Array<[DeliveryType, string[]]>) {
+  for (const [deliveryType, aliases] of Object.entries(WORDPRESS_DELIVERY_TYPE_ALIASES) as Array<[DeliveryType, string[]]>) {
     if (matchesAlias(normalizedValue, aliases)) {
       return deliveryType;
     }
@@ -227,17 +195,11 @@ function resolveDeliveryType(value: string | undefined): DeliveryType {
   return "";
 }
 
-function findProductOption(
-  product: CatalogProduct,
-  optionCode: string,
-): CatalogOption | null {
+function findProductOption(product: CatalogProduct, optionCode: string): CatalogOption | null {
   const candidateCodes = getOptionCodeCandidates(optionCode);
 
   for (const candidateCode of candidateCodes) {
-    const option =
-      product.options.find((productOption) =>
-        matchesOptionCode(productOption.code, candidateCode),
-      ) ?? null;
+    const option = product.options.find((productOption) => matchesOptionCode(productOption.code, candidateCode)) ?? null;
 
     if (option) {
       return option;
@@ -247,17 +209,11 @@ function findProductOption(
   return null;
 }
 
-function findSpecialOption(
-  catalogSpecialOptions: CatalogSpecialOption[],
-  optionCode: string,
-): CatalogSpecialOption | null {
+function findSpecialOption(catalogSpecialOptions: CatalogSpecialOption[], optionCode: string): CatalogSpecialOption | null {
   const candidateCodes = getOptionCodeCandidates(optionCode);
 
   for (const candidateCode of candidateCodes) {
-    const option =
-      catalogSpecialOptions.find((specialOption) =>
-        matchesOptionCode(specialOption.code, candidateCode),
-      ) ?? null;
+    const option = catalogSpecialOptions.find((specialOption) => matchesOptionCode(specialOption.code, candidateCode)) ?? null;
 
     if (option) {
       return option;
@@ -267,20 +223,14 @@ function findSpecialOption(
   return null;
 }
 
-function findReturnSpecialOptionByPrice(
-  catalogSpecialOptions: CatalogSpecialOption[],
-  priceCents: number | undefined,
-): CatalogSpecialOption | null {
+function findReturnSpecialOptionByPrice(catalogSpecialOptions: CatalogSpecialOption[], priceCents: number | undefined): CatalogSpecialOption | null {
   if (typeof priceCents !== "number") {
     return null;
   }
 
   return (
     catalogSpecialOptions.find(
-      (specialOption) =>
-        specialOption.active &&
-        isReturnSpecialOption(specialOption.type) &&
-        getEffectiveCustomerPriceCents(specialOption) === priceCents,
+      (specialOption) => specialOption.active && isReturnSpecialOption(specialOption.type) && getEffectiveCustomerPriceCents(specialOption) === priceCents,
     ) ?? null
   );
 }
@@ -296,10 +246,7 @@ function findCustomSectionOption(
 
   for (const candidateCode of candidateCodes) {
     for (const section of product.customSections) {
-      const option =
-        section.options.find((candidate) =>
-          matchesOptionCode(candidate.code, candidateCode),
-        ) ?? null;
+      const option = section.options.find((candidate) => matchesOptionCode(candidate.code, candidateCode)) ?? null;
 
       if (option) {
         return {
@@ -313,19 +260,14 @@ function findCustomSectionOption(
   return null;
 }
 
-function resolveInstallAlias(
-  product: CatalogProduct,
-  service: WordpressParsedService,
-): string | null {
+function resolveInstallAlias(product: CatalogProduct, service: WordpressParsedService): string | null {
   const mapping = getProductMapping(product);
   if (!mapping?.installAliases?.length) {
     return null;
   }
 
   for (const installAlias of mapping.installAliases) {
-    const hasAliasMatch =
-      matchesAlias(service.code, installAlias.aliases) ||
-      matchesAlias(service.label, installAlias.aliases);
+    const hasAliasMatch = matchesAlias(service.code, installAlias.aliases) || matchesAlias(service.label, installAlias.aliases);
 
     if (hasAliasMatch) {
       return installAlias.optionCode;
@@ -345,16 +287,7 @@ function buildResolvedService(params: {
   customerPrice: string | null | undefined;
   subcontractorPrice: string | null | undefined;
 }): ResolvedWordpressService {
-  const {
-    service,
-    resolvedItemType,
-    optionId,
-    optionCode,
-    optionLabel,
-    customSectionId,
-    customerPrice,
-    subcontractorPrice,
-  } = params;
+  const { service, resolvedItemType, optionId, optionCode, optionLabel, customSectionId, customerPrice, subcontractorPrice } = params;
 
   return {
     ...service,
@@ -368,13 +301,9 @@ function buildResolvedService(params: {
   };
 }
 
-function resolveSpecialServiceCode(
-  service: WordpressParsedService,
-): string | null {
+function resolveSpecialServiceCode(service: WordpressParsedService): string | null {
   const aliasCodeEntry = Object.entries(WORDPRESS_SPECIAL_SERVICE_ALIASES).find(
-    ([, aliases]) =>
-      matchesAlias(service.code, aliases) ||
-      matchesAlias(service.label, aliases),
+    ([, aliases]) => matchesAlias(service.code, aliases) || matchesAlias(service.label, aliases),
   );
 
   return aliasCodeEntry?.[0] ?? null;
@@ -388,17 +317,9 @@ function resolveService(
   if (service.code) {
     const productOption = findProductOption(product, service.code);
     if (productOption) {
-      const resolvedItemType =
-        normalizeKey(productOption.code) === normalizeKey(OPTION_CODES.DEMONT)
-          ? "EXTRA_OPTION"
-          : "INSTALL_OPTION";
+      const resolvedItemType = normalizeKey(productOption.code) === normalizeKey(OPTION_CODES.DEMONT) ? "EXTRA_OPTION" : "INSTALL_OPTION";
 
-      if (
-        resolvedItemType === "EXTRA_OPTION" &&
-        normalizeKey(productOption.code) ===
-          normalizeKey(OPTION_CODES.DEMONT) &&
-        !product.allowDemont
-      ) {
+      if (resolvedItemType === "EXTRA_OPTION" && normalizeKey(productOption.code) === normalizeKey(OPTION_CODES.DEMONT) && !product.allowDemont) {
         return null;
       }
 
@@ -427,16 +348,11 @@ function resolveService(
       });
     }
 
-    const specialOption = findSpecialOption(
-      catalogSpecialOptions,
-      service.code,
-    );
+    const specialOption = findSpecialOption(catalogSpecialOptions, service.code);
     if (specialOption) {
       return buildResolvedService({
         service,
-        resolvedItemType: isReturnSpecialOption(specialOption.type)
-          ? "RETURN_OPTION"
-          : "EXTRA_OPTION",
+        resolvedItemType: isReturnSpecialOption(specialOption.type) ? "RETURN_OPTION" : "EXTRA_OPTION",
         optionId: specialOption.id,
         optionCode: specialOption.code,
         optionLabel: specialOption.label,
@@ -447,10 +363,7 @@ function resolveService(
   }
 
   if (service.itemType === "RETURN_OPTION") {
-    const returnOption = findReturnSpecialOptionByPrice(
-      catalogSpecialOptions,
-      service.priceCents,
-    );
+    const returnOption = findReturnSpecialOptionByPrice(catalogSpecialOptions, service.priceCents);
 
     if (returnOption) {
       return buildResolvedService({
@@ -465,10 +378,7 @@ function resolveService(
     }
   }
 
-  const installAliasCode =
-    service.itemType === "INSTALL_OPTION"
-      ? resolveInstallAlias(product, service)
-      : null;
+  const installAliasCode = service.itemType === "INSTALL_OPTION" ? resolveInstallAlias(product, service) : null;
   if (installAliasCode) {
     const installOption = findProductOption(product, installAliasCode);
     if (!installOption) {
@@ -512,19 +422,14 @@ function resolveService(
     });
   }
 
-  const specialOption = findSpecialOption(
-    catalogSpecialOptions,
-    specialAliasCode,
-  );
+  const specialOption = findSpecialOption(catalogSpecialOptions, specialAliasCode);
   if (!specialOption) {
     return null;
   }
 
   return buildResolvedService({
     service,
-    resolvedItemType: isReturnSpecialOption(specialOption.type)
-      ? "RETURN_OPTION"
-      : "EXTRA_OPTION",
+    resolvedItemType: isReturnSpecialOption(specialOption.type) ? "RETURN_OPTION" : "EXTRA_OPTION",
     optionId: specialOption.id,
     optionCode: specialOption.code,
     optionLabel: specialOption.label,
@@ -543,12 +448,7 @@ export function mapWordpressImportToProductCards(params: {
   catalogProducts: CatalogProduct[];
   catalogSpecialOptions: CatalogSpecialOption[];
 }): WordpressCatalogMappingResult {
-  const {
-    parsedProducts,
-    parsedServices,
-    catalogProducts,
-    catalogSpecialOptions,
-  } = params;
+  const { parsedProducts, parsedServices, catalogProducts, catalogSpecialOptions } = params;
 
   const productCards: SavedProductCard[] = [];
   const resolvedServices: ResolvedWordpressService[] = [];
@@ -556,73 +456,40 @@ export function mapWordpressImportToProductCards(params: {
   const unresolvedServices: WordpressParsedService[] = [];
 
   for (const parsedProduct of parsedProducts) {
-    const product = resolveCatalogProduct(
-      parsedProduct.productName,
-      catalogProducts,
-      {
-        preferDeliveryTypeProduct: !!parsedProduct.deliveryType,
-      },
-    );
+    const product = resolveCatalogProduct(parsedProduct.productName, catalogProducts, {
+      preferDeliveryTypeProduct: !!parsedProduct.deliveryType,
+    });
 
     if (!product) {
       unresolvedProducts.push(parsedProduct);
-      unresolvedServices.push(
-        ...parsedServices.filter(
-          (service) => service.cardId === parsedProduct.cardId,
-        ),
-      );
+      unresolvedServices.push(...parsedServices.filter((service) => service.cardId === parsedProduct.cardId));
       continue;
     }
 
     const card = createEmptyProductCard(parsedProduct.cardId);
     card.productId = product.id;
-    card.amount = product.allowHoursInput
-      ? WORDPRESS_DEFAULT_TIME_HOURS
-      : parsedProduct.quantity;
+    card.amount = parsedProduct.quantity;
 
-    const productServices = parsedServices.filter(
-      (service) => service.cardId === parsedProduct.cardId,
-    );
+    const productServices = parsedServices.filter((service) => service.cardId === parsedProduct.cardId);
 
     if (product.allowHoursInput) {
-      card.hoursInput = WORDPRESS_DEFAULT_TIME_HOURS;
+      card.hoursInput = parsedProduct.quantity;
     }
 
     const inferredDeliveryType =
       resolveDeliveryType(parsedProduct.deliveryType) ||
       (productServices.some((service) => service.itemType === "INSTALL_OPTION")
         ? "INSTALL_ONLY"
-        : productServices.some(
-              (service) => service.itemType === "RETURN_OPTION",
-            )
+        : productServices.some((service) => service.itemType === "RETURN_OPTION")
           ? "RETURN_ONLY"
           : "");
 
-    if (product.allowDeliveryTypes) {
+    if (product.allowDeliveryTypes && !card.deliveryType) {
       card.deliveryType = inferredDeliveryType;
     }
 
     for (const service of productServices) {
-
       const serviceCode = service.code?.trim().toUpperCase();
-
-      if (["MANNU1", "MANNU2", "MANN1", "MANN2", "ANDRE"].includes(serviceCode ?? "")) {
-        card.hoursInput = service.quantity > 0 ? service.quantity : WORDPRESS_DEFAULT_TIME_HOURS;
-        card.amount = card.hoursInput;
-
-        resolvedServices.push({
-          ...service,
-          resolvedItemType: "EXTRA_OPTION",
-          optionId: null,
-          optionCode: serviceCode ?? service.code ?? "",
-          optionLabel: service.label,
-          customSectionId: null,
-          customerPriceCents: service.priceCents ?? null,
-          subcontractorPriceCents: null,
-        });
-
-        continue;
-      }
 
       if (serviceCode === "PALLXTRAS1") {
         card.extraPalletEnabled = true;
@@ -641,22 +508,19 @@ export function mapWordpressImportToProductCards(params: {
 
         continue;
       }
+      if (product.label.toLowerCase().includes("side by side") && service.code?.toUpperCase() === "SIDEBYSIDE") {
+        card.deliveryType = "INDOOR";
+        continue;
+      }
 
-      const resolvedService = resolveService(
-        service,
-        product,
-        catalogSpecialOptions,
-      );
+      const resolvedService = resolveService(service, product, catalogSpecialOptions);
 
       if (!resolvedService) {
         unresolvedServices.push(service);
         continue;
       }
 
-      if (
-        normalizeKey(resolvedService.optionCode) ===
-        normalizeKey(OPTION_CODES.DEMONT)
-      ) {
+      if (normalizeKey(resolvedService.optionCode) === normalizeKey(OPTION_CODES.DEMONT)) {
         card.demontEnabled = true;
         resolvedServices.push(resolvedService);
         continue;
@@ -672,29 +536,13 @@ export function mapWordpressImportToProductCards(params: {
         resolvedServices.push(resolvedService);
         continue;
       }
-
-      if (resolvedService.resolvedItemType === "RETURN_OPTION") {
-        if (!product.allowReturnOptions || !resolvedService.optionId) {
-          unresolvedServices.push(service);
-          continue;
-        }
-
-        card.selectedReturnOptionId = resolvedService.optionId;
-        resolvedServices.push(resolvedService);
-        continue;
-      }
-
       if (resolvedService.customSectionId) {
         if (!resolvedService.optionId) {
           unresolvedServices.push(service);
           continue;
         }
 
-        const existingSelection =
-          card.customSectionSelections.find(
-            (selection) =>
-              selection.sectionId === resolvedService.customSectionId,
-          ) ?? null;
+        const existingSelection = card.customSectionSelections.find((selection) => selection.sectionId === resolvedService.customSectionId) ?? null;
 
         if (existingSelection) {
           pushUnique(existingSelection.optionIds, resolvedService.optionId);
@@ -705,6 +553,17 @@ export function mapWordpressImportToProductCards(params: {
           });
         }
 
+        resolvedServices.push(resolvedService);
+        continue;
+      }
+
+      if (resolvedService.resolvedItemType === "RETURN_OPTION") {
+        if (!product.allowReturnOptions || !resolvedService.optionId) {
+          unresolvedServices.push(service);
+          continue;
+        }
+
+        card.selectedReturnOptionId = resolvedService.optionId;
         resolvedServices.push(resolvedService);
         continue;
       }
@@ -720,7 +579,12 @@ export function mapWordpressImportToProductCards(params: {
 
     productCards.push(card);
   }
-
+  if (unresolvedProducts.length > 0 || unresolvedServices.length > 0) {
+    console.log("WORDPRESS IMPORT UNRESOLVED", {
+      unresolvedProducts,
+      unresolvedServices,
+    });
+  }
   return {
     productCards,
     resolvedServices,
