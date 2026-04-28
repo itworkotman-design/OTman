@@ -3,6 +3,7 @@ export type ProductCustomSectionOption = {
   code: string;
   label: string;
   price: string;
+  subcontractorPrice?: string;
 };
 
 export type ProductCustomSection = {
@@ -63,6 +64,7 @@ export function normalizeProductCustomSections(
                 code?: unknown;
                 label?: unknown;
                 price?: unknown;
+                subcontractorPrice?: unknown;
               };
 
               return {
@@ -72,13 +74,12 @@ export function normalizeProductCustomSections(
                 code: toNonEmptyString(rawOption.code),
                 label: toNonEmptyString(rawOption.label),
                 price: toPriceString(rawOption.price),
+                subcontractorPrice: toPriceString(
+                  rawOption.subcontractorPrice,
+                ),
               };
             })
-            .filter(
-              (
-                option,
-              ): option is ProductCustomSectionOption => option !== null,
-            )
+            .filter((option) => option !== null)
         : [];
 
       return {
@@ -93,5 +94,5 @@ export function normalizeProductCustomSections(
         options: normalizedOptions,
       };
     })
-    .filter((section): section is ProductCustomSection => section !== null);
+    .filter((section) => section !== null);
 }

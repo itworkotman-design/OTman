@@ -44,8 +44,10 @@ import { buildCapacityWarningNotification } from "@/lib/orders/notificationTempl
 import {
   createOrderNotification,
   hasOpenCapacityNotification,
+  hasOpenSubcontractorPriceNotification,
 } from "@/lib/orders/orderNotifications";
 import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
+import { buildSubcontractorPriceWarningNotification } from "@/lib/orders/notificationTemplates/subcontractorPriceWarningNotification";
 import {
   buildLegacyOrderSummaryGroups,
   buildOrderSummaryGroups,
@@ -631,6 +633,31 @@ export async function POST(req: Request) {
       payload:
         extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
     });
+  }
+
+  if (order.priceSubcontractor > order.priceExVat) {
+    const alreadyExists = await hasOpenSubcontractorPriceNotification(prisma, {
+      orderId: order.id,
+      companyId: order.companyId,
+      customerPrice: order.priceExVat,
+      subcontractorPrice: order.priceSubcontractor,
+    });
+
+    if (!alreadyExists) {
+      const priceWarning = buildSubcontractorPriceWarningNotification({
+        customerPrice: order.priceExVat,
+        subcontractorPrice: order.priceSubcontractor,
+      });
+
+      await createOrderNotification(prisma, {
+        orderId: order.id,
+        companyId: order.companyId,
+        type: "MANUAL_REVIEW",
+        title: priceWarning.title,
+        message: priceWarning.message,
+        payload: priceWarning.payload as unknown as Prisma.InputJsonValue,
+      });
+    }
   }
 
   const normalizedTimeWindow = optionalString(body.timeWindow);

@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   orderNotificationCountMock: vi.fn(),
   orderItemCreateManyMock: vi.fn(),
   orderItemDeleteManyMock: vi.fn(),
+  orderAttachmentCreateManyMock: vi.fn(),
+  orderAttachmentDeleteManyMock: vi.fn(),
   getBookingCatalogMock: vi.fn(),
   buildProductBreakdownsMock: vi.fn(),
   buildPriceLookupMock: vi.fn(),
@@ -103,6 +105,8 @@ describe("POST /api/integrations/wordpress/orders", () => {
     mocks.orderNotificationCountMock.mockResolvedValue(0);
     mocks.orderItemCreateManyMock.mockResolvedValue({ count: 3 });
     mocks.orderItemDeleteManyMock.mockResolvedValue({ count: 0 });
+    mocks.orderAttachmentCreateManyMock.mockResolvedValue({ count: 0 });
+    mocks.orderAttachmentDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.getBookingCatalogMock.mockResolvedValue({
       products: [],
       specialOptions: [],
@@ -241,6 +245,10 @@ describe("POST /api/integrations/wordpress/orders", () => {
             createMany: typeof mocks.orderItemCreateManyMock;
             deleteMany: typeof mocks.orderItemDeleteManyMock;
           };
+          orderAttachment: {
+            createMany: typeof mocks.orderAttachmentCreateManyMock;
+            deleteMany: typeof mocks.orderAttachmentDeleteManyMock;
+          };
         }) => Promise<unknown>,
       ) =>
         callback({
@@ -260,6 +268,10 @@ describe("POST /api/integrations/wordpress/orders", () => {
           orderItem: {
             createMany: mocks.orderItemCreateManyMock,
             deleteMany: mocks.orderItemDeleteManyMock,
+          },
+          orderAttachment: {
+            createMany: mocks.orderAttachmentCreateManyMock,
+            deleteMany: mocks.orderAttachmentDeleteManyMock,
           },
         }),
     );
@@ -445,6 +457,137 @@ describe("POST /api/integrations/wordpress/orders", () => {
       }),
     );
     expect(mocks.createOrderNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("imports explicit wordpress attachments onto created orders", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10004,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Processing",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-10004",
+            pickup_address: "Pickup 1",
+            delivery_address: "Delivery 1",
+          },
+          attachments: [
+            {
+              legacyAttachmentId: 42,
+              filename: "receipt.pdf",
+              mimeType: "application/pdf",
+              sizeBytes: 12345,
+              url: "https://wp.example.test/uploads/receipt.pdf",
+              category: "RECEIPT",
+            },
+            {
+              legacyAttachmentId: 43,
+              filename: "",
+              url: "https://wp.example.test/uploads/photo.jpg",
+            },
+            {
+              legacyAttachmentId: 42,
+              filename: "receipt-duplicate.pdf",
+              url: "https://wp.example.test/uploads/receipt-duplicate.pdf",
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderAttachmentDeleteManyMock).not.toHaveBeenCalled();
+    expect(mocks.orderAttachmentCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          orderId: "order-1",
+          legacyWordpressAttachmentId: 42,
+          filename: "receipt.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 12345,
+          storagePath: "https://wp.example.test/uploads/receipt.pdf",
+          sourceUrl: "https://wp.example.test/uploads/receipt.pdf",
+          source: "wordpress_import",
+          category: "RECEIPT",
+        }),
+        expect.objectContaining({
+          orderId: "order-1",
+          legacyWordpressAttachmentId: 43,
+          filename: "photo.jpg",
+          mimeType: "image/jpeg",
+          sizeBytes: null,
+          storagePath: "https://wp.example.test/uploads/photo.jpg",
+          sourceUrl: "https://wp.example.test/uploads/photo.jpg",
+          source: "wordpress_import",
+          category: "ATTACHMENT",
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("replaces wordpress-imported attachments when an existing order is re-synced", async () => {
+    mocks.orderFindUniqueMock.mockResolvedValueOnce({
+      id: "order-1",
+      displayId: 20001,
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10005,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Processing",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-10005",
+            pickup_address: "Pickup 1",
+            delivery_address: "Delivery 1",
+          },
+          attachments: [
+            {
+              legacyAttachmentId: 55,
+              filename: "manual.png",
+              url: "https://wp.example.test/uploads/manual.png",
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderAttachmentDeleteManyMock).toHaveBeenCalledWith({
+      where: {
+        orderId: "order-1",
+        source: "wordpress_import",
+      },
+    });
+    expect(mocks.orderAttachmentCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          orderId: "order-1",
+          legacyWordpressAttachmentId: 55,
+          filename: "manual.png",
+          mimeType: "image/png",
+          storagePath: "https://wp.example.test/uploads/manual.png",
+          source: "wordpress_import",
+        }),
+      ],
+      skipDuplicates: true,
+    });
   });
 
   it("creates supplemental extra rows when a mapped wordpress service is not emitted by the native builder", async () => {
@@ -930,6 +1073,80 @@ describe("POST /api/integrations/wordpress/orders", () => {
         legacyWordpressOrderId: true,
       },
     });
+  });
+
+  it("matches subcontractor total from wordpress when customer prices still use manual wordpress rows", async () => {
+    mocks.calculateBookingPricingMock.mockImplementation((params: { adjustments?: { subcontractorMinus?: string; subcontractorPlus?: string } }) => {
+      const subcontractorMinus = Number(params.adjustments?.subcontractorMinus ?? 0);
+      const subcontractorPlus = Number(params.adjustments?.subcontractorPlus ?? 0);
+
+      return {
+        totals: {
+          totalExVat: 0,
+          subcontractorTotal: subcontractorPlus - subcontractorMinus,
+        },
+      };
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10006,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Processing",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-10006",
+            kundens_navn: "WordPress Customer",
+            pickup_address: "Pickup 1",
+            delivery_address: "Delivery 1",
+            leveringsdato: "2026-04-25",
+            products_0_velg_produkt: "Washer",
+            products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
+            products_0_antall_produkter: "1",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Washer</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Indoor carry (INDOOR)</span>
+                    <span class="price-breakdown-price">100 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+            field_6889f3e2ca127: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-summary">
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label"><strong>Total</strong></span>
+                    <span class="price-breakdown-price">125 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const createCall = mocks.orderCreateMock.mock.calls[0]?.[0];
+    expect(createCall?.data).toEqual(
+      expect.objectContaining({
+        subcontractorPlus: "125",
+        priceSubcontractor: 125,
+      }),
+    );
+    expect(createCall?.data.productCardsSnapshot[0].wordpressImportReadOnly.comment).toContain(
+      "Subcontractor price matched from WordPress",
+    );
   });
 
   it("imports checkbox-style express and return selections when legacy meta stores truthy values instead of labels", async () => {

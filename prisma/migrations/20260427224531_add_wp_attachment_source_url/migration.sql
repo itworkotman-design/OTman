@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "OrderAttachment" ADD COLUMN     "sourceUrl" TEXT;
+ALTER TABLE "OrderAttachment" ADD COLUMN IF NOT EXISTS "sourceUrl" TEXT;

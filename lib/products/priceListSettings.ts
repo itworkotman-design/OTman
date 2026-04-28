@@ -4,11 +4,13 @@ export type PriceListChargeSetting = {
   code: string;
   description: string;
   price: string;
+  subcontractorPrice: string;
 };
 
 export type PriceListSettings = {
   extraPickup: PriceListChargeSetting;
   expressDelivery: PriceListChargeSetting;
+  xtraPallet: PriceListChargeSetting;
   kmFrom21: PriceListChargeSetting;
   kmOver100: PriceListChargeSetting;
 };
@@ -17,17 +19,20 @@ type PriceListChargeSettingInput = {
   code?: unknown;
   description?: unknown;
   price?: unknown;
+  subcontractorPrice?: unknown;
 };
 
 function createDefaultChargeSetting(
   code: string,
   description: string,
   price = "0",
+  subcontractorPrice = "0",
 ): PriceListChargeSetting {
   return {
     code,
     description,
     price,
+    subcontractorPrice,
   };
 }
 
@@ -40,6 +45,11 @@ export function createDefaultPriceListSettings(): PriceListSettings {
     expressDelivery: createDefaultChargeSetting(
       "EXPRESS_DELIVERY",
       "Express delivery",
+    ),
+    xtraPallet: createDefaultChargeSetting(
+      "PALLXTRAS1",
+      "Ekstra pall",
+      "250",
     ),
     kmFrom21: createDefaultChargeSetting(
       "KM_FROM_21",
@@ -83,6 +93,10 @@ function normalizeChargeSetting(
     code: toTextString(input?.code, defaults.code),
     description: toTextString(input?.description, defaults.description),
     price: toPriceString(input?.price, defaults.price),
+    subcontractorPrice: toPriceString(
+      input?.subcontractorPrice,
+      defaults.subcontractorPrice,
+    ),
   };
 }
 
@@ -108,6 +122,10 @@ export function normalizePriceListSettings(
     expressDelivery: normalizeChargeSetting(
       input?.expressDelivery,
       defaults.expressDelivery,
+    ),
+    xtraPallet: normalizeChargeSetting(
+      input?.xtraPallet,
+      defaults.xtraPallet,
     ),
     kmFrom21: normalizeChargeSetting(
       input?.kmFrom21

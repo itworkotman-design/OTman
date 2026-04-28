@@ -12,6 +12,7 @@ export type ProductCardLineItem =
       label: string;
       qty: number;
       unitPrice: number;
+      subcontractorUnitPrice: number;
     }
   | {
       kind: "productOption";

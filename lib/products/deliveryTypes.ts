@@ -11,7 +11,9 @@ export type ProductDeliveryType = {
   code: string;
   label: string;
   price: string;
+  subcontractorPrice?: string;
   xtraPrice: string;
+  xtraSubcontractorPrice?: string;
 };
 
 function toNonEmptyString(value: unknown, fallback = "") {
@@ -40,28 +42,36 @@ export const DEFAULT_PRODUCT_DELIVERY_TYPES: ProductDeliveryType[] = [
     code: "FIRST_STEP",
     label: "Første trinn",
     price: "590",
+    subcontractorPrice: "0",
     xtraPrice: "150",
+    xtraSubcontractorPrice: "0",
   },
   {
     key: DELIVERY_TYPES.INDOOR,
     code: "INDOOR",
     label: "Innbæring",
     price: "669",
+    subcontractorPrice: "0",
     xtraPrice: "229",
+    xtraSubcontractorPrice: "0",
   },
   {
     key: DELIVERY_TYPES.INSTALL_ONLY,
     code: "INSTALL_ONLY",
     label: "Kun Installasjon/Montering",
     price: "590",
+    subcontractorPrice: "0",
     xtraPrice: "0",
+    xtraSubcontractorPrice: "0",
   },
   {
     key: DELIVERY_TYPES.RETURN_ONLY,
     code: "RETURN_ONLY",
     label: "Kun retur",
     price: "669",
+    subcontractorPrice: "0",
     xtraPrice: "0",
+    xtraSubcontractorPrice: "0",
   },
 ];
 
@@ -113,7 +123,9 @@ export function normalizeProductDeliveryTypes(
       code?: unknown;
       label?: unknown;
       price?: unknown;
+      subcontractorPrice?: unknown;
       xtraPrice?: unknown;
+      xtraSubcontractorPrice?: unknown;
     };
     const key = normalizeDeliveryTypeKey(rawType.key);
     if (!key) continue;
@@ -131,7 +143,9 @@ export function normalizeProductDeliveryTypes(
       code?: unknown;
       label?: unknown;
       price?: unknown;
+      subcontractorPrice?: unknown;
       xtraPrice?: unknown;
+      xtraSubcontractorPrice?: unknown;
     };
 
     return {
@@ -139,7 +153,15 @@ export function normalizeProductDeliveryTypes(
       code: toNonEmptyString(typedRaw.code, item.code),
       label: toNonEmptyString(typedRaw.label, item.label),
       price: toPriceString(typedRaw.price, item.price),
+      subcontractorPrice: toPriceString(
+        typedRaw.subcontractorPrice,
+        item.subcontractorPrice ?? "0",
+      ),
       xtraPrice: toPriceString(typedRaw.xtraPrice, item.xtraPrice),
+      xtraSubcontractorPrice: toPriceString(
+        typedRaw.xtraSubcontractorPrice,
+        item.xtraSubcontractorPrice ?? "0",
+      ),
     };
   });
 }
@@ -171,15 +193,27 @@ export function getProductDeliveryTypePrice(params: {
   deliveryTypes: ProductDeliveryType[];
   key: DeliveryTypeKey | "";
   useXtraPrice?: boolean;
+  subcontractor?: boolean;
 }) {
-  const { deliveryTypes, key, useXtraPrice = false } = params;
+  const {
+    deliveryTypes,
+    key,
+    useXtraPrice = false,
+    subcontractor = false,
+  } = params;
   const type = getProductDeliveryType(deliveryTypes, key);
 
   if (!type) return 0;
 
-  const parsed = Number(
-    (useXtraPrice ? type.xtraPrice : type.price).replace(",", "."),
-  );
+  const value = subcontractor
+    ? useXtraPrice
+      ? type.xtraSubcontractorPrice
+      : type.subcontractorPrice
+    : useXtraPrice
+      ? type.xtraPrice
+      : type.price;
+
+  const parsed = Number((value ?? "0").replace(",", "."));
 
   return Number.isFinite(parsed) ? parsed : 0;
 }

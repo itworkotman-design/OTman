@@ -16,6 +16,7 @@ import { OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { createEmptyProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { normalizeAttachmentCategory, type AttachmentCategory } from "@/lib/orders/attachmentCategories";
 
 type WordpressOrderSyncPayload = {
   legacyWordpressOrderId: number;
@@ -28,8 +29,21 @@ type WordpressOrderSyncPayload = {
     legacyAttachmentId: number;
     filename: string;
     mimeType?: string | null;
+    sizeBytes?: number | null;
     url: string;
+    category?: string | null;
   }[];
+};
+
+type NormalizedWordpressAttachment = {
+  legacyWordpressAttachmentId: number;
+  filename: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  storagePath: string;
+  sourceUrl: string;
+  source: "wordpress_import";
+  category: AttachmentCategory;
 };
 
 type ParsedWordpressProductItem = {
@@ -108,6 +122,7 @@ const DELIVERY_TYPE_CODES = new Set([
 
 const GLOBAL_FEE_CODES = new Set([EXTRA_WORK_FEE_CODE, ADD_TO_ORDER_FEE_CODE, "EXPRESS", "BOMTUR"]);
 const WORDPRESS_PRICE_MISMATCH_COMMENT = "New system was unable to match to old price";
+const WORDPRESS_SUBCONTRACTOR_MATCH_COMMENT = "Subcontractor price matched from WordPress";
 const EXTRA_PICKUP_CODE = "EXTRAPICKUP";
 
 const SUMMARY_LABEL_PATTERNS = [/^mva\b/i, /^total\b/i, /^total inkl/i, /^pris uten mva\b/i, /^sum\b/i, /^km pris\b/i, /^extra\b/i, /^rabatt\b/i, /^ekstra\b/i];
@@ -933,6 +948,11 @@ const getImportedWordpressPriceExVatCents = (meta: Record<string, unknown>): num
   return findBreakdownRowValueCents(extractBreakdownRows(breakdownHtml), TOTAL_BREAKDOWN_LABEL_PATTERNS);
 };
 
+const getImportedWordpressSubcontractorTotalCents = (meta: Record<string, unknown>): number | undefined => {
+  const subcontractorRows = extractBreakdownRows(asString(meta.field_6889f3e2ca127));
+  return findBreakdownRowValueCents(subcontractorRows, TOTAL_BREAKDOWN_LABEL_PATTERNS);
+};
+
 const getImportedWordpressAdjustments = (meta: Record<string, unknown>): ImportedWordpressAdjustments => {
   const customerRows = extractBreakdownRows(asString(meta.price_breakdown_html));
   const subcontractorRows = extractBreakdownRows(asString(meta.field_6889f3e2ca127));
@@ -947,6 +967,26 @@ const getImportedWordpressAdjustments = (meta: Record<string, unknown>): Importe
     leggTil: undefined,
     subcontractorMinus: typeof subcontractorMinusCents === "number" ? formatImportedAdjustment(subcontractorMinusCents) : undefined,
     subcontractorPlus: undefined,
+  };
+};
+
+const adjustmentStringToCents = (value: string | undefined): number => parseLegacyMoneyToCents(value) ?? 0;
+
+const addImportedSubcontractorAdjustment = (adjustments: ImportedWordpressAdjustments, differenceCents: number): ImportedWordpressAdjustments => {
+  if (differenceCents === 0) {
+    return adjustments;
+  }
+
+  if (differenceCents > 0) {
+    return {
+      ...adjustments,
+      subcontractorPlus: formatImportedAdjustment(adjustmentStringToCents(adjustments.subcontractorPlus) + differenceCents),
+    };
+  }
+
+  return {
+    ...adjustments,
+    subcontractorMinus: formatImportedAdjustment(adjustmentStringToCents(adjustments.subcontractorMinus) + Math.abs(differenceCents)),
   };
 };
 
@@ -1205,6 +1245,31 @@ const applyWordpressPriceMatchPolicy = (params: {
 
   return [...nextCards, globalReadOnlyCard];
 };
+
+const hasWordpressManualPriceRows = (productCards: ReturnType<typeof mapWordpressImportToProductCards>["productCards"]): boolean =>
+  productCards.some((card) => Boolean(card.wordpressImportReadOnly));
+
+const addWordpressSubcontractorMatchComment = (
+  productCards: ReturnType<typeof mapWordpressImportToProductCards>["productCards"],
+): ReturnType<typeof mapWordpressImportToProductCards>["productCards"] =>
+  productCards.map((card) => {
+    if (!card.wordpressImportReadOnly) {
+      return card;
+    }
+
+    const existingComment = card.wordpressImportReadOnly.comment.trim();
+    const comment = existingComment.includes(WORDPRESS_SUBCONTRACTOR_MATCH_COMMENT)
+      ? existingComment
+      : `${existingComment}. ${WORDPRESS_SUBCONTRACTOR_MATCH_COMMENT}.`;
+
+    return {
+      ...card,
+      wordpressImportReadOnly: {
+        ...card.wordpressImportReadOnly,
+        comment,
+      },
+    };
+  });
 
 async function syncWordpressPriceMismatchNotification(
   tx: Prisma.TransactionClient,
@@ -1633,6 +1698,83 @@ const toCreateManyItem = (orderId: string, item: ImportedOrderItemData): Prisma.
   rawData: item.rawData ? (item.rawData as Prisma.InputJsonValue) : Prisma.JsonNull,
 });
 
+const getFilenameFromUrl = (url: string): string | undefined => {
+  try {
+    const pathname = new URL(url).pathname;
+    const filename = pathname.split("/").filter(Boolean).at(-1);
+    return filename ? decodeURIComponent(filename) : undefined;
+  } catch {
+    const filename = url.split("?")[0]?.split("/").filter(Boolean).at(-1);
+    return filename ? decodeURIComponent(filename) : undefined;
+  }
+};
+
+const inferMimeType = (filename: string, url: string): string | null => {
+  const candidate = `${filename} ${url}`.toLowerCase();
+
+  if (candidate.includes(".pdf")) return "application/pdf";
+  if (candidate.includes(".png")) return "image/png";
+  if (candidate.includes(".jpg") || candidate.includes(".jpeg")) return "image/jpeg";
+  if (candidate.includes(".webp")) return "image/webp";
+
+  return null;
+};
+
+const normalizeWordpressAttachments = (attachments: WordpressOrderSyncPayload["attachments"]): NormalizedWordpressAttachment[] => {
+  if (!Array.isArray(attachments)) {
+    return [];
+  }
+
+  const byLegacyId = new Map<number, NormalizedWordpressAttachment>();
+
+  for (const attachment of attachments) {
+    if (!Number.isInteger(attachment.legacyAttachmentId)) {
+      continue;
+    }
+
+    if (byLegacyId.has(attachment.legacyAttachmentId)) {
+      continue;
+    }
+
+    const url = asString(attachment.url);
+    if (!url) {
+      continue;
+    }
+
+    const filename = asString(attachment.filename) ?? getFilenameFromUrl(url) ?? `wordpress-attachment-${attachment.legacyAttachmentId}`;
+    const explicitMimeType = asString(attachment.mimeType);
+    const sizeBytes = typeof attachment.sizeBytes === "number" && Number.isFinite(attachment.sizeBytes) && attachment.sizeBytes >= 0 ? Math.round(attachment.sizeBytes) : null;
+
+    byLegacyId.set(attachment.legacyAttachmentId, {
+      legacyWordpressAttachmentId: attachment.legacyAttachmentId,
+      filename,
+      mimeType: explicitMimeType ?? inferMimeType(filename, url),
+      sizeBytes,
+      storagePath: url,
+      sourceUrl: url,
+      source: "wordpress_import",
+      category: normalizeAttachmentCategory(attachment.category),
+    });
+  }
+
+  return Array.from(byLegacyId.values());
+};
+
+const toWordpressAttachmentCreateManyInput = (
+  orderId: string,
+  attachment: NormalizedWordpressAttachment,
+): Prisma.OrderAttachmentCreateManyInput => ({
+  orderId,
+  legacyWordpressAttachmentId: attachment.legacyWordpressAttachmentId,
+  filename: attachment.filename,
+  mimeType: attachment.mimeType,
+  sizeBytes: attachment.sizeBytes,
+  storagePath: attachment.storagePath,
+  sourceUrl: attachment.sourceUrl,
+  source: attachment.source,
+  category: attachment.category,
+});
+
 export async function POST(req: NextRequest) {
   try {
     const secret = req.headers.get("x-wp-sync-secret");
@@ -1675,32 +1817,7 @@ export async function POST(req: NextRequest) {
     }
 
     const meta = body.meta && typeof body.meta === "object" && !Array.isArray(body.meta) ? (body.meta as Record<string, unknown>) : {};
-    function extractWpImages(meta: Record<string, unknown>): string[] {
-      const images: string[] = [];
-
-      for (const value of Object.values(meta)) {
-        if (!value) continue;
-
-        if (typeof value === "string" && value.startsWith("http")) {
-          if (value.match(/\.(jpg|jpeg|png|webp)$/i)) {
-            images.push(value);
-          }
-        }
-
-        if (Array.isArray(value)) {
-          for (const v of value) {
-            if (typeof v === "string" && v.startsWith("http")) {
-              if (v.match(/\.(jpg|jpeg|png|webp)$/i)) {
-                images.push(v);
-              }
-            }
-          }
-        }
-      }
-
-      return images;
-    }
-    const wpImages = extractWpImages(meta);
+    const wordpressAttachments = normalizeWordpressAttachments(body.attachments);
 
     const pickupAddress = getFirstMetaString(meta, ["pickup_address", "henteadresse"]);
     const deliveryAddress = getFirstMetaString(meta, ["delivery_address", "leveringsadresse"]);
@@ -1840,7 +1957,7 @@ export async function POST(req: NextRequest) {
     });
     const forcedXtraDeliveryCardIds = getForcedXtraDeliveryCardIds(meta, mappedImport.productCards);
 
-    const nativePricing = getNativeCalculatedPricing({
+    let nativePricing = getNativeCalculatedPricing({
       productCards: mappedImport.productCards,
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
@@ -1850,8 +1967,25 @@ export async function POST(req: NextRequest) {
       deviation,
       forcedXtraDeliveryCardIds,
     });
-    const nativePriceExVatCents = nativePricing.totalExVatCents;
 
+    const wordpressSubcontractorTotalCents = getImportedWordpressSubcontractorTotalCents(meta);
+    if (hasWordpressManualPriceRows(mappedImport.productCards) && typeof wordpressSubcontractorTotalCents === "number") {
+      const subcontractorDifferenceCents = wordpressSubcontractorTotalCents - nativePricing.subcontractorTotalCents;
+      importedAdjustments = addImportedSubcontractorAdjustment(importedAdjustments, subcontractorDifferenceCents);
+      mappedImport.productCards = addWordpressSubcontractorMatchComment(mappedImport.productCards);
+      nativePricing = getNativeCalculatedPricing({
+        productCards: mappedImport.productCards,
+        catalogProducts: catalog.products,
+        catalogSpecialOptions: catalog.specialOptions,
+        drivingDistance: undefined,
+        adjustments: importedAdjustments,
+        importedFees,
+        deviation,
+        forcedXtraDeliveryCardIds,
+      });
+    }
+
+    const nativePriceExVatCents = nativePricing.totalExVatCents;
     const nativePriceSubcontractorCents = nativePricing.subcontractorTotalCents;
 
     const resolvedServiceQueues = buildResolvedServiceQueues(mappedImport.resolvedServices);
@@ -1962,16 +2096,16 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          if (wpImages.length > 0) {
+          await tx.orderAttachment.deleteMany({
+            where: {
+              orderId: updated.id,
+              source: "wordpress_import",
+            },
+          });
+
+          if (wordpressAttachments.length > 0) {
             await tx.orderAttachment.createMany({
-              data: wpImages.map((url, index) => ({
-                orderId: updated.id,
-                sourceUrl: url,
-                legacyWordpressAttachmentId: index,
-                filename: `wp-${index}`,
-                storagePath: url, // temporary
-                source: "wordpress_import",
-              })),
+              data: wordpressAttachments.map((attachment) => toWordpressAttachmentCreateManyInput(updated.id, attachment)),
               skipDuplicates: true,
             });
           }
@@ -2070,16 +2204,9 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          if (wpImages.length > 0) {
+          if (wordpressAttachments.length > 0) {
             await tx.orderAttachment.createMany({
-              data: wpImages.map((url, index) => ({
-                orderId: created.id,
-                sourceUrl: url,
-                legacyWordpressAttachmentId: index,
-                filename: `wp-${index}`,
-                storagePath: url, // temporary
-                source: "wordpress_import",
-              })),
+              data: wordpressAttachments.map((attachment) => toWordpressAttachmentCreateManyInput(created.id, attachment)),
               skipDuplicates: true,
             });
           }

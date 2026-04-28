@@ -16,11 +16,14 @@ type OptionPriceSnapshot = {
 
 type DeliveryTypePriceSnapshot = {
   price: string;
+  subcontractorPrice?: string;
   xtraPrice: string;
+  xtraSubcontractorPrice?: string;
 };
 
 type CustomSectionOptionPriceSnapshot = {
   price: string;
+  subcontractorPrice?: string;
 };
 
 export type OrderPricingSnapshot = {
@@ -93,7 +96,9 @@ export function buildOrderPricingSnapshot(params: {
     for (const deliveryType of product.deliveryTypes) {
       deliveryTypes[deliveryTypeSnapshotKey(product.id, deliveryType.key)] = {
         price: deliveryType.price,
+        subcontractorPrice: deliveryType.subcontractorPrice,
         xtraPrice: deliveryType.xtraPrice,
+        xtraSubcontractorPrice: deliveryType.xtraSubcontractorPrice,
       };
     }
 
@@ -101,6 +106,7 @@ export function buildOrderPricingSnapshot(params: {
       for (const option of section.options) {
         customSectionOptions[option.id] = {
           price: option.price,
+          subcontractorPrice: option.subcontractorPrice,
         };
       }
     }
@@ -153,7 +159,12 @@ export function applyOrderPricingSnapshot(params: {
           ? {
               ...deliveryType,
               price: snapshot.price,
+              subcontractorPrice:
+                snapshot.subcontractorPrice ?? deliveryType.subcontractorPrice,
               xtraPrice: snapshot.xtraPrice,
+              xtraSubcontractorPrice:
+                snapshot.xtraSubcontractorPrice ??
+                deliveryType.xtraSubcontractorPrice,
             }
           : deliveryType;
       }),
@@ -178,6 +189,8 @@ export function applyOrderPricingSnapshot(params: {
             ? {
                 ...option,
                 price: snapshot.price,
+                subcontractorPrice:
+                  snapshot.subcontractorPrice ?? option.subcontractorPrice,
               }
             : option;
         }),

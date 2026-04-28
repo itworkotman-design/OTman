@@ -44,9 +44,18 @@ export function calculateBookingPricing(params: {
     for (const item of product.items) {
       if (item.kind === "deliveryType") {
         const unitPrice = roundPriceRule(item.unitPrice);
+        const subcontractorUnitPrice = roundPriceRule(
+          item.subcontractorUnitPrice,
+        );
         const lineTotal = roundPriceRule(unitPrice * item.qty);
+        const subcontractorLineTotal = roundPriceRule(
+          subcontractorUnitPrice * item.qty,
+        );
 
         subtotalExVat = roundPriceRule(subtotalExVat + lineTotal);
+        subcontractorBase = roundPriceRule(
+          subcontractorBase + subcontractorLineTotal,
+        );
 
         lines.push({
           label: item.label,

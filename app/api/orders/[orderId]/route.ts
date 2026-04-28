@@ -44,9 +44,11 @@ import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import {
   createOrderNotification,
   hasOpenCapacityNotification,
+  hasOpenSubcontractorPriceNotification,
   resolveOutdatedCapacityNotifications,
 } from "@/lib/orders/orderNotifications";
 import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
+import { buildSubcontractorPriceWarningNotification } from "@/lib/orders/notificationTemplates/subcontractorPriceWarningNotification";
 import type { AppPermission } from "@/lib/users/types";
 import {
   ORDER_SLOT_LIMIT,
@@ -1172,6 +1174,34 @@ export async function PATCH(
       payload:
         extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
     });
+  }
+
+  const nextPriceExVat = nextSnapshot.priceExVat ?? 0;
+  const nextPriceSubcontractor = nextSnapshot.priceSubcontractor ?? 0;
+
+  if (nextPriceSubcontractor > nextPriceExVat) {
+    const alreadyExists = await hasOpenSubcontractorPriceNotification(prisma, {
+      orderId,
+      companyId: existingOrder.companyId,
+      customerPrice: nextPriceExVat,
+      subcontractorPrice: nextPriceSubcontractor,
+    });
+
+    if (!alreadyExists) {
+      const priceWarning = buildSubcontractorPriceWarningNotification({
+        customerPrice: nextPriceExVat,
+        subcontractorPrice: nextPriceSubcontractor,
+      });
+
+      await createOrderNotification(prisma, {
+        orderId,
+        companyId: existingOrder.companyId,
+        type: "MANUAL_REVIEW",
+        title: priceWarning.title,
+        message: priceWarning.message,
+        payload: priceWarning.payload as unknown as Prisma.InputJsonValue,
+      });
+    }
   }
 
   const nextDeliveryDate =

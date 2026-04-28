@@ -179,7 +179,7 @@ function getDeliveryTypeEditorTitle(key: ProductDeliveryType["key"]) {
 }
 
 function supportsXtraPrice(key: ProductDeliveryType["key"]) {
-  return key === "FIRST_STEP" || key === "INDOOR";
+  return false;
 }
 
 function getDeliveryTypePricePlaceholder(key: ProductDeliveryType["key"]) {
@@ -678,6 +678,7 @@ export default function EditPricesPage() {
                         code: "",
                         label: "",
                         price: "0",
+                        subcontractorPrice: "0",
                       },
                 ],
               },
@@ -737,6 +738,7 @@ export default function EditPricesPage() {
                         code: "",
                         label: "",
                         price: "0",
+                        subcontractorPrice: "0",
                       },
                     ],
                   }
@@ -853,7 +855,7 @@ export default function EditPricesPage() {
 
   function updatePriceListChargeSetting(
     key: keyof PriceListSettings,
-    field: "code" | "description" | "price",
+    field: "code" | "description" | "price" | "subcontractorPrice",
     value: string,
   ) {
     setPriceListSettingsDraft((current) => ({
@@ -2479,6 +2481,27 @@ export default function EditPricesPage() {
                     placeholder="Price"
                   />
                 </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Subcontractor price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.extraPickup.subcontractorPrice}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "extraPickup",
+                        "subcontractorPrice",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Subcontractor price"
+                  />
+                </label>
               </div>
 
               <div className="space-y-3 rounded-lg border border-black/10 p-4">
@@ -2542,6 +2565,115 @@ export default function EditPricesPage() {
                     }
                     className="customInput w-full"
                     placeholder="Price"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Subcontractor price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={
+                      priceListSettingsDraft.expressDelivery.subcontractorPrice
+                    }
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "expressDelivery",
+                        "subcontractorPrice",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Subcontractor price"
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-black/10 p-4">
+                <h3 className="text-sm font-semibold text-logoblue">
+                  XTRA pallet
+                </h3>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Code
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.xtraPallet.code}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "xtraPallet",
+                        "code",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Code"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Description
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.xtraPallet.description}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "xtraPallet",
+                        "description",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Description"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.xtraPallet.price}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "xtraPallet",
+                        "price",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Price"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Subcontractor price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.xtraPallet.subcontractorPrice}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "xtraPallet",
+                        "subcontractorPrice",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Subcontractor price"
                   />
                 </label>
               </div>
@@ -2609,6 +2741,27 @@ export default function EditPricesPage() {
                     placeholder="Price per km"
                   />
                 </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Subcontractor price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.kmFrom21.subcontractorPrice}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "kmFrom21",
+                        "subcontractorPrice",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Subcontractor price per km"
+                  />
+                </label>
               </div>
 
               <div className="space-y-3 rounded-lg border border-black/10 p-4">
@@ -2674,10 +2827,31 @@ export default function EditPricesPage() {
                     placeholder="Price per km"
                   />
                 </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Subcontractor price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.kmOver100.subcontractorPrice}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "kmOver100",
+                        "subcontractorPrice",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Subcontractor price per km"
+                  />
+                </label>
               </div>
 
               <p className="text-sm text-black/60">
-                Product delivery type prices and XTRA prices are edited per product.
+                Product delivery type prices are edited per product.
               </p>
             </div>
 
@@ -2776,8 +2950,8 @@ export default function EditPricesPage() {
                         <div
                           className={
                             supportsXtraPrice(deliveryType.key)
-                              ? "grid grid-cols-1 gap-2 sm:grid-cols-4"
-                              : "grid grid-cols-1 gap-2 sm:grid-cols-3"
+                              ? "grid grid-cols-1 gap-2 sm:grid-cols-6"
+                              : "grid grid-cols-1 gap-2 sm:grid-cols-4"
                           }
                         >
                           <input
@@ -2817,22 +2991,50 @@ export default function EditPricesPage() {
                               deliveryType.key,
                             )}
                           />
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={deliveryType.subcontractorPrice}
+                            onChange={(e) =>
+                              updateDeliveryType(deliveryType.key, {
+                                subcontractorPrice: e.target.value,
+                              })
+                            }
+                            className="customInput w-full"
+                            placeholder="Subcontractor price"
+                          />
                           {supportsXtraPrice(deliveryType.key) && (
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={deliveryType.xtraPrice}
-                              onChange={(e) =>
-                                updateDeliveryType(deliveryType.key, {
-                                  xtraPrice: e.target.value,
-                                })
-                              }
-                              className="customInput w-full"
-                              placeholder={getDeliveryTypeXtraPlaceholder(
-                                deliveryType.key,
-                              )}
-                            />
+                            <>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={deliveryType.xtraPrice}
+                                onChange={(e) =>
+                                  updateDeliveryType(deliveryType.key, {
+                                    xtraPrice: e.target.value,
+                                  })
+                                }
+                                className="customInput w-full"
+                                placeholder={getDeliveryTypeXtraPlaceholder(
+                                  deliveryType.key,
+                                )}
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={deliveryType.xtraSubcontractorPrice}
+                                onChange={(e) =>
+                                  updateDeliveryType(deliveryType.key, {
+                                    xtraSubcontractorPrice: e.target.value,
+                                  })
+                                }
+                                className="customInput w-full"
+                                placeholder="XTRA subcontractor price"
+                              />
+                            </>
                           )}
                         </div>
                       </div>
@@ -2930,7 +3132,7 @@ export default function EditPricesPage() {
                                 key={option.id}
                                 className={
                                   section.usePrices
-                                    ? "grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_110px_auto]"
+                                    ? "grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_110px_110px_auto]"
                                     : "grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_auto]"
                                 }
                               >
@@ -2965,23 +3167,42 @@ export default function EditPricesPage() {
                                   placeholder="Option label"
                                 />
                                 {section.usePrices && (
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    value={option.price}
-                                    onChange={(e) =>
-                                      updateCustomSectionOption(
-                                        section.id,
-                                        option.id,
-                                        {
-                                          price: e.target.value,
-                                        },
-                                      )
-                                    }
-                                    className="customInput w-full"
-                                    placeholder="Price"
-                                  />
+                                  <>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="1"
+                                      value={option.price}
+                                      onChange={(e) =>
+                                        updateCustomSectionOption(
+                                          section.id,
+                                          option.id,
+                                          {
+                                            price: e.target.value,
+                                          },
+                                        )
+                                      }
+                                      className="customInput w-full"
+                                      placeholder="Price"
+                                    />
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="1"
+                                      value={option.subcontractorPrice}
+                                      onChange={(e) =>
+                                        updateCustomSectionOption(
+                                          section.id,
+                                          option.id,
+                                          {
+                                            subcontractorPrice: e.target.value,
+                                          },
+                                        )
+                                      }
+                                      className="customInput w-full"
+                                      placeholder="Sub price"
+                                    />
+                                  </>
                                 )}
                                 <button
                                   type="button"

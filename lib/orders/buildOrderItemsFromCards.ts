@@ -350,7 +350,9 @@ export function buildOrderItemsFromCards(
           customerPriceCents: section.usePrices
             ? decimalStringToCents(option.price)
             : null,
-          subcontractorPriceCents: 0,
+          subcontractorPriceCents: section.usePrices
+            ? decimalStringToCents(option.subcontractorPrice)
+            : null,
           rawData: {
             code: option.code || section.title || null,
             label: option.label,

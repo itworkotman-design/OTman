@@ -209,6 +209,11 @@ function parseDistanceKm(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function parsePriceSetting(value: string) {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function normalizeRouteAddress(value: string | null | undefined) {
   return (value ?? "").trim();
 }
@@ -906,6 +911,12 @@ export default function BookingEditor({
           zeroBaseDeliveryPricesOver100Km:
             shouldUseNativeDistancePricing &&
             parseDistanceKm(drivingDistance) > 100,
+          xtraPalletPrice: parsePriceSetting(
+            pricingSource.priceListSettings.xtraPallet.price,
+          ),
+          xtraPalletSubcontractorPrice: parsePriceSetting(
+            pricingSource.priceListSettings.xtraPallet.subcontractorPrice,
+          ),
         },
       ),
     [
@@ -913,6 +924,8 @@ export default function BookingEditor({
       pricingSource.catalogProducts,
       pricingSource.catalogSpecialOptions,
       drivingDistance,
+      pricingSource.priceListSettings.xtraPallet.price,
+      pricingSource.priceListSettings.xtraPallet.subcontractorPrice,
       shouldUseNativeDistancePricing,
     ],
   );
@@ -925,6 +938,7 @@ export default function BookingEditor({
       label: string;
       qty: number;
       unitPrice: number;
+      subcontractorUnitPrice: number;
     }> = [];
     const totalDistanceKm = shouldUseNativeDistancePricing
       ? parseDistanceKm(drivingDistance)
@@ -937,19 +951,28 @@ export default function BookingEditor({
         : 0;
 
     const kmOver100Qty = totalDistanceKm > 100 ? chargeableDistanceKm : 0;
-    const kmFrom21Price = Number(
-      pricingSource.priceListSettings.kmFrom21.price.replace(",", "."),
+    const kmFrom21Price = parsePriceSetting(
+      pricingSource.priceListSettings.kmFrom21.price,
     );
-    const kmOver100Price = Number(
-      pricingSource.priceListSettings.kmOver100.price.replace(",", "."),
+    const kmFrom21SubcontractorPrice = parsePriceSetting(
+      pricingSource.priceListSettings.kmFrom21.subcontractorPrice,
+    );
+    const kmOver100Price = parsePriceSetting(
+      pricingSource.priceListSettings.kmOver100.price,
+    );
+    const kmOver100SubcontractorPrice = parsePriceSetting(
+      pricingSource.priceListSettings.kmOver100.subcontractorPrice,
     );
     const extraWorkFee = feeExtraWork
       ? calculateExtraWorkFee(extraWorkMinutes)
       : { blocks: 0, price: 0 };
     const deviationFee = getDeviationFeeOption(deviation);
 
-    const expressDeliveryPrice = Number(
-      pricingSource.priceListSettings.expressDelivery.price.replace(",", "."),
+    const expressDeliveryPrice = parsePriceSetting(
+      pricingSource.priceListSettings.expressDelivery.price,
+    );
+    const expressDeliverySubcontractorPrice = parsePriceSetting(
+      pricingSource.priceListSettings.expressDelivery.subcontractorPrice,
     );
 
     if (expressDelivery && Number.isFinite(expressDeliveryPrice)) {
@@ -959,14 +982,18 @@ export default function BookingEditor({
         label: pricingSource.priceListSettings.expressDelivery.description,
         qty: 1,
         unitPrice: expressDeliveryPrice,
+        subcontractorUnitPrice: expressDeliverySubcontractorPrice,
       });
     }
 
     const extraPickupCount = extraPickups.filter(
       (pickup) => pickup.address.trim().length > 0,
     ).length;
-    const extraPickupPrice = Number(
-      pricingSource.priceListSettings.extraPickup.price.replace(",", "."),
+    const extraPickupPrice = parsePriceSetting(
+      pricingSource.priceListSettings.extraPickup.price,
+    );
+    const extraPickupSubcontractorPrice = parsePriceSetting(
+      pricingSource.priceListSettings.extraPickup.subcontractorPrice,
     );
 
     if (extraPickupCount > 0 && Number.isFinite(extraPickupPrice)) {
@@ -976,6 +1003,7 @@ export default function BookingEditor({
         label: pricingSource.priceListSettings.extraPickup.description,
         qty: extraPickupCount,
         unitPrice: extraPickupPrice,
+        subcontractorUnitPrice: extraPickupSubcontractorPrice,
       });
     }
 
@@ -986,6 +1014,7 @@ export default function BookingEditor({
         label: pricingSource.priceListSettings.kmFrom21.description,
         qty: kmFrom21Qty,
         unitPrice: kmFrom21Price,
+        subcontractorUnitPrice: kmFrom21SubcontractorPrice,
       });
     }
 
@@ -996,6 +1025,7 @@ export default function BookingEditor({
         label: pricingSource.priceListSettings.kmOver100.description,
         qty: kmOver100Qty,
         unitPrice: kmOver100Price,
+        subcontractorUnitPrice: kmOver100SubcontractorPrice,
       });
     }
 
@@ -1006,6 +1036,7 @@ export default function BookingEditor({
         label: deviationFee.englishLabel,
         qty: 1,
         unitPrice: deviationFee.price,
+        subcontractorUnitPrice: 0,
       });
     }
 
@@ -1016,6 +1047,7 @@ export default function BookingEditor({
         label: `${EXTRA_WORK_FEE_LABEL} x${extraWorkFee.blocks}`,
         qty: 1,
         unitPrice: extraWorkFee.price,
+        subcontractorUnitPrice: 0,
       });
     }
 
@@ -1026,6 +1058,7 @@ export default function BookingEditor({
         label: ADD_TO_ORDER_FEE_LABEL,
         qty: 1,
         unitPrice: 99,
+        subcontractorUnitPrice: 0,
       });
     }
 
@@ -1047,15 +1080,19 @@ export default function BookingEditor({
     pricingSource.priceListSettings.expressDelivery.code,
     pricingSource.priceListSettings.expressDelivery.description,
     pricingSource.priceListSettings.expressDelivery.price,
+    pricingSource.priceListSettings.expressDelivery.subcontractorPrice,
     pricingSource.priceListSettings.extraPickup.code,
     pricingSource.priceListSettings.extraPickup.description,
     pricingSource.priceListSettings.extraPickup.price,
+    pricingSource.priceListSettings.extraPickup.subcontractorPrice,
     pricingSource.priceListSettings.kmFrom21.code,
     pricingSource.priceListSettings.kmFrom21.description,
     pricingSource.priceListSettings.kmFrom21.price,
+    pricingSource.priceListSettings.kmFrom21.subcontractorPrice,
     pricingSource.priceListSettings.kmOver100.code,
     pricingSource.priceListSettings.kmOver100.description,
     pricingSource.priceListSettings.kmOver100.price,
+    pricingSource.priceListSettings.kmOver100.subcontractorPrice,
     productBreakdowns,
     extraPickups,
     shouldUseNativeDistancePricing,

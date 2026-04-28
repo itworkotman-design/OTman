@@ -6,18 +6,18 @@
 
 */
 -- AlterEnum
-ALTER TYPE "OrderNotificationType" ADD VALUE 'CAPACITY_REVIEW';
+ALTER TYPE "OrderNotificationType" ADD VALUE IF NOT EXISTS 'CAPACITY_REVIEW';
 
 -- AlterTable
-ALTER TABLE "Order" ADD COLUMN     "legacyWordpressAuthorId" INTEGER,
-ADD COLUMN     "legacyWordpressOrderId" INTEGER,
-ADD COLUMN     "legacyWordpressRawMeta" JSONB;
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "legacyWordpressAuthorId" INTEGER;
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "legacyWordpressOrderId" INTEGER;
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "legacyWordpressRawMeta" JSONB;
 
 -- AlterTable
-ALTER TABLE "OrderAttachment" ADD COLUMN     "legacyWordpressAttachmentId" INTEGER;
+ALTER TABLE "OrderAttachment" ADD COLUMN IF NOT EXISTS "legacyWordpressAttachmentId" INTEGER;
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Order_legacyWordpressOrderId_key" ON "Order"("legacyWordpressOrderId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Order_legacyWordpressOrderId_key" ON "Order"("legacyWordpressOrderId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "OrderAttachment_orderId_legacyWordpressAttachmentId_key" ON "OrderAttachment"("orderId", "legacyWordpressAttachmentId");
+CREATE UNIQUE INDEX IF NOT EXISTS "OrderAttachment_orderId_legacyWordpressAttachmentId_key" ON "OrderAttachment"("orderId", "legacyWordpressAttachmentId");

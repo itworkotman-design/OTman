@@ -17,11 +17,12 @@ import {
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
-const PALLET_EXTRA_UNIT_PRICE = 250;
 
 type BuildProductBreakdownsOptions = {
   zeroBaseDeliveryPricesOver100Km?: boolean;
   forcedXtraDeliveryCardIds?: Set<number>;
+  xtraPalletPrice?: number;
+  xtraPalletSubcontractorPrice?: number;
 };
 
 function normalizeAutomaticXtraText(value: string | null | undefined) {
@@ -51,6 +52,11 @@ function findAutomaticXtraSpecialOption(params: { catalogSpecialOptions: Catalog
 
 function shouldUseXtraDeliveryPricing(xtraDeliveryCardIds: Set<number>, currentCardId: number) {
   return xtraDeliveryCardIds.has(currentCardId);
+}
+
+function parsePrice(value: string) {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function usesSharedDeliveryPricing(card: SavedProductCard, product: CatalogProduct) {
@@ -182,6 +188,7 @@ function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProdu
         label: option.label,
         qty,
         unitPrice: Number(option.price) || 0,
+        subcontractorUnitPrice: Number(option.subcontractorPrice) || 0,
       });
     }
   }
@@ -193,6 +200,8 @@ function buildItemsForCard(
   catalogSpecialOptions: CatalogSpecialOption[],
   useXtraDeliveryPricing: boolean,
   zeroBaseDeliveryPricesOver100Km: boolean,
+  xtraPalletPrice: number,
+  xtraPalletSubcontractorPrice: number,
 ): ProductCardLineItem[] {
   const items: ProductCardLineItem[] = [];
   const amount = getAmount(card, product);
@@ -208,16 +217,39 @@ function buildItemsForCard(
   const baseProductOption = findBaseProductOption(product);
 
   if (product.allowDeliveryTypes && card.deliveryType) {
-    const xtraDeliveryPrice = useXtraDeliveryPricing
-      ? getProductDeliveryTypePrice({
-          deliveryTypes: product.deliveryTypes,
-          key: card.deliveryType,
-          useXtraPrice: true,
+    const xtraOption = useXtraDeliveryPricing
+      ? findAutomaticXtraSpecialOption({
+          catalogSpecialOptions,
+          deliveryType: card.deliveryType,
         })
+      : null;
+    const xtraDeliveryPrice = useXtraDeliveryPricing
+      ? xtraOption
+        ? parsePrice(xtraOption.effectiveCustomerPrice)
+        : getProductDeliveryTypePrice({
+            deliveryTypes: product.deliveryTypes,
+            key: card.deliveryType,
+            useXtraPrice: true,
+          })
+      : undefined;
+    const xtraDeliverySubcontractorPrice = useXtraDeliveryPricing
+      ? xtraOption
+        ? parsePrice(xtraOption.subcontractorPrice)
+        : getProductDeliveryTypePrice({
+            deliveryTypes: product.deliveryTypes,
+            key: card.deliveryType,
+            useXtraPrice: true,
+            subcontractor: true,
+          })
       : undefined;
     const standardDeliveryPrice = getProductDeliveryTypePrice({
       deliveryTypes: product.deliveryTypes,
       key: card.deliveryType,
+    });
+    const standardDeliverySubcontractorPrice = getProductDeliveryTypePrice({
+      deliveryTypes: product.deliveryTypes,
+      key: card.deliveryType,
+      subcontractor: true,
     });
     const deliveryTypeCode = getProductDeliveryTypeCode(product.deliveryTypes, card.deliveryType);
     const deliveryTypeLabel = getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType);
@@ -230,18 +262,21 @@ function buildItemsForCard(
       unitPrice: shouldZeroBaseDeliveryPrice(card.deliveryType, useXtraDeliveryPricing, zeroBaseDeliveryPricesOver100Km)
         ? 0
         : (xtraDeliveryPrice ?? standardDeliveryPrice),
+      subcontractorUnitPrice: shouldZeroBaseDeliveryPrice(card.deliveryType, useXtraDeliveryPricing, zeroBaseDeliveryPricesOver100Km)
+        ? 0
+        : (xtraDeliverySubcontractorPrice ?? standardDeliverySubcontractorPrice),
     });
 
     if (isDeliveryTypeWithExtraAmount(card.deliveryType) && amount > 1) {
-      const xtraOption = findAutomaticXtraSpecialOption({
+      const extraAmountXtraOption = findAutomaticXtraSpecialOption({
         catalogSpecialOptions,
         deliveryType: card.deliveryType,
       });
 
-      if (xtraOption) {
+      if (extraAmountXtraOption) {
         items.push({
           kind: "productOption",
-          productOptionId: xtraOption.id,
+          productOptionId: extraAmountXtraOption.id,
           qty: amount - 1,
         });
       }
@@ -315,7 +350,8 @@ function buildItemsForCard(
         code: PALLET_EXTRA_CODE,
         label: PALLET_EXTRA_LABEL,
         qty: amount - 1,
-        unitPrice: PALLET_EXTRA_UNIT_PRICE,
+        unitPrice: xtraPalletPrice,
+        subcontractorUnitPrice: xtraPalletSubcontractorPrice,
       });
     }
 
@@ -391,6 +427,9 @@ export function buildProductBreakdowns(
 
   const xtraDeliveryCardIds = new Set([...automaticXtraDeliveryCardIds, ...forcedXtraDeliveryCardIds]);
   const zeroBaseDeliveryPricesOver100Km = options?.zeroBaseDeliveryPricesOver100Km ?? false;
+  const xtraPalletPrice = options?.xtraPalletPrice ?? 250;
+  const xtraPalletSubcontractorPrice =
+    options?.xtraPalletSubcontractorPrice ?? 0;
 
   return cards.flatMap<ProductBreakdown>((card) => {
     if (card.wordpressImportReadOnly) {
@@ -427,6 +466,8 @@ export function buildProductBreakdowns(
           catalogSpecialOptions,
           shouldUseXtraDeliveryPricing(xtraDeliveryCardIds, card.cardId),
           zeroBaseDeliveryPricesOver100Km,
+          xtraPalletPrice,
+          xtraPalletSubcontractorPrice,
         ),
       },
     ];

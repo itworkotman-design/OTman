@@ -55,6 +55,51 @@ export async function hasOpenCapacityNotification(
   );
 }
 
+export async function hasOpenSubcontractorPriceNotification(
+  prisma: PrismaLike,
+  input: {
+    orderId: string;
+    companyId: string;
+    customerPrice: number;
+    subcontractorPrice: number;
+  },
+) {
+  const existing = await prisma.orderNotification.findMany({
+    where: {
+      orderId: input.orderId,
+      companyId: input.companyId,
+      type: "MANUAL_REVIEW",
+      resolvedAt: null,
+    },
+    select: {
+      id: true,
+      payload: true,
+    },
+  });
+
+  return existing.some((notification) => {
+    if (
+      !notification.payload ||
+      typeof notification.payload !== "object" ||
+      Array.isArray(notification.payload)
+    ) {
+      return false;
+    }
+
+    const payload = notification.payload as {
+      kind?: unknown;
+      customerPrice?: unknown;
+      subcontractorPrice?: unknown;
+    };
+
+    return (
+      payload.kind === "SUBCONTRACTOR_PRICE_WARNING" &&
+      payload.customerPrice === input.customerPrice &&
+      payload.subcontractorPrice === input.subcontractorPrice
+    );
+  });
+}
+
 export async function createOrderNotification(
   prisma: PrismaLike,
   input: CreateOrderNotificationInput,
