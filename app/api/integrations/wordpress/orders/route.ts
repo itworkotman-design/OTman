@@ -1828,6 +1828,8 @@ export async function POST(req: NextRequest) {
 
     const meta = body.meta && typeof body.meta === "object" && !Array.isArray(body.meta) ? (body.meta as Record<string, unknown>) : {};
     const wordpressAttachments = normalizeWordpressAttachments(body.attachments);
+    console.log("WP ATTACHMENTS RAW", body.attachments);
+    console.log("WP ATTACHMENTS NORMALIZED", wordpressAttachments);
 
     const pickupAddress = getFirstMetaString(meta, ["pickup_address", "henteadresse"]);
     const deliveryAddress = getFirstMetaString(meta, ["delivery_address", "leveringsadresse"]);
