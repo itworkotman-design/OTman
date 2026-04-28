@@ -77,8 +77,7 @@ export function showsExtraCheckboxes(deliveryType: string) {
 export function isDeliveryTypeWithExtraAmount(deliveryType: string) {
   return (
     deliveryType === DELIVERY_TYPES.FIRST_STEP ||
-    deliveryType === DELIVERY_TYPES.INDOOR ||
-    deliveryType === DELIVERY_TYPES.INSTALL_ONLY
+    deliveryType === DELIVERY_TYPES.INDOOR
   );
 }
 

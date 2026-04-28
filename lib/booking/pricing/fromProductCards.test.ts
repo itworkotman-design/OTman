@@ -404,7 +404,7 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
-  it("zeros install-only and return-only delivery prices over 100 km", () => {
+  it("keeps install-only and return-only fixed over 100 km", () => {
     const cards = [
       buildCard({
         cardId: 1,
@@ -422,16 +422,54 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: "XTRA",
-      unitPrice: 0,
+      code: "INSTALL_ONLY",
+      unitPrice: 590,
       label: "Kun Installasjon/Montering",
     });
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
       code: "RETURN_ONLY",
-      unitPrice: 0,
+      unitPrice: 669,
       label: "Kun retur",
     });
+  });
+
+  it("does not apply automatic XTRA quantity pricing to install-only or return-only deliveries", () => {
+    const cards = [
+      buildCard({
+        cardId: 1,
+        amount: 3,
+        deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+      }),
+      buildCard({
+        cardId: 2,
+        amount: 3,
+        deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+      }),
+    ];
+
+    const result = buildProductBreakdowns(
+      cards,
+      [buildProduct({ allowReturnOptions: true })],
+      automaticXtraOptions,
+    );
+
+    expect(result[0]?.items).toEqual([
+      expect.objectContaining({
+        kind: "deliveryType",
+        code: "INSTALL_ONLY",
+        qty: 1,
+        unitPrice: 590,
+      }),
+    ]);
+    expect(result[1]?.items).toEqual([
+      expect.objectContaining({
+        kind: "deliveryType",
+        code: "RETURN_ONLY",
+        qty: 1,
+        unitPrice: 669,
+      }),
+    ]);
   });
 
   it("keeps an optional model number on the product breakdown", () => {
