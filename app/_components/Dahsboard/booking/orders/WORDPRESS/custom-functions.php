@@ -3947,6 +3947,26 @@ if (!function_exists('otman_extract_power_order_attachments')) {
     }
 }
 
+if (!function_exists('otman_power_order_time_iso')) {
+    function otman_power_order_time_iso($post, string $field): ?string {
+        if (!$post || !isset($post->{$field})) {
+            return null;
+        }
+
+        $value = trim((string) $post->{$field});
+        if ($value === '' || $value === '0000-00-00 00:00:00') {
+            return null;
+        }
+
+        $timestamp = strtotime($value . ' UTC');
+        if (!$timestamp) {
+            return null;
+        }
+
+        return gmdate('c', $timestamp);
+    }
+}
+
 if (!function_exists('otman_send_power_order_sync')) {
     function otman_send_power_order_sync($post_id) {
         $post_id = (int) $post_id;
@@ -3977,7 +3997,8 @@ if (!function_exists('otman_send_power_order_sync')) {
         $payload = [
             'legacyWordpressOrderId' => $post_id,
             'legacyWordpressUserId'  => $author_id,
-            'createdAt'              => $post->post_date,
+            'createdAt'              => otman_power_order_time_iso($post, 'post_date_gmt') ?: otman_power_order_time_iso($post, 'post_date'),
+            'modifiedAt'             => otman_power_order_time_iso($post, 'post_modified_gmt') ?: otman_power_order_time_iso($post, 'post_modified'),
             'status'                 => $meta['status'] ?? $post->post_status,
             'title'                  => $post->post_title,
             'meta'                   => $meta,
@@ -4004,6 +4025,39 @@ if (!function_exists('otman_send_power_order_sync')) {
         error_log('WP SYNC RESPONSE post_id=' . $post_id . ' code=' . $code . ' body=' . $body);
     }
 }
+
+if (!function_exists('otman_sync_latest_power_orders')) {
+    function otman_sync_latest_power_orders(int $limit = 100): array {
+        $limit = max(1, min(100, $limit));
+        $posts = get_posts([
+            'post_type'      => 'power_order',
+            'post_status'    => 'publish',
+            'posts_per_page' => $limit,
+            'orderby'        => 'modified',
+            'order'          => 'DESC',
+            'fields'         => 'ids',
+        ]);
+
+        $synced = 0;
+        foreach ($posts as $post_id) {
+            otman_send_power_order_sync((int) $post_id);
+            $synced++;
+        }
+
+        return [
+            'requested' => $limit,
+            'synced'    => $synced,
+        ];
+    }
+}
+
+add_action('wp_ajax_otman_sync_latest_power_orders', function () {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Forbidden'], 403);
+    }
+
+    wp_send_json_success(otman_sync_latest_power_orders(100));
+});
 
 add_action('shutdown', function () {
     $queue = $GLOBALS['otman_power_order_sync_queue'] ?? null;

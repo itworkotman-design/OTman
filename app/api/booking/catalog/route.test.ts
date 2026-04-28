@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   getActiveMembershipMock: vi.fn(),
   findUniqueMock: vi.fn(),
+  productFindManyMock: vi.fn(),
   queryRawMock: vi.fn(),
   getEffectivePriceMock: vi.fn(),
 }));
@@ -24,6 +25,9 @@ vi.mock("@/lib/db", () => ({
     priceList: {
       findUnique: mocks.findUniqueMock,
     },
+    product: {
+      findMany: mocks.productFindManyMock,
+    },
   },
 }));
 
@@ -40,6 +44,7 @@ describe("GET /api/booking/catalog", () => {
       ({ basePrice, discountAmount = null }) =>
         typeof discountAmount === "number" ? basePrice - discountAmount : basePrice,
     );
+    mocks.productFindManyMock.mockResolvedValue([]);
   });
 
   it("returns 401 when there is no authenticated session", async () => {
@@ -105,6 +110,7 @@ describe("GET /api/booking/catalog", () => {
       code: "PL-1",
       items: [
         {
+          productOptionId: "option-1",
           isActive: true,
           customerPriceCents: 12000,
           subcontractorPriceCents: 9000,
@@ -151,6 +157,53 @@ describe("GET /api/booking/catalog", () => {
         },
       ],
     });
+    mocks.productFindManyMock.mockResolvedValue([
+      {
+        id: "product-1",
+        code: "PROD-1",
+        name: "Moving van",
+        isActive: true,
+        productType: "PHYSICAL",
+        allowDeliveryTypes: true,
+        allowInstallOptions: true,
+        allowReturnOptions: true,
+        allowExtraServices: true,
+        allowDemont: true,
+        allowQuantity: true,
+        allowPeopleCount: false,
+        allowHoursInput: false,
+        allowModelNumber: true,
+        autoXtraPerPallet: false,
+        options: [
+          {
+            id: "option-1",
+            code: "OPT-1",
+            label: "Small",
+            description: "Small van",
+            category: "vans",
+            isActive: true,
+          },
+        ],
+      },
+      {
+        id: "product-pallet",
+        code: "PALLET",
+        name: "Pall",
+        isActive: true,
+        productType: "PALLET",
+        allowDeliveryTypes: false,
+        allowInstallOptions: false,
+        allowReturnOptions: false,
+        allowExtraServices: false,
+        allowDemont: false,
+        allowQuantity: true,
+        allowPeopleCount: false,
+        allowHoursInput: false,
+        allowModelNumber: false,
+        autoXtraPerPallet: true,
+        options: [],
+      },
+    ]);
 
     const res = await GET(
       new Request("http://localhost/api/booking/catalog?priceListId=requested-list"),
@@ -194,6 +247,26 @@ describe("GET /api/booking/catalog", () => {
               active: true,
             },
           ],
+        },
+        {
+          id: "product-pallet",
+          code: "PALLET",
+          label: "Pall",
+          active: true,
+          productType: "PALLET",
+          allowDeliveryTypes: false,
+          allowInstallOptions: false,
+          allowReturnOptions: false,
+          allowExtraServices: false,
+          allowDemont: false,
+          allowQuantity: true,
+          allowPeopleCount: false,
+          allowHoursInput: false,
+          allowModelNumber: false,
+          autoXtraPerPallet: true,
+          deliveryTypes: [],
+          customSections: [],
+          options: [],
         },
       ],
       specialOptions: [

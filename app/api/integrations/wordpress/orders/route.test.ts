@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   membershipFindFirstMock: vi.fn(),
+  membershipFindManyMock: vi.fn(),
   priceListFindUniqueMock: vi.fn(),
   orderFindUniqueMock: vi.fn(),
   transactionMock: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     membership: {
       findFirst: mocks.membershipFindFirstMock,
+      findMany: mocks.membershipFindManyMock,
     },
     priceList: {
       findUnique: mocks.priceListFindUniqueMock,
@@ -90,6 +92,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
       id: "membership-1",
       priceListId: "price-list-1",
     });
+    mocks.membershipFindManyMock.mockResolvedValue([]);
     mocks.priceListFindUniqueMock.mockResolvedValue({
       id: "default-price-list-id",
     });
@@ -624,6 +627,96 @@ describe("POST /api/integrations/wordpress/orders", () => {
           source: "wordpress_import",
         }),
       select: { id: true, storagePath: true },
+    });
+  });
+
+  it("links the selected wordpress subcontractor to an active subcontractor membership", async () => {
+    mocks.membershipFindManyMock.mockResolvedValue([
+      {
+        id: "subcontractor-membership-1",
+        legacyWordpressUserId: null,
+        user: {
+          email: "sub@example.com",
+          username: "Banor Transport AS",
+          legacyWordpressUserId: null,
+        },
+        permissions: [{ permission: "BOOKING_VIEW" }],
+      },
+      {
+        id: "creator-membership-1",
+        legacyWordpressUserId: null,
+        user: {
+          email: "creator@example.com",
+          username: "Banor Transport AS",
+          legacyWordpressUserId: null,
+        },
+        permissions: [
+          { permission: "BOOKING_VIEW" },
+          { permission: "BOOKING_CREATE" },
+        ],
+      },
+    ]);
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10020,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22T06:30:00Z",
+          modifiedAt: "2026-04-22T08:45:00Z",
+          status: "processing",
+          meta: {
+            kundens_navn: "WordPress Customer",
+            subcontractor: "Banor Transport AS",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.membershipFindManyMock).toHaveBeenCalledWith({
+      where: {
+        companyId: "company-1",
+        role: "USER",
+        status: "ACTIVE",
+        user: {
+          status: "ACTIVE",
+        },
+      },
+      select: {
+        id: true,
+        legacyWordpressUserId: true,
+        user: {
+          select: {
+            email: true,
+            username: true,
+            legacyWordpressUserId: true,
+          },
+        },
+        permissions: {
+          select: {
+            permission: true,
+          },
+        },
+      },
+    });
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        subcontractor: "Banor Transport AS",
+        subcontractorMembershipId: "subcontractor-membership-1",
+        createdAt: new Date("2026-04-22T06:30:00Z"),
+        updatedAt: new Date("2026-04-22T08:45:00Z"),
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
     });
   });
 

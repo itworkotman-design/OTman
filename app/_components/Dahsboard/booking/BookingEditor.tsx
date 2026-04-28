@@ -2048,7 +2048,7 @@ export default function BookingEditor({
             </option>
             {priceListOptions.map((priceList) => (
               <option key={priceList.id} value={priceList.id}>
-                {priceList.name} ({priceList.code})
+                {priceList.name}
               </option>
             ))}
           </select>

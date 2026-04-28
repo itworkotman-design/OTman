@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Owns booking form state, product-card pricing state, customer autofill behavior, legacy field normalization for imported orders, and attachment handling for create and edit order flows. Existing orders use the saved pricing snapshot until the user applies current catalog prices, so price-list changes do not silently change saved orders. Native manual adjustments support discounts, extras, subcontractor minus, subcontractor plus, hardcoded order-level fee lines, priced deviation rows, and priced extra-pickup rows. Imported WordPress orders keep their incoming KM price until the route or KM value is edited.
+Owns booking form state, product-card pricing state, customer autofill behavior, legacy field normalization for imported orders, and attachment handling for create and edit order flows. Existing orders use the saved pricing snapshot until the user applies current catalog prices, so price-list changes do not silently change saved orders. Native manual adjustments support discounts, extras, subcontractor minus, subcontractor plus, hardcoded order-level fee lines, priced deviation rows, and priced extra-pickup rows. Imported WordPress orders keep their incoming KM price until the route or KM value is edited. The admin price-list selector displays only the price-list name.
 
 ## Functions
 

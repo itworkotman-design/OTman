@@ -17,6 +17,8 @@ import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { createEmptyProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { normalizeAttachmentCategory } from "@/lib/orders/attachmentCategories";
+import { isSubcontractorAccess } from "@/lib/users/access";
+import type { AppPermission } from "@/lib/users/types";
 import {
   upsertWordpressOrderAttachment,
   type WordpressAttachmentCandidate,
@@ -26,6 +28,7 @@ type WordpressOrderSyncPayload = {
   legacyWordpressOrderId: number;
   legacyWordpressUserId: number;
   createdAt?: string | null;
+  modifiedAt?: string | null;
   status?: string | null;
   title?: string | null;
   meta?: Prisma.InputJsonValue | null;
@@ -139,6 +142,28 @@ const getFirstMetaString = (meta: Record<string, unknown>, keys: string[]): stri
 };
 
 const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
+
+const normalizeLookupValue = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+
+const parseImportedDateTime = (value: string | null | undefined): Date | undefined => {
+  if (!value) return undefined;
+
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)
+    ? `${trimmed.replace(" ", "T")}Z`
+    : trimmed;
+  const parsed = new Date(normalized);
+
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
 
 const parseLegacyMoneyToCents = (value: unknown): number | undefined => {
   if (Array.isArray(value)) {
@@ -1760,6 +1785,81 @@ const normalizeWordpressAttachments = (
   return Array.from(byLegacyId.values());
 };
 
+const resolveWordpressSubcontractorMembership = async (params: {
+  companyId: string;
+  subcontractor: string | undefined;
+}): Promise<string | null> => {
+  const subcontractor = params.subcontractor?.trim();
+  if (!subcontractor) return null;
+
+  const normalizedSubcontractor = normalizeLookupValue(subcontractor);
+  const numericSubcontractorId = /^\d+$/.test(subcontractor)
+    ? Number.parseInt(subcontractor, 10)
+    : null;
+
+  const memberships = await prisma.membership.findMany({
+    where: {
+      companyId: params.companyId,
+      role: "USER",
+      status: "ACTIVE",
+      user: {
+        status: "ACTIVE",
+      },
+    },
+    select: {
+      id: true,
+      legacyWordpressUserId: true,
+      user: {
+        select: {
+          email: true,
+          username: true,
+          legacyWordpressUserId: true,
+        },
+      },
+      permissions: {
+        select: {
+          permission: true,
+        },
+      },
+    },
+  });
+
+  const subcontractorMemberships = memberships.filter((candidate) => {
+    const permissions = candidate.permissions.map(
+      (permission): AppPermission => permission.permission,
+    );
+
+    return isSubcontractorAccess(permissions);
+  });
+
+  if (numericSubcontractorId !== null) {
+    const legacyMatch = subcontractorMemberships.find(
+      (candidate) =>
+        candidate.legacyWordpressUserId === numericSubcontractorId ||
+        candidate.user.legacyWordpressUserId === numericSubcontractorId,
+    );
+
+    if (legacyMatch) return legacyMatch.id;
+  }
+
+  const textMatch = subcontractorMemberships.find((candidate) => {
+    const username = candidate.user.username?.trim();
+    const email = candidate.user.email.trim();
+    const emailLocalPart = email.split("@")[0] ?? email;
+    const lookupValues = [
+      username,
+      email,
+      emailLocalPart,
+    ]
+      .filter((value): value is string => Boolean(value?.trim()))
+      .map(normalizeLookupValue);
+
+    return lookupValues.includes(normalizedSubcontractor);
+  });
+
+  return textMatch?.id ?? null;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const secret = req.headers.get("x-wp-sync-secret");
@@ -1805,6 +1905,8 @@ export async function POST(req: NextRequest) {
     const wordpressAttachments = normalizeWordpressAttachments(body.attachments);
     console.log("WP ATTACHMENTS RAW", body.attachments);
     console.log("WP ATTACHMENTS NORMALIZED", wordpressAttachments);
+    const importedCreatedAt = parseImportedDateTime(body.createdAt);
+    const importedModifiedAt = parseImportedDateTime(body.modifiedAt) ?? importedCreatedAt;
 
     const pickupAddress = getFirstMetaString(meta, ["pickup_address", "henteadresse"]);
     const deliveryAddress = getFirstMetaString(meta, ["delivery_address", "leveringsadresse"]);
@@ -1817,6 +1919,11 @@ export async function POST(req: NextRequest) {
     const customerComments = getFirstMetaString(meta, ["contact_notes", "customer_comments", "kunde_kommentar"]);
     const floorNo = getFirstMetaString(meta, ["etasje_nr", "floor_no", "floor"]);
     const lift = normalizeImportedLift(getFirstMetaString(meta, ["heis", "lift"]));
+    const subcontractor = getFirstMetaString(meta, ["subcontractor", "underleverandor", "underleverandør"]);
+    const subcontractorMembershipId = await resolveWordpressSubcontractorMembership({
+      companyId,
+      subcontractor,
+    });
     const cashierName = getFirstMetaString(meta, ["kasserers_navn", "cashier_name"]);
     const cashierPhone = getFirstMetaString(meta, ["kasserers_telefon_full", "kasserers_telefon", "cashier_phone"]);
     const deliveryDate = normalizeImportedDate(getFirstMetaString(meta, ["leveringsdato", "delivery_date"]));
@@ -2046,6 +2153,7 @@ export async function POST(req: NextRequest) {
               priceListId,
               legacyWordpressAuthorId: body.legacyWordpressUserId,
               legacyWordpressRawMeta: body.meta ?? Prisma.JsonNull,
+              updatedAt: importedModifiedAt,
               status,
               deviation,
               description,
@@ -2060,6 +2168,8 @@ export async function POST(req: NextRequest) {
               customerComments,
               floorNo,
               lift,
+              subcontractor,
+              subcontractorMembershipId,
               drivingDistance,
               cashierName,
               cashierPhone,
@@ -2136,8 +2246,8 @@ export async function POST(req: NextRequest) {
               legacyWordpressOrderId: body.legacyWordpressOrderId,
               legacyWordpressAuthorId: body.legacyWordpressUserId,
               legacyWordpressRawMeta: body.meta ?? Prisma.JsonNull,
-              createdAt: body.createdAt ? new Date(body.createdAt) : undefined,
-              updatedAt: body.createdAt ? new Date(body.createdAt) : undefined,
+              createdAt: importedCreatedAt,
+              updatedAt: importedModifiedAt,
               displayId: currentCounter.nextNumber,
               status,
               deviation,
@@ -2153,6 +2263,8 @@ export async function POST(req: NextRequest) {
               customerComments,
               floorNo,
               lift,
+              subcontractor,
+              subcontractorMembershipId,
               drivingDistance,
               cashierName,
               cashierPhone,

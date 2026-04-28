@@ -109,8 +109,31 @@ export async function GET(req: Request) {
     );
   }
 
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+    },
+    include: {
+      options: {
+        where: {
+          isActive: true,
+        },
+        orderBy: {
+          sortOrder: "asc",
+        },
+      },
+    },
+    orderBy: {
+      sortOrder: "asc",
+    },
+  });
+
   const productConfigMap = await getProductConfigMap(
-    priceList.items.map((item) => item.productOption.product.id),
+    products.map((product) => product.id),
+  );
+
+  const priceItemMap = new Map(
+    priceList.items.map((item) => [item.productOptionId, item]),
   );
 
   const productMap = new Map<
@@ -149,8 +172,7 @@ export async function GET(req: Request) {
     }
   >();
 
-  for (const item of priceList.items) {
-    const product = item.productOption.product;
+  for (const product of products) {
     const productConfig = productConfigMap.get(product.id);
 
     if (!productMap.has(product.id)) {
@@ -186,23 +208,28 @@ export async function GET(req: Request) {
       });
     }
 
-    const effectiveCustomerPriceCents = getEffectivePrice({
-      basePrice: item.customerPriceCents,
-      discountAmount: item.discountAmountCents,
-      discountEndsAt: item.discountEndsAt,
-    });
+    for (const option of product.options) {
+      const priceItem = priceItemMap.get(option.id);
+      const customerPriceCents = priceItem?.customerPriceCents ?? 0;
+      const subcontractorPriceCents = priceItem?.subcontractorPriceCents ?? 0;
+      const effectiveCustomerPriceCents = getEffectivePrice({
+        basePrice: customerPriceCents,
+        discountAmount: priceItem?.discountAmountCents ?? null,
+        discountEndsAt: priceItem?.discountEndsAt ?? null,
+      });
 
-    productMap.get(product.id)!.options.push({
-      id: item.productOption.id,
-      code: item.productOption.code,
-      label: item.productOption.label,
-      description: item.productOption.description,
-      category: item.productOption.category,
-      customerPrice: centsToNokString(item.customerPriceCents),
-      subcontractorPrice: centsToNokString(item.subcontractorPriceCents),
-      effectiveCustomerPrice: centsToNokString(effectiveCustomerPriceCents),
-      active: item.isActive,
-    });
+      productMap.get(product.id)!.options.push({
+        id: option.id,
+        code: option.code,
+        label: option.label,
+        description: option.description,
+        category: option.category,
+        customerPrice: centsToNokString(customerPriceCents),
+        subcontractorPrice: centsToNokString(subcontractorPriceCents),
+        effectiveCustomerPrice: centsToNokString(effectiveCustomerPriceCents),
+        active: option.isActive,
+      });
+    }
   }
 
   const specialOptions = priceList.specialOptions.map((option) => {
