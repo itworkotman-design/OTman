@@ -9,6 +9,7 @@ import BookingEditor, {
 type OrderDetails = OrderFormPayload & {
   id: string;
   displayId?: number;
+  subcontractorMembershipId?: string | null;
 };
 
 
@@ -152,29 +153,15 @@ export default function OrderModal({
   // that has transform/filter/isolation which would break fixed positioning
   // and clip the bg-black/50 backdrop.
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="flex min-h-full items-center justify-center px-3 py-6 lg:px-6 lg:py-10">
-        <div
-          className="w-full max-w-[1700] max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="w-full max-w-[1700] max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
           {/* Sticky header */}
           <div className="shrink-0 flex items-center justify-between rounded-t-2xl border-b bg-white px-6 py-4">
             <h2 className="text-2xl font-semibold text-logoblue">
-              {archiveOrderId
-                ? `Editing order - ${archiveOrderId}`
-                : orderId
-                  ? "Editing order"
-                  : "Order"}
+              {archiveOrderId ? `Editing order - ${archiveOrderId}` : orderId ? "Editing order" : "Order"}
             </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="grid h-9 w-9 place-items-center rounded-full bg-logoblue text-white cursor-pointer"
-            >
+            <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full bg-logoblue text-white cursor-pointer">
               ×
             </button>
           </div>
@@ -188,7 +175,14 @@ export default function OrderModal({
             ) : (
               <BookingEditor
                 onSubmit={handleSave}
-                initialValues={order ?? undefined}
+                initialValues={
+                  order
+                    ? {
+                        ...order,
+                        subcontractorId: order.subcontractorId || order.subcontractorMembershipId || "",
+                      }
+                    : undefined
+                }
               />
             )}
             <div className="mt-10">
@@ -202,11 +196,7 @@ export default function OrderModal({
                   {deleteLoading ? "Deleting..." : "Delete order"}
                 </button>
               )}
-              {deleteError ? (
-                <div className="mt-2 text-sm font-medium text-red-600">
-                  {deleteError}
-                </div>
-              ) : null}
+              {deleteError ? <div className="mt-2 text-sm font-medium text-red-600">{deleteError}</div> : null}
             </div>
           </div>
         </div>

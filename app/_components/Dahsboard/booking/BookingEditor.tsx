@@ -1895,8 +1895,7 @@ export default function BookingEditor({
       deliveryDate,
       timeWindow: finalTimeWindow,
       expressDelivery,
-      contactCustomerForCustomTimeWindow:
-        timeWindow === "custom" && contactCustomerForCustomTimeWindow,
+      contactCustomerForCustomTimeWindow: timeWindow === "custom" && contactCustomerForCustomTimeWindow,
       customTimeContactNote: normalizedCustomTimeContactNote,
       pickupAddress,
       extraPickups: normalizedExtraPickups,
