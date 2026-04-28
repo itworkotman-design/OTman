@@ -68,7 +68,7 @@ export async function GET(
       sizeBytes: item.sizeBytes ?? 0,
       storagePath: item.storagePath,
       createdAt: item.createdAt,
-      url: item.storagePath,
+      url: `/api/orders/${orderId}/attachments/${item.id}/download`,
     })),
   });
 }
@@ -228,7 +228,7 @@ export async function POST(
       sizeBytes: attachment.sizeBytes ?? 0,
       storagePath: attachment.storagePath,
       createdAt: attachment.createdAt,
-      url: attachment.storagePath,
+      url: `/api/orders/${orderId}/attachments/${attachment.id}/download`,
     },
   });
 }

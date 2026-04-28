@@ -6,10 +6,10 @@
 
 ## Responsibility
 
-Returns company-scoped order file metadata across orders for authenticated users in the active company.
+Returns company-scoped order file metadata across orders for authenticated users in the active company. Returned attachment URLs point at the authenticated app download endpoint.
 
 ## Functions
 
 | Function | Description |
 | --- | --- |
-| `GET` | Returns company-scoped file metadata and now includes the stored file category. |
+| `GET` | Returns company-scoped file metadata, the stored file category, and the app download URL. |

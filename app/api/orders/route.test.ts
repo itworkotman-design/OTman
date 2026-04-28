@@ -201,6 +201,12 @@ describe("routes in /api/orders", () => {
         lastEditedByMembershipId: null,
         customerMembershipId: "membership-1",
         legacyWordpressAuthorId: null,
+        customerMembership: {
+          user: {
+            username: "assigned-store",
+            email: "store@example.com",
+          },
+        },
         createdByMembership: {
           user: {
             username: "creator",
@@ -225,7 +231,7 @@ describe("routes in /api/orders", () => {
           id: "order-1",
           customer: "Acme",
           status: "failed",
-          createdBy: "creator",
+          createdBy: "assigned-store",
           lastEditedBy: "",
         }),
       ],
@@ -248,7 +254,7 @@ describe("routes in /api/orders", () => {
     );
   });
 
-  it("GET prefers the mapped legacy wordpress author for the creator label", async () => {
+  it("GET returns the assigned store label for the archive store column", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -304,6 +310,12 @@ describe("routes in /api/orders", () => {
         lastEditedByMembershipId: null,
         customerMembershipId: "membership-1",
         legacyWordpressAuthorId: 15,
+        customerMembership: {
+          user: {
+            username: "assigned-wp-store",
+            email: "wp-store@example.com",
+          },
+        },
         createdByMembership: {
           user: {
             username: "wrong-creator",
@@ -331,7 +343,7 @@ describe("routes in /api/orders", () => {
       orders: [
         expect.objectContaining({
           id: "order-1",
-          createdBy: "legacy-creator",
+          createdBy: "assigned-wp-store",
         }),
       ],
       page: 1,
@@ -355,6 +367,35 @@ describe("routes in /api/orders", () => {
         },
       },
     });
+  });
+
+  it("GET filters the admin store dropdown by assigned customer membership", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "admin-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "admin-membership",
+      role: "ADMIN",
+      permissions: [],
+    });
+    mocks.orderFindManyMock.mockResolvedValue([]);
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/orders?createdById=store-membership&page=1&rowsPerPage=10",
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          companyId: "company-1",
+          customerMembershipId: "store-membership",
+        }),
+      }),
+    );
   });
 
   it("POST returns 400 when product cards are missing", async () => {

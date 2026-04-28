@@ -405,9 +405,9 @@ export default function BookingArchiveTable({
                     Created at
                   </th>
                 ) : null}
-                {isColumnVisible("priceExVat") ? (
+                {isColumnVisible("priceSubcontractor") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Price ex. VAT
+                    Subcontractor price
                   </th>
                 ) : null}
               </>
@@ -780,9 +780,9 @@ export default function BookingArchiveTable({
                       <Cell>{formatDisplayDateTime(order.createdAt)}</Cell>
                     </td>
                   ) : null}
-                  {isColumnVisible("priceExVat") ? (
+                  {isColumnVisible("priceSubcontractor") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatMoney(order.priceExVat)}</Cell>
+                      <Cell>{formatMoney(order.priceSubcontractor)}</Cell>
                     </td>
                   ) : null}
                 </>

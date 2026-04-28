@@ -128,6 +128,16 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   lastEditedByMembershipId: true,
   customerMembershipId: true,
   legacyWordpressAuthorId: true,
+  customerMembership: {
+    select: {
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
+    },
+  },
   createdByMembership: {
     select: {
       user: {
@@ -197,6 +207,8 @@ function orderMatchesSearch(order: OrderArchiveRecord, search: string) {
     order.driverInfo,
     order.createdByMembership.user.username,
     order.createdByMembership.user.email,
+    order.customerMembership?.user.username,
+    order.customerMembership?.user.email,
   ];
 
   return fields.some((field) => normalizedIncludes(field, search));
@@ -876,7 +888,7 @@ export async function GET(req: Request) {
     }
 
     if (createdById) {
-      where.createdByMembershipId = createdById;
+      where.customerMembershipId = createdById;
     }
   } else if (isOrderCreator) {
     where.OR = [
@@ -1047,6 +1059,14 @@ export async function GET(req: Request) {
               servicesSummary: order.servicesSummary,
             });
 
+      const legacyCreatedBy =
+        typeof order.legacyWordpressAuthorId === "number"
+          ? legacyCreatorLabels.get(order.legacyWordpressAuthorId)
+          : undefined;
+      const createdBy = getMembershipUserLabel(order.createdByMembership.user);
+      const assignedStore = getMembershipUserLabel(order.customerMembership?.user);
+      const storeLabel = assignedStore || legacyCreatedBy || createdBy;
+
       return {
         id: order.id,
         displayId: order.displayId ?? 0,
@@ -1093,10 +1113,7 @@ export async function GET(req: Request) {
         createdByMembershipId: order.createdByMembershipId,
         lastEditedByMembershipId: order.lastEditedByMembershipId ?? "",
         customerMembershipId: order.customerMembershipId ?? "",
-        createdBy:
-          (typeof order.legacyWordpressAuthorId === "number"
-            ? legacyCreatorLabels.get(order.legacyWordpressAuthorId)
-            : undefined) ?? getMembershipUserLabel(order.createdByMembership.user),
+        createdBy: storeLabel,
         lastEditedBy: getMembershipUserLabel(order.lastEditedByMembership?.user),
       };
     }),

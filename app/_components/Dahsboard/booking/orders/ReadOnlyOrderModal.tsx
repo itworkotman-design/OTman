@@ -1,5 +1,6 @@
 "use client";
 
+import type { BookingArchiveViewMode } from "@/app/_components/Dahsboard/booking/archive/types";
 import { formatDisplayDate } from "@/lib/dateDisplay";
 
 type Props = {
@@ -29,9 +30,11 @@ type Props = {
     createdAt: string;
     updatedAt: string;
     priceExVat: number;
+    priceSubcontractor?: number;
     createdBy?: string;
     lastEditedBy?: string;
   } | null;
+  viewMode?: BookingArchiveViewMode;
   onClose: () => void;
 };
 
@@ -50,8 +53,20 @@ function formatExtraPickup(value: string[] | null | undefined) {
   return value.join(", ");
 }
 
-function downloadOrderPdf(order: NonNullable<Props["order"]>) {
-  const totalExVat = order.priceExVat ?? 0;
+function getVisibleOrderPrice(
+  order: NonNullable<Props["order"]>,
+  viewMode: BookingArchiveViewMode | undefined,
+) {
+  return viewMode === "SUBCONTRACTOR"
+    ? (order.priceSubcontractor ?? 0)
+    : (order.priceExVat ?? 0);
+}
+
+function downloadOrderPdf(
+  order: NonNullable<Props["order"]>,
+  viewMode: BookingArchiveViewMode | undefined,
+) {
+  const totalExVat = getVisibleOrderPrice(order, viewMode);
   const vat = totalExVat * 0.25;
   const totalIncVat = totalExVat + vat;
 
@@ -73,7 +88,7 @@ function downloadOrderPdf(order: NonNullable<Props["order"]>) {
       <body>
         <h1>Ordredetaljer</h1>
 
-        <div class="row"><span class="label">Store:</span> ${order.customerLabel || "-"}</div>
+        <div class="row"><span class="label">Store:</span> ${order.createdBy || "-"}</div>
         <div class="row"><span class="label">Customer name:</span> ${order.customerName || "-"}</div>
         <div class="row"><span class="label">Bilagsnummer:</span> ${order.orderNumber || "-"}</div>
         <div class="row"><span class="label">Leveringsdato:</span> ${formatDisplayDate(order.deliveryDate)}</div>
@@ -120,10 +135,15 @@ function downloadOrderPdf(order: NonNullable<Props["order"]>) {
   win.document.close();
 }
 
-export default function ReadOnlyOrderModal({ open, order, onClose }: Props) {
+export default function ReadOnlyOrderModal({
+  open,
+  order,
+  viewMode,
+  onClose,
+}: Props) {
   if (!open || !order) return null;
 
-  const totalExVat = order.priceExVat ?? 0;
+  const totalExVat = getVisibleOrderPrice(order, viewMode);
   const vat = totalExVat * 0.25;
   const totalIncVat = totalExVat + vat;
 
@@ -143,7 +163,7 @@ export default function ReadOnlyOrderModal({ open, order, onClose }: Props) {
         <div className="space-y-2 text-sm text-slate-800">
           <p>
             <span className="font-semibold">Store:</span>{" "}
-            {formatCell(order.customerLabel)}
+            {formatCell(order.createdBy)}
           </p>
           <p>
             <span className="font-semibold">Customer name:</span>{" "}
@@ -248,7 +268,7 @@ export default function ReadOnlyOrderModal({ open, order, onClose }: Props) {
 
         <div className="mt-6 flex justify-end gap-3">
           <button
-            onClick={() => downloadOrderPdf(order)}
+            onClick={() => downloadOrderPdf(order, viewMode)}
             className="customButtonEnabled"
           >
             Last ned PDF

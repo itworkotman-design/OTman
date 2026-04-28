@@ -31,6 +31,7 @@ Each documentation file should include:
 - [API: membership update](./api/membership-update-route.md)
 - [API: user logo upload](./api/user-logo-route.md)
 - [API: user create](./api/users-create-route.md)
+- [API: order attachment download](./api/order-attachment-download.md)
 - [API: order attachments by order](./api/order-attachments-by-order.md)
 - [API: order attachments index](./api/order-attachments-index.md)
 - [API: order by id](./api/order-by-id.md)
@@ -76,3 +77,5 @@ Each documentation file should include:
 - [Lib: user create](./lib/user-create.md)
 - [Lib: user modal helpers](./lib/user-modal.md)
 - [Lib: user types](./lib/user-types.md)
+- [Lib: WordPress attachment storage](./lib/wordpress-attachment-storage.md)
+- [Integration: WordPress attachment backfill](./integrations/wordpress-attachment-backfill.md)

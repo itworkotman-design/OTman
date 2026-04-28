@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeVisibleBookingArchiveColumns } from "@/lib/booking/archiveColumns";
+import {
+  getBookingArchiveColumns,
+  sanitizeVisibleBookingArchiveColumns,
+} from "@/lib/booking/archiveColumns";
 
 describe("sanitizeVisibleBookingArchiveColumns", () => {
   it("migrates legacy summary column ids to the grouped order summary column", () => {
@@ -44,5 +47,14 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
         "description",
       ]),
     ).toEqual(["displayId", "createdBy", "orderSummary", "description"]);
+  });
+
+  it("uses subcontractor price instead of full order price for subcontractor rows", () => {
+    const columnIds = getBookingArchiveColumns("SUBCONTRACTOR").map(
+      (column) => column.id,
+    );
+
+    expect(columnIds).toContain("priceSubcontractor");
+    expect(columnIds).not.toContain("priceExVat");
   });
 });

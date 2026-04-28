@@ -252,6 +252,7 @@ export default function BookingPage() {
 
       <ReadOnlyOrderModal
         open={modalOpen}
+        viewMode={access.viewMode}
         order={
           selectedOrderId
             ? (orders.find((order) => order.id === selectedOrderId) ?? null)

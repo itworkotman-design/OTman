@@ -345,11 +345,11 @@ const subcontractorColumns: BookingArchiveColumn[] = [
     getExportValue: (row) => formatDisplayDateTime(row.createdAt),
   },
   {
-    id: "priceExVat",
-    label: "Price ex. VAT",
-    exportHeader: "Price ex. VAT",
-    exportWidth: 16,
-    getExportValue: (row) => formatMoney(row.priceExVat),
+    id: "priceSubcontractor",
+    label: "Subcontractor price",
+    exportHeader: "Subcontractor price",
+    exportWidth: 18,
+    getExportValue: (row) => formatMoney(row.priceSubcontractor),
   },
 ];
 

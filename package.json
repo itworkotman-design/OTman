@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "backfill:wordpress-attachments": "tsx scripts/backfill-wordpress-attachments.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.1.0",

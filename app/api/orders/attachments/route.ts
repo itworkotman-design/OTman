@@ -40,7 +40,7 @@ export async function GET(req: Request) {
       sizeBytes: item.sizeBytes ?? 0,
       storagePath: item.storagePath,
       createdAt: item.createdAt,
-      url: item.storagePath,
+      url: `/api/orders/${item.orderId}/attachments/${item.id}/download`,
     })),
   });
 }

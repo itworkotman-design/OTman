@@ -16,7 +16,11 @@ import { OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { createEmptyProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { normalizeAttachmentCategory, type AttachmentCategory } from "@/lib/orders/attachmentCategories";
+import { normalizeAttachmentCategory } from "@/lib/orders/attachmentCategories";
+import {
+  upsertWordpressOrderAttachment,
+  type WordpressAttachmentCandidate,
+} from "@/lib/orders/wordpressAttachmentStorage";
 
 type WordpressOrderSyncPayload = {
   legacyWordpressOrderId: number;
@@ -34,17 +38,6 @@ type WordpressOrderSyncPayload = {
     url: string;
     category?: string | null;
   }[];
-};
-
-type NormalizedWordpressAttachment = {
-  legacyWordpressAttachmentId: number;
-  filename: string;
-  mimeType: string | null;
-  sizeBytes: number | null;
-  storagePath: string;
-  sourceUrl: string;
-  source: "wordpress_import";
-  category: AttachmentCategory;
 };
 
 type ParsedWordpressProductItem = {
@@ -1723,12 +1716,14 @@ const inferMimeType = (filename: string, url: string): string | null => {
   return null;
 };
 
-const normalizeWordpressAttachments = (attachments: WordpressOrderSyncPayload["attachments"]): NormalizedWordpressAttachment[] => {
+const normalizeWordpressAttachments = (
+  attachments: WordpressOrderSyncPayload["attachments"],
+): WordpressAttachmentCandidate[] => {
   if (!Array.isArray(attachments)) {
     return [];
   }
 
-  const byLegacyId = new Map<number, NormalizedWordpressAttachment>();
+  const byLegacyId = new Map<number, WordpressAttachmentCandidate>();
 
   for (const attachment of attachments) {
     const rawAttachmentId = typeof attachment.legacyAttachmentId === "number" ? attachment.legacyAttachmentId : attachment.id;
@@ -1757,27 +1752,13 @@ const normalizeWordpressAttachments = (attachments: WordpressOrderSyncPayload["a
       filename,
       mimeType: explicitMimeType ?? inferMimeType(filename, url),
       sizeBytes,
-      storagePath: url,
       sourceUrl: url,
-      source: "wordpress_import",
       category: normalizeAttachmentCategory(attachment.category),
     });
   }
 
   return Array.from(byLegacyId.values());
 };
-
-const toWordpressAttachmentCreateManyInput = (orderId: string, attachment: NormalizedWordpressAttachment): Prisma.OrderAttachmentCreateManyInput => ({
-  orderId,
-  legacyWordpressAttachmentId: attachment.legacyWordpressAttachmentId,
-  filename: attachment.filename,
-  mimeType: attachment.mimeType,
-  sizeBytes: attachment.sizeBytes,
-  storagePath: attachment.storagePath,
-  sourceUrl: attachment.sourceUrl,
-  source: attachment.source,
-  category: attachment.category,
-});
 
 export async function POST(req: NextRequest) {
   try {
@@ -2112,20 +2093,6 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          await tx.orderAttachment.deleteMany({
-            where: {
-              orderId: updated.id,
-              source: "wordpress_import",
-            },
-          });
-
-          if (wordpressAttachments.length > 0) {
-            await tx.orderAttachment.createMany({
-              data: wordpressAttachments.map((attachment) => toWordpressAttachmentCreateManyInput(updated.id, attachment)),
-              skipDuplicates: true,
-            });
-          }
-
           await tx.orderItem.deleteMany({
             where: {
               orderId: updated.id,
@@ -2220,13 +2187,6 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          if (wordpressAttachments.length > 0) {
-            await tx.orderAttachment.createMany({
-              data: wordpressAttachments.map((attachment) => toWordpressAttachmentCreateManyInput(created.id, attachment)),
-              skipDuplicates: true,
-            });
-          }
-
           if (importedItems.length > 0) {
             await tx.orderItem.createMany({
               data: importedItems.map((item) => toCreateManyItem(created.id, item)),
@@ -2249,6 +2209,13 @@ export async function POST(req: NextRequest) {
 
           return created;
         });
+
+    for (const attachment of wordpressAttachments) {
+      await upsertWordpressOrderAttachment({
+        orderId: order.id,
+        attachment,
+      });
+    }
 
     return NextResponse.json({
       ok: true,

@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Renders the upload UI for order files, split into two user-facing categories: receipts and attachments.
+Renders the upload UI for order files, split into two user-facing categories: receipts and attachments. Attachment links use the app-provided download URL, including locally copied WordPress-imported files.
 
 ## Functions
 

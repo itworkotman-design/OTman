@@ -17,6 +17,9 @@ const mocks = vi.hoisted(() => ({
   orderItemDeleteManyMock: vi.fn(),
   orderAttachmentCreateManyMock: vi.fn(),
   orderAttachmentDeleteManyMock: vi.fn(),
+  orderAttachmentFindUniqueMock: vi.fn(),
+  orderAttachmentUpdateMock: vi.fn(),
+  orderAttachmentCreateMock: vi.fn(),
   getBookingCatalogMock: vi.fn(),
   buildProductBreakdownsMock: vi.fn(),
   buildPriceLookupMock: vi.fn(),
@@ -37,6 +40,11 @@ vi.mock("@/lib/db", () => ({
     order: {
       findUnique: mocks.orderFindUniqueMock,
       update: mocks.orderUpdateMock,
+    },
+    orderAttachment: {
+      findUnique: mocks.orderAttachmentFindUniqueMock,
+      update: mocks.orderAttachmentUpdateMock,
+      create: mocks.orderAttachmentCreateMock,
     },
     $transaction: mocks.transactionMock,
   },
@@ -107,6 +115,26 @@ describe("POST /api/integrations/wordpress/orders", () => {
     mocks.orderItemDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.orderAttachmentCreateManyMock.mockResolvedValue({ count: 0 });
     mocks.orderAttachmentDeleteManyMock.mockResolvedValue({ count: 0 });
+    mocks.orderAttachmentFindUniqueMock.mockResolvedValue(null);
+    mocks.orderAttachmentUpdateMock.mockResolvedValue({
+      id: "attachment-1",
+      storagePath: "/uploads/orders/order-1/wordpress/copied.pdf",
+    });
+    mocks.orderAttachmentCreateMock.mockResolvedValue({
+      id: "attachment-1",
+      storagePath: "/uploads/orders/order-1/wordpress/copied.pdf",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({
+          "content-type": "application/pdf",
+          "content-length": "4",
+        }),
+        arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
+      }),
+    );
     mocks.getBookingCatalogMock.mockResolvedValue({
       products: [],
       specialOptions: [],
@@ -504,36 +532,49 @@ describe("POST /api/integrations/wordpress/orders", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.orderAttachmentDeleteManyMock).not.toHaveBeenCalled();
-    expect(mocks.orderAttachmentCreateManyMock).toHaveBeenCalledWith({
-      data: [
+    expect(mocks.orderAttachmentCreateMock).toHaveBeenCalledTimes(2);
+    expect(mocks.orderAttachmentCreateMock).toHaveBeenNthCalledWith(
+      1,
+      {
+        data:
         expect.objectContaining({
           orderId: "order-1",
           legacyWordpressAttachmentId: 42,
           filename: "receipt.pdf",
           mimeType: "application/pdf",
-          sizeBytes: 12345,
-          storagePath: "https://wp.example.test/uploads/receipt.pdf",
+          sizeBytes: 4,
+          storagePath: expect.stringContaining(
+            "/uploads/orders/order-1/wordpress/42-",
+          ),
           sourceUrl: "https://wp.example.test/uploads/receipt.pdf",
           source: "wordpress_import",
           category: "RECEIPT",
         }),
+        select: { id: true, storagePath: true },
+      },
+    );
+    expect(mocks.orderAttachmentCreateMock).toHaveBeenNthCalledWith(
+      2,
+      {
+        data:
         expect.objectContaining({
           orderId: "order-1",
           legacyWordpressAttachmentId: 43,
           filename: "photo.jpg",
-          mimeType: "image/jpeg",
-          sizeBytes: null,
-          storagePath: "https://wp.example.test/uploads/photo.jpg",
+          sizeBytes: 4,
+          storagePath: expect.stringContaining(
+            "/uploads/orders/order-1/wordpress/43-",
+          ),
           sourceUrl: "https://wp.example.test/uploads/photo.jpg",
           source: "wordpress_import",
           category: "ATTACHMENT",
         }),
-      ],
-      skipDuplicates: true,
-    });
+        select: { id: true, storagePath: true },
+      },
+    );
   });
 
-  it("replaces wordpress-imported attachments when an existing order is re-synced", async () => {
+  it("upserts wordpress-imported attachments when an existing order is re-synced", async () => {
     mocks.orderFindUniqueMock.mockResolvedValueOnce({
       id: "order-1",
       displayId: 20001,
@@ -569,24 +610,20 @@ describe("POST /api/integrations/wordpress/orders", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.orderAttachmentDeleteManyMock).toHaveBeenCalledWith({
-      where: {
-        orderId: "order-1",
-        source: "wordpress_import",
-      },
-    });
-    expect(mocks.orderAttachmentCreateManyMock).toHaveBeenCalledWith({
-      data: [
+    expect(mocks.orderAttachmentDeleteManyMock).not.toHaveBeenCalled();
+    expect(mocks.orderAttachmentCreateMock).toHaveBeenCalledWith({
+      data:
         expect.objectContaining({
           orderId: "order-1",
           legacyWordpressAttachmentId: 55,
           filename: "manual.png",
-          mimeType: "image/png",
-          storagePath: "https://wp.example.test/uploads/manual.png",
+          storagePath: expect.stringContaining(
+            "/uploads/orders/order-1/wordpress/55-",
+          ),
+          sourceUrl: "https://wp.example.test/uploads/manual.png",
           source: "wordpress_import",
         }),
-      ],
-      skipDuplicates: true,
+      select: { id: true, storagePath: true },
     });
   });
 
