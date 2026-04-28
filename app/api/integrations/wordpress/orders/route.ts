@@ -950,7 +950,9 @@ const getImportedWordpressPriceExVatCents = (meta: Record<string, unknown>): num
 };
 
 const getImportedWordpressSubcontractorTotalCents = (meta: Record<string, unknown>): number | undefined => {
-  const subcontractorRows = extractBreakdownRows(asString(meta.field_6889f3e2ca127));
+  const subcontractorHtml = asString(meta.price_breakdown_subcontractor_html) || asString(meta.field_6889f3e2ca127);
+
+  const subcontractorRows = extractBreakdownRows(subcontractorHtml);
   return findBreakdownRowValueCents(subcontractorRows, TOTAL_BREAKDOWN_LABEL_PATTERNS);
 };
 
@@ -1729,14 +1731,8 @@ const normalizeWordpressAttachments = (attachments: WordpressOrderSyncPayload["a
   const byLegacyId = new Map<number, NormalizedWordpressAttachment>();
 
   for (const attachment of attachments) {
-    const rawAttachmentId =
-      typeof attachment.legacyAttachmentId === "number"
-        ? attachment.legacyAttachmentId
-        : attachment.id;
-    const legacyAttachmentId =
-      typeof rawAttachmentId === "number" && Number.isInteger(rawAttachmentId)
-        ? rawAttachmentId
-        : null;
+    const rawAttachmentId = typeof attachment.legacyAttachmentId === "number" ? attachment.legacyAttachmentId : attachment.id;
+    const legacyAttachmentId = typeof rawAttachmentId === "number" && Number.isInteger(rawAttachmentId) ? rawAttachmentId : null;
 
     if (legacyAttachmentId === null) {
       continue;
@@ -1753,7 +1749,8 @@ const normalizeWordpressAttachments = (attachments: WordpressOrderSyncPayload["a
 
     const filename = asString(attachment.filename) ?? getFilenameFromUrl(url) ?? `wordpress-attachment-${legacyAttachmentId}`;
     const explicitMimeType = asString(attachment.mimeType);
-    const sizeBytes = typeof attachment.sizeBytes === "number" && Number.isFinite(attachment.sizeBytes) && attachment.sizeBytes >= 0 ? Math.round(attachment.sizeBytes) : null;
+    const sizeBytes =
+      typeof attachment.sizeBytes === "number" && Number.isFinite(attachment.sizeBytes) && attachment.sizeBytes >= 0 ? Math.round(attachment.sizeBytes) : null;
 
     byLegacyId.set(legacyAttachmentId, {
       legacyWordpressAttachmentId: legacyAttachmentId,
@@ -1770,10 +1767,7 @@ const normalizeWordpressAttachments = (attachments: WordpressOrderSyncPayload["a
   return Array.from(byLegacyId.values());
 };
 
-const toWordpressAttachmentCreateManyInput = (
-  orderId: string,
-  attachment: NormalizedWordpressAttachment,
-): Prisma.OrderAttachmentCreateManyInput => ({
+const toWordpressAttachmentCreateManyInput = (orderId: string, attachment: NormalizedWordpressAttachment): Prisma.OrderAttachmentCreateManyInput => ({
   orderId,
   legacyWordpressAttachmentId: attachment.legacyWordpressAttachmentId,
   filename: attachment.filename,
@@ -2000,6 +1994,9 @@ export async function POST(req: NextRequest) {
     const nativePriceExVatCents = nativePricing.totalExVatCents;
     const nativePriceSubcontractorCents = nativePricing.subcontractorTotalCents;
 
+    const finalPriceSubcontractorCents =
+      typeof wordpressSubcontractorTotalCents === "number" ? wordpressSubcontractorTotalCents : nativePriceSubcontractorCents;
+
     const resolvedServiceQueues = buildResolvedServiceQueues(mappedImport.resolvedServices);
     const nativeItems = enrichNativeItemsWithWordpressRawData({
       nativeItems: buildOrderItemsFromCards(mappedImport.productCards, catalog.products, catalog.specialOptions),
@@ -2038,7 +2035,14 @@ export async function POST(req: NextRequest) {
       ...supplementalItems,
       ...fallbackItems,
     ];
-
+    console.log("WP PRICE DEBUG", {
+      total_price: meta.total_price,
+      wordpressPriceExVatCents,
+      effectiveWordpressPriceExVatCents,
+      nativePriceExVatCents,
+      wordpressSubcontractorTotalCents,
+      finalPriceSubcontractorCents,
+    });
     const existing = await prisma.order.findUnique({
       where: {
         legacyWordpressOrderId: body.legacyWordpressOrderId,
@@ -2098,7 +2102,7 @@ export async function POST(req: NextRequest) {
                 typeof effectiveWordpressPriceExVatCents === "number"
                   ? Math.round(effectiveWordpressPriceExVatCents / 100)
                   : Math.round(nativePriceExVatCents / 100),
-              priceSubcontractor: Math.round(nativePriceSubcontractorCents / 100),
+              priceSubcontractor: Math.round(finalPriceSubcontractorCents / 100),
               productCardsSnapshot: mappedImport.productCards.length > 0 ? (mappedImport.productCards as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
             },
             select: {
@@ -2205,7 +2209,7 @@ export async function POST(req: NextRequest) {
                 typeof effectiveWordpressPriceExVatCents === "number"
                   ? Math.round(effectiveWordpressPriceExVatCents / 100)
                   : Math.round(nativePriceExVatCents / 100),
-              priceSubcontractor: Math.round(nativePriceSubcontractorCents / 100),
+              priceSubcontractor: Math.round(finalPriceSubcontractorCents / 100),
               productCardsSnapshot: mappedImport.productCards.length > 0 ? (mappedImport.productCards as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
               dontSendEmail: true,
             },
