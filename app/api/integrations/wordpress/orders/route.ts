@@ -26,7 +26,8 @@ type WordpressOrderSyncPayload = {
   title?: string | null;
   meta?: Prisma.InputJsonValue | null;
   attachments?: {
-    legacyAttachmentId: number;
+    id?: number;
+    legacyAttachmentId?: number;
     filename: string;
     mimeType?: string | null;
     sizeBytes?: number | null;
@@ -1728,11 +1729,20 @@ const normalizeWordpressAttachments = (attachments: WordpressOrderSyncPayload["a
   const byLegacyId = new Map<number, NormalizedWordpressAttachment>();
 
   for (const attachment of attachments) {
-    if (!Number.isInteger(attachment.legacyAttachmentId)) {
+    const rawAttachmentId =
+      typeof attachment.legacyAttachmentId === "number"
+        ? attachment.legacyAttachmentId
+        : attachment.id;
+    const legacyAttachmentId =
+      typeof rawAttachmentId === "number" && Number.isInteger(rawAttachmentId)
+        ? rawAttachmentId
+        : null;
+
+    if (legacyAttachmentId === null) {
       continue;
     }
 
-    if (byLegacyId.has(attachment.legacyAttachmentId)) {
+    if (byLegacyId.has(legacyAttachmentId)) {
       continue;
     }
 
@@ -1741,12 +1751,12 @@ const normalizeWordpressAttachments = (attachments: WordpressOrderSyncPayload["a
       continue;
     }
 
-    const filename = asString(attachment.filename) ?? getFilenameFromUrl(url) ?? `wordpress-attachment-${attachment.legacyAttachmentId}`;
+    const filename = asString(attachment.filename) ?? getFilenameFromUrl(url) ?? `wordpress-attachment-${legacyAttachmentId}`;
     const explicitMimeType = asString(attachment.mimeType);
     const sizeBytes = typeof attachment.sizeBytes === "number" && Number.isFinite(attachment.sizeBytes) && attachment.sizeBytes >= 0 ? Math.round(attachment.sizeBytes) : null;
 
-    byLegacyId.set(attachment.legacyAttachmentId, {
-      legacyWordpressAttachmentId: attachment.legacyAttachmentId,
+    byLegacyId.set(legacyAttachmentId, {
+      legacyWordpressAttachmentId: legacyAttachmentId,
       filename,
       mimeType: explicitMimeType ?? inferMimeType(filename, url),
       sizeBytes,

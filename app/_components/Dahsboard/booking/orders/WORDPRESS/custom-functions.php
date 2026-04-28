@@ -3852,6 +3852,101 @@ if (!function_exists('otman_queue_power_order_sync')) {
     }
 }
 
+if (!function_exists('otman_collect_power_order_attachment_ids')) {
+    function otman_collect_power_order_attachment_ids($value, array &$ids): void {
+        if (is_numeric($value)) {
+            $id = (int) $value;
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+            return;
+        }
+
+        if (is_object($value)) {
+            $value = get_object_vars($value);
+        }
+
+        if (!is_array($value)) {
+            return;
+        }
+
+        foreach ($value as $key => $item) {
+            if (is_numeric($key)) {
+                $id = (int) $key;
+                if ($id > 0) {
+                    $ids[$id] = true;
+                }
+            }
+
+            otman_collect_power_order_attachment_ids($item, $ids);
+        }
+    }
+}
+
+if (!function_exists('otman_extract_power_order_attachments')) {
+    function otman_extract_power_order_attachments($meta): array {
+        if (!is_array($meta)) {
+            return [];
+        }
+
+        $attachment_field_keys = [
+            'vedlegg',
+            'upload_files',
+            'field_68c1736ae8610',
+        ];
+
+        $ids = [];
+
+        foreach ($attachment_field_keys as $key) {
+            if (!array_key_exists($key, $meta)) {
+                continue;
+            }
+
+            otman_collect_power_order_attachment_ids($meta[$key], $ids);
+        }
+
+        if (!$ids) {
+            return [];
+        }
+
+        $attachments = [];
+
+        foreach (array_keys($ids) as $attachment_id) {
+            $attachment_id = (int) $attachment_id;
+            if ($attachment_id <= 0) {
+                continue;
+            }
+
+            $url = wp_get_attachment_url($attachment_id);
+            if (!$url) {
+                continue;
+            }
+
+            $file_path = get_attached_file($attachment_id);
+            $url_path = parse_url($url, PHP_URL_PATH);
+            $filename = $url_path ? basename($url_path) : ('wp-attachment-' . $attachment_id);
+            $size_bytes = null;
+
+            if (is_string($file_path) && $file_path !== '' && file_exists($file_path)) {
+                $file_size = filesize($file_path);
+                if ($file_size !== false) {
+                    $size_bytes = (int) $file_size;
+                }
+            }
+
+            $attachments[] = [
+                'id' => $attachment_id,
+                'url' => $url,
+                'filename' => $filename,
+                'mimeType' => get_post_mime_type($attachment_id) ?: null,
+                'sizeBytes' => $size_bytes,
+            ];
+        }
+
+        return $attachments;
+    }
+}
+
 if (!function_exists('otman_send_power_order_sync')) {
     function otman_send_power_order_sync($post_id) {
         $post_id = (int) $post_id;
@@ -3886,6 +3981,7 @@ if (!function_exists('otman_send_power_order_sync')) {
             'status'                 => $meta['status'] ?? $post->post_status,
             'title'                  => $post->post_title,
             'meta'                   => $meta,
+            'attachments'            => otman_extract_power_order_attachments($meta),
         ];
 
         $response = wp_remote_post('https://otman.onrender.com/api/integrations/wordpress/orders', [

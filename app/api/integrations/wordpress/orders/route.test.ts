@@ -480,7 +480,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
           },
           attachments: [
             {
-              legacyAttachmentId: 42,
+              id: 42,
               filename: "receipt.pdf",
               mimeType: "application/pdf",
               sizeBytes: 12345,
