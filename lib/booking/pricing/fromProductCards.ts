@@ -66,7 +66,9 @@ function usesSharedDeliveryPricing(card: SavedProductCard, product: CatalogProdu
 
   return (
     card.deliveryType === DELIVERY_TYPES.FIRST_STEP ||
-    card.deliveryType === DELIVERY_TYPES.INDOOR
+    card.deliveryType === DELIVERY_TYPES.INDOOR ||
+    card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY ||
+    card.deliveryType === DELIVERY_TYPES.RETURN_ONLY
   );
 }
 
@@ -81,7 +83,9 @@ function shouldZeroBaseDeliveryPrice(
 
   return (
     deliveryType === DELIVERY_TYPES.INDOOR ||
-    deliveryType === DELIVERY_TYPES.FIRST_STEP
+    deliveryType === DELIVERY_TYPES.FIRST_STEP ||
+    deliveryType === DELIVERY_TYPES.INSTALL_ONLY ||
+    deliveryType === DELIVERY_TYPES.RETURN_ONLY
   );
 }
 
@@ -213,14 +217,13 @@ function buildItemsForCard(
   const baseProductOption = findBaseProductOption(product);
 
   if (product.allowDeliveryTypes && card.deliveryType) {
-    const useAutomaticXtraPricing = useXtraDeliveryPricing && isDeliveryTypeWithExtraAmount(card.deliveryType);
-    const xtraOption = useAutomaticXtraPricing
+    const xtraOption = useXtraDeliveryPricing
       ? findAutomaticXtraSpecialOption({
           catalogSpecialOptions,
           deliveryType: card.deliveryType,
         })
       : null;
-    const xtraDeliveryPrice = useAutomaticXtraPricing
+    const xtraDeliveryPrice = useXtraDeliveryPricing
       ? xtraOption
         ? parsePrice(xtraOption.effectiveCustomerPrice)
         : getProductDeliveryTypePrice({
@@ -229,7 +232,7 @@ function buildItemsForCard(
             useXtraPrice: true,
           })
       : undefined;
-    const xtraDeliverySubcontractorPrice = useAutomaticXtraPricing
+    const xtraDeliverySubcontractorPrice = useXtraDeliveryPricing
       ? xtraOption
         ? parsePrice(xtraOption.subcontractorPrice)
         : getProductDeliveryTypePrice({
@@ -256,10 +259,10 @@ function buildItemsForCard(
       code: xtraDeliveryPrice !== undefined ? OPTION_CODES.XTRA : deliveryTypeCode,
       label: deliveryTypeLabel,
       qty: 1,
-      unitPrice: shouldZeroBaseDeliveryPrice(card.deliveryType, useAutomaticXtraPricing, zeroBaseDeliveryPricesOver100Km)
+      unitPrice: shouldZeroBaseDeliveryPrice(card.deliveryType, useXtraDeliveryPricing, zeroBaseDeliveryPricesOver100Km)
         ? 0
         : (xtraDeliveryPrice ?? standardDeliveryPrice),
-      subcontractorUnitPrice: shouldZeroBaseDeliveryPrice(card.deliveryType, useAutomaticXtraPricing, zeroBaseDeliveryPricesOver100Km)
+      subcontractorUnitPrice: shouldZeroBaseDeliveryPrice(card.deliveryType, useXtraDeliveryPricing, zeroBaseDeliveryPricesOver100Km)
         ? 0
         : (xtraDeliverySubcontractorPrice ?? standardDeliverySubcontractorPrice),
     });
@@ -304,7 +307,9 @@ function buildItemsForCard(
         return items;
       }
 
-      if (shouldPriceReturnOption(card.deliveryType)) {
+      const forcePriceReturnOption = card.deliveryType === DELIVERY_TYPES.RETURN_ONLY && useXtraDeliveryPricing;
+
+      if (shouldPriceReturnOption(card.deliveryType) || forcePriceReturnOption) {
         items.push({
           kind: "productOption",
           productOptionId: selectedReturn.id,
@@ -389,7 +394,9 @@ function buildItemsForCard(
       return items;
     }
 
-    if (shouldPriceReturnOption(card.deliveryType)) {
+    const forcePriceReturnOption = card.deliveryType === DELIVERY_TYPES.RETURN_ONLY && useXtraDeliveryPricing;
+
+    if (shouldPriceReturnOption(card.deliveryType) || forcePriceReturnOption) {
       items.push({
         kind: "productOption",
         productOptionId: selectedReturn.id,

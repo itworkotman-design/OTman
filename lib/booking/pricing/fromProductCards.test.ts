@@ -404,7 +404,7 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
-  it("keeps install-only and return-only fixed over 100 km", () => {
+  it("zeros install-only and return-only delivery prices over 100 km", () => {
     const cards = [
       buildCard({
         cardId: 1,
@@ -422,14 +422,14 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: "INSTALL_ONLY",
-      unitPrice: 590,
+      code: "XTRA",
+      unitPrice: 0,
       label: "Kun Installasjon/Montering",
     });
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",
       code: "RETURN_ONLY",
-      unitPrice: 669,
+      unitPrice: 0,
       label: "Kun retur",
     });
   });
@@ -454,22 +454,122 @@ describe("buildProductBreakdowns", () => {
       automaticXtraOptions,
     );
 
-    expect(result[0]?.items).toEqual([
-      expect.objectContaining({
-        kind: "deliveryType",
-        code: "INSTALL_ONLY",
-        qty: 1,
-        unitPrice: 590,
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "deliveryType",
+          qty: 1,
+        }),
+      ]),
+    );
+    expect(result[0]?.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "xtra-indoor",
+        }),
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "xtra-first-step",
+        }),
+      ]),
+    );
+    expect(result[1]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "deliveryType",
+          qty: 1,
+        }),
+      ]),
+    );
+    expect(result[1]?.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "xtra-indoor",
+        }),
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "xtra-first-step",
+        }),
+      ]),
+    );
+    expect(result[0]?.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          qty: 2,
+        }),
+      ]),
+    );
+    expect(result[1]?.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          qty: 2,
+        }),
+      ]),
+    );
+  });
+
+  it("still applies automatic XTRA quantity pricing to indoor and first-step deliveries", () => {
+    const cards = [
+      buildCard({
+        cardId: 1,
+        amount: 3,
+        deliveryType: DELIVERY_TYPES.INDOOR,
       }),
-    ]);
-    expect(result[1]?.items).toEqual([
-      expect.objectContaining({
-        kind: "deliveryType",
-        code: "RETURN_ONLY",
-        qty: 1,
-        unitPrice: 669,
+      buildCard({
+        cardId: 2,
+        amount: 2,
+        deliveryType: DELIVERY_TYPES.FIRST_STEP,
       }),
-    ]);
+    ];
+
+    const result = buildProductBreakdowns(cards, [buildProduct()], automaticXtraOptions);
+
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "xtra-indoor",
+          qty: 2,
+        }),
+      ]),
+    );
+    expect(result[1]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "xtra-first-step",
+          qty: 1,
+        }),
+      ]),
+    );
+  });
+
+  it("keeps install-only mapping and pricing available", () => {
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          amount: 2,
+          deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+        }),
+      ],
+      [buildProduct()],
+      automaticXtraOptions,
+    );
+
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "deliveryType",
+          code: "INSTALL_ONLY",
+          qty: 1,
+          unitPrice: 590,
+        }),
+      ]),
+    );
   });
 
   it("keeps an optional model number on the product breakdown", () => {

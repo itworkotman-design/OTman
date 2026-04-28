@@ -403,6 +403,7 @@ export async function POST(req: Request) {
   // Important:
   // For admin-created orders, use the selected customer's pricelist if possible.
   let effectivePriceListId = membership.priceListId ?? null;
+  const requestedPriceListId = optionalString(body.priceListId);
 
   if (isAdminOrOwner && customerMembershipId) {
     const selectedCustomerMembership = await prisma.membership.findFirst({
@@ -418,6 +419,27 @@ export async function POST(req: Request) {
 
     effectivePriceListId =
       selectedCustomerMembership?.priceListId ?? membership.priceListId ?? null;
+  }
+
+  if (isAdminOrOwner && requestedPriceListId) {
+    const requestedPriceList = await prisma.priceList.findFirst({
+      where: {
+        id: requestedPriceListId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!requestedPriceList) {
+      return NextResponse.json(
+        { ok: false, reason: "PRICE_LIST_NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+
+    effectivePriceListId = requestedPriceList.id;
   }
 
   const catalog = await getBookingCatalog(effectivePriceListId);

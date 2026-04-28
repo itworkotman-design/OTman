@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   createOrderNotificationMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   membershipFindManyMock: vi.fn(),
+  priceListFindFirstMock: vi.fn(),
   orderFindManyMock: vi.fn(),
   orderCreateMock: vi.fn(),
   orderItemCreateManyMock: vi.fn(),
@@ -70,6 +71,9 @@ vi.mock("@/lib/db", () => ({
       findFirst: mocks.membershipFindFirstMock,
       findMany: mocks.membershipFindManyMock,
     },
+    priceList: {
+      findFirst: mocks.priceListFindFirstMock,
+    },
     order: {
       findMany: mocks.orderFindManyMock,
       create: mocks.orderCreateMock,
@@ -114,6 +118,9 @@ describe("routes in /api/orders", () => {
       specialOptions: [],
     });
     mocks.membershipFindManyMock.mockResolvedValue([]);
+    mocks.priceListFindFirstMock.mockResolvedValue({
+      id: "selected-price-list",
+    });
     mocks.pendingFindManyMock.mockResolvedValue([]);
     mocks.pendingDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.orderCreateMock.mockResolvedValue({
@@ -523,6 +530,100 @@ describe("routes in /api/orders", () => {
           phone: null,
           phoneTwo: null,
           cashierPhone: null,
+        }),
+      }),
+    );
+  });
+
+  it("POST lets admins choose the price list for a new order", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "admin-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock
+      .mockResolvedValueOnce({
+        id: "admin-membership",
+        role: "ADMIN",
+        priceListId: "admin-price-list",
+        user: {
+          username: "admin",
+          email: "admin@example.com",
+        },
+        permissions: [],
+      })
+      .mockResolvedValueOnce({
+        priceListId: "customer-price-list",
+      });
+    mocks.priceListFindFirstMock.mockResolvedValueOnce({
+      id: "selected-price-list",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          customerMembershipId: "customer-membership",
+          priceListId: "selected-price-list",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.priceListFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: "selected-price-list",
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+    expect(mocks.getBookingCatalogMock).toHaveBeenCalledWith(
+      "selected-price-list",
+    );
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          priceListId: "selected-price-list",
+        }),
+      }),
+    );
+  });
+
+  it("POST ignores requested price lists for non-admin users", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          priceListId: "other-price-list",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.priceListFindFirstMock).not.toHaveBeenCalled();
+    expect(mocks.getBookingCatalogMock).toHaveBeenCalledWith("price-list-1");
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          priceListId: "price-list-1",
         }),
       }),
     );

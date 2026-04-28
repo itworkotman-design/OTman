@@ -166,6 +166,12 @@ type Props = {
   };
 };
 
+type PriceListOption = {
+  id: string;
+  name: string;
+  code: string;
+};
+
 type CapacityWarningState = {
   count: number;
   limit: number;
@@ -469,6 +475,14 @@ export default function BookingEditor({
   const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<
     CatalogSpecialOption[]
   >([]);
+  const [selectedPriceListId, setSelectedPriceListId] = useState(
+    initialValues?.priceListId ?? "",
+  );
+  const [priceListOptions, setPriceListOptions] = useState<PriceListOption[]>(
+    [],
+  );
+  const [priceListsLoading, setPriceListsLoading] = useState(false);
+  const [priceListsError, setPriceListsError] = useState<string | null>(null);
   const [priceListSettings, setPriceListSettings] = useState<PriceListSettings>(
     createDefaultPriceListSettings(),
   );
@@ -633,17 +647,86 @@ export default function BookingEditor({
     getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
   const showAdminCalculatorAdjustments =
     !!initialValues?.id && (role === "OWNER" || role === "ADMIN");
+  const canSelectPriceList =
+    !initialValues?.id &&
+    dataset === "default" &&
+    (role === "OWNER" || role === "ADMIN");
+
+  useEffect(() => {
+    if (!canSelectPriceList) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadPriceLists() {
+      try {
+        setPriceListsLoading(true);
+        setPriceListsError(null);
+
+        const res = await fetch("/api/products/pricelists", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => null);
+
+        if (cancelled) return;
+
+        if (!res.ok || !data?.ok) {
+          setPriceListOptions([]);
+          setPriceListsError(data?.reason ?? "Failed to load price lists");
+          return;
+        }
+
+        const nextOptions = Array.isArray(data.priceLists)
+          ? data.priceLists
+              .map((item: Partial<PriceListOption>) =>
+                typeof item.id === "string" &&
+                typeof item.name === "string" &&
+                typeof item.code === "string"
+                  ? {
+                      id: item.id,
+                      name: item.name,
+                      code: item.code,
+                    }
+                  : null,
+              )
+              .filter((item: PriceListOption | null): item is PriceListOption => item !== null)
+          : [];
+
+        setPriceListOptions(nextOptions);
+      } catch {
+        if (!cancelled) {
+          setPriceListOptions([]);
+          setPriceListsError("Failed to load price lists");
+        }
+      } finally {
+        if (!cancelled) {
+          setPriceListsLoading(false);
+        }
+      }
+    }
+
+    void loadPriceLists();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canSelectPriceList]);
+
   useEffect(() => {
     async function loadCatalog() {
       try {
         setCatalogLoading(true);
         setCatalogError(null);
 
-        const catalogUrl = initialValues?.priceListId
-          ? `/api/booking/catalog?priceListId=${encodeURIComponent(initialValues.priceListId)}`
+        const catalogPriceListId =
+          selectedPriceListId || initialValues?.priceListId;
+        const catalogUrl = catalogPriceListId
+          ? `/api/booking/catalog?priceListId=${encodeURIComponent(catalogPriceListId)}`
           : "/api/booking/catalog";
 
-        if (!initialValues?.priceListId) {
+        if (!catalogPriceListId) {
           console.warn("Order missing priceListId, using fallback catalog");
         }
 
@@ -666,6 +749,13 @@ export default function BookingEditor({
         setPriceListSettings(
           normalizePriceListSettings(data.priceListSettings),
         );
+        if (
+          typeof data.priceListId === "string" &&
+          data.priceListId &&
+          selectedPriceListId !== data.priceListId
+        ) {
+          setSelectedPriceListId(data.priceListId);
+        }
       } catch {
         setCatalogError("Failed to load catalog");
         setCatalogProducts([]);
@@ -677,7 +767,7 @@ export default function BookingEditor({
     }
 
     loadCatalog();
-  }, [initialValues?.priceListId]);
+  }, [initialValues?.priceListId, selectedPriceListId]);
 
   useEffect(() => {
     if (!initialValues) return;
@@ -826,6 +916,12 @@ export default function BookingEditor({
     );
 
     setExpandedCardId((current) => (current === cardId ? null : current));
+  }, []);
+
+  const handlePriceListChange = useCallback((priceListId: string) => {
+    setSelectedPriceListId(priceListId);
+    setProductCards([createEmptyProductCard(0)]);
+    setExpandedCardId(0);
   }, []);
 
   const savedPricingSnapshot = useMemo(
@@ -1837,6 +1933,7 @@ export default function BookingEditor({
       status,
       dontSendEmail: dontSendEmail || shouldSuppressEmailForCustomTimeWindow,
       dontSendWarehouseEmail,
+      priceListId: selectedPriceListId || initialValues?.priceListId,
 
       priceExVat,
       priceSubcontractor,
@@ -1932,6 +2029,35 @@ export default function BookingEditor({
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
+      {canSelectPriceList ? (
+        <div className="mb-5 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <label
+            htmlFor="admin-price-list"
+            className="mb-2 block text-sm font-semibold text-gray-800"
+          >
+            Price list
+          </label>
+          <select
+            id="admin-price-list"
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-black"
+            value={selectedPriceListId}
+            onChange={(event) => handlePriceListChange(event.target.value)}
+            disabled={priceListsLoading || catalogLoading}
+          >
+            <option value="">
+              {priceListsLoading ? "Loading price lists..." : "Select price list"}
+            </option>
+            {priceListOptions.map((priceList) => (
+              <option key={priceList.id} value={priceList.id}>
+                {priceList.name} ({priceList.code})
+              </option>
+            ))}
+          </select>
+          {priceListsError ? (
+            <p className="mt-2 text-sm text-red-600">{priceListsError}</p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="w-full lg:min-w-0 lg:flex-[1.6]">
           {shown(effectiveHidden, OrderFields.Products) &&
