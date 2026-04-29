@@ -4,6 +4,7 @@ import {
   buildWordpressExtraPickupContacts,
   getWordpressExpressDelivery,
   getWordpressExtraPickupAddresses,
+  normalizeWordpressExtraPickups,
   toWordpressMetaRecord,
 } from "./orderMeta";
 
@@ -30,6 +31,24 @@ describe("wordpress order meta helpers", () => {
         sendEmail: true,
       },
     ]);
+  });
+
+  it("normalizes legacy extra pickup addresses and contacts together", () => {
+    expect(
+      normalizeWordpressExtraPickups({
+        extra_pickup_locations_0_pickup: "Pickup 1",
+      }),
+    ).toEqual({
+      addresses: ["Pickup 1"],
+      contacts: [
+        {
+          address: "Pickup 1",
+          phone: "",
+          email: "",
+          sendEmail: true,
+        },
+      ],
+    });
   });
 
   it("detects express delivery from explicit legacy meta or breakdown html", () => {

@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Builds the compact grouped product summary used by the archive table export and the GSM description.
+Builds the compact grouped product summary used by the archive table export and the GSM description. The summary builder accepts the lightweight archive item shape and only uses `rawData` when it is present.
 
 ## Functions
 

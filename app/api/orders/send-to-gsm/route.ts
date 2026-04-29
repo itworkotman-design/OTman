@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { sendOrderToGsm } from "@/lib/integrations/gsm/sendOrder";
+import { createOrderActionEvent } from "@/lib/orders/orderEvents";
 
 export async function POST(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -20,6 +21,7 @@ export async function POST(req: Request) {
       { status: 409 },
     );
   }
+  const activeCompanyId = session.activeCompanyId;
 
   const membership = await prisma.membership.findFirst({
     where: {
@@ -27,7 +29,16 @@ export async function POST(req: Request) {
       companyId: session.activeCompanyId,
       status: "ACTIVE",
     },
-    select: { role: true },
+    select: {
+      id: true,
+      role: true,
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
+    },
   });
 
   if (!membership) {
@@ -67,7 +78,7 @@ export async function POST(req: Request) {
   const orders = await prisma.order.findMany({
     where: {
       id: { in: orderIds },
-      companyId: session.activeCompanyId,
+      companyId: activeCompanyId,
     },
     include: {
       items: true,
@@ -102,15 +113,18 @@ export async function POST(req: Request) {
 
       const response = await sendOrderToGsm(order);
 
+      const syncedAt = new Date();
+
       await prisma.$transaction([
         prisma.order.update({
           where: { id: order.id },
           data: {
+            lastEditedByMembershipId: membership.id,
             gsmOrderId: response.gsmOrderId,
             gsmExternalId: `order:${order.id}`,
             gsmSyncStatus: force ? "RESENT" : "SENT",
-            gsmSentAt: new Date(),
-            gsmLastSyncedAt: new Date(),
+            gsmSentAt: syncedAt,
+            gsmLastSyncedAt: syncedAt,
           },
         }),
         ...response.tasks.map((task) =>
@@ -133,6 +147,20 @@ export async function POST(req: Request) {
           }),
         ),
       ]);
+
+      await createOrderActionEvent(prisma, {
+        orderId: order.id,
+        companyId: activeCompanyId,
+        actor: {
+          membershipId: membership.id,
+          name: membership.user.username ?? null,
+          email: membership.user.email,
+          source: "USER",
+        },
+        title: force ? "Order sent for GSM resend" : "Order sent for GSM",
+        details: [`GSM order ID: ${response.gsmOrderId}`],
+        createdAt: syncedAt,
+      });
 
       results.push({
         orderId: order.id,

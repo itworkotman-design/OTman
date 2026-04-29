@@ -20,8 +20,11 @@ type OrderItemWithRawData = Pick<
   | "optionCode"
   | "optionLabel"
   | "quantity"
-  | "rawData"
 >;
+
+type OrderSummaryItem = OrderItemWithRawData & {
+  rawData?: unknown;
+};
 
 function formatQuantity(quantity: number | null | undefined) {
   if (typeof quantity !== "number" || !Number.isFinite(quantity) || quantity <= 1) {
@@ -58,7 +61,7 @@ function getRawDataDescription(rawData: unknown) {
   return "";
 }
 
-function getOptionDetail(item: OrderItemWithRawData) {
+function getOptionDetail(item: OrderSummaryItem) {
   const baseLabel =
     getRawDataDescription(item.rawData) ||
     item.optionLabel?.trim() ||
@@ -72,13 +75,13 @@ function getOptionDetail(item: OrderItemWithRawData) {
   return `${baseLabel}${formatQuantity(item.quantity)}`;
 }
 
-function getProductTitle(item: OrderItemWithRawData | undefined) {
+function getProductTitle(item: OrderSummaryItem | undefined) {
   const label = item?.productName?.trim() || "Product";
   return `${label}${formatQuantity(item?.quantity)}`;
 }
 
-function groupItemsByCard(items: OrderItemWithRawData[]) {
-  const grouped = new Map<number, OrderItemWithRawData[]>();
+function groupItemsByCard(items: OrderSummaryItem[]) {
+  const grouped = new Map<number, OrderSummaryItem[]>();
 
   for (const item of items) {
     const current = grouped.get(item.cardId) ?? [];
@@ -99,7 +102,7 @@ function splitSummary(value: string | null | undefined) {
 }
 
 export function buildOrderSummaryGroups(
-  items: OrderItemWithRawData[],
+  items: OrderSummaryItem[],
 ): OrderSummaryGroup[] {
   return groupItemsByCard(items).map((cardItems) => {
     const productItem = cardItems.find((item) => item.itemType === "PRODUCT_CARD");

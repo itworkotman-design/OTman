@@ -12,5 +12,5 @@ Returns and rebuilds order history entries for a single order, including normali
 
 | Function | Description |
 | --- | --- |
-| `parsePayload` | Narrows stored event payload JSON into the supported created, updated, or status-changed shapes. |
+| `parsePayload` | Narrows stored event payload JSON into the supported created, updated, action, or status-changed shapes. |
 | `GET` | Loads order history events for the active company order and falls back to a generated created-order snapshot when no stored events exist. |

@@ -28,6 +28,7 @@ type FilterOptionApiItem = {
   id: string;
   name: string;
   email?: string | null;
+  warehouseEmail?: string | null;
 };
 
 export default function BookingPage() {
@@ -44,9 +45,7 @@ export default function BookingPage() {
   const [appliedFilters, setAppliedFilters] = useState<BookingArchiveFilters>(
     DEFAULT_BOOKING_ARCHIVE_FILTERS,
   );
-
-  const [sortBy, setSortBy] = useState("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [filterPanelVersion, setFilterPanelVersion] = useState(0);
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -83,9 +82,6 @@ export default function BookingPage() {
       if (filters.fromDate) params.set("fromDate", filters.fromDate);
       if (filters.toDate) params.set("toDate", filters.toDate);
       if (filters.search) params.set("search", filters.search);
-
-      if (sortBy) params.set("sortBy", sortBy);
-      params.set("sortOrder", sortOrder);
 
       params.set("page", String(filters.page));
       params.set("rowsPerPage", String(filters.rowsPerPage));
@@ -154,6 +150,7 @@ export default function BookingPage() {
               id: item.id,
               label: item.name,
               email: item.email ?? "",
+              warehouseEmail: item.warehouseEmail ?? "",
             }),
           ),
         );
@@ -206,12 +203,17 @@ export default function BookingPage() {
   }
 
   async function handleSendSelectedEmail(payload: {
-    to: string;
+    recipients: Array<{
+      email: string;
+      name?: string;
+    }>;
     subject: string;
     message?: string;
     recipientName?: string;
   }): Promise<boolean> {
-    if (!payload.to || selectedOrderIds.length === 0) return false;
+    if (payload.recipients.length === 0 || selectedOrderIds.length === 0) {
+      return false;
+    }
 
     try {
       setCustomerActionLoading(true);
@@ -225,7 +227,7 @@ export default function BookingPage() {
         },
         body: JSON.stringify({
           orderIds: selectedOrderIds,
-          to: payload.to,
+          recipients: payload.recipients,
           subject: payload.subject,
           message: payload.message,
           recipientName: payload.recipientName,
@@ -413,6 +415,7 @@ export default function BookingPage() {
 
   function handleResetFilters() {
     setAppliedFilters(DEFAULT_BOOKING_ARCHIVE_FILTERS);
+    setFilterPanelVersion((prev) => prev + 1);
     void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
   }
 
@@ -474,12 +477,11 @@ export default function BookingPage() {
 
   return (
     <div className="w-full">
-      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-        Booking orders
-      </h1>
+      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">Booking orders</h1>
 
       <div className="flex flex-col gap-3 pb-4">
         <BookingFilters
+          key={`${filterPanelVersion}:${access.lockedCreatedById ?? ""}:${access.lockedSubcontractorId ?? ""}`}
           initialApplied={appliedFilters}
           access={access}
           subcontractors={subcontractors}
@@ -516,54 +518,19 @@ export default function BookingPage() {
           />
         </div>
       )}
-      <div className="overflow-x-auto">
-        <div className=" max-w-[4000]">
-          <div className="flex items-center justify-between gap-2 my-4">
-            <div className="flex flex-col items-start gap-2 my-2">
+      <div className="min-w-0 w-full overflow-x-auto">
+        <div className="min-w-0 w-full">
+          <div className="my-4 flex items-center justify-between gap-2">
+            <div className="my-2 flex flex-col items-start gap-2">
               {access.viewMode !== "ADMIN" ? (
-                <button
-                  type="button"
-                  className="customButtonDefault"
-                  onClick={() => setColumnModalOpen(true)}
-                >
+                <button type="button" className="customButtonDefault" onClick={() => setColumnModalOpen(true)}>
                   Hide columns
                 </button>
               ) : null}
 
               <div className="text-sm text-textColorThird">
-                {canBulkSelect
-                  ? `${selectedOrderIds.length} selected • Pris uten MVA: NOK ${selectedPriceExVatLabel}`
-                  : ""}
+                {canBulkSelect ? `${selectedOrderIds.length} selected • Pris uten MVA: NOK ${selectedPriceExVatLabel}` : ""}
               </div>
-            </div>
-            <div className="flex items-center gap-2 justify-end">
-              <select
-                className="customInput cursor-pointer w-48"
-                value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value);
-                  void loadOrders();
-                }}
-              >
-                <option value="">Sort</option>
-                <option value="deliveryDate">Delivery date</option>
-                <option value="price">Price</option>
-                <option value="status">Status</option>
-              </select>
-
-              <button
-                type="button"
-                className="customButtonDefault"
-                onClick={() => {
-                  setSortOrder((prev) => {
-                    const next = prev === "asc" ? "desc" : "asc";
-                    setTimeout(() => void loadOrders(), 0);
-                    return next;
-                  });
-                }}
-              >
-                {sortOrder === "asc" ? "↑ Asc" : "↓ Desc"}
-              </button>
             </div>
           </div>
 
@@ -630,3 +597,4 @@ export default function BookingPage() {
     </div>
   );
 }
+

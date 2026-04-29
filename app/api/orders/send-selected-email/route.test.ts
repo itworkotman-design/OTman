@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   orderEmailMessageCreateMock: vi.fn(),
   transactionMock: vi.fn(),
   sendEmailMock: vi.fn(),
+  createOrderActionEventMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -21,6 +22,10 @@ vi.mock("@/lib/users/orderAccess", () => ({
 
 vi.mock("@/lib/email/sendEmail", () => ({
   sendEmail: mocks.sendEmailMock,
+}));
+
+vi.mock("@/lib/orders/orderEvents", () => ({
+  createOrderActionEvent: mocks.createOrderActionEventMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -46,6 +51,7 @@ describe("POST /api/orders/send-selected-email", () => {
     vi.clearAllMocks();
     mocks.canEditOrdersMock.mockReturnValue(true);
     mocks.transactionMock.mockImplementation(async (operations: unknown[]) => operations);
+    mocks.createOrderActionEventMock.mockResolvedValue(undefined);
   });
 
   it("returns 400 when the recipient is missing", async () => {
@@ -56,6 +62,10 @@ describe("POST /api/orders/send-selected-email", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "ADMIN",
+      user: {
+        username: "Admin",
+        email: "admin@example.com",
+      },
       permissions: [{ permission: "BOOKING_CREATE" }],
     });
 
@@ -119,11 +129,97 @@ describe("POST /api/orders/send-selected-email", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ ok: true, sentCount: 1 });
     expect(mocks.sendEmailMock).toHaveBeenCalledTimes(1);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "order-1" },
+        data: expect.objectContaining({
+          lastEditedByMembershipId: "membership-1",
+        }),
+      }),
+    );
+    expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        orderId: "order-1",
+        title: "Order sent for Selected orders",
+      }),
+    );
     expect(mocks.sendEmailMock.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         to: { email: "customer@example.com" },
         subject: "Selected orders",
         html: expect.stringContaining("PO-1"),
+      }),
+    );
+  });
+
+  it("sends the selected-order email to multiple recipients when both user emails are selected", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      user: {
+        username: "Admin",
+        email: "admin@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        orderNumber: "PO-1",
+        deliveryDate: "2030-01-15",
+        timeWindow: "08-12",
+        customerLabel: "Acme",
+        customerName: "Alice",
+        phone: "12345678",
+        pickupAddress: "Pickup 1",
+        extraPickupAddress: ["Pickup 2"],
+        deliveryAddress: "Delivery 1",
+        returnAddress: "",
+        productsSummary: "Van",
+        cashierName: "Cashier",
+        priceExVat: 1000,
+      },
+    ]);
+    mocks.sendEmailMock.mockResolvedValue({ id: "mail-1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders/send-selected-email", {
+        method: "POST",
+        body: JSON.stringify({
+          orderIds: ["order-1"],
+          recipients: [
+            { email: "store@example.com", name: "Alice" },
+            { email: "warehouse@example.com", name: "Alice" },
+          ],
+          recipientName: "Alice",
+          subject: "Selected orders",
+          message: "Here are your orders",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ ok: true, sentCount: 1 });
+    expect(mocks.sendEmailMock).toHaveBeenCalledTimes(1);
+    expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        orderId: "order-1",
+        title: "Order sent for Selected orders",
+      }),
+    );
+    expect(mocks.sendEmailMock.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        to: [
+          { email: "store@example.com", name: "Alice" },
+          { email: "warehouse@example.com", name: "Alice" },
+        ],
+        subject: "Selected orders",
       }),
     );
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { BookingArchiveFilters, BookingArchiveOption } from "./types";
 import {
@@ -143,6 +143,11 @@ export default function BookingFilters({
   onApply,
   onReset,
 }: Props) {
+  const onApplyRef = useRef(onApply);
+  useEffect(() => {
+    onApplyRef.current = onApply;
+  }, [onApply]);
+
   const [status, setStatus] = useState(initialApplied.status);
   const [createdById, setCreatedById] = useState(
     access.lockedCreatedById ?? initialApplied.createdById,
@@ -157,6 +162,7 @@ export default function BookingFilters({
     initialApplied.rowsPerPage,
   );
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const skipAutoApplyRef = useRef(true);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const initialMonth =
       parseIsoDate(initialApplied.fromDate) ??
@@ -175,20 +181,40 @@ export default function BookingFilters({
     [visibleMonth],
   );
 
-  const handleApply = () => {
-    onApply({
-      status,
-      createdById: access.lockedCreatedById ?? createdById,
-      subcontractorId: access.lockedSubcontractorId ?? subcontractorId,
-      fromDate,
-      toDate,
-      search,
-      rowsPerPage,
-      page: 1,
-    });
-  };
+  useEffect(() => {
+    if (skipAutoApplyRef.current) {
+      skipAutoApplyRef.current = false;
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      onApplyRef.current({
+        status,
+        createdById: access.lockedCreatedById ?? createdById,
+        subcontractorId: access.lockedSubcontractorId ?? subcontractorId,
+        fromDate,
+        toDate,
+        search,
+        rowsPerPage,
+        page: 1,
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    access.lockedCreatedById,
+    access.lockedSubcontractorId,
+    createdById,
+    fromDate,
+    rowsPerPage,
+    search,
+    status,
+    subcontractorId,
+    toDate,
+  ]);
 
   const handleReset = () => {
+    skipAutoApplyRef.current = true;
     setStatus(DEFAULT_BOOKING_ARCHIVE_FILTERS.status);
     setCreatedById(
       access.lockedCreatedById ?? DEFAULT_BOOKING_ARCHIVE_FILTERS.createdById,
@@ -472,7 +498,7 @@ export default function BookingFilters({
               <input
                 type="number"
                 inputMode="numeric"
-                min={1}
+                min={10}
                 max={10000}
                 value={Number.isFinite(rowsPerPage) ? rowsPerPage : ""}
                 onChange={(e) => {
@@ -509,16 +535,9 @@ export default function BookingFilters({
             <button
               type="button"
               onClick={handleReset}
-              className="customButtonDefault h-10"
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={handleApply}
               className="customButtonEnabled h-10"
             >
-              Apply filters
+              Reset Filters
             </button>
           </div>
         </div>

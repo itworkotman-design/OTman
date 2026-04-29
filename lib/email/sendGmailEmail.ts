@@ -1,4 +1,8 @@
+import dns from "node:dns";
 import nodemailer from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
+
+dns.setDefaultResultOrder("ipv4first");
 
 type Recipient = {
   email: string;
@@ -28,13 +32,17 @@ export async function sendGmailEmail({
 }) {
   const recipients = Array.isArray(to) ? to : [to];
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
+  const smtpOptions: SMTPTransport.Options = {
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
     auth: {
       user: process.env.GMAIL_USER!,
-      pass: process.env.GMAIL_APP_PASSWORD!, // app password, NOT your real password
+      pass: process.env.GMAIL_APP_PASSWORD!,
     },
-  });
+  };
+
+  const transporter = nodemailer.createTransport(smtpOptions);
 
   const info = await transporter.sendMail({
     from: `"OtmanTransportAS" <${process.env.GMAIL_USER!}>`,

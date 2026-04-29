@@ -6,6 +6,13 @@ import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { unlink } from "fs/promises";
 import { normalizeAttachmentCategory } from "@/lib/orders/attachmentCategories";
+import {
+  deleteAttachmentFromS3,
+  getAttachmentAccessUrls,
+  isS3AttachmentStorageConfigured,
+  isS3StoragePath,
+  uploadAttachmentToS3,
+} from "@/lib/orders/orderAttachmentStorage";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -34,18 +41,34 @@ export async function GET(req: Request) {
     },
   });
 
+  const mappedAttachments = await Promise.all(
+    attachments.map(async (item) => {
+      const downloadUrl = `/api/orders/pending-attachments/${item.id}/download?download=1`;
+      const accessUrls = await getAttachmentAccessUrls({
+        storagePath: item.storagePath,
+        filename: item.filename,
+        mimeType: item.mimeType,
+        defaultUrl: `/api/orders/pending-attachments/${item.id}/download`,
+        defaultDownloadUrl: downloadUrl,
+      });
+
+      return {
+        id: item.id,
+        category: item.category,
+        filename: item.filename,
+        mimeType: item.mimeType ?? "",
+        sizeBytes: item.sizeBytes ?? 0,
+        storagePath: item.storagePath,
+        createdAt: item.createdAt,
+        url: accessUrls.url,
+        downloadUrl: accessUrls.downloadUrl,
+      };
+    }),
+  );
+
   return NextResponse.json({
     ok: true,
-    attachments: attachments.map((item) => ({
-      id: item.id,
-      category: item.category,
-      filename: item.filename,
-      mimeType: item.mimeType ?? "",
-      sizeBytes: item.sizeBytes ?? 0,
-      storagePath: item.storagePath,
-      createdAt: item.createdAt,
-      url: item.storagePath,
-    })),
+    attachments: mappedAttachments,
   });
 }
 
@@ -104,23 +127,32 @@ export async function POST(req: Request) {
     );
   }
 
-  const bytes = Buffer.from(await file.arrayBuffer());
-
   const originalName = file.name?.trim() || "attachment";
-  const ext = path.extname(originalName);
-  const safeBaseName = path
-    .basename(originalName, ext)
-    .replace(/[^a-zA-Z0-9-_]/g, "_")
-    .slice(0, 80);
+  let storagePath: string;
 
-  const storedFilename = `${Date.now()}-${randomUUID()}-${safeBaseName}${ext}`;
-  const relativeDir = path.join("uploads", "pending-orders", session.userId);
-  const absoluteDir = path.join(process.cwd(), "public", relativeDir);
-  const absolutePath = path.join(absoluteDir, storedFilename);
-  const publicPath = `/${relativeDir.replaceAll("\\", "/")}/${storedFilename}`;
+  if (isS3AttachmentStorageConfigured()) {
+    const storedFile = await uploadAttachmentToS3({
+      file,
+      scope: `pending-orders/${session.userId}`,
+    });
+    storagePath = storedFile.storagePath;
+  } else {
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const ext = path.extname(originalName);
+    const safeBaseName = path
+      .basename(originalName, ext)
+      .replace(/[^a-zA-Z0-9-_]/g, "_")
+      .slice(0, 80);
 
-  await mkdir(absoluteDir, { recursive: true });
-  await writeFile(absolutePath, bytes);
+    const storedFilename = `${Date.now()}-${randomUUID()}-${safeBaseName}${ext}`;
+    const relativeDir = path.join("uploads", "pending-orders", session.userId);
+    const absoluteDir = path.join(process.cwd(), "public", relativeDir);
+    const absolutePath = path.join(absoluteDir, storedFilename);
+    storagePath = `/${relativeDir.replaceAll("\\", "/")}/${storedFilename}`;
+
+    await mkdir(absoluteDir, { recursive: true });
+    await writeFile(absolutePath, bytes);
+  }
 
   const attachment = await prisma.pendingOrderAttachment.create({
     data: {
@@ -129,8 +161,17 @@ export async function POST(req: Request) {
       filename: originalName,
       mimeType: file.type || null,
       sizeBytes: file.size,
-      storagePath: publicPath,
+      storagePath,
     },
+  });
+
+  const downloadUrl = `/api/orders/pending-attachments/${attachment.id}/download?download=1`;
+  const accessUrls = await getAttachmentAccessUrls({
+    storagePath: attachment.storagePath,
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    defaultUrl: `/api/orders/pending-attachments/${attachment.id}/download`,
+    defaultDownloadUrl: downloadUrl,
   });
 
   return NextResponse.json({
@@ -143,7 +184,8 @@ export async function POST(req: Request) {
       sizeBytes: attachment.sizeBytes ?? 0,
       storagePath: attachment.storagePath,
       createdAt: attachment.createdAt,
-      url: attachment.storagePath,
+      url: accessUrls.url,
+      downloadUrl: accessUrls.downloadUrl,
     },
   });
 }
@@ -175,7 +217,13 @@ export async function DELETE(req: Request) {
   });
 
   for (const attachment of attachments) {
-    if (attachment.storagePath.startsWith("/uploads/")) {
+    if (isS3StoragePath(attachment.storagePath)) {
+      try {
+        await deleteAttachmentFromS3(attachment.storagePath);
+      } catch {
+        // ignore missing remote object
+      }
+    } else if (attachment.storagePath.startsWith("/uploads/")) {
       const absolutePath = path.join(
         process.cwd(),
         "public",

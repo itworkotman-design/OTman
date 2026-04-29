@@ -91,7 +91,6 @@ export type OrderFormPayload = {
   priceListId?: string;
   status: string;
   dontSendEmail: boolean;
-  dontSendWarehouseEmail: boolean;
 
   priceExVat: number;
   priceSubcontractor: number;
@@ -526,7 +525,6 @@ export default function BookingEditor({
   const [customerMembershipId, setCustomerMembershipId] = useState(initialValues?.customerMembershipId ?? "");
   const [status, setStatus] = useState(normalizeInitialStatus(initialValues?.status));
   const [dontSendEmail, setDontSendEmail] = useState(initialValues?.dontSendEmail ?? false);
-  const [dontSendWarehouseEmail, setDontSendWarehouseEmail] = useState(initialValues?.dontSendWarehouseEmail ?? !initialValues?.id);
   const [contactCustomerForCustomTimeWindow, setContactCustomerForCustomTimeWindow] = useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
   const [customTimeContactNote, setCustomTimeContactNote] = useState(initialValues?.customTimeContactNote ?? "");
   const [pickupAddress, setPickupAddress] = useState(initialValues?.pickupAddress ?? "");
@@ -788,7 +786,6 @@ export default function BookingEditor({
     previousSelectedCustomerIdRef.current = initialValues.customerMembershipId ?? null;
     setStatus(normalizeInitialStatus(initialValues.status));
     setDontSendEmail(initialValues.dontSendEmail ?? false);
-    setDontSendWarehouseEmail(initialValues.dontSendWarehouseEmail ?? !initialValues.id);
     setContactCustomerForCustomTimeWindow(initialValues.contactCustomerForCustomTimeWindow ?? false);
     setCustomTimeContactNote(initialValues.customTimeContactNote ?? "");
     setPickupAddress(initialValues.pickupAddress ?? "");
@@ -1774,7 +1771,6 @@ export default function BookingEditor({
       customerLabel,
       status,
       dontSendEmail: dontSendEmail || shouldSuppressEmailForCustomTimeWindow,
-      dontSendWarehouseEmail,
       priceListId: selectedPriceListId || initialValues?.priceListId,
 
       priceExVat,
@@ -2010,9 +2006,6 @@ export default function BookingEditor({
             setStatus={setStatus}
             dontSendEmail={dontSendEmail}
             setDontSendEmail={setDontSendEmail}
-            showWarehouseEmailToggle={!existingOrderId}
-            dontSendWarehouseEmail={dontSendWarehouseEmail}
-            setDontSendWarehouseEmail={setDontSendWarehouseEmail}
             attachments={attachments}
             attachmentsUploading={attachmentsUploading}
             attachmentsError={attachmentsError}

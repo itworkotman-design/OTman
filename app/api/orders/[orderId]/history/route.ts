@@ -31,6 +31,8 @@ function parsePayload(value: unknown) {
     fromStatus?: unknown;
     toStatus?: unknown;
     note?: unknown;
+    title?: unknown;
+    details?: unknown;
   };
 
   if (candidate.kind === "created" && candidate.snapshot) {
@@ -60,6 +62,21 @@ function parsePayload(value: unknown) {
       fromStatus: candidate.fromStatus,
       toStatus: candidate.toStatus,
       note: typeof candidate.note === "string" ? candidate.note : null,
+    };
+  }
+
+  if (
+    candidate.kind === "action" &&
+    typeof candidate.title === "string"
+  ) {
+    return {
+      kind: "action" as const,
+      title: candidate.title,
+      details: Array.isArray(candidate.details)
+        ? candidate.details.filter(
+            (detail): detail is string => typeof detail === "string",
+          )
+        : [],
     };
   }
 

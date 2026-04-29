@@ -82,11 +82,14 @@ export default function OrderAttachmentsSection({
 
             {files.length > 0 ? (
               <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                {files.map((file) => (
-                  <div
-                    key={file.id}
-                    className="relative overflow-hidden rounded border bg-white"
-                  >
+                {files.map((file) => {
+                  const downloadUrl = file.downloadUrl ?? file.url;
+
+                  return (
+                    <div
+                      key={file.id}
+                      className="relative overflow-hidden rounded border bg-white"
+                    >
                     {isImage(file) ? (
                       <a href={file.url} target="_blank" rel="noopener noreferrer">
                         <img
@@ -124,7 +127,7 @@ export default function OrderAttachmentsSection({
                         </a>
 
                         <a
-                          href={file.url}
+                          href={downloadUrl}
                           download={file.filename}
                           className="text-textColorThird underline"
                         >
@@ -142,8 +145,9 @@ export default function OrderAttachmentsSection({
                         X
                       </button>
                     ) : null}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-sm text-textColorThird">{emptyLabel}</div>

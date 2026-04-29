@@ -103,10 +103,17 @@ type StatusChangedPayload = {
   note: string | null;
 };
 
+type ActionPayload = {
+  kind: "action";
+  title: string;
+  details: string[];
+};
+
 export type OrderEventPayload =
   | CreatedPayload
   | UpdatedPayload
-  | StatusChangedPayload;
+  | StatusChangedPayload
+  | ActionPayload;
 
 const FIELD_LABELS: Record<keyof OrderEventSnapshot, string> = {
   displayId: "Order ID",
@@ -599,6 +606,64 @@ export async function createManyOrderStatusChangedEvents(
           createdAt: row.createdAt ?? new Date(),
         });
       }
+      return;
+    }
+
+    throw error;
+  }
+}
+
+export async function createOrderActionEvent(
+  client: OrderEventClient,
+  input: {
+    orderId: string;
+    companyId: string;
+    actor: OrderEventActor;
+    title: string;
+    details?: string[];
+    createdAt?: Date;
+  },
+) {
+  const normalizedTitle = normalizeString(input.title);
+  if (!normalizedTitle) {
+    return;
+  }
+
+  const detailLines = Array.isArray(input.details)
+    ? input.details
+        .filter((detail): detail is string => typeof detail === "string")
+        .map((detail) => detail.trim())
+        .filter(Boolean)
+    : [];
+
+  const orderEvent = getOrderEventDelegate(client);
+  const data: Prisma.OrderEventUncheckedCreateInput = {
+    id: crypto.randomUUID(),
+    orderId: input.orderId,
+    companyId: input.companyId,
+    type: "UPDATED",
+    actorMembershipId: input.actor.membershipId ?? null,
+    actorName: input.actor.name ?? null,
+    actorEmail: input.actor.email ?? null,
+    actorSource: input.actor.source ?? "USER",
+    payload: payloadToJson({
+      kind: "action",
+      title: normalizedTitle,
+      details: detailLines,
+    }),
+    createdAt: input.createdAt ?? new Date(),
+  };
+
+  if (!orderEvent) {
+    await insertOrderEventRaw(client, data);
+    return;
+  }
+
+  try {
+    await orderEvent.create({ data });
+  } catch (error) {
+    if (isMissingOrderEventTableError(error)) {
+      await insertOrderEventRaw(client, data);
       return;
     }
 

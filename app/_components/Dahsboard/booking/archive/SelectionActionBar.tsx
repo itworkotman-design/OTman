@@ -7,10 +7,16 @@ import type { BookingArchiveOption } from "./types";
 type EmailType = "prepare_orders" | "confirmed_delivery" | "custom" | "";
 
 type Props = {
-  creators: (BookingArchiveOption & { email?: string | null })[];
+  creators: (BookingArchiveOption & {
+    email?: string | null;
+    warehouseEmail?: string | null;
+  })[];
   selectedCount: number;
   onSendEmail: (payload: {
-    to: string;
+    recipients: Array<{
+      email: string;
+      name?: string;
+    }>;
     subject: string;
     message?: string;
     recipientName?: string;
@@ -41,6 +47,8 @@ export default function SelectionActionBar({
   const [creatorId, setCreatorId] = useState("");
   const [emailType, setEmailType] = useState<EmailType>("");
   const [customMessage, setCustomMessage] = useState("");
+  const [sendToPrimaryEmail, setSendToPrimaryEmail] = useState(false);
+  const [sendToWarehouseEmail, setSendToWarehouseEmail] = useState(false);
   const [successFlash, setSuccessFlash] = useState(false);
   const [gsmSuccessFlash, setGsmSuccessFlash] = useState(false);
 
@@ -50,6 +58,37 @@ export default function SelectionActionBar({
     () => creators.find((item) => item.id === creatorId),
     [creators, creatorId],
   );
+  const primaryEmail = selectedCreator?.email?.trim() || "";
+  const warehouseEmail = selectedCreator?.warehouseEmail?.trim() || "";
+  const selectedRecipients = useMemo(() => {
+    const recipients: Array<{ email: string; name?: string }> = [];
+
+    if (sendToPrimaryEmail && primaryEmail) {
+      recipients.push({
+        email: primaryEmail,
+        name: selectedCreator?.label,
+      });
+    }
+
+    if (
+      sendToWarehouseEmail &&
+      warehouseEmail &&
+      warehouseEmail !== primaryEmail
+    ) {
+      recipients.push({
+        email: warehouseEmail,
+        name: selectedCreator?.label,
+      });
+    }
+
+    return recipients;
+  }, [
+    primaryEmail,
+    selectedCreator?.label,
+    sendToPrimaryEmail,
+    sendToWarehouseEmail,
+    warehouseEmail,
+  ]);
 
   const subject = useMemo(() => {
     switch (emailType) {
@@ -78,7 +117,7 @@ export default function SelectionActionBar({
   }, [emailType, customMessage]);
 
   const canSendEmail =
-    !!selectedCreator?.email &&
+    selectedRecipients.length > 0 &&
     !!emailType &&
     (emailType !== "custom" || !!customMessage.trim());
 
@@ -103,10 +142,10 @@ export default function SelectionActionBar({
   }, [gsmSuccessFlash]);
 
   async function handleSendEmailClick() {
-    if (!canSendEmail || disabled || !selectedCreator?.email) return;
+    if (!canSendEmail || disabled || !selectedCreator) return;
 
     const ok = await onSendEmail({
-      to: selectedCreator.email,
+      recipients: selectedRecipients,
       subject,
       message: message || undefined,
       recipientName: selectedCreator.label,
@@ -137,7 +176,18 @@ export default function SelectionActionBar({
           </label>
           <select
             value={creatorId}
-            onChange={(e) => setCreatorId(e.target.value)}
+            onChange={(e) => {
+              const nextCreatorId = e.target.value;
+              const nextCreator = creators.find(
+                (item) => item.id === nextCreatorId,
+              );
+
+              setCreatorId(nextCreatorId);
+              setSendToPrimaryEmail(false);
+              setSendToWarehouseEmail(
+                !!nextCreator?.warehouseEmail?.trim(),
+              );
+            }}
             className="customInput w-full"
             disabled={loading}
           >
@@ -150,7 +200,7 @@ export default function SelectionActionBar({
           </select>
         </div>
 
-        <div>
+        <div >
           <label className="mb-1 block text-xs font-medium text-textColorThird">
             Email type
           </label>
@@ -166,6 +216,42 @@ export default function SelectionActionBar({
             <option value="custom">Custom</option>
           </select>
         </div>
+
+        {selectedCreator ? (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-textColorThird">
+              Recipients
+            </label>
+            <div className="flex min-h-10 flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={sendToPrimaryEmail}
+                  disabled={!primaryEmail || loading}
+                  onChange={(e) => setSendToPrimaryEmail(e.target.checked)}
+                />
+                <span>
+                  Send to 
+                  {primaryEmail ? ` - ${primaryEmail}` : " - no email set"}
+                </span>
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={sendToWarehouseEmail}
+                  disabled={!warehouseEmail || loading}
+                  onChange={(e) => setSendToWarehouseEmail(e.target.checked)}
+                />
+                <span>
+                  Send to 
+                  {warehouseEmail
+                    ? ` - ${warehouseEmail}`
+                    : " - no warehouse email set"}
+                </span>
+              </label>
+            </div>
+          </div>
+        ) : null}
 
         {emailType === "custom" && (
           <div>

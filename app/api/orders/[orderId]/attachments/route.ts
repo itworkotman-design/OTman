@@ -7,6 +7,11 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
 import type { AppPermission } from "@/lib/users/types";
 import { normalizeAttachmentCategory } from "@/lib/orders/attachmentCategories";
+import {
+  getAttachmentAccessUrls,
+  isS3AttachmentStorageConfigured,
+  uploadAttachmentToS3,
+} from "@/lib/orders/orderAttachmentStorage";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -58,18 +63,34 @@ export async function GET(
     orderBy: { createdAt: "desc" },
   });
 
+  const mappedAttachments = await Promise.all(
+    attachments.map(async (item) => {
+      const downloadUrl = `/api/orders/${orderId}/attachments/${item.id}/download?download=1`;
+      const accessUrls = await getAttachmentAccessUrls({
+        storagePath: item.storagePath,
+        filename: item.filename,
+        mimeType: item.mimeType,
+        defaultUrl: `/api/orders/${orderId}/attachments/${item.id}/download`,
+        defaultDownloadUrl: downloadUrl,
+      });
+
+      return {
+        id: item.id,
+        category: item.category,
+        filename: item.filename,
+        mimeType: item.mimeType ?? "",
+        sizeBytes: item.sizeBytes ?? 0,
+        storagePath: item.storagePath,
+        createdAt: item.createdAt,
+        url: accessUrls.url,
+        downloadUrl: accessUrls.downloadUrl,
+      };
+    }),
+  );
+
   return NextResponse.json({
     ok: true,
-    attachments: attachments.map((item) => ({
-      id: item.id,
-      category: item.category,
-      filename: item.filename,
-      mimeType: item.mimeType ?? "",
-      sizeBytes: item.sizeBytes ?? 0,
-      storagePath: item.storagePath,
-      createdAt: item.createdAt,
-      url: `/api/orders/${orderId}/attachments/${item.id}/download`,
-    })),
+    attachments: mappedAttachments,
   });
 }
 
@@ -189,23 +210,32 @@ export async function POST(
     );
   }
 
-  const bytes = Buffer.from(await file.arrayBuffer());
-
   const originalName = file.name?.trim() || "attachment";
-  const ext = path.extname(originalName);
-  const safeBaseName = path
-    .basename(originalName, ext)
-    .replace(/[^a-zA-Z0-9-_]/g, "_")
-    .slice(0, 80);
+  let storagePath: string;
 
-  const storedFilename = `${Date.now()}-${randomUUID()}-${safeBaseName}${ext}`;
-  const relativeDir = path.join("uploads", "orders", orderId);
-  const absoluteDir = path.join(process.cwd(), "public", relativeDir);
-  const absolutePath = path.join(absoluteDir, storedFilename);
-  const publicPath = `/${relativeDir.replaceAll("\\", "/")}/${storedFilename}`;
+  if (isS3AttachmentStorageConfigured()) {
+    const storedFile = await uploadAttachmentToS3({
+      file,
+      scope: orderId,
+    });
+    storagePath = storedFile.storagePath;
+  } else {
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const ext = path.extname(originalName);
+    const safeBaseName = path
+      .basename(originalName, ext)
+      .replace(/[^a-zA-Z0-9-_]/g, "_")
+      .slice(0, 80);
 
-  await mkdir(absoluteDir, { recursive: true });
-  await writeFile(absolutePath, bytes);
+    const storedFilename = `${Date.now()}-${randomUUID()}-${safeBaseName}${ext}`;
+    const relativeDir = path.join("uploads", "orders", orderId);
+    const absoluteDir = path.join(process.cwd(), "public", relativeDir);
+    const absolutePath = path.join(absoluteDir, storedFilename);
+    storagePath = `/${relativeDir.replaceAll("\\", "/")}/${storedFilename}`;
+
+    await mkdir(absoluteDir, { recursive: true });
+    await writeFile(absolutePath, bytes);
+  }
 
   const attachment = await prisma.orderAttachment.create({
     data: {
@@ -214,8 +244,17 @@ export async function POST(
       filename: originalName,
       mimeType: file.type || null,
       sizeBytes: file.size,
-      storagePath: publicPath,
+      storagePath,
     },
+  });
+
+  const downloadUrl = `/api/orders/${orderId}/attachments/${attachment.id}/download?download=1`;
+  const accessUrls = await getAttachmentAccessUrls({
+    storagePath: attachment.storagePath,
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    defaultUrl: `/api/orders/${orderId}/attachments/${attachment.id}/download`,
+    defaultDownloadUrl: downloadUrl,
   });
 
   return NextResponse.json({
@@ -228,7 +267,8 @@ export async function POST(
       sizeBytes: attachment.sizeBytes ?? 0,
       storagePath: attachment.storagePath,
       createdAt: attachment.createdAt,
-      url: `/api/orders/${orderId}/attachments/${attachment.id}/download`,
+      url: accessUrls.url,
+      downloadUrl: accessUrls.downloadUrl,
     },
   });
 }

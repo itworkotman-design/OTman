@@ -162,7 +162,7 @@ export default function BookingArchiveTable({
     orders.every((order) => selectedOrderIds.includes(order.id));
 
   return (
-    <div className="mb-10 max-h-[1000] w-full max-w-full overflow-x-auto overflow-y-auto [-webkit-overflow-scrolling:touch] lg:max-w-[calc(100vw-300px)]">
+    <div className="mb-10 max-h-[1000] min-w-0 w-full overflow-x-auto overflow-y-auto [-webkit-overflow-scrolling:touch]">
       <table
         className="table-fixed border-y border-black/10 text-sm"
         style={{ width: `${tableWidth}px`, minWidth: `${tableWidth}px` }}

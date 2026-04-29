@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   taskUpsertMock: vi.fn(),
   transactionMock: vi.fn(),
   sendOrderToGsmMock: vi.fn(),
+  createOrderActionEventMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -16,6 +17,10 @@ vi.mock("@/lib/auth/session", () => ({
 
 vi.mock("@/lib/integrations/gsm/sendOrder", () => ({
   sendOrderToGsm: mocks.sendOrderToGsmMock,
+}));
+
+vi.mock("@/lib/orders/orderEvents", () => ({
+  createOrderActionEvent: mocks.createOrderActionEventMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -40,6 +45,7 @@ describe("POST /api/orders/send-to-gsm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.transactionMock.mockResolvedValue([]);
+    mocks.createOrderActionEventMock.mockResolvedValue(undefined);
   });
 
   it("returns 400 when no valid order ids are sent", async () => {
@@ -47,7 +53,14 @@ describe("POST /api/orders/send-to-gsm", () => {
       userId: "user-1",
       activeCompanyId: "company-1",
     });
-    mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN" });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      user: {
+        username: "Admin",
+        email: "admin@example.com",
+      },
+    });
 
     const res = await POST(
       new Request("http://localhost/api/orders/send-to-gsm", {
@@ -68,7 +81,14 @@ describe("POST /api/orders/send-to-gsm", () => {
       userId: "user-1",
       activeCompanyId: "company-1",
     });
-    mocks.membershipFindFirstMock.mockResolvedValue({ role: "OWNER" });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "OWNER",
+      user: {
+        username: "Owner",
+        email: "owner@example.com",
+      },
+    });
     mocks.orderFindManyMock.mockResolvedValue([
       {
         id: "order-1",
@@ -95,5 +115,65 @@ describe("POST /api/orders/send-to-gsm", () => {
       ],
     });
     expect(mocks.sendOrderToGsmMock).not.toHaveBeenCalled();
+  });
+
+  it("updates last edited state and writes an action event when GSM send succeeds", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "OWNER",
+      user: {
+        username: "Owner",
+        email: "owner@example.com",
+      },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        gsmOrderId: null,
+      },
+    ]);
+    mocks.sendOrderToGsmMock.mockResolvedValue({
+      gsmOrderId: "gsm-1",
+      tasks: [],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders/send-to-gsm", {
+        method: "POST",
+        body: JSON.stringify({ orderIds: ["order-1"] }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      results: [
+        {
+          orderId: "order-1",
+          ok: true,
+          gsmOrderId: "gsm-1",
+        },
+      ],
+    });
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "order-1" },
+        data: expect.objectContaining({
+          lastEditedByMembershipId: "membership-1",
+          gsmOrderId: "gsm-1",
+        }),
+      }),
+    );
+    expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        orderId: "order-1",
+        title: "Order sent for GSM",
+      }),
+    );
   });
 });

@@ -35,7 +35,7 @@ Checks whether a calendar day falls inside the active date range.
 Checks whether a calendar day is the start or end of the active date range.
 
 ### `BookingFilters(props)`
-Owns the archive filter state, renders the status/store/subcontractor/date/search controls, keeps status option values aligned with the canonical lowercase order-status keys, and applies or resets the selected filter values.
+Owns the archive filter state, renders the status/store/subcontractor/date/search controls, keeps status option values aligned with the canonical lowercase order-status keys, auto-applies filter changes with a short debounce, syncs the latest parent `onApply` callback into a ref through an effect so parent rerenders do not trigger repeated fetch loops, skips duplicate apply calls on first render and reset, and resets the selected filter values without needing an explicit Apply button.
 
 ### `Field(props)`
 Shared small wrapper for a filter label and its input content.

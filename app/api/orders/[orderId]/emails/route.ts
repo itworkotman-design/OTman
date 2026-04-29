@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
-import { sendEmail } from "@/lib/email/sendEmail";
 import { sendGmailEmail } from "@/lib/email/sendGmailEmail";
 import {
   buildOrderConversationEmailHtml,
   buildOrderConversationEmailText,
   buildReplySubject,
   buildReplyToAddress,
-  buildThreadedSubject,
   createOrderEmailThreadToken,
 } from "@/lib/orders/orderEmail";
 
@@ -95,33 +93,6 @@ function escapeHtml(value: string) {
 
 function normalizeEmailAddress(value: string) {
   return value.trim().toLowerCase();
-}
-
-function formatReplyTimestamp(value: Date) {
-  return value.toLocaleString("no-NO", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-function stripHtmlToPlainText(value: string) {
-  return value
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "")
-    .trim();
-}
-
-function formatEmailPerson(name: string | null, email: string) {
-  if (name && name.trim()) {
-    return `${name.trim()} <${email}>`;
-  }
-
-  return email;
 }
 
 function buildFailedConversationBody(message: string, reason: string) {
@@ -316,14 +287,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         ]
       : []),
   ];
-  const backupEmail = getTrimmedString(process.env.ORDER_CONVERSATION_BACKUP_EMAIL) || "itworkotman@gmail.com";
-  const normalizedRecipientEmails = new Set(recipients.map((recipient) => normalizeEmailAddress(recipient.email)));
-  const backupRecipient = backupEmail
-    ? {
-        email: backupEmail,
-        name: "OTman Backup",
-      }
-    : null;
+
   const storedToEmail = recipients.map((recipient) => recipient.email).join(", ");
   const storedToName = recipients.map((recipient) => recipient.name || recipient.email).join(", ");
 

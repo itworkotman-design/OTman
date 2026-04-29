@@ -94,4 +94,34 @@ describe("orderSummary", () => {
       },
     ]);
   });
+
+  it("builds archive groups when rawData is omitted", () => {
+    const groups = buildOrderSummaryGroups([
+      {
+        cardId: 1,
+        productName: "Washer",
+        deliveryType: "Indoor carry",
+        itemType: "PRODUCT_CARD",
+        optionCode: null,
+        optionLabel: null,
+        quantity: 1,
+      },
+      {
+        cardId: 1,
+        productName: "Washer",
+        deliveryType: "Indoor carry",
+        itemType: "SPECIAL_OPTION",
+        optionCode: "INSTALL",
+        optionLabel: "Install only",
+        quantity: 1,
+      },
+    ]);
+
+    expect(groups).toEqual([
+      {
+        title: "Washer",
+        details: ["Indoor carry", "Install only"],
+      },
+    ]);
+  });
 });

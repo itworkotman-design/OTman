@@ -61,8 +61,6 @@ import {
 import type { AppPermission } from "@/lib/users/types";
 import {
   buildWordpressExtraPickupContacts,
-  getWordpressExtraPickupAddresses,
-  toWordpressMetaRecord,
 } from "@/lib/integrations/wordpress/orderMeta";
 import {
   applyOrderPricingSnapshot,
@@ -86,7 +84,6 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   pickupAddress: true,
   extraPickupAddress: true,
   extraPickupContacts: true,
-  legacyWordpressRawMeta: true,
   deliveryAddress: true,
   returnAddress: true,
   items: {
@@ -157,17 +154,83 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
       },
     },
   },
+  events: {
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 1,
+    select: {
+      payload: true,
+    },
+  },
 });
 
 type OrderArchiveRecord = Prisma.OrderGetPayload<{
   select: typeof orderArchiveSelect;
 }>;
 
+function getLatestActionTitle(payload: unknown): string {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  const candidate = payload as {
+    kind?: unknown;
+    title?: unknown;
+  };
+
+  if (candidate.kind !== "action" || typeof candidate.title !== "string") {
+    return "";
+  }
+
+  return candidate.title.trim();
+}
+
 function parsePositiveInt(value: string | null, fallback: number) {
   if (!value) return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(1, Math.floor(n));
+}
+
+function buildArchiveSearchPrefilter(search: string): Prisma.OrderWhereInput {
+  const trimmedSearch = search.trim();
+
+  if (!trimmedSearch) {
+    return {};
+  }
+
+  const displayId = Number(trimmedSearch);
+
+  const orFilters: Prisma.OrderWhereInput[] = [
+    { orderNumber: { contains: trimmedSearch, mode: "insensitive" } },
+    { customerLabel: { contains: trimmedSearch, mode: "insensitive" } },
+    { customerName: { contains: trimmedSearch, mode: "insensitive" } },
+    { phone: { contains: trimmedSearch } },
+    { phoneTwo: { contains: trimmedSearch } },
+    { email: { contains: trimmedSearch, mode: "insensitive" } },
+    { pickupAddress: { contains: trimmedSearch, mode: "insensitive" } },
+    { deliveryAddress: { contains: trimmedSearch, mode: "insensitive" } },
+    { returnAddress: { contains: trimmedSearch, mode: "insensitive" } },
+    { productsSummary: { contains: trimmedSearch, mode: "insensitive" } },
+    { deliveryTypeSummary: { contains: trimmedSearch, mode: "insensitive" } },
+    { servicesSummary: { contains: trimmedSearch, mode: "insensitive" } },
+    { description: { contains: trimmedSearch, mode: "insensitive" } },
+    { cashierName: { contains: trimmedSearch, mode: "insensitive" } },
+    { cashierPhone: { contains: trimmedSearch } },
+    { customerComments: { contains: trimmedSearch, mode: "insensitive" } },
+    { driverInfo: { contains: trimmedSearch, mode: "insensitive" } },
+    { subcontractor: { contains: trimmedSearch, mode: "insensitive" } },
+    { driver: { contains: trimmedSearch, mode: "insensitive" } },
+  ];
+
+  if (Number.isFinite(displayId) && displayId > 0) {
+    orFilters.push({ displayId });
+  }
+
+  return {
+    OR: orFilters,
+  };
 }
 
 function getMembershipUserLabel(user: {
@@ -270,7 +333,6 @@ export async function POST(req: Request) {
       id: true,
       role: true,
       priceListId: true,
-      warehouseEmail: true,
       company: {
         select: {
           orderEmailsEnabled: true,
@@ -309,7 +371,6 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  const dontSendWarehouseEmail = optionalBoolean(body?.dontSendWarehouseEmail);
 
   if (
     !body ||
@@ -768,16 +829,6 @@ export async function POST(req: Request) {
         items: builtItems,
       });
 
-      const warehouseEmail = normalizeOptionalEmail(membership.warehouseEmail);
-      if (warehouseEmail && !dontSendWarehouseEmail) {
-        await sendOrderNotificationEmail({
-          kind: "created",
-          order: notificationOrder,
-          items: builtItems,
-          recipientEmail: warehouseEmail,
-        });
-      }
-
       for (const pickup of extraPickups) {
         if (!pickup.sendEmail) continue;
 
@@ -862,13 +913,14 @@ export async function GET(req: Request) {
   const toDate = optionalString(searchParams.get("toDate"));
   const search = optionalString(searchParams.get("search"));
   const normalizedSearch = normalizeSearchText(search);
+  const trimmedSearch = search?.trim() ?? "";
   const sortBy = optionalString(searchParams.get("sortBy"));
   const sortOrder =
     optionalString(searchParams.get("sortOrder")) === "asc" ? "asc" : "desc";
 
   const page = parsePositiveInt(searchParams.get("page"), 1);
   const rowsPerPage = Math.min(
-    500,
+    200,
     parsePositiveInt(searchParams.get("rowsPerPage"), 25),
   );
 
@@ -979,6 +1031,13 @@ export async function GET(req: Request) {
     orderFindManyArgs.take = rowsPerPage;
   }
 
+  if (trimmedSearch) {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      buildArchiveSearchPrefilter(trimmedSearch),
+    ];
+  }
+
   const orderCandidates = (await prisma.order.findMany(
     orderFindManyArgs,
   )) as OrderArchiveRecord[];
@@ -1040,12 +1099,7 @@ export async function GET(req: Request) {
     ok: true,
     orders: orders.map((order) => {
       const orderItems = order.items ?? [];
-      const fallbackExtraPickupAddresses =
-        order.extraPickupAddress.length > 0
-          ? order.extraPickupAddress
-          : getWordpressExtraPickupAddresses(
-              toWordpressMetaRecord(order.legacyWordpressRawMeta),
-            );
+      const fallbackExtraPickupAddresses = order.extraPickupAddress;
       const extraPickupContacts = Array.isArray(order.extraPickupContacts)
         ? order.extraPickupContacts
         : buildWordpressExtraPickupContacts(fallbackExtraPickupAddresses);
@@ -1065,6 +1119,8 @@ export async function GET(req: Request) {
       const createdBy = getMembershipUserLabel(order.createdByMembership.user);
       const assignedStore = getMembershipUserLabel(order.customerMembership?.user);
       const storeLabel = assignedStore || legacyCreatedBy || createdBy;
+      const latestEvent = order.events?.[0];
+      const latestActionTitle = getLatestActionTitle(latestEvent?.payload);
 
       return {
         id: order.id,
@@ -1113,7 +1169,9 @@ export async function GET(req: Request) {
         lastEditedByMembershipId: order.lastEditedByMembershipId ?? "",
         customerMembershipId: order.customerMembershipId ?? "",
         createdBy: storeLabel,
-        lastEditedBy: getMembershipUserLabel(order.lastEditedByMembership?.user),
+        lastEditedBy:
+          latestActionTitle ||
+          getMembershipUserLabel(order.lastEditedByMembership?.user),
       };
     }),
     page,

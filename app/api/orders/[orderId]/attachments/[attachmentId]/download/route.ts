@@ -5,6 +5,11 @@ import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canCreateOrders } from "@/lib/users/orderAccess";
 import type { AppPermission } from "@/lib/users/types";
+import {
+  downloadAttachmentFromS3,
+  getSignedAttachmentUrl,
+  isS3StoragePath,
+} from "@/lib/orders/orderAttachmentStorage";
 
 function getLocalUploadPath(storagePath: string): string | null {
   if (!storagePath.startsWith("/uploads/")) return null;
@@ -25,6 +30,21 @@ function getLocalUploadPath(storagePath: string): string | null {
 
 function contentDispositionFilename(filename: string): string {
   return filename.replace(/["\r\n]/g, "_");
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  );
+
+  if (buffer instanceof ArrayBuffer) {
+    return buffer;
+  }
+
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  return copy;
 }
 
 function getRemoteAttachmentUrl(sourceUrl: string | null): string | null {
@@ -74,6 +94,8 @@ export async function GET(
     params,
   }: { params: Promise<{ orderId: string; attachmentId: string }> },
 ) {
+  const requestUrl = new URL(req.url);
+  const shouldDownload = requestUrl.searchParams.get("download") === "1";
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
@@ -173,6 +195,36 @@ export async function GET(
     );
   }
 
+  if (isS3StoragePath(attachment.storagePath)) {
+    const signedUrl = await getSignedAttachmentUrl({
+      storagePath: attachment.storagePath,
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      download: shouldDownload,
+    });
+
+    if (signedUrl) {
+      return NextResponse.redirect(signedUrl);
+    }
+
+    const remoteFile = await downloadAttachmentFromS3(attachment.storagePath);
+
+    if (remoteFile) {
+      return new NextResponse(toArrayBuffer(remoteFile.bytes), {
+        headers: {
+          "Content-Type":
+            remoteFile.contentType ||
+            attachment.mimeType ||
+            "application/octet-stream",
+          "Content-Disposition": `${shouldDownload ? "attachment" : "inline"}; filename="${contentDispositionFilename(
+            attachment.filename,
+          )}"`,
+          "Content-Length": String(remoteFile.sizeBytes),
+        },
+      });
+    }
+  }
+
   const absolutePath = getLocalUploadPath(attachment.storagePath);
 
   const sourceUrl = getRemoteAttachmentUrl(attachment.sourceUrl);
@@ -194,7 +246,7 @@ export async function GET(
       return new NextResponse(bytes, {
         headers: {
           "Content-Type": attachment.mimeType || "application/octet-stream",
-          "Content-Disposition": `attachment; filename="${contentDispositionFilename(
+          "Content-Disposition": `${shouldDownload ? "attachment" : "inline"}; filename="${contentDispositionFilename(
             attachment.filename,
           )}"`,
           "Content-Length": String(attachment.sizeBytes ?? fileStat.size),
@@ -215,7 +267,7 @@ export async function GET(
       return new NextResponse(remoteFile.bytes, {
         headers: {
           "Content-Type": remoteFile.mimeType || "application/octet-stream",
-          "Content-Disposition": `attachment; filename="${contentDispositionFilename(
+          "Content-Disposition": `${shouldDownload ? "attachment" : "inline"}; filename="${contentDispositionFilename(
             attachment.filename,
           )}"`,
           "Content-Length": String(remoteFile.sizeBytes),
@@ -224,7 +276,7 @@ export async function GET(
     }
   }
 
-return NextResponse.json(
+  return NextResponse.json(
     { ok: false, reason: "ATTACHMENT_FILE_NOT_FOUND" },
     { status: 404 },
   );

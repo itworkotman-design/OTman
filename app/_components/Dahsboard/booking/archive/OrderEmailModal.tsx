@@ -36,7 +36,17 @@ type StatusChangedPayload = {
   note: string | null;
 };
 
-type HistoryPayload = SnapshotPayload | UpdatedPayload | StatusChangedPayload;
+type ActionPayload = {
+  kind: "action";
+  title: string;
+  details: string[];
+};
+
+type HistoryPayload =
+  | SnapshotPayload
+  | UpdatedPayload
+  | StatusChangedPayload
+  | ActionPayload;
 
 type HistoryItem = {
   id: string;
@@ -225,6 +235,10 @@ function getEventTitle(item: HistoryItem) {
     return `Status changed: ${item.payload.fromStatus} to ${item.payload.toStatus}`;
   }
 
+  if (item.payload.kind === "action") {
+    return item.payload.title;
+  }
+
   return "Order edited";
 }
 
@@ -386,6 +400,25 @@ function StatusChange({ payload }: { payload: StatusChangedPayload }) {
         <span>{payload.toStatus}</span>
       </div>
       {payload.note ? <div className="mt-2 text-sm text-emerald-900">{payload.note}</div> : null}
+    </div>
+  );
+}
+
+function ActionDetails({ payload }: { payload: ActionPayload }) {
+  if (payload.details.length === 0) {
+    return <div className="text-sm text-textColorThird">No details available.</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {payload.details.map((detail, index) => (
+        <div
+          key={`${detail}-${index}`}
+          className="rounded-2xl border border-black/10 bg-white p-4 text-sm text-logoblue"
+        >
+          {detail}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1078,6 +1111,8 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
                       ) : null}
 
                       {item.payload.kind === "status_changed" ? <StatusChange payload={item.payload} /> : null}
+
+                      {item.payload.kind === "action" ? <ActionDetails payload={item.payload} /> : null}
                     </div>
                   </details>
                 ))}

@@ -1,8 +1,13 @@
-type LegacyExtraPickupContact = {
+export type LegacyExtraPickupContact = {
   address: string;
   phone: string;
   email: string;
   sendEmail: boolean;
+};
+
+export type WordpressExtraPickupNormalization = {
+  addresses: string[];
+  contacts: LegacyExtraPickupContact[];
 };
 
 const EXTRA_PICKUP_CONTAINER_KEYS = [
@@ -146,6 +151,19 @@ export function buildWordpressExtraPickupContacts(
     email: "",
     sendEmail: true,
   }));
+}
+
+export function normalizeWordpressExtraPickups(
+  metaValue: unknown,
+): WordpressExtraPickupNormalization {
+  const addresses = getWordpressExtraPickupAddresses(
+    toWordpressMetaRecord(metaValue),
+  );
+
+  return {
+    addresses,
+    contacts: buildWordpressExtraPickupContacts(addresses),
+  };
 }
 
 export function getWordpressExpressDelivery(

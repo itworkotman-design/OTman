@@ -11,7 +11,7 @@ import { getDeviationFeeOption, normalizeDeviationLabel, type DeviationFeeOption
 import { buildOrderItemsFromCards, type BuiltOrderItem } from "@/lib/orders/buildOrderItemsFromCards";
 import { safeInteger } from "@/lib/orders/normalizeOrderInput";
 import { mapWordpressImportToProductCards, type ResolvedWordpressService } from "@/lib/integrations/wordpress/catalogMapping";
-import { buildWordpressExtraPickupContacts, getWordpressExpressDelivery, getWordpressExtraPickupAddresses } from "@/lib/integrations/wordpress/orderMeta";
+import { getWordpressExpressDelivery, normalizeWordpressExtraPickups } from "@/lib/integrations/wordpress/orderMeta";
 import { OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
@@ -1985,8 +1985,9 @@ export async function POST(req: NextRequest) {
       "processing";
     const drivingDistance = getFirstMetaString(meta, ["total_km", "driving_distance"]);
     const description = getFirstMetaString(meta, ["beskrivelse", "description"]) ?? orderNumber ?? asString(body.title);
-    const extraPickupAddresses = getWordpressExtraPickupAddresses(meta);
-    const extraPickupContacts = buildWordpressExtraPickupContacts(extraPickupAddresses);
+    const normalizedExtraPickups = normalizeWordpressExtraPickups(meta);
+    const extraPickupAddresses = normalizedExtraPickups.addresses;
+    const extraPickupContacts = normalizedExtraPickups.contacts;
     let importedAdjustments = getImportedWordpressAdjustments(meta);
     const importedFees = getImportedWordpressFees(meta);
     const deviation = getImportedWordpressDeviation(meta);

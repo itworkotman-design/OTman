@@ -9,6 +9,7 @@ export type AttachmentItem = {
   mimeType: string;
   sizeBytes: number;
   url: string;
+  downloadUrl?: string;
 };
 
 export function isAttachmentCategory(

@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Defines the allowed user upload categories and shared helpers used by both the API routes and React components.
+Defines the allowed user upload categories and the shared attachment item shape used by both the API routes and React components, including distinct open and download URLs.
 
 ## Functions
 

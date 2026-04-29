@@ -49,9 +49,7 @@ export default function BookingPage() {
   const [appliedFilters, setAppliedFilters] = useState<BookingArchiveFilters>(
     DEFAULT_BOOKING_ARCHIVE_FILTERS,
   );
-
-  const [sortBy, setSortBy] = useState("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [filterPanelVersion, setFilterPanelVersion] = useState(0);
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -78,9 +76,6 @@ export default function BookingPage() {
       if (filters.fromDate) params.set("fromDate", filters.fromDate);
       if (filters.toDate) params.set("toDate", filters.toDate);
       if (filters.search) params.set("search", filters.search);
-
-      if (sortBy) params.set("sortBy", sortBy);
-      params.set("sortOrder", sortOrder);
 
       params.set("page", String(filters.page));
       params.set("rowsPerPage", String(filters.rowsPerPage));
@@ -170,6 +165,7 @@ export default function BookingPage() {
 
   function handleResetFilters() {
     setAppliedFilters(DEFAULT_BOOKING_ARCHIVE_FILTERS);
+    setFilterPanelVersion((prev) => prev + 1);
     void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
   }
 
@@ -183,6 +179,7 @@ export default function BookingPage() {
 
       <div className="flex flex-col gap-3 pb-4">
         <BookingFilters
+          key={`${filterPanelVersion}:${access.lockedCreatedById ?? ""}:${access.lockedSubcontractorId ?? ""}`}
           initialApplied={appliedFilters}
           access={access}
           subcontractors={subcontractors}
@@ -191,40 +188,10 @@ export default function BookingPage() {
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}
         />
-
-        <div className="flex items-center justify-end gap-2">
-          <select
-            className="customInput w-48 cursor-pointer"
-            value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value);
-              setTimeout(() => void loadOrders(), 0);
-            }}
-          >
-            <option value="">Sort</option>
-            <option value="deliveryDate">Delivery date</option>
-            <option value="price">Price</option>
-            <option value="status">Status</option>
-          </select>
-
-          <button
-            type="button"
-            className="customButtonDefault"
-            onClick={() => {
-              setSortOrder((prev) => {
-                const next = prev === "asc" ? "desc" : "asc";
-                setTimeout(() => void loadOrders(), 0);
-                return next;
-              });
-            }}
-          >
-            {sortOrder === "asc" ? "↑ Asc" : "↓ Desc"}
-          </button>
-        </div>
       </div>
 
-      <div className="">
-        <div className=" max-w-[4000]">
+      <div className="min-w-0 w-full">
+        <div className="min-w-0 w-full">
           {loading ? (
             <div className="py-6 text-textColorThird">Loading orders...</div>
           ) : error ? (
@@ -276,3 +243,5 @@ export default function BookingPage() {
     </div>
   );
 }
+
+

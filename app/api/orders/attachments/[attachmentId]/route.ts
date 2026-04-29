@@ -5,6 +5,10 @@ import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
 import type { AppPermission } from "@/lib/users/types";
+import {
+  deleteAttachmentFromS3,
+  isS3StoragePath,
+} from "@/lib/orders/orderAttachmentStorage";
 
 export async function DELETE(
   req: Request,
@@ -88,7 +92,13 @@ export async function DELETE(
     },
   });
 
-  if (attachment.storagePath.startsWith("/uploads/")) {
+  if (isS3StoragePath(attachment.storagePath)) {
+    try {
+      await deleteAttachmentFromS3(attachment.storagePath);
+    } catch {
+      // ignore missing remote object
+    }
+  } else if (attachment.storagePath.startsWith("/uploads/")) {
     const absolutePath = path.join(
       process.cwd(),
       "public",

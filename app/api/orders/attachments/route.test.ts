@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   findManyMock: vi.fn(),
+  getAttachmentAccessUrlsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -17,11 +18,27 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/orders/orderAttachmentStorage", () => ({
+  getAttachmentAccessUrls: mocks.getAttachmentAccessUrlsMock,
+}));
+
 import { GET } from "./route";
 
 describe("GET /api/orders/attachments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getAttachmentAccessUrlsMock.mockImplementation(
+      async ({
+        defaultUrl,
+        defaultDownloadUrl,
+      }: {
+        defaultUrl: string;
+        defaultDownloadUrl?: string;
+      }) => ({
+        url: defaultUrl,
+        downloadUrl: defaultDownloadUrl ?? defaultUrl,
+      }),
+    );
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -44,6 +61,7 @@ describe("GET /api/orders/attachments", () => {
     mocks.findManyMock.mockResolvedValue([
       {
         id: "att-1",
+        orderId: "order-1",
         category: "RECEIPT",
         filename: "invoice.png",
         mimeType: "image/png",
@@ -67,7 +85,8 @@ describe("GET /api/orders/attachments", () => {
           sizeBytes: 1024,
           storagePath: "/uploads/orders/1/invoice.png",
           createdAt: "2030-01-01T00:00:00.000Z",
-          url: "/uploads/orders/1/invoice.png",
+          url: "/api/orders/order-1/attachments/att-1/download",
+          downloadUrl: "/api/orders/order-1/attachments/att-1/download?download=1",
         },
       ],
     });

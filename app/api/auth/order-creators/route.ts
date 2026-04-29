@@ -35,11 +35,16 @@ export async function GET(req: Request) {
   const memberships = await prisma.membership.findMany({
     where: {
       companyId: session.activeCompanyId,
+      status: "ACTIVE",
+      user: {
+        status: "ACTIVE",
+      },
     },
     select: {
       id: true,
       role: true,
       legacyWordpressUserId: true,
+      warehouseEmail: true,
       user: {
         select: {
           email: true,
@@ -76,6 +81,7 @@ export async function GET(req: Request) {
       id: membership.id,
       name: getMembershipName(membership.user),
       email: membership.user.email,
+      warehouseEmail: membership.warehouseEmail?.trim() || "",
       address: membership.user.address?.trim() || "",
     }))
     .sort((a, b) => a.name.localeCompare(b.name));

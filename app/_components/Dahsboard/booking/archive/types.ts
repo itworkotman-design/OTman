@@ -30,6 +30,8 @@ export type BookingArchiveAccess = {
 export type BookingArchiveOption = {
   id: string;
   label: string;
+  email?: string;
+  warehouseEmail?: string;
 };
 
 export type OrderRow = {

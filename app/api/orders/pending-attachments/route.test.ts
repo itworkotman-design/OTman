@@ -10,6 +10,11 @@ const mocks = vi.hoisted(() => ({
   mkdirMock: vi.fn(),
   writeFileMock: vi.fn(),
   randomUUIDMock: vi.fn(),
+  isS3AttachmentStorageConfiguredMock: vi.fn(),
+  isS3StoragePathMock: vi.fn(),
+  uploadAttachmentToS3Mock: vi.fn(),
+  deleteAttachmentFromS3Mock: vi.fn(),
+  getAttachmentAccessUrlsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -37,12 +42,34 @@ vi.mock("crypto", () => ({
   randomUUID: mocks.randomUUIDMock,
 }));
 
+vi.mock("@/lib/orders/orderAttachmentStorage", () => ({
+  isS3AttachmentStorageConfigured: mocks.isS3AttachmentStorageConfiguredMock,
+  isS3StoragePath: mocks.isS3StoragePathMock,
+  uploadAttachmentToS3: mocks.uploadAttachmentToS3Mock,
+  deleteAttachmentFromS3: mocks.deleteAttachmentFromS3Mock,
+  getAttachmentAccessUrls: mocks.getAttachmentAccessUrlsMock,
+}));
+
 import { DELETE, GET, POST } from "./route";
 
 describe("routes in /api/orders/pending-attachments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.randomUUIDMock.mockReturnValue("uuid-1");
+    mocks.isS3AttachmentStorageConfiguredMock.mockReturnValue(false);
+    mocks.isS3StoragePathMock.mockReturnValue(false);
+    mocks.getAttachmentAccessUrlsMock.mockImplementation(
+      async ({
+        defaultUrl,
+        defaultDownloadUrl,
+      }: {
+        defaultUrl: string;
+        defaultDownloadUrl?: string;
+      }) => ({
+        url: defaultUrl,
+        downloadUrl: defaultDownloadUrl ?? defaultUrl,
+      }),
+    );
   });
 
   it("GET returns 401 when no session exists", async () => {
@@ -54,6 +81,55 @@ describe("routes in /api/orders/pending-attachments", () => {
     await expect(res.json()).resolves.toEqual({
       ok: false,
       reason: "UNAUTHORIZED",
+    });
+  });
+
+  it("POST stores pending files in S3 when attachment storage is configured", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+    });
+    mocks.countMock.mockResolvedValue(0);
+    mocks.isS3AttachmentStorageConfiguredMock.mockReturnValue(true);
+    mocks.uploadAttachmentToS3Mock.mockResolvedValue({
+      key: "orders/pending-orders/user-1/file.pdf",
+      storagePath: "s3://orders/pending-orders/user-1/file.pdf",
+    });
+    mocks.createMock.mockResolvedValue({
+      id: "att-1",
+      category: "ATTACHMENT",
+      filename: "test.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 4,
+      storagePath: "s3://orders/pending-orders/user-1/file.pdf",
+      createdAt: new Date("2026-04-14T00:00:00.000Z"),
+    });
+
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3, 4])], "test.pdf", {
+        type: "application/pdf",
+      }),
+    );
+
+    const req = new Request("http://localhost/api/orders/pending-attachments", {
+      method: "POST",
+      body: formData,
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(mocks.uploadAttachmentToS3Mock).toHaveBeenCalledWith({
+      file: expect.any(File),
+      scope: "pending-orders/user-1",
+    });
+    expect(mocks.mkdirMock).not.toHaveBeenCalled();
+    expect(mocks.writeFileMock).not.toHaveBeenCalled();
+    expect(mocks.createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        storagePath: "s3://orders/pending-orders/user-1/file.pdf",
+      }),
     });
   });
 

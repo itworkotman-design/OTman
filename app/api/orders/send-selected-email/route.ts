@@ -5,6 +5,12 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
 import { sendEmail } from "@/lib/email/sendEmail";
 import type { AppPermission } from "@/lib/users/types";
+import { createOrderActionEvent } from "@/lib/orders/orderEvents";
+
+type EmailRecipient = {
+  email: string;
+  name?: string;
+};
 
 function escapeHtml(value: string) {
   return value
@@ -132,6 +138,12 @@ export async function POST(req: Request) {
     select: {
       id: true,
       role: true,
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
       company: {
         select: {
           orderEmailsEnabled: true,
@@ -162,6 +174,7 @@ export async function POST(req: Request) {
       { status: 403 },
     );
   }
+  const activeCompanyId = session.activeCompanyId;
 
   if (membership.company?.orderEmailsEnabled === false) {
     return NextResponse.json(
@@ -179,10 +192,42 @@ export async function POST(req: Request) {
       )
     : [];
 
-  const to =
+  const recipients = Array.isArray(body?.recipients)
+    ? body.recipients.filter(
+        (
+          value: unknown,
+        ): value is EmailRecipient =>
+          typeof value === "object" &&
+          value !== null &&
+          typeof (value as { email?: unknown }).email === "string" &&
+          (value as { email: string }).email.trim().length > 0 &&
+          (typeof (value as { name?: unknown }).name === "string" ||
+            typeof (value as { name?: unknown }).name === "undefined"),
+      )
+    : [];
+
+  const legacyRecipient =
     typeof body?.to === "string" && body.to.trim().length > 0
-      ? body.to.trim()
-      : "";
+      ? {
+          email: body.to.trim(),
+          name:
+            typeof body?.recipientName === "string" &&
+            body.recipientName.trim().length > 0
+              ? body.recipientName.trim()
+              : undefined,
+        }
+      : null;
+
+  const normalizedRecipients: EmailRecipient[] = (
+    recipients.length > 0
+      ? recipients
+      : legacyRecipient
+        ? [legacyRecipient]
+        : []
+  ).map((recipient: EmailRecipient) => ({
+    email: recipient.email.trim(),
+    name: recipient.name?.trim() || undefined,
+  }));
 
   const subject =
     typeof body?.subject === "string" && body.subject.trim().length > 0
@@ -201,7 +246,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!to) {
+  if (normalizedRecipients.length === 0) {
     return NextResponse.json(
       { ok: false, reason: "MISSING_RECIPIENT" },
       { status: 400 },
@@ -302,12 +347,44 @@ export async function POST(req: Request) {
 
   try {
     await sendEmail({
-      to: {
-        email: to,
-      },
+      to: normalizedRecipients,
       subject,
       html: htmlBody,
     });
+
+    const sentAt = new Date();
+    const actionTitle = `Order sent for ${subject}`;
+    const actionDetails = [
+      `Recipients: ${normalizedRecipients.map((recipient) => recipient.email).join(", ")}`,
+    ];
+
+    await Promise.all(
+      orders.map(async (order) => {
+        await prisma.order.update({
+          where: {
+            id: order.id,
+          },
+          data: {
+            lastEditedByMembershipId: membership.id,
+            lastOutboundEmailAt: sentAt,
+          },
+        });
+
+        await createOrderActionEvent(prisma, {
+          orderId: order.id,
+          companyId: activeCompanyId,
+          actor: {
+            membershipId: membership.id,
+            name: membership.user.username ?? null,
+            email: membership.user.email,
+            source: "USER",
+          },
+          title: actionTitle,
+          details: actionDetails,
+          createdAt: sentAt,
+        });
+      }),
+    );
 
     return NextResponse.json({
       ok: true,
@@ -342,7 +419,7 @@ export async function POST(req: Request) {
       subject,
       bodyText: failedBodyText,
       bodyHtml: failedBodyHtml,
-      toEmail: to,
+      toEmail: normalizedRecipients.map((recipient) => recipient.email).join(", "),
       toName: recipientName || null,
     });
 
