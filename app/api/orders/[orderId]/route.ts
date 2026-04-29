@@ -3,30 +3,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
-import {
-  optionalBoolean,
-  optionalString,
-  safeInteger,
-  safeNumber,
-} from "@/lib/orders/normalizeOrderInput";
-import {
-  getOptionalEmailError,
-  getOptionalPhoneError,
-  normalizeOptionalEmail,
-  normalizeOptionalPhone,
-} from "@/lib/orders/contactValidation";
-import {
-  getExtraPickupApiError,
-  normalizeExtraPickups,
-  parseExtraPickups,
-} from "@/lib/orders/extraPickups";
+import { optionalBoolean, optionalString, safeInteger, safeNumber } from "@/lib/orders/normalizeOrderInput";
+import { getOptionalEmailError, getOptionalPhoneError, normalizeOptionalEmail, normalizeOptionalPhone } from "@/lib/orders/contactValidation";
+import { getExtraPickupApiError, normalizeExtraPickups, parseExtraPickups } from "@/lib/orders/extraPickups";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
-import {
-  sendExtraPickupNotificationEmail,
-  sendOrderNotificationEmail,
-} from "@/lib/orders/orderNotificationEmail";
+import { sendExtraPickupNotificationEmail, sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
 import {
   buildOrderEventSnapshot,
   type OrderEventProductChange,
@@ -50,22 +33,11 @@ import {
 import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
 import { buildSubcontractorPriceWarningNotification } from "@/lib/orders/notificationTemplates/subcontractorPriceWarningNotification";
 import type { AppPermission } from "@/lib/users/types";
-import {
-  ORDER_SLOT_LIMIT,
-  countOrdersInDeliverySlot,
-  isDeliverySlotOverCapacity,
-} from "@/lib/orders/capacity";
+import { ORDER_SLOT_LIMIT, countOrdersInDeliverySlot, isDeliverySlotOverCapacity } from "@/lib/orders/capacity";
 import { buildCapacityWarningNotification } from "@/lib/orders/notificationTemplates/capacityWarningNotification";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
-import {
-  buildWordpressExtraPickupContacts,
-  getWordpressExtraPickupAddresses,
-  toWordpressMetaRecord,
-} from "@/lib/integrations/wordpress/orderMeta";
-import {
-  applyOrderPricingSnapshot,
-  getSavedOrderPricingSnapshot,
-} from "@/lib/booking/pricing/snapshot";
+import { buildWordpressExtraPickupContacts, getWordpressExtraPickupAddresses, toWordpressMetaRecord } from "@/lib/integrations/wordpress/orderMeta";
+import { applyOrderPricingSnapshot, getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
 
 type ProductChangeValue = {
   label: string;
@@ -82,11 +54,7 @@ function normalizeReturnSelectionsForAddress(params: {
     return productCards;
   }
 
-  const returnStoreOption = specialOptions.find(
-    (option) =>
-      option.type === "return" &&
-      option.code.trim().toUpperCase() === "RETURNSTORE",
-  );
+  const returnStoreOption = specialOptions.find((option) => option.type === "return" && option.code.trim().toUpperCase() === "RETURNSTORE");
 
   if (!returnStoreOption) {
     return productCards;
@@ -105,10 +73,7 @@ function normalizeReturnSelectionsForAddress(params: {
 function formatList(values: string[]) {
   return values.length > 0 ? values.join(", ") : "-";
 }
-function buildOptionLookup(
-  products: CatalogProduct[],
-  specialOptions: CatalogSpecialOption[],
-) {
+function buildOptionLookup(products: CatalogProduct[], specialOptions: CatalogSpecialOption[]) {
   const optionLookup = new Map<string, string>();
 
   for (const product of products) {
@@ -134,38 +99,24 @@ function buildOptionLookup(
   return optionLookup;
 }
 
-function describeCustomSelections(
-  card: SavedProductCard,
-  optionLookup: Map<string, string>,
-) {
+function describeCustomSelections(card: SavedProductCard, optionLookup: Map<string, string>) {
   if (card.customSectionSelections.length === 0) {
     return "-";
   }
 
   return card.customSectionSelections
     .map((selection) => {
-      const sectionLabel =
-        optionLookup.get(selection.sectionId) || selection.sectionId;
-      const optionLabels = selection.optionIds.map(
-        (optionId) => optionLookup.get(optionId) || optionId,
-      );
+      const sectionLabel = optionLookup.get(selection.sectionId) || selection.sectionId;
+      const optionLabels = selection.optionIds.map((optionId) => optionLookup.get(optionId) || optionId);
 
       return `${sectionLabel}: ${formatList(optionLabels)}`;
     })
     .join(" | ");
 }
 
-function getProductCardValues(
-  card: SavedProductCard,
-  optionLookup: Map<string, string>,
-  productLookup: Map<string, CatalogProduct>,
-) {
-  const productLabel = card.productId
-    ? optionLookup.get(card.productId) || card.productId
-    : "Unselected product";
-  const product = card.productId
-    ? (productLookup.get(card.productId) ?? null)
-    : null;
+function getProductCardValues(card: SavedProductCard, optionLookup: Map<string, string>, productLookup: Map<string, CatalogProduct>) {
+  const productLabel = card.productId ? optionLookup.get(card.productId) || card.productId : "Unselected product";
+  const product = card.productId ? (productLookup.get(card.productId) ?? null) : null;
   const values: ProductChangeValue[] = [
     { label: "Product", value: productLabel },
     {
@@ -174,13 +125,7 @@ function getProductCardValues(
     },
     {
       label: "Delivery type",
-      value:
-        product?.allowDeliveryTypes && card.deliveryType
-          ? getProductDeliveryTypeLabel(
-              product.deliveryTypes,
-              card.deliveryType,
-            )
-          : "-",
+      value: product?.allowDeliveryTypes && card.deliveryType ? getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType) : "-",
     },
     { label: "Amount", value: String(card.amount) },
   ];
@@ -196,31 +141,21 @@ function getProductCardValues(
   if (card.selectedInstallOptionIds.length > 0) {
     values.push({
       label: "Install options",
-      value: formatList(
-        card.selectedInstallOptionIds.map(
-          (optionId) => optionLookup.get(optionId) || optionId,
-        ),
-      ),
+      value: formatList(card.selectedInstallOptionIds.map((optionId) => optionLookup.get(optionId) || optionId)),
     });
   }
 
   if (card.selectedExtraOptionIds.length > 0) {
     values.push({
       label: "Extra options",
-      value: formatList(
-        card.selectedExtraOptionIds.map(
-          (optionId) => optionLookup.get(optionId) || optionId,
-        ),
-      ),
+      value: formatList(card.selectedExtraOptionIds.map((optionId) => optionLookup.get(optionId) || optionId)),
     });
   }
 
   if (card.selectedReturnOptionId) {
     values.push({
       label: "Return option",
-      value:
-        optionLookup.get(card.selectedReturnOptionId) ||
-        card.selectedReturnOptionId,
+      value: optionLookup.get(card.selectedReturnOptionId) || card.selectedReturnOptionId,
     });
   }
 
@@ -231,11 +166,7 @@ function getProductCardValues(
   if (card.selectedTimeOptionIds.length > 0) {
     values.push({
       label: "Time options",
-      value: formatList(
-        card.selectedTimeOptionIds.map(
-          (optionId) => optionLookup.get(optionId) || optionId,
-        ),
-      ),
+      value: formatList(card.selectedTimeOptionIds.map((optionId) => optionLookup.get(optionId) || optionId)),
     });
   }
 
@@ -278,9 +209,7 @@ function diffProductCards(
 ): OrderEventProductChange[] {
   const previousMap = new Map(previousCards.map((card) => [card.cardId, card]));
   const nextMap = new Map(nextCards.map((card) => [card.cardId, card]));
-  const cardIds = Array.from(
-    new Set([...previousMap.keys(), ...nextMap.keys()]),
-  ).sort((a, b) => a - b);
+  const cardIds = Array.from(new Set([...previousMap.keys(), ...nextMap.keys()])).sort((a, b) => a - b);
 
   const productChanges: OrderEventProductChange[] = [];
 
@@ -293,9 +222,7 @@ function diffProductCards(
       continue;
     }
 
-    const productLabel = titleSource.productId
-      ? optionLookup.get(titleSource.productId) || titleSource.productId
-      : `Product card ${cardId}`;
+    const productLabel = titleSource.productId ? optionLookup.get(titleSource.productId) || titleSource.productId : `Product card ${cardId}`;
     const title = `${productLabel} (card ${cardId})`;
 
     if (!previousCard && nextCard) {
@@ -303,11 +230,7 @@ function diffProductCards(
         cardId,
         title,
         changeType: "ADDED",
-        changes: getProductCardValues(
-          nextCard,
-          optionLookup,
-          productLookup,
-        ).map((item) => ({
+        changes: getProductCardValues(nextCard, optionLookup, productLookup).map((item) => ({
           label: item.label,
           previousValue: "-",
           nextValue: item.value,
@@ -321,11 +244,7 @@ function diffProductCards(
         cardId,
         title,
         changeType: "REMOVED",
-        changes: getProductCardValues(
-          previousCard,
-          optionLookup,
-          productLookup,
-        ).map((item) => ({
+        changes: getProductCardValues(previousCard, optionLookup, productLookup).map((item) => ({
           label: item.label,
           previousValue: item.value,
           nextValue: "-",
@@ -338,28 +257,13 @@ function diffProductCards(
       continue;
     }
 
-    const previousValues = getProductCardValues(
-      previousCard,
-      optionLookup,
-      productLookup,
-    );
-    const nextValues = getProductCardValues(
-      nextCard,
-      optionLookup,
-      productLookup,
-    );
-    const valueLabels = Array.from(
-      new Set([
-        ...previousValues.map((item) => item.label),
-        ...nextValues.map((item) => item.label),
-      ]),
-    );
+    const previousValues = getProductCardValues(previousCard, optionLookup, productLookup);
+    const nextValues = getProductCardValues(nextCard, optionLookup, productLookup);
+    const valueLabels = Array.from(new Set([...previousValues.map((item) => item.label), ...nextValues.map((item) => item.label)]));
     const cardChanges = valueLabels
       .map((label) => {
-        const previousValue =
-          previousValues.find((item) => item.label === label)?.value || "-";
-        const nextValue =
-          nextValues.find((item) => item.label === label)?.value || "-";
+        const previousValue = previousValues.find((item) => item.label === label)?.value || "-";
+        const nextValue = nextValues.find((item) => item.label === label)?.value || "-";
 
         if (previousValue === nextValue) {
           return null;
@@ -371,10 +275,7 @@ function diffProductCards(
           nextValue,
         };
       })
-      .filter(
-        (change): change is OrderEventProductChange["changes"][number] =>
-          change !== null,
-      );
+      .filter((change): change is OrderEventProductChange["changes"][number] => change !== null);
 
     if (cardChanges.length > 0) {
       productChanges.push({
@@ -389,24 +290,15 @@ function diffProductCards(
   return productChanges;
 }
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ orderId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
-    return NextResponse.json(
-      { ok: false, reason: "UNAUTHORIZED" },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
   }
 
   if (!session.activeCompanyId) {
-    return NextResponse.json(
-      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
   }
 
   const { orderId } = await params;
@@ -492,18 +384,11 @@ export async function GET(
   });
 
   if (!order) {
-    return NextResponse.json(
-      { ok: false, reason: "NOT_FOUND" },
-      { status: 404 },
-    );
+    return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
   const fallbackExtraPickupAddresses =
-    order.extraPickupAddress.length > 0
-      ? order.extraPickupAddress
-      : getWordpressExtraPickupAddresses(
-          toWordpressMetaRecord(order.legacyWordpressRawMeta),
-        );
+    order.extraPickupAddress.length > 0 ? order.extraPickupAddress : getWordpressExtraPickupAddresses(toWordpressMetaRecord(order.legacyWordpressRawMeta));
 
   const extraPickupContacts = Array.isArray(order.extraPickupContacts)
     ? order.extraPickupContacts
@@ -518,9 +403,7 @@ export async function GET(
   const catalog = await getBookingCatalog(effectivePriceListId);
   const normalizedProductCards = normalizeReturnSelectionsForAddress({
     productCards: Array.isArray(order.productCardsSnapshot)
-      ? order.productCardsSnapshot.map((card, index) =>
-          normalizeSavedProductCard(card as Partial<SavedProductCard>, index),
-        )
+      ? order.productCardsSnapshot.map((card, index) => normalizeSavedProductCard(card as Partial<SavedProductCard>, index))
       : [],
     returnAddress: order.returnAddress,
     specialOptions: catalog.specialOptions,
@@ -541,8 +424,7 @@ export async function GET(
       deliveryDate: order.deliveryDate ?? "",
       timeWindow: order.timeWindow ?? "",
       expressDelivery: order.expressDelivery,
-      contactCustomerForCustomTimeWindow:
-        order.contactCustomerForCustomTimeWindow,
+      contactCustomerForCustomTimeWindow: order.contactCustomerForCustomTimeWindow,
       customTimeContactNote: order.customTimeContactNote ?? "",
       pickupAddress: order.pickupAddress ?? "",
       extraPickupAddress: fallbackExtraPickupAddresses,
@@ -558,8 +440,7 @@ export async function GET(
             : null;
 
         return {
-          address:
-            typeof candidate?.address === "string" ? candidate.address : "",
+          address: typeof candidate?.address === "string" ? candidate.address : "",
           phone: typeof candidate?.phone === "string" ? candidate.phone : "",
           email: typeof candidate?.email === "string" ? candidate.email : "",
           sendEmail: candidate?.sendEmail === false ? false : true,
@@ -598,36 +479,23 @@ export async function GET(
       leggTil: order.leggTil ?? "",
       subcontractorMinus: order.subcontractorMinus ?? "",
       subcontractorPlus: order.subcontractorPlus ?? "",
-      createdBy:
-        order.createdByMembership?.user.username ||
-        order.createdByMembership?.user.email ||
-        "",
-      lastEditedBy:
-        order.lastEditedByMembership?.user.username ||
-        order.lastEditedByMembership?.user.email ||
-        "",
+      createdBy: order.createdByMembership?.user.username || order.createdByMembership?.user.email || "",
+      createdByEmail: order.createdByMembership?.user.email ?? "",
+      createdByName: order.createdByMembership?.user.username || order.createdByMembership?.user.email || "",
+      lastEditedBy: order.lastEditedByMembership?.user.username || order.lastEditedByMembership?.user.email || "",
     },
   });
 }
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ orderId: string }> },
-) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
-    return NextResponse.json(
-      { ok: false, reason: "UNAUTHORIZED" },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
   }
 
   if (!session.activeCompanyId) {
-    return NextResponse.json(
-      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
   }
 
   const membership = await prisma.membership.findFirst({
@@ -660,35 +528,20 @@ export async function PATCH(
   });
 
   if (!membership) {
-    return NextResponse.json(
-      { ok: false, reason: "FORBIDDEN" },
-      { status: 403 },
-    );
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
-  const permissions = membership.permissions.map(
-    (p): AppPermission => p.permission,
-  );
+  const permissions = membership.permissions.map((p): AppPermission => p.permission);
 
   if (!canEditOrders(membership.role, permissions)) {
-    return NextResponse.json(
-      { ok: false, reason: "FORBIDDEN" },
-      { status: 403 },
-    );
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
   const { orderId } = await params;
   const body = await req.json().catch(() => null);
 
-  if (
-    !body ||
-    !Array.isArray(body.productCards) ||
-    body.productCards.length === 0
-  ) {
-    return NextResponse.json(
-      { ok: false, reason: "INVALID_PRODUCT_CARDS" },
-      { status: 400 },
-    );
+  if (!body || !Array.isArray(body.productCards) || body.productCards.length === 0) {
+    return NextResponse.json({ ok: false, reason: "INVALID_PRODUCT_CARDS" }, { status: 400 });
   }
 
   const existingOrder = await prisma.order.findFirst({
@@ -751,39 +604,25 @@ export async function PATCH(
   });
 
   if (!existingOrder) {
-    return NextResponse.json(
-      { ok: false, reason: "NOT_FOUND" },
-      { status: 404 },
-    );
+    return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
-  const productCards = (body.productCards as SavedProductCard[]).map(
-    (card, index) => normalizeSavedProductCard(card, index),
-  );
+  const productCards = (body.productCards as SavedProductCard[]).map((card, index) => normalizeSavedProductCard(card, index));
   const emailError = getOptionalEmailError(body.email);
   const phoneError = getOptionalPhoneError(body.phone);
   const phoneTwoError = getOptionalPhoneError(body.phoneTwo);
   const cashierPhoneError = getOptionalPhoneError(body.cashierPhone);
 
   if (emailError) {
-    return NextResponse.json(
-      { ok: false, reason: "INVALID_EMAIL", message: emailError },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, reason: "INVALID_EMAIL", message: emailError }, { status: 400 });
   }
 
   if (phoneError) {
-    return NextResponse.json(
-      { ok: false, reason: "INVALID_PHONE", message: phoneError },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, reason: "INVALID_PHONE", message: phoneError }, { status: 400 });
   }
 
   if (phoneTwoError) {
-    return NextResponse.json(
-      { ok: false, reason: "INVALID_PHONE_TWO", message: phoneTwoError },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, reason: "INVALID_PHONE_TWO", message: phoneTwoError }, { status: 400 });
   }
 
   if (cashierPhoneError) {
@@ -801,10 +640,7 @@ export async function PATCH(
   const phone = normalizeOptionalPhone(body.phone);
   const phoneTwo = normalizeOptionalPhone(body.phoneTwo);
   const cashierPhone = normalizeOptionalPhone(body.cashierPhone);
-  const parsedBodyExtraPickups =
-    body.extraPickups !== undefined
-      ? parseExtraPickups(body.extraPickups)
-      : null;
+  const parsedBodyExtraPickups = body.extraPickups !== undefined ? parseExtraPickups(body.extraPickups) : null;
 
   if (parsedBodyExtraPickups) {
     const extraPickupError = getExtraPickupApiError(parsedBodyExtraPickups);
@@ -821,20 +657,11 @@ export async function PATCH(
     }
   }
 
-  const existingExtraPickups = normalizeExtraPickups(
-    parseExtraPickups(existingOrder.extraPickupContacts),
-  );
-  const extraPickups =
-    body.extraPickups !== undefined
-      ? normalizeExtraPickups(parsedBodyExtraPickups ?? [])
-      : existingExtraPickups;
-  const extraPickupContactsChanged =
-    body.extraPickups !== undefined &&
-    JSON.stringify(extraPickups) !== JSON.stringify(existingExtraPickups);
+  const existingExtraPickups = normalizeExtraPickups(parseExtraPickups(existingOrder.extraPickupContacts));
+  const extraPickups = body.extraPickups !== undefined ? normalizeExtraPickups(parsedBodyExtraPickups ?? []) : existingExtraPickups;
+  const extraPickupContactsChanged = body.extraPickups !== undefined && JSON.stringify(extraPickups) !== JSON.stringify(existingExtraPickups);
 
-  const catalog = await getBookingCatalog(
-    existingOrder.priceListId ?? membership.priceListId ?? null,
-  );
+  const catalog = await getBookingCatalog(existingOrder.priceListId ?? membership.priceListId ?? null);
   const pricingSource = applyOrderPricingSnapshot({
     catalogProducts: catalog.products,
     catalogSpecialOptions: catalog.specialOptions,
@@ -842,35 +669,15 @@ export async function PATCH(
     pricingSnapshot: getSavedOrderPricingSnapshot(productCards),
   });
 
-  const summaries = buildOrderSummaries(
-    productCards,
-    pricingSource.catalogProducts,
-    pricingSource.catalogSpecialOptions,
-  );
+  const summaries = buildOrderSummaries(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
 
-  const builtItems = buildOrderItemsFromCards(
-    productCards,
-    pricingSource.catalogProducts,
-    pricingSource.catalogSpecialOptions,
-  );
-  const optionLookup = buildOptionLookup(
-    pricingSource.catalogProducts,
-    pricingSource.catalogSpecialOptions,
-  );
-  const productLookup = new Map(
-    pricingSource.catalogProducts.map((product) => [product.id, product]),
-  );
+  const builtItems = buildOrderItemsFromCards(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
+  const optionLookup = buildOptionLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
+  const productLookup = new Map(pricingSource.catalogProducts.map((product) => [product.id, product]));
   const previousProductCards = Array.isArray(existingOrder.productCardsSnapshot)
-    ? existingOrder.productCardsSnapshot.map((card, index) =>
-        normalizeSavedProductCard(card as Partial<SavedProductCard>, index),
-      )
+    ? existingOrder.productCardsSnapshot.map((card, index) => normalizeSavedProductCard(card as Partial<SavedProductCard>, index))
     : [];
-  const productChanges = diffProductCards(
-    previousProductCards,
-    productCards,
-    optionLookup,
-    productLookup,
-  );
+  const productChanges = diffProductCards(previousProductCards, productCards, optionLookup, productLookup);
 
   const previousSnapshot = buildOrderEventSnapshot(existingOrder);
   const nextSnapshot = buildOrderEventSnapshot({
@@ -878,72 +685,47 @@ export async function PATCH(
     orderNumber: optionalString(body.orderNumber) ?? existingOrder.orderNumber,
     status: optionalString(body.status) ?? existingOrder.status,
     statusNotes: optionalString(body.statusNotes) ?? existingOrder.statusNotes,
-    customerLabel:
-      optionalString(body.customerLabel) ?? existingOrder.customerLabel,
-    customerName:
-      optionalString(body.customerName) ?? existingOrder.customerName,
-    deliveryDate:
-      optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
+    customerLabel: optionalString(body.customerLabel) ?? existingOrder.customerLabel,
+    customerName: optionalString(body.customerName) ?? existingOrder.customerName,
+    deliveryDate: optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
     timeWindow: optionalString(body.timeWindow) ?? existingOrder.timeWindow,
-    expressDelivery:
-      body.expressDelivery === undefined
-        ? existingOrder.expressDelivery
-        : optionalBoolean(body.expressDelivery),
+    expressDelivery: body.expressDelivery === undefined ? existingOrder.expressDelivery : optionalBoolean(body.expressDelivery),
     contactCustomerForCustomTimeWindow:
       body.contactCustomerForCustomTimeWindow === undefined
         ? existingOrder.contactCustomerForCustomTimeWindow
         : optionalBoolean(body.contactCustomerForCustomTimeWindow),
-    customTimeContactNote:
-      body.customTimeContactNote === undefined
-        ? existingOrder.customTimeContactNote
-        : optionalString(body.customTimeContactNote),
-    pickupAddress:
-      optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
-    extraPickupAddress:
-      body.extraPickups !== undefined
-        ? extraPickups.map((pickup) => pickup.address)
-        : existingOrder.extraPickupAddress,
-    deliveryAddress:
-      optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
-    returnAddress:
-      optionalString(body.returnAddress) ?? existingOrder.returnAddress,
-    drivingDistance:
-      optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
+    customTimeContactNote: body.customTimeContactNote === undefined ? existingOrder.customTimeContactNote : optionalString(body.customTimeContactNote),
+    pickupAddress: optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
+    extraPickupAddress: body.extraPickups !== undefined ? extraPickups.map((pickup) => pickup.address) : existingOrder.extraPickupAddress,
+    deliveryAddress: optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
+    returnAddress: optionalString(body.returnAddress) ?? existingOrder.returnAddress,
+    drivingDistance: optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
     phone: phone ?? existingOrder.phone,
     phoneTwo: phoneTwo ?? existingOrder.phoneTwo,
     email: email ?? existingOrder.email,
-    customerComments:
-      optionalString(body.customerComments) ?? existingOrder.customerComments,
+    customerComments: optionalString(body.customerComments) ?? existingOrder.customerComments,
     description: optionalString(body.description) ?? existingOrder.description,
     productsSummary: summaries.productsSummary,
     deliveryTypeSummary: summaries.deliveryTypeSummary,
     servicesSummary: summaries.servicesSummary,
     cashierName: optionalString(body.cashierName) ?? existingOrder.cashierName,
     cashierPhone: cashierPhone ?? existingOrder.cashierPhone,
-    subcontractor:
-      optionalString(body.subcontractor) ?? existingOrder.subcontractor,
+    subcontractor: optionalString(body.subcontractor) ?? existingOrder.subcontractor,
     driver: optionalString(body.driver) ?? existingOrder.driver,
-    secondDriver:
-      optionalString(body.secondDriver) ?? existingOrder.secondDriver,
+    secondDriver: optionalString(body.secondDriver) ?? existingOrder.secondDriver,
     driverInfo: optionalString(body.driverInfo) ?? existingOrder.driverInfo,
-    licensePlate:
-      optionalString(body.licensePlate) ?? existingOrder.licensePlate,
+    licensePlate: optionalString(body.licensePlate) ?? existingOrder.licensePlate,
     deviation: optionalString(body.deviation) ?? existingOrder.deviation,
     feeExtraWork: optionalBoolean(body.feeExtraWork),
-    extraWorkMinutes: optionalBoolean(body.feeExtraWork)
-      ? safeInteger(body.extraWorkMinutes)
-      : 0,
+    extraWorkMinutes: optionalBoolean(body.feeExtraWork) ? safeInteger(body.extraWorkMinutes) : 0,
     feeAddToOrder: optionalBoolean(body.feeAddToOrder),
     dontSendEmail: optionalBoolean(body.dontSendEmail),
     priceExVat: Math.round(safeNumber(body.priceExVat)),
     priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
     rabatt: optionalString(body.rabatt) ?? existingOrder.rabatt,
     leggTil: optionalString(body.leggTil) ?? existingOrder.leggTil,
-    subcontractorMinus:
-      optionalString(body.subcontractorMinus) ??
-      existingOrder.subcontractorMinus,
-    subcontractorPlus:
-      optionalString(body.subcontractorPlus) ?? existingOrder.subcontractorPlus,
+    subcontractorMinus: optionalString(body.subcontractorMinus) ?? existingOrder.subcontractorMinus,
+    subcontractorPlus: optionalString(body.subcontractorPlus) ?? existingOrder.subcontractorPlus,
     gsmLastTaskState: existingOrder.gsmLastTaskState,
   });
 
@@ -960,9 +742,7 @@ export async function PATCH(
         deliveryDate: optionalString(body.deliveryDate),
         timeWindow: optionalString(body.timeWindow),
         expressDelivery: optionalBoolean(body.expressDelivery),
-        contactCustomerForCustomTimeWindow: optionalBoolean(
-          body.contactCustomerForCustomTimeWindow,
-        ),
+        contactCustomerForCustomTimeWindow: optionalBoolean(body.contactCustomerForCustomTimeWindow),
         customTimeContactNote: optionalString(body.customTimeContactNote),
 
         pickupAddress: optionalString(body.pickupAddress),
@@ -972,14 +752,11 @@ export async function PATCH(
         returnAddress: optionalString(body.returnAddress),
         drivingDistance: optionalString(body.drivingDistance),
 
-        customerMembershipId:
-          optionalString(body.customerMembershipId) ||
-          existingOrder.customerMembershipId,
+        customerMembershipId: optionalString(body.customerMembershipId) || existingOrder.customerMembershipId,
 
         lastEditedByMembershipId: membership.id,
 
-        customerLabel:
-          optionalString(body.customerLabel) || existingOrder.customerLabel,
+        customerLabel: optionalString(body.customerLabel) || existingOrder.customerLabel,
         customerName: optionalString(body.customerName),
         phone,
         phoneTwo,
@@ -1003,9 +780,7 @@ export async function PATCH(
 
         deviation: optionalString(body.deviation),
         feeExtraWork: optionalBoolean(body.feeExtraWork),
-        extraWorkMinutes: optionalBoolean(body.feeExtraWork)
-          ? safeInteger(body.extraWorkMinutes)
-          : 0,
+        extraWorkMinutes: optionalBoolean(body.feeExtraWork) ? safeInteger(body.extraWorkMinutes) : 0,
         feeAddToOrder: optionalBoolean(body.feeAddToOrder),
         statusNotes: optionalString(body.statusNotes),
         status: optionalString(body.status),
@@ -1049,9 +824,7 @@ export async function PATCH(
           quantity: item.quantity,
           customerPriceCents: item.customerPriceCents,
           subcontractorPriceCents: item.subcontractorPriceCents,
-          rawData: item.rawData
-            ? (item.rawData as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
+          rawData: item.rawData ? (item.rawData as Prisma.InputJsonValue) : Prisma.JsonNull,
         },
       });
     }
@@ -1059,11 +832,7 @@ export async function PATCH(
 
   const changes = diffOrderEventSnapshots(previousSnapshot, nextSnapshot);
 
-  if (
-    productChanges.length === 0 &&
-    changes.length === 1 &&
-    changes[0]?.field === "status"
-  ) {
+  if (productChanges.length === 0 && changes.length === 1 && changes[0]?.field === "status") {
     await createOrderStatusChangedEvent(prisma, {
       orderId,
       companyId: existingOrder.companyId,
@@ -1098,36 +867,23 @@ export async function PATCH(
       const notificationOrder = {
         id: orderId,
         displayId: existingOrder.displayId,
-        orderNumber:
-          optionalString(body.orderNumber) || existingOrder.orderNumber,
-        customerLabel:
-          optionalString(body.customerLabel) || existingOrder.customerLabel,
-        deliveryDate:
-          optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
-        pickupAddress:
-          optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
+        orderNumber: optionalString(body.orderNumber) || existingOrder.orderNumber,
+        customerLabel: optionalString(body.customerLabel) || existingOrder.customerLabel,
+        deliveryDate: optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
+        pickupAddress: optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
         extraPickupAddress: extraPickups.map((pickup) => pickup.address),
-        deliveryAddress:
-          optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
-        returnAddress:
-          optionalString(body.returnAddress) ?? existingOrder.returnAddress,
-        drivingDistance:
-          optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
+        deliveryAddress: optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
+        returnAddress: optionalString(body.returnAddress) ?? existingOrder.returnAddress,
+        drivingDistance: optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
         timeWindow: optionalString(body.timeWindow) ?? existingOrder.timeWindow,
-        expressDelivery:
-          body.expressDelivery === undefined
-            ? existingOrder.expressDelivery
-            : optionalBoolean(body.expressDelivery),
-        description:
-          optionalString(body.description) ?? existingOrder.description,
-        customerName:
-          optionalString(body.customerName) ?? existingOrder.customerName,
+        expressDelivery: body.expressDelivery === undefined ? existingOrder.expressDelivery : optionalBoolean(body.expressDelivery),
+        description: optionalString(body.description) ?? existingOrder.description,
+        customerName: optionalString(body.customerName) ?? existingOrder.customerName,
         email,
         phone,
         floorNo: optionalString(body.floorNo),
         lift: optionalString(body.lift),
-        cashierName:
-          optionalString(body.cashierName) ?? existingOrder.cashierName,
+        cashierName: optionalString(body.cashierName) ?? existingOrder.cashierName,
         cashierPhone,
         status: optionalString(body.status) ?? existingOrder.status,
         createdAt: existingOrder.createdAt,
@@ -1170,8 +926,7 @@ export async function PATCH(
       type: "MANUAL_REVIEW",
       title: extraPickupNotification.title,
       message: extraPickupNotification.message,
-      payload:
-        extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
+      payload: extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
     });
   }
 
@@ -1203,10 +958,8 @@ export async function PATCH(
     }
   }
 
-  const nextDeliveryDate =
-    optionalString(body.deliveryDate) ?? existingOrder.deliveryDate;
-  const nextTimeWindow =
-    optionalString(body.timeWindow) ?? existingOrder.timeWindow;
+  const nextDeliveryDate = optionalString(body.deliveryDate) ?? existingOrder.deliveryDate;
+  const nextTimeWindow = optionalString(body.timeWindow) ?? existingOrder.timeWindow;
 
   if (nextDeliveryDate && nextTimeWindow) {
     await resolveOutdatedCapacityNotifications(prisma, {
@@ -1226,9 +979,7 @@ export async function PATCH(
 
     const totalCountIncludingCurrent = slotCount + 1;
 
-    if (
-      isDeliverySlotOverCapacity(totalCountIncludingCurrent, ORDER_SLOT_LIMIT)
-    ) {
+    if (isDeliverySlotOverCapacity(totalCountIncludingCurrent, ORDER_SLOT_LIMIT)) {
       const alreadyExists = await hasOpenCapacityNotification(prisma, {
         orderId,
         companyId: existingOrder.companyId,
@@ -1250,8 +1001,7 @@ export async function PATCH(
           type: "CAPACITY_REVIEW",
           title: capacityNotification.title,
           message: capacityNotification.message,
-          payload:
-            capacityNotification.payload as unknown as Prisma.InputJsonValue,
+          payload: capacityNotification.payload as unknown as Prisma.InputJsonValue,
         });
       }
     }
@@ -1263,24 +1013,15 @@ export async function PATCH(
   });
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ orderId: string }> },
-) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
-    return NextResponse.json(
-      { ok: false, reason: "UNAUTHORIZED" },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
   }
 
   if (!session.activeCompanyId) {
-    return NextResponse.json(
-      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
   }
 
   const membership = await prisma.membership.findFirst({
@@ -1295,20 +1036,13 @@ export async function DELETE(
   });
 
   if (!membership) {
-    return NextResponse.json(
-      { ok: false, reason: "FORBIDDEN" },
-      { status: 403 },
-    );
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
-  const isAdminOrOwner =
-    membership.role === "OWNER" || membership.role === "ADMIN";
+  const isAdminOrOwner = membership.role === "OWNER" || membership.role === "ADMIN";
 
   if (!isAdminOrOwner) {
-    return NextResponse.json(
-      { ok: false, reason: "FORBIDDEN" },
-      { status: 403 },
-    );
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
   const { orderId } = await params;
@@ -1321,10 +1055,7 @@ export async function DELETE(
   });
 
   if (result.count === 0) {
-    return NextResponse.json(
-      { ok: false, reason: "ORDER_NOT_FOUND" },
-      { status: 404 },
-    );
+    return NextResponse.json({ ok: false, reason: "ORDER_NOT_FOUND" }, { status: 404 });
   }
 
   return NextResponse.json({

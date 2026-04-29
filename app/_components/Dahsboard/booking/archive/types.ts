@@ -71,6 +71,8 @@ export type OrderRow = {
   priceExVat: number;
   priceSubcontractor: number;
   customerMembershipId: string;
+  createdByEmail: string;
+  createdByName: string;
   createdBy: string;
   lastEditedBy: string;
   subcontractor: string;

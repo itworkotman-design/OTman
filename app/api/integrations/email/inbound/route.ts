@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  extractThreadTokenFromRecipients,
-  extractThreadTokenFromSubject,
-  parseEmailAddress,
-} from "@/lib/orders/orderEmail";
+import { extractThreadTokenFromRecipients, extractThreadTokenFromSubject, parseEmailAddress } from "@/lib/orders/orderEmail";
 
 type InboundEmailBody = {
   subject?: unknown;
@@ -22,46 +18,37 @@ function getTextValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-async function parseInboundEmailBody(
-  req: Request,
-): Promise<InboundEmailBody | null> {
+function stripQuotedReply(value: string) {
+  return value
+    .split(/\r?\nOn .+ wrote:\r?\n/i)[0]
+    .split(/\r?\nDen .+ skrev .+:\r?\n/i)[0]
+    .split(/\r?\nFra: .+\r?\n/i)[0]
+    .split(/\r?\nFrom: .+\r?\n/i)[0]
+    .replace(/\n>[\s\S]*$/g, "")
+    .trim();
+}
+
+function extractThreadTokenFromBody(value: string) {
+  const match = value.match(/\[OTMAN:([a-z0-9]+)\]/i);
+  return match?.[1]?.toLowerCase() || "";
+}
+
+async function parseInboundEmailBody(req: Request): Promise<InboundEmailBody | null> {
   const contentType = req.headers.get("content-type")?.toLowerCase() ?? "";
 
-  if (
-    contentType.includes("multipart/form-data") ||
-    contentType.includes("application/x-www-form-urlencoded")
-  ) {
+  if (contentType.includes("multipart/form-data") || contentType.includes("application/x-www-form-urlencoded")) {
     const form = await req.formData().catch(() => null);
 
     if (!form) {
       return null;
     }
 
-    const from = String(
-      form.get("From") ?? form.get("sender") ?? form.get("from") ?? "",
-    );
-    const to = String(
-      form.get("recipient") ?? form.get("To") ?? form.get("to") ?? "",
-    );
+    const from = String(form.get("From") ?? form.get("sender") ?? form.get("from") ?? "");
+    const to = String(form.get("recipient") ?? form.get("To") ?? form.get("to") ?? "");
     const subject = String(form.get("subject") ?? form.get("Subject") ?? "");
-    const text = String(
-      form.get("body-plain") ??
-        form.get("stripped-text") ??
-        form.get("body_plain") ??
-        "",
-    );
-    const html = String(
-      form.get("body-html") ??
-        form.get("stripped-html") ??
-        form.get("body_html") ??
-        "",
-    );
-    const messageId = String(
-      form.get("Message-Id") ??
-        form.get("message-id") ??
-        form.get("Message-ID") ??
-        "",
-    );
+    const text = String(form.get("body-plain") ?? form.get("stripped-text") ?? form.get("body_plain") ?? "");
+    const html = String(form.get("body-html") ?? form.get("stripped-html") ?? form.get("body_html") ?? "");
+    const messageId = String(form.get("Message-Id") ?? form.get("message-id") ?? form.get("Message-ID") ?? "");
 
     if (!from || !to) {
       return null;
@@ -85,50 +72,39 @@ export async function POST(req: Request) {
   const expected = process.env.EMAIL_INBOUND_SECRET;
 
   if (!expected || secret !== expected) {
-    return NextResponse.json(
-      { ok: false, reason: "UNAUTHORIZED" },
-      { status: 406 },
-    );
+    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 406 });
   }
 
   const body = await parseInboundEmailBody(req);
 
   if (!body) {
-    return NextResponse.json(
-      { ok: false, reason: "INVALID_PAYLOAD" },
-      { status: 406 },
-    );
+    return NextResponse.json({ ok: false, reason: "INVALID_PAYLOAD" }, { status: 406 });
   }
 
   const subject = getTextValue(body.subject);
-  const bodyText = getTextValue(body.text);
+  const rawBodyText = getTextValue(body.text);
+  const bodyText = stripQuotedReply(rawBodyText);
   const bodyHtml = getTextValue(body.html);
   const explicitThreadToken = getTextValue(body.threadToken).toLowerCase();
   const threadToken =
     explicitThreadToken ||
     extractThreadTokenFromSubject(subject) ||
+    extractThreadTokenFromBody(bodyText) ||
+    extractThreadTokenFromBody(bodyHtml) ||
     extractThreadTokenFromRecipients(body.to) ||
     extractThreadTokenFromRecipients(body.recipients);
 
   if (!threadToken) {
-    return NextResponse.json(
-      { ok: false, reason: "THREAD_TOKEN_NOT_FOUND" },
-      { status: 406 },
-    );
+    return NextResponse.json({ ok: false, reason: "THREAD_TOKEN_NOT_FOUND" }, { status: 406 });
   }
 
-  const sender =
-    parseEmailAddress(body.from) || parseEmailAddress(body.sender);
+  const sender = parseEmailAddress(body.from) || parseEmailAddress(body.sender);
 
   if (!sender) {
-    return NextResponse.json(
-      { ok: false, reason: "SENDER_NOT_FOUND" },
-      { status: 406 },
-    );
+    return NextResponse.json({ ok: false, reason: "SENDER_NOT_FOUND" }, { status: 406 });
   }
 
-  const primaryRecipient =
-    parseEmailAddress(body.to) || parseEmailAddress(body.recipients);
+  const primaryRecipient = parseEmailAddress(body.to) || parseEmailAddress(body.recipients);
 
   const order = await prisma.order.findFirst({
     where: {
@@ -141,17 +117,12 @@ export async function POST(req: Request) {
   });
 
   if (!order) {
-    return NextResponse.json(
-      { ok: false, reason: "ORDER_NOT_FOUND" },
-      { status: 406 },
-    );
+    return NextResponse.json({ ok: false, reason: "ORDER_NOT_FOUND" }, { status: 406 });
   }
 
   const receivedAt = new Date();
-  const defaultRecipientEmail =
-    process.env.BREVO_SENDER_EMAIL || "bestilling@otman.no";
-  const defaultRecipientName =
-    process.env.BREVO_SENDER_NAME || "Otman Transport";
+  const defaultRecipientEmail = process.env.BREVO_SENDER_EMAIL || "bestilling@otman.no";
+  const defaultRecipientName = process.env.BREVO_SENDER_NAME || "Otman Transport";
 
   await prisma.orderEmailMessage.create({
     data: {

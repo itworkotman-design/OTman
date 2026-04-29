@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { sendEmail } from "@/lib/email/sendEmail";
+import { sendGmailEmail } from "@/lib/email/sendGmailEmail";
 import {
   buildOrderConversationEmailHtml,
   buildOrderConversationEmailText,
@@ -33,10 +34,7 @@ async function getAdminMembership(req: Request) {
     return {
       session: null,
       membership: null,
-      response: NextResponse.json(
-        { ok: false, reason: "UNAUTHORIZED" },
-        { status: 401 },
-      ),
+      response: NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 }),
     };
   }
 
@@ -44,10 +42,7 @@ async function getAdminMembership(req: Request) {
     return {
       session,
       membership: null,
-      response: NextResponse.json(
-        { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-        { status: 409 },
-      ),
+      response: NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 }),
     };
   }
 
@@ -78,10 +73,7 @@ async function getAdminMembership(req: Request) {
     return {
       session,
       membership: null,
-      response: NextResponse.json(
-        { ok: false, reason: "FORBIDDEN" },
-        { status: 403 },
-      ),
+      response: NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 }),
     };
   }
 
@@ -98,12 +90,7 @@ function getTrimmedString(value: unknown) {
 }
 
 function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
 function normalizeEmailAddress(value: string) {
@@ -138,10 +125,7 @@ function formatEmailPerson(name: string | null, email: string) {
 }
 
 function buildFailedConversationBody(message: string, reason: string) {
-  const sections = [
-    "Email failed to send.",
-    `Reason: ${reason}`,
-  ];
+  const sections = ["Email failed to send.", `Reason: ${reason}`];
 
   if (message) {
     sections.push("", "Original message:", message);
@@ -160,10 +144,7 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
   const companyId = auth.companyId;
 
   if (!companyId) {
-    return NextResponse.json(
-      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
   }
 
   const { orderId } = await params;
@@ -175,6 +156,21 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
     },
     select: {
       id: true,
+      customerName: true,
+      customerLabel: true,
+      email: true,
+
+      createdByMembership: {
+        select: {
+          user: {
+            select: {
+              username: true,
+              email: true,
+            },
+          },
+        },
+      },
+
       emailThreadToken: true,
       needsEmailAttention: true,
       unreadInboundEmailCount: true,
@@ -184,10 +180,7 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
   });
 
   if (!order) {
-    return NextResponse.json(
-      { ok: false, reason: "NOT_FOUND" },
-      { status: 404 },
-    );
+    return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
   const messages = await prisma.orderEmailMessage.findMany({
@@ -215,6 +208,8 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
   return NextResponse.json({
     ok: true,
     conversation: {
+      defaultRecipientEmail: order.createdByMembership?.user.email || order.email || "",
+      defaultRecipientName: order.createdByMembership?.user.username || order.createdByMembership?.user.email || order.customerLabel || "",
       threadToken: order.emailThreadToken ?? "",
       needsEmailAttention: order.needsEmailAttention,
       unreadInboundEmailCount: order.unreadInboundEmailCount,
@@ -234,10 +229,7 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
         createdAt: message.createdAt,
         sentAt: message.sentAt,
         receivedAt: message.receivedAt,
-        sentByName:
-          message.sentByMembership?.user.username ||
-          message.sentByMembership?.user.email ||
-          "",
+        sentByName: message.sentByMembership?.user.username || message.sentByMembership?.user.email || "",
         sentByEmail: message.sentByMembership?.user.email || "",
       })),
     },
@@ -252,19 +244,13 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   }
 
   if (auth.membership.company?.orderEmailsEnabled === false) {
-    return NextResponse.json(
-      { ok: false, reason: "ORDER_EMAILS_DISABLED" },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: false, reason: "ORDER_EMAILS_DISABLED" }, { status: 409 });
   }
 
   const companyId = auth.companyId;
 
   if (!companyId) {
-    return NextResponse.json(
-      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
   }
 
   const { orderId } = await params;
@@ -272,23 +258,17 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
 
   const typedTo = getTrimmedString(body?.to);
   const typedRecipientName = getTrimmedString(body?.recipientName);
-  const additionalTo = getTrimmedString(body?.additionalTo);
-  const additionalRecipientName = getTrimmedString(body?.additionalRecipientName);
+  const additionalTo = "";
+  const additionalRecipientName = "";
   const subject = getTrimmedString(body?.subject);
   const message = getTrimmedString(body?.message);
 
   if (!subject) {
-    return NextResponse.json(
-      { ok: false, reason: "MISSING_SUBJECT" },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, reason: "MISSING_SUBJECT" }, { status: 400 });
   }
 
   if (!message) {
-    return NextResponse.json(
-      { ok: false, reason: "MISSING_MESSAGE" },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, reason: "MISSING_MESSAGE" }, { status: 400 });
   }
 
   const order = await prisma.order.findFirst({
@@ -309,21 +289,17 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   });
 
   if (!order) {
-    return NextResponse.json(
-      { ok: false, reason: "NOT_FOUND" },
-      { status: 404 },
-    );
+    return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
-  const primaryRecipientEmail = order.email?.trim() || typedTo;
-  const primaryRecipientName =
-    order.customerName?.trim() || order.customerLabel?.trim() || typedRecipientName;
+  const primaryRecipientEmail = typedTo || order.email?.trim() || "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(primaryRecipientEmail)) {
+    return NextResponse.json({ ok: false, reason: "INVALID_RECIPIENT_EMAIL" }, { status: 400 });
+  }
+  const primaryRecipientName = typedRecipientName || order.customerName?.trim() || order.customerLabel?.trim() || "";
 
   if (!primaryRecipientEmail) {
-    return NextResponse.json(
-      { ok: false, reason: "MISSING_RECIPIENT" },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, reason: "MISSING_RECIPIENT" }, { status: 400 });
   }
 
   const recipients = [
@@ -340,12 +316,8 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         ]
       : []),
   ];
-  const backupEmail =
-    getTrimmedString(process.env.ORDER_CONVERSATION_BACKUP_EMAIL) ||
-    "itworkotman@gmail.com";
-  const normalizedRecipientEmails = new Set(
-    recipients.map((recipient) => normalizeEmailAddress(recipient.email)),
-  );
+  const backupEmail = getTrimmedString(process.env.ORDER_CONVERSATION_BACKUP_EMAIL) || "itworkotman@gmail.com";
+  const normalizedRecipientEmails = new Set(recipients.map((recipient) => normalizeEmailAddress(recipient.email)));
   const backupRecipient = backupEmail
     ? {
         email: backupEmail,
@@ -353,9 +325,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       }
     : null;
   const storedToEmail = recipients.map((recipient) => recipient.email).join(", ");
-  const storedToName = recipients
-    .map((recipient) => recipient.name || recipient.email)
-    .join(", ");
+  const storedToName = recipients.map((recipient) => recipient.name || recipient.email).join(", ");
 
   const existingMessages = await prisma.orderEmailMessage.findMany({
     where: {
@@ -366,6 +336,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       createdAt: "asc",
     },
     select: {
+      direction: true,
       externalMessageId: true,
       subject: true,
       bodyText: true,
@@ -391,46 +362,23 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
     });
   }
 
-  const orderLabel =
-    order.orderNumber && order.orderNumber.trim().length > 0
-      ? `Order ${order.displayId} | ${order.orderNumber}`
-      : `Order ${order.displayId}`;
+  const orderLabel = order.orderNumber && order.orderNumber.trim().length > 0 ? `Order ${order.displayId} | ${order.orderNumber}` : `Order ${order.displayId}`;
   const hasExistingConversation = existingMessages.length > 0;
-  const baseSubject = hasExistingConversation
-    ? buildReplySubject(subject)
-    : subject;
-  const finalSubject = buildThreadedSubject(baseSubject, threadToken);
+  const baseSubject = hasExistingConversation ? buildReplySubject(subject) : subject;
+  const finalSubject = baseSubject;
   const replyToEmail = buildReplyToAddress(threadToken);
-  const replyAnchor = [...existingMessages]
-    .reverse()
-    .find(
-      (item) =>
-        typeof item.externalMessageId === "string" &&
-        item.externalMessageId.trim().length > 0,
-    );
+  const replyAnchor = existingMessages.find(
+    (item) => item.direction === "OUTBOUND" && typeof item.externalMessageId === "string" && item.externalMessageId.trim().length > 0,
+  );
   const references = existingMessages
-    .map((item) =>
-      typeof item.externalMessageId === "string"
-        ? item.externalMessageId.trim()
-        : "",
-    )
+    .map((item) => (typeof item.externalMessageId === "string" ? item.externalMessageId.trim() : ""))
     .filter((item) => item.length > 0)
     .slice(-10);
-  const replyContext = replyAnchor
-    ? {
-        bodyText: replyAnchor.bodyText?.trim()
-          ? replyAnchor.bodyText.trim()
-          : stripHtmlToPlainText(replyAnchor.bodyHtml ?? ""),
-        personLabel: formatEmailPerson(
-          replyAnchor.fromName ?? null,
-          replyAnchor.fromEmail,
-        ),
-        sentAtLabel: formatReplyTimestamp(replyAnchor.createdAt),
-      }
-    : null;
+  const replyContext = null;
   const emailHtml = buildOrderConversationEmailHtml({
     messageText: message,
     orderLabel,
+    threadToken,
     replyContext,
   });
   const emailText = buildOrderConversationEmailText({
@@ -449,23 +397,21 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   }
 
   try {
-    const sendResult = await sendEmail({
-      to: recipients,
-      bcc:
-        backupRecipient &&
-        !normalizedRecipientEmails.has(normalizeEmailAddress(backupRecipient.email))
-          ? backupRecipient
-          : null,
+    console.log("EMAIL THREAD DEBUG", {
+      hasExistingConversation,
+      replyAnchor,
+      references,
+      emailHeaders,
+    });
+
+    const sendResult = await sendGmailEmail({
+      to: recipients[0],
       subject: finalSubject,
       html: emailHtml,
       text: emailText,
-      headers: Object.keys(emailHeaders).length > 0 ? emailHeaders : undefined,
-      replyTo: replyToEmail
-        ? {
-            email: replyToEmail,
-            name: senderName,
-          }
-        : null,
+      replyTo: replyToEmail || undefined,
+      inReplyTo: replyAnchor?.externalMessageId || undefined,
+      references,
     });
 
     const sentAt = new Date();
@@ -508,10 +454,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
     });
   } catch (error) {
     const failedAt = new Date();
-    const reason =
-      error instanceof Error && error.message
-        ? error.message
-        : "FAILED_TO_SEND_EMAIL";
+    const reason = error instanceof Error && error.message ? error.message : "FAILED_TO_SEND_EMAIL";
     const failedBodyText = buildFailedConversationBody(message, reason);
     const failedBodyHtml = `
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
@@ -521,11 +464,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         <p style="margin:0 0 16px 0;">
           Reason: ${escapeHtml(reason)}
         </p>
-        ${
-          message
-            ? `<p style="margin:0;white-space:pre-wrap;">${escapeHtml(message)}</p>`
-            : ""
-        }
+        ${message ? `<p style="margin:0;white-space:pre-wrap;">${escapeHtml(message)}</p>` : ""}
       </div>
     `;
 
@@ -557,10 +496,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       },
     });
 
-    return NextResponse.json(
-      { ok: false, reason },
-      { status: 502 },
-    );
+    return NextResponse.json({ ok: false, reason }, { status: 502 });
   }
 }
 
@@ -574,10 +510,7 @@ export async function PATCH(req: Request, { params }: OrderEmailRouteParams) {
   const companyId = auth.companyId;
 
   if (!companyId) {
-    return NextResponse.json(
-      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
   }
 
   const { orderId } = await params;
@@ -593,10 +526,7 @@ export async function PATCH(req: Request, { params }: OrderEmailRouteParams) {
   });
 
   if (!order) {
-    return NextResponse.json(
-      { ok: false, reason: "NOT_FOUND" },
-      { status: 404 },
-    );
+    return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
   await prisma.order.update({

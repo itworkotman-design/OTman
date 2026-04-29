@@ -249,6 +249,7 @@ export function buildOrderConversationEmailText(input: {
 export function buildOrderConversationEmailHtml(input: {
   messageText: string;
   orderLabel: string;
+  threadToken: string;
   replyContext?: OrderConversationReplyContext | null;
 }): string {
   const body = convertPlainTextToHtml(input.messageText.trim());
@@ -268,6 +269,9 @@ export function buildOrderConversationEmailHtml(input: {
       <p style="margin:0 0 16px 0;">${escapeHtml(input.orderLabel)}</p>
       ${body}
       ${quotedReply}
+      <p style="margin:0;color:#e5e7eb;font-size:10px;line-height:1;">
+  [OTMAN:${escapeHtml(input.threadToken)}]
+</p>
       <p style="margin:24px 0 0 0;">
         Med vennlig hilsen,<br/>
         Otman Transport AS<br/>

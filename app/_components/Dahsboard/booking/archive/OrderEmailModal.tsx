@@ -73,6 +73,8 @@ type ConversationMessage = {
 };
 
 type ConversationState = {
+  defaultRecipientEmail: string;
+  defaultRecipientName: string;
   threadToken: string;
   needsEmailAttention: boolean;
   unreadInboundEmailCount: number;
@@ -230,9 +232,9 @@ function getConversationBody(message: ConversationMessage) {
   const source = message.bodyText.trim()
     ? message.bodyText
     : message.bodyHtml
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "");
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n\n")
+        .replace(/<[^>]+>/g, "");
 
   return source
     .split(/\r?\n/)
@@ -294,12 +296,8 @@ function SnapshotGrid({ snapshot }: { snapshot: Record<string, unknown> }) {
     <div className="grid gap-3 sm:grid-cols-2">
       {entries.map(([key, value]) => (
         <div key={key} className="rounded-2xl border border-black/10 bg-white p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
-            {SNAPSHOT_LABELS[key] ?? key}
-          </div>
-          <div className="mt-1 wrap-break-word text-sm text-logoblue">
-            {formatValue(value)}
-          </div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">{SNAPSHOT_LABELS[key] ?? key}</div>
+          <div className="mt-1 wrap-break-word text-sm text-logoblue">{formatValue(value)}</div>
         </div>
       ))}
     </div>
@@ -314,29 +312,16 @@ function UpdatedChanges({ changes }: { changes: ChangeItem[] }) {
   return (
     <div className="space-y-3">
       {changes.map((change, index) => (
-        <div
-          key={`${change.field ?? "change"}-${index}`}
-          className="rounded-2xl border border-black/10 bg-white p-4"
-        >
-          <div className="text-sm font-semibold text-logoblue">
-            {change.label || change.field || "Change"}
-          </div>
+        <div key={`${change.field ?? "change"}-${index}`} className="rounded-2xl border border-black/10 bg-white p-4">
+          <div className="text-sm font-semibold text-logoblue">{change.label || change.field || "Change"}</div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
-                Before
-              </div>
-              <div className="mt-1 wrap-break-word text-sm text-textColorThird">
-                {change.previousValue || "-"}
-              </div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">Before</div>
+              <div className="mt-1 wrap-break-word text-sm text-textColorThird">{change.previousValue || "-"}</div>
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
-                After
-              </div>
-              <div className="mt-1 wrap-break-word text-sm text-logoblue">
-                {change.nextValue || "-"}
-              </div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">After</div>
+              <div className="mt-1 wrap-break-word text-sm text-logoblue">{change.nextValue || "-"}</div>
             </div>
           </div>
         </div>
@@ -362,44 +347,24 @@ function ProductChanges({ changes }: { changes: ProductChangeItem[] }) {
               : "border-blue-200 bg-blue-50";
 
         return (
-          <div
-            key={`${change.cardId ?? index}-${change.title ?? "product"}`}
-            className={`rounded-2xl border p-2 ${tone}`}
-          >
+          <div key={`${change.cardId ?? index}-${change.title ?? "product"}`} className={`rounded-2xl border p-2 ${tone}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-sm font-semibold text-logoblue">
-                {change.title || "Product change"}
-              </div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
-                {change.changeType || "UPDATED"}
-              </div>
+              <div className="text-sm font-semibold text-logoblue">{change.title || "Product change"}</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">{change.changeType || "UPDATED"}</div>
             </div>
 
             <div className="mt-2">
               {(change.changes ?? []).map((fieldChange, fieldIndex) => (
-                <div
-                  key={`${fieldChange.label ?? "field"}-${fieldIndex}`}
-                  className="rounded-xl border border-white/70 bg-white/80 p-2"
-                >
-                  <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
-                    {fieldChange.label || "Change"}
-                  </div>
+                <div key={`${fieldChange.label ?? "field"}-${fieldIndex}`} className="rounded-xl border border-white/70 bg-white/80 p-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">{fieldChange.label || "Change"}</div>
                   <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
-                        Before
-                      </div>
-                      <div className="mt-0.5 wrap-break-word text-sm leading-snug text-textColorThird">
-                        {fieldChange.previousValue || "-"}
-                      </div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">Before</div>
+                      <div className="mt-0.5 wrap-break-word text-sm leading-snug text-textColorThird">{fieldChange.previousValue || "-"}</div>
                     </div>
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">
-                        After
-                      </div>
-                      <div className="mt-0.5 wrap-break-word text-sm leading-snug text-logoblue">
-                        {fieldChange.nextValue || "-"}
-                      </div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-textColorThird">After</div>
+                      <div className="mt-0.5 wrap-break-word text-sm leading-snug text-logoblue">{fieldChange.nextValue || "-"}</div>
                     </div>
                   </div>
                 </div>
@@ -420,83 +385,44 @@ function StatusChange({ payload }: { payload: StatusChangedPayload }) {
         <span>to</span>
         <span>{payload.toStatus}</span>
       </div>
-      {payload.note ? (
-        <div className="mt-2 text-sm text-emerald-900">{payload.note}</div>
-      ) : null}
+      {payload.note ? <div className="mt-2 text-sm text-emerald-900">{payload.note}</div> : null}
     </div>
   );
 }
 
-function ConversationMessageCard({
-  message,
-  expanded,
-  onToggle,
-}: {
-  message: ConversationMessage;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
+function ConversationMessageCard({ message, expanded, onToggle }: { message: ConversationMessage; expanded: boolean; onToggle: () => void }) {
   const isInbound = message.direction === "INBOUND";
   const statusLabel = getMessageStatusLabel(message);
   const body = getConversationBody(message);
 
   return (
-    <div
-      className={`flex ${
-        isInbound
-          ? "justify-start pr-8 sm:pr-16 lg:pr-28"
-          : "justify-end pl-8 sm:pl-16 lg:pl-28"
-      }`}
-    >
+    <div className={`flex ${isInbound ? "justify-start pr-8 sm:pr-16 lg:pr-28" : "justify-end pl-8 sm:pl-16 lg:pl-28"}`}>
       <div
         className={`w-full max-w-[820] rounded-2xl border p-4 ${
-          isInbound
-            ? "border-amber-200 bg-amber-50"
-            : message.status === "FAILED"
-              ? "border-red-200 bg-red-50"
-              : "border-blue-200 bg-blue-50"
+          isInbound ? "border-amber-200 bg-amber-50" : message.status === "FAILED" ? "border-red-200 bg-red-50" : "border-blue-200 bg-blue-50"
         }`}
       >
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
-          aria-expanded={expanded}
-        >
+        <button type="button" onClick={onToggle} className="flex w-full flex-wrap items-start justify-between gap-3 text-left" aria-expanded={expanded}>
           <div>
-            <div className="text-base font-semibold text-logoblue">
-              {getConversationSubject(message.subject)}
-            </div>
+            <div className="text-base font-semibold text-logoblue">{getConversationSubject(message.subject)}</div>
             <div className="mt-1 text-sm text-textColorThird">
-              {isInbound
-                ? `From ${formatEmailPerson(message.fromName, message.fromEmail)}`
-                : `To ${formatEmailPerson(message.toName, message.toEmail)}`}
+              {isInbound ? `From ${formatEmailPerson(message.fromName, message.fromEmail)}` : `To ${formatEmailPerson(message.toName, message.toEmail)}`}
             </div>
             {!isInbound && message.sentByName ? (
-              <div className="mt-1 text-sm text-textColorThird">
-                Sent by {formatEmailPerson(message.sentByName, message.sentByEmail)}
-              </div>
+              <div className="mt-1 text-sm text-textColorThird">Sent by {formatEmailPerson(message.sentByName, message.sentByEmail)}</div>
             ) : null}
           </div>
 
           <div className="text-right text-sm text-textColorThird">
             <div>{statusLabel}</div>
-            <div className="mt-1">
-              {formatTimestamp(
-                message.receivedAt || message.sentAt || message.createdAt,
-              )}
-            </div>
-            <div className="mt-2 text-xs font-semibold uppercase tracking-wide text-textColorThird">
-              {expanded ? "Collapse" : "Expand"}
-            </div>
+            <div className="mt-1">{formatTimestamp(message.receivedAt || message.sentAt || message.createdAt)}</div>
+            <div className="mt-2 text-xs font-semibold uppercase tracking-wide text-textColorThird">{expanded ? "Collapse" : "Expand"}</div>
           </div>
         </button>
 
         {expanded ? (
           <div className="mt-3 rounded-2xl border border-white/70 bg-white/80 p-3">
-            <div className="whitespace-pre-wrap wrap-break-word text-sm leading-6 text-logoblue">
-              {body || "No message content stored."}
-            </div>
+            <div className="whitespace-pre-wrap wrap-break-word text-sm leading-6 text-logoblue">{body || "No message content stored."}</div>
           </div>
         ) : null}
       </div>
@@ -504,26 +430,15 @@ function ConversationMessageCard({
   );
 }
 
-export default function OrderEmailModal({
-  open,
-  order,
-  onClose,
-  onAlertsChanged,
-}: OrderEmailModalProps) {
+export default function OrderEmailModal({ open, order, onClose, onAlertsChanged }: OrderEmailModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    "conversation" | "notifications" | "history"
-  >(
-    "conversation",
-  );
+  const [activeTab, setActiveTab] = useState<"conversation" | "notifications" | "history">("conversation");
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
 
-  const [conversation, setConversation] = useState<ConversationState | null>(
-    null,
-  );
+  const [conversation, setConversation] = useState<ConversationState | null>(null);
   const [expandedMessageIds, setExpandedMessageIds] = useState<string[]>([]);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [conversationError, setConversationError] = useState("");
@@ -531,14 +446,10 @@ export default function OrderEmailModal({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState("");
-  const [resolvingNotificationIds, setResolvingNotificationIds] = useState<
-    string[]
-  >([]);
+  const [resolvingNotificationIds, setResolvingNotificationIds] = useState<string[]>([]);
 
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientName, setRecipientName] = useState("");
-  const [additionalRecipientEmail, setAdditionalRecipientEmail] = useState("");
-  const [additionalRecipientName, setAdditionalRecipientName] = useState("");
   const [subject, setSubject] = useState("");
   const [messageText, setMessageText] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
@@ -555,27 +466,15 @@ export default function OrderEmailModal({
     }
 
     const defaultSubject =
-      order.orderNumber && order.orderNumber.trim().length > 0
-        ? `Order ${order.displayId} | ${order.orderNumber}`
-        : `Order ${order.displayId}`;
+      order.orderNumber && order.orderNumber.trim().length > 0 ? `Order ${order.displayId} | ${order.orderNumber}` : `Order ${order.displayId}`;
 
-    setActiveTab(
-      order.needsNotificationAttention &&
-        !(order.needsEmailAttention || order.unreadInboundEmailCount > 0)
-        ? "notifications"
-        : "conversation",
-    );
-    setRecipientEmail(order.email || "");
-    setRecipientName(order.customerName || order.customerLabel || "");
-    setAdditionalRecipientEmail("");
-    setAdditionalRecipientName("");
+    setActiveTab(order.needsNotificationAttention && !(order.needsEmailAttention || order.unreadInboundEmailCount > 0) ? "notifications" : "conversation");
+    setRecipientEmail(order.createdByEmail || order.email || "");
+    setRecipientName(order.createdByName || order.customerLabel || "");
     setSubject(defaultSubject);
     setMessageText("");
     setSendError("");
-  }, [
-    open,
-    order,
-  ]);
+  }, [open, order]);
 
   useEffect(() => {
     const latestMessageId = conversation?.messages[0]?.id;
@@ -606,9 +505,7 @@ export default function OrderEmailModal({
           cache: "no-store",
         });
 
-        const data: OrderHistoryResponse | null = await response
-          .json()
-          .catch(() => null);
+        const data: OrderHistoryResponse | null = await response.json().catch(() => null);
 
         if (!response.ok || !data?.ok) {
           if (active) {
@@ -643,22 +540,39 @@ export default function OrderEmailModal({
           cache: "no-store",
         });
 
-        const data: OrderEmailsResponse | null = await response
-          .json()
-          .catch(() => null);
+        const data: OrderEmailsResponse | null = await response.json().catch(() => null);
 
         if (!response.ok || !data?.ok) {
           if (active) {
-            setConversationError(
-              data?.reason || "Failed to load order conversation",
-            );
+            setConversationError(data?.reason || "Failed to load order conversation");
             setConversation(null);
           }
           return;
         }
 
         if (active) {
-          setConversation(data.conversation ?? null);
+          const nextConversation = data.conversation ?? null;
+          setConversation(nextConversation);
+
+          const firstOutboundMessage = [...(nextConversation?.messages ?? [])].reverse().find((message) => message.direction === "OUTBOUND");
+
+          if (firstOutboundMessage) {
+            const emails = firstOutboundMessage.toEmail
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean);
+
+            const names = firstOutboundMessage.toName
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean);
+
+            setRecipientEmail(emails[0] ?? "");
+            setRecipientName(names[0] ?? "");
+          } else {
+            setRecipientEmail(nextConversation?.defaultRecipientEmail ?? "");
+            setRecipientName(nextConversation?.defaultRecipientName ?? "");
+          }
         }
       } catch {
         if (active) {
@@ -682,24 +596,18 @@ export default function OrderEmailModal({
           cache: "no-store",
         });
 
-        const data: OrderNotificationsResponse | null = await response
-          .json()
-          .catch(() => null);
+        const data: OrderNotificationsResponse | null = await response.json().catch(() => null);
 
         if (!response.ok || !data?.ok) {
           if (active) {
-            setNotificationsError(
-              data?.reason || "Failed to load notifications",
-            );
+            setNotificationsError(data?.reason || "Failed to load notifications");
             setNotifications([]);
           }
           return;
         }
 
         if (active) {
-          setNotifications(
-            Array.isArray(data.notifications) ? data.notifications : [],
-          );
+          setNotifications(Array.isArray(data.notifications) ? data.notifications : []);
         }
       } catch {
         if (active) {
@@ -753,19 +661,15 @@ export default function OrderEmailModal({
         body: JSON.stringify({
           to: recipientEmail,
           recipientName,
-          additionalTo: additionalRecipientEmail,
-          additionalRecipientName,
           subject,
           message: messageText,
         }),
       });
 
-      const data = (await response.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            reason?: string;
-          }
-        | null;
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        reason?: string;
+      } | null;
 
       if (!response.ok || !data?.ok) {
         setSendError(data?.reason || "Failed to send email");
@@ -775,8 +679,7 @@ export default function OrderEmailModal({
           cache: "no-store",
         });
 
-        const conversationData: OrderEmailsResponse | null =
-          await conversationResponse.json().catch(() => null);
+        const conversationData: OrderEmailsResponse | null = await conversationResponse.json().catch(() => null);
 
         if (conversationResponse.ok && conversationData?.ok) {
           setConversation(conversationData.conversation ?? null);
@@ -794,8 +697,7 @@ export default function OrderEmailModal({
         cache: "no-store",
       });
 
-      const conversationData: OrderEmailsResponse | null =
-        await conversationResponse.json().catch(() => null);
+      const conversationData: OrderEmailsResponse | null = await conversationResponse.json().catch(() => null);
 
       if (conversationResponse.ok && conversationData?.ok) {
         setConversation(conversationData.conversation ?? null);
@@ -823,12 +725,10 @@ export default function OrderEmailModal({
         credentials: "include",
       });
 
-      const data = (await response.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            reason?: string;
-          }
-        | null;
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        reason?: string;
+      } | null;
 
       if (!response.ok || !data?.ok) {
         setConversationError(data?.reason || "Failed to update conversation");
@@ -862,20 +762,15 @@ export default function OrderEmailModal({
       setResolvingNotificationIds((current) => [...current, notificationId]);
       setNotificationsError("");
 
-      const response = await fetch(
-        `/api/orders/${order.id}/notifications/${notificationId}`,
-        {
-          method: "PATCH",
-          credentials: "include",
-        },
-      );
+      const response = await fetch(`/api/orders/${order.id}/notifications/${notificationId}`, {
+        method: "PATCH",
+        credentials: "include",
+      });
 
-      const data = (await response.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            reason?: string;
-          }
-        | null;
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        reason?: string;
+      } | null;
 
       if (!response.ok || !data?.ok) {
         setNotificationsError(data?.reason || "Failed to resolve notification");
@@ -900,50 +795,30 @@ export default function OrderEmailModal({
     } catch {
       setNotificationsError("Failed to resolve notification");
     } finally {
-      setResolvingNotificationIds((current) =>
-        current.filter((id) => id !== notificationId),
-      );
+      setResolvingNotificationIds((current) => current.filter((id) => id !== notificationId));
     }
   }
 
   function toggleMessageExpansion(messageId: string) {
-    setExpandedMessageIds((current) =>
-      current.includes(messageId)
-        ? current.filter((id) => id !== messageId)
-        : [...current, messageId],
-    );
+    setExpandedMessageIds((current) => (current.includes(messageId) ? current.filter((id) => id !== messageId) : [...current, messageId]));
   }
 
   if (!open || !mounted || !order) {
     return null;
   }
 
-  const orderLabel =
-    typeof order.displayId === "number" && order.displayId > 0
-      ? `Order ${order.displayId}`
-      : "Order";
-  const hasMailAttention =
-    (conversation?.needsEmailAttention ?? order.needsEmailAttention) ||
-    order.unreadInboundEmailCount > 0;
-  const hasNotificationAttention =
-    notifications.some((notification) => !notification.resolvedAt) ||
-    order.needsNotificationAttention;
+  const orderLabel = typeof order.displayId === "number" && order.displayId > 0 ? `Order ${order.displayId}` : "Order";
+  const conversationStarted = Boolean(conversation?.messages.length);
+  const hasMailAttention = (conversation?.needsEmailAttention ?? order.needsEmailAttention) || order.unreadInboundEmailCount > 0;
+  const hasNotificationAttention = notifications.some((notification) => !notification.resolvedAt) || order.needsNotificationAttention;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="flex min-h-full items-center justify-center px-4 py-6">
-        <div
-          className="flex max-h-[94vh] w-full max-w-[1180] flex-col customContainer bg-white"
-          onClick={(event) => event.stopPropagation()}
-        >
+        <div className="flex max-h-[94vh] w-full max-w-[1180] flex-col customContainer bg-white" onClick={(event) => event.stopPropagation()}>
           <div className="flex items-center justify-between border-b border-black/10 px-6 py-4">
             <div>
-              <h2 className="text-2xl font-semibold text-logoblue">
-                Alert Center
-              </h2>
+              <h2 className="text-2xl font-semibold text-logoblue">Alert Center</h2>
               <p className="mt-1 text-sm text-textColorThird">
                 {orderLabel}
                 {order.orderNumber ? ` | ${order.orderNumber}` : ""}
@@ -966,9 +841,7 @@ export default function OrderEmailModal({
                 type="button"
                 onClick={() => setActiveTab("conversation")}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  activeTab === "conversation"
-                    ? "bg-logoblue text-white"
-                    : "bg-slate-100 text-textColorThird hover:bg-slate-200"
+                  activeTab === "conversation" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
                 }`}
               >
                 Conversation
@@ -977,9 +850,7 @@ export default function OrderEmailModal({
                 type="button"
                 onClick={() => setActiveTab("history")}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  activeTab === "history"
-                    ? "bg-logoblue text-white"
-                    : "bg-slate-100 text-textColorThird hover:bg-slate-200"
+                  activeTab === "history" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
                 }`}
               >
                 Order history
@@ -988,18 +859,14 @@ export default function OrderEmailModal({
                 type="button"
                 onClick={() => setActiveTab("notifications")}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  activeTab === "notifications"
-                    ? "bg-logoblue text-white"
-                    : "bg-slate-100 text-textColorThird hover:bg-slate-200"
+                  activeTab === "notifications" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
                 }`}
               >
                 Notifications
               </button>
               {hasMailAttention ? (
                 <>
-                  <span className="rounded-full bg-logoblue/10 px-3 py-1 text-xs font-semibold text-logoblue">
-                    Awaiting admin reply
-                  </span>
+                  <span className="rounded-full bg-logoblue/10 px-3 py-1 text-xs font-semibold text-logoblue">Awaiting admin reply</span>
                   <button
                     type="button"
                     onClick={handleConversationComplete}
@@ -1011,9 +878,7 @@ export default function OrderEmailModal({
                 </>
               ) : null}
               {hasNotificationAttention ? (
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
-                  Awaiting notification approval
-                </span>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">Awaiting notification approval</span>
               ) : null}
             </div>
           </div>
@@ -1022,77 +887,35 @@ export default function OrderEmailModal({
             {activeTab === "conversation" ? (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-black/10 bg-white p-4">
-                  <div className="mb-4 text-base font-semibold text-logoblue">
-                    Send email
-                  </div>
+                  <div className="mb-4 text-base font-semibold text-logoblue">Send email</div>
 
                   <form className="space-y-3" onSubmit={handleSendEmail}>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">
-                        <div className="mb-1 text-sm font-medium text-textColorThird">
-                          Customer email
-                        </div>
+                        <div className="mb-1 text-sm font-medium text-textColorThird">Customer email</div>
                         <input
                           value={recipientEmail}
-                          onChange={(event) =>
-                            setRecipientEmail(event.target.value)
-                          }
+                          onChange={(event) => setRecipientEmail(event.target.value)}
                           className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                          readOnly={conversationStarted}
                           placeholder="customer@email.com"
-                          readOnly={Boolean(order.email)}
                         />
                       </label>
 
                       <label className="block">
-                        <div className="mb-1 text-sm font-medium text-textColorThird">
-                          Customer name
-                        </div>
+                        <div className="mb-1 text-sm font-medium text-textColorThird">Customer name</div>
                         <input
                           value={recipientName}
-                          onChange={(event) =>
-                            setRecipientName(event.target.value)
-                          }
+                          onChange={(event) => setRecipientName(event.target.value)}
                           className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                          readOnly={conversationStarted}
                           placeholder="Customer name"
-                          readOnly={Boolean(order.customerName || order.customerLabel)}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="block">
-                        <div className="mb-1 text-sm font-medium text-textColorThird">
-                          Additional recipient
-                        </div>
-                        <input
-                          value={additionalRecipientEmail}
-                          onChange={(event) =>
-                            setAdditionalRecipientEmail(event.target.value)
-                          }
-                          className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
-                          placeholder="Optional extra email"
-                        />
-                      </label>
-
-                      <label className="block">
-                        <div className="mb-1 text-sm font-medium text-textColorThird">
-                          Additional recipient name
-                        </div>
-                        <input
-                          value={additionalRecipientName}
-                          onChange={(event) =>
-                            setAdditionalRecipientName(event.target.value)
-                          }
-                          className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
-                          placeholder="Optional extra name"
                         />
                       </label>
                     </div>
 
                     <label className="block">
-                      <div className="mb-1 text-sm font-medium text-textColorThird">
-                        Subject
-                      </div>
+                      <div className="mb-1 text-sm font-medium text-textColorThird">Subject</div>
                       <input
                         value={subject}
                         onChange={(event) => setSubject(event.target.value)}
@@ -1102,9 +925,7 @@ export default function OrderEmailModal({
                     </label>
 
                     <label className="block">
-                      <div className="mb-1 text-sm font-medium text-textColorThird">
-                        Message
-                      </div>
+                      <div className="mb-1 text-sm font-medium text-textColorThird">Message</div>
                       <textarea
                         value={messageText}
                         onChange={(event) => setMessageText(event.target.value)}
@@ -1113,11 +934,7 @@ export default function OrderEmailModal({
                       />
                     </label>
 
-                    {sendError ? (
-                      <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {sendError}
-                      </div>
-                    ) : null}
+                    {sendError ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{sendError}</div> : null}
 
                     <div className="flex items-center justify-end gap-3">
                       <button
@@ -1125,20 +942,16 @@ export default function OrderEmailModal({
                         disabled={sendLoading}
                         className="rounded-full bg-logoblue px-5 py-2 text-sm font-semibold text-white transition hover:bg-logoblue/90 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {sendLoading ? "Sending..." : "Send email"}
+                        {sendLoading ? "Sending..." : conversationStarted ? "Reply" : "Send email"}
                       </button>
                     </div>
                   </form>
                 </div>
 
                 {conversationLoading ? (
-                  <div className="py-6 text-sm text-textColorThird">
-                    Loading conversation...
-                  </div>
+                  <div className="py-6 text-sm text-textColorThird">Loading conversation...</div>
                 ) : conversationError ? (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {conversationError}
-                  </div>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{conversationError}</div>
                 ) : (
                   <>
                     <div className="rounded-2xl border border-black/10 bg-white px-4 py-3">
@@ -1147,9 +960,7 @@ export default function OrderEmailModal({
                           <span>
                             Thread code:{" "}
                             <span className="font-semibold text-logoblue">
-                              {conversation?.threadToken
-                                ? `[OTMAN:${conversation.threadToken}]`
-                                : "Not started yet"}
+                              {conversation?.threadToken ? `[OTMAN:${conversation.threadToken}]` : "Not started yet"}
                             </span>
                           </span>
                         </div>
@@ -1177,49 +988,31 @@ export default function OrderEmailModal({
               </div>
             ) : activeTab === "notifications" ? (
               notificationsLoading ? (
-                <div className="py-6 text-sm text-textColorThird">
-                  Loading notifications...
-                </div>
+                <div className="py-6 text-sm text-textColorThird">Loading notifications...</div>
               ) : notificationsError ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {notificationsError}
-                </div>
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{notificationsError}</div>
               ) : notifications.length === 0 ? (
-                <div className="rounded-2xl border border-black/10 bg-white px-4 py-6 text-sm text-textColorThird">
-                  No notifications for this order.
-                </div>
+                <div className="rounded-2xl border border-black/10 bg-white px-4 py-6 text-sm text-textColorThird">No notifications for this order.</div>
               ) : (
                 <div className="space-y-4">
                   {notifications.map((notification) => {
-                    const isResolving = resolvingNotificationIds.includes(
-                      notification.id,
-                    );
+                    const isResolving = resolvingNotificationIds.includes(notification.id);
                     const isResolved = Boolean(notification.resolvedAt);
 
                     return (
                       <div
                         key={notification.id}
-                        className={`rounded-2xl border p-5 ${
-                          isResolved
-                            ? "border-emerald-200 bg-emerald-50"
-                            : "border-red-200 bg-red-50"
-                        }`}
+                        className={`rounded-2xl border p-5 ${isResolved ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
-                            <div className="text-base font-semibold text-logoblue">
-                              {notification.title}
-                            </div>
-                            <div className="mt-1 whitespace-pre-wrap text-sm text-textColorThird">
-                              {notification.message}
-                            </div>
+                            <div className="text-base font-semibold text-logoblue">{notification.title}</div>
+                            <div className="mt-1 whitespace-pre-wrap text-sm text-textColorThird">{notification.message}</div>
                           </div>
 
                           <div className="text-right text-sm text-textColorThird">
                             <div>{formatTimestamp(notification.createdAt)}</div>
-                            <div className="mt-1 text-xs font-semibold uppercase tracking-wide">
-                              {notification.type.replaceAll("_", " ")}
-                            </div>
+                            <div className="mt-1 text-xs font-semibold uppercase tracking-wide">{notification.type.replaceAll("_", " ")}</div>
                           </div>
                         </div>
 
@@ -1227,9 +1020,7 @@ export default function OrderEmailModal({
                           <div className="text-sm text-textColorThird">
                             {isResolved
                               ? `Fixed${notification.resolvedAt ? ` at ${formatTimestamp(notification.resolvedAt)}` : ""}${
-                                  notification.resolvedBy
-                                    ? ` by ${notification.resolvedBy}`
-                                    : ""
+                                  notification.resolvedBy ? ` by ${notification.resolvedBy}` : ""
                                 }`
                               : "Needs admin approval"}
                           </div>
@@ -1237,9 +1028,7 @@ export default function OrderEmailModal({
                           {!isResolved ? (
                             <button
                               type="button"
-                              onClick={() =>
-                                handleResolveNotification(notification.id)
-                              }
+                              onClick={() => handleResolveNotification(notification.id)}
                               disabled={isResolving}
                               className="cursor-pointer rounded-full bg-logored px-4 py-2 text-sm font-semibold text-logoBlue transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
                             >
@@ -1253,62 +1042,42 @@ export default function OrderEmailModal({
                 </div>
               )
             ) : historyLoading ? (
-              <div className="py-6 text-sm text-textColorThird">
-                Loading order history...
-              </div>
+              <div className="py-6 text-sm text-textColorThird">Loading order history...</div>
             ) : historyError ? (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {historyError}
-              </div>
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{historyError}</div>
             ) : history.length === 0 ? (
-              <div className="rounded-2xl border border-black/10 bg-white px-4 py-6 text-sm text-textColorThird">
-                No history available for this order.
-              </div>
+              <div className="rounded-2xl border border-black/10 bg-white px-4 py-6 text-sm text-textColorThird">No history available for this order.</div>
             ) : (
               <div className="space-y-4">
                 {history.map((item) => (
                   <details
                     key={item.id}
                     className={`overflow-hidden rounded-2xl border bg-white ${
-                      item.payload.kind === "status_changed"
-                        ? "border-emerald-200"
-                        : "border-black/10"
+                      item.payload.kind === "status_changed" ? "border-emerald-200" : "border-black/10"
                     }`}
                   >
                     <summary className="cursor-pointer list-none px-5 py-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <div className="text-base font-semibold text-logoblue">
-                            {getEventTitle(item)}
-                          </div>
-                          <div className="mt-1 text-sm text-textColorThird">
-                            {formatActor(item)}
-                          </div>
+                          <div className="text-base font-semibold text-logoblue">{getEventTitle(item)}</div>
+                          <div className="mt-1 text-sm text-textColorThird">{formatActor(item)}</div>
                         </div>
 
-                        <div className="text-right text-sm text-textColorThird">
-                          {formatTimestamp(item.createdAt)}
-                        </div>
+                        <div className="text-right text-sm text-textColorThird">{formatTimestamp(item.createdAt)}</div>
                       </div>
                     </summary>
 
                     <div className="border-t border-black/10 bg-slate-50 px-5 py-4">
-                      {item.payload.kind === "created" ? (
-                        <SnapshotGrid snapshot={item.payload.snapshot} />
-                      ) : null}
+                      {item.payload.kind === "created" ? <SnapshotGrid snapshot={item.payload.snapshot} /> : null}
 
                       {item.payload.kind === "updated" ? (
                         <>
                           <UpdatedChanges changes={item.payload.changes} />
-                          <ProductChanges
-                            changes={item.payload.productChanges ?? []}
-                          />
+                          <ProductChanges changes={item.payload.productChanges ?? []} />
                         </>
                       ) : null}
 
-                      {item.payload.kind === "status_changed" ? (
-                        <StatusChange payload={item.payload} />
-                      ) : null}
+                      {item.payload.kind === "status_changed" ? <StatusChange payload={item.payload} /> : null}
                     </div>
                   </details>
                 ))}

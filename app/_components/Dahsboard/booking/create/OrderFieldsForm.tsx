@@ -1,19 +1,12 @@
 "use client";
 
 import React from "react";
-import {
-  OrderFields,
-  shown,
-  type HiddenMask,
-} from "@/app/_components/Dahsboard/booking/create/orderFields";
+import { OrderFields, shown, type HiddenMask } from "@/app/_components/Dahsboard/booking/create/orderFields";
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { UserOption } from "@/lib/users/types";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import OrderAttachmentsSection from "@/app/_components/Dahsboard/booking/create/OrderAttachmentsSection";
-import {
-  type AttachmentCategory,
-  type AttachmentItem,
-} from "@/lib/orders/attachmentCategories";
+import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
 import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 
 const CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
@@ -24,6 +17,10 @@ const CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
 
 const MIN_CUSTOM_TIME_GAP_MINUTES = 120;
 
+function getTodayDateInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function parseCustomTimeToMinutes(value: string): number | null {
   if (!/^\d{2}:\d{2}$/.test(value)) {
     return null;
@@ -33,14 +30,7 @@ function parseCustomTimeToMinutes(value: string): number | null {
   const hours = Number(hoursPart);
   const minutes = Number(minutesPart);
 
-  if (
-    !Number.isInteger(hours) ||
-    !Number.isInteger(minutes) ||
-    hours < 0 ||
-    hours > 23 ||
-    minutes < 0 ||
-    minutes > 59
-  ) {
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
     return null;
   }
 
@@ -60,11 +50,7 @@ function FieldErrorMessage({ message }: { message: string | null }) {
     return null;
   }
 
-  return (
-    <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-      {message}
-    </div>
-  );
+  return <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{message}</div>;
 }
 
 type Props = {
@@ -103,9 +89,7 @@ type Props = {
   customTimeTo: string;
   setCustomTimeTo: React.Dispatch<React.SetStateAction<string>>;
   contactCustomerForCustomTimeWindow: boolean;
-  setContactCustomerForCustomTimeWindow: React.Dispatch<
-    React.SetStateAction<boolean>
-  >;
+  setContactCustomerForCustomTimeWindow: React.Dispatch<React.SetStateAction<boolean>>;
   customTimeContactNote: string;
   setCustomTimeContactNote: React.Dispatch<React.SetStateAction<string>>;
   deliveryAddress: string;
@@ -200,10 +184,7 @@ type Props = {
   capacityWarningCount: number;
   capacityWarningLimit: number;
   capacityWarningLoading: boolean;
-  onUploadAttachment: (
-    file: File,
-    category: AttachmentCategory,
-  ) => void | Promise<void>;
+  onUploadAttachment: (file: File, category: AttachmentCategory) => void | Promise<void>;
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
 };
 
@@ -323,8 +304,7 @@ export default function OrderFieldsForm({
   capacityWarningLimit,
   capacityWarningLoading,
 }: Props) {
-  const showLiftField =
-    shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
+  const showLiftField = shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
   const customTimeFromMinutes = parseCustomTimeToMinutes(customTimeFrom);
   const customTimeToMinutes = parseCustomTimeToMinutes(customTimeTo);
   const availableCustomTimeFromOptions = CUSTOM_TIME_OPTIONS.filter((option) => {
@@ -333,10 +313,7 @@ export default function OrderFieldsForm({
     }
 
     const optionMinutes = parseCustomTimeToMinutes(option);
-    return (
-      optionMinutes !== null &&
-      optionMinutes <= customTimeToMinutes - MIN_CUSTOM_TIME_GAP_MINUTES
-    );
+    return optionMinutes !== null && optionMinutes <= customTimeToMinutes - MIN_CUSTOM_TIME_GAP_MINUTES;
   });
   const availableCustomTimeToOptions = CUSTOM_TIME_OPTIONS.filter((option) => {
     if (customTimeFromMinutes === null) {
@@ -344,10 +321,7 @@ export default function OrderFieldsForm({
     }
 
     const optionMinutes = parseCustomTimeToMinutes(option);
-    return (
-      optionMinutes !== null &&
-      optionMinutes >= customTimeFromMinutes + MIN_CUSTOM_TIME_GAP_MINUTES
-    );
+    return optionMinutes !== null && optionMinutes >= customTimeFromMinutes + MIN_CUSTOM_TIME_GAP_MINUTES;
   });
 
   return (
@@ -357,23 +331,14 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.OrderNumber) && (
         <>
           <h1 className="font-bold py-2">Order number</h1>
-          <input
-            value={orderNumber}
-            onChange={(e) => setOrderNumber(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} className="customInput w-full" />
         </>
       )}
 
       {shown(hidden, OrderFields.Description) && (
         <>
           <h1 className="font-bold py-2">Description</h1>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={5}
-            className="customInput w-full resize-y py-3 leading-normal"
-          />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} className="customInput w-full resize-y py-3 leading-normal" />
         </>
       )}
 
@@ -386,6 +351,7 @@ export default function OrderFieldsForm({
             id="order-delivery-date"
             type="date"
             value={deliveryDate}
+            min={new Date().toISOString().slice(0, 10)}
             onChange={(e) => setDeliveryDate(e.target.value)}
             className="customInput w-full"
           />
@@ -429,17 +395,11 @@ export default function OrderFieldsForm({
                     value={customTimeFrom}
                     onChange={(e) => {
                       const nextFrom = e.target.value;
-                      const nextFromMinutes =
-                        parseCustomTimeToMinutes(nextFrom);
+                      const nextFromMinutes = parseCustomTimeToMinutes(nextFrom);
 
                       setCustomTimeFrom(nextFrom);
 
-                      if (
-                        nextFromMinutes !== null &&
-                        customTimeToMinutes !== null &&
-                        customTimeToMinutes <
-                          nextFromMinutes + MIN_CUSTOM_TIME_GAP_MINUTES
-                      ) {
+                      if (nextFromMinutes !== null && customTimeToMinutes !== null && customTimeToMinutes < nextFromMinutes + MIN_CUSTOM_TIME_GAP_MINUTES) {
                         setCustomTimeTo("");
                       }
                     }}
@@ -464,12 +424,7 @@ export default function OrderFieldsForm({
 
                       setCustomTimeTo(nextTo);
 
-                      if (
-                        nextToMinutes !== null &&
-                        customTimeFromMinutes !== null &&
-                        customTimeFromMinutes >
-                          nextToMinutes - MIN_CUSTOM_TIME_GAP_MINUTES
-                      ) {
+                      if (nextToMinutes !== null && customTimeFromMinutes !== null && customTimeFromMinutes > nextToMinutes - MIN_CUSTOM_TIME_GAP_MINUTES) {
                         setCustomTimeFrom("");
                       }
                     }}
@@ -518,12 +473,7 @@ export default function OrderFieldsForm({
           )}
           {shown(hidden, OrderFields.ExpressDelivery) && (
             <label className="mt-3 flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={expressDelivery}
-                onChange={(e) => setExpressDelivery(e.target.checked)}
-                className="background h-4 w-4"
-              />
+              <input type="checkbox" checked={expressDelivery} onChange={(e) => setExpressDelivery(e.target.checked)} className="background h-4 w-4" />
               <span className="text-sm font-medium">Express delivery</span>
             </label>
           )}
@@ -540,15 +490,12 @@ export default function OrderFieldsForm({
         </>
       )}
 
-      {shown(hidden, OrderFields.DeliveryTimeWindow) &&
-        shown(hidden, OrderFields.PickupLocations) && <FormSectionSpacer />}
+      {shown(hidden, OrderFields.DeliveryTimeWindow) && shown(hidden, OrderFields.PickupLocations) && <FormSectionSpacer />}
 
       {shown(hidden, OrderFields.PickupLocations) && (
         <PickupLocations
           disabled={shouldLockPickupAddress}
-          overrideValue={
-            shouldLockPickupAddress ? "No shop pickup address" : undefined
-          }
+          overrideValue={shouldLockPickupAddress ? "No shop pickup address" : undefined}
           mainAddress={pickupAddress}
           mainAddressError={pickupAddressError}
           onMainAddressChange={setPickupAddress}
@@ -562,12 +509,7 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">
             Delivery address<span className="text-red-600">*</span>
           </h1>
-          <AddressAutocompleteInput
-            inputId="order-delivery-address"
-            value={deliveryAddress}
-            onChange={setDeliveryAddress}
-            placeholder="Enter a location"
-          />
+          <AddressAutocompleteInput inputId="order-delivery-address" value={deliveryAddress} onChange={setDeliveryAddress} placeholder="Enter a location" />
           <FieldErrorMessage message={deliveryAddressError} />
 
           {shouldShowReturnAddress && (
@@ -588,25 +530,16 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.DrivingDistance) && (
         <>
           <h1 className="font-bold py-2">Total driving distance</h1>
-          <input
-            value={drivingDistance}
-            onChange={(e) => setDrivingDistance(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={drivingDistance} onChange={(e) => setDrivingDistance(e.target.value)} className="customInput w-full" />
         </>
       )}
 
-      {shown(hidden, OrderFields.DrivingDistance) &&
-        shown(hidden, OrderFields.CustomerName) && <FormSectionSpacer />}
+      {shown(hidden, OrderFields.DrivingDistance) && shown(hidden, OrderFields.CustomerName) && <FormSectionSpacer />}
 
       {shown(hidden, OrderFields.CustomerName) && (
         <>
           <h1 className="font-bold py-2">Customer&apos;s name</h1>
-          <input
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="customInput w-full" />
         </>
       )}
 
@@ -615,14 +548,7 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">
             Customer&apos;s phone<span className="text-red-600">*</span>
           </h1>
-          <input
-            id="order-customer-phone"
-            type="tel"
-            inputMode="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="customInput w-full"
-          />
+          <input id="order-customer-phone" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="customInput w-full" />
           <FieldErrorMessage message={phoneError} />
         </>
       )}
@@ -660,22 +586,14 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.CustomerComments) && (
         <>
           <h1 className="font-bold py-2">Customer comments</h1>
-          <input
-            value={customerComments}
-            onChange={(e) => setCustomerComments(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={customerComments} onChange={(e) => setCustomerComments(e.target.value)} className="customInput w-full" />
         </>
       )}
 
       {shown(hidden, OrderFields.FloorNo) && (
         <>
           <h1 className="font-bold py-2">Floor No.</h1>
-          <input
-            value={floorNo}
-            onChange={(e) => setFloorNo(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={floorNo} onChange={(e) => setFloorNo(e.target.value)} className="customInput w-full" />
         </>
       )}
 
@@ -683,40 +601,22 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">Lift</h1>
           <label className="mr-4 inline-flex items-center gap-2">
-            <input
-              className="inline"
-              type="radio"
-              name="lift"
-              checked={lift === "yes"}
-              onChange={() => setLift("yes")}
-            />
+            <input className="inline" type="radio" name="lift" checked={lift === "yes"} onChange={() => setLift("yes")} />
             <span>Yes</span>
           </label>
           <label className="inline-flex items-center gap-2">
-            <input
-              className="inline"
-              type="radio"
-              name="lift"
-              checked={lift === "no"}
-              onChange={() => setLift("no")}
-            />
+            <input className="inline" type="radio" name="lift" checked={lift === "no"} onChange={() => setLift("no")} />
             <span>No</span>
           </label>
         </>
       )}
 
-      {showLiftField && shown(hidden, OrderFields.CashierName) && (
-        <FormSectionSpacer />
-      )}
+      {showLiftField && shown(hidden, OrderFields.CashierName) && <FormSectionSpacer />}
 
       {shown(hidden, OrderFields.CashierName) && (
         <>
           <h1 className="font-bold py-2">Cashier&apos;s name</h1>
-          <input
-            value={cashierName}
-            onChange={(e) => setCashierName(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={cashierName} onChange={(e) => setCashierName(e.target.value)} className="customInput w-full" />
         </>
       )}
 
@@ -735,21 +635,13 @@ export default function OrderFieldsForm({
         </>
       )}
 
-      {shown(hidden, OrderFields.CashierPhone) &&
-        shown(hidden, OrderFields.Subcontractor) && <FormSectionSpacer />}
+      {shown(hidden, OrderFields.CashierPhone) && shown(hidden, OrderFields.Subcontractor) && <FormSectionSpacer />}
 
       {shown(hidden, OrderFields.Subcontractor) && (
         <>
           <h1 className="font-bold py-2">Subcontractor</h1>
-          <select
-            value={subcontractorId}
-            onChange={(e) => setSubcontractorId(e.target.value)}
-            className="customInput w-full"
-            disabled={subcontractorLoading}
-          >
-            <option value="">
-              {subcontractorLoading ? "Loading..." : "Choose"}
-            </option>
+          <select value={subcontractorId} onChange={(e) => setSubcontractorId(e.target.value)} className="customInput w-full" disabled={subcontractorLoading}>
+            <option value="">{subcontractorLoading ? "Loading..." : "Choose"}</option>
 
             {subcontractorOptions.map((option) => (
               <option key={option.id} value={option.id}>
@@ -763,55 +655,35 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.Driver1) && (
         <>
           <h1 className="font-bold py-2">Driver</h1>
-          <input
-            value={driver}
-            onChange={(e) => setDriver(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={driver} onChange={(e) => setDriver(e.target.value)} className="customInput w-full" />
         </>
       )}
 
       {shown(hidden, OrderFields.Driver2) && (
         <>
           <h1 className="font-bold py-2">Second driver</h1>
-          <input
-            value={secondDriver}
-            onChange={(e) => setSecondDriver(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={secondDriver} onChange={(e) => setSecondDriver(e.target.value)} className="customInput w-full" />
         </>
       )}
 
       {shown(hidden, OrderFields.DriverInfo) && (
         <>
           <h1 className="font-bold py-2">Info for the driver</h1>
-          <input
-            value={driverInfo}
-            onChange={(e) => setDriverInfo(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={driverInfo} onChange={(e) => setDriverInfo(e.target.value)} className="customInput w-full" />
         </>
       )}
 
       {shown(hidden, OrderFields.LicensePlate) && (
         <>
           <h1 className="font-bold py-2">License plate</h1>
-          <input
-            value={licensePlate}
-            onChange={(e) => setLicensePlate(e.target.value)}
-            className="customInput w-full"
-          />
+          <input value={licensePlate} onChange={(e) => setLicensePlate(e.target.value)} className="customInput w-full" />
         </>
       )}
 
       {shown(hidden, OrderFields.Deviation) && (
         <>
           <h1 className="font-bold py-2">Deviation</h1>
-          <select
-            value={deviation}
-            onChange={(e) => setDeviation(e.target.value)}
-            className="customInput w-full"
-          >
+          <select value={deviation} onChange={(e) => setDeviation(e.target.value)} className="customInput w-full">
             <option value="">Choose</option>
             {DEVIATION_FEE_OPTIONS.map((option) => (
               <option key={option.code} value={option.englishLabel}>
@@ -837,21 +709,15 @@ export default function OrderFieldsForm({
           />
           <p className="inline pl-2">Fee for extra work per started</p>
           {feeExtraWork && (
-            <div className="mt-2 max-w-[220px]">
-              <label className="block text-sm font-semibold text-textColorSecond">
-                Total minutes
-              </label>
+            <div className="mt-2 max-w-[220]">
+              <label className="block text-sm font-semibold text-textColorSecond">Total minutes</label>
               <input
                 type="number"
                 min={0}
                 step={1}
                 className="customInput mt-1 w-full"
                 value={extraWorkMinutes || ""}
-                onChange={(e) =>
-                  setExtraWorkMinutes(
-                    Math.max(0, Number.parseInt(e.target.value, 10) || 0),
-                  )
-                }
+                onChange={(e) => setExtraWorkMinutes(Math.max(0, Number.parseInt(e.target.value, 10) || 0))}
                 placeholder="e.g. 25"
               />
             </div>
@@ -861,12 +727,7 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.FeeAddToOrder) && (
         <div className="pt-2">
-          <input
-            type="checkbox"
-            className="inline"
-            checked={feeAddToOrder}
-            onChange={(e) => setFeeAddToOrder(e.target.checked)}
-          />
+          <input type="checkbox" className="inline" checked={feeAddToOrder} onChange={(e) => setFeeAddToOrder(e.target.checked)} />
           <p className="inline pl-2">Fee for adding to order</p>
         </div>
       )}
@@ -888,9 +749,7 @@ export default function OrderFieldsForm({
             className="customInput w-full"
             disabled={changeCustomerLoading}
           >
-            <option value="">
-              {changeCustomerLoading ? "Loading..." : "Choose"}
-            </option>
+            <option value="">{changeCustomerLoading ? "Loading..." : "Choose"}</option>
 
             {changeCustomerOptions.map((option) => (
               <option key={option.id} value={option.id}>
@@ -904,11 +763,7 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.Status) && (
         <>
           <h1 className="font-bold py-2">Status</h1>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="customInput w-full"
-          >
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput w-full">
             <option value="">Choose</option>
             <option value="processing">Processing</option>
             <option value="confirmed">Confirmed</option>
@@ -925,11 +780,7 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.StatusNotes) && (
         <>
           <h1 className="font-bold py-2">Status notes</h1>
-          <input
-            value={statusNotes}
-            onChange={(e) => setStatusNotes(e.target.value)}
-            className="customInput w-full h-30"
-          />
+          <input value={statusNotes} onChange={(e) => setStatusNotes(e.target.value)} className="customInput w-full h-30" />
         </>
       )}
 
@@ -953,30 +804,18 @@ export default function OrderFieldsForm({
 
       {!hideDontSendEmail && (
         <label className="flex items-center gap-2 py-2">
-          <input
-            type="checkbox"
-            checked={dontSendEmail}
-            onChange={(e) => setDontSendEmail(e.target.checked)}
-          />
+          <input type="checkbox" checked={dontSendEmail} onChange={(e) => setDontSendEmail(e.target.checked)} />
           <span>Don&apos;t send email</span>
         </label>
       )}
       {showWarehouseEmailToggle && (
         <label className="flex items-center gap-2 py-2">
-          <input
-            type="checkbox"
-            checked={dontSendWarehouseEmail}
-            onChange={(e) => setDontSendWarehouseEmail(e.target.checked)}
-          />
+          <input type="checkbox" checked={dontSendWarehouseEmail} onChange={(e) => setDontSendWarehouseEmail(e.target.checked)} />
           <span>Don&apos;t send to warehouse email</span>
         </label>
       )}
       {!hideSubmitButton && (
-        <button
-          className="w-full customButtonEnabled h-12 mt-8"
-          type="submit"
-          disabled={saving}
-        >
+        <button className="w-full customButtonEnabled h-12 mt-8" type="submit" disabled={saving}>
           {saving ? "Saving..." : "Submit"}
         </button>
       )}
