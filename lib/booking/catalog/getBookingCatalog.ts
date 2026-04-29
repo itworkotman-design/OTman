@@ -4,10 +4,16 @@ import type {
   CatalogProduct,
   CatalogSpecialOption,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import {
+  createDefaultPriceListSettings,
+  parsePriceListSettings,
+  type PriceListSettings,
+} from "@/lib/products/priceListSettings";
 
 type Result = {
   products: CatalogProduct[];
   specialOptions: CatalogSpecialOption[];
+  priceListSettings: PriceListSettings;
 };
 
 function centsToDecimalString(cents: number | null | undefined) {
@@ -17,6 +23,16 @@ function centsToDecimalString(cents: number | null | undefined) {
 export async function getBookingCatalog(
   priceListId: string | null,
 ): Promise<Result> {
+  const priceList = priceListId
+    ? await prisma.priceList.findUnique({
+        where: {
+          id: priceListId,
+        },
+        select: {
+          description: true,
+        },
+      })
+    : null;
   const products = await prisma.product.findMany({
     where: {
       isActive: true,
@@ -152,5 +168,8 @@ export async function getBookingCatalog(
   return {
     products: mappedProducts,
     specialOptions: mappedSpecialOptions,
+    priceListSettings: priceList
+      ? parsePriceListSettings(priceList.description)
+      : createDefaultPriceListSettings(),
   };
 }

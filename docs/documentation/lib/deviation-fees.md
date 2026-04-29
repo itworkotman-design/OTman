@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Defines the hardcoded deviation options, prices, canonical English labels, and Norwegian WordPress aliases used by the booking calculator and importer.
+Defines the deviation options, default customer and subcontractor prices, canonical English labels, and Norwegian WordPress aliases used by the booking calculator, price-list settings, and importer.
 
 ## Functions
 

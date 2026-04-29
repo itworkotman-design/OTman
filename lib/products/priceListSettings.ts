@@ -1,3 +1,5 @@
+import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
+
 const SETTINGS_PREFIX = "__PRICE_LIST_SETTINGS__:";
 
 export type PriceListChargeSetting = {
@@ -13,6 +15,7 @@ export type PriceListSettings = {
   xtraPallet: PriceListChargeSetting;
   kmFrom21: PriceListChargeSetting;
   kmOver100: PriceListChargeSetting;
+  deviations: Record<string, PriceListChargeSetting>;
 };
 
 type PriceListChargeSettingInput = {
@@ -59,6 +62,17 @@ export function createDefaultPriceListSettings(): PriceListSettings {
       "KM_OVER_100",
       "Per km when distance is over 100 km",
     ),
+    deviations: Object.fromEntries(
+      DEVIATION_FEE_OPTIONS.map((option) => [
+        option.code,
+        createDefaultChargeSetting(
+          option.code,
+          option.englishLabel,
+          String(option.price),
+          String(option.subcontractorPrice),
+        ),
+      ]),
+    ),
   };
 }
 
@@ -98,6 +112,23 @@ function normalizeChargeSetting(
       defaults.subcontractorPrice,
     ),
   };
+}
+
+function normalizeDeviationSettings(
+  input: unknown,
+  defaults: Record<string, PriceListChargeSetting>,
+) {
+  const source =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, PriceListChargeSettingInput | undefined>)
+      : {};
+
+  return Object.fromEntries(
+    Object.entries(defaults).map(([code, defaultSetting]) => [
+      code,
+      normalizeChargeSetting(source[code], defaultSetting),
+    ]),
+  );
 }
 
 export function normalizePriceListSettings(
@@ -140,8 +171,12 @@ export function normalizePriceListSettings(
         ? input.kmOver100
         : {
             price: legacyKmPrice,
-          },
+      },
       defaults.kmOver100,
+    ),
+    deviations: normalizeDeviationSettings(
+      input?.deviations,
+      defaults.deviations,
     ),
   };
 }

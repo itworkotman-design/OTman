@@ -7,7 +7,7 @@ import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import { ADD_TO_ORDER_FEE_CODE, calculateExtraWorkFee, EXTRA_WORK_FEE_CODE } from "@/lib/booking/pricing/hardcodedFees";
-import { getDeviationFeeOption, normalizeDeviationLabel } from "@/lib/booking/pricing/deviationFees";
+import { getDeviationFeeOption, normalizeDeviationLabel, type DeviationFeeOption } from "@/lib/booking/pricing/deviationFees";
 import { buildOrderItemsFromCards, type BuiltOrderItem } from "@/lib/orders/buildOrderItemsFromCards";
 import { safeInteger } from "@/lib/orders/normalizeOrderInput";
 import { mapWordpressImportToProductCards, type ResolvedWordpressService } from "@/lib/integrations/wordpress/catalogMapping";
@@ -23,6 +23,7 @@ import {
   upsertWordpressOrderAttachment,
   type WordpressAttachmentCandidate,
 } from "@/lib/orders/wordpressAttachmentStorage";
+import type { PriceListSettings } from "@/lib/products/priceListSettings";
 
 type WordpressOrderSyncPayload = {
   legacyWordpressOrderId: number;
@@ -1124,10 +1125,45 @@ const getImportedWordpressDeviation = (meta: Record<string, unknown>): string | 
   return normalizeDeviationLabel(matchingRow ? `${matchingRow.label}:${matchingRow.code ?? ""}` : undefined);
 };
 
-const getProtectedFailureFeeCents = (params: { importedFees: ImportedWordpressFees; deviation?: string }): number => {
+const parsePriceSettingCents = (value: string): number => {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
+};
+
+const getDeviationPriceCents = (
+  priceListSettings: PriceListSettings,
+  deviationFee: DeviationFeeOption | undefined,
+) => {
+  if (!deviationFee) {
+    return {
+      customerPriceCents: 0,
+      subcontractorPriceCents: 0,
+    };
+  }
+
+  const setting = priceListSettings.deviations[deviationFee.code];
+
+  return {
+    customerPriceCents: parsePriceSettingCents(
+      setting?.price ?? String(deviationFee.price),
+    ),
+    subcontractorPriceCents: parsePriceSettingCents(
+      setting?.subcontractorPrice ?? String(deviationFee.subcontractorPrice),
+    ),
+  };
+};
+
+const getProtectedFailureFeeCents = (params: {
+  importedFees: ImportedWordpressFees;
+  deviation?: string;
+  priceListSettings: PriceListSettings;
+}): number => {
   const extraWorkFeeCents = params.importedFees.feeExtraWork ? calculateExtraWorkFee(params.importedFees.extraWorkMinutes).price * 100 : 0;
   const addToOrderFeeCents = params.importedFees.feeAddToOrder ? 99 * 100 : 0;
-  const deviationFeeCents = (getDeviationFeeOption(params.deviation)?.price ?? 0) * 100;
+  const deviationFeeCents = getDeviationPriceCents(
+    params.priceListSettings,
+    getDeviationFeeOption(params.deviation),
+  ).customerPriceCents;
 
   return extraWorkFeeCents + addToOrderFeeCents + deviationFeeCents;
 };
@@ -1143,6 +1179,7 @@ const getNativeCalculatedPricing = (params: {
   adjustments: ImportedWordpressAdjustments;
   importedFees?: ImportedWordpressFees;
   deviation?: string;
+  priceListSettings: PriceListSettings;
 }): { totalExVatCents: number; subcontractorTotalCents: number } => {
   const productBreakdowns = buildProductBreakdowns(params.productCards, params.catalogProducts, params.catalogSpecialOptions, {
     zeroBaseDeliveryPricesOver100Km: parseDistanceKm(params.drivingDistance) > 100,
@@ -1156,11 +1193,14 @@ const getNativeCalculatedPricing = (params: {
   });
   const extraWorkFeeCents = params.importedFees?.feeExtraWork === true ? calculateExtraWorkFee(params.importedFees.extraWorkMinutes).price * 100 : 0;
   const addToOrderFeeCents = params.importedFees?.feeAddToOrder === true ? 99 * 100 : 0;
-  const deviationFeeCents = (getDeviationFeeOption(params.deviation)?.price ?? 0) * 100;
+  const deviationPrices = getDeviationPriceCents(
+    params.priceListSettings,
+    getDeviationFeeOption(params.deviation),
+  );
 
   return {
-    totalExVatCents: Math.round(result.totals.totalExVat * 100 + extraWorkFeeCents + addToOrderFeeCents + deviationFeeCents),
-    subcontractorTotalCents: Math.round((result.totals.subcontractorTotal ?? 0) * 100),
+    totalExVatCents: Math.round(result.totals.totalExVat * 100 + extraWorkFeeCents + addToOrderFeeCents + deviationPrices.customerPriceCents),
+    subcontractorTotalCents: Math.round((result.totals.subcontractorTotal ?? 0) * 100 + deviationPrices.subcontractorPriceCents),
   };
 };
 
@@ -2019,6 +2059,7 @@ export async function POST(req: NextRequest) {
     const protectedFailureFeeCents = getProtectedFailureFeeCents({
       importedFees,
       deviation,
+      priceListSettings: catalog.priceListSettings,
     });
     const shouldApplyFailureDiscount = isFailureDiscountStatus(status) && typeof wordpressPriceExVatCents === "number";
     if (shouldApplyFailureDiscount) {
@@ -2069,6 +2110,7 @@ export async function POST(req: NextRequest) {
       adjustments: importedAdjustments,
       importedFees,
       deviation,
+      priceListSettings: catalog.priceListSettings,
       forcedXtraDeliveryCardIds,
     });
 
@@ -2085,6 +2127,7 @@ export async function POST(req: NextRequest) {
         adjustments: importedAdjustments,
         importedFees,
         deviation,
+        priceListSettings: catalog.priceListSettings,
         forcedXtraDeliveryCardIds,
       });
     }

@@ -3,6 +3,7 @@ export type DeviationFeeOption = {
   englishLabel: string;
   norwegianLabel: string;
   price: number;
+  subcontractorPrice: number;
 };
 
 export const DEVIATION_FEE_OPTIONS: DeviationFeeOption[] = [
@@ -11,48 +12,56 @@ export const DEVIATION_FEE_OPTIONS: DeviationFeeOption[] = [
     englishLabel: "Deviation, missed trip; Customer not at home",
     norwegianLabel: "Avvik, bomtur; Kunde ikke hjemme",
     price: 590,
+    subcontractorPrice: 390,
   },
   {
     code: "CANCELED",
     englishLabel: "Deviation, dead end; Customer cancelled",
     norwegianLabel: "Avvik, bomtur; kunde avbestilt",
     price: 590,
+    subcontractorPrice: 149,
   },
   {
     code: "DAMAGESITE",
     englishLabel: "Deviation, missed delivery; Damaged goods",
     norwegianLabel: "Avvik, bomtur; vare skadet",
     price: 590,
+    subcontractorPrice: 390,
   },
   {
     code: "WRONGPROD",
     englishLabel: "Deviation, delivery toll stairs; Wrong item",
     norwegianLabel: "Avvik, bomtur levering trapp; Feil vare",
     price: 590,
+    subcontractorPrice: 390,
   },
   {
     code: "WRONGADRESS",
     englishLabel: "Deviation, toll; Wrong address",
     norwegianLabel: "Avvik, bomtur; Feil adresse",
     price: 590,
+    subcontractorPrice: 149,
   },
   {
     code: "WRONGDATE",
     englishLabel: "Deviation, toll trip; New driving date",
     norwegianLabel: "Avvik, bomtur; Ny kjøredato",
     price: 590,
+    subcontractorPrice: 149,
   },
   {
     code: "CANTFIND",
     englishLabel: "Deviation, missed trip; Warehouse cannot find the product",
     norwegianLabel: "Avvik, bomtur; Lageret finner ikke produktet",
     price: 590,
+    subcontractorPrice: 149,
   },
   {
     code: "CANCELEDBEFORE",
     englishLabel: "Deviation, toll trip; Cancelled the day before",
     norwegianLabel: "Avvik, bomtur; Avlyst dagen før",
     price: 290,
+    subcontractorPrice: 0,
   },
 ];
 

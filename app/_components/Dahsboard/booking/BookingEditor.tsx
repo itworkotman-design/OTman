@@ -35,6 +35,7 @@ import {
   DEVIATION_FEE_OPTIONS,
   getDeviationFeeOption,
   normalizeDeviationLabel,
+  type DeviationFeeOption,
 } from "@/lib/booking/pricing/deviationFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import type {
@@ -221,6 +222,28 @@ function parseDistanceKm(value: string) {
 function parsePriceSetting(value: string) {
   const parsed = Number(value.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getDeviationPriceSetting(
+  settings: PriceListSettings,
+  deviationFee: DeviationFeeOption,
+) {
+  const setting = settings.deviations[deviationFee.code];
+
+  return {
+    customerPrice: parsePriceSetting(setting?.price ?? String(deviationFee.price)),
+    subcontractorPrice: parsePriceSetting(
+      setting?.subcontractorPrice ?? String(deviationFee.subcontractorPrice),
+    ),
+  };
+}
+
+function logPriceListDebug(event: string, payload: Record<string, unknown>) {
+  if (process.env.NODE_ENV === "production") {
+    return;
+  }
+
+  console.info(`[BookingEditor price list] ${event}`, payload);
 }
 
 function getWordpressRowKey(row: {
@@ -774,7 +797,7 @@ export default function BookingEditor({
           return;
         }
 
-        const nextOptions = Array.isArray(data.priceLists)
+        const nextOptions: PriceListOption[] = Array.isArray(data.priceLists)
           ? data.priceLists
               .map((item: Partial<PriceListOption>) =>
                 typeof item.id === "string" &&
@@ -790,9 +813,22 @@ export default function BookingEditor({
               .filter((item: PriceListOption | null): item is PriceListOption => item !== null)
           : [];
 
+        logPriceListDebug("loaded options", {
+          count: nextOptions.length,
+          currentSelection: selectedPriceListId,
+          initialSelection: initialValues?.priceListId ?? "",
+          options: nextOptions.map((option) => ({
+            id: option.id,
+            name: option.name,
+            code: option.code,
+          })),
+        });
         setPriceListOptions(nextOptions);
       } catch {
         if (!cancelled) {
+          logPriceListDebug("options load failed", {
+            currentSelection: selectedPriceListId,
+          });
           setPriceListOptions([]);
           setPriceListsError("Failed to load price lists");
         }
@@ -808,7 +844,7 @@ export default function BookingEditor({
     return () => {
       cancelled = true;
     };
-  }, [canSelectPriceList]);
+  }, [canSelectPriceList, initialValues?.priceListId, selectedPriceListId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -824,6 +860,13 @@ export default function BookingEditor({
         const catalogUrl = catalogPriceListId
           ? `/api/booking/catalog?priceListId=${encodeURIComponent(catalogPriceListId)}`
           : "/api/booking/catalog";
+
+        logPriceListDebug("catalog request", {
+          requestedPriceListId: catalogPriceListId ?? "",
+          selectedPriceListId,
+          initialPriceListId: initialValues?.priceListId ?? "",
+          url: catalogUrl,
+        });
 
         if (!catalogPriceListId) {
           console.warn("Order missing priceListId, using fallback catalog");
@@ -848,6 +891,10 @@ export default function BookingEditor({
           responsePriceListId &&
           responsePriceListId !== catalogPriceListId
         ) {
+          logPriceListDebug("catalog mismatch", {
+            requestedPriceListId: catalogPriceListId,
+            responsePriceListId,
+          });
           setCatalogError("Selected price list did not match loaded catalog");
           setCatalogProducts([]);
           setCatalogSpecialOptions([]);
@@ -856,6 +903,12 @@ export default function BookingEditor({
         }
 
         if (!res.ok || !data.ok) {
+          logPriceListDebug("catalog response failed", {
+            requestedPriceListId: catalogPriceListId ?? "",
+            responsePriceListId,
+            status: res.status,
+            reason: data.reason ?? "",
+          });
           setCatalogError(data.reason ?? "Failed to load catalog");
           setCatalogProducts([]);
           setCatalogSpecialOptions([]);
@@ -868,6 +921,14 @@ export default function BookingEditor({
         setPriceListSettings(
           normalizePriceListSettings(data.priceListSettings),
         );
+        logPriceListDebug("catalog applied", {
+          requestedPriceListId: catalogPriceListId ?? "",
+          responsePriceListId,
+          productCount: Array.isArray(data.products) ? data.products.length : 0,
+          specialOptionCount: Array.isArray(data.specialOptions)
+            ? data.specialOptions.length
+            : 0,
+        });
         if (
           !selectedPriceListId &&
           responsePriceListId &&
@@ -883,6 +944,10 @@ export default function BookingEditor({
           return;
         }
 
+        logPriceListDebug("catalog request failed", {
+          selectedPriceListId,
+          initialPriceListId: initialValues?.priceListId ?? "",
+        });
         setCatalogError("Failed to load catalog");
         setCatalogProducts([]);
         setCatalogSpecialOptions([]);
@@ -1052,10 +1117,14 @@ export default function BookingEditor({
   }, []);
 
   const handlePriceListChange = useCallback((priceListId: string) => {
+    logPriceListDebug("selection changed", {
+      previousPriceListId: selectedPriceListId,
+      nextPriceListId: priceListId,
+    });
     setSelectedPriceListId(priceListId);
     setProductCards([createEmptyProductCard(0)]);
     setExpandedCardId(0);
-  }, []);
+  }, [selectedPriceListId]);
 
   const savedPricingSnapshot = useMemo(
     () => getSavedOrderPricingSnapshot(productCards),
@@ -1259,13 +1328,18 @@ export default function BookingEditor({
     }
 
     if (deviationFee) {
+      const deviationPrices = getDeviationPriceSetting(
+        pricingSource.priceListSettings,
+        deviationFee,
+      );
+
       extraItems.push({
         kind: "customPrice",
         code: deviationFee.code,
         label: deviationFee.englishLabel,
         qty: 1,
-        unitPrice: deviationFee.price,
-        subcontractorUnitPrice: 0,
+        unitPrice: deviationPrices.customerPrice,
+        subcontractorUnitPrice: deviationPrices.subcontractorPrice,
       });
     }
 
@@ -1314,6 +1388,7 @@ export default function BookingEditor({
     pricingSource.priceListSettings.extraPickup.description,
     pricingSource.priceListSettings.extraPickup.price,
     pricingSource.priceListSettings.extraPickup.subcontractorPrice,
+    pricingSource.priceListSettings,
     pricingSource.priceListSettings.kmFrom21.code,
     pricingSource.priceListSettings.kmFrom21.description,
     pricingSource.priceListSettings.kmFrom21.price,
@@ -2290,7 +2365,7 @@ export default function BookingEditor({
             className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-black"
             value={selectedPriceListId}
             onChange={(event) => handlePriceListChange(event.target.value)}
-            disabled={priceListsLoading || catalogLoading}
+            disabled={priceListsLoading}
           >
             <option value="">
               {priceListsLoading ? "Loading price lists..." : "Select price list"}

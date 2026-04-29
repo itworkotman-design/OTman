@@ -66,7 +66,6 @@ import {
   applyOrderPricingSnapshot,
   getSavedOrderPricingSnapshot,
 } from "@/lib/booking/pricing/snapshot";
-import { createDefaultPriceListSettings } from "@/lib/products/priceListSettings";
 
 type ProductChangeValue = {
   label: string;
@@ -839,7 +838,7 @@ export async function PATCH(
   const pricingSource = applyOrderPricingSnapshot({
     catalogProducts: catalog.products,
     catalogSpecialOptions: catalog.specialOptions,
-    priceListSettings: createDefaultPriceListSettings(),
+    priceListSettings: catalog.priceListSettings,
     pricingSnapshot: getSavedOrderPricingSnapshot(productCards),
   });
 

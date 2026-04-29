@@ -16,6 +16,7 @@ import {
   normalizePriceListSettings,
   type PriceListSettings,
 } from "@/lib/products/priceListSettings";
+import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 
 type PriceListSummary = {
   id: string;
@@ -854,7 +855,7 @@ export default function EditPricesPage() {
   }
 
   function updatePriceListChargeSetting(
-    key: keyof PriceListSettings,
+    key: Exclude<keyof PriceListSettings, "deviations">,
     field: "code" | "description" | "price" | "subcontractorPrice",
     value: string,
   ) {
@@ -865,6 +866,33 @@ export default function EditPricesPage() {
         [field]: value,
       },
     }));
+  }
+
+  function updatePriceListDeviationSetting(
+    code: string,
+    field: "price" | "subcontractorPrice",
+    value: string,
+  ) {
+    setPriceListSettingsDraft((current) => {
+      const currentSetting =
+        current.deviations[code] ??
+        createDefaultPriceListSettings().deviations[code];
+
+      if (!currentSetting) {
+        return current;
+      }
+
+      return {
+        ...current,
+        deviations: {
+          ...current.deviations,
+          [code]: {
+            ...currentSetting,
+            [field]: value,
+          },
+        },
+      };
+    });
   }
 
   async function savePriceListSettings() {
@@ -2848,6 +2876,83 @@ export default function EditPricesPage() {
                     placeholder="Subcontractor price per km"
                   />
                 </label>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-black/10 p-4">
+                <h3 className="text-sm font-semibold text-logoblue">
+                  Bomtur / deviation prices
+                </h3>
+
+                <div className="space-y-3">
+                  {DEVIATION_FEE_OPTIONS.map((option) => {
+                    const setting =
+                      priceListSettingsDraft.deviations[option.code] ??
+                      createDefaultPriceListSettings().deviations[option.code];
+
+                    return (
+                      <div
+                        key={option.code}
+                        className="rounded-md border border-black/10 p-3"
+                      >
+                        <div className="mb-3">
+                          <p className="text-sm font-semibold text-black/80">
+                            {option.code}
+                          </p>
+                          <p className="text-xs text-black/60">
+                            {option.englishLabel}
+                          </p>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="block">
+                            <span className="mb-1 block text-sm font-medium text-black/80">
+                              Price
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={setting?.price ?? String(option.price)}
+                              onChange={(e) =>
+                                updatePriceListDeviationSetting(
+                                  option.code,
+                                  "price",
+                                  e.target.value,
+                                )
+                              }
+                              className="customInput w-full"
+                              placeholder="Price"
+                            />
+                          </label>
+
+                          <label className="block">
+                            <span className="mb-1 block text-sm font-medium text-black/80">
+                              Subcontractor price
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={
+                                setting?.subcontractorPrice ??
+                                String(option.subcontractorPrice)
+                              }
+                              onChange={(e) =>
+                                updatePriceListDeviationSetting(
+                                  option.code,
+                                  "subcontractorPrice",
+                                  e.target.value,
+                                )
+                              }
+                              className="customInput w-full"
+                              placeholder="Subcontractor price"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <p className="text-sm text-black/60">
