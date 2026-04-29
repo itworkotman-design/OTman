@@ -35,6 +35,10 @@ type Props = {
   onToggle: () => void;
 };
 
+function formatQuantity(quantity: number) {
+  return Number.isInteger(quantity) ? quantity.toString() : quantity.toFixed(2);
+}
+
 export function ProductCardNew({
   cardId,
   displayIndex,
@@ -395,7 +399,7 @@ export function ProductCardNew({
 
   if (value.wordpressImportReadOnly) {
     const totalCents = value.wordpressImportReadOnly.rows.reduce(
-      (sum, row) => sum + row.priceCents,
+      (sum, row) => sum + row.priceCents * row.quantity,
       0,
     );
 
@@ -438,13 +442,18 @@ export function ProductCardNew({
             {value.wordpressImportReadOnly.rows.map((row, index) => (
               <div key={index} className="priceRow">
                 <h1 className="text-sm">
+                  {row.quantity > 1 ? (
+                    <span className="text-gray-500 mr-1">
+                      x{formatQuantity(row.quantity)}
+                    </span>
+                  ) : null}
                   {row.code ? (
                     <span className="text-gray-500 mr-1">({row.code})</span>
                   ) : null}
                   {row.label}
                 </h1>
                 <p className="font-semibold text-sm whitespace-nowrap">
-                  {Math.round(row.priceCents / 100)} NOK
+                  {Math.round((row.priceCents * row.quantity) / 100)} NOK
                 </p>
               </div>
             ))}

@@ -37,7 +37,10 @@ import {
   normalizeDeviationLabel,
 } from "@/lib/booking/pricing/deviationFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
-import type { ProductBreakdown } from "@/lib/booking/pricing/types";
+import type {
+  CalculatedLine,
+  ProductBreakdown,
+} from "@/lib/booking/pricing/types";
 import {
   OrderFields,
   shown,
@@ -218,6 +221,99 @@ function parseDistanceKm(value: string) {
 function parsePriceSetting(value: string) {
   const parsed = Number(value.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getWordpressRowKey(row: {
+  code?: string | null;
+  label: string;
+}) {
+  const code = row.code?.trim().toUpperCase();
+  return code || row.label.trim().toLowerCase();
+}
+
+function getNativeLineKey(line: CalculatedLine) {
+  const code = line.code?.trim().toUpperCase();
+  return code || line.label.trim().toLowerCase();
+}
+
+function getWordpressReadOnlyTotalCents(card: SavedProductCard) {
+  return (
+    card.wordpressImportReadOnly?.rows.reduce(
+      (sum, row) => sum + Math.round(row.priceCents * row.quantity),
+      0,
+    ) ?? 0
+  );
+}
+
+function addLineTotals(
+  totals: Map<string, { quantity: number; totalCents: number }>,
+  key: string,
+  quantity: number,
+  totalCents: number,
+) {
+  if (totalCents === 0) {
+    return;
+  }
+
+  const existing = totals.get(key);
+  totals.set(key, {
+    quantity: (existing?.quantity ?? 0) + quantity,
+    totalCents: (existing?.totalCents ?? 0) + totalCents,
+  });
+}
+
+function wordpressReadOnlyRowsMatchNativeLines(
+  card: SavedProductCard,
+  nativeLines: CalculatedLine[],
+) {
+  if (!card.wordpressImportReadOnly) {
+    return false;
+  }
+
+  const wordpressTotals = new Map<
+    string,
+    { quantity: number; totalCents: number }
+  >();
+  const nativeTotals = new Map<
+    string,
+    { quantity: number; totalCents: number }
+  >();
+
+  for (const row of card.wordpressImportReadOnly.rows) {
+    addLineTotals(
+      wordpressTotals,
+      getWordpressRowKey(row),
+      row.quantity,
+      Math.round(row.priceCents * row.quantity),
+    );
+  }
+
+  for (const line of nativeLines) {
+    addLineTotals(
+      nativeTotals,
+      getNativeLineKey(line),
+      line.qty,
+      Math.round(line.lineTotal * 100),
+    );
+  }
+
+  if (wordpressTotals.size !== nativeTotals.size) {
+    return false;
+  }
+
+  for (const [key, wordpressLine] of wordpressTotals) {
+    const nativeLine = nativeTotals.get(key);
+
+    if (!nativeLine) {
+      return false;
+    }
+
+    if (nativeLine.totalCents !== wordpressLine.totalCents) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function normalizeRouteAddress(value: string | null | undefined) {
@@ -1239,6 +1335,122 @@ export default function BookingEditor({
       ),
     [pricingSource.catalogProducts, pricingSource.catalogSpecialOptions],
   );
+
+  useEffect(() => {
+    if (!initialValues?.legacyWordpressOrderId) {
+      return;
+    }
+
+    if (
+      !productCards.some(
+        (card) => card.productId && card.wordpressImportReadOnly,
+      )
+    ) {
+      return;
+    }
+
+    const editableCards = productCards.map((card) =>
+      card.productId && card.wordpressImportReadOnly
+        ? { ...card, wordpressImportReadOnly: null }
+        : card,
+    );
+    const editableBreakdowns = buildProductBreakdowns(
+      editableCards,
+      pricingSource.catalogProducts,
+      pricingSource.catalogSpecialOptions,
+      {
+        zeroBaseDeliveryPricesOver100Km:
+          shouldUseNativeDistancePricing && parseDistanceKm(drivingDistance) > 100,
+        xtraPalletPrice: parsePriceSetting(
+          pricingSource.priceListSettings.xtraPallet.price,
+        ),
+        xtraPalletSubcontractorPrice: parsePriceSetting(
+          pricingSource.priceListSettings.xtraPallet.subcontractorPrice,
+        ),
+      },
+    );
+    const editableResult = calculateBookingPricing({
+      productBreakdowns: editableBreakdowns,
+      priceLookup,
+    });
+    const breakdownsByCardId = new Map<
+      number,
+      (typeof editableResult.breakdowns)[number]
+    >();
+    let breakdownIndex = 0;
+
+    for (const card of editableCards) {
+      if (card.wordpressImportReadOnly) {
+        breakdownIndex += 1;
+        continue;
+      }
+
+      if (!card.productId) {
+        continue;
+      }
+
+      const product = pricingSource.catalogProducts.find(
+        (item) => item.id === card.productId && item.active,
+      );
+
+      if (!product) {
+        continue;
+      }
+
+      const breakdown = editableResult.breakdowns[breakdownIndex];
+
+      if (breakdown) {
+        breakdownsByCardId.set(card.cardId, breakdown);
+      }
+
+      breakdownIndex += 1;
+    }
+
+    let changed = false;
+    const nextProductCards = productCards.map((card) => {
+      if (!card.productId || !card.wordpressImportReadOnly) {
+        return card;
+      }
+
+      const breakdown = breakdownsByCardId.get(card.cardId);
+
+      if (!breakdown) {
+        return card;
+      }
+
+      const nativeTotalCents = breakdown.lines.reduce(
+        (sum, line) => sum + Math.round(line.lineTotal * 100),
+        0,
+      );
+
+      if (
+        nativeTotalCents !== getWordpressReadOnlyTotalCents(card) ||
+        !wordpressReadOnlyRowsMatchNativeLines(card, breakdown.lines)
+      ) {
+        return card;
+      }
+
+      changed = true;
+      return {
+        ...card,
+        wordpressImportReadOnly: null,
+      };
+    });
+
+    if (changed) {
+      setProductCards(nextProductCards);
+    }
+  }, [
+    drivingDistance,
+    initialValues?.legacyWordpressOrderId,
+    priceLookup,
+    pricingSource.catalogProducts,
+    pricingSource.catalogSpecialOptions,
+    pricingSource.priceListSettings.xtraPallet.price,
+    pricingSource.priceListSettings.xtraPallet.subcontractorPrice,
+    productCards,
+    shouldUseNativeDistancePricing,
+  ]);
 
   const automaticStatusDiscount = useMemo(() => {
     if (!isCancelledOrFailedStatus(status)) {

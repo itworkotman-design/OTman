@@ -1202,12 +1202,22 @@ const getNativeProductTotalCents = (params: {
 const toReadOnlyRows = (rows: ParsedBreakdownRow[]) =>
   rows
     .filter((row) => typeof row.priceCents === "number")
-    .map((row) => ({
-      label: row.label,
-      code: row.code ?? null,
-      quantity: 1,
-      priceCents: row.priceCents ?? 0,
-    }));
+    .map((row) => {
+      const quantity =
+        typeof row.quantity === "number" &&
+        Number.isFinite(row.quantity) &&
+        row.quantity > 0
+          ? row.quantity
+          : 1;
+      const linePriceCents = row.priceCents ?? 0;
+
+      return {
+        label: row.label,
+        code: row.code ?? null,
+        quantity,
+        priceCents: Math.round(linePriceCents / quantity),
+      };
+    });
 
 const applyWordpressPriceMatchPolicy = (params: {
   meta: Record<string, unknown>;

@@ -70,7 +70,7 @@ Imports legacy WordPress `power_order` posts into the new `Order` table. The rou
 | `getNativeCalculatedPricing` | Rebuilds the native ex-VAT and subcontractor totals from mapped product cards, the current booking catalog, imported admin adjustment fields, imported deviation fees, and imported hardcoded fee fields. |
 | `getBreakdownGroupTotalCents` | Sums one WordPress product group total from its parsed breakdown rows. |
 | `getNativeProductTotalCents` | Calculates one mapped native product card total for exact WP/native product price matching. |
-| `toReadOnlyRows` | Converts parsed WordPress breakdown rows into saved read-only price rows. |
+| `toReadOnlyRows` | Converts parsed WordPress breakdown rows into saved read-only price rows, preserving parsed quantities and storing unit cents so display and order items can show multiplied WP lines correctly. |
 | `applyWordpressPriceMatchPolicy` | Marks per-product WP/native price mismatches and WP KM or extra-pickup rows as read-only saved product-card snapshots while leaving exact matches editable. Global rows such as extra pickup are excluded from product matching and saved separately as `WordPress order prices`. |
 | `syncWordpressPriceMismatchNotification` | Creates or resolves the WordPress manual-review alert when the imported total and rebuilt native total diverge. |
 | `attachServiceLabelsToProductItems` | Adds grouped install, return, and extra labels onto each parsed product row so the imported product raw data keeps the original WordPress context. |

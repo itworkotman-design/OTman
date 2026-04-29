@@ -107,6 +107,42 @@ describe("buildOrderItemsFromCards", () => {
     );
   });
 
+  it("stores read-only WordPress multiplied rows with quantity and unit price", () => {
+    const items = buildOrderItemsFromCards(
+      [
+        {
+          ...buildCard(),
+          productId: null,
+          wordpressImportReadOnly: {
+            productName: "WP Dishwasher",
+            comment: "New system was unable to match to old price",
+            rows: [
+              {
+                label: "Oppvaskmaskin installasjon",
+                code: "INSDISHW2",
+                quantity: 4,
+                priceCents: 224900,
+              },
+            ],
+          },
+        },
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          itemType: "EXTRA_OPTION",
+          optionCode: "INSDISHW2",
+          quantity: 4,
+          customerPriceCents: 224900,
+        }),
+      ]),
+    );
+  });
+
   it("stores discounted effective customer prices on order items", () => {
     const items = buildOrderItemsFromCards([buildCard()], [buildProduct()], []);
 

@@ -203,6 +203,53 @@ describe("buildProductBreakdowns", () => {
     ]);
   });
 
+  it("preserves multiplied WordPress read-only quantities as unit prices", () => {
+    const result = calculateProductCards(
+      [
+        buildCard({
+          productId: null,
+          wordpressImportReadOnly: {
+            productName: "WP Dishwasher",
+            comment: "New system was unable to match to old price",
+            rows: [
+              {
+                label: "Oppvaskmaskin installasjon",
+                code: "INSDISHW2",
+                quantity: 4,
+                priceCents: 224900,
+              },
+              {
+                label: "XTRA",
+                code: "XTRA",
+                quantity: 3,
+                priceCents: 22900,
+              },
+            ],
+          },
+        }),
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(result.breakdowns[0]?.readOnly).toBe(true);
+    expect(result.breakdowns[0]?.lines).toEqual([
+      expect.objectContaining({
+        code: "INSDISHW2",
+        qty: 4,
+        unitPrice: 2249,
+        lineTotal: 8996,
+      }),
+      expect.objectContaining({
+        code: "XTRA",
+        qty: 3,
+        unitPrice: 229,
+        lineTotal: 687,
+      }),
+    ]);
+    expect(result.totals.totalExVat).toBe(9683);
+  });
+
   it("uses standard and XTRA indoor delivery display values", () => {
     const product = buildProduct();
     const cards = [

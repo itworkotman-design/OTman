@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Converts saved product cards into persisted order item rows, including option metadata, read-only WordPress mismatch rows, and the customer/subcontractor prices used for the order.
+Converts saved product cards into persisted order item rows, including option metadata, read-only WordPress mismatch rows with saved quantities, and the customer/subcontractor prices used for the order.
 
 ## Functions
 
@@ -20,4 +20,4 @@ Converts saved product cards into persisted order item rows, including option me
 | `findBaseProductOption` | Finds the default active option for products without explicit install, return, or extra selections. |
 | `findDemontOption` | Finds the active `DEMONT` option for products that support demont. |
 | `findXtraSpecialOption` | Finds the active XTRA special option. |
-| `buildOrderItemsFromCards` | Builds product-card, option, custom-section, demont, return, and read-only WordPress mismatch item rows using effective customer prices for discounts. |
+| `buildOrderItemsFromCards` | Builds product-card, option, custom-section, demont, return, and read-only WordPress mismatch item rows using effective customer prices for discounts, preserving read-only WP quantity and unit-price metadata. |
