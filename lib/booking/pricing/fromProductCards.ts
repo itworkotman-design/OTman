@@ -12,17 +12,23 @@ import {
   showsInstallOptions,
   showsReturnOptions,
   showsExtraCheckboxes,
-  shouldPriceReturnOption,
 } from "@/lib/booking/pricing/rules";
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
+const RETURN_IN_CODE = "RETURNIN";
 
 type BuildProductBreakdownsOptions = {
   zeroBaseDeliveryPricesOver100Km?: boolean;
   forcedXtraDeliveryCardIds?: Set<number>;
   xtraPalletPrice?: number;
   xtraPalletSubcontractorPrice?: number;
+};
+
+type ReturnPricingState = {
+  hasTransportCovered: boolean;
+  hasReturnInApplied: boolean;
+  returnInCardId: number | null;
 };
 
 function normalizeAutomaticXtraText(value: string | null | undefined) {
@@ -59,17 +65,23 @@ function parsePrice(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function isTransportDeliveryType(deliveryType: SavedProductCard["deliveryType"]) {
+  return (
+    deliveryType === DELIVERY_TYPES.FIRST_STEP ||
+    deliveryType === DELIVERY_TYPES.INDOOR
+  );
+}
+
+function isReturnOnlyDeliveryType(deliveryType: SavedProductCard["deliveryType"]) {
+  return deliveryType === DELIVERY_TYPES.RETURN_ONLY;
+}
+
 function usesSharedDeliveryPricing(card: SavedProductCard, product: CatalogProduct) {
   if (!product.allowDeliveryTypes) {
     return false;
   }
 
-  return (
-    card.deliveryType === DELIVERY_TYPES.FIRST_STEP ||
-    card.deliveryType === DELIVERY_TYPES.INDOOR ||
-    card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY ||
-    card.deliveryType === DELIVERY_TYPES.RETURN_ONLY
-  );
+  return isTransportDeliveryType(card.deliveryType);
 }
 
 function shouldZeroBaseDeliveryPrice(
@@ -131,10 +143,88 @@ function getXtraDeliveryCardIds(cards: SavedProductCard[], catalogProducts: Cata
   return new Set(candidates.filter((candidate) => candidate.cardId !== mainCandidate.cardId).map((candidate) => candidate.cardId));
 }
 
+function getOrderHasTransportCovered(
+  cards: SavedProductCard[],
+  catalogProducts: CatalogProduct[],
+) {
+  return cards.some((card) => {
+    if (!card.productId || !isTransportDeliveryType(card.deliveryType)) {
+      return false;
+    }
+
+    const product =
+      catalogProducts.find((item) => item.id === card.productId && item.active) ??
+      null;
+
+    return !!product?.allowDeliveryTypes;
+  });
+}
+
+function getReturnInCardId(
+  cards: SavedProductCard[],
+  catalogProducts: CatalogProduct[],
+) {
+  const candidates = cards
+    .map((card) => {
+      if (!card.productId || !isReturnOnlyDeliveryType(card.deliveryType)) {
+        return null;
+      }
+
+      const product =
+        catalogProducts.find((item) => item.id === card.productId && item.active) ??
+        null;
+
+      if (!product?.allowDeliveryTypes) {
+        return null;
+      }
+
+      return {
+        cardId: card.cardId,
+        productLabel: product.label.trim().toLowerCase(),
+        productCode: product.code.trim().toLowerCase(),
+        productId: product.id.trim().toLowerCase(),
+      };
+    })
+    .filter((item) => item !== null);
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const [primary] = [...candidates].sort((a, b) => {
+    const labelCompare = a.productLabel.localeCompare(b.productLabel);
+    if (labelCompare !== 0) return labelCompare;
+
+    const codeCompare = a.productCode.localeCompare(b.productCode);
+    if (codeCompare !== 0) return codeCompare;
+
+    const idCompare = a.productId.localeCompare(b.productId);
+    if (idCompare !== 0) return idCompare;
+
+    return a.cardId - b.cardId;
+  });
+
+  return primary.cardId;
+}
+
 function findSelectedReturnSpecialOption(catalogSpecialOptions: CatalogSpecialOption[], selectedReturnOptionId: string | null) {
   if (!selectedReturnOptionId) return null;
 
   return catalogSpecialOptions.find((o) => o.active && o.type === "return" && o.id === selectedReturnOptionId) ?? null;
+}
+
+function appendSelectedReturnOption(
+  items: ProductCardLineItem[],
+  selectedReturn: CatalogSpecialOption,
+  amount: number,
+  priceOverride?: number,
+) {
+  items.push({
+    kind: "productOption",
+    productOptionId: selectedReturn.id,
+    qty: amount,
+    ...(priceOverride === undefined ? {} : { priceOverride }),
+  });
 }
 
 function findBaseProductOption(product: CatalogProduct) {
@@ -202,6 +292,7 @@ function buildItemsForCard(
   zeroBaseDeliveryPricesOver100Km: boolean,
   xtraPalletPrice: number,
   xtraPalletSubcontractorPrice: number,
+  returnPricingState: ReturnPricingState,
 ): ProductCardLineItem[] {
   const items: ProductCardLineItem[] = [];
   const amount = getAmount(card, product);
@@ -215,8 +306,9 @@ function buildItemsForCard(
   const showDemont = product.allowDemont && (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType));
   const demontOption = findDemontOption(product);
   const baseProductOption = findBaseProductOption(product);
+  let returnOnlySelectedReturnPriceOverride: number | undefined;
 
-  if (product.allowDeliveryTypes && card.deliveryType) {
+  if (product.allowDeliveryTypes && isTransportDeliveryType(card.deliveryType)) {
     const xtraOption = useXtraDeliveryPricing
       ? findAutomaticXtraSpecialOption({
           catalogSpecialOptions,
@@ -267,6 +359,8 @@ function buildItemsForCard(
         : (xtraDeliverySubcontractorPrice ?? standardDeliverySubcontractorPrice),
     });
 
+    returnPricingState.hasTransportCovered = true;
+
     if (isDeliveryTypeWithExtraAmount(card.deliveryType) && amount > 1) {
       const extraAmountXtraOption = findAutomaticXtraSpecialOption({
         catalogSpecialOptions,
@@ -280,6 +374,53 @@ function buildItemsForCard(
           qty: amount - 1,
         });
       }
+    }
+  }
+
+  if (product.allowDeliveryTypes && isReturnOnlyDeliveryType(card.deliveryType)) {
+    const shouldApplyReturnIn =
+      !returnPricingState.hasTransportCovered &&
+      !returnPricingState.hasReturnInApplied &&
+      returnPricingState.returnInCardId === card.cardId;
+
+    if (shouldApplyReturnIn) {
+      const returnInPrice = getProductDeliveryTypePrice({
+        deliveryTypes: product.deliveryTypes,
+        key: card.deliveryType,
+      });
+      const returnInSubcontractorPrice = getProductDeliveryTypePrice({
+        deliveryTypes: product.deliveryTypes,
+        key: card.deliveryType,
+        subcontractor: true,
+      });
+      const returnInLabel = getProductDeliveryTypeLabel(
+        product.deliveryTypes,
+        card.deliveryType,
+      );
+
+      items.push({
+        kind: "deliveryType",
+        code: RETURN_IN_CODE,
+        label: returnInLabel,
+        qty: 1,
+        unitPrice: shouldZeroBaseDeliveryPrice(
+          card.deliveryType,
+          false,
+          zeroBaseDeliveryPricesOver100Km,
+        )
+          ? 0
+          : returnInPrice,
+        subcontractorUnitPrice: shouldZeroBaseDeliveryPrice(
+          card.deliveryType,
+          false,
+          zeroBaseDeliveryPricesOver100Km,
+        )
+          ? 0
+          : returnInSubcontractorPrice,
+      });
+
+      returnPricingState.hasReturnInApplied = true;
+      returnOnlySelectedReturnPriceOverride = 0;
     }
   }
 
@@ -300,21 +441,26 @@ function buildItemsForCard(
       });
     }
 
-    if (showReturnOptions && card.selectedReturnOptionId) {
+    if (
+      card.deliveryType !== DELIVERY_TYPES.INSTALL_ONLY &&
+      showReturnOptions &&
+      card.selectedReturnOptionId
+    ) {
       const selectedReturn = findSelectedReturnSpecialOption(catalogSpecialOptions, card.selectedReturnOptionId);
 
       if (!selectedReturn) {
         return items;
       }
 
-      const forcePriceReturnOption = card.deliveryType === DELIVERY_TYPES.RETURN_ONLY && useXtraDeliveryPricing;
-
-      if (shouldPriceReturnOption(card.deliveryType) || forcePriceReturnOption) {
-        items.push({
-          kind: "productOption",
-          productOptionId: selectedReturn.id,
-          qty: amount,
-        });
+      if (isReturnOnlyDeliveryType(card.deliveryType)) {
+        appendSelectedReturnOption(
+          items,
+          selectedReturn,
+          amount,
+          returnOnlySelectedReturnPriceOverride,
+        );
+      } else if (isTransportDeliveryType(card.deliveryType)) {
+        appendSelectedReturnOption(items, selectedReturn, amount);
       } else {
         items.push({
           kind: "info",
@@ -387,21 +533,26 @@ function buildItemsForCard(
     });
   }
 
-  if (showReturnOptions && card.selectedReturnOptionId) {
+  if (
+    card.deliveryType !== DELIVERY_TYPES.INSTALL_ONLY &&
+    showReturnOptions &&
+    card.selectedReturnOptionId
+  ) {
     const selectedReturn = findSelectedReturnSpecialOption(catalogSpecialOptions, card.selectedReturnOptionId);
 
     if (!selectedReturn) {
       return items;
     }
 
-    const forcePriceReturnOption = card.deliveryType === DELIVERY_TYPES.RETURN_ONLY && useXtraDeliveryPricing;
-
-    if (shouldPriceReturnOption(card.deliveryType) || forcePriceReturnOption) {
-      items.push({
-        kind: "productOption",
-        productOptionId: selectedReturn.id,
-        qty: amount,
-      });
+    if (isReturnOnlyDeliveryType(card.deliveryType)) {
+      appendSelectedReturnOption(
+        items,
+        selectedReturn,
+        amount,
+        returnOnlySelectedReturnPriceOverride,
+      );
+    } else if (isTransportDeliveryType(card.deliveryType)) {
+      appendSelectedReturnOption(items, selectedReturn, amount);
     } else {
       items.push({
         kind: "info",
@@ -430,6 +581,11 @@ export function buildProductBreakdowns(
   const xtraPalletPrice = options?.xtraPalletPrice ?? 250;
   const xtraPalletSubcontractorPrice =
     options?.xtraPalletSubcontractorPrice ?? 0;
+  const returnPricingState: ReturnPricingState = {
+    hasTransportCovered: getOrderHasTransportCovered(cards, catalogProducts),
+    hasReturnInApplied: false,
+    returnInCardId: getReturnInCardId(cards, catalogProducts),
+  };
 
   return cards.flatMap<ProductBreakdown>((card) => {
     if (card.wordpressImportReadOnly) {
@@ -468,6 +624,7 @@ export function buildProductBreakdowns(
           zeroBaseDeliveryPricesOver100Km,
           xtraPalletPrice,
           xtraPalletSubcontractorPrice,
+          returnPricingState,
         ),
       },
     ];

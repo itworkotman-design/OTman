@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
+import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
+import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { createDefaultProductDeliveryTypes } from "@/lib/products/deliveryTypes";
+import type { CalculatorResult } from "@/lib/booking/pricing/types";
 import type {
   CatalogProduct,
   CatalogSpecialOption,
@@ -80,6 +83,17 @@ const returnOptions: CatalogSpecialOption[] = [
     effectiveCustomerPrice: "300",
     active: true,
   },
+  {
+    id: "return-recycle",
+    type: "return",
+    code: "RETURNREC",
+    label: "Return",
+    description: "Retur til gjenvinning",
+    customerPrice: "250",
+    subcontractorPrice: "0",
+    effectiveCustomerPrice: "250",
+    active: true,
+  },
 ];
 
 const automaticXtraOptions: CatalogSpecialOption[] = [
@@ -106,6 +120,45 @@ const automaticXtraOptions: CatalogSpecialOption[] = [
     active: true,
   },
 ];
+
+function calculateProductCards(
+  cards: SavedProductCard[],
+  products: CatalogProduct[],
+  specialOptions: CatalogSpecialOption[] = returnOptions,
+): CalculatorResult {
+  return calculateBookingPricing({
+    productBreakdowns: buildProductBreakdowns(cards, products, specialOptions),
+    priceLookup: buildPriceLookup(products, specialOptions),
+  });
+}
+
+function getProductLines(result: CalculatorResult, productName: string) {
+  return (
+    result.breakdowns.find((breakdown) => breakdown.productName === productName)
+      ?.lines ?? []
+  );
+}
+
+function getChargedCodes(result: CalculatorResult) {
+  return result.breakdowns
+    .flatMap((breakdown) =>
+      breakdown.lines
+        .filter((line) => line.lineTotal > 0)
+        .map((line) => `${breakdown.productName}:${line.code ?? line.label}`),
+    )
+    .sort();
+}
+
+function expectNoTransportCodes(result: CalculatorResult, productName: string) {
+  const lines = getProductLines(result, productName);
+
+  expect(lines).not.toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ code: "INDOOR" }),
+      expect.objectContaining({ code: "XTRA" }),
+    ]),
+  );
+}
 
 describe("buildProductBreakdowns", () => {
   it("keeps WordPress price mismatches as read-only custom price rows", () => {
@@ -404,12 +457,8 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
-  it("zeros install-only and return-only delivery prices over 100 km", () => {
+  it("zeros return-only RETURNIN delivery prices over 100 km", () => {
     const cards = [
-      buildCard({
-        cardId: 1,
-        deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
-      }),
       buildCard({
         cardId: 2,
         deliveryType: DELIVERY_TYPES.RETURN_ONLY,
@@ -422,13 +471,7 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: "XTRA",
-      unitPrice: 0,
-      label: "Kun Installasjon/Montering",
-    });
-    expect(result[1]?.items[0]).toMatchObject({
-      kind: "deliveryType",
-      code: "RETURN_ONLY",
+      code: "RETURNIN",
       unitPrice: 0,
       label: "Kun retur",
     });
@@ -454,14 +497,7 @@ describe("buildProductBreakdowns", () => {
       automaticXtraOptions,
     );
 
-    expect(result[0]?.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: "deliveryType",
-          qty: 1,
-        }),
-      ]),
-    );
+    expect(result[0]?.items).toEqual([]);
     expect(result[0]?.items).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -478,6 +514,7 @@ describe("buildProductBreakdowns", () => {
       expect.arrayContaining([
         expect.objectContaining({
           kind: "deliveryType",
+          code: "RETURNIN",
           qty: 1,
         }),
       ]),
@@ -548,12 +585,13 @@ describe("buildProductBreakdowns", () => {
     );
   });
 
-  it("keeps install-only mapping and pricing available", () => {
+  it("keeps install-only cards limited to selected install options", () => {
     const result = buildProductBreakdowns(
       [
         buildCard({
           amount: 2,
           deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+          selectedInstallOptionIds: ["install-1"],
         }),
       ],
       [buildProduct()],
@@ -563,13 +601,667 @@ describe("buildProductBreakdowns", () => {
     expect(result[0]?.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: "deliveryType",
-          code: "INSTALL_ONLY",
-          qty: 1,
-          unitPrice: 590,
+          kind: "productOption",
+          productOptionId: "install-1",
+          qty: 2,
         }),
       ]),
     );
+    expect(result[0]?.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "deliveryType",
+        }),
+      ]),
+    );
+  });
+
+  it("charges RETURNIN once and only charges return services on later return-only products", () => {
+    const product = buildProduct({
+      allowReturnOptions: true,
+    });
+
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          cardId: 1,
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-store",
+        }),
+        buildCard({
+          cardId: 2,
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-recycle",
+        }),
+      ],
+      [product],
+      returnOptions,
+    );
+
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "deliveryType",
+          code: "RETURNIN",
+          unitPrice: 669,
+        }),
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "return-store",
+          priceOverride: 0,
+        }),
+      ]),
+    );
+    expect(result[1]?.items).toEqual([
+      expect.objectContaining({
+        kind: "productOption",
+        productOptionId: "return-recycle",
+      }),
+    ]);
+  });
+
+  it("does not apply RETURNIN when delivery transport is already covered", () => {
+    const product = buildProduct({
+      allowReturnOptions: true,
+    });
+
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          cardId: 1,
+          deliveryType: DELIVERY_TYPES.INDOOR,
+        }),
+        buildCard({
+          cardId: 2,
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-recycle",
+        }),
+      ],
+      [product],
+      returnOptions,
+    );
+
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "deliveryType",
+          code: "INDOOR",
+        }),
+      ]),
+    );
+    expect(result[1]?.items).toEqual([
+      expect.objectContaining({
+        kind: "productOption",
+        productOptionId: "return-recycle",
+      }),
+    ]);
+    expect(result[1]?.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "RETURNIN",
+        }),
+      ]),
+    );
+  });
+
+  it("matches the mixed return and installation pricing example", () => {
+    const microwave = buildProduct({
+      id: "microwave",
+      label: "Mikrobølgeovn",
+      allowReturnOptions: true,
+    });
+    const oven = buildProduct({
+      id: "oven",
+      label: "Ovn",
+      allowReturnOptions: true,
+    });
+    const freezer = buildProduct({
+      id: "freezer",
+      label: "Fryseskap",
+      options: [
+        {
+          id: "install-freezer",
+          code: "INSFRIDGE",
+          label: "Installation",
+          description: "INSFRIDGE",
+          category: "install",
+          customerPrice: "399",
+          subcontractorPrice: "0",
+          effectiveCustomerPrice: "399",
+          active: true,
+        },
+        {
+          id: "rehang-door",
+          code: "REHANGDOOR2",
+          label: "Rehang door",
+          description: "REHANGDOOR2",
+          category: "install",
+          customerPrice: "699",
+          subcontractorPrice: "0",
+          effectiveCustomerPrice: "699",
+          active: true,
+        },
+      ],
+    });
+
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          cardId: 1,
+          productId: "microwave",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-store",
+        }),
+        buildCard({
+          cardId: 2,
+          productId: "oven",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-recycle",
+        }),
+        buildCard({
+          cardId: 3,
+          productId: "freezer",
+          deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+          selectedInstallOptionIds: ["install-freezer", "rehang-door"],
+        }),
+      ],
+      [microwave, oven, freezer],
+      returnOptions,
+    );
+
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "return-store",
+          priceOverride: 0,
+        }),
+        expect.objectContaining({
+          kind: "deliveryType",
+          code: "RETURNIN",
+          unitPrice: 669,
+        }),
+      ]),
+    );
+    expect(result[1]?.items).toEqual([
+      expect.objectContaining({
+        kind: "productOption",
+        productOptionId: "return-recycle",
+      }),
+    ]);
+    expect(result[2]?.items).toEqual([
+      expect.objectContaining({
+        kind: "productOption",
+        productOptionId: "install-freezer",
+      }),
+      expect.objectContaining({
+        kind: "productOption",
+        productOptionId: "rehang-door",
+      }),
+    ]);
+  });
+
+  it("matches WP behavior for a single return-only product", () => {
+    const microwave = buildProduct({
+      id: "microwave",
+      label: "Mikrobølgeovn",
+      allowReturnOptions: true,
+    });
+
+    const result = calculateProductCards(
+      [
+        buildCard({
+          cardId: 1,
+          productId: "microwave",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-store",
+        }),
+      ],
+      [microwave],
+    );
+    const lines = getProductLines(result, "Mikrobølgeovn");
+
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "RETURNIN",
+          unitPrice: 669,
+          lineTotal: 669,
+        }),
+        expect.objectContaining({
+          code: "RETURNSTORE",
+          unitPrice: 0,
+          lineTotal: 0,
+        }),
+      ]),
+    );
+    expectNoTransportCodes(result, "Mikrobølgeovn");
+    expect(result.totals.totalExVat).toBe(669);
+  });
+
+  it("matches WP behavior for multiple return-only products without delivery", () => {
+    const microwave = buildProduct({
+      id: "microwave",
+      label: "Mikrobølgeovn",
+      allowReturnOptions: true,
+    });
+    const oven = buildProduct({
+      id: "oven",
+      label: "Ovn",
+      allowReturnOptions: true,
+    });
+
+    const result = calculateProductCards(
+      [
+        buildCard({
+          cardId: 1,
+          productId: "microwave",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-store",
+        }),
+        buildCard({
+          cardId: 2,
+          productId: "oven",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-recycle",
+        }),
+      ],
+      [microwave, oven],
+    );
+
+    expect(getProductLines(result, "Mikrobølgeovn")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "RETURNIN",
+          unitPrice: 669,
+          lineTotal: 669,
+        }),
+        expect.objectContaining({
+          code: "RETURNSTORE",
+          unitPrice: 0,
+          lineTotal: 0,
+        }),
+      ]),
+    );
+    expect(getProductLines(result, "Ovn")).toEqual([
+      expect.objectContaining({
+        code: "RETURNREC",
+        unitPrice: 250,
+        lineTotal: 250,
+      }),
+    ]);
+    expect(result.totals.totalExVat).toBe(919);
+  });
+
+  it("matches WP behavior for return-only products plus installation without delivery", () => {
+    const microwave = buildProduct({
+      id: "microwave",
+      label: "Mikrobølgeovn",
+      allowReturnOptions: true,
+    });
+    const oven = buildProduct({
+      id: "oven",
+      label: "Ovn",
+      allowReturnOptions: true,
+    });
+    const freezer = buildProduct({
+      id: "freezer",
+      label: "Fryseskap",
+      options: [
+        {
+          id: "install-freezer",
+          code: "INSFRIDGE",
+          label: "Installation",
+          description: "INSFRIDGE",
+          category: "install",
+          customerPrice: "399",
+          subcontractorPrice: "0",
+          effectiveCustomerPrice: "399",
+          active: true,
+        },
+        {
+          id: "rehang-door",
+          code: "REHANGDOOR2",
+          label: "Rehang door",
+          description: "REHANGDOOR2",
+          category: "install",
+          customerPrice: "699",
+          subcontractorPrice: "0",
+          effectiveCustomerPrice: "699",
+          active: true,
+        },
+      ],
+    });
+
+    const result = calculateProductCards(
+      [
+        buildCard({
+          cardId: 1,
+          productId: "microwave",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-store",
+        }),
+        buildCard({
+          cardId: 2,
+          productId: "oven",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-recycle",
+        }),
+        buildCard({
+          cardId: 3,
+          productId: "freezer",
+          deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+          selectedInstallOptionIds: ["install-freezer", "rehang-door"],
+        }),
+      ],
+      [microwave, oven, freezer],
+    );
+
+    expect(getProductLines(result, "Mikrobølgeovn")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "RETURNIN", lineTotal: 669 }),
+        expect.objectContaining({ code: "RETURNSTORE", lineTotal: 0 }),
+      ]),
+    );
+    expect(getProductLines(result, "Ovn")).toEqual([
+      expect.objectContaining({ code: "RETURNREC", lineTotal: 250 }),
+    ]);
+    expect(getProductLines(result, "Fryseskap")).toEqual([
+      expect.objectContaining({ code: "INSFRIDGE", lineTotal: 399 }),
+      expect.objectContaining({ code: "REHANGDOOR2", lineTotal: 699 }),
+    ]);
+    expectNoTransportCodes(result, "Fryseskap");
+    expect(result.totals.totalExVat).toBe(2017);
+  });
+
+  it("does not apply RETURNIN when a delivery product already covers transport", () => {
+    const dishwasher = buildProduct({
+      id: "dishwasher",
+      label: "Oppvaskmaskin",
+      allowReturnOptions: true,
+      options: [
+        {
+          id: "install-dishwasher",
+          code: "INSDISH",
+          label: "Installation",
+          description: "INSDISH",
+          category: "install",
+          customerPrice: "399",
+          subcontractorPrice: "0",
+          effectiveCustomerPrice: "399",
+          active: true,
+        },
+      ],
+    });
+    const freezer = buildProduct({
+      id: "freezer",
+      label: "Fryseskap",
+      allowReturnOptions: true,
+    });
+    const dryer = buildProduct({
+      id: "dryer",
+      label: "Tørketrommel",
+      allowReturnOptions: true,
+    });
+
+    const result = calculateProductCards(
+      [
+        buildCard({
+          cardId: 1,
+          productId: "dishwasher",
+          deliveryType: DELIVERY_TYPES.INDOOR,
+          amount: 2,
+          selectedInstallOptionIds: ["install-dishwasher"],
+          selectedReturnOptionId: "return-recycle",
+        }),
+        buildCard({
+          cardId: 2,
+          productId: "freezer",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-recycle",
+        }),
+        buildCard({
+          cardId: 3,
+          productId: "dryer",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          selectedReturnOptionId: "return-recycle",
+        }),
+      ],
+      [dishwasher, freezer, dryer],
+      [...returnOptions, ...automaticXtraOptions],
+    );
+
+    expect(getProductLines(result, "Oppvaskmaskin")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "INDOOR" }),
+        expect.objectContaining({ code: "XTRA" }),
+        expect.objectContaining({ code: "INSDISH" }),
+        expect.objectContaining({ code: "RETURNREC" }),
+      ]),
+    );
+    expect(getProductLines(result, "Fryseskap")).toEqual([
+      expect.objectContaining({ code: "RETURNREC" }),
+    ]);
+    expect(getProductLines(result, "Tørketrommel")).toEqual([
+      expect.objectContaining({ code: "RETURNREC" }),
+    ]);
+    expect(result.breakdowns.flatMap((breakdown) => breakdown.lines)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "RETURNIN",
+        }),
+      ]),
+    );
+  });
+
+  it("matches WP total when indoor delivery covers transport and return-only products should not get XTRA", () => {
+    const dishwasher = buildProduct({
+      id: "dishwasher",
+      label: "Oppvaskmaskin",
+      allowReturnOptions: true,
+      options: [],
+    });
+    const freezer = buildProduct({
+      id: "freezer",
+      label: "Fryseskap",
+      allowReturnOptions: true,
+    });
+    const hob = buildProduct({
+      id: "hob",
+      label: "Platetopp",
+      allowReturnOptions: true,
+      options: [
+        {
+          id: "install-hob",
+          code: "INSHOB",
+          label: "Hob install",
+          description: "INSHOB",
+          category: "install",
+          customerPrice: "6000",
+          subcontractorPrice: "0",
+          effectiveCustomerPrice: "6000",
+          active: true,
+        },
+        {
+          id: "install-hob-2",
+          code: "INSHOB2",
+          label: "Hob install 2",
+          description: "INSHOB2",
+          category: "install",
+          customerPrice: "7650",
+          subcontractorPrice: "0",
+          effectiveCustomerPrice: "7650",
+          active: true,
+        },
+      ],
+    });
+    const dryer = buildProduct({
+      id: "dryer",
+      label: "Tørketrommel",
+      allowReturnOptions: true,
+    });
+
+    const result = calculateProductCards(
+      [
+        buildCard({
+          cardId: 1,
+          productId: "dishwasher",
+          deliveryType: DELIVERY_TYPES.INDOOR,
+          amount: 4,
+          selectedReturnOptionId: "return-recycle",
+        }),
+        buildCard({
+          cardId: 2,
+          productId: "freezer",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          amount: 3,
+          selectedReturnOptionId: "return-recycle",
+        }),
+        buildCard({
+          cardId: 3,
+          productId: "hob",
+          deliveryType: DELIVERY_TYPES.INDOOR,
+          selectedInstallOptionIds: ["install-hob", "install-hob-2"],
+          selectedReturnOptionId: "return-recycle",
+        }),
+        buildCard({
+          cardId: 4,
+          productId: "dryer",
+          deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+          amount: 2,
+          selectedReturnOptionId: "return-recycle",
+        }),
+      ],
+      [dishwasher, freezer, hob, dryer],
+      [...returnOptions, ...automaticXtraOptions],
+    );
+
+    expect(getProductLines(result, "Oppvaskmaskin")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "INDOOR", lineTotal: 669 }),
+        expect.objectContaining({ code: "XTRA", qty: 3, lineTotal: 687 }),
+        expect.objectContaining({ code: "RETURNREC", qty: 4, lineTotal: 1000 }),
+      ]),
+    );
+    expect(getProductLines(result, "Fryseskap")).toEqual([
+      expect.objectContaining({ code: "RETURNREC", qty: 3, lineTotal: 750 }),
+    ]);
+    expect(getProductLines(result, "Platetopp")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "XTRA", lineTotal: 229 }),
+        expect.objectContaining({ code: "INSHOB", lineTotal: 6000 }),
+        expect.objectContaining({ code: "INSHOB2", lineTotal: 7650 }),
+        expect.objectContaining({ code: "RETURNREC", lineTotal: 250 }),
+      ]),
+    );
+    expect(getProductLines(result, "Tørketrommel")).toEqual([
+      expect.objectContaining({ code: "RETURNREC", qty: 2, lineTotal: 500 }),
+    ]);
+
+    for (const productName of ["Fryseskap", "Tørketrommel"]) {
+      expect(getProductLines(result, productName)).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: "RETURNIN" }),
+          expect.objectContaining({ code: "XTRA" }),
+        ]),
+      );
+    }
+    expect(result.totals.totalExVat).toBe(17735);
+  });
+
+  it("applies RETURNIN to the deterministic primary return-only product across reorderings", () => {
+    const products = [
+      buildProduct({
+        id: "microwave",
+        label: "Mikrobølgeovn",
+        allowReturnOptions: true,
+      }),
+      buildProduct({
+        id: "oven",
+        label: "Ovn",
+        allowReturnOptions: true,
+      }),
+      buildProduct({
+        id: "freezer",
+        label: "Fryseskap",
+        options: [
+          {
+            id: "install-freezer",
+            code: "INSFRIDGE",
+            label: "Installation",
+            description: "INSFRIDGE",
+            category: "install",
+            customerPrice: "399",
+            subcontractorPrice: "0",
+            effectiveCustomerPrice: "399",
+            active: true,
+          },
+          {
+            id: "rehang-door",
+            code: "REHANGDOOR2",
+            label: "Rehang door",
+            description: "REHANGDOOR2",
+            category: "install",
+            customerPrice: "699",
+            subcontractorPrice: "0",
+            effectiveCustomerPrice: "699",
+            active: true,
+          },
+        ],
+      }),
+    ];
+    const cardTemplates: Record<string, Partial<SavedProductCard>> = {
+      microwave: {
+        productId: "microwave",
+        deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+        selectedReturnOptionId: "return-store",
+      },
+      oven: {
+        productId: "oven",
+        deliveryType: DELIVERY_TYPES.RETURN_ONLY,
+        selectedReturnOptionId: "return-recycle",
+      },
+      freezer: {
+        productId: "freezer",
+        deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+        selectedInstallOptionIds: ["install-freezer", "rehang-door"],
+      },
+    };
+    const orderings = [
+      ["microwave", "oven", "freezer"],
+      ["microwave", "freezer", "oven"],
+      ["oven", "microwave", "freezer"],
+      ["oven", "freezer", "microwave"],
+      ["freezer", "microwave", "oven"],
+      ["freezer", "oven", "microwave"],
+    ];
+
+    const results = orderings.map((ordering) =>
+      calculateProductCards(
+        ordering.map((productKey, index) =>
+          buildCard({
+            cardId: index + 1,
+            ...cardTemplates[productKey],
+          }),
+        ),
+        products,
+      ),
+    );
+    const [expected] = results;
+
+    for (const result of results) {
+      expect(result.totals.totalExVat).toBe(expected.totals.totalExVat);
+      expect(getChargedCodes(result)).toEqual(getChargedCodes(expected));
+      expect(getProductLines(result, "Mikrobølgeovn")).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: "RETURNIN", lineTotal: 669 }),
+          expect.objectContaining({ code: "RETURNSTORE", lineTotal: 0 }),
+        ]),
+      );
+      expect(getProductLines(result, "Ovn")).toEqual([
+        expect.objectContaining({ code: "RETURNREC", lineTotal: 250 }),
+      ]);
+    }
   });
 
   it("keeps an optional model number on the product breakdown", () => {
@@ -589,7 +1281,7 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
-  it("keeps imported install and return selections visible without inventing an install-only delivery line", () => {
+  it("keeps imported install selections visible without pricing return on install-only cards", () => {
     const product = buildProduct({
       allowReturnOptions: true,
     });
@@ -612,10 +1304,13 @@ describe("buildProductBreakdowns", () => {
           productOptionId: "install-1",
           qty: 1,
         }),
+      ]),
+    );
+    expect(result[0]?.items).not.toEqual(
+      expect.arrayContaining([
         expect.objectContaining({
           kind: "productOption",
           productOptionId: "return-store",
-          qty: 1,
         }),
       ]),
     );

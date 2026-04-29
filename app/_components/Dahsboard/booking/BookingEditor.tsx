@@ -715,6 +715,9 @@ export default function BookingEditor({
   }, [canSelectPriceList]);
 
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
     async function loadCatalog() {
       try {
         setCatalogLoading(true);
@@ -732,9 +735,29 @@ export default function BookingEditor({
 
         const res = await fetch(catalogUrl, {
           cache: "no-store",
+          signal: controller.signal,
         });
 
         const data = await res.json();
+
+        if (cancelled) {
+          return;
+        }
+
+        const responsePriceListId =
+          typeof data?.priceListId === "string" ? data.priceListId : "";
+
+        if (
+          catalogPriceListId &&
+          responsePriceListId &&
+          responsePriceListId !== catalogPriceListId
+        ) {
+          setCatalogError("Selected price list did not match loaded catalog");
+          setCatalogProducts([]);
+          setCatalogSpecialOptions([]);
+          setPriceListSettings(createDefaultPriceListSettings());
+          return;
+        }
 
         if (!res.ok || !data.ok) {
           setCatalogError(data.reason ?? "Failed to load catalog");
@@ -750,23 +773,37 @@ export default function BookingEditor({
           normalizePriceListSettings(data.priceListSettings),
         );
         if (
-          typeof data.priceListId === "string" &&
-          data.priceListId &&
-          selectedPriceListId !== data.priceListId
+          !selectedPriceListId &&
+          responsePriceListId &&
+          selectedPriceListId !== responsePriceListId
         ) {
-          setSelectedPriceListId(data.priceListId);
+          setSelectedPriceListId(responsePriceListId);
         }
-      } catch {
+      } catch (error) {
+        if (
+          cancelled ||
+          (error instanceof DOMException && error.name === "AbortError")
+        ) {
+          return;
+        }
+
         setCatalogError("Failed to load catalog");
         setCatalogProducts([]);
         setCatalogSpecialOptions([]);
         setPriceListSettings(createDefaultPriceListSettings());
       } finally {
-        setCatalogLoading(false);
+        if (!cancelled) {
+          setCatalogLoading(false);
+        }
       }
     }
 
     loadCatalog();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [initialValues?.priceListId, selectedPriceListId]);
 
   useEffect(() => {
