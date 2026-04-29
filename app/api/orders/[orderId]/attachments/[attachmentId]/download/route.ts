@@ -27,6 +27,47 @@ function contentDispositionFilename(filename: string): string {
   return filename.replace(/["\r\n]/g, "_");
 }
 
+function getRemoteAttachmentUrl(sourceUrl: string | null): string | null {
+  if (!sourceUrl) return null;
+
+  try {
+    const url = new URL(sourceUrl);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function downloadRemoteAttachment(params: {
+  sourceUrl: string;
+  mimeType: string | null;
+}) {
+  const response = await fetch(params.sourceUrl, {
+    headers: {
+      Accept: params.mimeType || "*/*",
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const bytes = Buffer.from(await response.arrayBuffer());
+
+  if (bytes.length <= 0) {
+    return null;
+  }
+
+  return {
+    bytes,
+    mimeType:
+      response.headers.get("content-type") || params.mimeType || null,
+    sizeBytes: bytes.length,
+  };
+}
+
 export async function GET(
   req: Request,
   {
@@ -121,6 +162,7 @@ export async function GET(
       mimeType: true,
       sizeBytes: true,
       storagePath: true,
+      sourceUrl: true,
     },
   });
 
@@ -133,7 +175,9 @@ export async function GET(
 
   const absolutePath = getLocalUploadPath(attachment.storagePath);
 
-  if (!absolutePath) {
+  const sourceUrl = getRemoteAttachmentUrl(attachment.sourceUrl);
+
+  if (!absolutePath && !sourceUrl) {
     return NextResponse.json(
       { ok: false, reason: "ATTACHMENT_FILE_NOT_LOCAL" },
       { status: 404 },
@@ -141,25 +185,47 @@ export async function GET(
   }
 
   try {
-    const [fileStat, bytes] = await Promise.all([
-      stat(absolutePath),
-      readFile(absolutePath),
-    ]);
+    if (absolutePath) {
+      const [fileStat, bytes] = await Promise.all([
+        stat(absolutePath),
+        readFile(absolutePath),
+      ]);
 
-    return new NextResponse(bytes, {
-      headers: {
-        "Content-Type": attachment.mimeType || "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${contentDispositionFilename(
-          attachment.filename,
-        )}"`,
-        "Content-Length": String(attachment.sizeBytes ?? fileStat.size),
-      },
-    });
+      return new NextResponse(bytes, {
+        headers: {
+          "Content-Type": attachment.mimeType || "application/octet-stream",
+          "Content-Disposition": `attachment; filename="${contentDispositionFilename(
+            attachment.filename,
+          )}"`,
+          "Content-Length": String(attachment.sizeBytes ?? fileStat.size),
+        },
+      });
+    }
   } catch {
-    return NextResponse.json(
-      { ok: false, reason: "ATTACHMENT_FILE_NOT_FOUND" },
-      { status: 404 },
-    );
+    // Fall back to sourceUrl below when the local WordPress copy is missing.
   }
-}
 
+  if (sourceUrl) {
+    const remoteFile = await downloadRemoteAttachment({
+      sourceUrl,
+      mimeType: attachment.mimeType,
+    });
+
+    if (remoteFile) {
+      return new NextResponse(remoteFile.bytes, {
+        headers: {
+          "Content-Type": remoteFile.mimeType || "application/octet-stream",
+          "Content-Disposition": `attachment; filename="${contentDispositionFilename(
+            attachment.filename,
+          )}"`,
+          "Content-Length": String(remoteFile.sizeBytes),
+        },
+      });
+    }
+  }
+
+return NextResponse.json(
+    { ok: false, reason: "ATTACHMENT_FILE_NOT_FOUND" },
+    { status: 404 },
+  );
+}
