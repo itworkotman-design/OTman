@@ -21,17 +21,11 @@ export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
-    return NextResponse.json(
-      { ok: false, reason: "UNAUTHORIZED" },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
   }
 
   if (!session.activeCompanyId) {
-    return NextResponse.json(
-      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -43,19 +37,13 @@ export async function GET(req: Request) {
   });
 
   if (!membership) {
-    return NextResponse.json(
-      { ok: false, reason: "FORBIDDEN" },
-      { status: 403 },
-    );
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
   const effectivePriceListId = requestedPriceListId || membership.priceListId;
 
   if (!effectivePriceListId) {
-    return NextResponse.json(
-      { ok: false, reason: "PRICE_LIST_NOT_ASSIGNED" },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: false, reason: "PRICE_LIST_NOT_ASSIGNED" }, { status: 409 });
   }
 
   const priceList = await prisma.priceList.findUnique({
@@ -103,20 +91,27 @@ export async function GET(req: Request) {
   });
 
   if (!priceList) {
-    return NextResponse.json(
-      { ok: false, reason: "PRICE_LIST_NOT_FOUND" },
-      { status: 404 },
-    );
+    return NextResponse.json({ ok: false, reason: "PRICE_LIST_NOT_FOUND" }, { status: 404 });
   }
 
   const products = await prisma.product.findMany({
     where: {
-      isActive: true,
+      options: {
+        some: {
+          id: {
+            in: priceList.items.map((item) => item.productOptionId),
+          },
+          isActive: true,
+        },
+      },
     },
     include: {
       options: {
         where: {
           isActive: true,
+          id: {
+            in: priceList.items.map((item) => item.productOptionId),
+          },
         },
         orderBy: {
           sortOrder: "asc",
@@ -128,13 +123,9 @@ export async function GET(req: Request) {
     },
   });
 
-  const productConfigMap = await getProductConfigMap(
-    products.map((product) => product.id),
-  );
+  const productConfigMap = await getProductConfigMap(products.map((product) => product.id));
 
-  const priceItemMap = new Map(
-    priceList.items.map((item) => [item.productOptionId, item]),
-  );
+  const priceItemMap = new Map(priceList.items.map((item) => [item.productOptionId, item]));
 
   const productMap = new Map<
     string,
@@ -183,24 +174,16 @@ export async function GET(req: Request) {
         active: product.isActive,
 
         productType: productConfig?.productType ?? product.productType,
-        allowDeliveryTypes:
-          productConfig?.allowDeliveryTypes ?? product.allowDeliveryTypes,
-        allowInstallOptions:
-          productConfig?.allowInstallOptions ?? product.allowInstallOptions,
-        allowReturnOptions:
-          productConfig?.allowReturnOptions ?? product.allowReturnOptions,
-        allowExtraServices:
-          productConfig?.allowExtraServices ?? product.allowExtraServices,
+        allowDeliveryTypes: productConfig?.allowDeliveryTypes ?? product.allowDeliveryTypes,
+        allowInstallOptions: productConfig?.allowInstallOptions ?? product.allowInstallOptions,
+        allowReturnOptions: productConfig?.allowReturnOptions ?? product.allowReturnOptions,
+        allowExtraServices: productConfig?.allowExtraServices ?? product.allowExtraServices,
         allowDemont: productConfig?.allowDemont ?? product.allowDemont,
         allowQuantity: productConfig?.allowQuantity ?? product.allowQuantity,
-        allowPeopleCount:
-          productConfig?.allowPeopleCount ?? product.allowPeopleCount,
-        allowHoursInput:
-          productConfig?.allowHoursInput ?? product.allowHoursInput,
-        allowModelNumber:
-          productConfig?.allowModelNumber ?? product.allowModelNumber,
-        autoXtraPerPallet:
-          productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
+        allowPeopleCount: productConfig?.allowPeopleCount ?? product.allowPeopleCount,
+        allowHoursInput: productConfig?.allowHoursInput ?? product.allowHoursInput,
+        allowModelNumber: productConfig?.allowModelNumber ?? product.allowModelNumber,
+        autoXtraPerPallet: productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
         deliveryTypes: productConfig?.deliveryTypes ?? [],
         customSections: productConfig?.customSections ?? [],
 
@@ -209,7 +192,7 @@ export async function GET(req: Request) {
     }
 
     for (const option of product.options) {
-      const priceItem = priceItemMap.get(option.id);
+      const priceItem = priceItemMap.get(option.id) ?? priceList.items.find((item) => item.productOptionId === option.id);
       const customerPriceCents = priceItem?.customerPriceCents ?? 0;
       const subcontractorPriceCents = priceItem?.subcontractorPriceCents ?? 0;
       const effectiveCustomerPriceCents = getEffectivePrice({
@@ -217,6 +200,13 @@ export async function GET(req: Request) {
         discountAmount: priceItem?.discountAmountCents ?? null,
         discountEndsAt: priceItem?.discountEndsAt ?? null,
       });
+      if (!priceItem) {
+        console.warn("Missing price item for option", {
+          optionId: option.id,
+          optionCode: option.code,
+          priceListId: priceList.id,
+        });
+      }
 
       productMap.get(product.id)!.options.push({
         id: option.id,
@@ -234,15 +224,11 @@ export async function GET(req: Request) {
 
   const specialOptions = priceList.specialOptions.map((option) => {
     const customerPriceNumber = Number(option.customerPrice);
-    const discountAmountNumber =
-      option.discountAmount === null ? null : Number(option.discountAmount);
+    const discountAmountNumber = option.discountAmount === null ? null : Number(option.discountAmount);
 
     const effectiveCustomerPrice = getEffectivePrice({
       basePrice: customerPriceNumber,
-      discountAmount:
-        discountAmountNumber !== null && Number.isFinite(discountAmountNumber)
-          ? discountAmountNumber
-          : null,
+      discountAmount: discountAmountNumber !== null && Number.isFinite(discountAmountNumber) ? discountAmountNumber : null,
       discountEndsAt: option.discountEndsAt,
     });
 

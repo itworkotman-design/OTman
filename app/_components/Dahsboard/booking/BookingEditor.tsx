@@ -1,24 +1,11 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import OrderFieldsForm from "@/app/_components/Dahsboard/booking/create/OrderFieldsForm";
 import { loadUserOptions } from "@/lib/users/loadUserOptions";
 import { getCreateOrderViewConfig } from "@/lib/booking/createOrderView";
-import {
-  SavedProductCard,
-  createEmptyProductCard,
-  normalizeSavedProductCard,
-} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import type {
-  CatalogProduct,
-  CatalogSpecialOption,
-} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { SavedProductCard, createEmptyProductCard, normalizeSavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import type { CatalogProduct, CatalogSpecialOption } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/ProductCard";
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
@@ -31,22 +18,10 @@ import {
   EXTRA_WORK_FEE_CODE,
   EXTRA_WORK_FEE_LABEL,
 } from "@/lib/booking/pricing/hardcodedFees";
-import {
-  DEVIATION_FEE_OPTIONS,
-  getDeviationFeeOption,
-  normalizeDeviationLabel,
-  type DeviationFeeOption,
-} from "@/lib/booking/pricing/deviationFees";
+import { DEVIATION_FEE_OPTIONS, getDeviationFeeOption, normalizeDeviationLabel, type DeviationFeeOption } from "@/lib/booking/pricing/deviationFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
-import type {
-  CalculatedLine,
-  ProductBreakdown,
-} from "@/lib/booking/pricing/types";
-import {
-  OrderFields,
-  shown,
-  type HiddenMask,
-} from "@/app/_components/Dahsboard/booking/create/orderFields";
+import type { CalculatedLine, ProductBreakdown } from "@/lib/booking/pricing/types";
+import { OrderFields, shown, type HiddenMask } from "@/app/_components/Dahsboard/booking/create/orderFields";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import type { AppPermission, UserOption } from "@/lib/users/types";
@@ -57,25 +32,10 @@ import {
   normalizeOptionalEmail,
   normalizeOptionalPhone,
 } from "@/lib/orders/contactValidation";
-import {
-  getExtraPickupValidation,
-  normalizeExtraPickups,
-} from "@/lib/orders/extraPickups";
-import {
-  createDefaultPriceListSettings,
-  normalizePriceListSettings,
-  type PriceListSettings,
-} from "@/lib/products/priceListSettings";
-import {
-  applyOrderPricingSnapshot,
-  buildOrderPricingSnapshot,
-  getSavedOrderPricingSnapshot,
-  pricingSnapshotsEqual,
-} from "@/lib/booking/pricing/snapshot";
-import {
-  type AttachmentCategory,
-  type AttachmentItem,
-} from "@/lib/orders/attachmentCategories";
+import { getExtraPickupValidation, normalizeExtraPickups } from "@/lib/orders/extraPickups";
+import { createDefaultPriceListSettings, normalizePriceListSettings, type PriceListSettings } from "@/lib/products/priceListSettings";
+import { applyOrderPricingSnapshot, buildOrderPricingSnapshot, getSavedOrderPricingSnapshot, pricingSnapshotsEqual } from "@/lib/booking/pricing/snapshot";
+import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
 import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
 
 export type OrderFormPayload = {
@@ -224,17 +184,12 @@ function parsePriceSetting(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function getDeviationPriceSetting(
-  settings: PriceListSettings,
-  deviationFee: DeviationFeeOption,
-) {
+function getDeviationPriceSetting(settings: PriceListSettings, deviationFee: DeviationFeeOption) {
   const setting = settings.deviations[deviationFee.code];
 
   return {
     customerPrice: parsePriceSetting(setting?.price ?? String(deviationFee.price)),
-    subcontractorPrice: parsePriceSetting(
-      setting?.subcontractorPrice ?? String(deviationFee.subcontractorPrice),
-    ),
+    subcontractorPrice: parsePriceSetting(setting?.subcontractorPrice ?? String(deviationFee.subcontractorPrice)),
   };
 }
 
@@ -246,10 +201,7 @@ function logPriceListDebug(event: string, payload: Record<string, unknown>) {
   console.info(`[BookingEditor price list] ${event}`, payload);
 }
 
-function getWordpressRowKey(row: {
-  code?: string | null;
-  label: string;
-}) {
+function getWordpressRowKey(row: { code?: string | null; label: string }) {
   const code = row.code?.trim().toUpperCase();
   return code || row.label.trim().toLowerCase();
 }
@@ -260,20 +212,10 @@ function getNativeLineKey(line: CalculatedLine) {
 }
 
 function getWordpressReadOnlyTotalCents(card: SavedProductCard) {
-  return (
-    card.wordpressImportReadOnly?.rows.reduce(
-      (sum, row) => sum + Math.round(row.priceCents * row.quantity),
-      0,
-    ) ?? 0
-  );
+  return card.wordpressImportReadOnly?.rows.reduce((sum, row) => sum + Math.round(row.priceCents * row.quantity), 0) ?? 0;
 }
 
-function addLineTotals(
-  totals: Map<string, { quantity: number; totalCents: number }>,
-  key: string,
-  quantity: number,
-  totalCents: number,
-) {
+function addLineTotals(totals: Map<string, { quantity: number; totalCents: number }>, key: string, quantity: number, totalCents: number) {
   if (totalCents === 0) {
     return;
   }
@@ -285,39 +227,20 @@ function addLineTotals(
   });
 }
 
-function wordpressReadOnlyRowsMatchNativeLines(
-  card: SavedProductCard,
-  nativeLines: CalculatedLine[],
-) {
+function wordpressReadOnlyRowsMatchNativeLines(card: SavedProductCard, nativeLines: CalculatedLine[]) {
   if (!card.wordpressImportReadOnly) {
     return false;
   }
 
-  const wordpressTotals = new Map<
-    string,
-    { quantity: number; totalCents: number }
-  >();
-  const nativeTotals = new Map<
-    string,
-    { quantity: number; totalCents: number }
-  >();
+  const wordpressTotals = new Map<string, { quantity: number; totalCents: number }>();
+  const nativeTotals = new Map<string, { quantity: number; totalCents: number }>();
 
   for (const row of card.wordpressImportReadOnly.rows) {
-    addLineTotals(
-      wordpressTotals,
-      getWordpressRowKey(row),
-      row.quantity,
-      Math.round(row.priceCents * row.quantity),
-    );
+    addLineTotals(wordpressTotals, getWordpressRowKey(row), row.quantity, Math.round(row.priceCents * row.quantity));
   }
 
   for (const line of nativeLines) {
-    addLineTotals(
-      nativeTotals,
-      getNativeLineKey(line),
-      line.qty,
-      Math.round(line.lineTotal * 100),
-    );
+    addLineTotals(nativeTotals, getNativeLineKey(line), line.qty, Math.round(line.lineTotal * 100));
   }
 
   if (wordpressTotals.size !== nativeTotals.size) {
@@ -343,9 +266,7 @@ function normalizeRouteAddress(value: string | null | undefined) {
   return (value ?? "").trim();
 }
 
-function normalizeExtraPickupAddresses(
-  values: Array<{ address: string }> | undefined,
-) {
+function normalizeExtraPickupAddresses(values: Array<{ address: string }> | undefined) {
   return (values ?? [])
     .map((pickup) => normalizeRouteAddress(pickup.address))
     .filter(Boolean)
@@ -363,11 +284,7 @@ function parseTimeWindowState(value: string | undefined) {
     };
   }
 
-  if (
-    PRESET_TIME_WINDOWS.includes(
-      normalized as (typeof PRESET_TIME_WINDOWS)[number],
-    )
-  ) {
+  if (PRESET_TIME_WINDOWS.includes(normalized as (typeof PRESET_TIME_WINDOWS)[number])) {
     return {
       selectedTimeWindow: normalized,
       customTimeFrom: "",
@@ -376,8 +293,7 @@ function parseTimeWindowState(value: string | undefined) {
   }
 
   const [from = "", to = ""] = normalized.split("-");
-  const isCustomTimeRange =
-    /^\d{2}:\d{2}$/.test(from) && /^\d{2}:\d{2}$/.test(to);
+  const isCustomTimeRange = /^\d{2}:\d{2}$/.test(from) && /^\d{2}:\d{2}$/.test(to);
 
   if (!isCustomTimeRange) {
     return {
@@ -434,9 +350,7 @@ function normalizeInitialTimeWindow(value: string | null | undefined) {
   return `${from}-${to}`;
 }
 
-function normalizeInitialLift(
-  value: string | null | undefined,
-): "yes" | "no" | "" {
+function normalizeInitialLift(value: string | null | undefined): "yes" | "no" | "" {
   const normalized = value?.trim().toLowerCase() ?? "";
   if (["ja", "yes", "y", "true", "1"].includes(normalized)) {
     return "yes";
@@ -488,28 +402,18 @@ function normalizeInitialStatus(value: string | null | undefined) {
   }
 }
 
-const PROTECTED_AUTO_DISCOUNT_CODES = new Set([
-  EXTRA_WORK_FEE_CODE,
-  ADD_TO_ORDER_FEE_CODE,
-  ...DEVIATION_FEE_OPTIONS.map((option) => option.code),
-]);
+const PROTECTED_AUTO_DISCOUNT_CODES = new Set([EXTRA_WORK_FEE_CODE, ADD_TO_ORDER_FEE_CODE, ...DEVIATION_FEE_OPTIONS.map((option) => option.code)]);
 
 function isCancelledOrFailedStatus(status: string): boolean {
   const normalized = normalizeInitialStatus(status);
   return normalized === "cancelled" || normalized === "failed";
 }
 
-function removeProtectedAutoDiscountItems(
-  breakdowns: ProductBreakdown[],
-): ProductBreakdown[] {
+function removeProtectedAutoDiscountItems(breakdowns: ProductBreakdown[]): ProductBreakdown[] {
   return breakdowns
     .map((breakdown) => ({
       ...breakdown,
-      items: breakdown.items.filter(
-        (item) =>
-          item.kind !== "customPrice" ||
-          !PROTECTED_AUTO_DISCOUNT_CODES.has(item.code),
-      ),
+      items: breakdown.items.filter((item) => item.kind !== "customPrice" || !PROTECTED_AUTO_DISCOUNT_CODES.has(item.code)),
     }))
     .filter((breakdown) => breakdown.items.length > 0);
 }
@@ -522,9 +426,7 @@ function formatAutoDiscountAmount(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
-function isRecyclingReturnOption(
-  option: CatalogSpecialOption | undefined,
-): boolean {
+function isRecyclingReturnOption(option: CatalogSpecialOption | undefined): boolean {
   if (!option) {
     return false;
   }
@@ -532,9 +434,7 @@ function isRecyclingReturnOption(
   const normalizedCode = option.code.trim().toUpperCase();
   const normalizedLabel = (option.label ?? "").trim().toLowerCase();
 
-  return (
-    normalizedCode === "RETURNREC" || normalizedLabel.includes("gjenvinning")
-  );
+  return normalizedCode === "RETURNREC" || normalizedLabel.includes("gjenvinning");
 }
 
 function scrollToPageTop() {
@@ -557,11 +457,7 @@ function scrollToFieldTarget(targetId: string) {
       block: "center",
     });
 
-    if (
-      element instanceof HTMLInputElement ||
-      element instanceof HTMLSelectElement ||
-      element instanceof HTMLTextAreaElement
-    ) {
+    if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
       element.focus();
     }
   });
@@ -580,31 +476,17 @@ export default function BookingEditor({
   const [didAttemptSubmit, setDidAttemptSubmit] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [productCards, setProductCards] = useState<SavedProductCard[]>(
-    initialValues?.productCards?.length
-      ? initialValues.productCards.map((card, index) =>
-          normalizeSavedProductCard(card, index),
-        )
-      : [createEmptyProductCard(0)],
+    initialValues?.productCards?.length ? initialValues.productCards.map((card, index) => normalizeSavedProductCard(card, index)) : [createEmptyProductCard(0)],
   );
-  const [customerLabel, setCustomerLabel] = useState(
-    initialValues?.customerLabel ?? "",
-  );
+  const [customerLabel, setCustomerLabel] = useState(initialValues?.customerLabel ?? "");
   const [expandedCardId, setExpandedCardId] = useState<number | null>(0);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
-  const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<
-    CatalogSpecialOption[]
-  >([]);
-  const [selectedPriceListId, setSelectedPriceListId] = useState(
-    initialValues?.priceListId ?? "",
-  );
-  const [priceListOptions, setPriceListOptions] = useState<PriceListOption[]>(
-    [],
-  );
+  const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<CatalogSpecialOption[]>([]);
+  const [selectedPriceListId, setSelectedPriceListId] = useState(initialValues?.priceListId ?? "");
+  const [priceListOptions, setPriceListOptions] = useState<PriceListOption[]>([]);
   const [priceListsLoading, setPriceListsLoading] = useState(false);
   const [priceListsError, setPriceListsError] = useState<string | null>(null);
-  const [priceListSettings, setPriceListSettings] = useState<PriceListSettings>(
-    createDefaultPriceListSettings(),
-  );
+  const [priceListSettings, setPriceListSettings] = useState<PriceListSettings>(createDefaultPriceListSettings());
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [priceExVat, setPriceExVat] = useState(0);
@@ -613,104 +495,41 @@ export default function BookingEditor({
   const [leggTil, setLeggTil] = useState("");
   const [subcontractorMinus, setSubcontractorMinus] = useState("");
   const [subcontractorPlus, setSubcontractorPlus] = useState("");
-  const [orderNumber, setOrderNumber] = useState(
-    initialValues?.orderNumber ?? "",
-  );
-  const [description, setDescription] = useState(
-    initialValues?.description ?? "",
-  );
+  const [orderNumber, setOrderNumber] = useState(initialValues?.orderNumber ?? "");
+  const [description, setDescription] = useState(initialValues?.description ?? "");
   const [modelNr, setModelNr] = useState(initialValues?.modelNr ?? "");
-  const initialTimeWindowState = parseTimeWindowState(
-    initialValues?.timeWindow,
-  );
-  const [deliveryDate, setDeliveryDate] = useState(
-    normalizeInitialDeliveryDate(initialValues?.deliveryDate),
-  );
-  const [timeWindow, setTimeWindow] = useState(
-    initialTimeWindowState.selectedTimeWindow,
-  );
-  const [expressDelivery, setExpressDelivery] = useState(
-    initialValues?.expressDelivery ?? false,
-  );
-  const [deliveryAddress, setDeliveryAddress] = useState(
-    initialValues?.deliveryAddress ?? "",
-  );
-  const [drivingDistance, setDrivingDistance] = useState(
-    initialValues?.drivingDistance ?? "",
-  );
-  const [customerName, setCustomerName] = useState(
-    initialValues?.customerName ?? "",
-  );
-  const [phone, setPhone] = useState(
-    initialValues ? (initialValues.phone ?? "") : DEFAULT_PHONE_PREFIX,
-  );
-  const [phoneTwo, setPhoneTwo] = useState(
-    initialValues ? (initialValues.phoneTwo ?? "") : DEFAULT_PHONE_PREFIX,
-  );
+  const initialTimeWindowState = parseTimeWindowState(initialValues?.timeWindow);
+  const [deliveryDate, setDeliveryDate] = useState(normalizeInitialDeliveryDate(initialValues?.deliveryDate));
+  const [timeWindow, setTimeWindow] = useState(initialTimeWindowState.selectedTimeWindow);
+  const [expressDelivery, setExpressDelivery] = useState(initialValues?.expressDelivery ?? false);
+  const [deliveryAddress, setDeliveryAddress] = useState(initialValues?.deliveryAddress ?? "");
+  const [drivingDistance, setDrivingDistance] = useState(initialValues?.drivingDistance ?? "");
+  const [customerName, setCustomerName] = useState(initialValues?.customerName ?? "");
+  const [phone, setPhone] = useState(initialValues ? (initialValues.phone ?? "") : DEFAULT_PHONE_PREFIX);
+  const [phoneTwo, setPhoneTwo] = useState(initialValues ? (initialValues.phoneTwo ?? "") : DEFAULT_PHONE_PREFIX);
   const [email, setEmail] = useState(initialValues?.email ?? "");
-  const [customerComments, setCustomerComments] = useState(
-    initialValues?.customerComments ?? "",
-  );
+  const [customerComments, setCustomerComments] = useState(initialValues?.customerComments ?? "");
   const [floorNo, setFloorNo] = useState(initialValues?.floorNo ?? "");
-  const [lift, setLift] = useState<"yes" | "no" | "">(
-    normalizeInitialLift(initialValues?.lift),
-  );
-  const [cashierName, setCashierName] = useState(
-    initialValues?.cashierName ?? "",
-  );
-  const [cashierPhone, setCashierPhone] = useState(
-    initialValues ? (initialValues.cashierPhone ?? "") : DEFAULT_PHONE_PREFIX,
-  );
-  const [subcontractorId, setSubcontractorId] = useState(
-    initialValues?.subcontractorId ?? "",
-  );
+  const [lift, setLift] = useState<"yes" | "no" | "">(normalizeInitialLift(initialValues?.lift));
+  const [cashierName, setCashierName] = useState(initialValues?.cashierName ?? "");
+  const [cashierPhone, setCashierPhone] = useState(initialValues ? (initialValues.cashierPhone ?? "") : DEFAULT_PHONE_PREFIX);
+  const [subcontractorId, setSubcontractorId] = useState(initialValues?.subcontractorId ?? "");
   const [driver, setDriver] = useState(initialValues?.driver ?? "");
-  const [secondDriver, setSecondDriver] = useState(
-    initialValues?.secondDriver ?? "",
-  );
+  const [secondDriver, setSecondDriver] = useState(initialValues?.secondDriver ?? "");
   const [driverInfo, setDriverInfo] = useState(initialValues?.driverInfo ?? "");
-  const [licensePlate, setLicensePlate] = useState(
-    initialValues?.licensePlate ?? "",
-  );
-  const [deviation, setDeviation] = useState(
-    normalizeDeviationLabel(initialValues?.deviation) ??
-      initialValues?.deviation ??
-      "",
-  );
-  const [feeExtraWork, setFeeExtraWork] = useState(
-    initialValues?.feeExtraWork ?? false,
-  );
-  const [extraWorkMinutes, setExtraWorkMinutes] = useState(
-    initialValues?.extraWorkMinutes ?? 0,
-  );
-  const [feeAddToOrder, setFeeAddToOrder] = useState(
-    initialValues?.feeAddToOrder ?? false,
-  );
-  const [statusNotes, setStatusNotes] = useState(
-    initialValues?.statusNotes ?? "",
-  );
-  const [customerMembershipId, setCustomerMembershipId] = useState(
-    initialValues?.customerMembershipId ?? "",
-  );
-  const [status, setStatus] = useState(
-    normalizeInitialStatus(initialValues?.status),
-  );
-  const [dontSendEmail, setDontSendEmail] = useState(
-    initialValues?.dontSendEmail ?? false,
-  );
-  const [dontSendWarehouseEmail, setDontSendWarehouseEmail] = useState(
-    initialValues?.dontSendWarehouseEmail ?? !initialValues?.id,
-  );
-  const [
-    contactCustomerForCustomTimeWindow,
-    setContactCustomerForCustomTimeWindow,
-  ] = useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
-  const [customTimeContactNote, setCustomTimeContactNote] = useState(
-    initialValues?.customTimeContactNote ?? "",
-  );
-  const [pickupAddress, setPickupAddress] = useState(
-    initialValues?.pickupAddress ?? "",
-  );
+  const [licensePlate, setLicensePlate] = useState(initialValues?.licensePlate ?? "");
+  const [deviation, setDeviation] = useState(normalizeDeviationLabel(initialValues?.deviation) ?? initialValues?.deviation ?? "");
+  const [feeExtraWork, setFeeExtraWork] = useState(initialValues?.feeExtraWork ?? false);
+  const [extraWorkMinutes, setExtraWorkMinutes] = useState(initialValues?.extraWorkMinutes ?? 0);
+  const [feeAddToOrder, setFeeAddToOrder] = useState(initialValues?.feeAddToOrder ?? false);
+  const [statusNotes, setStatusNotes] = useState(initialValues?.statusNotes ?? "");
+  const [customerMembershipId, setCustomerMembershipId] = useState(initialValues?.customerMembershipId ?? "");
+  const [status, setStatus] = useState(normalizeInitialStatus(initialValues?.status));
+  const [dontSendEmail, setDontSendEmail] = useState(initialValues?.dontSendEmail ?? false);
+  const [dontSendWarehouseEmail, setDontSendWarehouseEmail] = useState(initialValues?.dontSendWarehouseEmail ?? !initialValues?.id);
+  const [contactCustomerForCustomTimeWindow, setContactCustomerForCustomTimeWindow] = useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
+  const [customTimeContactNote, setCustomTimeContactNote] = useState(initialValues?.customTimeContactNote ?? "");
+  const [pickupAddress, setPickupAddress] = useState(initialValues?.pickupAddress ?? "");
   const [extraPickups, setExtraPickups] = useState<ExtraPickupDraft[]>(
     initialValues?.extraPickups?.length
       ? initialValues.extraPickups.map((pickup, index) => ({
@@ -722,34 +541,21 @@ export default function BookingEditor({
         }))
       : [],
   );
-  const [returnAddress, setReturnAddress] = useState(
-    initialValues?.returnAddress ?? "",
-  );
-  const [customTimeFrom, setCustomTimeFrom] = useState(
-    initialTimeWindowState.customTimeFrom,
-  );
+  const [returnAddress, setReturnAddress] = useState(initialValues?.returnAddress ?? "");
+  const [customTimeFrom, setCustomTimeFrom] = useState(initialTimeWindowState.customTimeFrom);
 
-  const [customTimeTo, setCustomTimeTo] = useState(
-    initialTimeWindowState.customTimeTo,
-  );
+  const [customTimeTo, setCustomTimeTo] = useState(initialTimeWindowState.customTimeTo);
 
-  const [subcontractorOptions, setSubcontractorOptions] = useState<
-    UserOption[]
-  >([]);
+  const [subcontractorOptions, setSubcontractorOptions] = useState<UserOption[]>([]);
   const [subcontractorLoading, setSubcontractorLoading] = useState(false);
 
-  const [changeCustomerOptions, setChangeCustomerOptions] = useState<
-    UserOption[]
-  >([]);
+  const [changeCustomerOptions, setChangeCustomerOptions] = useState<UserOption[]>([]);
   const [changeCustomerLoading, setChangeCustomerLoading] = useState(false);
   const distanceRequestAbortRef = useRef<AbortController | null>(null);
   const previousSelectedCustomerIdRef = useRef<string | null>(null);
   const hasProcessedInitialReturnSyncRef = useRef(false);
-  const lastUnlockedPickupAddressRef = useRef(
-    initialValues?.pickupAddress ?? "",
-  );
-  const [capacityWarning, setCapacityWarning] =
-    useState<CapacityWarningState>(null);
+  const lastUnlockedPickupAddressRef = useRef(initialValues?.pickupAddress ?? "");
+  const [capacityWarning, setCapacityWarning] = useState<CapacityWarningState>(null);
   const [capacityWarningLoading, setCapacityWarningLoading] = useState(false);
 
   const currentUser = useCurrentUser();
@@ -759,17 +565,10 @@ export default function BookingEditor({
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [attachmentsUploading, setAttachmentsUploading] = useState(false);
   const [attachmentsError, setAttachmentsError] = useState("");
-  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>(
-    [],
-  );
-  const { effectiveHidden, effectiveHideDontSendEmail } =
-    getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
-  const showAdminCalculatorAdjustments =
-    !!initialValues?.id && (role === "OWNER" || role === "ADMIN");
-  const canSelectPriceList =
-    !initialValues?.id &&
-    dataset === "default" &&
-    (role === "OWNER" || role === "ADMIN");
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>([]);
+  const { effectiveHidden, effectiveHideDontSendEmail } = getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
+  const showAdminCalculatorAdjustments = !!initialValues?.id && (role === "OWNER" || role === "ADMIN");
+  const canSelectPriceList = !initialValues?.id && dataset === "default" && (role === "OWNER" || role === "ADMIN");
 
   useEffect(() => {
     if (!canSelectPriceList) {
@@ -800,9 +599,7 @@ export default function BookingEditor({
         const nextOptions: PriceListOption[] = Array.isArray(data.priceLists)
           ? data.priceLists
               .map((item: Partial<PriceListOption>) =>
-                typeof item.id === "string" &&
-                typeof item.name === "string" &&
-                typeof item.code === "string"
+                typeof item.id === "string" && typeof item.name === "string" && typeof item.code === "string"
                   ? {
                       id: item.id,
                       name: item.name,
@@ -855,11 +652,8 @@ export default function BookingEditor({
         setCatalogLoading(true);
         setCatalogError(null);
 
-        const catalogPriceListId =
-          selectedPriceListId || initialValues?.priceListId;
-        const catalogUrl = catalogPriceListId
-          ? `/api/booking/catalog?priceListId=${encodeURIComponent(catalogPriceListId)}`
-          : "/api/booking/catalog";
+        const catalogPriceListId = selectedPriceListId || initialValues?.priceListId;
+        const catalogUrl = catalogPriceListId ? `/api/booking/catalog?priceListId=${encodeURIComponent(catalogPriceListId)}` : "/api/booking/catalog";
 
         logPriceListDebug("catalog request", {
           requestedPriceListId: catalogPriceListId ?? "",
@@ -883,14 +677,9 @@ export default function BookingEditor({
           return;
         }
 
-        const responsePriceListId =
-          typeof data?.priceListId === "string" ? data.priceListId : "";
+        const responsePriceListId = typeof data?.priceListId === "string" ? data.priceListId : "";
 
-        if (
-          catalogPriceListId &&
-          responsePriceListId &&
-          responsePriceListId !== catalogPriceListId
-        ) {
+        if (catalogPriceListId && responsePriceListId && responsePriceListId !== catalogPriceListId) {
           logPriceListDebug("catalog mismatch", {
             requestedPriceListId: catalogPriceListId,
             responsePriceListId,
@@ -918,29 +707,18 @@ export default function BookingEditor({
 
         setCatalogProducts(data.products ?? []);
         setCatalogSpecialOptions(data.specialOptions ?? []);
-        setPriceListSettings(
-          normalizePriceListSettings(data.priceListSettings),
-        );
+        setPriceListSettings(normalizePriceListSettings(data.priceListSettings));
         logPriceListDebug("catalog applied", {
           requestedPriceListId: catalogPriceListId ?? "",
           responsePriceListId,
           productCount: Array.isArray(data.products) ? data.products.length : 0,
-          specialOptionCount: Array.isArray(data.specialOptions)
-            ? data.specialOptions.length
-            : 0,
+          specialOptionCount: Array.isArray(data.specialOptions) ? data.specialOptions.length : 0,
         });
-        if (
-          !selectedPriceListId &&
-          responsePriceListId &&
-          selectedPriceListId !== responsePriceListId
-        ) {
+        if (!selectedPriceListId && responsePriceListId && selectedPriceListId !== responsePriceListId) {
           setSelectedPriceListId(responsePriceListId);
         }
       } catch (error) {
-        if (
-          cancelled ||
-          (error instanceof DOMException && error.name === "AbortError")
-        ) {
+        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) {
           return;
         }
 
@@ -974,16 +752,10 @@ export default function BookingEditor({
 
     setProductCards(
       initialValues.productCards?.length
-        ? initialValues.productCards.map((card, index) =>
-            normalizeSavedProductCard(card, index),
-          )
+        ? initialValues.productCards.map((card, index) => normalizeSavedProductCard(card, index))
         : [createEmptyProductCard(0)],
     );
-    setExpandedCardId(
-      initialValues.productCards?.length
-        ? initialValues.productCards[0].cardId
-        : 0,
-    );
+    setExpandedCardId(initialValues.productCards?.length ? initialValues.productCards[0].cardId : 0);
     setCustomerLabel(initialValues.customerLabel ?? "");
     setOrderNumber(initialValues.orderNumber ?? "");
     setDescription(initialValues.description ?? "");
@@ -1007,26 +779,17 @@ export default function BookingEditor({
     setSecondDriver(initialValues.secondDriver ?? "");
     setDriverInfo(initialValues.driverInfo ?? "");
     setLicensePlate(initialValues.licensePlate ?? "");
-    setDeviation(
-      normalizeDeviationLabel(initialValues.deviation) ??
-        initialValues.deviation ??
-        "",
-    );
+    setDeviation(normalizeDeviationLabel(initialValues.deviation) ?? initialValues.deviation ?? "");
     setFeeExtraWork(initialValues.feeExtraWork ?? false);
     setExtraWorkMinutes(initialValues.extraWorkMinutes ?? 0);
     setFeeAddToOrder(initialValues.feeAddToOrder ?? false);
     setStatusNotes(initialValues.statusNotes ?? "");
     setCustomerMembershipId(initialValues.customerMembershipId ?? "");
-    previousSelectedCustomerIdRef.current =
-      initialValues.customerMembershipId ?? null;
+    previousSelectedCustomerIdRef.current = initialValues.customerMembershipId ?? null;
     setStatus(normalizeInitialStatus(initialValues.status));
     setDontSendEmail(initialValues.dontSendEmail ?? false);
-    setDontSendWarehouseEmail(
-      initialValues.dontSendWarehouseEmail ?? !initialValues.id,
-    );
-    setContactCustomerForCustomTimeWindow(
-      initialValues.contactCustomerForCustomTimeWindow ?? false,
-    );
+    setDontSendWarehouseEmail(initialValues.dontSendWarehouseEmail ?? !initialValues.id);
+    setContactCustomerForCustomTimeWindow(initialValues.contactCustomerForCustomTimeWindow ?? false);
     setCustomTimeContactNote(initialValues.customTimeContactNote ?? "");
     setPickupAddress(initialValues.pickupAddress ?? "");
     setExtraPickups(
@@ -1058,10 +821,7 @@ export default function BookingEditor({
     async function run() {
       try {
         setSubcontractorLoading(true);
-        const options = await loadUserOptions(
-          "/api/auth/subcontractors",
-          "subcontractors",
-        );
+        const options = await loadUserOptions("/api/auth/subcontractors", "subcontractors");
         setSubcontractorOptions(options);
       } finally {
         setSubcontractorLoading(false);
@@ -1076,10 +836,7 @@ export default function BookingEditor({
     async function run() {
       try {
         setChangeCustomerLoading(true);
-        const options = await loadUserOptions(
-          "/api/auth/order-creators",
-          "orderCreators",
-        );
+        const options = await loadUserOptions("/api/auth/order-creators", "orderCreators");
         setChangeCustomerOptions(options);
       } finally {
         setChangeCustomerLoading(false);
@@ -1089,19 +846,13 @@ export default function BookingEditor({
     run();
   }, []);
 
-  const updateProductCard = useCallback(
-    (cardId: number, nextValue: SavedProductCard) => {
-      setProductCards((current) =>
-        current.map((card) => (card.cardId === cardId ? nextValue : card)),
-      );
-    },
-    [],
-  );
+  const updateProductCard = useCallback((cardId: number, nextValue: SavedProductCard) => {
+    setProductCards((current) => current.map((card) => (card.cardId === cardId ? nextValue : card)));
+  }, []);
 
   const addProductCard = useCallback(() => {
     setProductCards((current) => {
-      const nextCardId =
-        current.length > 0 ? Math.max(...current.map((c) => c.cardId)) + 1 : 0;
+      const nextCardId = current.length > 0 ? Math.max(...current.map((c) => c.cardId)) + 1 : 0;
 
       setExpandedCardId(nextCardId);
       return [...current, createEmptyProductCard(nextCardId)];
@@ -1109,27 +860,29 @@ export default function BookingEditor({
   }, []);
 
   const removeProductCard = useCallback((cardId: number) => {
-    setProductCards((current) =>
-      current.filter((card) => card.cardId !== cardId),
-    );
+    setProductCards((current) => current.filter((card) => card.cardId !== cardId));
 
     setExpandedCardId((current) => (current === cardId ? null : current));
   }, []);
 
-  const handlePriceListChange = useCallback((priceListId: string) => {
-    logPriceListDebug("selection changed", {
-      previousPriceListId: selectedPriceListId,
-      nextPriceListId: priceListId,
-    });
-    setSelectedPriceListId(priceListId);
-    setProductCards([createEmptyProductCard(0)]);
-    setExpandedCardId(0);
-  }, [selectedPriceListId]);
+  const handlePriceListChange = useCallback(
+    (priceListId: string) => {
+      logPriceListDebug("selection changed", {
+        previousPriceListId: selectedPriceListId,
+        nextPriceListId: priceListId,
+      });
 
-  const savedPricingSnapshot = useMemo(
-    () => getSavedOrderPricingSnapshot(productCards),
-    [productCards],
+      setSelectedPriceListId(priceListId);
+      setCatalogProducts([]);
+      setCatalogSpecialOptions([]);
+      setPriceListSettings(createDefaultPriceListSettings());
+      setProductCards([createEmptyProductCard(0)]);
+      setExpandedCardId(0);
+    },
+    [selectedPriceListId],
   );
+
+  const savedPricingSnapshot = useMemo(() => getSavedOrderPricingSnapshot(productCards), [productCards]);
 
   const currentPricingSnapshot = useMemo(
     () =>
@@ -1142,9 +895,7 @@ export default function BookingEditor({
     [productCards, catalogProducts, catalogSpecialOptions, priceListSettings],
   );
 
-  const hasCurrentPriceUpdates =
-    Boolean(initialValues?.id && savedPricingSnapshot) &&
-    !pricingSnapshotsEqual(savedPricingSnapshot, currentPricingSnapshot);
+  const hasCurrentPriceUpdates = Boolean(initialValues?.id && savedPricingSnapshot) && !pricingSnapshotsEqual(savedPricingSnapshot, currentPricingSnapshot);
 
   const pricingSource = useMemo(
     () =>
@@ -1154,12 +905,7 @@ export default function BookingEditor({
         priceListSettings,
         pricingSnapshot: savedPricingSnapshot,
       }),
-    [
-      catalogProducts,
-      catalogSpecialOptions,
-      priceListSettings,
-      savedPricingSnapshot,
-    ],
+    [catalogProducts, catalogSpecialOptions, priceListSettings, savedPricingSnapshot],
   );
 
   const importedWordpressRouteChanged = useMemo(() => {
@@ -1168,14 +914,10 @@ export default function BookingEditor({
     }
 
     return (
-      normalizeRouteAddress(pickupAddress) !==
-        normalizeRouteAddress(initialValues.pickupAddress) ||
-      normalizeRouteAddress(deliveryAddress) !==
-        normalizeRouteAddress(initialValues.deliveryAddress) ||
-      normalizeRouteAddress(returnAddress) !==
-        normalizeRouteAddress(initialValues.returnAddress) ||
-      normalizeExtraPickupAddresses(extraPickups) !==
-        normalizeExtraPickupAddresses(initialValues.extraPickups)
+      normalizeRouteAddress(pickupAddress) !== normalizeRouteAddress(initialValues.pickupAddress) ||
+      normalizeRouteAddress(deliveryAddress) !== normalizeRouteAddress(initialValues.deliveryAddress) ||
+      normalizeRouteAddress(returnAddress) !== normalizeRouteAddress(initialValues.returnAddress) ||
+      normalizeExtraPickupAddresses(extraPickups) !== normalizeExtraPickupAddresses(initialValues.extraPickups)
     );
   }, [
     deliveryAddress,
@@ -1190,33 +932,17 @@ export default function BookingEditor({
   ]);
 
   const importedWordpressDistanceChanged =
-    Boolean(initialValues?.legacyWordpressOrderId) &&
-    normalizeRouteAddress(drivingDistance) !==
-      normalizeRouteAddress(initialValues?.drivingDistance);
+    Boolean(initialValues?.legacyWordpressOrderId) && normalizeRouteAddress(drivingDistance) !== normalizeRouteAddress(initialValues?.drivingDistance);
 
-  const shouldUseNativeDistancePricing =
-    !initialValues?.legacyWordpressOrderId ||
-    importedWordpressRouteChanged ||
-    importedWordpressDistanceChanged;
+  const shouldUseNativeDistancePricing = !initialValues?.legacyWordpressOrderId || importedWordpressRouteChanged || importedWordpressDistanceChanged;
 
   const productBreakdowns = useMemo(
     () =>
-      buildProductBreakdowns(
-        productCards,
-        pricingSource.catalogProducts,
-        pricingSource.catalogSpecialOptions,
-        {
-          zeroBaseDeliveryPricesOver100Km:
-            shouldUseNativeDistancePricing &&
-            parseDistanceKm(drivingDistance) > 100,
-          xtraPalletPrice: parsePriceSetting(
-            pricingSource.priceListSettings.xtraPallet.price,
-          ),
-          xtraPalletSubcontractorPrice: parsePriceSetting(
-            pricingSource.priceListSettings.xtraPallet.subcontractorPrice,
-          ),
-        },
-      ),
+      buildProductBreakdowns(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
+        zeroBaseDeliveryPricesOver100Km: shouldUseNativeDistancePricing && parseDistanceKm(drivingDistance) > 100,
+        xtraPalletPrice: parsePriceSetting(pricingSource.priceListSettings.xtraPallet.price),
+        xtraPalletSubcontractorPrice: parsePriceSetting(pricingSource.priceListSettings.xtraPallet.subcontractorPrice),
+      }),
     [
       productCards,
       pricingSource.catalogProducts,
@@ -1238,40 +964,20 @@ export default function BookingEditor({
       unitPrice: number;
       subcontractorUnitPrice: number;
     }> = [];
-    const totalDistanceKm = shouldUseNativeDistancePricing
-      ? parseDistanceKm(drivingDistance)
-      : 0;
-    const chargeableDistanceKm =
-      getStartedChargeableKilometers(totalDistanceKm);
-    const kmFrom21Qty =
-      totalDistanceKm > 20 && totalDistanceKm <= 100
-        ? chargeableDistanceKm
-        : 0;
+    const totalDistanceKm = shouldUseNativeDistancePricing ? parseDistanceKm(drivingDistance) : 0;
+    const chargeableDistanceKm = getStartedChargeableKilometers(totalDistanceKm);
+    const kmFrom21Qty = totalDistanceKm > 20 && totalDistanceKm <= 100 ? chargeableDistanceKm : 0;
 
     const kmOver100Qty = totalDistanceKm > 100 ? chargeableDistanceKm : 0;
-    const kmFrom21Price = parsePriceSetting(
-      pricingSource.priceListSettings.kmFrom21.price,
-    );
-    const kmFrom21SubcontractorPrice = parsePriceSetting(
-      pricingSource.priceListSettings.kmFrom21.subcontractorPrice,
-    );
-    const kmOver100Price = parsePriceSetting(
-      pricingSource.priceListSettings.kmOver100.price,
-    );
-    const kmOver100SubcontractorPrice = parsePriceSetting(
-      pricingSource.priceListSettings.kmOver100.subcontractorPrice,
-    );
-    const extraWorkFee = feeExtraWork
-      ? calculateExtraWorkFee(extraWorkMinutes)
-      : { blocks: 0, price: 0 };
+    const kmFrom21Price = parsePriceSetting(pricingSource.priceListSettings.kmFrom21.price);
+    const kmFrom21SubcontractorPrice = parsePriceSetting(pricingSource.priceListSettings.kmFrom21.subcontractorPrice);
+    const kmOver100Price = parsePriceSetting(pricingSource.priceListSettings.kmOver100.price);
+    const kmOver100SubcontractorPrice = parsePriceSetting(pricingSource.priceListSettings.kmOver100.subcontractorPrice);
+    const extraWorkFee = feeExtraWork ? calculateExtraWorkFee(extraWorkMinutes) : { blocks: 0, price: 0 };
     const deviationFee = getDeviationFeeOption(deviation);
 
-    const expressDeliveryPrice = parsePriceSetting(
-      pricingSource.priceListSettings.expressDelivery.price,
-    );
-    const expressDeliverySubcontractorPrice = parsePriceSetting(
-      pricingSource.priceListSettings.expressDelivery.subcontractorPrice,
-    );
+    const expressDeliveryPrice = parsePriceSetting(pricingSource.priceListSettings.expressDelivery.price);
+    const expressDeliverySubcontractorPrice = parsePriceSetting(pricingSource.priceListSettings.expressDelivery.subcontractorPrice);
 
     if (expressDelivery && Number.isFinite(expressDeliveryPrice)) {
       extraItems.push({
@@ -1284,15 +990,9 @@ export default function BookingEditor({
       });
     }
 
-    const extraPickupCount = extraPickups.filter(
-      (pickup) => pickup.address.trim().length > 0,
-    ).length;
-    const extraPickupPrice = parsePriceSetting(
-      pricingSource.priceListSettings.extraPickup.price,
-    );
-    const extraPickupSubcontractorPrice = parsePriceSetting(
-      pricingSource.priceListSettings.extraPickup.subcontractorPrice,
-    );
+    const extraPickupCount = extraPickups.filter((pickup) => pickup.address.trim().length > 0).length;
+    const extraPickupPrice = parsePriceSetting(pricingSource.priceListSettings.extraPickup.price);
+    const extraPickupSubcontractorPrice = parsePriceSetting(pricingSource.priceListSettings.extraPickup.subcontractorPrice);
 
     if (extraPickupCount > 0 && Number.isFinite(extraPickupPrice)) {
       extraItems.push({
@@ -1328,10 +1028,7 @@ export default function BookingEditor({
     }
 
     if (deviationFee) {
-      const deviationPrices = getDeviationPriceSetting(
-        pricingSource.priceListSettings,
-        deviationFee,
-      );
+      const deviationPrices = getDeviationPriceSetting(pricingSource.priceListSettings, deviationFee);
 
       extraItems.push({
         kind: "customPrice",
@@ -1403,11 +1100,7 @@ export default function BookingEditor({
   ]);
 
   const priceLookup = useMemo(
-    () =>
-      buildPriceLookup(
-        pricingSource.catalogProducts,
-        pricingSource.catalogSpecialOptions,
-      ),
+    () => buildPriceLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions),
     [pricingSource.catalogProducts, pricingSource.catalogSpecialOptions],
   );
 
@@ -1416,42 +1109,21 @@ export default function BookingEditor({
       return;
     }
 
-    if (
-      !productCards.some(
-        (card) => card.productId && card.wordpressImportReadOnly,
-      )
-    ) {
+    if (!productCards.some((card) => card.productId && card.wordpressImportReadOnly)) {
       return;
     }
 
-    const editableCards = productCards.map((card) =>
-      card.productId && card.wordpressImportReadOnly
-        ? { ...card, wordpressImportReadOnly: null }
-        : card,
-    );
-    const editableBreakdowns = buildProductBreakdowns(
-      editableCards,
-      pricingSource.catalogProducts,
-      pricingSource.catalogSpecialOptions,
-      {
-        zeroBaseDeliveryPricesOver100Km:
-          shouldUseNativeDistancePricing && parseDistanceKm(drivingDistance) > 100,
-        xtraPalletPrice: parsePriceSetting(
-          pricingSource.priceListSettings.xtraPallet.price,
-        ),
-        xtraPalletSubcontractorPrice: parsePriceSetting(
-          pricingSource.priceListSettings.xtraPallet.subcontractorPrice,
-        ),
-      },
-    );
+    const editableCards = productCards.map((card) => (card.productId && card.wordpressImportReadOnly ? { ...card, wordpressImportReadOnly: null } : card));
+    const editableBreakdowns = buildProductBreakdowns(editableCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
+      zeroBaseDeliveryPricesOver100Km: shouldUseNativeDistancePricing && parseDistanceKm(drivingDistance) > 100,
+      xtraPalletPrice: parsePriceSetting(pricingSource.priceListSettings.xtraPallet.price),
+      xtraPalletSubcontractorPrice: parsePriceSetting(pricingSource.priceListSettings.xtraPallet.subcontractorPrice),
+    });
     const editableResult = calculateBookingPricing({
       productBreakdowns: editableBreakdowns,
       priceLookup,
     });
-    const breakdownsByCardId = new Map<
-      number,
-      (typeof editableResult.breakdowns)[number]
-    >();
+    const breakdownsByCardId = new Map<number, (typeof editableResult.breakdowns)[number]>();
     let breakdownIndex = 0;
 
     for (const card of editableCards) {
@@ -1464,9 +1136,7 @@ export default function BookingEditor({
         continue;
       }
 
-      const product = pricingSource.catalogProducts.find(
-        (item) => item.id === card.productId && item.active,
-      );
+      const product = pricingSource.catalogProducts.find((item) => item.id === card.productId && item.active);
 
       if (!product) {
         continue;
@@ -1493,15 +1163,9 @@ export default function BookingEditor({
         return card;
       }
 
-      const nativeTotalCents = breakdown.lines.reduce(
-        (sum, line) => sum + Math.round(line.lineTotal * 100),
-        0,
-      );
+      const nativeTotalCents = breakdown.lines.reduce((sum, line) => sum + Math.round(line.lineTotal * 100), 0);
 
-      if (
-        nativeTotalCents !== getWordpressReadOnlyTotalCents(card) ||
-        !wordpressReadOnlyRowsMatchNativeLines(card, breakdown.lines)
-      ) {
+      if (nativeTotalCents !== getWordpressReadOnlyTotalCents(card) || !wordpressReadOnlyRowsMatchNativeLines(card, breakdown.lines)) {
         return card;
       }
 
@@ -1532,8 +1196,7 @@ export default function BookingEditor({
       return "";
     }
 
-    const discountableBreakdowns =
-      removeProtectedAutoDiscountItems(calculatorBreakdowns);
+    const discountableBreakdowns = removeProtectedAutoDiscountItems(calculatorBreakdowns);
     const result = calculateBookingPricing({
       productBreakdowns: discountableBreakdowns,
       priceLookup,
@@ -1549,39 +1212,21 @@ export default function BookingEditor({
   }, [calculatorBreakdowns, leggTil, priceLookup, status]);
 
   const isInstallationOnly = useMemo(
-    () =>
-      productCards.length > 0 &&
-      productCards.every(
-        (card) => card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY,
-      ),
+    () => productCards.length > 0 && productCards.every((card) => card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY),
     [productCards],
   );
 
-  const isReturnOnly = useMemo(
-    () =>
-      productCards.length > 0 &&
-      productCards.every(
-        (card) => card.deliveryType === DELIVERY_TYPES.RETURN_ONLY,
-      ),
-    [productCards],
-  );
+  const isReturnOnly = useMemo(() => productCards.length > 0 && productCards.every((card) => card.deliveryType === DELIVERY_TYPES.RETURN_ONLY), [productCards]);
 
   //For locking pickupadress when isonlyreturn or install
   const shouldLockPickupAddress = useMemo(
     () =>
       productCards.length > 0 &&
-      productCards.every(
-        (card) =>
-          card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY ||
-          card.deliveryType === DELIVERY_TYPES.RETURN_ONLY,
-      ),
+      productCards.every((card) => card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY || card.deliveryType === DELIVERY_TYPES.RETURN_ONLY),
     [productCards],
   );
 
-  const hasSelectedReturnOption = useMemo(
-    () => productCards.some((card) => !!card.selectedReturnOptionId),
-    [productCards],
-  );
+  const hasSelectedReturnOption = useMemo(() => productCards.some((card) => !!card.selectedReturnOptionId), [productCards]);
   const shouldShowReturnAddress = useMemo(
     () =>
       productCards.some((card) => {
@@ -1589,9 +1234,7 @@ export default function BookingEditor({
           return false;
         }
 
-        const selectedReturnOption = catalogSpecialOptions.find(
-          (option) => option.id === card.selectedReturnOptionId,
-        );
+        const selectedReturnOption = catalogSpecialOptions.find((option) => option.id === card.selectedReturnOptionId);
 
         if (!selectedReturnOption) {
           return true;
@@ -1603,32 +1246,20 @@ export default function BookingEditor({
   );
   const hadVisibleReturnAddressRef = useRef(shouldShowReturnAddress);
 
-  const selectedSubcontractor = useMemo(
-    () => subcontractorOptions.find((option) => option.id === subcontractorId),
-    [subcontractorId, subcontractorOptions],
-  );
+  const selectedSubcontractor = useMemo(() => subcontractorOptions.find((option) => option.id === subcontractorId), [subcontractorId, subcontractorOptions]);
   const selectedCustomerOption = useMemo(() => {
     if (customerMembershipId) {
-      return (
-        changeCustomerOptions.find(
-          (option) => option.id === customerMembershipId,
-        ) ?? null
-      );
+      return changeCustomerOptions.find((option) => option.id === customerMembershipId) ?? null;
     }
 
     if (!currentUser?.email) {
       return null;
     }
 
-    return (
-      changeCustomerOptions.find(
-        (option) => option.email === currentUser.email,
-      ) ?? null
-    );
+    return changeCustomerOptions.find((option) => option.email === currentUser.email) ?? null;
   }, [changeCustomerOptions, currentUser?.email, customerMembershipId]);
   const selectedCustomerAddress = selectedCustomerOption?.address?.trim() ?? "";
-  const finalTimeWindow =
-    timeWindow === "custom" ? `${customTimeFrom}-${customTimeTo}` : timeWindow;
+  const finalTimeWindow = timeWindow === "custom" ? `${customTimeFrom}-${customTimeTo}` : timeWindow;
   useEffect(() => {
     const normalizedDeliveryDate = deliveryDate.trim();
     const normalizedTimeWindow = finalTimeWindow.trim();
@@ -1639,10 +1270,7 @@ export default function BookingEditor({
       return;
     }
 
-    if (
-      timeWindow === "custom" &&
-      (!customTimeFrom.trim() || !customTimeTo.trim())
-    ) {
+    if (timeWindow === "custom" && (!customTimeFrom.trim() || !customTimeTo.trim())) {
       setCapacityWarning(null);
       setCapacityWarningLoading(false);
       return;
@@ -1663,14 +1291,11 @@ export default function BookingEditor({
           searchParams.set("excludeOrderId", initialValues.id);
         }
 
-        const response = await fetch(
-          `/api/orders/capacity?${searchParams.toString()}`,
-          {
-            credentials: "include",
-            cache: "no-store",
-            signal: abortController.signal,
-          },
-        );
+        const response = await fetch(`/api/orders/capacity?${searchParams.toString()}`, {
+          credentials: "include",
+          cache: "no-store",
+          signal: abortController.signal,
+        });
 
         const data = await response.json().catch(() => null);
 
@@ -1700,85 +1325,39 @@ export default function BookingEditor({
       window.clearTimeout(timer);
       abortController.abort();
     };
-  }, [
-    customTimeFrom,
-    customTimeTo,
-    deliveryDate,
-    finalTimeWindow,
-    initialValues?.id,
-    timeWindow,
-  ]);
+  }, [customTimeFrom, customTimeTo, deliveryDate, finalTimeWindow, initialValues?.id, timeWindow]);
   const normalizedEmail = normalizeOptionalEmail(email) ?? "";
   const normalizedPhone = normalizeOptionalPhone(phone) ?? "";
   const normalizedPhoneTwo = normalizeOptionalPhone(phoneTwo) ?? "";
   const normalizedCashierPhone = normalizeOptionalPhone(cashierPhone) ?? "";
   const normalizedFloorNo = floorNo.trim();
   const normalizedLift = normalizedFloorNo ? lift : "";
-  const shouldSuppressEmailForCustomTimeWindow =
-    timeWindow === "custom" && contactCustomerForCustomTimeWindow;
-  const normalizedCustomTimeContactNote =
-    timeWindow === "custom" && contactCustomerForCustomTimeWindow
-      ? customTimeContactNote.trim()
-      : "";
+  const shouldSuppressEmailForCustomTimeWindow = timeWindow === "custom" && contactCustomerForCustomTimeWindow;
+  const normalizedCustomTimeContactNote = timeWindow === "custom" && contactCustomerForCustomTimeWindow ? customTimeContactNote.trim() : "";
   const requiresDeliveryDate = shown(effectiveHidden, OrderFields.DeliveryDate);
-  const requiresTimeWindow = shown(
-    effectiveHidden,
-    OrderFields.DeliveryTimeWindow,
-  );
-  const requiresPickupAddress = shown(
-    effectiveHidden,
-    OrderFields.PickupLocations,
-  );
-  const requiresReturnAddress =
-    shown(effectiveHidden, OrderFields.DeliveryAddress) &&
-    shouldShowReturnAddress;
-  const requiresDeliveryAddress = shown(
-    effectiveHidden,
-    OrderFields.DeliveryAddress,
-  );
-  const requiresCustomerPhone = shown(
-    effectiveHidden,
-    OrderFields.CustomerPhone1,
-  );
+  const requiresTimeWindow = shown(effectiveHidden, OrderFields.DeliveryTimeWindow);
+  const requiresPickupAddress = shown(effectiveHidden, OrderFields.PickupLocations);
+  const requiresReturnAddress = shown(effectiveHidden, OrderFields.DeliveryAddress) && shouldShowReturnAddress;
+  const requiresDeliveryAddress = shown(effectiveHidden, OrderFields.DeliveryAddress);
+  const requiresCustomerPhone = shown(effectiveHidden, OrderFields.CustomerPhone1);
   const emailError = getOptionalEmailError(email);
   const phoneError = getOptionalPhoneError(phone);
   const phoneTwoError = getOptionalPhoneError(phoneTwo);
   const cashierPhoneError = getOptionalPhoneError(cashierPhone);
-  const extraPickupErrors = useMemo(
-    () => extraPickups.map((pickup) => getExtraPickupValidation(pickup)),
-    [extraPickups],
-  );
+  const extraPickupErrors = useMemo(() => extraPickups.map((pickup) => getExtraPickupValidation(pickup)), [extraPickups]);
   const computedFieldErrors = useMemo(
     (): FieldErrorMap => ({
-      deliveryDate:
-        requiresDeliveryDate && !deliveryDate.trim()
-          ? "Delivery date is required"
-          : null,
+      deliveryDate: requiresDeliveryDate && !deliveryDate.trim() ? "Delivery date is required" : null,
       timeWindow:
         requiresTimeWindow && !finalTimeWindow.trim()
           ? "Delivery time window is required"
-          : requiresTimeWindow &&
-              timeWindow === "custom" &&
-              (!customTimeFrom || !customTimeTo)
+          : requiresTimeWindow && timeWindow === "custom" && (!customTimeFrom || !customTimeTo)
             ? "Custom time requires both from and to"
             : null,
-      pickupAddress:
-        requiresPickupAddress && !pickupAddress.trim()
-          ? "Pickup address is required"
-          : null,
-      deliveryAddress:
-        requiresDeliveryAddress && !deliveryAddress.trim()
-          ? "Delivery address is required"
-          : null,
-      returnAddress:
-        requiresReturnAddress && !returnAddress.trim()
-          ? "Return address is required"
-          : null,
-      customerPhone:
-        phoneError ??
-        (requiresCustomerPhone && !normalizedPhone
-          ? "Customer phone is required"
-          : null),
+      pickupAddress: requiresPickupAddress && !pickupAddress.trim() ? "Pickup address is required" : null,
+      deliveryAddress: requiresDeliveryAddress && !deliveryAddress.trim() ? "Delivery address is required" : null,
+      returnAddress: requiresReturnAddress && !returnAddress.trim() ? "Return address is required" : null,
+      customerPhone: phoneError ?? (requiresCustomerPhone && !normalizedPhone ? "Customer phone is required" : null),
       customerPhoneTwo: phoneTwoError,
       customerEmail: emailError,
       cashierPhone: cashierPhoneError,
@@ -1805,29 +1384,19 @@ export default function BookingEditor({
       timeWindow,
     ],
   );
-  const visibleFieldErrors = didAttemptSubmit
-    ? computedFieldErrors
-    : EMPTY_FIELD_ERRORS;
+  const visibleFieldErrors = didAttemptSubmit ? computedFieldErrors : EMPTY_FIELD_ERRORS;
 
   const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
     setPriceExVat(exVat);
     setPriceSubcontractor(subPrice);
   }, []);
 
-  const handleAdjustmentsChange = useCallback(
-    (adj: {
-      rabatt: string;
-      leggTil: string;
-      subcontractorMinus: string;
-      subcontractorPlus: string;
-    }) => {
-      setRabatt(adj.rabatt);
-      setLeggTil(adj.leggTil);
-      setSubcontractorMinus(adj.subcontractorMinus);
-      setSubcontractorPlus(adj.subcontractorPlus);
-    },
-    [],
-  );
+  const handleAdjustmentsChange = useCallback((adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => {
+    setRabatt(adj.rabatt);
+    setLeggTil(adj.leggTil);
+    setSubcontractorMinus(adj.subcontractorMinus);
+    setSubcontractorPlus(adj.subcontractorPlus);
+  }, []);
 
   const handleUseCurrentPrices = useCallback(() => {
     setProductCards((current) =>
@@ -1866,10 +1435,7 @@ export default function BookingEditor({
 
     previousSelectedCustomerIdRef.current = selectedCustomerId;
 
-    if (
-      !selectedCustomerOption ||
-      previousSelectedCustomerId === selectedCustomerId
-    ) {
+    if (!selectedCustomerOption || previousSelectedCustomerId === selectedCustomerId) {
       return;
     }
 
@@ -1883,12 +1449,7 @@ export default function BookingEditor({
     if (shouldShowReturnAddress) {
       setReturnAddress(selectedCustomerAddress);
     }
-  }, [
-    initialValues?.id,
-    selectedCustomerAddress,
-    selectedCustomerOption,
-    shouldShowReturnAddress,
-  ]);
+  }, [initialValues?.id, selectedCustomerAddress, selectedCustomerOption, shouldShowReturnAddress]);
 
   useEffect(() => {
     const hadVisibleReturnAddress = hadVisibleReturnAddressRef.current;
@@ -1916,16 +1477,11 @@ export default function BookingEditor({
   }, [floorNo, lift]);
 
   useEffect(() => {
-    if (
-      initialValues?.legacyWordpressOrderId &&
-      !importedWordpressRouteChanged
-    ) {
+    if (initialValues?.legacyWordpressOrderId && !importedWordpressRouteChanged) {
       return;
     }
 
-    const extraPickupAddresses = extraPickups
-      .map((pickup) => pickup.address)
-      .filter((address) => address.trim().length > 0);
+    const extraPickupAddresses = extraPickups.map((pickup) => pickup.address).filter((address) => address.trim().length > 0);
     const routeRequest = {
       pickupAddress,
       extraPickupAddresses,
@@ -1939,12 +1495,9 @@ export default function BookingEditor({
     distanceRequestAbortRef.current = abortController;
 
     const hasAtLeastTwoCandidateStops =
-      [
-        routeRequest.pickupAddress,
-        ...routeRequest.extraPickupAddresses,
-        routeRequest.deliveryAddress,
-        routeRequest.returnAddress,
-      ].filter((address) => address.trim().length > 0).length >= 2;
+      [routeRequest.pickupAddress, ...routeRequest.extraPickupAddresses, routeRequest.deliveryAddress, routeRequest.returnAddress].filter(
+        (address) => address.trim().length > 0,
+      ).length >= 2;
 
     if (!hasAtLeastTwoCandidateStops) {
       setDrivingDistance("");
@@ -1974,9 +1527,7 @@ export default function BookingEditor({
           return;
         }
 
-        setDrivingDistance((current) =>
-          current === data.distanceKm ? current : data.distanceKm,
-        );
+        setDrivingDistance((current) => (current === data.distanceKm ? current : data.distanceKm));
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
@@ -2016,19 +1567,14 @@ export default function BookingEditor({
     const data = await res.json().catch(() => null);
 
     if (!res.ok || !data?.ok) {
-      throw new Error(
-        data?.message || data?.reason || "Failed to create order",
-      );
+      throw new Error(data?.message || data?.reason || "Failed to create order");
     }
   }
 
   // Attachments
   const existingOrderId = initialValues?.id ?? null;
 
-  async function handleUploadAttachment(
-    file: File,
-    category: AttachmentCategory,
-  ) {
+  async function handleUploadAttachment(file: File, category: AttachmentCategory) {
     if (attachments.length >= 10) {
       setAttachmentsError("Max 10 attachments allowed");
       return;
@@ -2040,9 +1586,7 @@ export default function BookingEditor({
       formData.append("file", file);
       formData.append("category", category);
 
-      const url = existingOrderId
-        ? `/api/orders/${existingOrderId}/attachments`
-        : "/api/orders/pending-attachments";
+      const url = existingOrderId ? `/api/orders/${existingOrderId}/attachments` : "/api/orders/pending-attachments";
 
       const res = await fetch(url, {
         method: "POST",
@@ -2067,9 +1611,7 @@ export default function BookingEditor({
 
   async function handleDeleteAttachment(attachmentId: string) {
     if (existingOrderId) {
-      setDeletedAttachmentIds((prev) =>
-        prev.includes(attachmentId) ? prev : [...prev, attachmentId],
-      );
+      setDeletedAttachmentIds((prev) => (prev.includes(attachmentId) ? prev : [...prev, attachmentId]));
       setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
       return;
     }
@@ -2077,13 +1619,10 @@ export default function BookingEditor({
     try {
       setAttachmentsError("");
 
-      const res = await fetch(
-        `/api/orders/pending-attachments/${attachmentId}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
-      );
+      const res = await fetch(`/api/orders/pending-attachments/${attachmentId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
 
       const data = await res.json().catch(() => null);
 
@@ -2105,9 +1644,7 @@ export default function BookingEditor({
         setAttachmentsError("");
         setDeletedAttachmentIds([]);
 
-        const url = existingOrderId
-          ? `/api/orders/${existingOrderId}/attachments`
-          : "/api/orders/pending-attachments";
+        const url = existingOrderId ? `/api/orders/${existingOrderId}/attachments` : "/api/orders/pending-attachments";
 
         const res = await fetch(url, {
           credentials: "include",
@@ -2145,15 +1682,8 @@ export default function BookingEditor({
     }
     setDidAttemptSubmit(true);
 
-    const hasExtraPickupValidationError = extraPickupErrors.some(
-      (validation) =>
-        validation.contactError ||
-        validation.phoneError ||
-        validation.emailError,
-    );
-    const firstFieldErrorKey = (
-      Object.keys(computedFieldErrors) as Array<keyof FieldErrorMap>
-    ).find((key) => computedFieldErrors[key]);
+    const hasExtraPickupValidationError = extraPickupErrors.some((validation) => validation.contactError || validation.phoneError || validation.emailError);
+    const firstFieldErrorKey = (Object.keys(computedFieldErrors) as Array<keyof FieldErrorMap>).find((key) => computedFieldErrors[key]);
 
     if (firstFieldErrorKey || hasExtraPickupValidationError) {
       setSubmitError("");
@@ -2165,11 +1695,7 @@ export default function BookingEditor({
 
       const firstExtraPickupError = extraPickups.find((pickup, index) => {
         const validation = extraPickupErrors[index];
-        return (
-          validation?.contactError ||
-          validation?.phoneError ||
-          validation?.emailError
-        );
+        return validation?.contactError || validation?.phoneError || validation?.emailError;
       });
 
       if (!firstExtraPickupError) {
@@ -2177,12 +1703,7 @@ export default function BookingEditor({
       }
 
       const extraPickupErrorTarget = (() => {
-        const validation =
-          extraPickupErrors[
-            extraPickups.findIndex(
-              (pickup) => pickup.id === firstExtraPickupError.id,
-            )
-          ];
+        const validation = extraPickupErrors[extraPickups.findIndex((pickup) => pickup.id === firstExtraPickupError.id)];
 
         if (validation?.phoneError || validation?.contactError) {
           return `extra-pickup-${firstExtraPickupError.id}-phone`;
@@ -2195,9 +1716,7 @@ export default function BookingEditor({
       return;
     }
 
-    const normalizedExtraPickups = normalizeExtraPickups(
-      extraPickups.map(({ id: _id, ...pickup }) => pickup),
-    ).filter((pickup) => pickup.address);
+    const normalizedExtraPickups = normalizeExtraPickups(extraPickups.map(({ id: _id, ...pickup }) => pickup)).filter((pickup) => pickup.address);
 
     const appliedPricingSnapshot = buildOrderPricingSnapshot({
       productCards,
@@ -2302,11 +1821,7 @@ export default function BookingEditor({
       setDidAttemptSubmit(false);
       scrollToPageTop();
     } catch (error) {
-      setSubmitError(
-        error instanceof Error && error.message
-          ? error.message
-          : "Failed to save order",
-      );
+      setSubmitError(error instanceof Error && error.message ? error.message : "Failed to save order");
     } finally {
       setSaving(false);
     }
@@ -2329,8 +1844,7 @@ export default function BookingEditor({
     const delivery = new Date(deliveryDate);
     delivery.setHours(0, 0, 0, 0);
 
-    const diffDays =
-      (delivery.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+    const diffDays = (delivery.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
 
     setExpressDelivery(diffDays <= 1);
   }, [deliveryDate, existingOrderId]);
@@ -2343,21 +1857,14 @@ export default function BookingEditor({
       return;
     }
 
-    setPickupAddress((current) =>
-      current === "No shop pickup address"
-        ? lastUnlockedPickupAddressRef.current || selectedCustomerAddress
-        : current,
-    );
+    setPickupAddress((current) => (current === "No shop pickup address" ? lastUnlockedPickupAddressRef.current || selectedCustomerAddress : current));
   }, [selectedCustomerAddress, shouldLockPickupAddress]);
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
       {canSelectPriceList ? (
         <div className="mb-5 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <label
-            htmlFor="admin-price-list"
-            className="mb-2 block text-sm font-semibold text-gray-800"
-          >
+          <label htmlFor="admin-price-list" className="mb-2 block text-sm font-semibold text-gray-800">
             Price list
           </label>
           <select
@@ -2367,18 +1874,14 @@ export default function BookingEditor({
             onChange={(event) => handlePriceListChange(event.target.value)}
             disabled={priceListsLoading}
           >
-            <option value="">
-              {priceListsLoading ? "Loading price lists..." : "Select price list"}
-            </option>
+            <option value="">{priceListsLoading ? "Loading price lists..." : "Select price list"}</option>
             {priceListOptions.map((priceList) => (
               <option key={priceList.id} value={priceList.id}>
                 {priceList.name}
               </option>
             ))}
           </select>
-          {priceListsError ? (
-            <p className="mt-2 text-sm text-red-600">{priceListsError}</p>
-          ) : null}
+          {priceListsError ? <p className="mt-2 text-sm text-red-600">{priceListsError}</p> : null}
         </div>
       ) : null}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -2386,7 +1889,7 @@ export default function BookingEditor({
           {shown(effectiveHidden, OrderFields.Products) &&
             productCards.map((card, index) => (
               <ProductCardNew
-                key={card.cardId}
+                key={`${selectedPriceListId || "default"}-${card.cardId}`}
                 cardId={card.cardId}
                 displayIndex={index + 1}
                 value={card}
@@ -2398,20 +1901,12 @@ export default function BookingEditor({
                 onRemove={removeProductCard}
                 disableRemove={productCards.length === 1}
                 isExpanded={expandedCardId === card.cardId}
-                onToggle={() =>
-                  setExpandedCardId((current) =>
-                    current === card.cardId ? null : card.cardId,
-                  )
-                }
+                onToggle={() => setExpandedCardId((current) => (current === card.cardId ? null : card.cardId))}
               />
             ))}
 
           {shown(effectiveHidden, OrderFields.AddProductButton) && (
-            <button
-              type="button"
-              className="customButtonEnabled h-12 my-8 w-full"
-              onClick={addProductCard}
-            >
+            <button type="button" className="customButtonEnabled h-12 my-8 w-full" onClick={addProductCard}>
               Add extra products
             </button>
           )}
@@ -2456,12 +1951,8 @@ export default function BookingEditor({
             setCustomTimeFrom={setCustomTimeFrom}
             customTimeTo={customTimeTo}
             setCustomTimeTo={setCustomTimeTo}
-            contactCustomerForCustomTimeWindow={
-              contactCustomerForCustomTimeWindow
-            }
-            setContactCustomerForCustomTimeWindow={
-              setContactCustomerForCustomTimeWindow
-            }
+            contactCustomerForCustomTimeWindow={contactCustomerForCustomTimeWindow}
+            setContactCustomerForCustomTimeWindow={setContactCustomerForCustomTimeWindow}
             customTimeContactNote={customTimeContactNote}
             setCustomTimeContactNote={setCustomTimeContactNote}
             deliveryAddress={deliveryAddress}
@@ -2527,9 +2018,7 @@ export default function BookingEditor({
             attachmentsError={attachmentsError}
             onUploadAttachment={handleUploadAttachment}
             onDeleteAttachment={handleDeleteAttachment}
-            capacityWarningMessage={
-              capacityWarning?.isOverCapacity ? capacityWarning.message : ""
-            }
+            capacityWarningMessage={capacityWarning?.isOverCapacity ? capacityWarning.message : ""}
             capacityWarningCount={capacityWarning?.count ?? 0}
             capacityWarningLimit={capacityWarning?.limit ?? ORDER_SLOT_LIMIT}
             capacityWarningLoading={capacityWarningLoading}
@@ -2543,9 +2032,7 @@ export default function BookingEditor({
               setCalcOpen={setCalcOpen}
               productBreakdowns={calculatorBreakdowns}
               priceLookup={priceLookup}
-              adminView={
-                dataset === "default" && showAdminCalculatorAdjustments
-              }
+              adminView={dataset === "default" && showAdminCalculatorAdjustments}
               onPriceChange={handlePriceChange}
               rabatt={rabatt}
               leggTil={leggTil}
