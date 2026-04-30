@@ -9,6 +9,7 @@ import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { canCreateOrders } from "@/lib/users/orderAccess";
 import type { AppPermission } from "@/lib/users/types";
 import { OrderFields } from "@/app/_components/Dahsboard/booking/create/orderFields";
+import { bookingText } from "@/lib/booking/bookingUiText";
 
 const HIDE_FOR_CREATOR =
   OrderFields.FeeExtraWork |
@@ -46,11 +47,11 @@ export default function BookingCreatePage() {
     const data = await res.json().catch(() => null);
 
     if (!res.ok || !data?.ok) {
-      setSubmitError(data?.reason || "Failed to create order");
+      setSubmitError(bookingText("nb", data?.reason || "failed to create order"));
       return;
     }
 
-    setSuccessMessage(`Order created (${data.displayId ?? data.orderId})`);
+    setSuccessMessage(`${bookingText("nb", "Order created")} (${data.displayId ?? data.orderId})`);
     setEditorKey((prev) => prev + 1);
 
     window.setTimeout(() => {
@@ -61,7 +62,7 @@ export default function BookingCreatePage() {
   if (!currentUser) {
     return (
       <div className="mx-auto max-w-[1400] py-10">
-        <div className="text-textColorThird">Loading...</div>
+        <div className="text-textColorThird">{bookingText("nb", "Loading...")}</div>
       </div>
     );
   }
@@ -70,10 +71,10 @@ export default function BookingCreatePage() {
     return (
       <div className="mx-auto max-w-[1400] py-10">
         <h1 className="mb-4 text-2xl font-semibold text-logoblue">
-          Create booking
+          {bookingText("nb", "Create booking")}
         </h1>
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-600">
-          You do not have access to create orders.
+          {bookingText("nb", "You do not have access to create orders.")}
         </div>
       </div>
     );
@@ -84,7 +85,7 @@ export default function BookingCreatePage() {
       <div className="mb-8 flex items-center justify-between gap-3">
         <div>
           <h1 className="whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-            Create booking
+            {bookingText("nb", "Create booking")}
           </h1>
         </div>
       </div>
@@ -105,6 +106,7 @@ export default function BookingCreatePage() {
         key={editorKey}
         hidden={HIDE_FOR_CREATOR}
         onSubmit={handleCreateOrder}
+        locale="nb"
       />
     </div>
   );

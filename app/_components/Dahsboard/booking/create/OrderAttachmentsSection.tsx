@@ -8,6 +8,7 @@ import {
   type AttachmentCategory,
   type AttachmentItem,
 } from "@/lib/orders/attachmentCategories";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type Props = {
   attachments: AttachmentItem[];
@@ -19,6 +20,7 @@ type Props = {
     category: AttachmentCategory,
   ) => void | Promise<void>;
   onDelete?: (attachmentId: string) => void | Promise<void>;
+  locale?: BookingUiLocale;
 };
 
 function isImage(file: AttachmentItem) {
@@ -36,22 +38,24 @@ export default function OrderAttachmentsSection({
   canDelete = true,
   onUpload,
   onDelete,
+  locale = "en",
 }: Props) {
+  const t = (text: string) => bookingText(locale, text);
   const inputId = useId();
 
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-neutral-600">
-        Files
+        {t("Files")}
       </label>
 
       {ATTACHMENT_CATEGORIES.map((category) => {
         const files = attachments.filter((file) => file.category === category);
         const categoryId = `${inputId}-${category.toLowerCase()}`;
         const emptyLabel =
-          category === "RECEIPT" ? "No receipts yet." : "No attachments yet.";
+          category === "RECEIPT" ? t("No receipts yet.") : t("No attachments yet.");
         const buttonLabel =
-          category === "RECEIPT" ? "Choose receipt" : "Choose attachment";
+          category === "RECEIPT" ? t("Choose receipt") : t("Choose attachment");
 
         return (
           <div key={category} className="mb-4 last:mb-0">
@@ -123,7 +127,7 @@ export default function OrderAttachmentsSection({
                           rel="noopener noreferrer"
                           className="text-logoblue underline"
                         >
-                          Open
+                          {t("Open")}
                         </a>
 
                         <a
@@ -131,7 +135,7 @@ export default function OrderAttachmentsSection({
                           download={file.filename}
                           className="text-textColorThird underline"
                         >
-                          Download
+                          {locale === "nb" ? "Last ned" : "Download"}
                         </a>
                       </div>
                     </div>
@@ -156,7 +160,7 @@ export default function OrderAttachmentsSection({
         );
       })}
 
-      {uploading && <div className="mb-3 text-sm">Uploading...</div>}
+      {uploading && <div className="mb-3 text-sm">{locale === "nb" ? "Laster opp..." : "Uploading..."}</div>}
 
       {error ? <div className="mb-2 text-sm text-red-600">{error}</div> : null}
     </div>

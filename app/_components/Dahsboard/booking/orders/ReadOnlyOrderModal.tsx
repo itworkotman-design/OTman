@@ -2,6 +2,7 @@
 
 import type { BookingArchiveViewMode } from "@/app/_components/Dahsboard/booking/archive/types";
 import { formatDisplayDate } from "@/lib/dateDisplay";
+import { bookingStatusText } from "@/lib/booking/bookingUiText";
 
 type Props = {
   open: boolean;
@@ -88,8 +89,8 @@ function downloadOrderPdf(
       <body>
         <h1>Ordredetaljer</h1>
 
-        <div class="row"><span class="label">Store:</span> ${order.createdBy || "-"}</div>
-        <div class="row"><span class="label">Customer name:</span> ${order.customerName || "-"}</div>
+        <div class="row"><span class="label">Butikk:</span> ${order.createdBy || "-"}</div>
+        <div class="row"><span class="label">Kundenavn:</span> ${order.customerName || "-"}</div>
         <div class="row"><span class="label">Bilagsnummer:</span> ${order.orderNumber || "-"}</div>
         <div class="row"><span class="label">Leveringsdato:</span> ${formatDisplayDate(order.deliveryDate)}</div>
         <div class="row"><span class="label">Tidsvindu:</span> ${order.timeWindow || "-"}</div>
@@ -105,8 +106,8 @@ function downloadOrderPdf(
         <div class="row"><span class="label">Kasserers navn:</span> ${order.cashierName || "-"}</div>
         <div class="row"><span class="label">Kasserers telefon:</span> ${order.cashierPhone || "-"}</div>
         <div class="row"><span class="label">Kundenotater:</span> ${order.customerComments || "-"}</div>
-        <div class="row"><span class="label">Driver info:</span> ${order.driverInfo || "-"}</div>
-        <div class="row"><span class="label">Status:</span> ${order.status || "-"}</div>
+        <div class="row"><span class="label">Sjåførinfo:</span> ${order.driverInfo || "-"}</div>
+        <div class="row"><span class="label">Status:</span> ${order.status ? bookingStatusText("nb", order.status) : "-"}</div>
         <div class="row"><span class="label">Statusnotater:</span> ${order.statusNotes || "-"}</div>
 
         <div class="divider"></div>
@@ -162,11 +163,11 @@ export default function ReadOnlyOrderModal({
 
         <div className="space-y-2 text-sm text-slate-800">
           <p>
-            <span className="font-semibold">Store:</span>{" "}
+            <span className="font-semibold">Butikk:</span>{" "}
             {formatCell(order.createdBy)}
           </p>
           <p>
-            <span className="font-semibold">Customer name:</span>{" "}
+            <span className="font-semibold">Kundenavn:</span>{" "}
             {formatCell(order.customerName)}
           </p>
           <p>
@@ -230,12 +231,12 @@ export default function ReadOnlyOrderModal({
             {formatCell(order.customerComments)}
           </p>
           <p>
-            <span className="font-semibold">Driver info:</span>{" "}
+            <span className="font-semibold">Sjåførinfo:</span>{" "}
             {formatCell(order.driverInfo)}
           </p>
           <p>
             <span className="font-semibold">Status:</span>{" "}
-            {formatCell(order.status)}
+            {order.status ? bookingStatusText("nb", order.status) : "-"}
           </p>
           <p>
             <span className="font-semibold">Statusnotater:</span>{" "}

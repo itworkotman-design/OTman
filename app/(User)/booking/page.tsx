@@ -13,6 +13,7 @@ import type {
 } from "@/app/_components/Dahsboard/booking/archive/types";
 import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
+import { bookingText } from "@/lib/booking/bookingUiText";
 
 type FilterOptionApiItem = {
   id: string;
@@ -91,14 +92,14 @@ export default function BookingPage() {
         .catch(() => null)) as OrdersResponse | null;
 
       if (!res.ok || !data?.ok) {
-        setError(data?.reason || "Failed to load orders");
+        setError(bookingText("nb", data?.reason || "failed to load orders"));
         setOrders([]);
         return;
       }
 
       setOrders(data.orders ?? []);
     } catch {
-      setError("Failed to load orders");
+      setError(bookingText("nb", "failed to load orders"));
       setOrders([]);
     } finally {
       setLoading(false);
@@ -174,7 +175,7 @@ export default function BookingPage() {
   return (
     <div className="w-full">
       <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-        Booking orders
+        {bookingText("nb", "Booking orders")}
       </h1>
 
       <div className="flex flex-col gap-3 pb-4">
@@ -187,13 +188,16 @@ export default function BookingPage() {
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}
+          locale="nb"
         />
       </div>
 
       <div className="min-w-0 w-full">
         <div className="min-w-0 w-full">
           {loading ? (
-            <div className="py-6 text-textColorThird">Loading orders...</div>
+            <div className="py-6 text-textColorThird">
+              {bookingText("nb", "Loading orders...")}
+            </div>
           ) : error ? (
             <div className="py-6 text-red-600">{error}</div>
           ) : (
@@ -212,6 +216,7 @@ export default function BookingPage() {
               selectedOrderIds={[]}
               onToggleOrder={() => {}}
               onToggleAllVisible={() => {}}
+              locale="nb"
             />
           )}
         </div>

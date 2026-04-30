@@ -10,10 +10,10 @@ export default function Error({
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
       <section className="rounded-2xl border p-6 text-sm">
-        <h1 className="text-lg font-semibold">Something went wrong</h1>
+        <h1 className="text-lg font-semibold">Noe gikk galt</h1>
 
         <p className="mt-2 text-muted-foreground">
-          We couldn’t load the service catalog right now. Please try again.
+          Vi kunne ikke laste booking akkurat nå. Prøv igjen.
         </p>
 
         <div className="mt-4 flex gap-3">
@@ -21,14 +21,14 @@ export default function Error({
             onClick={() => reset()}
             className="inline-flex items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:opacity-90"
           >
-            Retry
+            Prøv igjen
           </button>
 
           <a
             href="#request"
             className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
           >
-            Contact us
+            Kontakt oss
           </a>
         </div>
       </section>

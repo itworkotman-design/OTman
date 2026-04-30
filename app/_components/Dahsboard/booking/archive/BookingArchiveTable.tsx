@@ -15,6 +15,11 @@ import {
   getOrderStatusStyle,
 } from "@/lib/orders/statusPresentation";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
+import {
+  bookingStatusText,
+  bookingText,
+  type BookingUiLocale,
+} from "@/lib/booking/bookingUiText";
 
 type BookingArchiveTableProps = {
   orders: OrderRow[];
@@ -26,6 +31,7 @@ type BookingArchiveTableProps = {
   onToggleOrder?: (orderId: string) => void;
   onToggleAllVisible?: () => void;
   visibleColumnIds?: BookingArchiveColumnId[];
+  locale?: BookingUiLocale;
 };
 
 const SELECT_COLUMN_WIDTH = 48;
@@ -71,10 +77,14 @@ function formatMoney(value: number | null | undefined) {
   return `NOK ${value}`;
 }
 
-function formatStatusCell(value: string | null | undefined) {
+function formatStatusCell(
+  value: string | null | undefined,
+  locale: BookingUiLocale,
+) {
   const cell = formatCell(getOrderStatusLabel(value));
   if (cell === "-") return cell;
   const normalizedStatus = getOrderStatusLabel(value);
+  const label = bookingStatusText(locale, normalizedStatus);
 
   return (
     <span
@@ -82,7 +92,7 @@ function formatStatusCell(value: string | null | undefined) {
       style={getOrderStatusStyle(value)}
       title={normalizedStatus}
     >
-      {cell}
+      {label}
     </span>
   );
 }
@@ -139,7 +149,9 @@ export default function BookingArchiveTable({
   onToggleOrder,
   onToggleAllVisible,
   visibleColumnIds,
+  locale = "en",
 }: BookingArchiveTableProps) {
+  const t = (text: string) => bookingText(locale, text);
   const resolvedVisibleColumnIds =
     visibleColumnIds && visibleColumnIds.length > 0
       ? sanitizeVisibleBookingArchiveColumns(viewMode, visibleColumnIds)
@@ -207,112 +219,112 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("status") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Status
+                    {t("Status")}
                   </th>
                 ) : null}
                 {isColumnVisible("mail") ? (
                   <th className="w-[60] min-w-[60] border-r border-black/3 px-2 py-3 text-center font-medium">
-                    Alerts
+                    {t("Alerts")}
                   </th>
                 ) : null}
                 {isColumnVisible("deliveryDate") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Delivery date
+                    {t("Delivery date")}
                   </th>
                 ) : null}
                 {isColumnVisible("timeWindow") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Time window
+                    {t("Time window")}
                   </th>
                 ) : null}
                 {isColumnVisible("createdBy") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Store
+                    {t("Store")}
                   </th>
                 ) : null}
                 {isColumnVisible("orderNumber") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Order no.
+                    {t("Order no.")}
                   </th>
                 ) : null}
                 {isColumnVisible("customerLabel") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Customer name
+                    {t("Customer name")}
                   </th>
                 ) : null}
                 {isColumnVisible("phone") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Phone
+                    {t("Phone")}
                   </th>
                 ) : null}
                 {isColumnVisible("pickupAddress") ? (
                   <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Pickup address
+                    {t("Pickup address")}
                   </th>
                 ) : null}
                 {isColumnVisible("extraPickupAddress") ? (
                   <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Extra pickup
+                    {t("Extra pickup")}
                   </th>
                 ) : null}
                 {isColumnVisible("deliveryAddress") ? (
                   <th className="whitespace-nowrap border-r w-[220] min-w-[220] border-black/3 px-2 py-3 font-medium">
-                    Delivery address
+                    {t("Delivery address")}
                   </th>
                 ) : null}
                 {isColumnVisible("orderSummary") ? (
                   <th className="whitespace-nowrap border-r w-[340] min-w-[340] border-black/3 px-4 py-3 font-medium">
-                    Products
+                    {t("Products")}
                   </th>
                 ) : null}
                 {isColumnVisible("description") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Description
+                    {t("Description")}
                   </th>
                 ) : null}
                 {isColumnVisible("cashierName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Cashier name
+                    {t("Cashier name")}
                   </th>
                 ) : null}
                 {isColumnVisible("cashierPhone") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Cashier phone
+                    {t("Cashier phone")}
                   </th>
                 ) : null}
                 {isColumnVisible("customerComments") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Customer notes
+                    {t("Customer notes")}
                   </th>
                 ) : null}
                 {isColumnVisible("driverInfo") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Driver info
+                    {t("Driver info")}
                   </th>
                 ) : null}
                 {isColumnVisible("subcontractor") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Subcontractor
+                    {t("Subcontractor")}
                   </th>
                 ) : null}
                 {isColumnVisible("createdAt") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Created at
+                    {t("Created at")}
                   </th>
                 ) : null}
                 {isColumnVisible("updatedAt") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Last edited
+                    {t("Last edited")}
                   </th>
                 ) : null}
                 {isColumnVisible("priceExVat") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Price ex. VAT
+                    {t("Price ex. VAT")}
                   </th>
                 ) : null}
                 {isColumnVisible("priceSubcontractor") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Subcontractor price
+                    {t("Subcontractor price")}
                   </th>
                 ) : null}
               </>
@@ -327,87 +339,87 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("status") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Status
+                    {t("Status")}
                   </th>
                 ) : null}
                 {isColumnVisible("deliveryDate") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Delivery date
+                    {t("Delivery date")}
                   </th>
                 ) : null}
                 {isColumnVisible("timeWindow") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Time window
+                    {t("Time window")}
                   </th>
                 ) : null}
                 {isColumnVisible("customerName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Customer name
+                    {t("Customer name")}
                   </th>
                 ) : null}
                 {isColumnVisible("orderNumber") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Order no.
+                    {t("Order no.")}
                   </th>
                 ) : null}
                 {isColumnVisible("pickupAddress") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Pickup address
+                    {t("Pickup address")}
                   </th>
                 ) : null}
                 {isColumnVisible("extraPickupAddress") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Extra pickup
+                    {t("Extra pickup")}
                   </th>
                 ) : null}
                 {isColumnVisible("deliveryAddress") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Delivery address
+                    {t("Delivery address")}
                   </th>
                 ) : null}
                 {isColumnVisible("orderSummary") ? (
                   <th className="whitespace-nowrap border-r w-[340] min-w-[340] border-black/3 px-2 py-3 font-medium">
-                    Products
+                    {t("Products")}
                   </th>
                 ) : null}
                 {isColumnVisible("description") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Description
+                    {t("Description")}
                   </th>
                 ) : null}
                 {isColumnVisible("cashierName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Cashier name
+                    {t("Cashier name")}
                   </th>
                 ) : null}
                 {isColumnVisible("cashierPhone") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Cashier phone
+                    {t("Cashier phone")}
                   </th>
                 ) : null}
                 {isColumnVisible("customerComments") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Customer notes
+                    {t("Customer notes")}
                   </th>
                 ) : null}
                 {isColumnVisible("driver") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Driver
+                    {t("Driver")}
                   </th>
                 ) : null}
                 {isColumnVisible("createdBy") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Store
+                    {t("Store")}
                   </th>
                 ) : null}
                 {isColumnVisible("createdAt") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Created at
+                    {t("Created at")}
                   </th>
                 ) : null}
                 {isColumnVisible("priceSubcontractor") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Subcontractor price
+                    {t("Subcontractor price")}
                   </th>
                 ) : null}
               </>
@@ -422,37 +434,37 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("status") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Status
+                    {t("Status")}
                   </th>
                 ) : null}
                 {isColumnVisible("statusNotes") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Status notes
+                    {t("Status notes")}
                   </th>
                 ) : null}
                 {isColumnVisible("orderNumber") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Order no.
+                    {t("Order no.")}
                   </th>
                 ) : null}
                 {isColumnVisible("customerName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Customer name
+                    {t("Customer name")}
                   </th>
                 ) : null}
                 {isColumnVisible("phone") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Phone
+                    {t("Phone")}
                   </th>
                 ) : null}
                 {isColumnVisible("deliveryDate") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Delivery date
+                    {t("Delivery date")}
                   </th>
                 ) : null}
                 {isColumnVisible("priceExVat") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium">
-                    Price ex. VAT
+                    {t("Price ex. VAT")}
                   </th>
                 ) : null}
               </>
@@ -502,7 +514,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("status") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatStatusCell(order.status)}</Cell>
+                      <Cell>{formatStatusCell(order.status, locale)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("mail") ? (
@@ -544,7 +556,7 @@ export default function BookingArchiveTable({
                               onAlertClick(order);
                             }}
                             aria-label={`Open alert center for order ${order.displayId}`}
-                            title="Open alert center"
+                            title={t("Open")}
                           >
                             {hasMailAlert && hasNotificationAlert ? (
                               <>
@@ -561,7 +573,7 @@ export default function BookingArchiveTable({
                             ) : hasNotificationAlert ? (
                               "A"
                             ) : (
-                              "Open"
+                              t("Open")
                             )}
                           </button>
                         );
@@ -693,7 +705,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("status") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatStatusCell(order.status)}</Cell>
+                      <Cell>{formatStatusCell(order.status, locale)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("deliveryDate") ? (
@@ -797,7 +809,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("status") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird">
-                      <Cell>{formatStatusCell(order.status)}</Cell>
+                      <Cell>{formatStatusCell(order.status, locale)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("statusNotes") ? (
@@ -839,7 +851,7 @@ export default function BookingArchiveTable({
 
       {orders.length === 0 && (
         <div className="py-8 text-center text-textColorThird">
-          No orders found
+          {t("No orders found")}
         </div>
       )}
     </div>

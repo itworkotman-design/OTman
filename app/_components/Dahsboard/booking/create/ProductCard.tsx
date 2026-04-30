@@ -19,6 +19,7 @@ import {
   showsReturnOptions,
   showsExtraCheckboxes,
 } from "@/lib/booking/pricing/rules";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type Props = {
   cardId: number;
@@ -33,6 +34,7 @@ type Props = {
   disableRemove?: boolean;
   isExpanded: boolean;
   onToggle: () => void;
+  locale?: BookingUiLocale;
 };
 
 function formatQuantity(quantity: number) {
@@ -70,7 +72,9 @@ export function ProductCardNew({
   disableRemove,
   isExpanded,
   onToggle,
+  locale = "en",
 }: Props) {
+  const t = (text: string) => bookingText(locale, text);
   const selectedProduct = useMemo(
     () => catalogProducts.find((p) => p.id === value.productId) ?? null,
     [catalogProducts, value.productId],
@@ -101,8 +105,8 @@ export function ProductCardNew({
       : categorizedInstallOptions;
   const installSectionLabel =
     !selectedProduct?.allowDeliveryTypes && categorizedInstallOptions.length === 0
-      ? "Choose"
-      : "Installation";
+      ? t("Choose")
+      : t("Installation");
 
   const productExtraOptions = options.filter(
     (o) =>
@@ -549,12 +553,12 @@ export function ProductCardNew({
       {isExpanded && (
         <div>
           {loading && (
-            <p className="text-sm opacity-70 mb-3">Loading catalog...</p>
+            <p className="text-sm opacity-70 mb-3">{t("Loading catalog...")}</p>
           )}
           {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
           <h1 className="font-semibold mb-2 text-lg text-textcolor">
-            Choose product
+            {t("Choose product")}
           </h1>
           <select
             className="customInput w-full"
@@ -563,7 +567,7 @@ export function ProductCardNew({
             disabled={loading}
           >
             <option value="" disabled>
-              Choose
+              {t("Choose")}
             </option>
             {sortedActiveProducts.map((product) => (
                 <option key={product.id} value={product.id}>
@@ -575,7 +579,7 @@ export function ProductCardNew({
           {showModelNumber && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                Model number
+                {t("Model number")}
               </h1>
               <input
                 type="text"
@@ -586,7 +590,7 @@ export function ProductCardNew({
                   })
                 }
                 className="customInput w-full"
-                placeholder="Optional"
+                placeholder={t("Optional")}
               />
             </>
           )}
@@ -594,7 +598,7 @@ export function ProductCardNew({
           {showDeliveryType && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                Choose delivery type
+                {locale === "nb" ? "Velg leveringstype" : "Choose delivery type"}
               </h1>
               <select
                 className="customInput w-full"
@@ -663,7 +667,7 @@ export function ProductCardNew({
               </h1>
               {extraOptions.length === 0 ? (
                 <p className="text-sm opacity-70">
-                  No utpakking / demontering options.
+                {t("No utpakking / demontering options.")}
                 </p>
               ) : (
                 extraOptions.map((opt) => (
@@ -714,7 +718,7 @@ export function ProductCardNew({
           {showHoursInput && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                Hours input
+                {t("Hours input")}
               </h1>
               <input
                 type="number"
@@ -734,7 +738,7 @@ export function ProductCardNew({
           {customSections.map((section) => (
             <div key={section.id}>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                {section.title || "Custom section"}
+                {section.title || (locale === "nb" ? "Egendefinert seksjon" : "Custom section")}
               </h1>
               <div className="space-y-1">
                 {section.options.map((option) => (
@@ -762,11 +766,11 @@ export function ProductCardNew({
           {showReturnOptions && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                Return
+                {t("Return")}
               </h1>
               {returnOptions.length === 0 ? (
                 <p className="text-sm opacity-70">
-                  No return options available.
+                  {t("No return options available.")}
                 </p>
               ) : (
                 returnOptions.map((opt) => (
@@ -800,7 +804,7 @@ export function ProductCardNew({
           {showAmount && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                {isPalletProduct ? "Pallet quantity" : "Product amount"}
+                {isPalletProduct ? t("Pallet quantity") : t("Product amount")}
               </h1>
               <input
                 type="number"

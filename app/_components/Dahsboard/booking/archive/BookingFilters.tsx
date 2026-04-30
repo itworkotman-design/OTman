@@ -10,6 +10,11 @@ import {
   getTodayRange,
   getTomorrowRange,
 } from "@/lib/orders/archiveFilters";
+import {
+  bookingStatusText,
+  bookingText,
+  type BookingUiLocale,
+} from "@/lib/booking/bookingUiText";
 
 type Props = {
   initialApplied: BookingArchiveFilters;
@@ -24,6 +29,7 @@ type Props = {
   onApply: (filters: BookingArchiveFilters) => void;
   onReset: () => void;
   onRefresh?: () => void;
+  locale?: BookingUiLocale;
 };
 
 type CalendarDay = {
@@ -32,7 +38,10 @@ type CalendarDay = {
   inCurrentMonth: boolean;
 };
 
-const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_LABELS: Record<BookingUiLocale, string[]> = {
+  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  nb: ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"],
+};
 
 function parseIsoDate(value: string): Date | null {
   if (!value) return null;
@@ -107,20 +116,24 @@ function formatDisplayDate(value: string): string {
   });
 }
 
-function formatRangeLabel(fromDate: string, toDate: string): string {
+function formatRangeLabel(
+  fromDate: string,
+  toDate: string,
+  locale: BookingUiLocale,
+): string {
   if (fromDate && toDate) {
     return `${formatDisplayDate(fromDate)} - ${formatDisplayDate(toDate)}`;
   }
 
   if (fromDate) {
-    return `${formatDisplayDate(fromDate)} - Select end date`;
+    return `${formatDisplayDate(fromDate)} - ${bookingText(locale, "Select")}`;
   }
 
-  return "Select date range";
+  return locale === "nb" ? "Velg datoperiode" : "Select date range";
 }
 
-function getMonthLabel(month: Date): string {
-  return month.toLocaleDateString("en-GB", {
+function getMonthLabel(month: Date, locale: BookingUiLocale): string {
+  return month.toLocaleDateString(locale === "nb" ? "nb-NO" : "en-GB", {
     month: "long",
     year: "numeric",
   });
@@ -142,7 +155,9 @@ export default function BookingFilters({
   creators,
   onApply,
   onReset,
+  locale = "en",
 }: Props) {
+  const t = (text: string) => bookingText(locale, text);
   const onApplyRef = useRef(onApply);
   useEffect(() => {
     onApplyRef.current = onApply;
@@ -172,8 +187,8 @@ export default function BookingFilters({
   });
 
   const rangeLabel = useMemo(
-    () => formatRangeLabel(fromDate, toDate),
-    [fromDate, toDate],
+    () => formatRangeLabel(fromDate, toDate, locale),
+    [fromDate, locale, toDate],
   );
 
   const calendars = useMemo(
@@ -291,32 +306,32 @@ export default function BookingFilters({
             access.canFilterSubcontractor ? "md:grid-cols-3" : "md:grid-cols-2"
           }`}
         >
-          <Field label="Status">
+          <Field label={t("Status")}>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="customInput w-full"
             >
-              <option value="">All statuses</option>
-              <option value="processing">Processing</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="active">Active</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="failed">Failed</option>
-              <option value="completed">Completed</option>
-              <option value="invoiced">Invoiced</option>
-              <option value="paid">Paid</option>
+              <option value="">{t("All statuses")}</option>
+              <option value="processing">{bookingStatusText(locale, "processing")}</option>
+              <option value="confirmed">{bookingStatusText(locale, "confirmed")}</option>
+              <option value="active">{bookingStatusText(locale, "active")}</option>
+              <option value="cancelled">{bookingStatusText(locale, "cancelled")}</option>
+              <option value="failed">{bookingStatusText(locale, "failed")}</option>
+              <option value="completed">{bookingStatusText(locale, "completed")}</option>
+              <option value="invoiced">{bookingStatusText(locale, "invoiced")}</option>
+              <option value="paid">{bookingStatusText(locale, "paid")}</option>
             </select>
           </Field>
 
           {access.canFilterCreatedBy && (
-            <Field label="Store">
+            <Field label={t("Store")}>
               <select
                 value={createdById}
                 onChange={(e) => setCreatedById(e.target.value)}
                 className="customInput w-full"
               >
-                <option value="">All stores</option>
+                <option value="">{t("All stores")}</option>
                 {creators.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
@@ -327,13 +342,13 @@ export default function BookingFilters({
           )}
 
           {access.canFilterSubcontractor && (
-            <Field label="Subcontractor">
+            <Field label={t("Subcontractor")}>
               <select
                 value={subcontractorId}
                 onChange={(e) => setSubcontractorId(e.target.value)}
                 className="customInput w-full"
               >
-                <option value="">All subcontractors</option>
+                <option value="">{t("All subcontractors")}</option>
                 {subcontractors.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
@@ -345,7 +360,7 @@ export default function BookingFilters({
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-          <Field label="Dates" className="min-w-0">
+          <Field label={t("Dates")} className="min-w-0">
             <div className="relative">
               <button
                 type="button"
@@ -356,7 +371,7 @@ export default function BookingFilters({
                   {rangeLabel}
                 </span>
                 <span className="text-xs text-neutral-500">
-                  {datePickerOpen ? "Close" : "Select"}
+                  {datePickerOpen ? t("Close") : t("Select")}
                 </span>
               </button>
 
@@ -370,14 +385,14 @@ export default function BookingFilters({
                       }
                       className="customButtonDefault h-9 px-3!"
                     >
-                      Previous
+                      {t("Previous")}
                     </button>
                     <button
                       type="button"
                       onClick={clearDateRange}
                       className="customButtonDefault h-9 px-3!"
                     >
-                      Clear dates
+                      {t("Clear dates")}
                     </button>
                     <button
                       type="button"
@@ -386,7 +401,7 @@ export default function BookingFilters({
                       }
                       className="customButtonDefault h-9 px-3!"
                     >
-                      Next
+                      {t("Next")}
                     </button>
                   </div>
 
@@ -397,11 +412,11 @@ export default function BookingFilters({
                         className="rounded-lg border border-black/5 p-2"
                       >
                         <div className="mb-2 text-center text-sm font-semibold capitalize text-logoblue">
-                          {getMonthLabel(month)}
+                          {getMonthLabel(month, locale)}
                         </div>
 
                         <div className="grid grid-cols-7 gap-1 text-center text-xs text-neutral-500">
-                          {WEEKDAY_LABELS.map((label) => (
+                          {WEEKDAY_LABELS[locale].map((label) => (
                             <div key={label} className="py-1">
                               {label}
                             </div>
@@ -457,43 +472,43 @@ export default function BookingFilters({
               onClick={setToday}
               className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
-              Today
+              {t("Today")}
             </button>
             <button
               type="button"
               onClick={setTomorrow}
               className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
-              Tomorrow
+              {t("Tomorrow")}
             </button>
             <button
               type="button"
               onClick={setThisWeek}
               className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
-              This week
+              {t("This week")}
             </button>
             <button
               type="button"
               onClick={setThisMonth}
               className="customButtonDefault h-10 whitespace-nowrap px-3!"
             >
-              This month
+              {t("This month")}
             </button>
           </div>
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Field label="Search">
+          <Field label={t("Search")}>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search ID, name, phone, order no..."
+              placeholder={t("Search ID, name, phone, order no...")}
               className="customInput w-full"
             />
           </Field>
 
-          <Field label="Orders per page">
+          <Field label={t("Orders per page")}>
             <div className="space-y-2">
               <input
                 type="number"
@@ -514,7 +529,7 @@ export default function BookingFilters({
                   }
                 }}
                 className="customInput w-full"
-                placeholder="Type any number"
+                placeholder={t("Type any number")}
               />
               <div className="flex flex-wrap gap-2">
                 {[10, 25, 50, 100, 250, 500].map((n) => (
@@ -537,7 +552,7 @@ export default function BookingFilters({
               onClick={handleReset}
               className="customButtonEnabled h-10"
             >
-              Reset Filters
+              {t("Reset Filters")}
             </button>
           </div>
         </div>

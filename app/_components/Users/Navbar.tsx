@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import FeatureRequestModal from "@/app/_components/Dahsboard/FeatureRequestModal";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
+import { bookingText } from "@/lib/booking/bookingUiText";
 
 type Props = {
   open: boolean;
@@ -152,7 +153,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
           >
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.booking} />
-              Orders
+              {bookingText("nb", "Orders")}
             </div>
           </Link>
 
@@ -165,7 +166,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
             >
               <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
                 <Icon path={ICONS.createOrder} />
-                Create Order
+                {bookingText("nb", "Create Order")}
               </div>
             </Link>
           )}
@@ -175,7 +176,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
             onClick={() => setRequestModalOpen(true)}
             className={`${linkBase} mt-20 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
           >
-            Request new function / bug fix
+            {bookingText("nb", "Request new function / bug fix")}
           </button>
 
           <button
@@ -183,7 +184,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
             onClick={handleLogout}
             className={`${linkBase} mt-2 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
           >
-            Log out
+            {bookingText("nb", "log out")}
           </button>
         </div>
       </div>

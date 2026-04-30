@@ -7,6 +7,7 @@ import {
   getExtraPickupValidation,
   type ExtraPickupInput,
 } from "@/lib/orders/extraPickups";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type Pickup = {
   id: string;
@@ -20,6 +21,7 @@ export function PickupLocations({
   onMainAddressChange,
   pickups,
   onPickupsChange,
+  locale = "en",
 }: {
   disabled?: boolean;
   overrideValue?: string;
@@ -28,7 +30,9 @@ export function PickupLocations({
   onMainAddressChange: (value: string) => void;
   pickups: Pickup[];
   onPickupsChange: (pickups: Pickup[]) => void;
+  locale?: BookingUiLocale;
 }) {
+  const t = (text: string) => bookingText(locale, text);
   const additionalDisabled = useMemo(
     () => disabled || mainAddress.trim().length === 0,
     [disabled, mainAddress],
@@ -66,7 +70,7 @@ export function PickupLocations({
     <div className="w-full py-2">
       <div>
         <label className="font-bold">
-          Pickup address<span className="text-red-600">*</span>
+          {t("Pickup address")}<span className="text-red-600">*</span>
         </label>
         <AddressAutocompleteInput
           inputId="order-pickup-address"
@@ -75,7 +79,7 @@ export function PickupLocations({
             if (!disabled) handleMainChange(value);
           }}
           disabled={disabled}
-          placeholder="Enter a location"
+          placeholder={t("Enter a location")}
         />
         {mainAddressError ? (
           <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -87,7 +91,7 @@ export function PickupLocations({
       {!disabled && (
         <div>
           <div className="flex items-center justify-between py-2">
-            <label className="font-bold">Additional pickup locations</label>
+            <label className="font-bold">{t("Additional pickup locations")}</label>
           </div>
 
           <div
@@ -105,7 +109,7 @@ export function PickupLocations({
                 >
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <span className="text-md pl-1 font-semibold">
-                      Pickup {idx + 1}
+                      {t("Pickup")} {idx + 1}
                       <span className="text-red-600">*</span>
                     </span>
 
@@ -113,7 +117,7 @@ export function PickupLocations({
                       type="button"
                       onClick={() => removePickup(pickup.id)}
                       className="grid h-8 w-8 cursor-pointer place-items-center rounded-full border hover:bg-red-700 hover:text-white"
-                      aria-label={`Remove pickup ${idx + 1}`}
+                      aria-label={`${locale === "nb" ? "Fjern henting" : "Remove pickup"} ${idx + 1}`}
                     >
                       -
                     </button>
@@ -126,14 +130,14 @@ export function PickupLocations({
                       onChange={(value) =>
                         updatePickup(pickup.id, { address: value })
                       }
-                      placeholder="Enter a location"
+                      placeholder={t("Enter a location")}
                     />
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium">
-                        Phone
+                        {t("Phone")}
                         {validation.phoneRequired ? (
                           <span className="text-red-600">*</span>
                         ) : null}
@@ -147,18 +151,18 @@ export function PickupLocations({
                           updatePickup(pickup.id, { phone: e.target.value })
                         }
                         className="customInput w-full"
-                        placeholder="Enter phone"
+                        placeholder={t("Enter phone")}
                       />
                       {validation.phoneError ? (
                         <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                          {validation.phoneError}
+                            {t(validation.phoneError)}
                         </div>
                       ) : null}
                     </div>
 
                     <div>
                       <label className="mb-1 block text-sm font-medium">
-                        Email
+                        {locale === "nb" ? "E-post" : "Email"}
                         {validation.emailRequired ? (
                           <span className="text-red-600">*</span>
                         ) : null}
@@ -172,11 +176,11 @@ export function PickupLocations({
                           updatePickup(pickup.id, { email: e.target.value })
                         }
                         className="customInput w-full"
-                        placeholder="Enter email"
+                        placeholder={t("Enter email")}
                       />
                       {validation.emailError ? (
                         <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                          {validation.emailError}
+                            {t(validation.emailError)}
                         </div>
                       ) : null}
                     </div>
@@ -184,7 +188,7 @@ export function PickupLocations({
 
                   {validation.contactError ? (
                     <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                      {validation.contactError}
+                      {t(validation.contactError)}
                     </div>
                   ) : null}
 
@@ -196,7 +200,7 @@ export function PickupLocations({
                         updatePickup(pickup.id, { sendEmail: e.target.checked })
                       }
                     />
-                    <span>Send email</span>
+                    <span>{locale === "nb" ? "Send e-post" : "Send email"}</span>
                   </label>
                 </div>
               );
@@ -208,7 +212,7 @@ export function PickupLocations({
               disabled={additionalDisabled}
               className="customButtonDefault h-10 w-full"
             >
-              Add additional pickup
+              {t("Add additional pickup")}
             </button>
           </div>
         </div>

@@ -37,6 +37,7 @@ import { createDefaultPriceListSettings, normalizePriceListSettings, type PriceL
 import { applyOrderPricingSnapshot, buildOrderPricingSnapshot, getSavedOrderPricingSnapshot, pricingSnapshotsEqual } from "@/lib/booking/pricing/snapshot";
 import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
 import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 export type OrderFormPayload = {
   productCards: SavedProductCard[];
@@ -123,6 +124,7 @@ type Props = {
   dataset?: "default" | "power";
   hideSubmitButton?: boolean;
   onSubmit?: (payload: OrderFormPayload) => void | Promise<void>;
+  locale?: BookingUiLocale;
   initialValues?: Partial<OrderFormPayload> & {
     id?: string;
     legacyWordpressOrderId?: number | null;
@@ -476,8 +478,10 @@ export default function BookingEditor({
   dataset = "default",
   hideSubmitButton = false,
   onSubmit,
+  locale = "en",
   initialValues,
 }: Props) {
+  const t = (text: string) => bookingText(locale, text);
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [didAttemptSubmit, setDidAttemptSubmit] = useState(false);
@@ -1354,29 +1358,29 @@ export default function BookingEditor({
   const deliveryDateIsPast = !!deliveryDate.trim() && deliveryDate.trim() < getTodayInputDate();
   const deliveryDateWarning =
     allowPastDeliveryDates && deliveryDateIsPast
-      ? "Warning: delivery date is in the past"
+      ? t("Warning: delivery date is in the past")
       : null;
   const computedFieldErrors = useMemo(
     (): FieldErrorMap => ({
       deliveryDate:
         requiresDeliveryDate && !deliveryDate.trim()
-          ? "Delivery date is required"
+          ? t("Delivery date is required.")
           : requiresDeliveryDate && !allowPastDeliveryDates && deliveryDateIsPast
-            ? "Delivery date cannot be in the past"
+            ? t("Delivery date cannot be in the past.")
             : null,
       timeWindow:
         requiresTimeWindow && !finalTimeWindow.trim()
-          ? "Delivery time window is required"
+          ? t("Delivery time window is required.")
           : requiresTimeWindow && timeWindow === "custom" && (!customTimeFrom || !customTimeTo)
-            ? "Custom time requires both from and to"
+            ? t("Custom time requires both from and to")
             : null,
-      pickupAddress: requiresPickupAddress && !pickupAddress.trim() ? "Pickup address is required" : null,
-      deliveryAddress: requiresDeliveryAddress && !deliveryAddress.trim() ? "Delivery address is required" : null,
-      returnAddress: requiresReturnAddress && !returnAddress.trim() ? "Return address is required" : null,
-      customerPhone: phoneError ?? (requiresCustomerPhone && !normalizedPhone ? "Customer phone is required" : null),
-      customerPhoneTwo: phoneTwoError,
-      customerEmail: emailError,
-      cashierPhone: cashierPhoneError,
+      pickupAddress: requiresPickupAddress && !pickupAddress.trim() ? t("Pickup address is required.") : null,
+      deliveryAddress: requiresDeliveryAddress && !deliveryAddress.trim() ? t("Delivery address is required.") : null,
+      returnAddress: requiresReturnAddress && !returnAddress.trim() ? t("Return address is required.") : null,
+      customerPhone: (phoneError ? t(phoneError) : null) ?? (requiresCustomerPhone && !normalizedPhone ? t("Customer phone is required") : null),
+      customerPhoneTwo: phoneTwoError ? t(phoneTwoError) : null,
+      customerEmail: emailError ? t(emailError) : null,
+      cashierPhone: cashierPhoneError ? t(cashierPhoneError) : null,
     }),
     [
       cashierPhoneError,
@@ -1400,6 +1404,7 @@ export default function BookingEditor({
       requiresTimeWindow,
       returnAddress,
       timeWindow,
+      t,
     ],
   );
   const visibleFieldErrors = didAttemptSubmit ? computedFieldErrors : EMPTY_FIELD_ERRORS;
@@ -1919,16 +1924,18 @@ export default function BookingEditor({
                 disableRemove={productCards.length === 1}
                 isExpanded={expandedCardId === card.cardId}
                 onToggle={() => setExpandedCardId((current) => (current === card.cardId ? null : card.cardId))}
+                locale={locale}
               />
             ))}
 
           {shown(effectiveHidden, OrderFields.AddProductButton) && (
             <button type="button" className="customButtonEnabled h-12 my-8 w-full" onClick={addProductCard}>
-              Add extra products
+              {t("Add extra products")}
             </button>
           )}
 
           <OrderFieldsForm
+            locale={locale}
             hidden={effectiveHidden}
             hideDontSendEmail={effectiveHideDontSendEmail}
             allowPastDeliveryDates={allowPastDeliveryDates}
@@ -2058,6 +2065,7 @@ export default function BookingEditor({
               priceUpdateAvailable={hasCurrentPriceUpdates}
               onUseCurrentPrices={handleUseCurrentPrices}
               sidebarMode
+              locale={locale}
             />
           </div>
         </div>
@@ -2077,6 +2085,7 @@ export default function BookingEditor({
             onAdjustmentsChange={handleAdjustmentsChange}
             priceUpdateAvailable={hasCurrentPriceUpdates}
             onUseCurrentPrices={handleUseCurrentPrices}
+            locale={locale}
           />
         </div>
       </div>

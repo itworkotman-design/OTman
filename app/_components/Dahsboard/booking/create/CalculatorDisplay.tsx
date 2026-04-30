@@ -7,6 +7,7 @@ import type {
   PriceLookup,
   ProductBreakdown,
 } from "@/lib/booking/pricing/types";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 function roundPriceRule(n: number) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
@@ -36,6 +37,7 @@ type Props = {
   subcontractorPlus?: string;
   onAdjustmentsChange?: (adjustments: CalculatorAdjustments) => void;
   sidebarMode?: boolean;
+  locale?: BookingUiLocale;
 };
 
 export function CalculatorDisplayNew({
@@ -49,7 +51,9 @@ export function CalculatorDisplayNew({
   subcontractorPlus = "",
   onAdjustmentsChange,
   sidebarMode = false,
+  locale = "en",
 }: Props) {
+  const t = (text: string) => bookingText(locale, text);
   const adjustments = useMemo(
     () => ({
       rabatt,
@@ -86,7 +90,7 @@ export function CalculatorDisplayNew({
     >
       <div className="border-b-2 border-lineSecondary py-4">
         {result.breakdowns.length === 0 ? (
-          <p className="text-sm opacity-30">No products selected.</p>
+          <p className="text-sm opacity-30">{t("No products selected.")}</p>
         ) : (
           result.breakdowns.map((product, productIdx) => (
             <div
@@ -114,7 +118,7 @@ export function CalculatorDisplayNew({
 
               {product.lines.length === 0 ? (
                 <p className="text-sm opacity-30 ml-2">
-                  No services selected for this product.
+                  {t("No services selected for this product.")}
                 </p>
               ) : (
                 product.lines.map((line, idx) => (
@@ -174,14 +178,14 @@ export function CalculatorDisplayNew({
         </div>
 
         <div className="priceRow">
-          <h1 className="text-md">VAT (25%)</h1>
+          <h1 className="text-md">{t("VAT (25%)")}</h1>
           <p className="font-semibold">
             {formatSumNOK(result.totals.vat)} NOK
           </p>
         </div>
 
         <div className="priceRow">
-          <h1 className="text-md">Total incl. VAT</h1>
+          <h1 className="text-md">{locale === "nb" ? "Total inkl. MVA" : "Total incl. VAT"}</h1>
           <p className="font-semibold">
             {formatSumNOK(result.totals.totalIncVat)} NOK
           </p>

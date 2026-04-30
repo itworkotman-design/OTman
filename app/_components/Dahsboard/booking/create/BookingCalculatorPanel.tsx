@@ -4,6 +4,7 @@ import React from "react";
 import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type Props = {
   calcOpen: boolean;
@@ -25,6 +26,7 @@ type Props = {
   priceUpdateAvailable?: boolean;
   onUseCurrentPrices?: () => void;
   sidebarMode?: boolean;
+  locale?: BookingUiLocale;
 };
 
 export default function BookingCalculatorPanel({
@@ -42,16 +44,18 @@ export default function BookingCalculatorPanel({
   priceUpdateAvailable = false,
   onUseCurrentPrices,
   sidebarMode = false,
+  locale = "en",
 }: Props) {
+  const t = (text: string) => bookingText(locale, text);
   const priceUpdateNotice = priceUpdateAvailable ? (
     <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
-      <p className="font-semibold">Hey, this product changed prices.</p>
+      <p className="font-semibold">{locale === "nb" ? "Dette produktet har endret pris." : "Hey, this product changed prices."}</p>
       <button
         type="button"
         className="mt-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"
         onClick={onUseCurrentPrices}
       >
-        Use new price
+        {t("Use new price")}
       </button>
     </div>
   ) : null;
@@ -64,10 +68,10 @@ export default function BookingCalculatorPanel({
             type="button"
             onClick={() => setCalcOpen(true)}
             className="h-80 w-10 rounded-l-full bg-white shadow-xl border border-black/10 flex items-center justify-center"
-            aria-label="Open calculator"
+            aria-label={locale === "nb" ? "Åpne kalkulator" : "Open calculator"}
           >
             <span className="[writing-mode:vertical-rl] rotate-180 text-md font-semibold text-logoblue">
-              Calculator
+              {t("Calculator")}
             </span>
           </button>
         ) : (
@@ -76,9 +80,9 @@ export default function BookingCalculatorPanel({
               type="button"
               onClick={() => setCalcOpen(false)}
               className="rounded-4xl bg-logoblue text-sm font-semibold w-[80] h-[40] text-white text-center ml-auto mr-2 mt-2 shrink-0"
-              aria-label="Close calculator"
+              aria-label={locale === "nb" ? "Lukk kalkulator" : "Close calculator"}
             >
-              Close
+              {t("Close")}
             </button>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -94,6 +98,7 @@ export default function BookingCalculatorPanel({
                 subcontractorPlus={subcontractorPlus}
                 onAdjustmentsChange={onAdjustmentsChange}
                 sidebarMode={false}
+                locale={locale}
               />
             </div>
           </div>
@@ -113,6 +118,7 @@ export default function BookingCalculatorPanel({
           subcontractorPlus={subcontractorPlus}
           onAdjustmentsChange={onAdjustmentsChange}
           sidebarMode={sidebarMode}
+          locale={locale}
         />
       </div>
     </>
