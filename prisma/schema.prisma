@@ -266,6 +266,7 @@ model Product {
   allowReturnOptions  Boolean         @default(true)
   autoXtraPerPallet   Boolean         @default(false)
   productType         ProductType     @default(PHYSICAL)
+  autoDeliveryPrice   Json?
   customSections      Json?
   deliveryTypes       Json?
   allowModelNumber    Boolean         @default(true)

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createDefaultProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { createDefaultProductDeliveryTypes } from "@/lib/products/deliveryTypes";
 import { createDefaultPriceListSettings } from "@/lib/products/priceListSettings";
 
@@ -232,6 +233,7 @@ describe("GET /api/booking/catalog", () => {
           allowHoursInput: false,
           allowModelNumber: true,
           autoXtraPerPallet: false,
+          autoDeliveryPrice: createDefaultProductAutoDeliveryPrice(),
           deliveryTypes: createDefaultProductDeliveryTypes(),
           customSections: [],
           options: [
@@ -264,6 +266,7 @@ describe("GET /api/booking/catalog", () => {
           allowHoursInput: false,
           allowModelNumber: false,
           autoXtraPerPallet: true,
+          autoDeliveryPrice: createDefaultProductAutoDeliveryPrice(),
           deliveryTypes: [],
           customSections: [],
           options: [],

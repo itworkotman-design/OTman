@@ -53,6 +53,7 @@ function FieldErrorMessage({ message }: { message: string | null }) {
 type Props = {
   hidden: HiddenMask;
   hideDontSendEmail: boolean;
+  allowPastDeliveryDates: boolean;
   isInstallationOnly: boolean;
   isReturnOnly: boolean;
   shouldLockPickupAddress: boolean;
@@ -64,6 +65,7 @@ type Props = {
   saving: boolean;
   submitError: string;
   deliveryDateError: string | null;
+  deliveryDateWarning: string | null;
   timeWindowError: string | null;
   pickupAddressError: string | null;
   deliveryAddressError: string | null;
@@ -185,6 +187,7 @@ type Props = {
 export default function OrderFieldsForm({
   hidden,
   hideDontSendEmail,
+  allowPastDeliveryDates,
   shouldLockPickupAddress,
   hideSubmitButton,
   subcontractorLoading,
@@ -194,6 +197,7 @@ export default function OrderFieldsForm({
   saving,
   submitError,
   deliveryDateError,
+  deliveryDateWarning,
   timeWindowError,
   pickupAddressError,
   deliveryAddressError,
@@ -338,11 +342,12 @@ export default function OrderFieldsForm({
             id="order-delivery-date"
             type="date"
             value={deliveryDate}
-            min={new Date().toISOString().slice(0, 10)}
+            min={allowPastDeliveryDates ? undefined : new Date().toISOString().slice(0, 10)}
             onChange={(e) => setDeliveryDate(e.target.value)}
             className="customInput w-full"
           />
           <FieldErrorMessage message={deliveryDateError} />
+          <FieldErrorMessage message={deliveryDateWarning} />
         </>
       )}
 

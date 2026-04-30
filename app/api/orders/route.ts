@@ -276,6 +276,84 @@ function orderMatchesSearch(order: OrderArchiveRecord, search: string) {
   return fields.some((field) => normalizedIncludes(field, search));
 }
 
+function getTodayDateKey() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function hasArchiveAlert(order: OrderArchiveRecord) {
+  return Boolean(
+    order.needsNotificationAttention ||
+    order.unreadNotificationCount > 0 ||
+    order.needsEmailAttention ||
+    order.unreadInboundEmailCount > 0
+  );
+}
+
+function getDeliveryDateGroup(deliveryDate: string | null, todayDateKey: string) {
+  if (!deliveryDate) {
+    return 2;
+  }
+
+  return deliveryDate >= todayDateKey ? 0 : 1;
+}
+
+function compareNullableText(left: string | null, right: string | null) {
+  const leftValue = left?.trim() ?? "";
+  const rightValue = right?.trim() ?? "";
+
+  if (!leftValue && !rightValue) {
+    return 0;
+  }
+
+  if (!leftValue) {
+    return 1;
+  }
+
+  if (!rightValue) {
+    return -1;
+  }
+
+  return leftValue.localeCompare(rightValue, "no");
+}
+
+function compareArchiveOrders(todayDateKey: string) {
+  return (left: OrderArchiveRecord, right: OrderArchiveRecord) => {
+    const alertComparison = Number(hasArchiveAlert(right)) - Number(hasArchiveAlert(left));
+    if (alertComparison !== 0) {
+      return alertComparison;
+    }
+
+    const leftDateGroup = getDeliveryDateGroup(left.deliveryDate, todayDateKey);
+    const rightDateGroup = getDeliveryDateGroup(right.deliveryDate, todayDateKey);
+    if (leftDateGroup !== rightDateGroup) {
+      return leftDateGroup - rightDateGroup;
+    }
+
+    if (left.deliveryDate !== right.deliveryDate) {
+      if (!left.deliveryDate) {
+        return 1;
+      }
+
+      if (!right.deliveryDate) {
+        return -1;
+      }
+
+      return right.deliveryDate.localeCompare(left.deliveryDate);
+    }
+
+    const timeWindowComparison = compareNullableText(left.timeWindow, right.timeWindow);
+    if (timeWindowComparison !== 0) {
+      return timeWindowComparison;
+    }
+
+    return (right.displayId ?? 0) - (left.displayId ?? 0);
+  };
+}
+
 async function reserveNextOrderNumber(companyId: string): Promise<number> {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.companyOrderCounter.findUnique({
@@ -794,7 +872,7 @@ export async function POST(req: Request) {
 
   try {
     const orderEmailsEnabled = membership.company?.orderEmailsEnabled !== false;
-    if (orderEmailsEnabled) {
+    if (orderEmailsEnabled && !order.dontSendEmail) {
       const notificationOrder = {
         id: order.id,
         displayId: order.displayId,
@@ -914,9 +992,6 @@ export async function GET(req: Request) {
   const search = optionalString(searchParams.get("search"));
   const normalizedSearch = normalizeSearchText(search);
   const trimmedSearch = search?.trim() ?? "";
-  const sortBy = optionalString(searchParams.get("sortBy"));
-  const sortOrder =
-    optionalString(searchParams.get("sortOrder")) === "asc" ? "asc" : "desc";
 
   const page = parsePositiveInt(searchParams.get("page"), 1);
   const rowsPerPage = Math.min(
@@ -978,58 +1053,19 @@ export async function GET(req: Request) {
     }
   }
 
-  const baseOrderBy = (() => {
-    if (!sortBy) {
-      return [
-        {
-          deliveryDate: {
-            sort: "desc",
-            nulls: "first",
-          },
-        },
-        {
-          createdAt: "desc",
-        },
-      ];
-    }
-
-    switch (sortBy) {
-      case "deliveryDate":
-        return { deliveryDate: sortOrder };
-      case "price":
-        return { priceExVat: sortOrder };
-      case "status":
-        return { status: sortOrder };
-      default:
-        return { createdAt: "desc" };
-    }
-  })();
-
-  const orderBy = (
-    Array.isArray(baseOrderBy) ? baseOrderBy : [baseOrderBy]
-  ) as Prisma.OrderOrderByWithRelationInput[];
-
-  if (isAdminOrOwner) {
-    orderBy.unshift(
-      { needsNotificationAttention: "desc" },
-      { lastNotificationAt: { sort: "desc", nulls: "last" } },
-      { needsEmailAttention: "desc" },
-      { lastInboundEmailAt: { sort: "desc", nulls: "last" } },
-    );
-  }
-
   const orderFindManyArgs: Prisma.OrderFindManyArgs & {
     select: typeof orderArchiveSelect;
   } = {
     where,
-    orderBy,
+    orderBy: [
+      { needsNotificationAttention: "desc" },
+      { needsEmailAttention: "desc" },
+      { deliveryDate: { sort: "asc", nulls: "last" } },
+      { timeWindow: { sort: "asc", nulls: "last" } },
+      { displayId: "desc" },
+    ],
     select: orderArchiveSelect,
   };
-
-  if (!normalizedSearch) {
-    orderFindManyArgs.skip = (page - 1) * rowsPerPage;
-    orderFindManyArgs.take = rowsPerPage;
-  }
 
   if (trimmedSearch) {
     where.AND = [
@@ -1042,11 +1078,12 @@ export async function GET(req: Request) {
     orderFindManyArgs,
   )) as OrderArchiveRecord[];
 
-  const orders = normalizedSearch
-    ? orderCandidates
-        .filter((order) => orderMatchesSearch(order, normalizedSearch))
-        .slice((page - 1) * rowsPerPage, page * rowsPerPage)
-    : orderCandidates;
+  const todayDateKey = getTodayDateKey();
+  const sortedOrders = orderCandidates.toSorted(compareArchiveOrders(todayDateKey));
+  const matchedOrders = normalizedSearch
+    ? sortedOrders.filter((order) => orderMatchesSearch(order, normalizedSearch))
+    : sortedOrders;
+  const orders = matchedOrders.slice((page - 1) * rowsPerPage, page * rowsPerPage);
 
   const legacyAuthorIds = Array.from(
     new Set(

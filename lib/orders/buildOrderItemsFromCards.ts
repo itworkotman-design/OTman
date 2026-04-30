@@ -4,6 +4,7 @@ import type {
   CatalogSpecialOption,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { OPTION_CODES } from "@/lib/booking/constants";
+import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import {
   isInstallOption,
@@ -193,6 +194,36 @@ export function buildOrderItemsFromCards(
       subcontractorPriceCents: null,
       rawData: card,
     });
+
+    const autoDeliveryPrice = normalizeProductAutoDeliveryPrice(
+      product?.autoDeliveryPrice,
+    );
+
+    if (product && autoDeliveryPrice.enabled) {
+      items.push({
+        cardId: card.cardId,
+        productId: card.productId ?? null,
+        productCode: product.code,
+        productName: product.label,
+        deliveryType: deliveryTypeLabel,
+        itemType: "EXTRA_OPTION",
+        optionId: null,
+        optionCode: autoDeliveryPrice.code,
+        optionLabel: autoDeliveryPrice.label,
+        quantity: 1,
+        customerPriceCents: decimalStringToCents(
+          autoDeliveryPrice.price,
+        ),
+        subcontractorPriceCents: decimalStringToCents(
+          autoDeliveryPrice.subcontractorPrice,
+        ),
+        rawData: {
+          code: autoDeliveryPrice.code,
+          label: autoDeliveryPrice.label,
+          source: "auto_delivery_price",
+        },
+      });
+    }
 
     if (product?.productType === "LABOR") {
       if (showInstallOptions && card.selectedInstallOptionIds.length > 0) {

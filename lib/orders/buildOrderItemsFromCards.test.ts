@@ -157,4 +157,39 @@ describe("buildOrderItemsFromCards", () => {
       ]),
     );
   });
+
+  it("stores enabled product auto delivery prices on order items", () => {
+    const items = buildOrderItemsFromCards(
+      [buildCard()],
+      [
+        {
+          ...buildProduct(),
+          autoDeliveryPrice: {
+            enabled: true,
+            code: "AUTO_START",
+            label: "Startup delivery",
+            price: "125",
+            subcontractorPrice: "50",
+          },
+        },
+      ],
+      [],
+    );
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          itemType: "EXTRA_OPTION",
+          optionCode: "AUTO_START",
+          optionLabel: "Startup delivery",
+          quantity: 1,
+          customerPriceCents: 12500,
+          subcontractorPriceCents: 5000,
+          rawData: expect.objectContaining({
+            source: "auto_delivery_price",
+          }),
+        }),
+      ]),
+    );
+  });
 });

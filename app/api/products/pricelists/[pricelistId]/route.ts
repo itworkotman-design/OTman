@@ -169,6 +169,13 @@ export async function GET(
               productConfig?.allowModelNumber ?? product.allowModelNumber,
             autoXtraPerPallet:
               productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
+            autoDeliveryPrice: productConfig?.autoDeliveryPrice ?? {
+              enabled: false,
+              code: "AUTO_DELIVERY",
+              label: "Delivery price",
+              price: "0",
+              subcontractorPrice: "0",
+            },
             deliveryTypes: productConfig?.deliveryTypes ?? [],
             customSections: productConfig?.customSections ?? [],
           };

@@ -9,6 +9,10 @@ import {
   type ProductCustomSection,
 } from "@/lib/products/customSections";
 import {
+  normalizeProductAutoDeliveryPrice,
+  type ProductAutoDeliveryPrice,
+} from "@/lib/products/autoDeliveryPrice";
+import {
   normalizeProductDeliveryTypes,
   type ProductDeliveryType,
 } from "@/lib/products/deliveryTypes";
@@ -34,6 +38,7 @@ type Body = {
   allowHoursInput?: boolean;
   allowModelNumber?: boolean;
   autoXtraPerPallet?: boolean;
+  autoDeliveryPrice?: ProductAutoDeliveryPrice;
   deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
 
@@ -92,7 +97,9 @@ function isMissingProductConfigColumnError(error: unknown) {
     message.includes(`column "deliveryTypes" does not exist`) ||
     message.includes(`column "deliverytypes" does not exist`) ||
     message.includes(`column "allowModelNumber" does not exist`) ||
-    message.includes(`column "allowmodelnumber" does not exist`)
+    message.includes(`column "allowmodelnumber" does not exist`) ||
+    message.includes(`column "autoDeliveryPrice" does not exist`) ||
+    message.includes(`column "autodeliveryprice" does not exist`)
   );
 }
 
@@ -135,6 +142,7 @@ async function findPriceListItemById(
                 allowHoursInput: true,
                 allowModelNumber: true,
                 autoXtraPerPallet: true,
+                autoDeliveryPrice: true,
               },
             },
         },
@@ -305,6 +313,7 @@ export async function PATCH(
     allowHoursInput?: boolean;
     allowModelNumber?: boolean;
     autoXtraPerPallet?: boolean;
+    autoDeliveryPrice?: ProductAutoDeliveryPrice;
     deliveryTypes?: ProductDeliveryType[];
     customSections?: ProductCustomSection[];
   } = {};
@@ -378,6 +387,12 @@ export async function PATCH(
     productData.autoXtraPerPallet = body.autoXtraPerPallet;
   }
 
+  if (body.autoDeliveryPrice !== undefined) {
+    productData.autoDeliveryPrice = normalizeProductAutoDeliveryPrice(
+      body.autoDeliveryPrice,
+    );
+  }
+
   if (body.deliveryTypes !== undefined) {
     productData.deliveryTypes = normalizeProductDeliveryTypes(body.deliveryTypes);
   }
@@ -391,6 +406,10 @@ export async function PATCH(
   const deliveryTypesJson =
     productData.deliveryTypes !== undefined
       ? JSON.stringify(productData.deliveryTypes)
+      : null;
+  const autoDeliveryPriceJson =
+    productData.autoDeliveryPrice !== undefined
+      ? JSON.stringify(productData.autoDeliveryPrice)
       : null;
   const customSectionsJson =
     productData.customSections !== undefined
@@ -419,6 +438,7 @@ export async function PATCH(
             "allowHoursInput" = COALESCE(${productData.allowHoursInput ?? null}, "allowHoursInput"),
             "allowModelNumber" = COALESCE(${productData.allowModelNumber ?? null}, "allowModelNumber"),
             "autoXtraPerPallet" = COALESCE(${productData.autoXtraPerPallet ?? null}, "autoXtraPerPallet"),
+            "autoDeliveryPrice" = COALESCE(${autoDeliveryPriceJson}::jsonb, "autoDeliveryPrice"),
             "deliveryTypes" = COALESCE(${deliveryTypesJson}::jsonb, "deliveryTypes"),
             "customSections" = COALESCE(${customSectionsJson}::jsonb, "customSections")
           WHERE "id" = ${existing.productOption.productId}
@@ -534,6 +554,12 @@ export async function PATCH(
       updatedProduct.autoXtraPerPallet ??
       productData.autoXtraPerPallet ??
       existing.productOption.product.autoXtraPerPallet,
+    autoDeliveryPrice:
+      rawProductConfig?.autoDeliveryPrice ??
+      productData.autoDeliveryPrice ??
+      normalizeProductAutoDeliveryPrice(
+        existing.productOption.product.autoDeliveryPrice,
+      ),
     deliveryTypes:
       rawProductConfig?.deliveryTypes ??
       productData.deliveryTypes ??
@@ -578,6 +604,7 @@ export async function PATCH(
         allowHoursInput: productSnapshot.allowHoursInput,
         allowModelNumber: productSnapshot.allowModelNumber,
         autoXtraPerPallet: productSnapshot.autoXtraPerPallet,
+        autoDeliveryPrice: productSnapshot.autoDeliveryPrice,
         deliveryTypes: productSnapshot.deliveryTypes,
         customSections: productSnapshot.customSections,
       },

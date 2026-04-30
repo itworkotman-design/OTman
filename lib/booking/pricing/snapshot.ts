@@ -7,6 +7,10 @@ import {
   normalizePriceListSettings,
   type PriceListSettings,
 } from "@/lib/products/priceListSettings";
+import {
+  normalizeProductAutoDeliveryPrice,
+  type ProductAutoDeliveryPrice,
+} from "@/lib/products/autoDeliveryPrice";
 
 type OptionPriceSnapshot = {
   customerPrice: string;
@@ -30,6 +34,7 @@ export type OrderPricingSnapshot = {
   productOptions: Record<string, OptionPriceSnapshot>;
   specialOptions: Record<string, OptionPriceSnapshot>;
   deliveryTypes: Record<string, DeliveryTypePriceSnapshot>;
+  autoDeliveryPrices: Record<string, ProductAutoDeliveryPrice>;
   customSectionOptions: Record<string, CustomSectionOptionPriceSnapshot>;
   priceListSettings: PriceListSettings;
 };
@@ -52,6 +57,11 @@ function stableStringify(value: OrderPricingSnapshot) {
     ),
     deliveryTypes: Object.fromEntries(
       Object.entries(value.deliveryTypes).toSorted(([a], [b]) =>
+        a.localeCompare(b),
+      ),
+    ),
+    autoDeliveryPrices: Object.fromEntries(
+      Object.entries(value.autoDeliveryPrices ?? {}).toSorted(([a], [b]) =>
         a.localeCompare(b),
       ),
     ),
@@ -78,6 +88,7 @@ export function buildOrderPricingSnapshot(params: {
   );
   const productOptions: OrderPricingSnapshot["productOptions"] = {};
   const deliveryTypes: OrderPricingSnapshot["deliveryTypes"] = {};
+  const autoDeliveryPrices: OrderPricingSnapshot["autoDeliveryPrices"] = {};
   const customSectionOptions: OrderPricingSnapshot["customSectionOptions"] = {};
 
   for (const product of catalogProducts) {
@@ -102,6 +113,10 @@ export function buildOrderPricingSnapshot(params: {
       };
     }
 
+    autoDeliveryPrices[product.id] = normalizeProductAutoDeliveryPrice(
+      product.autoDeliveryPrice,
+    );
+
     for (const section of product.customSections) {
       for (const option of section.options) {
         customSectionOptions[option.id] = {
@@ -125,6 +140,7 @@ export function buildOrderPricingSnapshot(params: {
       ]),
     ),
     deliveryTypes,
+    autoDeliveryPrices,
     customSectionOptions,
     priceListSettings: normalizePriceListSettings(params.priceListSettings),
   };
@@ -149,6 +165,10 @@ export function applyOrderPricingSnapshot(params: {
   return {
     catalogProducts: params.catalogProducts.map((product) => ({
       ...product,
+      autoDeliveryPrice: normalizeProductAutoDeliveryPrice(
+        pricingSnapshot.autoDeliveryPrices?.[product.id] ??
+          product.autoDeliveryPrice,
+      ),
       deliveryTypes: product.deliveryTypes.map((deliveryType) => {
         const snapshot =
           pricingSnapshot.deliveryTypes[

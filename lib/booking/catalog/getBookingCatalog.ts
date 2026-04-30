@@ -9,6 +9,7 @@ import {
   parsePriceListSettings,
   type PriceListSettings,
 } from "@/lib/products/priceListSettings";
+import { createDefaultProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 
 type Result = {
   products: CatalogProduct[];
@@ -126,6 +127,9 @@ export async function getBookingCatalog(
     autoXtraPerPallet:
       productConfigMap.get(product.id)?.autoXtraPerPallet ??
       product.autoXtraPerPallet,
+    autoDeliveryPrice:
+      productConfigMap.get(product.id)?.autoDeliveryPrice ??
+      createDefaultProductAutoDeliveryPrice(),
     deliveryTypes: productConfigMap.get(product.id)?.deliveryTypes ?? [],
     customSections: productConfigMap.get(product.id)?.customSections ?? [],
     options: product.options.map((option) => {

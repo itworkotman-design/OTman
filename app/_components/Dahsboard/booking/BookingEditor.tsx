@@ -462,6 +462,14 @@ function scrollToFieldTarget(targetId: string) {
   });
 }
 
+function getTodayInputDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function BookingEditor({
   hidden = 0,
   hideDontSendEmail = false,
@@ -565,6 +573,7 @@ export default function BookingEditor({
   const [attachmentsError, setAttachmentsError] = useState("");
   const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>([]);
   const { effectiveHidden, effectiveHideDontSendEmail } = getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
+  const allowPastDeliveryDates = role === "OWNER" || role === "ADMIN";
   const showAdminCalculatorAdjustments = !!initialValues?.id && (role === "OWNER" || role === "ADMIN");
   const canSelectPriceList = !initialValues?.id && dataset === "default" && (role === "OWNER" || role === "ADMIN");
 
@@ -1342,9 +1351,19 @@ export default function BookingEditor({
   const phoneTwoError = getOptionalPhoneError(phoneTwo);
   const cashierPhoneError = getOptionalPhoneError(cashierPhone);
   const extraPickupErrors = useMemo(() => extraPickups.map((pickup) => getExtraPickupValidation(pickup)), [extraPickups]);
+  const deliveryDateIsPast = !!deliveryDate.trim() && deliveryDate.trim() < getTodayInputDate();
+  const deliveryDateWarning =
+    allowPastDeliveryDates && deliveryDateIsPast
+      ? "Warning: delivery date is in the past"
+      : null;
   const computedFieldErrors = useMemo(
     (): FieldErrorMap => ({
-      deliveryDate: requiresDeliveryDate && !deliveryDate.trim() ? "Delivery date is required" : null,
+      deliveryDate:
+        requiresDeliveryDate && !deliveryDate.trim()
+          ? "Delivery date is required"
+          : requiresDeliveryDate && !allowPastDeliveryDates && deliveryDateIsPast
+            ? "Delivery date cannot be in the past"
+            : null,
       timeWindow:
         requiresTimeWindow && !finalTimeWindow.trim()
           ? "Delivery time window is required"
@@ -1365,6 +1384,8 @@ export default function BookingEditor({
       customTimeTo,
       deliveryAddress,
       deliveryDate,
+      allowPastDeliveryDates,
+      deliveryDateIsPast,
       emailError,
       finalTimeWindow,
       normalizedPhone,
@@ -1910,6 +1931,7 @@ export default function BookingEditor({
           <OrderFieldsForm
             hidden={effectiveHidden}
             hideDontSendEmail={effectiveHideDontSendEmail}
+            allowPastDeliveryDates={allowPastDeliveryDates}
             isInstallationOnly={isInstallationOnly}
             isReturnOnly={isReturnOnly}
             shouldLockPickupAddress={shouldLockPickupAddress}
@@ -1921,6 +1943,7 @@ export default function BookingEditor({
             saving={saving}
             submitError={submitError}
             deliveryDateError={visibleFieldErrors.deliveryDate}
+            deliveryDateWarning={deliveryDateWarning}
             timeWindowError={visibleFieldErrors.timeWindow}
             pickupAddressError={visibleFieldErrors.pickupAddress}
             deliveryAddressError={visibleFieldErrors.deliveryAddress}

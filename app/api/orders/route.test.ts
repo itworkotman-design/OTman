@@ -236,7 +236,7 @@ describe("routes in /api/orders", () => {
         }),
       ],
       page: 1,
-      rowsPerPage: 25,
+      rowsPerPage: 10,
     });
     expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -250,6 +250,142 @@ describe("routes in /api/orders", () => {
             { createdByMembershipId: "membership-1" },
           ],
         }),
+      }),
+    );
+  });
+
+  it("GET sorts archive rows by alerts, future delivery date, time window, and display id", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "admin-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "admin-membership",
+      role: "ADMIN",
+      permissions: [],
+    });
+
+    const baseOrder = {
+      id: "base-order",
+      displayId: 20000,
+      status: "processing",
+      statusNotes: null,
+      deliveryDate: "2099-01-01",
+      timeWindow: "10:00-16:00",
+      customerLabel: "Acme",
+      customerName: "Alice",
+      orderNumber: "PO-1",
+      phone: "12345678",
+      phoneTwo: null,
+      email: null,
+      pickupAddress: "Pickup 1",
+      extraPickupAddress: [],
+      extraPickupContacts: null,
+      deliveryAddress: "Delivery 1",
+      returnAddress: null,
+      items: [],
+      productsSummary: "Van",
+      deliveryTypeSummary: "Standard",
+      servicesSummary: "Carry",
+      description: null,
+      cashierName: null,
+      cashierPhone: null,
+      customerComments: null,
+      driverInfo: null,
+      subcontractorMembershipId: null,
+      subcontractor: null,
+      driver: null,
+      createdAt: new Date("2030-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2030-01-02T00:00:00.000Z"),
+      lastInboundEmailAt: null,
+      lastOutboundEmailAt: null,
+      lastNotificationAt: null,
+      needsEmailAttention: false,
+      unreadInboundEmailCount: 0,
+      needsNotificationAttention: false,
+      unreadNotificationCount: 0,
+      priceExVat: 1000,
+      priceSubcontractor: 700,
+      createdByMembershipId: "admin-membership",
+      lastEditedByMembershipId: null,
+      customerMembershipId: "admin-membership",
+      legacyWordpressAuthorId: null,
+      customerMembership: {
+        user: {
+          username: "assigned-store",
+          email: "store@example.com",
+        },
+      },
+      createdByMembership: {
+        user: {
+          username: "creator",
+          email: "creator@example.com",
+        },
+      },
+      lastEditedByMembership: null,
+      events: [],
+    };
+
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        ...baseOrder,
+        id: "future-later-date",
+        displayId: 20005,
+        deliveryDate: "2099-01-02",
+        timeWindow: "10:00-16:00",
+      },
+      {
+        ...baseOrder,
+        id: "past-alert",
+        displayId: 20001,
+        deliveryDate: "2000-01-01",
+        needsNotificationAttention: true,
+      },
+      {
+        ...baseOrder,
+        id: "future-same-date-later-window",
+        displayId: 20003,
+        deliveryDate: "2099-01-01",
+        timeWindow: "16:00-21:00",
+      },
+      {
+        ...baseOrder,
+        id: "past-no-alert",
+        displayId: 20006,
+        deliveryDate: "2000-01-02",
+      },
+      {
+        ...baseOrder,
+        id: "future-same-date-earlier-window",
+        displayId: 20002,
+        deliveryDate: "2099-01-01",
+        timeWindow: "10:00-16:00",
+      },
+    ]);
+
+    const res = await GET(
+      new Request("http://localhost/api/orders?page=1&rowsPerPage=10"),
+    );
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+
+    expect(data.orders.map((order: { id: string }) => order.id)).toEqual([
+      "past-alert",
+      "future-later-date",
+      "future-same-date-earlier-window",
+      "future-same-date-later-window",
+      "past-no-alert",
+    ]);
+    expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { needsNotificationAttention: "desc" },
+          { needsEmailAttention: "desc" },
+          { deliveryDate: { sort: "asc", nulls: "last" } },
+          { timeWindow: { sort: "asc", nulls: "last" } },
+          { displayId: "desc" },
+        ],
       }),
     );
   });
@@ -806,6 +942,70 @@ describe("routes in /api/orders", () => {
     );
 
     expect(res.status).toBe(200);
+    expect(mocks.sendOrderNotificationEmailMock).not.toHaveBeenCalled();
+    expect(mocks.sendExtraPickupNotificationEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("POST skips all order notification emails when dontSendEmail is selected", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      company: {
+        orderEmailsEnabled: true,
+      },
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderCreateMock.mockResolvedValueOnce({
+      id: "order-1",
+      companyId: "company-1",
+      displayId: 20000,
+      orderNumber: "PO-1",
+      createdAt: new Date("2030-01-01T00:00:00.000Z"),
+      dontSendEmail: true,
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          customerLabel: "Power Grunerlokka",
+          deliveryDate: "2026-04-09",
+          pickupAddress: "Pickup 1",
+          deliveryAddress: "Delivery 1",
+          orderNumber: "11340837806",
+          priceExVat: 3699,
+          status: "processing",
+          dontSendEmail: true,
+          extraPickups: [
+            {
+              address: "Store 2",
+              phone: "+47 98 76 54 32",
+              email: "pickup@example.com",
+              sendEmail: true,
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dontSendEmail: true,
+        }),
+      }),
+    );
     expect(mocks.sendOrderNotificationEmailMock).not.toHaveBeenCalled();
     expect(mocks.sendExtraPickupNotificationEmailMock).not.toHaveBeenCalled();
   });

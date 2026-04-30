@@ -7,6 +7,11 @@ import {
   type ProductCustomSection,
 } from "@/lib/products/customSections";
 import {
+  createDefaultProductAutoDeliveryPrice,
+  normalizeProductAutoDeliveryPrice,
+  type ProductAutoDeliveryPrice,
+} from "@/lib/products/autoDeliveryPrice";
+import {
   createDefaultProductDeliveryTypes,
   normalizeProductDeliveryTypes,
   type ProductDeliveryType,
@@ -41,6 +46,7 @@ type PriceListItem = {
   allowHoursInput?: boolean;
   allowModelNumber?: boolean;
   autoXtraPerPallet?: boolean;
+  autoDeliveryPrice?: ProductAutoDeliveryPrice;
   deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
   optionCode: string;
@@ -69,6 +75,7 @@ type EditableRow = PriceListItem & {
   allowHoursInput?: boolean;
   allowModelNumber?: boolean;
   autoXtraPerPallet?: boolean;
+  autoDeliveryPrice?: ProductAutoDeliveryPrice;
   deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
 
@@ -100,6 +107,7 @@ type ProductSettingsDraft = {
   allowHoursInput: boolean;
   allowModelNumber: boolean;
   autoXtraPerPallet: boolean;
+  autoDeliveryPrice: ProductAutoDeliveryPrice;
   deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
 };
@@ -125,6 +133,7 @@ function buildProductSettingsDefaults(
         allowHoursInput: false,
         allowModelNumber: true,
         autoXtraPerPallet: true,
+        autoDeliveryPrice: createDefaultProductAutoDeliveryPrice(),
         deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
       };
@@ -141,6 +150,7 @@ function buildProductSettingsDefaults(
         allowHoursInput: true,
         allowModelNumber: true,
         autoXtraPerPallet: false,
+        autoDeliveryPrice: createDefaultProductAutoDeliveryPrice(),
         deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
       };
@@ -158,6 +168,7 @@ function buildProductSettingsDefaults(
         allowHoursInput: false,
         allowModelNumber: true,
         autoXtraPerPallet: false,
+        autoDeliveryPrice: createDefaultProductAutoDeliveryPrice(),
         deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
       };
@@ -522,6 +533,9 @@ export default function EditPricesPage() {
         row.autoXtraPerPallet ??
         buildProductSettingsDefaults(row.productType ?? "PHYSICAL")
           .autoXtraPerPallet,
+      autoDeliveryPrice: normalizeProductAutoDeliveryPrice(
+        row.autoDeliveryPrice,
+      ),
       deliveryTypes: normalizeProductDeliveryTypes(row.deliveryTypes),
       customSections: normalizeProductCustomSections(row.customSections),
     });
@@ -600,6 +614,8 @@ export default function EditPricesPage() {
           data.item.allowModelNumber ?? productSettingsDraft.allowModelNumber,
         autoXtraPerPallet:
           data.item.autoXtraPerPallet ?? productSettingsDraft.autoXtraPerPallet,
+        autoDeliveryPrice:
+          data.item.autoDeliveryPrice ?? productSettingsDraft.autoDeliveryPrice,
         deliveryTypes:
           data.item.deliveryTypes ?? productSettingsDraft.deliveryTypes,
         customSections:
@@ -656,6 +672,22 @@ export default function EditPricesPage() {
                   }
                 : item,
             ),
+          }
+        : current,
+    );
+  }
+
+  function updateAutoDeliveryPrice(
+    patch: Partial<ProductAutoDeliveryPrice>,
+  ) {
+    setProductSettingsDraft((current) =>
+      current
+        ? {
+            ...current,
+            autoDeliveryPrice: {
+              ...current.autoDeliveryPrice,
+              ...patch,
+            },
           }
         : current,
     );
@@ -3038,6 +3070,76 @@ export default function EditPricesPage() {
                   </label>
                 ))}
               </div>
+
+              <details className="customContainer p-3" open>
+                <summary className="cursor-pointer text-sm font-semibold text-black/80">
+                  Auto add delivery price
+                </summary>
+
+                <div className="mt-3 space-y-3">
+                  <label className="flex items-center gap-2 customContainer">
+                    <input
+                      type="checkbox"
+                      checked={productSettingsDraft.autoDeliveryPrice.enabled}
+                      onChange={(e) =>
+                        updateAutoDeliveryPrice({
+                          enabled: e.target.checked,
+                        })
+                      }
+                      className="background h-4 w-4"
+                    />
+                    <span className="text-sm">Auto add delivery price</span>
+                  </label>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+                    <input
+                      type="text"
+                      value={productSettingsDraft.autoDeliveryPrice.code}
+                      onChange={(e) =>
+                        updateAutoDeliveryPrice({ code: e.target.value })
+                      }
+                      className="customInput w-full"
+                      placeholder="Code"
+                    />
+                    <input
+                      type="text"
+                      value={productSettingsDraft.autoDeliveryPrice.label}
+                      onChange={(e) =>
+                        updateAutoDeliveryPrice({ label: e.target.value })
+                      }
+                      className="customInput w-full"
+                      placeholder="Name"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={productSettingsDraft.autoDeliveryPrice.price}
+                      onChange={(e) =>
+                        updateAutoDeliveryPrice({ price: e.target.value })
+                      }
+                      className="customInput w-full"
+                      placeholder="Price"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={
+                        productSettingsDraft.autoDeliveryPrice
+                          .subcontractorPrice
+                      }
+                      onChange={(e) =>
+                        updateAutoDeliveryPrice({
+                          subcontractorPrice: e.target.value,
+                        })
+                      }
+                      className="customInput w-full"
+                      placeholder="Subcontractor price"
+                    />
+                  </div>
+                </div>
+              </details>
 
               {productSettingsDraft.allowDeliveryTypes && (
                 <details className="customContainer p-3" open>

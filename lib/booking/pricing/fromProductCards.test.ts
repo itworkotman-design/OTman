@@ -1430,4 +1430,39 @@ describe("buildProductBreakdowns", () => {
       ]),
     );
   });
+
+  it("adds product auto delivery price as soon as the product is selected", () => {
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          productId: "product-1",
+        }),
+      ],
+      [
+        buildProduct({
+          autoDeliveryPrice: {
+            enabled: true,
+            code: "AUTO_START",
+            label: "Startup delivery",
+            price: "125",
+            subcontractorPrice: "50",
+          },
+        }),
+      ],
+      [],
+    );
+
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "customPrice",
+          code: "AUTO_START",
+          label: "Startup delivery",
+          qty: 1,
+          unitPrice: 125,
+          subcontractorUnitPrice: 50,
+        }),
+      ]),
+    );
+  });
 });

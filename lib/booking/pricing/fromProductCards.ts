@@ -1,6 +1,7 @@
 import type { CatalogProduct, CatalogSpecialOption, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeCode, getProductDeliveryTypeLabel, getProductDeliveryTypePrice } from "@/lib/products/deliveryTypes";
+import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import type { ProductBreakdown, ProductCardLineItem } from "@/lib/booking/pricing/types";
 import {
   isInstallOption,
@@ -284,6 +285,25 @@ function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProdu
   }
 }
 
+function appendAutoDeliveryPrice(items: ProductCardLineItem[], product: CatalogProduct) {
+  const autoDeliveryPrice = normalizeProductAutoDeliveryPrice(
+    product.autoDeliveryPrice,
+  );
+
+  if (!autoDeliveryPrice.enabled) {
+    return;
+  }
+
+  items.push({
+    kind: "customPrice",
+    code: autoDeliveryPrice.code,
+    label: autoDeliveryPrice.label,
+    qty: 1,
+    unitPrice: parsePrice(autoDeliveryPrice.price),
+    subcontractorUnitPrice: parsePrice(autoDeliveryPrice.subcontractorPrice),
+  });
+}
+
 function buildItemsForCard(
   card: SavedProductCard,
   product: CatalogProduct,
@@ -307,6 +327,8 @@ function buildItemsForCard(
   const demontOption = findDemontOption(product);
   const baseProductOption = findBaseProductOption(product);
   let returnOnlySelectedReturnPriceOverride: number | undefined;
+
+  appendAutoDeliveryPrice(items, product);
 
   if (product.allowDeliveryTypes && isTransportDeliveryType(card.deliveryType)) {
     const xtraOption = useXtraDeliveryPricing

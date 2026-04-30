@@ -1,6 +1,7 @@
 import type { DeliveryType } from "@/lib/booking/pricing/types";
 import type { OrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
 import type { ProductCustomSection } from "@/lib/products/customSections";
+import type { ProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import {
   normalizeDeliveryTypeKey,
   type ProductDeliveryType,
@@ -83,6 +84,7 @@ export type CatalogProduct = {
   allowHoursInput: boolean;
   allowModelNumber: boolean;
   autoXtraPerPallet: boolean;
+  autoDeliveryPrice?: ProductAutoDeliveryPrice;
   deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
   options: CatalogOption[];

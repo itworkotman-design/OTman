@@ -5,6 +5,7 @@ import { getProductConfigMap } from "@/lib/products/productConfig";
 import { prisma } from "@/lib/db";
 import { getEffectivePrice } from "@/lib/products/discounts";
 import type { ProductCustomSection } from "@/lib/products/customSections";
+import type { ProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import type { ProductDeliveryType } from "@/lib/products/deliveryTypes";
 import { parsePriceListSettings } from "@/lib/products/priceListSettings";
 
@@ -146,6 +147,7 @@ export async function GET(req: Request) {
       allowHoursInput: boolean;
       allowModelNumber: boolean;
       autoXtraPerPallet: boolean;
+      autoDeliveryPrice: ProductAutoDeliveryPrice;
       deliveryTypes: ProductDeliveryType[];
       customSections: ProductCustomSection[];
 
@@ -184,6 +186,13 @@ export async function GET(req: Request) {
         allowHoursInput: productConfig?.allowHoursInput ?? product.allowHoursInput,
         allowModelNumber: productConfig?.allowModelNumber ?? product.allowModelNumber,
         autoXtraPerPallet: productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
+        autoDeliveryPrice: productConfig?.autoDeliveryPrice ?? {
+          enabled: false,
+          code: "AUTO_DELIVERY",
+          label: "Delivery price",
+          price: "0",
+          subcontractorPrice: "0",
+        },
         deliveryTypes: productConfig?.deliveryTypes ?? [],
         customSections: productConfig?.customSections ?? [],
 

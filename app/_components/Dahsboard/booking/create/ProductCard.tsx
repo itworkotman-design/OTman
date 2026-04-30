@@ -7,7 +7,7 @@ import type {
   CatalogProduct,
   CatalogSpecialOption,
 } from "./_types/productCard";
-import { OPTION_CODES } from "@/lib/booking/constants";
+import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import {
   normalizedUpper,
@@ -37,6 +37,24 @@ type Props = {
 
 function formatQuantity(quantity: number) {
   return Number.isInteger(quantity) ? quantity.toString() : quantity.toFixed(2);
+}
+
+function getDefaultDeliveryType(product: CatalogProduct | null): DeliveryType {
+  if (!product?.allowDeliveryTypes || product.deliveryTypes.length === 0) {
+    return "";
+  }
+
+  const indoorDeliveryType = product.deliveryTypes.find(
+    (item) => item.key === DELIVERY_TYPES.INDOOR,
+  );
+
+  return indoorDeliveryType?.key ?? product.deliveryTypes[0]?.key ?? "";
+}
+
+function getDefaultReturnOptionId(
+  returnOptions: CatalogSpecialOption[],
+): string | null {
+  return returnOptions[0]?.id ?? null;
 }
 
 export function ProductCardNew({
@@ -102,8 +120,9 @@ export function ProductCardNew({
 
   const extraOptions = [...productExtraOptions, ...specialExtraServiceOptions];
 
-  const returnOptions = catalogSpecialOptions.filter(
-    (o) => o.active && o.type === "return",
+  const returnOptions = useMemo(
+    () => catalogSpecialOptions.filter((o) => o.active && o.type === "return"),
+    [catalogSpecialOptions],
   );
 
   const isPalletProduct = selectedProduct?.productType === "PALLET";
@@ -150,7 +169,15 @@ export function ProductCardNew({
   useEffect(() => {
     if (!selectedProduct) return;
 
-    const nextDeliveryType = supportsDeliveryTypes ? value.deliveryType : "";
+    const defaultDeliveryType = getDefaultDeliveryType(selectedProduct);
+    const selectedDeliveryTypeIsValid = deliveryTypes.some(
+      (item) => item.key === value.deliveryType,
+    );
+    const nextDeliveryType = supportsDeliveryTypes
+      ? selectedDeliveryTypeIsValid
+        ? value.deliveryType
+        : defaultDeliveryType
+      : "";
     const nextValue: Partial<SavedProductCard> = {};
     const hasLegacyDemontSelection =
       !!demontOption &&
@@ -172,10 +199,9 @@ export function ProductCardNew({
 
     if (
       supportsDeliveryTypes &&
-      value.deliveryType &&
-      !deliveryTypes.some((item) => item.key === value.deliveryType)
+      value.deliveryType !== nextDeliveryType
     ) {
-      nextValue.deliveryType = "";
+      nextValue.deliveryType = nextDeliveryType;
     }
 
     if (
@@ -204,6 +230,15 @@ export function ProductCardNew({
 
     if (!supportsReturnOptions && value.selectedReturnOptionId) {
       nextValue.selectedReturnOptionId = null;
+    }
+
+    if (supportsReturnOptions && nextDeliveryType === DELIVERY_TYPES.RETURN_ONLY) {
+      const selectedReturnOptionIsValid = returnOptions.some(
+        (option) => option.id === value.selectedReturnOptionId,
+      );
+      if (!selectedReturnOptionIsValid) {
+        nextValue.selectedReturnOptionId = getDefaultReturnOptionId(returnOptions);
+      }
     }
 
     if ((!supportsDemont ||
@@ -288,6 +323,7 @@ export function ProductCardNew({
     value,
     customSections,
     deliveryTypes,
+    returnOptions,
   ]);
 
   function update(partial: Partial<SavedProductCard>) {
@@ -298,11 +334,14 @@ export function ProductCardNew({
   }
 
   function handleProductSelect(newProductId: string | null) {
+    const nextProduct =
+      catalogProducts.find((product) => product.id === newProductId) ?? null;
+
     onChange({
       ...value,
       productId: newProductId,
       modelNumber: "",
-      deliveryType: "",
+      deliveryType: getDefaultDeliveryType(nextProduct),
       amount: 1,
       peopleCount: 1,
       hoursInput: 1,
@@ -338,6 +377,13 @@ export function ProductCardNew({
   }
 
   function toggleReturnOption(optionId: string) {
+    if (
+      value.deliveryType === DELIVERY_TYPES.RETURN_ONLY &&
+      value.selectedReturnOptionId === optionId
+    ) {
+      return;
+    }
+
     update({
       selectedReturnOptionId:
         value.selectedReturnOptionId === optionId ? null : optionId,
@@ -558,7 +604,10 @@ export function ProductCardNew({
                     deliveryType: e.target.value as DeliveryType,
                     selectedInstallOptionIds: [],
                     selectedExtraOptionIds: [],
-                    selectedReturnOptionId: null,
+                    selectedReturnOptionId:
+                      e.target.value === DELIVERY_TYPES.RETURN_ONLY
+                        ? getDefaultReturnOptionId(returnOptions)
+                        : null,
                     demontEnabled: false,
                   })
                 }

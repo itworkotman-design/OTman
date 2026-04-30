@@ -1063,7 +1063,7 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
                               type="button"
                               onClick={() => handleResolveNotification(notification.id)}
                               disabled={isResolving}
-                              className="cursor-pointer rounded-full bg-logored px-4 py-2 text-sm font-semibold text-logoBlue transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="cursor-pointer rounded-full bg-logoblue px-4 py-2 text-sm font-semibold text-white transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {isResolving ? "Updating..." : "Mark as fixed"}
                             </button>
