@@ -132,13 +132,21 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
           <div className="mt-6 flex border-b border-lineSecondary px-2 py-1 pb-4">
             <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
               {currentUser?.logoPath ? (
-                <Image
-                  src={currentUser.logoPath}
-                  alt={`${currentUser.username || currentUser.email} logo`}
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 shrink-0 object-contain"
-                />
+                currentUser.logoPath.endsWith(".svg") ? (
+                  <img
+                    src={currentUser.logoPath}
+                    alt={`${currentUser.username || currentUser.email} logo`}
+                    className="h-8 w-8 shrink-0 object-contain"
+                  />
+                ) : (
+                  <Image
+                    src={currentUser.logoPath}
+                    alt={`${currentUser.username || currentUser.email} logo`}
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 shrink-0 object-contain"
+                  />
+                )
               ) : null}
               <h1
                 className="break-words font-medium text-logoblue"

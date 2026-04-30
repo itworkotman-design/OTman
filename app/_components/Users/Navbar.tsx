@@ -59,6 +59,10 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
   const router = useRouter();
 
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const usernameStyle = currentUser?.usernameDisplayColor
+    ? { color: currentUser.usernameDisplayColor }
+    : undefined;
+  const currentUserLabel = currentUser?.username ?? currentUser?.email ?? "";
 
   const isActive = (href: string) =>
     href === "/booking" ? pathname === "/booking" : pathname.startsWith(href);
@@ -114,10 +118,32 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
         </div>
 
         <div className="px-4">
-          <div className="mt-6 flex border-b border-lineSecondary px-2 py-1 pb-6 text-logoblue">
-            <h1 className="mx-auto">
-              {currentUser?.username ?? currentUser?.email ?? ""}
-            </h1>
+          <div className="mt-6 flex border-b border-lineSecondary px-2 py-1 pb-6">
+            <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
+              {currentUser?.logoPath ? (
+                currentUser.logoPath.endsWith(".svg") ? (
+                  <img
+                    src={currentUser.logoPath}
+                    alt={`${currentUserLabel} logo`}
+                    className="h-8 w-8 shrink-0 object-contain"
+                  />
+                ) : (
+                  <Image
+                    src={currentUser.logoPath}
+                    alt={`${currentUserLabel} logo`}
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 shrink-0 object-contain"
+                  />
+                )
+              ) : null}
+              <h1
+                className="break-words font-medium text-logoblue"
+                style={usernameStyle}
+              >
+                {currentUserLabel}
+              </h1>
+            </div>
           </div>
 
           <Link
