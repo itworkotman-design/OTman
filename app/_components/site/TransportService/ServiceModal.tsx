@@ -4,15 +4,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import GoogleMap from "@/app/_components/site/GoogleMap";
-import {
-  transportDimensionLimits,
-  transportPackageTypes,
-  transportTimeWindows,
-} from "@/lib/content/TransportRequestConfig";
-import type {
-  Locale,
-  ServiceGroup,
-} from "@/lib/content/ServiceWindowContent";
+import { transportDimensionLimits, transportPackageTypes, transportTimeWindows } from "@/lib/content/TransportRequestConfig";
+import type { Locale, ServiceGroup } from "@/lib/content/ServiceWindowContent";
 
 type Props = { service: ServiceGroup; locale: Locale; onClose: () => void };
 type BaseForm = { name: string; email: string; phone: string; notes: string };
@@ -135,9 +128,7 @@ const money = (value: number) =>
 function HeaderBlock({ title, body }: { title: string; body: string }) {
   return (
     <div className="mb-4">
-      <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue/70">
-        {title}
-      </h4>
+      <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue/70">{title}</h4>
       <p className="mt-2 max-w-lg text-sm leading-6 text-black/55">{body}</p>
     </div>
   );
@@ -156,34 +147,19 @@ export function ServiceModal({ service, locale, onClose }: Props) {
   }, [onClose]);
 
   return (
-    <div
-      ref={overlayRef}
-      onClick={onOverlay}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#091030]/45 px-4 py-6 backdrop-blur-sm"
-    >
-      <ServiceModalBody
-        key={service.id}
-        service={service}
-        locale={locale}
-        onClose={onClose}
-      />
+    <div ref={overlayRef} onClick={onOverlay} className="fixed inset-0 z-50 flex items-center justify-center bg-[#091030]/45 px-4 py-6 backdrop-blur-sm">
+      <ServiceModalBody key={service.id} service={service} locale={locale} onClose={onClose} />
     </div>
   );
 }
 
 function ServiceModalBody({ service, locale, onClose }: Props) {
-  const pkgFieldTimers = useRef<
-    Partial<Record<PkgField, ReturnType<typeof setTimeout>>>
-  >({});
+  const pkgFieldTimers = useRef<Partial<Record<PkgField, ReturnType<typeof setTimeout>>>>({});
   const initialCategoryId = firstCategory(service)?.id ?? "";
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    initialCategoryId,
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState(initialCategoryId);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pkgDraft, setPkgDraft] = useState<PkgDraft>(pkg0);
-  const [invalidPkgFields, setInvalidPkgFields] = useState<
-    Partial<Record<PkgField, boolean>>
-  >({});
+  const [invalidPkgFields, setInvalidPkgFields] = useState<Partial<Record<PkgField, boolean>>>({});
   const [packages, setPackages] = useState<PkgEntry[]>([]);
   const [collection, setCollection] = useState<CollectionForm>(collection0);
   const [transport, setTransport] = useState<TransportForm>(transport0);
@@ -199,11 +175,8 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
     };
   }, []);
 
-  const category =
-    service.categories.find((item) => item.id === selectedCategoryId) ??
-    firstCategory(service);
-  const collectionPickup =
-    service.formVariant === "transport" && category?.id === "collection-pickup";
+  const category = service.categories.find((item) => item.id === selectedCategoryId) ?? firstCategory(service);
+  const collectionPickup = service.formVariant === "transport" && category?.id === "collection-pickup";
   const sidebarCollapsed = !sidebarOpen;
 
   const collapseSidebarForCollectionProgress = () => {
@@ -266,9 +239,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
     Boolean(collection.pickupContactPhone.trim()) &&
     Boolean(collection.dropoffContactName.trim()) &&
     Boolean(collection.dropoffContactPhone.trim());
-  const canPlaceCollection =
-    showTime &&
-    Boolean(collection.timeWindow);
+  const canPlaceCollection = showTime && Boolean(collection.timeWindow);
 
   const totals = useMemo(() => {
     const subtotal = packages.reduce((sum, item) => {
@@ -293,12 +264,8 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
     <div className="space-y-5">
       <div className="overflow-hidden rounded-[28px] border border-white bg-white shadow-[0_20px_50px_rgba(39,48,151,0.10)]">
         <div className="border-b border-black/5 px-5 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-logoblue/55">
-            {locale === "no" ? "Kalkulator" : "Calculator"}
-          </p>
-          <h4 className="mt-2 text-lg font-semibold text-logoblue">
-            {locale === "no" ? "Prisoversikt" : "Price overview"}
-          </h4>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-logoblue/55">{locale === "no" ? "Kalkulator" : "Calculator"}</p>
+          <h4 className="mt-2 text-lg font-semibold text-logoblue">{locale === "no" ? "Prisoversikt" : "Price overview"}</h4>
         </div>
         <div className="space-y-4 px-5 py-5">
           {packages.length === 0 ? (
@@ -346,26 +313,17 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
       <div className="grid gap-6">
         {packages.length > 0 && (
           <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
-            <h4 className="text-lg font-semibold text-logoblue">
-              {locale === "no" ? "Valgte kolli" : "Added package entries"}
-            </h4>
+            <h4 className="text-lg font-semibold text-logoblue">{locale === "no" ? "Valgte kolli" : "Added package entries"}</h4>
             <div className="mt-4 space-y-3">
               {packages.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between rounded-2xl border border-black/6 bg-[#f8faff] px-4 py-3"
-                >
+                <div key={item.id} className="flex items-center justify-between rounded-2xl border border-black/6 bg-[#f8faff] px-4 py-3">
                   <div>
                     <p className="font-semibold text-logoblue">{`${index + 1}. ${item.packageType}`}</p>
                     <p className="mt-1 text-sm text-black/55">{`${item.length} x ${item.width} x ${item.height} cm, ${item.weight} kg`}</p>
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      setPackages((prev) =>
-                        prev.filter((entry) => entry.id !== item.id),
-                      )
-                    }
+                    onClick={() => setPackages((prev) => prev.filter((entry) => entry.id !== item.id))}
                     className="text-sm font-semibold text-logoblue/65 transition hover:text-logoblue"
                   >
                     {locale === "no" ? "Fjern" : "Remove"}
@@ -378,22 +336,12 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
 
         <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
           <HeaderBlock
-            title={
-              locale === "no" ? "1. Velg pakketype" : "1. Choose package type"
-            }
+            title={locale === "no" ? "1. Velg pakketype" : "1. Choose package type"}
             body={locale === "no" ? "Velg type kolli" : "Choose a package type"}
           />
           <div className="grid gap-4">
-            <select
-              className={inputCls}
-              value={pkgDraft.packageType}
-              onChange={(e) =>
-                setPkgDraft((p) => ({ ...p, packageType: e.target.value }))
-              }
-            >
-              <option value="">
-                {locale === "no" ? "Pakketype" : "Package type"}
-              </option>
+            <select className={inputCls} value={pkgDraft.packageType} onChange={(e) => setPkgDraft((p) => ({ ...p, packageType: e.target.value }))}>
+              <option value="">{locale === "no" ? "Pakketype" : "Package type"}</option>
               {transportPackageTypes.map((type) => (
                 <option key={type} value={type}>
                   {type}
@@ -459,20 +407,13 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
             </div>
           )}
           <div className="mt-5 flex items-center justify-between">
-            <p className="text-sm text-black/45">
-              {locale === "no"
-                ? "Du kan legge til flere kolli."
-                : "You can add multiple package entries."}
-            </p>
+            <p className="text-sm text-black/45">{locale === "no" ? "Du kan legge til flere kolli." : "You can add multiple package entries."}</p>
             <button
               type="button"
               disabled={!canAddPackage}
               onClick={() => {
                 if (!canAddPackage) return;
-                setPackages((prev) => [
-                  ...prev,
-                  { id: crypto.randomUUID(), ...pkgDraft },
-                ]);
+                setPackages((prev) => [...prev, { id: crypto.randomUUID(), ...pkgDraft }]);
                 setPkgDraft(pkg0);
                 collapseSidebarForCollectionProgress();
               }}
@@ -486,9 +427,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
         {showLocation && (
           <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
             <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue/70 mb-2">
-              {locale === "no"
-                ? "2. Lokasjon og kontakt"
-                : "2. Location and contact"}
+              {locale === "no" ? "2. Lokasjon og kontakt" : "2. Location and contact"}
             </h4>
             <div className="grid gap-4">
               <AddressAutocompleteInput
@@ -499,16 +438,12 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                     collapseSidebarForCollectionProgress();
                   }
                 }}
-                placeholder={
-                  locale === "no" ? "Henteadresse" : "Pickup address"
-                }
+                placeholder={locale === "no" ? "Henteadresse" : "Pickup address"}
               />
               <div className="grid gap-4 sm:grid-cols-3">
                 <input
                   className={inputCls}
-                  placeholder={
-                    locale === "no" ? "Kontaktperson henting" : "Pickup contact"
-                  }
+                  placeholder={locale === "no" ? "Kontaktperson henting" : "Pickup contact"}
                   value={collection.pickupContactName}
                   onChange={(e) =>
                     setCollection((p) => ({
@@ -519,9 +454,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                 />
                 <input
                   className={inputCls}
-                  placeholder={
-                    locale === "no" ? "Telefon henting" : "Pickup phone"
-                  }
+                  placeholder={locale === "no" ? "Telefon henting" : "Pickup phone"}
                   value={collection.pickupContactPhone}
                   onChange={(e) =>
                     setCollection((p) => ({
@@ -532,9 +465,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                 />
                 <input
                   className={inputCls}
-                  placeholder={
-                    locale === "no" ? "E-post henting" : "Pickup email"
-                  }
+                  placeholder={locale === "no" ? "E-post henting" : "Pickup email"}
                   value={collection.pickupContactEmail}
                   onChange={(e) =>
                     setCollection((p) => ({
@@ -552,18 +483,12 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                     collapseSidebarForCollectionProgress();
                   }
                 }}
-                placeholder={
-                  locale === "no" ? "Leveringsadresse" : "Drop-off address"
-                }
+                placeholder={locale === "no" ? "Leveringsadresse" : "Drop-off address"}
               />
               <div className="grid gap-4 sm:grid-cols-3">
                 <input
                   className={inputCls}
-                  placeholder={
-                    locale === "no"
-                      ? "Kontaktperson levering"
-                      : "Drop-off contact"
-                  }
+                  placeholder={locale === "no" ? "Kontaktperson levering" : "Drop-off contact"}
                   value={collection.dropoffContactName}
                   onChange={(e) =>
                     setCollection((p) => ({
@@ -574,9 +499,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                 />
                 <input
                   className={inputCls}
-                  placeholder={
-                    locale === "no" ? "Telefon levering" : "Drop-off phone"
-                  }
+                  placeholder={locale === "no" ? "Telefon levering" : "Drop-off phone"}
                   value={collection.dropoffContactPhone}
                   onChange={(e) =>
                     setCollection((p) => ({
@@ -587,9 +510,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                 />
                 <input
                   className={inputCls}
-                  placeholder={
-                    locale === "no" ? "E-post levering" : "Drop-off email"
-                  }
+                  placeholder={locale === "no" ? "E-post levering" : "Drop-off email"}
                   value={collection.dropoffContactEmail}
                   onChange={(e) =>
                     setCollection((p) => ({
@@ -602,13 +523,9 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
             </div>
             <div className="mt-5 overflow-hidden rounded-[24] border border-black/6 bg-[#f4f6ff]">
               <div className="border-b border-black/5 px-5 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-logoblue/55">
-                  {locale === "no" ? "Rutekart" : "Route map"}
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-logoblue/55">{locale === "no" ? "Rutekart" : "Route map"}</p>
                 <h4 className="mt-2 text-lg font-semibold text-logoblue">
-                  {locale === "no"
-                    ? "Viser start- og sluttpunkt for leveringen"
-                    : "Showing delivery start and end points"}
+                  {locale === "no" ? "Viser start- og sluttpunkt for leveringen" : "Showing delivery start and end points"}
                 </h4>
               </div>
               <div className="h-[260] w-full bg-[#f4f6ff]">
@@ -622,11 +539,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
           <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
             <HeaderBlock
               title={locale === "no" ? "3. Tidspunkt" : "3. Timing"}
-              body={
-                locale === "no"
-                  ? "Velg tidsvindu og legg ved eventuell beskrivelse."
-                  : "Choose the delivery window and add any optional description."
-              }
+              body={locale === "no" ? "Velg tidsvindu og legg ved eventuell beskrivelse." : "Choose the delivery window and add any optional description."}
             />
             <div className="grid gap-3 sm:grid-cols-2">
               {transportTimeWindows.map((window) => {
@@ -635,9 +548,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                   <button
                     key={window}
                     type="button"
-                    onClick={() =>
-                      setCollection((p) => ({ ...p, timeWindow: window }))
-                    }
+                    onClick={() => setCollection((p) => ({ ...p, timeWindow: window }))}
                     className={`rounded-2xl border px-4 py-4 text-left transition ${active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-[#f8faff] text-logoblue"}`}
                   >
                     <p className="font-semibold">{window}</p>
@@ -648,9 +559,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
             <textarea
               className={`${inputCls} mt-4 min-h-[132] resize-none`}
               placeholder={
-                locale === "no"
-                  ? "Ekstra informasjon om adgang, etasje eller skjore varer."
-                  : "Extra details about access, floors, or fragile goods."
+                locale === "no" ? "Ekstra informasjon om adgang, etasje eller skjore varer." : "Extra details about access, floors, or fragile goods."
               }
               value={collection.notes}
               onChange={(e) => {
@@ -683,44 +592,31 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
     >
       {service.formVariant === "transport" ? (
         <>
-          <HeaderBlock
-            title={locale === "no" ? "Transportvalg" : "Transport selection"}
-            body={category?.description[locale] ?? ""}
-          />
+          <HeaderBlock title={locale === "no" ? "Transportvalg" : "Transport selection"} body={category?.description[locale] ?? ""} />
           <input
             className={inputCls}
             placeholder={locale === "no" ? "Henteadresse" : "Pickup address"}
             value={transport.pickupAddress}
-            onChange={(e) =>
-              setTransport((p) => ({ ...p, pickupAddress: e.target.value }))
-            }
+            onChange={(e) => setTransport((p) => ({ ...p, pickupAddress: e.target.value }))}
           />
           <input
             className={inputCls}
-            placeholder={
-              locale === "no" ? "Leveringsadresse" : "Delivery address"
-            }
+            placeholder={locale === "no" ? "Leveringsadresse" : "Delivery address"}
             value={transport.deliveryAddress}
-            onChange={(e) =>
-              setTransport((p) => ({ ...p, deliveryAddress: e.target.value }))
-            }
+            onChange={(e) => setTransport((p) => ({ ...p, deliveryAddress: e.target.value }))}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <input
               className={inputCls}
               type="date"
               value={transport.preferredDate}
-              onChange={(e) =>
-                setTransport((p) => ({ ...p, preferredDate: e.target.value }))
-              }
+              onChange={(e) => setTransport((p) => ({ ...p, preferredDate: e.target.value }))}
             />
             <input
               className={inputCls}
               placeholder={locale === "no" ? "Tidsvindu" : "Time window"}
               value={transport.timeWindow}
-              onChange={(e) =>
-                setTransport((p) => ({ ...p, timeWindow: e.target.value }))
-              }
+              onChange={(e) => setTransport((p) => ({ ...p, timeWindow: e.target.value }))}
             />
           </div>
           <button
@@ -732,35 +628,26 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
         </>
       ) : service.formVariant === "manpower" ? (
         <>
-          <HeaderBlock
-            title={locale === "no" ? "Bemanningsbehov" : "Crew request"}
-            body={category?.description[locale] ?? ""}
-          />
+          <HeaderBlock title={locale === "no" ? "Bemanningsbehov" : "Crew request"} body={category?.description[locale] ?? ""} />
           <div className="grid gap-4 sm:grid-cols-2">
             <input
               className={inputCls}
               placeholder={locale === "no" ? "Antall personer" : "Crew size"}
               value={manpower.crewSize}
-              onChange={(e) =>
-                setManpower((p) => ({ ...p, crewSize: e.target.value }))
-              }
+              onChange={(e) => setManpower((p) => ({ ...p, crewSize: e.target.value }))}
             />
             <input
               className={inputCls}
               placeholder={locale === "no" ? "Timer behov" : "Hours needed"}
               value={manpower.hoursNeeded}
-              onChange={(e) =>
-                setManpower((p) => ({ ...p, hoursNeeded: e.target.value }))
-              }
+              onChange={(e) => setManpower((p) => ({ ...p, hoursNeeded: e.target.value }))}
             />
           </div>
           <input
             className={inputCls}
             placeholder={locale === "no" ? "Oppdragssted" : "Job location"}
             value={manpower.location}
-            onChange={(e) =>
-              setManpower((p) => ({ ...p, location: e.target.value }))
-            }
+            onChange={(e) => setManpower((p) => ({ ...p, location: e.target.value }))}
           />
           <button
             type="submit"
@@ -771,29 +658,15 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
         </>
       ) : (
         <>
-          <HeaderBlock
-            title={locale === "no" ? "Leieoppsett" : "Rental setup"}
-            body={category?.description[locale] ?? ""}
-          />
+          <HeaderBlock title={locale === "no" ? "Leieoppsett" : "Rental setup"} body={category?.description[locale] ?? ""} />
           <div className="grid gap-4 sm:grid-cols-2">
             <input
               className={inputCls}
-              placeholder={
-                locale === "no" ? "Hentested / avdeling" : "Pickup location"
-              }
+              placeholder={locale === "no" ? "Hentested / avdeling" : "Pickup location"}
               value={car.pickupLocation}
-              onChange={(e) =>
-                setCar((p) => ({ ...p, pickupLocation: e.target.value }))
-              }
+              onChange={(e) => setCar((p) => ({ ...p, pickupLocation: e.target.value }))}
             />
-            <input
-              className={inputCls}
-              type="date"
-              value={car.rentalStart}
-              onChange={(e) =>
-                setCar((p) => ({ ...p, rentalStart: e.target.value }))
-              }
-            />
+            <input className={inputCls} type="date" value={car.rentalStart} onChange={(e) => setCar((p) => ({ ...p, rentalStart: e.target.value }))} />
           </div>
           <button
             type="submit"
@@ -811,99 +684,70 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-5 top-5 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/70 bg-white/90 text-logoblue shadow-sm transition hover:rotate-90"
+        className="absolute customButtonDefault right-5 top-5 z-10 grid h-9 w-9 place-items-center rounded-full bg-logoblue text-white cursor-pointer"
         aria-label="Close modal"
       >
-        <span className="text-xl leading-none">x</span>
+       x
       </button>
-      <div
-        className={`grid max-h-[92vh] overflow-y-auto ${sidebarCollapsed ? "lg:grid-cols-[40px_minmax(0,1fr)]" : "lg:grid-cols-[320px_minmax(0,1fr)]"}`}
-      >
-        <aside
-          className={`relative overflow-hidden bg-logoblue text-white transition-all duration-300 ${sidebarCollapsed ? "w-[40] px-0 py-0" : "px-6 py-8"}`}
-        >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.06),transparent)]" />
-            {!sidebarCollapsed && (
-              <div className="relative">
-                <div className="mb-0 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setSidebarOpen(false)}
-                    className="grid h-6 w-6 place-items-center text-white transition hover:font-bold cursor-pointer"
-                    aria-label={
-                      locale === "no" ? "Lukk kategorier" : "Close categories"
-                    }
-                  >
-                    <span className="rotate-180 text-lg leading-none">
-                      {">"}
-                    </span>
-                  </button>
-                </div>
-                <div>
-                  <h2 className="mt-4 max-w-[12ch] text-3xl font-semibold leading-tight">
-                    {service.modalTitle[locale]}
-                  </h2>
-                  <p className="mt-4 text-sm leading-6 text-white/76">
-                    {service.modalIntro[locale]}
-                  </p>
-                </div>
-                <div className="mt-8 space-y-3">
-                  {service.categories.map((item) => {
-                    const active = item.id === category?.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setSelectedCategoryId(item.id)}
-                        className={`w-full rounded-[24] border px-4 py-4 text-left transition ${active ? "border-white bg-white text-logoblue shadow-lg" : "border-white/12 bg-white/8 text-white hover:bg-white/12"}`}
-                      >
-                        <p className="text-sm font-semibold">
-                          {item.title[locale]}
-                        </p>
-                        <p
-                          className={`mt-2 text-sm leading-5 ${active ? "text-logoblue/72" : "text-white/68"}`}
-                        >
-                          {item.description[locale]}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {sidebarCollapsed && (
-              <div className="relative flex h-full w-[40] mt-6 items-start justify-center py-2">
+      <div className={`grid max-h-[92vh] overflow-y-auto ${sidebarCollapsed ? "lg:grid-cols-[40px_minmax(0,1fr)]" : "lg:grid-cols-[320px_minmax(0,1fr)]"}`}>
+        <aside className={`relative overflow-hidden bg-logoblue text-white transition-all duration-300 ${sidebarCollapsed ? "w-[40] px-0 py-0" : "px-6 py-8"}`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.06),transparent)]" />
+          {!sidebarCollapsed && (
+            <div className="relative">
+              <div className="mb-0 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setSidebarOpen(true)}
+                  onClick={() => setSidebarOpen(false)}
                   className="grid h-6 w-6 place-items-center text-white transition hover:font-bold cursor-pointer"
-                  aria-label={
-                    locale === "no" ? "Apne kategorier" : "Open categories"
-                  }
+                  aria-label={locale === "no" ? "Lukk kategorier" : "Close categories"}
                 >
-                  <span className="text-lg leading-none">{">"}</span>
+                  <span className="rotate-180 text-lg leading-none">{">"}</span>
                 </button>
               </div>
-            )}
+              <div>
+                <h2 className="mt-4 max-w-[12ch] text-3xl font-semibold leading-tight">{service.modalTitle[locale]}</h2>
+                <p className="mt-4 text-sm leading-6 text-white/76">{service.modalIntro[locale]}</p>
+              </div>
+              <div className="mt-8 space-y-3">
+                {service.categories.map((item) => {
+                  const active = item.id === category?.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedCategoryId(item.id)}
+                      className={`w-full rounded-[24] border px-4 py-4 text-left transition ${active ? "border-white bg-white text-logoblue shadow-lg" : "border-white/12 bg-white/8 text-white hover:bg-white/12"}`}
+                    >
+                      <p className="text-sm font-semibold">{item.title[locale]}</p>
+                      <p className={`mt-2 text-sm leading-5 ${active ? "text-logoblue/72" : "text-white/68"}`}>{item.description[locale]}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {sidebarCollapsed && (
+            <div className="relative flex h-full w-[40] mt-6 items-start justify-center py-2">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="grid h-6 w-6 place-items-center text-white transition hover:font-bold cursor-pointer"
+                aria-label={locale === "no" ? "Apne kategorier" : "Open categories"}
+              >
+                <span className="text-lg leading-none">{">"}</span>
+              </button>
+            </div>
+          )}
         </aside>
         <section className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
           <div className="mb-8 flex items-start justify-between gap-5 rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
             <div>
-              <h3 className="mt-3 text-2xl font-semibold text-logoblue">
-                {category?.title[locale]}
-              </h3>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">
-                {category?.description[locale]}
-              </p>
+              <h3 className="mt-3 text-2xl font-semibold text-logoblue">{category?.title[locale]}</h3>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-black/60">{category?.description[locale]}</p>
             </div>
             <div className="flex items-start gap-3">
               <div className="grid h-18 w-18 shrink-0 place-items-center rounded-[22px] bg-[#f3f6ff] ring-1 ring-logoblue/8">
-                <Image
-                  src={categoryIcon(category?.id)}
-                  alt={category?.title[locale] ?? service.title[locale]}
-                  width={52}
-                  height={52}
-                />
+                <Image src={categoryIcon(category?.id)} alt={category?.title[locale] ?? service.title[locale]} width={52} height={52} />
               </div>
             </div>
           </div>

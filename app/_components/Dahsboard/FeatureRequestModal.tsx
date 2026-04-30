@@ -73,6 +73,7 @@ export default function FeatureRequestModal({
           >
             ×
           </button>
+          
         </div>
 
         <h2 className="mb-4 text-xl font-bold text-logoblue">

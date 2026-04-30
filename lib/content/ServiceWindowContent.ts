@@ -96,7 +96,7 @@ export const serviceWindowContent = {
         en: "Manpower Rental",
         no: "Bemanningstjenester",
       },
-      svg: "Service logos-02.svg",
+      svg: "Service logos-People.svg",
       modalTitle: {
         en: "Request manpower",
         no: "Bestill bemanning",
@@ -159,7 +159,7 @@ export const serviceWindowContent = {
         en: "Car Rental Services",
         no: "Bilutleietjenester",
       },
-      svg: "Service logos-03.svg",
+      svg: "Service logos-Car.svg",
       modalTitle: {
         en: "Reserve a rental vehicle",
         no: "Reserver leiebil",
@@ -222,7 +222,7 @@ export const serviceWindowContent = {
         en: "IT Services",
         no: "IT Tjenester",
       },
-      svg: "Service logos-04.svg",
+      svg: "Service logos-IT.svg",
       modalTitle: {
         en: "Request IT Services",
         no: "Be om IT-tjenester",

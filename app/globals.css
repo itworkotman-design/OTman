@@ -269,7 +269,7 @@ p, ul, li, a, td {
 }
 
 .customButtonDefault:hover:not(:disabled){
-  color: var(--textcolor);
+  color: var(--logoblue);
   background-color: rgba(0, 0, 0, 0.03);
   transition-duration: 200ms;
 }
