@@ -1329,7 +1329,6 @@ const applyWordpressPriceMatchPolicy = (params: {
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
   catalogSpecialOptions: Awaited<ReturnType<typeof getBookingCatalog>>["specialOptions"];
 }) => {
-  const forcedXtraDeliveryCardIds = getForcedXtraDeliveryCardIds(params.meta, params.productCards);
   const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
   const subcontractorGroups = parseBreakdownGroups(
     asString(params.meta.price_breakdown_subcontractor_html) ||
@@ -1352,7 +1351,6 @@ const applyWordpressPriceMatchPolicy = (params: {
       allProductCards: params.productCards,
       catalogProducts: params.catalogProducts,
       catalogSpecialOptions: params.catalogSpecialOptions,
-      forcedXtraDeliveryCardIds,
     });
 
     if (nativeTotalCents === wordpressTotalCents) {
@@ -2208,7 +2206,10 @@ export async function POST(req: NextRequest) {
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
     });
-    const forcedXtraDeliveryCardIds = getForcedXtraDeliveryCardIds(meta, mappedImport.productCards);
+    const forcedXtraDeliveryCardIds = getForcedXtraDeliveryCardIds(
+      meta,
+      mappedImport.productCards.filter((card) => !card.wordpressImportReadOnly),
+    );
 
     let nativePricing = getNativeCalculatedPricing({
       productCards: mappedImport.productCards,
