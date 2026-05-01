@@ -1122,6 +1122,168 @@ describe("POST /api/integrations/wordpress/orders", () => {
     );
   });
 
+  it("parses combined quantity multipliers from the breakdown rows", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 19996,
+          legacyWordpressUserId: 15,
+          status: "confirmed",
+          meta: {
+            bestillingsnr: "QTY-1",
+            kundens_navn: "Quantity Customer",
+            extra_products_0_velg_produkt: "Washer",
+            extra_products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            total_price: "200",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Washer</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Indoor carry (INDOOR)</span>
+                    <span class="price-breakdown-price">100 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Timepris x0.5 time x2 (TIMEPRICE)</span>
+                    <span class="price-breakdown-price">100 NOK</span>
+                  </div>
+                </div>
+                <div class="price-summary">
+                  <div class="price-breakdown-row total-highlight">
+                    <span class="price-breakdown-label"><strong>Total</strong></span>
+                    <span class="price-breakdown-price">200 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mapWordpressImportToProductCardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedServices: expect.arrayContaining([
+          expect.objectContaining({
+            code: "TIMEPRICE",
+            quantity: 1,
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it("keeps duplicate identical breakdown rows instead of deduping them away", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 19997,
+          legacyWordpressUserId: 15,
+          status: "confirmed",
+          meta: {
+            bestillingsnr: "DUP-1",
+            kundens_navn: "Duplicate Customer",
+            extra_products_0_velg_produkt: "Washer",
+            extra_products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            total_price: "600",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Washer</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Indoor carry (INDOOR)</span>
+                    <span class="price-breakdown-price">100 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Retur til gjenvinning (RETURNREC)</span>
+                    <span class="price-breakdown-price">250 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Retur til gjenvinning (RETURNREC)</span>
+                    <span class="price-breakdown-price">250 NOK</span>
+                  </div>
+                </div>
+                <div class="price-summary">
+                  <div class="price-breakdown-row total-highlight">
+                    <span class="price-breakdown-label"><strong>Total</strong></span>
+                    <span class="price-breakdown-price">600 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const parsedServices =
+      mocks.mapWordpressImportToProductCardsMock.mock.calls[0]?.[0]
+        ?.parsedServices ?? [];
+    const returnRows = parsedServices.filter(
+      (service: { code?: string }) => service.code === "RETURNREC",
+    );
+    expect(returnRows).toHaveLength(2);
+  });
+
+  it("rejects imports when the parsed breakdown subtotal does not match the WordPress total", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 19998,
+          legacyWordpressUserId: 15,
+          status: "confirmed",
+          meta: {
+            bestillingsnr: "MISMATCH-1",
+            kundens_navn: "Mismatch Customer",
+            extra_products_0_velg_produkt: "Washer",
+            extra_products_0_velg_leveringstype: "0:Indoor carry:INDOOR",
+            extra_products_0_antall_produkter: "1",
+            total_price: "250",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Washer</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Indoor carry (INDOOR)</span>
+                    <span class="price-breakdown-price">100 NOK</span>
+                  </div>
+                </div>
+                <div class="price-summary">
+                  <div class="price-breakdown-row total-highlight">
+                    <span class="price-breakdown-label"><strong>Total</strong></span>
+                    <span class="price-breakdown-price">250 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(mocks.orderCreateMock).not.toHaveBeenCalled();
+  });
+
   it("imports admin price adjustments into native totals and persisted fields", async () => {
     mocks.calculateBookingPricingMock.mockReturnValue({
       totals: {

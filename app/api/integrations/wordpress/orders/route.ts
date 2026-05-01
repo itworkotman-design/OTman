@@ -123,7 +123,17 @@ const WORDPRESS_PRICE_MISMATCH_COMMENT = "New system was unable to match to old 
 const WORDPRESS_SUBCONTRACTOR_MATCH_COMMENT = "Subcontractor price matched from WordPress";
 const EXTRA_PICKUP_CODE = "EXTRAPICKUP";
 
-const SUMMARY_LABEL_PATTERNS = [/^mva\b/i, /^total\b/i, /^total inkl/i, /^pris uten mva\b/i, /^sum\b/i, /^km pris\b/i, /^extra\b/i, /^rabatt\b/i, /^ekstra\b/i];
+const SUMMARY_LABEL_PATTERNS = [
+  /^mva\b/i,
+  /^total\b/i,
+  /^total inkl/i,
+  /^pris uten mva\b/i,
+  /^sum\b/i,
+  /^km pris\b/i,
+  /^extra$/i,
+  /^ekstra$/i,
+  /^rabatt$/i,
+];
 
 const asString = (value: unknown): string | undefined => {
   if (typeof value !== "string") return undefined;
@@ -317,13 +327,27 @@ const extractBreakdownQuantity = (value: string): number | undefined => {
     return undefined;
   }
 
-  const quantityMatch = normalizedValue.match(/\bx\s*(\d+(?:[.,]\d+)?)(?:\s*(?:time|timer?))?\b/iu);
-  if (!quantityMatch) {
+  const quantityMatches = Array.from(
+    normalizedValue.matchAll(
+      /\bx\s*(\d+(?:[.,]\d+)?)(?:\s*(?:time|timer?))?\b/giu,
+    ),
+  );
+  if (quantityMatches.length === 0) {
     return undefined;
   }
 
-  const parsed = Number.parseFloat((quantityMatch[1] ?? "").replace(",", "."));
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  let quantity = 1;
+
+  for (const quantityMatch of quantityMatches) {
+    const parsed = Number.parseFloat((quantityMatch[1] ?? "").replace(",", "."));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      continue;
+    }
+
+    quantity *= parsed;
+  }
+
+  return quantity > 0 ? quantity : undefined;
 };
 
 const cleanDeliveryType = (raw?: string): string | undefined => {
@@ -641,6 +665,20 @@ const findBreakdownRowValueCents = (rows: Array<{ label: string; priceCents: num
 
 const isSummaryLabel = (label: string): boolean => SUMMARY_LABEL_PATTERNS.some((pattern) => pattern.test(label));
 
+const getParsedBreakdownSubtotalCents = (
+  breakdownHtml: string | undefined,
+): number => {
+  const rows = extractBreakdownRows(breakdownHtml);
+
+  return rows.reduce((sum, row) => {
+    if (!row.label || isSummaryLabel(row.label)) {
+      return sum;
+    }
+
+    return sum + (row.priceCents ?? 0);
+  }, 0);
+};
+
 const isDeliveryTypeRow = (row: ParsedBreakdownRow): boolean => {
   if (row.code && DELIVERY_TYPE_CODES.has(row.code)) {
     return true;
@@ -918,18 +956,35 @@ const buildServiceItemsFromBreakdown = (meta: Record<string, unknown>, productIt
   return serviceItems;
 };
 
-const dedupeServiceItems = (serviceItems: ParsedWordpressServiceItem[]): ParsedWordpressServiceItem[] => {
-  const seen = new Set<string>();
+const buildParsedServiceCoverageKey = (
+  service: Pick<
+    ParsedWordpressServiceItem,
+    "cardId" | "itemType" | "label" | "code" | "quantity" | "priceCents"
+  >,
+): string =>
+  [
+    service.cardId,
+    service.itemType,
+    service.code ?? "",
+    service.label,
+    service.quantity,
+    service.priceCents ?? "",
+  ].join("|");
 
-  return serviceItems.filter((item) => {
-    const signature = buildServiceSignature(item);
-    if (seen.has(signature)) {
-      return false;
-    }
+const mergeParsedServiceItems = (params: {
+  breakdownItems: ParsedWordpressServiceItem[];
+  metaItems: ParsedWordpressServiceItem[];
+}): ParsedWordpressServiceItem[] => {
+  const seenBreakdownKeys = new Set(
+    params.breakdownItems.map((item) => buildParsedServiceCoverageKey(item)),
+  );
 
-    seen.add(signature);
-    return true;
-  });
+  return [
+    ...params.breakdownItems,
+    ...params.metaItems.filter(
+      (item) => !seenBreakdownKeys.has(buildParsedServiceCoverageKey(item)),
+    ),
+  ];
 };
 
 const buildServicesSummary = (serviceItems: ParsedWordpressServiceItem[]): string | undefined => {
@@ -967,6 +1022,14 @@ const getImportedWordpressPriceExVatCents = (meta: Record<string, unknown>): num
 
   return findBreakdownRowValueCents(extractBreakdownRows(breakdownHtml), TOTAL_BREAKDOWN_LABEL_PATTERNS);
 };
+
+const getBreakdownExplicitTotalCents = (
+  breakdownHtml: string | undefined,
+): number | undefined =>
+  findBreakdownRowValueCents(
+    extractBreakdownRows(breakdownHtml),
+    TOTAL_BREAKDOWN_LABEL_PATTERNS,
+  );
 
 const getImportedWordpressSubcontractorTotalCents = (meta: Record<string, unknown>): number | undefined => {
   const subcontractorHtml = asString(meta.price_breakdown_subcontractor_html) || asString(meta.field_6889f3e2ca127);
@@ -1131,7 +1194,7 @@ const parsePriceSettingCents = (value: string): number => {
 };
 
 const getDeviationPriceCents = (
-  priceListSettings: PriceListSettings,
+  priceListSettings: PriceListSettings | undefined,
   deviationFee: DeviationFeeOption | undefined,
 ) => {
   if (!deviationFee) {
@@ -1141,7 +1204,7 @@ const getDeviationPriceCents = (
     };
   }
 
-  const setting = priceListSettings.deviations[deviationFee.code];
+  const setting = priceListSettings?.deviations?.[deviationFee.code];
 
   return {
     customerPriceCents: parsePriceSettingCents(
@@ -1312,9 +1375,11 @@ const applyWordpressPriceMatchPolicy = (params: {
 
   const allRows = getBreakdownRowsWithCodes(asString(params.meta.price_breakdown_html));
 
-  const kmRows = allRows.filter(isKmBreakdownRow);
+  const globalFallbackRows = allRows.filter(
+    (row) => isKmBreakdownRow(row) || isExtraPickupBreakdownRow(row),
+  );
 
-  if (kmRows.length === 0) {
+  if (globalFallbackRows.length === 0) {
     return nextCards;
   }
 
@@ -1322,7 +1387,7 @@ const applyWordpressPriceMatchPolicy = (params: {
   globalReadOnlyCard.wordpressImportReadOnly = {
     productName: "WordPress order prices",
     comment: WORDPRESS_PRICE_MISMATCH_COMMENT,
-    rows: toReadOnlyRows(kmRows),
+    rows: toReadOnlyRows(globalFallbackRows),
   };
 
   return [...nextCards, globalReadOnlyCard];
@@ -2007,10 +2072,10 @@ export async function POST(req: NextRequest) {
       meta,
       productItems: buildProductItemsFromMeta(meta),
     });
-    const parsedServiceItemsRaw = dedupeServiceItems([
-      ...buildServiceItemsFromMeta(meta, parsedProductItems),
-      ...buildServiceItemsFromBreakdown(meta, parsedProductItems),
-    ]);
+    const parsedServiceItemsRaw = mergeParsedServiceItems({
+      breakdownItems: buildServiceItemsFromBreakdown(meta, parsedProductItems),
+      metaItems: buildServiceItemsFromMeta(meta, parsedProductItems),
+    });
 
     const hasReturnAddress = Boolean(returnAddress?.trim());
 
@@ -2050,7 +2115,12 @@ export async function POST(req: NextRequest) {
       parsedServices: parsedServiceItems.map((item) => ({
         cardId: item.cardId,
         productName: item.productName,
-        quantity: item.label.toLowerCase().includes("time") && item.quantity === 1 ? WORDPRESS_DEFAULT_TIME_HOURS : item.quantity,
+        quantity:
+          item.label.toLowerCase().includes("time") &&
+          item.quantity === 1 &&
+          !/\bx\s*\d/u.test(item.label.toLowerCase())
+            ? WORDPRESS_DEFAULT_TIME_HOURS
+            : item.quantity,
         itemType: item.itemType,
         label: item.label,
         code: item.code,
@@ -2068,6 +2138,32 @@ export async function POST(req: NextRequest) {
       }),
     };
     const wordpressPriceExVatCents = getImportedWordpressPriceExVatCents(meta);
+    const breakdownHtml = asString(meta.price_breakdown_html);
+    const parsedBreakdownSubtotalCents = getParsedBreakdownSubtotalCents(
+      breakdownHtml,
+    );
+    const explicitBreakdownTotalCents = getBreakdownExplicitTotalCents(
+      breakdownHtml,
+    );
+    const hasExternalImportedAdjustments = Boolean(
+      importedAdjustments.rabatt ||
+        importedAdjustments.leggTil ||
+        importedAdjustments.subcontractorMinus ||
+        importedAdjustments.subcontractorPlus ||
+        importedFees.feeExtraWork ||
+        importedFees.feeAddToOrder ||
+        deviation,
+    );
+    if (
+      breakdownHtml &&
+      typeof explicitBreakdownTotalCents === "number" &&
+      parsedBreakdownSubtotalCents < explicitBreakdownTotalCents &&
+      !hasExternalImportedAdjustments
+    ) {
+      throw new Error(
+        `WordPress breakdown subtotal mismatch: parsed=${parsedBreakdownSubtotalCents} expected=${explicitBreakdownTotalCents}`,
+      );
+    }
     const protectedFailureFeeCents = getProtectedFailureFeeCents({
       importedFees,
       deviation,
