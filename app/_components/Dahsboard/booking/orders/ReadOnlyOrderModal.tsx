@@ -1,9 +1,6 @@
 "use client";
 
-import type {
-  BookingArchiveViewMode,
-  OrderCalculatorItem,
-} from "@/app/_components/Dahsboard/booking/archive/types";
+import type { BookingArchiveViewMode, OrderCalculatorItem } from "@/app/_components/Dahsboard/booking/archive/types";
 import { bookingStatusText } from "@/lib/booking/bookingUiText";
 import { formatDisplayDate } from "@/lib/dateDisplay";
 
@@ -85,10 +82,13 @@ function formatCell(value: string | null | undefined) {
   return value;
 }
 
-function formatMoney(value: number | null | undefined) {
+function formatMoney(value: number | null | undefined, options?: { forceDecimals?: boolean }) {
   if (typeof value !== "number") return "-";
+
+  const isWhole = Number.isInteger(value);
+
   return `${value.toLocaleString("no-NO", {
-    minimumFractionDigits: 2,
+    minimumFractionDigits: options?.forceDecimals ? 2 : isWhole ? 0 : 2,
     maximumFractionDigits: 2,
   })} NOK`;
 }
@@ -98,13 +98,8 @@ function formatExtraPickup(value: string[] | null | undefined) {
   return value.join(", ");
 }
 
-function getVisibleOrderPrice(
-  order: ReadOnlyOrder,
-  viewMode: BookingArchiveViewMode | undefined,
-) {
-  return viewMode === "SUBCONTRACTOR"
-    ? (order.priceSubcontractor ?? 0)
-    : (order.priceExVat ?? 0);
+function getVisibleOrderPrice(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode | undefined) {
+  return viewMode === "SUBCONTRACTOR" ? (order.priceSubcontractor ?? 0) : (order.priceExVat ?? 0);
 }
 
 function isCalculatorPdfView(viewMode: BookingArchiveViewMode | undefined) {
@@ -164,10 +159,7 @@ function getPdfDetailRows(order: ReadOnlyOrder): PdfDetailRow[] {
   ];
 }
 
-function getCalculatorDisplayData(
-  order: ReadOnlyOrder,
-  viewMode: BookingArchiveViewMode | undefined,
-): CalculatorDisplayData {
+function getCalculatorDisplayData(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode | undefined): CalculatorDisplayData {
   const useSubcontractorPrices = viewMode === "SUBCONTRACTOR";
   const groups = new Map<number, CalculatorGroup>();
 
@@ -186,9 +178,7 @@ function getCalculatorDisplayData(
       continue;
     }
 
-    const priceCents = useSubcontractorPrices
-      ? item.subcontractorPriceCents
-      : item.customerPriceCents;
+    const priceCents = useSubcontractorPrices ? item.subcontractorPriceCents : item.customerPriceCents;
 
     if (priceCents == null) {
       continue;
@@ -212,8 +202,9 @@ function getCalculatorDisplayData(
         ? parseNokAdjustment(order.subcontractorMinus)
         : 0;
 
-  
-  const extra = hasWordpressReadOnlyRows
+  const hasWordpressItems = (order.calculatorItems ?? []).some((item) => item.itemType === "EXTRA_OPTION" && item.optionCode);
+
+  const extra = hasWordpressItems
     ? 0
     : viewMode === "ORDER_CREATOR"
       ? parseNokAdjustment(order.leggTil)
@@ -223,9 +214,7 @@ function getCalculatorDisplayData(
   const vat = roundMoney(totalExVat * 0.25);
 
   return {
-    groups: Array.from(groups.values()).filter(
-      (group) => group.lines.length > 0,
-    ),
+    groups: Array.from(groups.values()).filter((group) => group.lines.length > 0),
     totalExVat,
     vat,
     totalIncVat: roundMoney(totalExVat + vat),
@@ -241,19 +230,13 @@ function renderCalculatorHtml(data: CalculatorDisplayData) {
           .map(
             (group) => `
               <div class="calculator-group">
-                <h2>${escapeHtml(group.title)}${
-                  group.modelNumber
-                    ? ` <span>(${escapeHtml(group.modelNumber)})</span>`
-                    : ""
-                }</h2>
+                <h2>${escapeHtml(group.title)}${group.modelNumber ? ` <span>(${escapeHtml(group.modelNumber)})</span>` : ""}</h2>
                 ${group.lines
                   .map(
                     (line) => `
                       <div class="priceRow">
                         <div>${line.qty > 1 ? `x${escapeHtml(formatQty(line.qty))} ` : ""}${
-                          line.code
-                            ? `<span class="line-code">(${escapeHtml(line.code)})</span> `
-                            : ""
+                          line.code ? `<span class="line-code">(${escapeHtml(line.code)})</span> ` : ""
                         }${escapeHtml(line.label)}</div>
                         <strong>${escapeHtml(formatMoney(line.lineTotal))}</strong>
                       </div>
@@ -270,28 +253,17 @@ function renderCalculatorHtml(data: CalculatorDisplayData) {
     <aside class="calculator-card">
       <div class="calculator-lines">${groupsHtml}</div>
       <div class="calculator-summary">
-        ${
-          data.discount !== 0
-            ? `<div class="priceRow"><div>Rabatt</div><strong>-${escapeHtml(formatMoney(data.discount))}</strong></div>`
-            : ""
-        }
-        ${
-          data.extra !== 0
-            ? `<div class="priceRow"><div>Ekstra</div><strong>+${escapeHtml(formatMoney(data.extra))}</strong></div>`
-            : ""
-        }
-        <div class="priceRow total-row"><div>Total</div><strong>${escapeHtml(formatMoney(data.totalExVat))}</strong></div>
-        <div class="priceRow"><div>MVA (25%)</div><strong>${escapeHtml(formatMoney(data.vat))}</strong></div>
-        <div class="priceRow"><div>Total inkl. MVA</div><strong>${escapeHtml(formatMoney(data.totalIncVat))}</strong></div>
-      </div>
+        ${data.discount !== 0 ? `<div class="priceRow"><div>Rabatt</div><strong>-${escapeHtml(formatMoney(data.discount))}</strong></div>` : ""}
+        ${data.extra !== 0 ? `<div class="priceRow"><div>Ekstra</div><strong>+${escapeHtml(formatMoney(data.extra))}</strong></div>` : ""}
+        <div class="priceRow total-row"><div>Total</div><strong>${escapeHtml(formatMoney(data.totalExVat, { forceDecimals: true }))}</strong></div>
+        <div class="priceRow"><div>MVA (25%)</div><strong>${escapeHtml(formatMoney(data.vat, { forceDecimals: true }))}</strong></div>
+        <div class="priceRow"><div>Total inkl. MVA</div><strong>${escapeHtml(formatMoney(data.totalIncVat, { forceDecimals: true }))}</strong></div>
+      </div> 
     </aside>
   `;
 }
 
-function downloadOrderPdf(
-  order: ReadOnlyOrder,
-  viewMode: BookingArchiveViewMode | undefined,
-) {
+function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode | undefined) {
   const totalExVat = getVisibleOrderPrice(order, viewMode);
   const vat = totalExVat * 0.25;
   const totalIncVat = totalExVat + vat;
@@ -420,30 +392,18 @@ function OrderPdfCalculator({ data }: { data: CalculatorDisplayData }) {
             <div key={`${group.title}-${groupIndex}`} className="mb-4 last:mb-0">
               <h1 className="mb-2 text-md font-bold">
                 {group.title}
-                {group.modelNumber ? (
-                  <span className="ml-1 text-sm font-normal text-gray-500">
-                    ({group.modelNumber})
-                  </span>
-                ) : null}
+                {group.modelNumber ? <span className="ml-1 text-sm font-normal text-gray-500">({group.modelNumber})</span> : null}
               </h1>
 
               {group.lines.map((line, lineIndex) => (
                 <div key={`${line.label}-${lineIndex}`} className="priceRow ml-2">
                   <h1 className="text-sm">
-                    {line.qty > 1 ? (
-                      <span className="mr-1 opacity-70">
-                        x{formatQty(line.qty)}
-                      </span>
-                    ) : null}
-                    {line.code ? (
-                      <span className="mr-1 text-logoblue">({line.code})</span>
-                    ) : null}
+                    {line.qty > 1 ? <span className="mr-1 opacity-70">x{formatQty(line.qty)}</span> : null}
+                    {line.code ? <span className="mr-1 text-logoblue">({line.code})</span> : null}
                     {line.label}
                   </h1>
 
-                  <p className="whitespace-nowrap text-sm font-semibold">
-                    {formatMoney(line.lineTotal)}
-                  </p>
+                  <p className="whitespace-nowrap text-sm font-semibold">{formatMoney(line.lineTotal)}</p>
                 </div>
               ))}
             </div>
@@ -468,29 +428,24 @@ function OrderPdfCalculator({ data }: { data: CalculatorDisplayData }) {
 
         <div className="priceRow">
           <h1 className="text-2xl font-bold">Total</h1>
-          <p className="text-2xl font-bold">{formatMoney(data.totalExVat)}</p>
+          <p className="text-2xl font-bold">{formatMoney(data.totalExVat, { forceDecimals: true })}</p>
         </div>
 
         <div className="priceRow">
           <h1 className="text-md">MVA (25%)</h1>
-          <p className="font-semibold">{formatMoney(data.vat)}</p>
+          <p className="font-semibold">{formatMoney(data.vat, { forceDecimals: true })}</p>
         </div>
 
         <div className="priceRow">
           <h1 className="text-md">Total inkl. MVA</h1>
-          <p className="font-semibold">{formatMoney(data.totalIncVat)}</p>
+          <p className="font-semibold">{formatMoney(data.totalIncVat, { forceDecimals: true })}</p>
         </div>
       </div>
     </section>
   );
 }
 
-export default function ReadOnlyOrderModal({
-  open,
-  order,
-  viewMode,
-  onClose,
-}: Props) {
+export default function ReadOnlyOrderModal({ open, order, viewMode, onClose }: Props) {
   if (!open || !order) return null;
 
   const totalExVat = getVisibleOrderPrice(order, viewMode);
@@ -505,10 +460,7 @@ export default function ReadOnlyOrderModal({
       <div className="w-full max-w-5xl rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-6 flex items-start justify-between">
           <h2 className="text-xl font-semibold">Ordredetaljer</h2>
-          <button
-            onClick={onClose}
-            className="customButtonDefault h-8! w-8! rounded-full! px-0! py-0! text-sm"
-          >
+          <button onClick={onClose} className="customButtonDefault h-8! w-8! rounded-full! px-0! py-0! text-sm">
             X
           </button>
         </div>
@@ -519,12 +471,8 @@ export default function ReadOnlyOrderModal({
               <tbody>
                 {pdfDetailRows.map((row) => (
                   <tr key={row.label}>
-                    <th className="w-[190] border border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold">
-                      {row.label}
-                    </th>
-                    <td className="border border-slate-200 px-3 py-2">
-                      {row.value}
-                    </td>
+                    <th className="w-[190] border border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold">{row.label}</th>
+                    <td className="border border-slate-200 px-3 py-2">{row.value}</td>
                   </tr>
                 ))}
               </tbody>
@@ -536,117 +484,92 @@ export default function ReadOnlyOrderModal({
           <>
             <div className="space-y-2 text-sm text-slate-800">
               <p>
-                <span className="font-semibold">Butikk:</span>{" "}
-                {formatCell(order.createdBy)}
+                <span className="font-semibold">Butikk:</span> {formatCell(order.createdBy)}
               </p>
               <p>
-                <span className="font-semibold">Kundenavn:</span>{" "}
-                {formatCell(order.customerName)}
+                <span className="font-semibold">Kundenavn:</span> {formatCell(order.customerName)}
               </p>
               <p>
-                <span className="font-semibold">Bilagsnummer:</span>{" "}
-                {formatCell(order.orderNumber)}
+                <span className="font-semibold">Bilagsnummer:</span> {formatCell(order.orderNumber)}
               </p>
               <p>
-                <span className="font-semibold">Leveringsdato:</span>{" "}
-                {formatDisplayDate(order.deliveryDate)}
+                <span className="font-semibold">Leveringsdato:</span> {formatDisplayDate(order.deliveryDate)}
               </p>
               <p>
-                <span className="font-semibold">Tidsvindu:</span>{" "}
-                {formatCell(order.timeWindow)}
+                <span className="font-semibold">Tidsvindu:</span> {formatCell(order.timeWindow)}
               </p>
               <p>
-                <span className="font-semibold">Telefon:</span>{" "}
-                {formatCell(order.phone)}
+                <span className="font-semibold">Telefon:</span> {formatCell(order.phone)}
               </p>
               <p>
-                <span className="font-semibold">Henteadresse:</span>{" "}
-                {formatCell(order.pickupAddress)}
+                <span className="font-semibold">Henteadresse:</span> {formatCell(order.pickupAddress)}
               </p>
               <p>
-                <span className="font-semibold">Ekstra hentesteder:</span>{" "}
-                {formatExtraPickup(order.extraPickupAddress)}
+                <span className="font-semibold">Ekstra hentesteder:</span> {formatExtraPickup(order.extraPickupAddress)}
               </p>
               <p>
-                <span className="font-semibold">Leveringsadresse:</span>{" "}
-                {formatCell(order.deliveryAddress)}
+                <span className="font-semibold">Leveringsadresse:</span> {formatCell(order.deliveryAddress)}
               </p>
               <p>
-                <span className="font-semibold">Returadresse:</span>{" "}
-                {formatCell(order.returnAddress)}
+                <span className="font-semibold">Returadresse:</span> {formatCell(order.returnAddress)}
               </p>
               <p>
-                <span className="font-semibold">Produkter:</span>{" "}
-                {formatCell(order.productsSummary)}
+                <span className="font-semibold">Produkter:</span> {formatCell(order.productsSummary)}
               </p>
               <p>
-                <span className="font-semibold">Leveringstype:</span>{" "}
-                {formatCell(order.deliveryTypeSummary)}
+                <span className="font-semibold">Leveringstype:</span> {formatCell(order.deliveryTypeSummary)}
               </p>
               <p>
-                <span className="font-semibold">Montering / retur:</span>{" "}
-                {formatCell(order.servicesSummary)}
+                <span className="font-semibold">Montering / retur:</span> {formatCell(order.servicesSummary)}
               </p>
               <p>
-                <span className="font-semibold">Beskrivelse:</span>{" "}
-                {formatCell(order.description)}
+                <span className="font-semibold">Beskrivelse:</span> {formatCell(order.description)}
               </p>
               <p>
-                <span className="font-semibold">Kasserers navn:</span>{" "}
-                {formatCell(order.cashierName)}
+                <span className="font-semibold">Kasserers navn:</span> {formatCell(order.cashierName)}
               </p>
               <p>
-                <span className="font-semibold">Kasserers telefon:</span>{" "}
-                {formatCell(order.cashierPhone)}
+                <span className="font-semibold">Kasserers telefon:</span> {formatCell(order.cashierPhone)}
               </p>
               <p>
-                <span className="font-semibold">Kundenotater:</span>{" "}
-                {formatCell(order.customerComments)}
+                <span className="font-semibold">Kundenotater:</span> {formatCell(order.customerComments)}
               </p>
               <p>
-                <span className="font-semibold">Sjåførinfo:</span>{" "}
-                {formatCell(order.driverInfo)}
+                <span className="font-semibold">Sjåførinfo:</span> {formatCell(order.driverInfo)}
               </p>
               <p>
-                <span className="font-semibold">Status:</span>{" "}
-                {order.status ? bookingStatusText("nb", order.status) : "-"}
+                <span className="font-semibold">Status:</span> {order.status ? bookingStatusText("nb", order.status) : "-"}
               </p>
               <p>
-                <span className="font-semibold">Statusnotater:</span>{" "}
-                {formatCell(order.statusNotes)}
+                <span className="font-semibold">Statusnotater:</span> {formatCell(order.statusNotes)}
               </p>
               <p>
-                <span className="font-semibold">Opprettet av:</span>{" "}
-                {formatCell(order.createdBy)}
+                <span className="font-semibold">Opprettet av:</span> {formatCell(order.createdBy)}
               </p>
               <p>
-                <span className="font-semibold">Sist redigert av:</span>{" "}
-                {formatCell(order.lastEditedBy)}
+                <span className="font-semibold">Sist redigert av:</span> {formatCell(order.lastEditedBy)}
               </p>
             </div>
 
             <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-4 text-sm">
               <div className="flex justify-between text-lg font-bold">
                 <span>Total</span>
-                <span>{formatMoney(totalExVat)}</span>
+                <span>{formatMoney(totalExVat, { forceDecimals: true })}</span>
               </div>
               <div className="flex justify-between">
                 <span>MVA (25%)</span>
-                <span className="font-semibold">{formatMoney(vat)}</span>
+                <span className="font-semibold">{formatMoney(vat, { forceDecimals: true })}</span>
               </div>
               <div className="flex justify-between">
                 <span>Total inkl. MVA</span>
-                <span className="font-semibold">{formatMoney(totalIncVat)}</span>
+                <span className="font-semibold">{formatMoney(totalIncVat, { forceDecimals: true })}</span>
               </div>
             </div>
           </>
         )}
 
         <div className="mt-6 flex justify-end gap-3">
-          <button
-            onClick={() => downloadOrderPdf(order, viewMode)}
-            className="customButtonEnabled"
-          >
+          <button onClick={() => downloadOrderPdf(order, viewMode)} className="customButtonEnabled">
             Last ned PDF
           </button>
         </div>
