@@ -135,21 +135,9 @@ export function shouldClearWordpressImportReadOnly(params: {
     return false;
   }
 
-  const wordpressCustomerTotalCents = getWordpressReadOnlyTotalCents(snapshot);
-  const nativeTotals = getNativeBreakdownTotalsCents(breakdown, priceLookup);
-
-  if (nativeTotals.customerTotalCents !== wordpressCustomerTotalCents) {
-    return false;
-  }
-
-  if (
-    card.pricingSnapshot == null &&
-    typeof snapshot.subcontractorTotalCents === "number"
-  ) {
-    return (
-      nativeTotals.subcontractorTotalCents === snapshot.subcontractorTotalCents
-    );
-  }
-
+  // Only clear wordpressImportReadOnly if there's a structural row match.
+  // If the product/group mapping is uncertain (e.g., WP has XTRA/Innbæring
+  // but app maps it as INDOOR), keep the WP fallback gray block even if
+  // the financial totals happen to match.
   return wordpressReadOnlyRowsMatchNativeLines(snapshot, nativeLines);
 }

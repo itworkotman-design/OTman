@@ -75,33 +75,25 @@ function buildNativeLine(
 }
 
 describe("shouldClearWordpressImportReadOnly", () => {
-  it("clears when pricing snapshot is null and per-card customer and subcontractor totals match", () => {
+  it("clears when WP rows structurally match native lines (exact price match)", () => {
     const card = buildCard({
       pricingSnapshot: null,
       wordpressImportReadOnly: buildSnapshot({
-        rows: [{ label: "WP XTRA", quantity: 2, priceCents: 5000 }],
-        subcontractorTotalCents: 7000,
+        rows: [
+          { label: "WP row", quantity: 2, priceCents: 5000 },
+          { label: "WP row 2", quantity: 1, priceCents: 3000 },
+        ],
       }),
-      selectedExtraOptionIds: ["xtra-option"],
     });
     const breakdown = buildBreakdown({
-      items: [
-        {
-          kind: "productOption",
-          productOptionId: "xtra-option",
-          qty: 1,
-        },
-      ],
+      items: [],
     });
-    const nativeLines = [buildNativeLine({ label: "Different label", lineTotal: 100 })];
-    const priceLookup: PriceLookup = {
-      "xtra-option": {
-        label: "Mapped XTRA",
-        code: "XTRA",
-        customerPrice: 100,
-        subcontractorPrice: 70,
-      },
-    };
+    // Native lines with exact matching totals
+    const nativeLines = [
+      buildNativeLine({ label: "Line 1", lineTotal: 100 }),
+      buildNativeLine({ label: "Line 2", lineTotal: 30 }),
+    ];
+    const priceLookup: PriceLookup = {};
 
     expect(
       shouldClearWordpressImportReadOnly({
@@ -113,33 +105,19 @@ describe("shouldClearWordpressImportReadOnly", () => {
     ).toBe(true);
   });
 
-  it("does not clear when pricing snapshot is null and subcontractor totals differ", () => {
+  it("does not clear when WP rows do not structurally match native lines", () => {
     const card = buildCard({
       pricingSnapshot: null,
       wordpressImportReadOnly: buildSnapshot({
         rows: [{ label: "WP XTRA", quantity: 2, priceCents: 5000 }],
-        subcontractorTotalCents: 7500,
       }),
-      selectedExtraOptionIds: ["xtra-option"],
     });
     const breakdown = buildBreakdown({
-      items: [
-        {
-          kind: "productOption",
-          productOptionId: "xtra-option",
-          qty: 1,
-        },
-      ],
+      items: [],
     });
-    const nativeLines = [buildNativeLine({ label: "Different label", lineTotal: 100 })];
-    const priceLookup: PriceLookup = {
-      "xtra-option": {
-        label: "Mapped XTRA",
-        code: "XTRA",
-        customerPrice: 100,
-        subcontractorPrice: 70,
-      },
-    };
+    // Native line with different total (WP = 10000 cents, native = 8000 cents)
+    const nativeLines = [buildNativeLine({ label: "Different label", lineTotal: 80 })];
+    const priceLookup: PriceLookup = {};
 
     expect(
       shouldClearWordpressImportReadOnly({
@@ -151,41 +129,49 @@ describe("shouldClearWordpressImportReadOnly", () => {
     ).toBe(false);
   });
 
-  it("still requires WP row coverage when a pricing snapshot exists", () => {
+  it("does not clear when WP rows are fewer than native lines", () => {
     const card = buildCard({
-      pricingSnapshot: {
-        autoDeliveryPrices: {},
-        customSectionOptions: {},
-        deliveryTypes: {},
-        priceListSettings: createDefaultPriceListSettings(),
-        productOptions: {},
-        specialOptions: {},
-      },
+      pricingSnapshot: null,
       wordpressImportReadOnly: buildSnapshot({
-        rows: [{ label: "WP row", quantity: 2, priceCents: 5000 }],
-        subcontractorTotalCents: 7000,
+        rows: [{ label: "WP row", quantity: 1, priceCents: 5000 }],
       }),
     });
     const breakdown = buildBreakdown({
-      items: [
-        {
-          kind: "customPrice",
-          code: "XTRA",
-          label: "Mapped XTRA",
-          qty: 1,
-          unitPrice: 100,
-          subcontractorUnitPrice: 70,
-        },
-      ],
+      items: [],
     });
-    const nativeLines = [buildNativeLine({ label: "Partial line", lineTotal: 70 })];
+    // More native lines than WP rows
+    const nativeLines = [
+      buildNativeLine({ label: "Line 1", lineTotal: 50 }),
+      buildNativeLine({ label: "Line 2", lineTotal: 30 }),
+    ];
+    const priceLookup: PriceLookup = {};
 
     expect(
       shouldClearWordpressImportReadOnly({
         card,
         breakdown,
         nativeLines,
-        priceLookup: {},
+        priceLookup,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not clear when there is no wordpressImportReadOnly", () => {
+    const card = buildCard({
+      wordpressImportReadOnly: undefined,
+    });
+    const breakdown = buildBreakdown({
+      items: [],
+    });
+    const nativeLines = [buildNativeLine({ label: "Line", lineTotal: 100 })];
+    const priceLookup: PriceLookup = {};
+
+    expect(
+      shouldClearWordpressImportReadOnly({
+        card,
+        breakdown,
+        nativeLines,
+        priceLookup,
       }),
     ).toBe(false);
   });
