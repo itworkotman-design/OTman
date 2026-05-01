@@ -1,45 +1,24 @@
-import type {
-  SavedProductCard,
-  WordpressImportReadOnlySnapshot,
-} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import type {
-  CalculatedLine,
-  PriceLookup,
-  ProductBreakdown,
-} from "@/lib/booking/pricing/types";
+import type { SavedProductCard, WordpressImportReadOnlySnapshot } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import type { CalculatedLine, PriceLookup, ProductBreakdown } from "@/lib/booking/pricing/types";
 
-export function getWordpressReadOnlyTotalCents(
-  snapshot: WordpressImportReadOnlySnapshot | null | undefined,
-) {
-  return (
-    snapshot?.rows.reduce(
-      (sum, row) => sum + Math.round(row.priceCents * row.quantity),
-      0,
-    ) ?? 0
-  );
+export function getWordpressReadOnlyTotalCents(snapshot: WordpressImportReadOnlySnapshot | null | undefined) {
+  return snapshot?.rows.reduce((sum, row) => sum + Math.round(row.priceCents * row.quantity), 0) ?? 0;
 }
 
-export function getNativeBreakdownTotalsCents(
-  breakdown: ProductBreakdown,
-  priceLookup: PriceLookup,
-) {
+export function getNativeBreakdownTotalsCents(breakdown: ProductBreakdown, priceLookup: PriceLookup) {
   let customerTotalCents = 0;
   let subcontractorTotalCents = 0;
 
   for (const item of breakdown.items) {
     if (item.kind === "deliveryType") {
       customerTotalCents += Math.round(item.unitPrice * item.qty * 100);
-      subcontractorTotalCents += Math.round(
-        item.subcontractorUnitPrice * item.qty * 100,
-      );
+      subcontractorTotalCents += Math.round(item.subcontractorUnitPrice * item.qty * 100);
       continue;
     }
 
     if (item.kind === "customPrice") {
       customerTotalCents += Math.round(item.unitPrice * item.qty * 100);
-      subcontractorTotalCents += Math.round(
-        (item.subcontractorUnitPrice ?? 0) * item.qty * 100,
-      );
+      subcontractorTotalCents += Math.round((item.subcontractorUnitPrice ?? 0) * item.qty * 100);
       continue;
     }
 
@@ -53,15 +32,10 @@ export function getNativeBreakdownTotalsCents(
       continue;
     }
 
-    const customerUnitPrice =
-      item.priceOverride !== undefined
-        ? item.priceOverride
-        : lookup.customerPrice;
+    const customerUnitPrice = item.priceOverride !== undefined ? item.priceOverride : lookup.customerPrice;
 
     customerTotalCents += Math.round(customerUnitPrice * item.qty * 100);
-    subcontractorTotalCents += Math.round(
-      lookup.subcontractorPrice * item.qty * 100,
-    );
+    subcontractorTotalCents += Math.round(lookup.subcontractorPrice * item.qty * 100);
   }
 
   return {
@@ -70,17 +44,12 @@ export function getNativeBreakdownTotalsCents(
   };
 }
 
-export function wordpressReadOnlyRowsMatchNativeLines(
-  snapshot: WordpressImportReadOnlySnapshot | null | undefined,
-  nativeLines: CalculatedLine[],
-) {
+export function wordpressReadOnlyRowsMatchNativeLines(snapshot: WordpressImportReadOnlySnapshot | null | undefined, nativeLines: CalculatedLine[]) {
   if (!snapshot) {
     return false;
   }
 
-  const remainingNativeTotals = nativeLines
-    .map((line) => Math.round(line.lineTotal * 100))
-    .filter((totalCents) => totalCents !== 0);
+  const remainingNativeTotals = nativeLines.map((line) => Math.round(line.lineTotal * 100)).filter((totalCents) => totalCents !== 0);
 
   for (const row of snapshot.rows) {
     const rowTotalCents = Math.round(row.priceCents * row.quantity);
@@ -89,9 +58,7 @@ export function wordpressReadOnlyRowsMatchNativeLines(
       continue;
     }
 
-    const exactIndex = remainingNativeTotals.findIndex(
-      (totalCents) => totalCents === rowTotalCents,
-    );
+    const exactIndex = remainingNativeTotals.findIndex((totalCents) => totalCents === rowTotalCents);
 
     if (exactIndex >= 0) {
       remainingNativeTotals.splice(exactIndex, 1);
@@ -135,9 +102,29 @@ export function shouldClearWordpressImportReadOnly(params: {
     return false;
   }
 
-  // Only clear wordpressImportReadOnly if there's a structural row match.
-  // If the product/group mapping is uncertain (e.g., WP has XTRA/Innbæring
-  // but app maps it as INDOOR), keep the WP fallback gray block even if
-  // the financial totals happen to match.
-  return wordpressReadOnlyRowsMatchNativeLines(snapshot, nativeLines);
+  // First check: structural row match
+  if (!wordpressReadOnlyRowsMatchNativeLines(snapshot, nativeLines)) {
+    return false;
+  }
+
+  // Second check: final calculated totals must match WordPress exactly
+  const wordpressCustomerTotalCents = getWordpressReadOnlyTotalCents(snapshot);
+  const nativeTotals = getNativeBreakdownTotalsCents(breakdown, priceLookup);
+
+  // Customer total must match WP exactly
+  if (nativeTotals.customerTotalCents !== wordpressCustomerTotalCents) {
+    return false;
+  }
+
+  // If WP has subcontractor total, native must match that too
+  if (
+    card.pricingSnapshot == null &&
+    typeof snapshot.subcontractorTotalCents === "number"
+  ) {
+    if (nativeTotals.subcontractorTotalCents !== snapshot.subcontractorTotalCents) {
+      return false;
+    }
+  }
+
+  return true;
 }
