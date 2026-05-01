@@ -29,6 +29,7 @@ function formatQty(qty: number) {
 type Props = {
   productBreakdowns: ProductBreakdown[];
   priceLookup: PriceLookup;
+  forcedTotalExVat?: number;
   adminView?: boolean;
   onPriceChange?: (exVat: number, subcontractorPrice: number) => void;
   rabatt?: string;
@@ -43,6 +44,7 @@ type Props = {
 export function CalculatorDisplayNew({
   productBreakdowns,
   priceLookup,
+  forcedTotalExVat,
   adminView = false,
   onPriceChange,
   rabatt = "",
@@ -73,21 +75,27 @@ export function CalculatorDisplayNew({
       }),
     [productBreakdowns, priceLookup, adjustments],
   );
+    const displayTotals = useMemo(() => {
+      if (forcedTotalExVat == null) return result.totals;
+
+      const totalExVat = roundPriceRule(forcedTotalExVat);
+      const vat = roundPriceRule(totalExVat * 0.25);
+      const totalIncVat = roundPriceRule(totalExVat + vat);
+
+      return {
+        ...result.totals,
+        totalExVat,
+        vat,
+        totalIncVat,
+      };
+    }, [forcedTotalExVat, result.totals]);
 
   useEffect(() => {
-    onPriceChange?.(
-      roundPriceRule(result.totals.totalExVat),
-      roundPriceRule(result.totals.subcontractorTotal),
-    );
-  }, [result, onPriceChange]);
+    onPriceChange?.(roundPriceRule(displayTotals.totalExVat), roundPriceRule(displayTotals.subcontractorTotal));
+  }, [displayTotals, onPriceChange]);
 
   return (
-    <section
-      className={[
-        "w-full customContainer rounded-2xl px-4 bg-mainPrimary",
-        sidebarMode ? "max-h-[calc(100vh-10rem)] overflow-y-auto" : "",
-      ].join(" ")}
-    >
+    <section className={["w-full customContainer rounded-2xl px-4 bg-mainPrimary", sidebarMode ? "max-h-[calc(100vh-10rem)] overflow-y-auto" : ""].join(" ")}>
       <div className="border-b-2 border-lineSecondary py-4">
         {result.breakdowns.length === 0 ? (
           <p className="text-sm opacity-30">{t("No products selected.")}</p>
@@ -95,53 +103,28 @@ export function CalculatorDisplayNew({
           result.breakdowns.map((product, productIdx) => (
             <div
               key={productIdx}
-              className={[
-                "mb-4 last:mb-0",
-                product.readOnly
-                  ? "rounded-lg border border-gray-300 bg-gray-100 p-3 text-gray-600"
-                  : "",
-              ].join(" ")}
+              className={["mb-4 last:mb-0", product.readOnly ? "rounded-lg border border-gray-300 bg-gray-100 p-3 text-gray-600" : ""].join(" ")}
             >
               <h1 className="font-bold text-md mb-2">
                 {product.productName}
-                {product.productModelNumber ? (
-                  <span className="ml-1 text-sm font-normal text-gray-500">
-                    ({product.productModelNumber})
-                  </span>
-                ) : null}
+                {product.productModelNumber ? <span className="ml-1 text-sm font-normal text-gray-500">({product.productModelNumber})</span> : null}
               </h1>
-              {product.comment ? (
-                <p className="mb-2 text-sm font-semibold text-gray-600">
-                  {product.comment}
-                </p>
-              ) : null}
+              {product.comment ? <p className="mb-2 text-sm font-semibold text-gray-600">{product.comment}</p> : null}
 
               {product.lines.length === 0 ? (
-                <p className="text-sm opacity-30 ml-2">
-                  {t("No services selected for this product.")}
-                </p>
+                <p className="text-sm opacity-30 ml-2">{t("No services selected for this product.")}</p>
               ) : (
                 product.lines.map((line, idx) => (
                   <div key={idx} className="priceRow ml-2">
                     <h1 className="text-sm">
-                      {line.qty > 1 && (
-                        <span className="opacity-70 mr-1">
-                          x{formatQty(line.qty)}
-                        </span>
-                      )}
+                      {line.qty > 1 && <span className="opacity-70 mr-1">x{formatQty(line.qty)}</span>}
 
-                      {line.code && (
-                        <span className="text-logoblue mr-1">
-                          ({line.code})
-                        </span>
-                      )}
+                      {line.code && <span className="text-logoblue mr-1">({line.code})</span>}
 
                       {line.label}
                     </h1>
 
-                    <p className="font-semibold text-sm whitespace-nowrap">
-                      {formatNOK(line.lineTotal)}
-                    </p>
+                    <p className="font-semibold text-sm whitespace-nowrap">{formatNOK(line.lineTotal)}</p>
                   </div>
                 ))
               )}
@@ -154,9 +137,7 @@ export function CalculatorDisplayNew({
         {result.totals.discount !== 0 && (
           <div className="priceRow">
             <h1 className="text-md">Rabatt</h1>
-            <p className="font-semibold">
-              -{formatSumNOK(result.totals.discount)} NOK
-            </p>
+            <p className="font-semibold">-{formatSumNOK(result.totals.discount)} NOK</p>
           </div>
         )}
 
@@ -172,23 +153,17 @@ export function CalculatorDisplayNew({
 
         <div className="priceRow">
           <h1 className="font-bold text-2xl">Total</h1>
-          <p className="font-bold text-2xl">
-            {formatSumNOK(result.totals.totalExVat)} NOK
-          </p>
+          <p className="font-bold text-2xl">{formatSumNOK(displayTotals.totalExVat)} NOK</p>
         </div>
 
         <div className="priceRow">
           <h1 className="text-md">{t("VAT (25%)")}</h1>
-          <p className="font-semibold">
-            {formatSumNOK(result.totals.vat)} NOK
-          </p>
+          <p className="font-semibold">{formatSumNOK(displayTotals.vat)} NOK</p>
         </div>
 
         <div className="priceRow">
           <h1 className="text-md">{locale === "nb" ? "Total inkl. MVA" : "Total incl. VAT"}</h1>
-          <p className="font-semibold">
-            {formatSumNOK(result.totals.totalIncVat)} NOK
-          </p>
+          <p className="font-semibold">{formatSumNOK(displayTotals.totalIncVat)} NOK</p>
         </div>
 
         {adminView && (

@@ -2018,6 +2018,7 @@ export default function BookingEditor({
               onUseCurrentPrices={handleUseCurrentPrices}
               sidebarMode
               locale={locale}
+              forcedTotalExVat={calculatorBreakdowns.some((group) => group.readOnly) ? priceExVat : undefined}
             />
           </div>
         </div>
@@ -2038,6 +2039,7 @@ export default function BookingEditor({
             priceUpdateAvailable={hasCurrentPriceUpdates}
             onUseCurrentPrices={handleUseCurrentPrices}
             locale={locale}
+            forcedTotalExVat={calculatorBreakdowns.some((group) => group.readOnly) ? priceExVat : undefined}
           />
         </div>
       </div>

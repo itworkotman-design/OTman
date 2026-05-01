@@ -117,10 +117,7 @@ export function shouldClearWordpressImportReadOnly(params: {
   }
 
   // If WP has subcontractor total, native must match that too
-  if (
-    card.pricingSnapshot == null &&
-    typeof snapshot.subcontractorTotalCents === "number"
-  ) {
+  if (card.pricingSnapshot == null && typeof snapshot.subcontractorTotalCents === "number") {
     if (nativeTotals.subcontractorTotalCents !== snapshot.subcontractorTotalCents) {
       return false;
     }

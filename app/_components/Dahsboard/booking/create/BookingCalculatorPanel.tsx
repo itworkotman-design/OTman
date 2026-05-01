@@ -11,18 +11,14 @@ type Props = {
   setCalcOpen: React.Dispatch<React.SetStateAction<boolean>>;
   productBreakdowns: ReturnType<typeof buildProductBreakdowns>;
   priceLookup: ReturnType<typeof buildPriceLookup>;
+  forcedTotalExVat?: number;
   adminView: boolean;
   onPriceChange: (exVat: number, subPrice: number) => void;
   rabatt?: string;
   leggTil?: string;
   subcontractorMinus?: string;
   subcontractorPlus?: string;
-  onAdjustmentsChange: (adj: {
-    rabatt: string;
-    leggTil: string;
-    subcontractorMinus: string;
-    subcontractorPlus: string;
-  }) => void;
+  onAdjustmentsChange: (adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => void;
   priceUpdateAvailable?: boolean;
   onUseCurrentPrices?: () => void;
   sidebarMode?: boolean;
@@ -34,6 +30,7 @@ export default function BookingCalculatorPanel({
   setCalcOpen,
   productBreakdowns,
   priceLookup,
+  forcedTotalExVat,
   adminView,
   onPriceChange,
   rabatt,
@@ -70,9 +67,7 @@ export default function BookingCalculatorPanel({
             className="h-80 w-10 rounded-l-full bg-white shadow-xl border border-black/10 flex items-center justify-center"
             aria-label={locale === "nb" ? "Åpne kalkulator" : "Open calculator"}
           >
-            <span className="[writing-mode:vertical-rl] rotate-180 text-md font-semibold text-logoblue">
-              {t("Calculator")}
-            </span>
+            <span className="[writing-mode:vertical-rl] rotate-180 text-md font-semibold text-logoblue">{t("Calculator")}</span>
           </button>
         ) : (
           <div className="flex max-h-[85vh] w-[min(92vw,420px)] flex-col overflow-hidden rounded-2xl border bg-white shadow-xl">
@@ -90,6 +85,7 @@ export default function BookingCalculatorPanel({
               <CalculatorDisplayNew
                 productBreakdowns={productBreakdowns}
                 priceLookup={priceLookup}
+                forcedTotalExVat={forcedTotalExVat}
                 adminView={adminView}
                 onPriceChange={onPriceChange}
                 rabatt={rabatt}
@@ -112,6 +108,7 @@ export default function BookingCalculatorPanel({
           priceLookup={priceLookup}
           adminView={adminView}
           onPriceChange={onPriceChange}
+          forcedTotalExVat={forcedTotalExVat}
           rabatt={rabatt}
           leggTil={leggTil}
           subcontractorMinus={subcontractorMinus}
