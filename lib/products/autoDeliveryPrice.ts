@@ -4,6 +4,7 @@ export type ProductAutoDeliveryPrice = {
   label: string;
   price: string;
   subcontractorPrice: string;
+  includeInXtraLogic: boolean;
 };
 
 export function createDefaultProductAutoDeliveryPrice(): ProductAutoDeliveryPrice {
@@ -13,6 +14,7 @@ export function createDefaultProductAutoDeliveryPrice(): ProductAutoDeliveryPric
     label: "Delivery price",
     price: "0",
     subcontractorPrice: "0",
+    includeInXtraLogic: false,
   };
 }
 
@@ -58,6 +60,7 @@ export function normalizeProductAutoDeliveryPrice(
     label?: unknown;
     price?: unknown;
     subcontractorPrice?: unknown;
+    includeInXtraLogic?: unknown;
   };
 
   return {
@@ -69,5 +72,6 @@ export function normalizeProductAutoDeliveryPrice(
       raw.subcontractorPrice,
       defaults.subcontractorPrice,
     ),
+    includeInXtraLogic: raw.includeInXtraLogic === true,
   };
 }

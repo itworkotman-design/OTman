@@ -7,6 +7,7 @@ import {
   getEffectivePrice,
   shouldClearExpiredDiscount,
 } from "@/lib/products/discounts";
+import { createDefaultProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import {
   normalizePriceListSettings,
   parsePriceListSettings,
@@ -169,13 +170,9 @@ export async function GET(
               productConfig?.allowModelNumber ?? product.allowModelNumber,
             autoXtraPerPallet:
               productConfig?.autoXtraPerPallet ?? product.autoXtraPerPallet,
-            autoDeliveryPrice: productConfig?.autoDeliveryPrice ?? {
-              enabled: false,
-              code: "AUTO_DELIVERY",
-              label: "Delivery price",
-              price: "0",
-              subcontractorPrice: "0",
-            },
+            autoDeliveryPrice:
+              productConfig?.autoDeliveryPrice ??
+              createDefaultProductAutoDeliveryPrice(),
             deliveryTypes: productConfig?.deliveryTypes ?? [],
             customSections: productConfig?.customSections ?? [],
           };

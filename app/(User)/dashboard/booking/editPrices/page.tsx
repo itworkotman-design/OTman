@@ -3091,6 +3091,22 @@ export default function EditPricesPage() {
                     <span className="text-sm">Auto add delivery price</span>
                   </label>
 
+                  <label className="flex items-center gap-2 customContainer">
+                    <input
+                      type="checkbox"
+                      checked={
+                        productSettingsDraft.autoDeliveryPrice.includeInXtraLogic
+                      }
+                      onChange={(e) =>
+                        updateAutoDeliveryPrice({
+                          includeInXtraLogic: e.target.checked,
+                        })
+                      }
+                      className="background h-4 w-4"
+                    />
+                    <span className="text-sm">Replace with XTRA when applicable</span>
+                  </label>
+
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
                     <input
                       type="text"

@@ -9,6 +9,7 @@ import type {
 } from "./_types/productCard";
 import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
+import { canApplyReturnOption } from "@/lib/booking/pricing/sharedDeliveryLogic";
 import {
   normalizedUpper,
   isInstallOption,
@@ -16,7 +17,6 @@ import {
   isXtraOption,
   isExtraCheckboxOption,
   showsInstallOptions,
-  showsReturnOptions,
   showsExtraCheckboxes,
 } from "@/lib/booking/pricing/rules";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
@@ -149,10 +149,11 @@ export function ProductCardNew({
       value.selectedInstallOptionIds.length > 0);
   const showReturnOptions =
     !!selectedProduct &&
-    supportsReturnOptions &&
-    (!supportsDeliveryTypes ||
-      showsReturnOptions(value.deliveryType) ||
-      !!value.selectedReturnOptionId);
+    canApplyReturnOption({
+      allowReturnOptions: supportsReturnOptions,
+      allowDeliveryTypes: supportsDeliveryTypes,
+      deliveryType: value.deliveryType,
+    });
   const showExtras =
     !!selectedProduct &&
     supportsExtraServices &&
@@ -232,11 +233,17 @@ export function ProductCardNew({
       nextValue.selectedExtraOptionIds = [];
     }
 
-    if (!supportsReturnOptions && value.selectedReturnOptionId) {
+    const allowsReturnOption = canApplyReturnOption({
+      allowReturnOptions: supportsReturnOptions,
+      allowDeliveryTypes: supportsDeliveryTypes,
+      deliveryType: nextDeliveryType,
+    });
+
+    if (!allowsReturnOption && value.selectedReturnOptionId) {
       nextValue.selectedReturnOptionId = null;
     }
 
-    if (supportsReturnOptions && nextDeliveryType === DELIVERY_TYPES.RETURN_ONLY) {
+    if (allowsReturnOption && nextDeliveryType === DELIVERY_TYPES.RETURN_ONLY) {
       const selectedReturnOptionIsValid = returnOptions.some(
         (option) => option.id === value.selectedReturnOptionId,
       );

@@ -4,6 +4,14 @@ import { getProductDeliveryTypeCode, getProductDeliveryTypeLabel, getProductDeli
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import type { ProductBreakdown, ProductCardLineItem } from "@/lib/booking/pricing/types";
 import {
+  canApplyReturnOption,
+  findAutomaticXtraSpecialOption,
+  getAutomaticXtraDeliveryCardIds,
+  isReturnOnlyDeliveryType,
+  isTransportDeliveryType,
+  usesTransportDeliveryPricing,
+} from "@/lib/booking/pricing/sharedDeliveryLogic";
+import {
   isInstallOption,
   isReturnOption,
   isXtraOption,
@@ -11,7 +19,6 @@ import {
   normalizedUpper,
   isDeliveryTypeWithExtraAmount,
   showsInstallOptions,
-  showsReturnOptions,
   showsExtraCheckboxes,
 } from "@/lib/booking/pricing/rules";
 
@@ -32,31 +39,6 @@ type ReturnPricingState = {
   returnInCardId: number | null;
 };
 
-function normalizeAutomaticXtraText(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase();
-}
-
-function isFirstStepAutomaticXtra(option: CatalogSpecialOption) {
-  const signal = [normalizeAutomaticXtraText(option.code), normalizeAutomaticXtraText(option.label), normalizeAutomaticXtraText(option.description)].join(" ");
-
-  return signal.includes("first_step") || signal.includes("first step") || signal.includes("levering") || signal.includes("delivery");
-}
-
-function findAutomaticXtraSpecialOption(params: { catalogSpecialOptions: CatalogSpecialOption[]; deliveryType: SavedProductCard["deliveryType"] }) {
-  const { catalogSpecialOptions, deliveryType } = params;
-  const activeXtraOptions = catalogSpecialOptions.filter((option) => option.active && option.type === "xtra");
-
-  if (activeXtraOptions.length === 0) {
-    return null;
-  }
-
-  if (deliveryType === DELIVERY_TYPES.FIRST_STEP) {
-    return activeXtraOptions.find((option) => isFirstStepAutomaticXtra(option)) ?? activeXtraOptions[0];
-  }
-
-  return activeXtraOptions.find((option) => !isFirstStepAutomaticXtra(option)) ?? activeXtraOptions[0];
-}
-
 function shouldUseXtraDeliveryPricing(xtraDeliveryCardIds: Set<number>, currentCardId: number) {
   return xtraDeliveryCardIds.has(currentCardId);
 }
@@ -64,25 +46,6 @@ function shouldUseXtraDeliveryPricing(xtraDeliveryCardIds: Set<number>, currentC
 function parsePrice(value: string) {
   const parsed = Number(value.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function isTransportDeliveryType(deliveryType: SavedProductCard["deliveryType"]) {
-  return (
-    deliveryType === DELIVERY_TYPES.FIRST_STEP ||
-    deliveryType === DELIVERY_TYPES.INDOOR
-  );
-}
-
-function isReturnOnlyDeliveryType(deliveryType: SavedProductCard["deliveryType"]) {
-  return deliveryType === DELIVERY_TYPES.RETURN_ONLY;
-}
-
-function usesSharedDeliveryPricing(card: SavedProductCard, product: CatalogProduct) {
-  if (!product.allowDeliveryTypes) {
-    return false;
-  }
-
-  return isTransportDeliveryType(card.deliveryType);
 }
 
 function shouldZeroBaseDeliveryPrice(
@@ -102,48 +65,6 @@ function shouldZeroBaseDeliveryPrice(
   );
 }
 
-function getXtraDeliveryCardIds(cards: SavedProductCard[], catalogProducts: CatalogProduct[]) {
-  const candidates = cards
-    .map((card, index) => {
-      if (!card.productId) {
-        return null;
-      }
-
-      const product = catalogProducts.find((item) => item.id === card.productId && item.active) ?? null;
-
-      if (!product || !usesSharedDeliveryPricing(card, product)) {
-        return null;
-      }
-
-      return {
-        cardId: card.cardId,
-        index,
-        standardPrice: getProductDeliveryTypePrice({
-          deliveryTypes: product.deliveryTypes,
-          key: card.deliveryType,
-        }),
-      };
-    })
-    .filter((item) => item !== null);
-
-  if (candidates.length <= 1) {
-    return new Set<number>();
-  }
-
-  let mainCandidate = candidates[0];
-
-  for (const candidate of candidates.slice(1)) {
-    if (
-      candidate.standardPrice > mainCandidate.standardPrice ||
-      (candidate.standardPrice === mainCandidate.standardPrice && candidate.index < mainCandidate.index)
-    ) {
-      mainCandidate = candidate;
-    }
-  }
-
-  return new Set(candidates.filter((candidate) => candidate.cardId !== mainCandidate.cardId).map((candidate) => candidate.cardId));
-}
-
 function getOrderHasTransportCovered(
   cards: SavedProductCard[],
   catalogProducts: CatalogProduct[],
@@ -157,7 +78,7 @@ function getOrderHasTransportCovered(
       catalogProducts.find((item) => item.id === card.productId && item.active) ??
       null;
 
-    return !!product?.allowDeliveryTypes;
+    return !!product && usesTransportDeliveryPricing(card, product);
   });
 }
 
@@ -285,13 +206,35 @@ function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProdu
   }
 }
 
-function appendAutoDeliveryPrice(items: ProductCardLineItem[], product: CatalogProduct) {
+function appendAutoDeliveryPrice(
+  items: ProductCardLineItem[],
+  product: CatalogProduct,
+  card: SavedProductCard,
+  catalogSpecialOptions: CatalogSpecialOption[],
+  useXtraDeliveryPricing: boolean,
+) {
   const autoDeliveryPrice = normalizeProductAutoDeliveryPrice(
     product.autoDeliveryPrice,
   );
 
   if (!autoDeliveryPrice.enabled) {
     return;
+  }
+
+  if (autoDeliveryPrice.includeInXtraLogic && useXtraDeliveryPricing) {
+    const xtraOption = findAutomaticXtraSpecialOption({
+      catalogSpecialOptions,
+      deliveryType: card.deliveryType,
+    });
+
+    if (xtraOption) {
+      items.push({
+        kind: "productOption",
+        productOptionId: xtraOption.id,
+        qty: 1,
+      });
+      return;
+    }
   }
 
   items.push({
@@ -319,8 +262,11 @@ function buildItemsForCard(
   const hoursInput = getHoursInput(card, product);
   const showInstallOptions =
     product.allowInstallOptions && (!product.allowDeliveryTypes || showsInstallOptions(card.deliveryType) || card.selectedInstallOptionIds.length > 0);
-  const showReturnOptions =
-    product.allowReturnOptions && (!product.allowDeliveryTypes || showsReturnOptions(card.deliveryType) || !!card.selectedReturnOptionId);
+  const showReturnOptions = canApplyReturnOption({
+    allowReturnOptions: product.allowReturnOptions,
+    allowDeliveryTypes: product.allowDeliveryTypes,
+    deliveryType: card.deliveryType,
+  });
   const installSelected = card.selectedInstallOptionIds.length > 0;
   const showExtras = product.allowExtraServices && (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType)) && !installSelected;
   const showDemont = product.allowDemont && (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType));
@@ -328,7 +274,13 @@ function buildItemsForCard(
   const baseProductOption = findBaseProductOption(product);
   let returnOnlySelectedReturnPriceOverride: number | undefined;
 
-  appendAutoDeliveryPrice(items, product);
+  appendAutoDeliveryPrice(
+    items,
+    product,
+    card,
+    catalogSpecialOptions,
+    useXtraDeliveryPricing,
+  );
 
   if (product.allowDeliveryTypes && isTransportDeliveryType(card.deliveryType)) {
     const xtraOption = useXtraDeliveryPricing
@@ -463,11 +415,7 @@ function buildItemsForCard(
       });
     }
 
-    if (
-      card.deliveryType !== DELIVERY_TYPES.INSTALL_ONLY &&
-      showReturnOptions &&
-      card.selectedReturnOptionId
-    ) {
+    if (showReturnOptions && card.selectedReturnOptionId) {
       const selectedReturn = findSelectedReturnSpecialOption(catalogSpecialOptions, card.selectedReturnOptionId);
 
       if (!selectedReturn) {
@@ -481,14 +429,8 @@ function buildItemsForCard(
           amount,
           returnOnlySelectedReturnPriceOverride,
         );
-      } else if (isTransportDeliveryType(card.deliveryType)) {
-        appendSelectedReturnOption(items, selectedReturn, amount);
       } else {
-        items.push({
-          kind: "info",
-          label: selectedReturn.description || selectedReturn.label || selectedReturn.code || "Return",
-          qty: amount,
-        });
+        appendSelectedReturnOption(items, selectedReturn, amount);
       }
     }
     appendCustomSectionItems(items, card, product, 1);
@@ -555,11 +497,7 @@ function buildItemsForCard(
     });
   }
 
-  if (
-    card.deliveryType !== DELIVERY_TYPES.INSTALL_ONLY &&
-    showReturnOptions &&
-    card.selectedReturnOptionId
-  ) {
+  if (showReturnOptions && card.selectedReturnOptionId) {
     const selectedReturn = findSelectedReturnSpecialOption(catalogSpecialOptions, card.selectedReturnOptionId);
 
     if (!selectedReturn) {
@@ -573,14 +511,8 @@ function buildItemsForCard(
         amount,
         returnOnlySelectedReturnPriceOverride,
       );
-    } else if (isTransportDeliveryType(card.deliveryType)) {
-      appendSelectedReturnOption(items, selectedReturn, amount);
     } else {
-      items.push({
-        kind: "info",
-        label: selectedReturn.description || selectedReturn.label || selectedReturn.code || "Return",
-        qty: amount,
-      });
+      appendSelectedReturnOption(items, selectedReturn, amount);
     }
   }
 
@@ -595,7 +527,7 @@ export function buildProductBreakdowns(
   catalogSpecialOptions: CatalogSpecialOption[],
   options?: BuildProductBreakdownsOptions,
 ): ProductBreakdown[] {
-  const automaticXtraDeliveryCardIds = getXtraDeliveryCardIds(cards, catalogProducts);
+  const automaticXtraDeliveryCardIds = getAutomaticXtraDeliveryCardIds(cards, catalogProducts);
   const forcedXtraDeliveryCardIds = options?.forcedXtraDeliveryCardIds ?? new Set<number>();
 
   const xtraDeliveryCardIds = new Set([...automaticXtraDeliveryCardIds, ...forcedXtraDeliveryCardIds]);

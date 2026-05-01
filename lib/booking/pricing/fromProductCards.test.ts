@@ -1328,7 +1328,7 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
-  it("keeps imported install selections visible without pricing return on install-only cards", () => {
+  it("keeps imported install selections visible and prices return on install-only cards", () => {
     const product = buildProduct({
       allowReturnOptions: true,
     });
@@ -1336,6 +1336,7 @@ describe("buildProductBreakdowns", () => {
     const result = buildProductBreakdowns(
       [
         buildCard({
+          deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
           selectedInstallOptionIds: ["install-1"],
           selectedReturnOptionId: "return-store",
         }),
@@ -1356,16 +1357,43 @@ describe("buildProductBreakdowns", () => {
     expect(result[0]?.items).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: "productOption",
-          productOptionId: "return-store",
+          kind: "deliveryType",
+          code: "INSTALL_ONLY",
         }),
       ]),
     );
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "return-store",
+          qty: 1,
+        }),
+      ]),
+    );
+  });
+
+  it("does not apply return options on first-step cards", () => {
+    const product = buildProduct({
+      allowReturnOptions: true,
+    });
+
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          deliveryType: DELIVERY_TYPES.FIRST_STEP,
+          selectedReturnOptionId: "return-store",
+        }),
+      ],
+      [product],
+      returnOptions,
+    );
+
     expect(result[0]?.items).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: "deliveryType",
-          code: "INSTALL_ONLY",
+          kind: "productOption",
+          productOptionId: "return-store",
         }),
       ]),
     );
@@ -1446,6 +1474,7 @@ describe("buildProductBreakdowns", () => {
             label: "Startup delivery",
             price: "125",
             subcontractorPrice: "50",
+            includeInXtraLogic: false,
           },
         }),
       ],
@@ -1461,6 +1490,57 @@ describe("buildProductBreakdowns", () => {
           qty: 1,
           unitPrice: 125,
           subcontractorUnitPrice: 50,
+        }),
+      ]),
+    );
+  });
+
+  it("replaces configured auto delivery price with XTRA when the card becomes XTRA-priced", () => {
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          cardId: 1,
+          deliveryType: DELIVERY_TYPES.INDOOR,
+        }),
+        buildCard({
+          cardId: 2,
+          productId: "product-2",
+        }),
+      ],
+      [
+        buildProduct(),
+        buildProduct({
+          id: "product-2",
+          code: "PROD-2",
+          label: "Ettermontering",
+          allowDeliveryTypes: false,
+          autoDeliveryPrice: {
+            enabled: true,
+            code: "AUTO_START",
+            label: "Startup delivery",
+            price: "590",
+            subcontractorPrice: "250",
+            includeInXtraLogic: true,
+          },
+        }),
+      ],
+      automaticXtraOptions,
+    );
+
+    expect(result[1]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "xtra-indoor",
+          qty: 1,
+        }),
+      ]),
+    );
+    expect(result[1]?.items).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "customPrice",
+          code: "AUTO_START",
         }),
       ]),
     );

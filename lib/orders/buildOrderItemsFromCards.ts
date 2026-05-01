@@ -7,6 +7,11 @@ import { OPTION_CODES } from "@/lib/booking/constants";
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import {
+  canApplyReturnOption,
+  findAutomaticXtraSpecialOption,
+  getAutomaticXtraDeliveryCardIds,
+} from "@/lib/booking/pricing/sharedDeliveryLogic";
+import {
   isInstallOption,
   isReturnOption,
   isXtraOption,
@@ -150,6 +155,10 @@ export function buildOrderItemsFromCards(
   catalogSpecialOptions: CatalogSpecialOption[],
 ): BuiltOrderItem[] {
   const items: BuiltOrderItem[] = [];
+  const automaticXtraDeliveryCardIds = getAutomaticXtraDeliveryCardIds(
+    productCards,
+    catalogProducts,
+  );
 
   for (const card of productCards) {
     if (card.wordpressImportReadOnly) {
@@ -245,6 +254,15 @@ export function buildOrderItemsFromCards(
     );
 
     if (product && autoDeliveryPrice.enabled) {
+      const xtraOption =
+        autoDeliveryPrice.includeInXtraLogic &&
+        automaticXtraDeliveryCardIds.has(card.cardId)
+          ? findAutomaticXtraSpecialOption({
+              catalogSpecialOptions,
+              deliveryType: card.deliveryType,
+            })
+          : null;
+
       items.push({
         cardId: card.cardId,
         productId: card.productId ?? null,
@@ -252,20 +270,20 @@ export function buildOrderItemsFromCards(
         productName: product.label,
         deliveryType: deliveryTypeLabel,
         itemType: "EXTRA_OPTION",
-        optionId: null,
-        optionCode: autoDeliveryPrice.code,
-        optionLabel: autoDeliveryPrice.label,
+        optionId: xtraOption?.id ?? null,
+        optionCode: xtraOption?.code ?? autoDeliveryPrice.code,
+        optionLabel: xtraOption?.label ?? autoDeliveryPrice.label,
         quantity: 1,
         customerPriceCents: decimalStringToCents(
-          autoDeliveryPrice.price,
+          xtraOption?.effectiveCustomerPrice ?? autoDeliveryPrice.price,
         ),
         subcontractorPriceCents: decimalStringToCents(
-          autoDeliveryPrice.subcontractorPrice,
+          xtraOption?.subcontractorPrice ?? autoDeliveryPrice.subcontractorPrice,
         ),
         rawData: {
-          code: autoDeliveryPrice.code,
-          label: autoDeliveryPrice.label,
-          source: "auto_delivery_price",
+          code: xtraOption?.code ?? autoDeliveryPrice.code,
+          label: xtraOption?.label ?? autoDeliveryPrice.label,
+          source: xtraOption ? "auto_delivery_price_xtra" : "auto_delivery_price",
         },
       });
     }
@@ -522,7 +540,15 @@ export function buildOrderItemsFromCards(
       });
     }
 
-    if (product?.allowReturnOptions && card.selectedReturnOptionId) {
+    if (
+      product &&
+      canApplyReturnOption({
+        allowReturnOptions: product.allowReturnOptions,
+        allowDeliveryTypes: product.allowDeliveryTypes,
+        deliveryType: card.deliveryType,
+      }) &&
+      card.selectedReturnOptionId
+    ) {
       const special =
         catalogSpecialOptions.find(
           (o) => o.id === card.selectedReturnOptionId,
