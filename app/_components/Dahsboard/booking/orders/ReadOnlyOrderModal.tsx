@@ -203,14 +203,19 @@ function getCalculatorDisplayData(
   }
 
   const totalExVat = roundMoney(getVisibleOrderPrice(order, viewMode));
-  const discount =
-    viewMode === "ORDER_CREATOR"
+  const hasWordpressReadOnlyRows = (order.calculatorItems ?? []).some((item) => item.optionCode === "WP_PRICE");
+  const discount = hasWordpressReadOnlyRows
+    ? 0
+    : viewMode === "ORDER_CREATOR"
       ? parseNokAdjustment(order.rabatt)
       : viewMode === "SUBCONTRACTOR"
         ? parseNokAdjustment(order.subcontractorMinus)
         : 0;
-  const extra =
-    viewMode === "ORDER_CREATOR"
+
+  
+  const extra = hasWordpressReadOnlyRows
+    ? 0
+    : viewMode === "ORDER_CREATOR"
       ? parseNokAdjustment(order.leggTil)
       : viewMode === "SUBCONTRACTOR"
         ? parseNokAdjustment(order.subcontractorPlus)
@@ -514,7 +519,7 @@ export default function ReadOnlyOrderModal({
               <tbody>
                 {pdfDetailRows.map((row) => (
                   <tr key={row.label}>
-                    <th className="w-[190px] border border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold">
+                    <th className="w-[190] border border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold">
                       {row.label}
                     </th>
                     <td className="border border-slate-200 px-3 py-2">

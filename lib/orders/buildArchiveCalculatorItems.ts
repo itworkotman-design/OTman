@@ -58,6 +58,15 @@ function getProductModelNumber(rawData: unknown) {
   return "";
 }
 
+function getRawString(rawData: unknown, key: string) {
+  if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
+    return undefined;
+  }
+
+  const value = (rawData as Record<string, unknown>)[key];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
 function toArchiveCalculatorItem(item: OrderItemInput): ArchiveCalculatorItem {
   return {
     cardId: item.cardId,
@@ -65,8 +74,8 @@ function toArchiveCalculatorItem(item: OrderItemInput): ArchiveCalculatorItem {
     productModelNumber: getProductModelNumber(item.rawData),
     deliveryType: item.deliveryType ?? "",
     itemType: normalizeItemType(item.itemType),
-    optionCode: item.optionCode ?? "",
-    optionLabel: item.optionLabel ?? "",
+    optionCode: item.optionCode?.trim() || getRawString(item.rawData, "code") || getRawString(item.rawData, "mappedOptionCode") || "",
+    optionLabel: item.optionLabel?.trim() || getRawString(item.rawData, "label") || getRawString(item.rawData, "description") || "",
     quantity: item.quantity,
     customerPriceCents: item.customerPriceCents,
     subcontractorPriceCents: item.subcontractorPriceCents,
