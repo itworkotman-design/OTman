@@ -73,6 +73,14 @@ describe("buildOrderItemsFromCards", () => {
           wordpressImportReadOnly: {
             productName: "WP Washer",
             comment: "New system was unable to match to old price",
+            subcontractorRows: [
+              {
+                label: "EXTRA PICKUP",
+                code: "EXTRAPICKUP",
+                quantity: 1,
+                priceCents: 39000,
+              },
+            ],
             rows: [
               {
                 label: "EXTRA PICKUP",
@@ -102,6 +110,7 @@ describe("buildOrderItemsFromCards", () => {
           optionCode: "EXTRAPICKUP",
           optionLabel: "EXTRA PICKUP",
           customerPriceCents: 59000,
+          subcontractorPriceCents: 39000,
         }),
       ]),
     );

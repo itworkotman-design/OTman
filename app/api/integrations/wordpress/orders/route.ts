@@ -1268,10 +1268,17 @@ const applyWordpressPriceMatchPolicy = (params: {
 }) => {
   const forcedXtraDeliveryCardIds = getForcedXtraDeliveryCardIds(params.meta, params.productCards);
   const groups = parseBreakdownGroups(asString(params.meta.price_breakdown_html));
+  const subcontractorGroups = parseBreakdownGroups(
+    asString(params.meta.price_breakdown_subcontractor_html) ||
+      asString(params.meta.field_6889f3e2ca127),
+  );
 
   const nextCards = params.productCards.map((card, index) => {
     const group = groups[index];
+    const subcontractorGroup = subcontractorGroups[index];
     const wordpressTotalCents = getBreakdownGroupTotalCents(group);
+    const wordpressSubcontractorTotalCents =
+      getBreakdownGroupTotalCents(subcontractorGroup);
 
     if (!group || typeof wordpressTotalCents !== "number") {
       return card;
@@ -1294,6 +1301,10 @@ const applyWordpressPriceMatchPolicy = (params: {
       wordpressImportReadOnly: {
         productName: group.groupLabel || `WordPress product ${index + 1}`,
         comment: WORDPRESS_PRICE_MISMATCH_COMMENT,
+        subcontractorTotalCents: wordpressSubcontractorTotalCents ?? null,
+        subcontractorRows: toReadOnlyRows(
+          subcontractorGroup?.rows.filter((row) => !isGlobalWordpressPriceRow(row)) ?? [],
+        ),
         rows: toReadOnlyRows(group.rows.filter((row) => !isGlobalWordpressPriceRow(row))),
       },
     };

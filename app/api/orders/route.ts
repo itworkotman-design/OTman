@@ -66,6 +66,7 @@ import {
   applyOrderPricingSnapshot,
   getSavedOrderPricingSnapshot,
 } from "@/lib/booking/pricing/snapshot";
+import { buildArchiveCalculatorItems } from "@/lib/orders/buildArchiveCalculatorItems";
 
 const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   id: true,
@@ -74,6 +75,7 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   statusNotes: true,
   deliveryDate: true,
   timeWindow: true,
+  drivingDistance: true,
   expressDelivery: true,
   customerLabel: true,
   customerName: true,
@@ -81,6 +83,8 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   phone: true,
   phoneTwo: true,
   email: true,
+  floorNo: true,
+  lift: true,
   pickupAddress: true,
   extraPickupAddress: true,
   extraPickupContacts: true,
@@ -95,12 +99,15 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
       optionCode: true,
       optionLabel: true,
       quantity: true,
+      customerPriceCents: true,
+      subcontractorPriceCents: true,
       rawData: true,
     },
   },
   productsSummary: true,
   deliveryTypeSummary: true,
   servicesSummary: true,
+  productCardsSnapshot: true,
   description: true,
   cashierName: true,
   cashierPhone: true,
@@ -120,6 +127,10 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   unreadNotificationCount: true,
   priceExVat: true,
   priceSubcontractor: true,
+  rabatt: true,
+  leggTil: true,
+  subcontractorMinus: true,
+  subcontractorPlus: true,
   createdByMembershipId: true,
   lastEditedByMembershipId: true,
   customerMembershipId: true,
@@ -1136,6 +1147,10 @@ export async function GET(req: Request) {
     ok: true,
     orders: orders.map((order) => {
       const orderItems = order.items ?? [];
+      const calculatorItems = buildArchiveCalculatorItems({
+        orderItems,
+        productCardsSnapshot: order.productCardsSnapshot,
+      });
       const fallbackExtraPickupAddresses = order.extraPickupAddress;
       const extraPickupContacts = Array.isArray(order.extraPickupContacts)
         ? order.extraPickupContacts
@@ -1166,6 +1181,7 @@ export async function GET(req: Request) {
         statusNotes: order.statusNotes ?? "",
         deliveryDate: order.deliveryDate ?? "",
         timeWindow: order.timeWindow ?? "",
+        drivingDistance: order.drivingDistance ?? "",
         expressDelivery: order.expressDelivery,
         customer: order.customerLabel ?? "",
         customerLabel: order.customerLabel ?? "",
@@ -1173,6 +1189,8 @@ export async function GET(req: Request) {
         orderNumber: order.orderNumber ?? "",
         phone: order.phone ?? "",
         email: order.email ?? "",
+        floorNo: order.floorNo ?? "",
+        lift: order.lift ?? "",
         pickupAddress: order.pickupAddress ?? "",
         extraPickupAddress: fallbackExtraPickupAddresses,
         extraPickupContacts,
@@ -1202,6 +1220,11 @@ export async function GET(req: Request) {
         unreadNotificationCount: order.unreadNotificationCount,
         priceExVat: order.priceExVat,
         priceSubcontractor: order.priceSubcontractor,
+        rabatt: order.rabatt ?? "",
+        leggTil: order.leggTil ?? "",
+        subcontractorMinus: order.subcontractorMinus ?? "",
+        subcontractorPlus: order.subcontractorPlus ?? "",
+        calculatorItems,
         createdByMembershipId: order.createdByMembershipId,
         lastEditedByMembershipId: order.lastEditedByMembershipId ?? "",
         customerMembershipId: order.customerMembershipId ?? "",

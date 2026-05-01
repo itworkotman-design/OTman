@@ -108,6 +108,42 @@ function findXtraSpecialOption(
   return catalogSpecialOptions.find((option) => option.active && option.type === "xtra") ?? null;
 }
 
+function findMatchingWordpressSubcontractorRow(
+  customerRow: NonNullable<SavedProductCard["wordpressImportReadOnly"]>["rows"][number],
+  subcontractorRows: NonNullable<
+    NonNullable<SavedProductCard["wordpressImportReadOnly"]>["subcontractorRows"]
+  >,
+  usedIndexes: Set<number>,
+) {
+  const normalizedCode = (customerRow.code ?? "").trim().toUpperCase();
+  const normalizedLabel = customerRow.label.trim().toUpperCase();
+
+  const exactIndex = subcontractorRows.findIndex((row, index) => {
+    if (usedIndexes.has(index)) {
+      return false;
+    }
+
+    return (
+      (row.code ?? "").trim().toUpperCase() === normalizedCode &&
+      row.label.trim().toUpperCase() === normalizedLabel &&
+      row.quantity === customerRow.quantity
+    );
+  });
+
+  if (exactIndex >= 0) {
+    usedIndexes.add(exactIndex);
+    return subcontractorRows[exactIndex];
+  }
+
+  const fallbackIndex = subcontractorRows.findIndex((_, index) => !usedIndexes.has(index));
+  if (fallbackIndex >= 0) {
+    usedIndexes.add(fallbackIndex);
+    return subcontractorRows[fallbackIndex];
+  }
+
+  return undefined;
+}
+
 export function buildOrderItemsFromCards(
   productCards: SavedProductCard[],
   catalogProducts: CatalogProduct[],
@@ -117,6 +153,9 @@ export function buildOrderItemsFromCards(
 
   for (const card of productCards) {
     if (card.wordpressImportReadOnly) {
+      const subcontractorRows = card.wordpressImportReadOnly.subcontractorRows ?? [];
+      const usedSubcontractorIndexes = new Set<number>();
+
       items.push({
         cardId: card.cardId,
         productId: null,
@@ -138,6 +177,12 @@ export function buildOrderItemsFromCards(
       });
 
       for (const row of card.wordpressImportReadOnly.rows) {
+        const subcontractorRow = findMatchingWordpressSubcontractorRow(
+          row,
+          subcontractorRows,
+          usedSubcontractorIndexes,
+        );
+
         items.push({
           cardId: card.cardId,
           productId: null,
@@ -150,7 +195,7 @@ export function buildOrderItemsFromCards(
           optionLabel: row.label,
           quantity: row.quantity,
           customerPriceCents: row.priceCents,
-          subcontractorPriceCents: null,
+          subcontractorPriceCents: subcontractorRow?.priceCents ?? null,
           rawData: {
             source: "wordpress_sync",
             readOnly: true,

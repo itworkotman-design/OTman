@@ -41,11 +41,14 @@ export type OrderRow = {
   statusNotes: string;
   deliveryDate: string;
   timeWindow: string;
+  drivingDistance: string;
   customerName: string;
   customerLabel: string;
   orderNumber: string;
   phone: string;
   email: string;
+  floorNo: string;
+  lift: string;
   pickupAddress: string;
   extraPickupAddress: string[];
   deliveryAddress: string;
@@ -72,10 +75,33 @@ export type OrderRow = {
   unreadNotificationCount: number;
   priceExVat: number;
   priceSubcontractor: number;
+  rabatt: string;
+  leggTil: string;
+  subcontractorMinus: string;
+  subcontractorPlus: string;
+  calculatorItems: OrderCalculatorItem[];
   customerMembershipId: string;
   createdByEmail: string;
   createdByName: string;
   createdBy: string;
   lastEditedBy: string;
   subcontractor: string;
+};
+
+export type OrderCalculatorItem = {
+  cardId: number;
+  productName: string;
+  productModelNumber: string;
+  deliveryType: string;
+  itemType:
+    | "PRODUCT_CARD"
+    | "BASE_OPTION"
+    | "INSTALL_OPTION"
+    | "EXTRA_OPTION"
+    | "RETURN_OPTION";
+  optionCode: string;
+  optionLabel: string;
+  quantity: number;
+  customerPriceCents: number | null;
+  subcontractorPriceCents: number | null;
 };

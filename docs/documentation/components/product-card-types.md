@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Defines the saved product-card shape used across booking, including the optional frozen pricing snapshot, optional read-only WordPress import price snapshot, plus the helpers that create and normalize product-card data.
+Defines the saved product-card shape used across booking, including the optional frozen pricing snapshot, optional read-only WordPress import price snapshot, plus the helpers that create and normalize product-card data. The read-only WordPress snapshot can also carry an optional per-card subcontractor total used by cleanup logic when no pricing snapshot is stored.
 
 ## Functions
 

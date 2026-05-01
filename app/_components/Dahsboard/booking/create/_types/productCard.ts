@@ -24,6 +24,8 @@ export type WordpressImportPriceRow = {
 export type WordpressImportReadOnlySnapshot = {
   productName: string;
   comment: string;
+  subcontractorTotalCents?: number | null;
+  subcontractorRows?: WordpressImportPriceRow[];
   rows: WordpressImportPriceRow[];
 };
 
