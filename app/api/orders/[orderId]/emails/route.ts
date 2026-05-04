@@ -256,6 +256,26 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       customerLabel: true,
       email: true,
       emailThreadToken: true,
+      createdByMembership: {
+        select: {
+          user: {
+            select: {
+              username: true,
+              email: true,
+            },
+          },
+        },
+      },
+      customerMembership: {
+        select: {
+          user: {
+            select: {
+              username: true,
+              email: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -263,11 +283,16 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
     return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
-  const primaryRecipientEmail = typedTo || order.email?.trim() || "";
+  const creatorUser = order.customerMembership?.user ?? order.createdByMembership.user;
+
+  const primaryRecipientEmail = typedTo || creatorUser.email.trim() || order.email?.trim() || "";
+
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(primaryRecipientEmail)) {
     return NextResponse.json({ ok: false, reason: "INVALID_RECIPIENT_EMAIL" }, { status: 400 });
   }
-  const primaryRecipientName = typedRecipientName || order.customerName?.trim() || order.customerLabel?.trim() || "";
+
+  const primaryRecipientName =
+    typedRecipientName || creatorUser.username?.trim() || creatorUser.email.trim() || order.customerName?.trim() || order.customerLabel?.trim() || "";
 
   if (!primaryRecipientEmail) {
     return NextResponse.json({ ok: false, reason: "MISSING_RECIPIENT" }, { status: 400 });

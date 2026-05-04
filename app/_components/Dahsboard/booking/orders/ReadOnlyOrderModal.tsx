@@ -48,6 +48,7 @@ type Props = {
   order: ReadOnlyOrder | null;
   viewMode?: BookingArchiveViewMode;
   onClose: () => void;
+  onContactClick?: () => void;
 };
 
 type PdfDetailRow = {
@@ -445,7 +446,7 @@ function OrderPdfCalculator({ data }: { data: CalculatorDisplayData }) {
   );
 }
 
-export default function ReadOnlyOrderModal({ open, order, viewMode, onClose }: Props) {
+export default function ReadOnlyOrderModal({ open, order, viewMode, onClose, onContactClick }: Props) {
   if (!open || !order) return null;
 
   const totalExVat = getVisibleOrderPrice(order, viewMode);
@@ -569,7 +570,13 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, onClose }: P
         )}
 
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={() => downloadOrderPdf(order, viewMode)} className="customButtonEnabled">
+          {onContactClick ? (
+            <button type="button" onClick={onContactClick} className="customButtonDefault">
+              Contact
+            </button>
+          ) : null}
+
+          <button type="button" onClick={() => downloadOrderPdf(order, viewMode)} className="customButtonEnabled">
             Last ned PDF
           </button>
         </div>

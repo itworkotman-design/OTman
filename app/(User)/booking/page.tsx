@@ -4,16 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
-import OrderEmailModal from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
 import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadOnlyOrderModal";
-import type {
-  BookingArchiveFilters,
-  BookingArchiveOption,
-  OrderRow,
-} from "@/app/_components/Dahsboard/booking/archive/types";
+import type { BookingArchiveFilters, BookingArchiveOption, OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
 import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 import { bookingText } from "@/lib/booking/bookingUiText";
+import  OrderCreatorContactModal  from "@/app/_components/Dahsboard/booking/orders/OrderCreatorContactModal";
+
 
 type FilterOptionApiItem = {
   id: string;
@@ -38,28 +35,20 @@ type OrderCreatorsResponse = {
 
 export default function BookingPage() {
   const currentUser = useCurrentUser();
-  const access = useMemo(
-    () => getBookingArchiveAccess(currentUser),
-    [currentUser],
-  );
-
+  const access = useMemo(() => getBookingArchiveAccess(currentUser), [currentUser]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [appliedFilters, setAppliedFilters] = useState<BookingArchiveFilters>(
-    DEFAULT_BOOKING_ARCHIVE_FILTERS,
-  );
+  const [appliedFilters, setAppliedFilters] = useState<BookingArchiveFilters>(DEFAULT_BOOKING_ARCHIVE_FILTERS);
   const [filterPanelVersion, setFilterPanelVersion] = useState(0);
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [emailOrder, setEmailOrder] = useState<OrderRow | null>(null);
-  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [contactOrder, setContactOrder] = useState<OrderRow | null>(null);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
 
-  const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>(
-    [],
-  );
+  const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>([]);
   const [creators, setCreators] = useState<BookingArchiveOption[]>([]);
 
   async function loadOrders(filters: BookingArchiveFilters = appliedFilters) {
@@ -87,9 +76,7 @@ export default function BookingPage() {
         cache: "no-store",
       });
 
-      const data = (await res
-        .json()
-        .catch(() => null)) as OrdersResponse | null;
+      const data = (await res.json().catch(() => null)) as OrdersResponse | null;
 
       if (!res.ok || !data?.ok) {
         setError(bookingText("nb", data?.reason || "failed to load orders"));
@@ -119,12 +106,8 @@ export default function BookingPage() {
         }),
       ]);
 
-      const subsData = (await subsRes
-        .json()
-        .catch(() => null)) as SubcontractorsResponse | null;
-      const creatorsData = (await creatorsRes
-        .json()
-        .catch(() => null)) as OrderCreatorsResponse | null;
+      const subsData = (await subsRes.json().catch(() => null)) as SubcontractorsResponse | null;
+      const creatorsData = (await creatorsRes.json().catch(() => null)) as OrderCreatorsResponse | null;
 
       if (subsRes.ok && subsData?.ok) {
         setSubcontractors(
@@ -174,9 +157,7 @@ export default function BookingPage() {
 
   return (
     <div className="w-full">
-      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-        {bookingText("nb", "Booking orders")}
-      </h1>
+      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">{bookingText("nb", "Booking orders")}</h1>
 
       <div className="flex flex-col gap-3 pb-4">
         <BookingFilters
@@ -195,9 +176,7 @@ export default function BookingPage() {
       <div className="min-w-0 w-full">
         <div className="min-w-0 w-full">
           {loading ? (
-            <div className="py-6 text-textColorThird">
-              {bookingText("nb", "Loading orders...")}
-            </div>
+            <div className="py-6 text-textColorThird">{bookingText("nb", "Loading orders...")}</div>
           ) : error ? (
             <div className="py-6 text-red-600">{error}</div>
           ) : (
@@ -209,8 +188,8 @@ export default function BookingPage() {
                 setModalOpen(true);
               }}
               onAlertClick={(order) => {
-                setEmailOrder(order);
-                setEmailModalOpen(true);
+                setContactOrder(order);
+                setContactModalOpen(true);
               }}
               selectable={false}
               selectedOrderIds={[]}
@@ -225,28 +204,30 @@ export default function BookingPage() {
       <ReadOnlyOrderModal
         open={modalOpen}
         viewMode={access.viewMode}
-        order={
-          selectedOrderId
-            ? (orders.find((order) => order.id === selectedOrderId) ?? null)
-            : null
-        }
+        order={selectedOrderId ? (orders.find((order) => order.id === selectedOrderId) ?? null) : null}
         onClose={() => {
           setModalOpen(false);
           setSelectedOrderId(null);
         }}
+        onContactClick={() => {
+          const order = selectedOrderId ? (orders.find((order) => order.id === selectedOrderId) ?? null) : null;
+
+          if (!order) return;
+
+          setContactOrder(order);
+          setContactModalOpen(true);
+        }}
       />
 
-      <OrderEmailModal
-        open={emailModalOpen}
-        order={emailOrder}
+      <OrderCreatorContactModal
+        open={contactModalOpen}
+        order={contactOrder}
         onClose={() => {
-          setEmailModalOpen(false);
-          setEmailOrder(null);
+          setContactModalOpen(false);
+          setContactOrder(null);
         }}
-        onAlertsChanged={() => void loadOrders(appliedFilters)}
+        onConversationChanged={() => void loadOrders(appliedFilters)}
       />
     </div>
   );
 }
-
-

@@ -1308,10 +1308,9 @@ export default function BookingEditor({
   const cashierPhoneError = getOptionalPhoneError(cashierPhone);
   const extraPickupErrors = useMemo(() => extraPickups.map((pickup) => getExtraPickupValidation(pickup)), [extraPickups]);
   const deliveryDateIsPast = !!deliveryDate.trim() && deliveryDate.trim() < getTodayInputDate();
-  const deliveryDateWarning =
-    allowPastDeliveryDates && deliveryDateIsPast
-      ? t("Warning: delivery date is in the past")
-      : null;
+  const deliveryDateChanged = normalizeInitialDeliveryDate(initialValues?.deliveryDate) !== deliveryDate;
+
+  const deliveryDateWarning = allowPastDeliveryDates && deliveryDateChanged && deliveryDateIsPast ? t("Warning: delivery date is in the past") : null;
   const computedFieldErrors = useMemo(
     (): FieldErrorMap => ({
       deliveryDate:
