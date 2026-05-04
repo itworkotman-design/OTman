@@ -153,7 +153,7 @@ export default function OrderModal({
   // that has transform/filter/isolation which would break fixed positioning
   // and clip the bg-black/50 backdrop.
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
       <div className="flex min-h-full items-center justify-center px-3 py-6 lg:px-6 lg:py-10">
         <div className="w-full max-w-[1700] max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
           {/* Sticky header */}

@@ -795,7 +795,7 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.StatusNotes) && (
         <>
           <h1 className="font-bold py-2">{t("Status notes")}</h1>
-          <input value={statusNotes} onChange={(e) => setStatusNotes(e.target.value)} className="customInput w-full h-30" />
+          <textarea value={statusNotes} onChange={(e) => setStatusNotes(e.target.value)} rows={6} className="customInput w-full resize-y py-3 leading-normal" />
         </>
       )}
 
