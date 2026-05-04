@@ -665,19 +665,19 @@ const findBreakdownRowValueCents = (rows: Array<{ label: string; priceCents: num
 
 const isSummaryLabel = (label: string): boolean => SUMMARY_LABEL_PATTERNS.some((pattern) => pattern.test(label));
 
-const getParsedBreakdownSubtotalCents = (
-  breakdownHtml: string | undefined,
-): number => {
-  const rows = extractBreakdownRows(breakdownHtml);
+// const getParsedBreakdownSubtotalCents = (
+//   breakdownHtml: string | undefined,
+// ): number => {
+//   const rows = extractBreakdownRows(breakdownHtml);
 
-  return rows.reduce((sum, row) => {
-    if (!row.label || isSummaryLabel(row.label)) {
-      return sum;
-    }
+//   return rows.reduce((sum, row) => {
+//     if (!row.label || isSummaryLabel(row.label)) {
+//       return sum;
+//     }
 
-    return sum + (row.priceCents ?? 0);
-  }, 0);
-};
+//     return sum + (row.priceCents ?? 0);
+//   }, 0);
+// };
 
 const isDeliveryTypeRow = (row: ParsedBreakdownRow): boolean => {
   if (row.code && DELIVERY_TYPE_CODES.has(row.code)) {
@@ -1023,13 +1023,13 @@ const getImportedWordpressPriceExVatCents = (meta: Record<string, unknown>): num
   return findBreakdownRowValueCents(extractBreakdownRows(breakdownHtml), TOTAL_BREAKDOWN_LABEL_PATTERNS);
 };
 
-const getBreakdownExplicitTotalCents = (
-  breakdownHtml: string | undefined,
-): number | undefined =>
-  findBreakdownRowValueCents(
-    extractBreakdownRows(breakdownHtml),
-    TOTAL_BREAKDOWN_LABEL_PATTERNS,
-  );
+// const getBreakdownExplicitTotalCents = (
+//   breakdownHtml: string | undefined,
+// ): number | undefined =>
+//   findBreakdownRowValueCents(
+//     extractBreakdownRows(breakdownHtml),
+//     TOTAL_BREAKDOWN_LABEL_PATTERNS,
+//   );
 
 const getImportedWordpressSubcontractorTotalCents = (meta: Record<string, unknown>): number | undefined => {
   const subcontractorHtml = asString(meta.price_breakdown_subcontractor_html) || asString(meta.field_6889f3e2ca127);
@@ -2142,22 +2142,22 @@ export async function POST(req: NextRequest) {
       }),
     };
     const wordpressPriceExVatCents = getImportedWordpressPriceExVatCents(meta);
-    const breakdownHtml = asString(meta.price_breakdown_html);
-    const parsedBreakdownSubtotalCents = getParsedBreakdownSubtotalCents(
-      breakdownHtml,
-    );
-    const explicitBreakdownTotalCents = getBreakdownExplicitTotalCents(
-      breakdownHtml,
-    );
-    const hasExternalImportedAdjustments = Boolean(
-      importedAdjustments.rabatt ||
-        importedAdjustments.leggTil ||
-        importedAdjustments.subcontractorMinus ||
-        importedAdjustments.subcontractorPlus ||
-        importedFees.feeExtraWork ||
-        importedFees.feeAddToOrder ||
-        deviation,
-    );
+    // const breakdownHtml = asString(meta.price_breakdown_html);
+    // const parsedBreakdownSubtotalCents = getParsedBreakdownSubtotalCents(
+    //   breakdownHtml,
+    // );
+    // const explicitBreakdownTotalCents = getBreakdownExplicitTotalCents(
+    //   breakdownHtml,
+    // );
+    // const hasExternalImportedAdjustments = Boolean(
+    //   importedAdjustments.rabatt ||
+    //     importedAdjustments.leggTil ||
+    //     importedAdjustments.subcontractorMinus ||
+    //     importedAdjustments.subcontractorPlus ||
+    //     importedFees.feeExtraWork ||
+    //     importedFees.feeAddToOrder ||
+    //     deviation,
+    // );
     // if (
     //   breakdownHtml &&
     //   typeof explicitBreakdownTotalCents === "number" &&

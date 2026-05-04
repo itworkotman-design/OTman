@@ -3750,7 +3750,10 @@ add_filter('acf/load_field/key=field_682b0fe895c6a', function ($field) {
         : strtolower(trim($user->display_name));
 
     // Flugger 028
-    if (strpos($name, 'flugger 028') !== false) {
+    if (
+    strpos($name, 'flugger 028') !== false ||
+    strpos($name, 'flugger 038') !== false
+) {
         $field['choices'] = [
             '750:Pall:PALLS1'   => 'Pall',
             'Kasse levering'   => 'Kasse levering',

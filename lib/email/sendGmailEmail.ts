@@ -32,15 +32,16 @@ export async function sendGmailEmail({
 }) {
   const recipients = Array.isArray(to) ? to : [to];
 
-  const smtpOptions: SMTPTransport.Options = {
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.GMAIL_USER!,
-      pass: process.env.GMAIL_APP_PASSWORD!,
-    },
-  };
+ const smtpOptions = {
+   host: "smtp.gmail.com",
+   port: 465,
+   secure: true,
+   auth: {
+     user: process.env.GMAIL_USER!,
+     pass: process.env.GMAIL_APP_PASSWORD!,
+   },
+   family: 4,
+ } satisfies SMTPTransport.Options & { family: 4 };
 
   const transporter = nodemailer.createTransport(smtpOptions);
 
