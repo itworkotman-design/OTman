@@ -345,9 +345,9 @@ function normalizeInitialStatus(value: string | null | undefined) {
 
 const PROTECTED_AUTO_DISCOUNT_CODES = new Set([EXTRA_WORK_FEE_CODE, ADD_TO_ORDER_FEE_CODE, ...DEVIATION_FEE_OPTIONS.map((option) => option.code)]);
 
-function isCancelledOrFailedStatus(status: string): boolean {
+function shouldAutoDiscountStatus(status: string): boolean {
   const normalized = normalizeInitialStatus(status);
-  return normalized === "cancelled" || normalized === "failed";
+  return normalized === "cancelled";
 }
 
 function removeProtectedAutoDiscountItems(breakdowns: ProductBreakdown[]): ProductBreakdown[] {
@@ -1154,7 +1154,7 @@ export default function BookingEditor({
   ]);
 
   const automaticStatusDiscount = useMemo(() => {
-    if (!isCancelledOrFailedStatus(status)) {
+    if (!shouldAutoDiscountStatus(status)) {
       return "";
     }
 
@@ -1382,7 +1382,7 @@ export default function BookingEditor({
   }, [currentPricingSnapshot]);
 
   useEffect(() => {
-    if (!isCancelledOrFailedStatus(status) || rabatt === automaticStatusDiscount) {
+    if (!shouldAutoDiscountStatus(status) || rabatt === automaticStatusDiscount) {
       return;
     }
 
