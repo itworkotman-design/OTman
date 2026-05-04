@@ -4027,26 +4027,75 @@ if (!function_exists('otman_send_power_order_sync')) {
 }
 
 if (!function_exists('otman_sync_latest_power_orders')) {
-    function otman_sync_latest_power_orders(int $limit = 500): array {
+    function otman_sync_latest_power_orders(int $limit = 500, int $offset = 0): array {
         $limit = max(1, min(500, $limit));
-        $posts = get_posts([
+        $offset = max(0, $offset);
+
+        $today = current_time('Ymd');
+
+        $future_query = new WP_Query([
             'post_type'      => 'power_order',
             'post_status'    => 'publish',
             'posts_per_page' => $limit,
-            'orderby'        => 'modified',
-            'order'          => 'DESC',
+            'offset'         => $offset,
+            'meta_key'       => 'leveringsdato',
+            'orderby'        => 'meta_value',
+            'order'          => 'ASC',
             'fields'         => 'ids',
+            'no_found_rows'  => false,
+            'meta_query'     => [
+                [
+                    'key'     => 'leveringsdato',
+                    'value'   => $today,
+                    'compare' => '>=',
+                    'type'    => 'DATE',
+                ],
+            ],
         ]);
 
+        $post_ids = $future_query->posts;
+        $future_count = count($post_ids);
+
+        $remaining = $limit - $future_count;
+
+        if ($remaining > 0) {
+            $past_query = new WP_Query([
+                'post_type'      => 'power_order',
+                'post_status'    => 'publish',
+                'posts_per_page' => $remaining,
+                'meta_key'       => 'leveringsdato',
+                'orderby'        => 'meta_value',
+                'order'          => 'DESC',
+                'fields'         => 'ids',
+                'no_found_rows'  => false,
+                'post__not_in'   => $post_ids,
+                'meta_query'     => [
+                    [
+                        'key'     => 'leveringsdato',
+                        'value'   => $today,
+                        'compare' => '<',
+                        'type'    => 'DATE',
+                    ],
+                ],
+            ]);
+
+            $post_ids = array_merge($post_ids, $past_query->posts);
+        }
+
         $synced = 0;
-        foreach ($posts as $post_id) {
+
+        foreach ($post_ids as $post_id) {
             otman_send_power_order_sync((int) $post_id);
             $synced++;
         }
 
         return [
-            'requested' => $limit,
-            'synced'    => $synced,
+            'requested'   => $limit,
+            'offset'      => $offset,
+            'synced'      => $synced,
+            'futureCount' => $future_count,
+            'pastCount'   => $synced - $future_count,
+            'mode'        => 'future_orders_first_then_latest_past_until_limit',
         ];
     }
 }
@@ -4056,7 +4105,15 @@ add_action('wp_ajax_otman_sync_latest_power_orders', function () {
         wp_send_json_error(['message' => 'Forbidden'], 403);
     }
 
-    wp_send_json_success(otman_sync_latest_power_orders(500));
+    $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 500;
+    $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
+
+    wp_send_json_success([
+    'debugFile' => __FILE__,
+    'rawLimit' => $_GET['limit'] ?? null,
+    'parsedLimit' => $limit,
+    'result' => otman_sync_latest_power_orders($limit, $offset),
+]);
 });
 
 add_action('shutdown', function () {

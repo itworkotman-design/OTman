@@ -124,7 +124,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             alt="Logo"
             width={116}
             height={50}
-            className="h-auto w-full max-w-[200px]"
+            className="h-auto w-full max-w-[200]"
           />
         </div>
 
@@ -133,7 +133,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
               {currentUser?.logoPath ? (
                 currentUser.logoPath.endsWith(".svg") ? (
-                  <img
+                  <Image
                     src={currentUser.logoPath}
                     alt={`${currentUser.username || currentUser.email} logo`}
                     className="h-8 w-8 shrink-0 object-contain"
@@ -149,7 +149,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
                 )
               ) : null}
               <h1
-                className="break-words font-medium text-logoblue"
+                className="wrap-break-word font-medium text-logoblue"
                 style={usernameStyle}
               >
                 {currentUser?.username ?? currentUser?.email ?? "error"}

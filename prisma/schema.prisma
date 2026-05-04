@@ -433,6 +433,10 @@ model Order {
   legacyWordpressAuthorId Int?
   legacyWordpressRawMeta Json?
 
+  completedAt DateTime?
+  gdprAnonymized Boolean @default(false)
+  gdprDeletedAt DateTime?
+
   @@unique([companyId, displayId])
   @@index([companyId, createdAt])
   @@index([status])

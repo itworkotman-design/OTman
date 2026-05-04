@@ -352,6 +352,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       feeAddToOrder: true,
       statusNotes: true,
       status: true,
+      completedAt: true,
       dontSendEmail: true,
       priceExVat: true,
       priceSubcontractor: true,
@@ -560,6 +561,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       customerLabel: true,
       createdAt: true,
       status: true,
+      completedAt: true,
       statusNotes: true,
       customerName: true,
       deliveryDate: true,
@@ -784,6 +786,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         feeAddToOrder: optionalBoolean(body.feeAddToOrder),
         statusNotes: optionalString(body.statusNotes),
         status: optionalString(body.status),
+        completedAt: normalizeOrderStatus(optionalString(body.status)) === "completed" && !existingOrder.completedAt ? new Date() : existingOrder.completedAt,
         dontSendEmail: optionalBoolean(body.dontSendEmail),
 
         priceExVat: Math.round(safeNumber(body.priceExVat)),

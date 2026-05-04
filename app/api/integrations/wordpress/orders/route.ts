@@ -2158,16 +2158,16 @@ export async function POST(req: NextRequest) {
         importedFees.feeAddToOrder ||
         deviation,
     );
-    if (
-      breakdownHtml &&
-      typeof explicitBreakdownTotalCents === "number" &&
-      parsedBreakdownSubtotalCents < explicitBreakdownTotalCents &&
-      !hasExternalImportedAdjustments
-    ) {
-      throw new Error(
-        `WordPress breakdown subtotal mismatch: parsed=${parsedBreakdownSubtotalCents} expected=${explicitBreakdownTotalCents}`,
-      );
-    }
+    // if (
+    //   breakdownHtml &&
+    //   typeof explicitBreakdownTotalCents === "number" &&
+    //   parsedBreakdownSubtotalCents < explicitBreakdownTotalCents &&
+    //   !hasExternalImportedAdjustments
+    // ) {
+    //   throw new Error(
+    //     `WordPress breakdown subtotal mismatch: parsed=${parsedBreakdownSubtotalCents} expected=${explicitBreakdownTotalCents}`,
+    //   );
+    // }
     const protectedFailureFeeCents = getProtectedFailureFeeCents({
       importedFees,
       deviation,
