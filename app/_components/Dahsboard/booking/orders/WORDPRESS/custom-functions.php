@@ -4027,8 +4027,8 @@ if (!function_exists('otman_send_power_order_sync')) {
 }
 
 if (!function_exists('otman_sync_latest_power_orders')) {
-    function otman_sync_latest_power_orders(int $limit = 100): array {
-        $limit = max(1, min(100, $limit));
+    function otman_sync_latest_power_orders(int $limit = 500): array {
+        $limit = max(1, min(500, $limit));
         $posts = get_posts([
             'post_type'      => 'power_order',
             'post_status'    => 'publish',
@@ -4056,7 +4056,7 @@ add_action('wp_ajax_otman_sync_latest_power_orders', function () {
         wp_send_json_error(['message' => 'Forbidden'], 403);
     }
 
-    wp_send_json_success(otman_sync_latest_power_orders(100));
+    wp_send_json_success(otman_sync_latest_power_orders(500));
 });
 
 add_action('shutdown', function () {
