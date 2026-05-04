@@ -2066,6 +2066,12 @@ export async function POST(req: NextRequest) {
     const importedFees = getImportedWordpressFees(meta);
     const deviation = getImportedWordpressDeviation(meta);
 
+    const driverName = getFirstMetaString(meta, ["driver1"]) || null;
+    const driver2Name = getFirstMetaString(meta, ["driver2"]) || null;
+    const licensePlate = getFirstMetaString(meta, ["bilskilt1"]) || null;
+    const driverInfo = getFirstMetaString(meta, ["info_til_sjaforen"]) || null;
+    const statusNotes = getFirstMetaString(meta, ["status_notes"]) || null;
+
     const parsedProductItems = fillMissingProductDeliveryTypesFromBreakdown({
       meta,
       productItems: buildProductItemsFromMeta(meta),
@@ -2348,6 +2354,11 @@ export async function POST(req: NextRequest) {
               leggTil: importedAdjustments.leggTil,
               subcontractorMinus: importedAdjustments.subcontractorMinus,
               subcontractorPlus: importedAdjustments.subcontractorPlus,
+              driver: driverName,
+              secondDriver: driver2Name,
+              licensePlate: licensePlate,
+              driverInfo: driverInfo,
+              statusNotes: statusNotes,
               feeExtraWork: importedFees.feeExtraWork,
               extraWorkMinutes: importedFees.extraWorkMinutes,
               feeAddToOrder: importedFees.feeAddToOrder,
@@ -2443,6 +2454,11 @@ export async function POST(req: NextRequest) {
               leggTil: importedAdjustments.leggTil,
               subcontractorMinus: importedAdjustments.subcontractorMinus,
               subcontractorPlus: importedAdjustments.subcontractorPlus,
+              driver: driverName,
+              secondDriver: driver2Name,
+              licensePlate: licensePlate,
+              driverInfo: driverInfo,
+              statusNotes: statusNotes,
               feeExtraWork: importedFees.feeExtraWork,
               extraWorkMinutes: importedFees.extraWorkMinutes,
               feeAddToOrder: importedFees.feeAddToOrder,

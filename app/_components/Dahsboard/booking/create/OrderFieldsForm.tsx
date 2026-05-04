@@ -337,14 +337,15 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.Description) && (
         <>
           <h1 className="font-bold py-2">{t("Description")}</h1>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} className="customInput w-full resize-y py-3 leading-normal" />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={6} className="customInput w-full resize-y py-3 leading-normal" />
         </>
       )}
 
       {shown(hidden, OrderFields.DeliveryDate) && (
         <>
           <h1 className="font-bold py-2">
-            {t("Delivery date")}<span className="text-red-600">*</span>
+            {t("Delivery date")}
+            <span className="text-red-600">*</span>
           </h1>
           <input
             id="order-delivery-date"
@@ -362,7 +363,8 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.DeliveryTimeWindow) && (
         <>
           <h1 className="font-bold py-2">
-            {t("Delivery Time window")}<span className="text-red-600">*</span>
+            {t("Delivery Time window")}
+            <span className="text-red-600">*</span>
           </h1>
           <select
             id="order-time-window"
@@ -508,9 +510,15 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.DeliveryAddress) && (
         <>
           <h1 className="font-bold py-2">
-            {t("Delivery address")}<span className="text-red-600">*</span>
+            {t("Delivery address")}
+            <span className="text-red-600">*</span>
           </h1>
-          <AddressAutocompleteInput inputId="order-delivery-address" value={deliveryAddress} onChange={setDeliveryAddress} placeholder={t("Enter a location")} />
+          <AddressAutocompleteInput
+            inputId="order-delivery-address"
+            value={deliveryAddress}
+            onChange={setDeliveryAddress}
+            placeholder={t("Enter a location")}
+          />
           <FieldErrorMessage message={deliveryAddressError} />
 
           {shouldShowReturnAddress && (
@@ -547,7 +555,8 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.CustomerPhone1) && (
         <>
           <h1 className="font-bold py-2">
-            {t("Customer's phone")}<span className="text-red-600">*</span>
+            {t("Customer's phone")}
+            <span className="text-red-600">*</span>
           </h1>
           <input id="order-customer-phone" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="customInput w-full" />
           <FieldErrorMessage message={phoneError} />
@@ -587,7 +596,12 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.CustomerComments) && (
         <>
           <h1 className="font-bold py-2">{t("Customer comments")}</h1>
-          <input value={customerComments} onChange={(e) => setCustomerComments(e.target.value)} className="customInput w-full" />
+          <textarea
+            value={customerComments}
+            onChange={(e) => setCustomerComments(e.target.value)}
+            rows={6}
+            className="customInput w-full resize-y py-3 leading-normal"
+          />
         </>
       )}
 
@@ -670,7 +684,7 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.DriverInfo) && (
         <>
           <h1 className="font-bold py-2">{t("Info for the driver")}</h1>
-          <input value={driverInfo} onChange={(e) => setDriverInfo(e.target.value)} className="customInput w-full" />
+          <textarea value={driverInfo} onChange={(e) => setDriverInfo(e.target.value)} rows={6} className="customInput w-full resize-y py-3 leading-normal" />
         </>
       )}
 

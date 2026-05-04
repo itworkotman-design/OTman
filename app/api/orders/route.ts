@@ -212,6 +212,7 @@ function buildArchiveSearchPrefilter(search: string): Prisma.OrderWhereInput {
   }
 
   const displayId = Number(trimmedSearch);
+  const canSearchDisplayId = /^\d+$/.test(trimmedSearch) && Number.isSafeInteger(displayId) && displayId > 0 && displayId <= 2147483647;
 
   const orFilters: Prisma.OrderWhereInput[] = [
     { orderNumber: { contains: trimmedSearch, mode: "insensitive" } },
@@ -235,7 +236,7 @@ function buildArchiveSearchPrefilter(search: string): Prisma.OrderWhereInput {
     { driver: { contains: trimmedSearch, mode: "insensitive" } },
   ];
 
-  if (Number.isFinite(displayId) && displayId > 0) {
+  if (canSearchDisplayId) {
     orFilters.push({ displayId });
   }
 
