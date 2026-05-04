@@ -22,6 +22,7 @@ function buildMimeMessage({
   replyTo,
   inReplyTo,
   references,
+  bcc,
 }: {
   from: string;
   to: string;
@@ -31,19 +32,23 @@ function buildMimeMessage({
   replyTo?: string;
   inReplyTo?: string;
   references?: string[];
+  bcc?: string;
+  
 }) {
   const boundary = `boundary_${Date.now()}`;
 
   const headers = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
-    `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    replyTo ? `Reply-To: ${replyTo}` : null,
-    inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
-    references?.length ? `References: ${references.join(" ")}` : null,
-  ].filter(Boolean);
+  `From: ${from}`,
+  `To: ${to}`,
+  bcc ? `Bcc: ${bcc}` : null,
+  `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+  `Message-ID: <${Date.now()}@otman.no>`,
+  `MIME-Version: 1.0`,
+  `Content-Type: multipart/alternative; boundary="${boundary}"`,
+  replyTo ? `Reply-To: ${replyTo}` : `Reply-To: bestilling@otman.no`,
+  inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
+  references?.length ? `References: ${references.join(" ")}` : null,
+].filter(Boolean);
 
   const body = [
     `--${boundary}`,
@@ -98,6 +103,7 @@ export async function sendGmailEmail({
     replyTo,
     inReplyTo,
     references,
+    bcc: process.env.ORDER_CONVERSATION_BACKUP_EMAIL,
   });
 
   const response = await gmail.users.messages.send({
