@@ -1,8 +1,4 @@
-import dns from "node:dns";
-import nodemailer from "nodemailer";
-import type SMTPTransport from "nodemailer/lib/smtp-transport";
-
-dns.setDefaultResultOrder("ipv4first");
+import { google } from "googleapis";
 
 type Recipient = {
   email: string;
@@ -11,6 +7,57 @@ type Recipient = {
 
 function formatRecipient(recipient: Recipient) {
   return recipient.name ? `"${recipient.name}" <${recipient.email}>` : recipient.email;
+}
+
+function encodeBase64Url(value: string) {
+  return Buffer.from(value).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function buildMimeMessage({
+  from,
+  to,
+  subject,
+  html,
+  text,
+  replyTo,
+  inReplyTo,
+  references,
+}: {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  replyTo?: string;
+  inReplyTo?: string;
+  references?: string[];
+}) {
+  const boundary = `boundary_${Date.now()}`;
+
+  const headers = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    replyTo ? `Reply-To: ${replyTo}` : null,
+    inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
+    references?.length ? `References: ${references.join(" ")}` : null,
+  ].filter(Boolean);
+
+  const body = [
+    `--${boundary}`,
+    `Content-Type: text/plain; charset="UTF-8"`,
+    ``,
+    text ?? "",
+    `--${boundary}`,
+    `Content-Type: text/html; charset="UTF-8"`,
+    ``,
+    html,
+    `--${boundary}--`,
+  ].join("\r\n");
+
+  return `${headers.join("\r\n")}\r\n\r\n${body}`;
 }
 
 export async function sendGmailEmail({
@@ -32,21 +79,18 @@ export async function sendGmailEmail({
 }) {
   const recipients = Array.isArray(to) ? to : [to];
 
- const smtpOptions = {
-   host: "smtp.gmail.com",
-   port: 587,
-   secure: true,
-   auth: {
-     user: process.env.GMAIL_USER!,
-     pass: process.env.GMAIL_APP_PASSWORD!,
-   },
-   family: 4,
- } satisfies SMTPTransport.Options & { family: 4 };
+  const oauth2Client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_CLIENT_SECRET!);
 
-  const transporter = nodemailer.createTransport(smtpOptions);
+  oauth2Client.setCredentials({
+    refresh_token: process.env.GOOGLE_REFRESH_TOKEN!,
+  });
 
-  const info = await transporter.sendMail({
-    from: `"OtmanTransportAS" <${process.env.GMAIL_USER!}>`,
+  const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+
+  const from = `"OtmanTransportAS" <${process.env.GMAIL_USER!}>`;
+
+  const mime = buildMimeMessage({
+    from,
     to: recipients.map(formatRecipient).join(", "),
     subject,
     html,
@@ -56,7 +100,14 @@ export async function sendGmailEmail({
     references,
   });
 
+  const response = await gmail.users.messages.send({
+    userId: "me",
+    requestBody: {
+      raw: encodeBase64Url(mime),
+    },
+  });
+
   return {
-    messageId: info.messageId || null,
+    messageId: response.data.id ?? null,
   };
 }

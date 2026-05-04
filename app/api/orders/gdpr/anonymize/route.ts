@@ -11,16 +11,11 @@ function getRetentionCutoffDate() {
 }
 
 export async function POST(req: Request) {
-  //   const session = await getAuthenticatedSession(req);
+    const session = await getAuthenticatedSession(req);
 
-  //   if (!session) {
-  //     return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
-  //   }
-  // TEMP LOCAL TEST ONLY
-  const session = {
-    userId: "cmnqfxve400003ghe206nyba5",
-    activeCompanyId: "cmnqfxvgy00013gheg8urww4y",
-  };
+    if (!session) {
+      return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
+    }
 
   if (!session.activeCompanyId) {
     return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
@@ -44,21 +39,41 @@ export async function POST(req: Request) {
   const eligibleOrders = await prisma.order.findMany({
     where: {
       companyId: session.activeCompanyId,
-      status: { in: ["completed", "invoiced", "paid"] },
+      status: { in: ["completed", "invoiced", "paid", "failed", "cancelled"] },
       gdprAnonymized: false,
     },
     select: {
       id: true,
+      status: true,
       completedAt: true,
       deliveryDate: true,
+      createdAt: true,
+      updatedAt: true,
     },
   });
 
   const cutoff = getRetentionCutoffDate();
-  
+
   const orderIdsToAnonymize = eligibleOrders
     .filter((order) => {
-      const basisDate = order.completedAt ?? (order.deliveryDate ? new Date(order.deliveryDate) : null);
+      const delivery = order.deliveryDate ? new Date(order.deliveryDate) : null;
+      const completed = order.completedAt ?? null;
+      const updated = order.updatedAt ?? null;
+      const created = order.createdAt ?? null;
+
+      let basisDate: Date | null = null;
+
+      const status = order.status ?? "";
+
+      if (["failed", "cancelled"].includes(status)) {
+        basisDate = updated ?? created;
+      } else {
+        if (delivery && completed) {
+          basisDate = delivery < completed ? delivery : completed;
+        } else {
+          basisDate = delivery ?? completed;
+        }
+      }
 
       return basisDate && !Number.isNaN(basisDate.getTime()) && basisDate <= cutoff;
     })
