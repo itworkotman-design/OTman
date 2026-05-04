@@ -1231,7 +1231,7 @@ const getProtectedFailureFeeCents = (params: {
   return extraWorkFeeCents + addToOrderFeeCents + deviationFeeCents;
 };
 
-const isFailureDiscountStatus = (status: string): boolean => status === "cancelled" || status === "failed";
+const isFailureDiscountStatus = (status: string): boolean => status === "cancelled";
 
 const getNativeCalculatedPricing = (params: {
   forcedXtraDeliveryCardIds?: Set<number>;
