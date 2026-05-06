@@ -490,6 +490,7 @@ model OrderEmailMessage {
   receivedAt         DateTime?
   order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   sentByMembership   Membership?         @relation("OrderEmailSentByMembership", fields: [sentByMembershipId], references: [id])
+  source OrderEmailSource @default(APP)
 
   @@index([orderId, createdAt])
   @@index([companyId, createdAt])
@@ -631,6 +632,11 @@ model CompanyOrderCounter {
 enum UserStatus {
   ACTIVE
   DISABLED
+}
+
+enum OrderEmailSource {
+  APP
+  GMAIL
 }
 
 enum CompanyStatus {
