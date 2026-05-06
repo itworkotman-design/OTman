@@ -1,4 +1,8 @@
+import { Prisma, type PrismaClient } from "@prisma/client";
 import type { ExtraPickupInput } from "@/lib/orders/extraPickups";
+import { createOrderNotification } from "@/lib/orders/orderNotifications";
+
+type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
 function formatExtraPickupContactLine(
   label: string,
@@ -8,9 +12,7 @@ function formatExtraPickupContactLine(
   return trimmed ? `${label}: ${trimmed}` : null;
 }
 
-export function buildExtraPickupNotification(
-  extraPickups: ExtraPickupInput[],
-): {
+export function buildExtraPickupAlert(extraPickups: ExtraPickupInput[]): {
   title: string;
   message: string;
   payload: {
@@ -40,4 +42,26 @@ export function buildExtraPickupNotification(
       extraPickups,
     },
   };
+}
+
+export async function createExtraPickupAlert(
+  prisma: PrismaLike,
+  input: {
+    orderId: string;
+    companyId: string;
+    extraPickups: ExtraPickupInput[];
+  },
+) {
+  if (input.extraPickups.length === 0) return null;
+
+  const alert = buildExtraPickupAlert(input.extraPickups);
+
+  return createOrderNotification(prisma, {
+    orderId: input.orderId,
+    companyId: input.companyId,
+    type: "MANUAL_REVIEW",
+    title: alert.title,
+    message: alert.message,
+    payload: alert.payload as unknown as Prisma.InputJsonValue,
+  });
 }

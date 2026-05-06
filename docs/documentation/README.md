@@ -66,6 +66,7 @@ Each documentation file should include:
 - [Component: user modal](./components/user-modal.md)
 - [Lib: attachment categories](./lib/attachment-categories.md)
 - [Lib: order attachment storage](./lib/order-attachment-storage.md)
+- [Lib: order alerts](./lib/order-alerts.md)
 - [Lib: booking archive columns](./lib/booking-archive-columns.md)
 - [Lib: build order items from cards](./lib/build-order-items-from-cards.md)
 - [Lib: deviation fees](./lib/deviation-fees.md)

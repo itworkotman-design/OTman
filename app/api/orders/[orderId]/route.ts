@@ -24,17 +24,16 @@ import {
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
-import {
-  createOrderNotification,
-  hasOpenCapacityNotification,
-  hasOpenSubcontractorPriceNotification,
-  resolveOutdatedCapacityNotifications,
-} from "@/lib/orders/orderNotifications";
-import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
-import { buildSubcontractorPriceWarningNotification } from "@/lib/orders/notificationTemplates/subcontractorPriceWarningNotification";
+import { resolveOutdatedCapacityNotifications } from "@/lib/orders/orderNotifications";
 import type { AppPermission } from "@/lib/users/types";
 import { ORDER_SLOT_LIMIT, countOrdersInDeliverySlot, isDeliverySlotOverCapacity } from "@/lib/orders/capacity";
-import { buildCapacityWarningNotification } from "@/lib/orders/notificationTemplates/capacityWarningNotification";
+import {
+  createCapacityAlert,
+  createContactCustomerAlert,
+  createExtraPickupAlert,
+  createNextDayDeliveryAlert,
+  createSubcontractorPriceAlert,
+} from "@/lib/orders/alerts";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildWordpressExtraPickupContacts, getWordpressExtraPickupAddresses, toWordpressMetaRecord } from "@/lib/integrations/wordpress/orderMeta";
 import { applyOrderPricingSnapshot, getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
@@ -920,49 +919,49 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     console.error("Failed to send order update notification email", error);
   }
 
-  if (extraPickups.length > 0 && extraPickupContactsChanged) {
-    const extraPickupNotification = buildExtraPickupNotification(extraPickups);
-
-    await createOrderNotification(prisma, {
+  if (extraPickupContactsChanged) {
+    await createExtraPickupAlert(prisma, {
       orderId,
       companyId: existingOrder.companyId,
-      type: "MANUAL_REVIEW",
-      title: extraPickupNotification.title,
-      message: extraPickupNotification.message,
-      payload: extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
+      extraPickups,
     });
   }
 
   const nextPriceExVat = nextSnapshot.priceExVat ?? 0;
   const nextPriceSubcontractor = nextSnapshot.priceSubcontractor ?? 0;
 
-  if (nextPriceSubcontractor > nextPriceExVat) {
-    const alreadyExists = await hasOpenSubcontractorPriceNotification(prisma, {
-      orderId,
-      companyId: existingOrder.companyId,
-      customerPrice: nextPriceExVat,
-      subcontractorPrice: nextPriceSubcontractor,
-    });
-
-    if (!alreadyExists) {
-      const priceWarning = buildSubcontractorPriceWarningNotification({
-        customerPrice: nextPriceExVat,
-        subcontractorPrice: nextPriceSubcontractor,
-      });
-
-      await createOrderNotification(prisma, {
-        orderId,
-        companyId: existingOrder.companyId,
-        type: "MANUAL_REVIEW",
-        title: priceWarning.title,
-        message: priceWarning.message,
-        payload: priceWarning.payload as unknown as Prisma.InputJsonValue,
-      });
-    }
-  }
+  await createSubcontractorPriceAlert(prisma, {
+    orderId,
+    companyId: existingOrder.companyId,
+    customerPrice: nextPriceExVat,
+    subcontractorPrice: nextPriceSubcontractor,
+  });
 
   const nextDeliveryDate = optionalString(body.deliveryDate) ?? existingOrder.deliveryDate;
   const nextTimeWindow = optionalString(body.timeWindow) ?? existingOrder.timeWindow;
+  const nextContactCustomer =
+    body.contactCustomerForCustomTimeWindow === undefined
+      ? existingOrder.contactCustomerForCustomTimeWindow
+      : optionalBoolean(body.contactCustomerForCustomTimeWindow);
+  const nextCustomTimeContactNote =
+    optionalString(body.customTimeContactNote) ??
+    existingOrder.customTimeContactNote ??
+    "";
+
+  await createNextDayDeliveryAlert(prisma, {
+    orderId,
+    companyId: existingOrder.companyId,
+    createdAt: existingOrder.createdAt,
+    deliveryDate: nextDeliveryDate ?? "",
+  });
+
+  await createContactCustomerAlert(prisma, {
+    orderId,
+    companyId: existingOrder.companyId,
+    contactCustomer: nextContactCustomer,
+    timeWindow: nextTimeWindow ?? "",
+    note: nextCustomTimeContactNote,
+  });
 
   if (nextDeliveryDate && nextTimeWindow) {
     await resolveOutdatedCapacityNotifications(prisma, {
@@ -982,32 +981,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
 
     const totalCountIncludingCurrent = slotCount + 1;
 
-    if (isDeliverySlotOverCapacity(totalCountIncludingCurrent, ORDER_SLOT_LIMIT)) {
-      const alreadyExists = await hasOpenCapacityNotification(prisma, {
-        orderId,
-        companyId: existingOrder.companyId,
-        deliveryDate: nextDeliveryDate,
-        timeWindow: nextTimeWindow,
-      });
-
-      if (!alreadyExists) {
-        const capacityNotification = buildCapacityWarningNotification({
-          deliveryDate: nextDeliveryDate,
-          timeWindow: nextTimeWindow,
-          count: totalCountIncludingCurrent,
-          limit: ORDER_SLOT_LIMIT,
-        });
-
-        await createOrderNotification(prisma, {
-          orderId,
-          companyId: existingOrder.companyId,
-          type: "CAPACITY_REVIEW",
-          title: capacityNotification.title,
-          message: capacityNotification.message,
-          payload: capacityNotification.payload as unknown as Prisma.InputJsonValue,
-        });
-      }
-    }
+    await createCapacityAlert(prisma, {
+      orderId,
+      companyId: existingOrder.companyId,
+      deliveryDate: nextDeliveryDate,
+      timeWindow: nextTimeWindow,
+      count: totalCountIncludingCurrent,
+      limit: ORDER_SLOT_LIMIT,
+      overCapacity: isDeliverySlotOverCapacity(
+        totalCountIncludingCurrent,
+        ORDER_SLOT_LIMIT,
+      ),
+    });
   }
 
   return NextResponse.json({

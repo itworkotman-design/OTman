@@ -13,11 +13,14 @@ const mocks = vi.hoisted(() => ({
   sendOrderNotificationEmailMock: vi.fn(),
   sendExtraPickupNotificationEmailMock: vi.fn(),
   createOrderNotificationMock: vi.fn(),
+  resolveOutdatedCapacityNotificationsMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   priceListFindUniqueMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
   orderDeleteManyMock: vi.fn(),
   orderUpdateMock: vi.fn(),
+  orderNotificationFindFirstMock: vi.fn(),
+  orderNotificationFindManyMock: vi.fn(),
   transactionMock: vi.fn(),
 }));
 
@@ -55,6 +58,8 @@ vi.mock("@/lib/orders/orderNotificationEmail", () => ({
 
 vi.mock("@/lib/orders/orderNotifications", () => ({
   createOrderNotification: mocks.createOrderNotificationMock,
+  resolveOutdatedCapacityNotifications:
+    mocks.resolveOutdatedCapacityNotificationsMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -68,6 +73,10 @@ vi.mock("@/lib/db", () => ({
     order: {
       findFirst: mocks.orderFindFirstMock,
       deleteMany: mocks.orderDeleteManyMock,
+    },
+    orderNotification: {
+      findFirst: mocks.orderNotificationFindFirstMock,
+      findMany: mocks.orderNotificationFindManyMock,
     },
     $transaction: mocks.transactionMock,
   },
@@ -95,10 +104,13 @@ describe("routes in /api/orders/[orderId]", () => {
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([]);
     mocks.createOrderStatusChangedEventMock.mockResolvedValue(undefined);
     mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
+    mocks.resolveOutdatedCapacityNotificationsMock.mockResolvedValue(undefined);
     mocks.createOrderNotificationMock.mockResolvedValue({
       id: "notification-1",
       createdAt: new Date("2030-01-01T00:00:00.000Z"),
     });
+    mocks.orderNotificationFindFirstMock.mockResolvedValue(null);
+    mocks.orderNotificationFindManyMock.mockResolvedValue([]);
     mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
     mocks.orderUpdateMock.mockResolvedValue({ id: "order-1" });
     mocks.transactionMock.mockImplementation(async (callback) =>

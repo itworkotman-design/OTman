@@ -14,7 +14,7 @@ import { mapWordpressImportToProductCards, type ResolvedWordpressService } from 
 import { getWordpressExpressDelivery, normalizeWordpressExtraPickups } from "@/lib/integrations/wordpress/orderMeta";
 import { OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
-import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import { syncWordpressPriceMismatchAlert } from "@/lib/orders/alerts";
 import { createEmptyProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { normalizeAttachmentCategory } from "@/lib/orders/attachmentCategories";
 import { isSubcontractorAccess } from "@/lib/users/access";
@@ -1416,85 +1416,6 @@ const addWordpressSubcontractorMatchComment = (
     };
   });
 
-async function syncWordpressPriceMismatchNotification(
-  tx: Prisma.TransactionClient,
-  params: {
-    orderId: string;
-    companyId: string;
-    wordpressPriceExVatCents?: number;
-    nativePriceExVatCents: number;
-  },
-) {
-  const { orderId, companyId, wordpressPriceExVatCents, nativePriceExVatCents } = params;
-
-  const existing = await tx.orderNotification.findFirst({
-    where: {
-      orderId,
-      companyId,
-      type: "MANUAL_REVIEW",
-      title: "WordPress price mismatch",
-      resolvedAt: null,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  const hasMismatch = typeof wordpressPriceExVatCents === "number" && wordpressPriceExVatCents !== nativePriceExVatCents;
-
-  if (!hasMismatch) {
-    if (!existing) {
-      return;
-    }
-
-    await tx.orderNotification.update({
-      where: {
-        id: existing.id,
-      },
-      data: {
-        resolvedAt: new Date(),
-      },
-    });
-
-    const unreadNotificationCount = await tx.orderNotification.count({
-      where: {
-        orderId,
-        companyId,
-        resolvedAt: null,
-      },
-    });
-
-    await tx.order.update({
-      where: {
-        id: orderId,
-      },
-      data: {
-        needsNotificationAttention: unreadNotificationCount > 0,
-        unreadNotificationCount,
-      },
-    });
-
-    return;
-  }
-
-  if (existing) {
-    return;
-  }
-
-  await createOrderNotification(tx, {
-    orderId,
-    companyId,
-    type: "MANUAL_REVIEW",
-    title: "WordPress price mismatch",
-    message: "Imported WordPress price does not match the rebuilt native total. Review the order manually.",
-    payload: {
-      source: "wordpress_import",
-      wordpressPriceExVatCents,
-      nativePriceExVatCents,
-    },
-  });
-}
-
 const attachServiceLabelsToProductItems = (
   productItems: ParsedWordpressProductItem[],
   serviceItems: ParsedWordpressServiceItem[],
@@ -2388,7 +2309,7 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          await syncWordpressPriceMismatchNotification(tx, {
+          await syncWordpressPriceMismatchAlert(tx, {
             orderId: updated.id,
             companyId,
             wordpressPriceExVatCents: effectiveWordpressPriceExVatCents,
@@ -2483,7 +2404,7 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          await syncWordpressPriceMismatchNotification(tx, {
+          await syncWordpressPriceMismatchAlert(tx, {
             orderId: created.id,
             companyId,
             wordpressPriceExVatCents: effectiveWordpressPriceExVatCents,

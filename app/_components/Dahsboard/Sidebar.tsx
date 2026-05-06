@@ -54,11 +54,10 @@ const ICONS = {
     "M13 7h6l2 4m-8-4v8m0-8V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9h2m8 0H9m4 0h2m4 0h2v-4m0 0h-5m3.5 5.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Zm-10 0a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z",
   users:
     "M16 19h4a1 1 0 0 0 1-1v-1a3 3 0 0 0-3-3h-2m-2.236-4a3 3 0 1 0 0-4M3 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
-  sidebarOpen:
-    "M8.99994 10 7 11.9999l1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
-  sidebarClose:
-    "m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
+  sidebarOpen: "M8.99994 10 7 11.9999l1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
+  sidebarClose: "m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
   hamburger: "M5 7h14M5 12h14M5 17h14",
+  hours: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 6v6l4 2",
 };
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
@@ -114,7 +113,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
         </div>
 
         <div className="px-4 padding-weird-landscape">
-          <div className="mt-6 flex border-b border-lineSecondary px-2 py-1 pb-4 padding-weird-landscape">
+          <div className="mt-6 flex  border-lineSecondary px-2 py-1 pb-4 padding-weird-landscape">
             <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
               {currentUser?.logoPath ? (
                 currentUser.logoPath.endsWith(".svg") ? (
@@ -164,6 +163,13 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.home} />
               Edit website
+            </div>
+          </Link>
+
+          <Link href="https://beta.cphours.no/" className={linkClass("/") + ``} target="_blank">
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+              <Icon path={ICONS.hours} />
+              Custom Hours
             </div>
           </Link>
 

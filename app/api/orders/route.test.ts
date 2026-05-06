@@ -24,6 +24,8 @@ const mocks = vi.hoisted(() => ({
   priceListFindFirstMock: vi.fn(),
   orderFindManyMock: vi.fn(),
   orderCreateMock: vi.fn(),
+  orderNotificationFindFirstMock: vi.fn(),
+  orderNotificationFindManyMock: vi.fn(),
   orderItemCreateManyMock: vi.fn(),
   pendingFindManyMock: vi.fn(),
   orderAttachmentCreateMock: vi.fn(),
@@ -78,6 +80,10 @@ vi.mock("@/lib/db", () => ({
       findMany: mocks.orderFindManyMock,
       create: mocks.orderCreateMock,
     },
+    orderNotification: {
+      findFirst: mocks.orderNotificationFindFirstMock,
+      findMany: mocks.orderNotificationFindManyMock,
+    },
     orderItem: {
       createMany: mocks.orderItemCreateManyMock,
     },
@@ -121,6 +127,8 @@ describe("routes in /api/orders", () => {
     mocks.priceListFindFirstMock.mockResolvedValue({
       id: "selected-price-list",
     });
+    mocks.orderNotificationFindFirstMock.mockResolvedValue(null);
+    mocks.orderNotificationFindManyMock.mockResolvedValue([]);
     mocks.pendingFindManyMock.mockResolvedValue([]);
     mocks.pendingDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.orderCreateMock.mockResolvedValue({

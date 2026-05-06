@@ -74,7 +74,7 @@ Imports legacy WordPress `power_order` posts into the new `Order` table. The rou
 | `getNativeProductTotalCents` | Calculates one mapped native product card total for exact WP/native product price matching. |
 | `toReadOnlyRows` | Converts parsed WordPress breakdown rows into saved read-only price rows, preserving parsed quantities and storing unit cents so display and order items can show multiplied WP lines correctly. |
 | `applyWordpressPriceMatchPolicy` | Marks per-product WP/native price mismatches and WP KM or extra-pickup rows as read-only saved product-card snapshots while leaving exact matches editable. When the subcontractor breakdown is grouped the same way, the saved mismatch snapshot also keeps the matching per-card WordPress subcontractor total for later editor cleanup. Global rows such as extra pickup are excluded from product matching and saved separately as `WordPress order prices`. |
-| `syncWordpressPriceMismatchNotification` | Creates or resolves the WordPress manual-review alert when the imported total and rebuilt native total diverge. |
+| `syncWordpressPriceMismatchAlert` | Creates or resolves the WordPress manual-review alert when the imported total and rebuilt native total diverge. |
 | `attachServiceLabelsToProductItems` | Adds grouped install, return, and extra labels onto each parsed product row so the imported product raw data keeps the original WordPress context. |
 | `toJsonRecord` | Normalizes JSON-like raw data into a record shape before the importer merges WordPress labels into native items. |
 | `buildResolvedServiceKey` | Creates a stable key for matching resolved WordPress services against native built items. |

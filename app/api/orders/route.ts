@@ -40,14 +40,13 @@ import {
   countOrdersInDeliverySlot,
   isDeliverySlotOverCapacity,
 } from "@/lib/orders/capacity";
-import { buildCapacityWarningNotification } from "@/lib/orders/notificationTemplates/capacityWarningNotification";
 import {
-  createOrderNotification,
-  hasOpenCapacityNotification,
-  hasOpenSubcontractorPriceNotification,
-} from "@/lib/orders/orderNotifications";
-import { buildExtraPickupNotification } from "@/lib/orders/notificationTemplates/extraPickupNotification";
-import { buildSubcontractorPriceWarningNotification } from "@/lib/orders/notificationTemplates/subcontractorPriceWarningNotification";
+  createCapacityAlert,
+  createContactCustomerAlert,
+  createExtraPickupAlert,
+  createNextDayDeliveryAlert,
+  createSubcontractorPriceAlert,
+} from "@/lib/orders/alerts";
 import {
   buildLegacyOrderSummaryGroups,
   buildOrderSummaryGroups,
@@ -840,44 +839,33 @@ export async function POST(req: Request) {
     createdAt: order.createdAt,
   });
 
-  if (extraPickups.length > 0) {
-    const extraPickupNotification = buildExtraPickupNotification(extraPickups);
+  await createExtraPickupAlert(prisma, {
+    orderId: order.id,
+    companyId: order.companyId,
+    extraPickups,
+  });
 
-    await createOrderNotification(prisma, {
-      orderId: order.id,
-      companyId: order.companyId,
-      type: "MANUAL_REVIEW",
-      title: extraPickupNotification.title,
-      message: extraPickupNotification.message,
-      payload:
-        extraPickupNotification.payload as unknown as Prisma.InputJsonValue,
-    });
-  }
+  await createSubcontractorPriceAlert(prisma, {
+    orderId: order.id,
+    companyId: order.companyId,
+    customerPrice: order.priceExVat,
+    subcontractorPrice: order.priceSubcontractor,
+  });
 
-  if (order.priceSubcontractor > order.priceExVat) {
-    const alreadyExists = await hasOpenSubcontractorPriceNotification(prisma, {
-      orderId: order.id,
-      companyId: order.companyId,
-      customerPrice: order.priceExVat,
-      subcontractorPrice: order.priceSubcontractor,
-    });
+  await createNextDayDeliveryAlert(prisma, {
+    orderId: order.id,
+    companyId: order.companyId,
+    createdAt: order.createdAt,
+    deliveryDate: deliveryDate ?? "",
+  });
 
-    if (!alreadyExists) {
-      const priceWarning = buildSubcontractorPriceWarningNotification({
-        customerPrice: order.priceExVat,
-        subcontractorPrice: order.priceSubcontractor,
-      });
-
-      await createOrderNotification(prisma, {
-        orderId: order.id,
-        companyId: order.companyId,
-        type: "MANUAL_REVIEW",
-        title: priceWarning.title,
-        message: priceWarning.message,
-        payload: priceWarning.payload as unknown as Prisma.InputJsonValue,
-      });
-    }
-  }
+  await createContactCustomerAlert(prisma, {
+    orderId: order.id,
+    companyId: order.companyId,
+    contactCustomer: order.contactCustomerForCustomTimeWindow,
+    timeWindow: order.timeWindow ?? "",
+    note: order.customTimeContactNote ?? "",
+  });
 
   const normalizedTimeWindow = optionalString(body.timeWindow);
 
@@ -888,33 +876,15 @@ export async function POST(req: Request) {
       timeWindow: normalizedTimeWindow,
     });
 
-    if (isDeliverySlotOverCapacity(slotCount, ORDER_SLOT_LIMIT)) {
-      const alreadyExists = await hasOpenCapacityNotification(prisma, {
-        orderId: order.id,
-        companyId: order.companyId,
-        deliveryDate,
-        timeWindow: normalizedTimeWindow,
-      });
-
-      if (!alreadyExists) {
-        const capacityNotification = buildCapacityWarningNotification({
-          deliveryDate,
-          timeWindow: normalizedTimeWindow,
-          count: slotCount,
-          limit: ORDER_SLOT_LIMIT,
-        });
-
-        await createOrderNotification(prisma, {
-          orderId: order.id,
-          companyId: order.companyId,
-          type: "CAPACITY_REVIEW",
-          title: capacityNotification.title,
-          message: capacityNotification.message,
-          payload:
-            capacityNotification.payload as unknown as Prisma.InputJsonValue,
-        });
-      }
-    }
+    await createCapacityAlert(prisma, {
+      orderId: order.id,
+      companyId: order.companyId,
+      deliveryDate,
+      timeWindow: normalizedTimeWindow,
+      count: slotCount,
+      limit: ORDER_SLOT_LIMIT,
+      overCapacity: isDeliverySlotOverCapacity(slotCount, ORDER_SLOT_LIMIT),
+    });
   }
 
   try {
@@ -1253,8 +1223,8 @@ export async function GET(req: Request) {
         lastNotificationAt: order.lastNotificationAt,
         needsEmailAttention: emailAttention.needsEmailAttention,
         unreadInboundEmailCount: emailAttention.unreadInboundEmailCount,
-        needsNotificationAttention: order.needsNotificationAttention,
-        unreadNotificationCount: order.unreadNotificationCount,
+        needsNotificationAttention: isOrderCreator ? false : order.needsNotificationAttention,
+        unreadNotificationCount: isOrderCreator ? 0 : order.unreadNotificationCount,
         priceExVat: order.priceExVat,
         priceSubcontractor: order.priceSubcontractor,
         rabatt: order.rabatt ?? "",
@@ -1266,9 +1236,7 @@ export async function GET(req: Request) {
         lastEditedByMembershipId: order.lastEditedByMembershipId ?? "",
         customerMembershipId: order.customerMembershipId ?? "",
         createdBy: storeLabel,
-        lastEditedBy:
-          latestActionTitle ||
-          getMembershipUserLabel(order.lastEditedByMembership?.user),
+        lastEditedBy: latestActionTitle || getMembershipUserLabel(order.lastEditedByMembership?.user),
       };
     }),
     page,
