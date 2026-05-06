@@ -602,8 +602,8 @@ export function ProductCardNew({
                     modelNumber: e.target.value,
                   })
                 }
-                className="customInput w-full"
-                placeholder={t("Optional")}
+                className="customInput w-full text-red-500"
+                placeholder={t("Please add model number")}
               />
             </>
           )}

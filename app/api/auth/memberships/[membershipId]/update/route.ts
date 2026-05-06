@@ -5,6 +5,10 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
 import { prisma } from "@/lib/db";
 import {
+  deleteAttachmentFromS3,
+  isS3StoragePath,
+} from "@/lib/orders/orderAttachmentStorage";
+import {
   isManagedUserLogoPath,
   normalizeUserLogoPath,
   normalizeUsernameDisplayColor,
@@ -179,13 +183,17 @@ export async function PATCH(
       isManagedUserLogoPath(previousLogoPath) &&
       previousLogoPath !== user.logoPath
     ) {
-      const absolutePath = path.join(
-        process.cwd(),
-        "public",
-        previousLogoPath.replace(/^\//, ""),
-      );
+      if (isS3StoragePath(previousLogoPath)) {
+        deleteAttachmentFromS3(previousLogoPath).catch(() => {});
+      } else {
+        const absolutePath = path.join(
+          process.cwd(),
+          "public",
+          previousLogoPath.replace(/^\//, ""),
+        );
 
-      unlink(absolutePath).catch(() => {});
+        unlink(absolutePath).catch(() => {});
+      }
     }
 
     await prisma.membership.update({

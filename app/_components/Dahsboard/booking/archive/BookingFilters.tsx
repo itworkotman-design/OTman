@@ -303,8 +303,8 @@ export default function BookingFilters({
   };
 
   return (
-    <section className="w-full">
-      <div className="customContainer w-full max-w-[1000] padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[700] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
+    <section className="customContainer w-full max-w-[1000] padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[700] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
+      <div>
         <div className={`grid grid-cols-1 gap-3 ${access.canFilterSubcontractor ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
           <Field label={t("Status")}>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput padding-weird-landscape text-weird-landscape w-full">

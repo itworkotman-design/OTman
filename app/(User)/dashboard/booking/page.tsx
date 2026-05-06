@@ -484,7 +484,7 @@ export default function BookingPage() {
         {bookingText(locale, "Booking orders")}
       </h1>
 
-      <div className="flex flex-col gap-3 pb-4 padding-weird-landscape">
+      <div className="flex flex-col gap-3  padding-weird-landscape">
         <BookingFilters
           key={`${filterPanelVersion}:${access.lockedCreatedById ?? ""}:${access.lockedSubcontractorId ?? ""}`}
           initialApplied={appliedFilters}

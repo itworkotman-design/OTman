@@ -3,8 +3,10 @@
 
 import type { ChangeEvent } from "react";
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
+import {
+  getUserLogoDisplayPath,
+} from "@/lib/users/profileAppearance";
 
 import {
   UserModalProps,
@@ -79,7 +81,9 @@ export default function UserModal({
     );
   }, [isOpen, formResetKey]);
   const [sendingReset, setSendingReset] = useState(false);
-  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(initialValueLogoPath ?? null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(
+    getUserLogoDisplayPath(initialValueLogoPath),
+  );
 
   const { isActorOwner, canEditTarget, canToggleActive } = getPermissions(actorRole, targetRole, isCreateMode);
 
@@ -96,7 +100,7 @@ export default function UserModal({
       return;
     }
 
-    setLogoPreviewUrl(initialValueLogoPath ?? null);
+    setLogoPreviewUrl(getUserLogoDisplayPath(initialValueLogoPath));
   }, [isOpen, formResetKey, initialValueLogoPath]);
 
   useEffect(() => {
@@ -299,18 +303,7 @@ export default function UserModal({
               <div className="mb-4 rounded-lg border border-lineSecondary p-4">
                 {logoPreviewUrl ? (
                   <div className="mb-3 flex items-center gap-3">
-                    {logoPreviewUrl.endsWith(".svg") || logoPreviewUrl.startsWith("blob:") ? (
-                      <img src={logoPreviewUrl} alt="User logo preview" className="h-14 w-14 object-contain" />
-                    ) : (
-                      <Image
-                        src={logoPreviewUrl}
-                        alt="User logo preview"
-                        width={56}
-                        height={56}
-                        className="h-14 w-14 object-contain"
-                        unoptimized={logoPreviewUrl.startsWith("blob:")}
-                      />
-                    )}
+                    <img src={logoPreviewUrl} alt="User logo preview" className="h-14 w-14 object-contain" />
                     <button type="button" className="customButtonDefault" onClick={handleRemoveLogo} disabled={!canEditTarget}>
                       Remove logo
                     </button>

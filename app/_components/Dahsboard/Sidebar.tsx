@@ -9,6 +9,7 @@ import FeatureRequestModal from "@/app/_components/Dahsboard/FeatureRequestModal
 import { bookingText } from "@/lib/booking/bookingUiText";
 import { useUserLanguage } from "@/lib/users/language";
 import LanguageSwitchButton from "@/app/_components/Users/LanguageSwitchButton";
+import { getUserLogoDisplayPath } from "@/lib/users/profileAppearance";
 
 type Props = {
   open: boolean;
@@ -72,6 +73,8 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
   const router = useRouter();
 
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const currentUserLogoPath = currentUser?.logoPath ?? null;
+  const currentUserLogoDisplayPath = getUserLogoDisplayPath(currentUserLogoPath);
   const usernameStyle = currentUser?.usernameDisplayColor
     ? { color: currentUser.usernameDisplayColor }
     : undefined;
@@ -119,18 +122,8 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
         <div className="px-4 padding-weird-landscape">
           <div className="mt-6 flex  border-lineSecondary px-2 py-1 pb-4 padding-weird-landscape">
             <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
-              {currentUser?.logoPath ? (
-                currentUser.logoPath.endsWith(".svg") ? (
-                  <Image src={currentUser.logoPath} alt={`${currentUser.username || currentUser.email} logo`} className="h-8 w-8 shrink-0 object-contain" />
-                ) : (
-                  <Image
-                    src={currentUser.logoPath}
-                    alt={`${currentUser.username || currentUser.email} logo`}
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 shrink-0 object-contain"
-                  />
-                )
+              {currentUserLogoDisplayPath ? (
+                <img src={currentUserLogoDisplayPath} alt={`${currentUser?.username || currentUser?.email} logo`} className="h-8 w-8 shrink-0 object-contain" />
               ) : null}
               <h1 className="wrap-break-word font-medium text-logoblue text-weird-landscape" style={usernameStyle}>
                 {currentUser?.username ?? currentUser?.email ?? "error"}

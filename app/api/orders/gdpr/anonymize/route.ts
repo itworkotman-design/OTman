@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 
-const RETENTION_DAYS = 30;
+const RETENTION_DAYS = 60;
 
 function getRetentionCutoffDate() {
   const cutoff = new Date();
@@ -39,14 +39,12 @@ export async function POST(req: Request) {
   const eligibleOrders = await prisma.order.findMany({
     where: {
       companyId: session.activeCompanyId,
-      status: { in: ["completed", "invoiced", "paid", "failed", "cancelled"] },
+      status: "paid",
       gdprAnonymized: false,
     },
     select: {
       id: true,
       status: true,
-      completedAt: true,
-      deliveryDate: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -56,24 +54,7 @@ export async function POST(req: Request) {
 
   const orderIdsToAnonymize = eligibleOrders
     .filter((order) => {
-      const delivery = order.deliveryDate ? new Date(order.deliveryDate) : null;
-      const completed = order.completedAt ?? null;
-      const updated = order.updatedAt ?? null;
-      const created = order.createdAt ?? null;
-
-      let basisDate: Date | null = null;
-
-      const status = order.status ?? "";
-
-      if (["failed", "cancelled"].includes(status)) {
-        basisDate = updated ?? created;
-      } else {
-        if (delivery && completed) {
-          basisDate = delivery < completed ? delivery : completed;
-        } else {
-          basisDate = delivery ?? completed;
-        }
-      }
+      const basisDate = order.updatedAt ?? order.createdAt;
 
       return basisDate && !Number.isNaN(basisDate.getTime()) && basisDate <= cutoff;
     })

@@ -10,6 +10,7 @@ import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 import { bookingText } from "@/lib/booking/bookingUiText";
 import { useUserLanguage } from "@/lib/users/language";
 import LanguageSwitchButton from "@/app/_components/Users/LanguageSwitchButton";
+import { getUserLogoDisplayPath } from "@/lib/users/profileAppearance";
 
 type Props = {
   open: boolean;
@@ -67,6 +68,8 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
     ? { color: currentUser.usernameDisplayColor }
     : undefined;
   const currentUserLabel = currentUser?.username ?? currentUser?.email ?? "";
+  const currentUserLogoPath = currentUser?.logoPath ?? null;
+  const currentUserLogoDisplayPath = getUserLogoDisplayPath(currentUserLogoPath);
 
   const isActive = (href: string) =>
     href === "/booking" ? pathname === "/booking" : pathname.startsWith(href);
@@ -124,24 +127,12 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
         <div className="px-4">
           <div className="mt-6 flex border-b border-lineSecondary px-2 py-1 pb-6">
             <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
-              {currentUser?.logoPath ? (
-                currentUser.logoPath.endsWith(".svg") ? (
-                  <Image
-                    src={currentUser.logoPath}
-                    alt={`${currentUserLabel} logo`}
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 shrink-0 object-contain"
-                  />
-                ) : (
-                  <Image
-                    src={currentUser.logoPath}
-                    alt={`${currentUserLabel} logo`}
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 shrink-0 object-contain"
-                  />
-                )
+              {currentUserLogoDisplayPath ? (
+                <img
+                  src={currentUserLogoDisplayPath}
+                  alt={`${currentUserLabel} logo`}
+                  className="h-8 w-8 shrink-0 object-contain"
+                />
               ) : null}
               <h1
                 className="break-words font-medium text-logoblue"

@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => {
     membershipPermissionDeleteManyMock: vi.fn(),
     membershipPermissionCreateManyMock: vi.fn(),
     membershipUpdateMock: vi.fn(),
+    deleteAttachmentFromS3Mock: vi.fn(),
+    isS3StoragePathMock: vi.fn(),
   };
 });
 
@@ -38,6 +40,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/orders/orderAttachmentStorage", () => ({
+  deleteAttachmentFromS3: mocks.deleteAttachmentFromS3Mock,
+  isS3StoragePath: mocks.isS3StoragePathMock,
+}));
+
 import { PATCH } from "./route";
 
 describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
@@ -59,6 +66,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
     mocks.userFindUniqueMock.mockResolvedValue({
       logoPath: "/uploads/user-logos/u2/old-logo.webp",
     });
+    mocks.isS3StoragePathMock.mockReturnValue(false);
     mocks.membershipPermissionDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.membershipPermissionCreateManyMock.mockResolvedValue({ count: 0 });
   });

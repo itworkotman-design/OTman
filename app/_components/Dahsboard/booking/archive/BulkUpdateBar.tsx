@@ -57,7 +57,7 @@ export default function BulkUpdateBar({
   }
 
   return (
-    <section className="customContainer mt-3 margin-weird-landscape padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[700] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
+    <section className="customContainer mt-4 margin-weird-landscape padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[700] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
       <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_1fr_auto_auto]">
         <div>
           <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Selected</label>
