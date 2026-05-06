@@ -23,6 +23,7 @@ function buildMimeMessage({
   inReplyTo,
   references,
   bcc,
+  threadToken,
 }: {
   from: string;
   to: string;
@@ -33,22 +34,23 @@ function buildMimeMessage({
   inReplyTo?: string;
   references?: string[];
   bcc?: string;
-  
+  threadToken?: string;
 }) {
   const boundary = `boundary_${Date.now()}`;
 
   const headers = [
-  `From: ${from}`,
-  `To: ${to}`,
-  bcc ? `Bcc: ${bcc}` : null,
-  `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
-  `Message-ID: <${Date.now()}@otman.no>`,
-  `MIME-Version: 1.0`,
-  `Content-Type: multipart/alternative; boundary="${boundary}"`,
-  replyTo ? `Reply-To: ${replyTo}` : `Reply-To: bestilling@otman.no`,
-  inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
-  references?.length ? `References: ${references.join(" ")}` : null,
-].filter(Boolean);
+    `From: ${from}`,
+    `To: ${to}`,
+    `X-Otman-Conversation: true`,
+    threadToken ? `X-Otman-Thread: ${threadToken}` : null,
+    bcc ? `Bcc: ${bcc}` : null,
+    `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    replyTo ? `Reply-To: ${replyTo}` : `Reply-To: bestilling@otman.no`,
+    inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
+    references?.length ? `References: ${references.join(" ")}` : null,
+  ].filter(Boolean);
 
   const body = [
     `--${boundary}`,
@@ -67,6 +69,8 @@ function buildMimeMessage({
 
 export async function sendGmailEmail({
   to,
+  bcc,
+  threadToken,
   subject,
   html,
   text,
@@ -75,6 +79,8 @@ export async function sendGmailEmail({
   references,
 }: {
   to: Recipient | Recipient[];
+  bcc?: Recipient | Recipient[] | string;
+  threadToken?: string;
   subject: string;
   html: string;
   text?: string;
@@ -83,6 +89,9 @@ export async function sendGmailEmail({
   references?: string[];
 }) {
   const recipients = Array.isArray(to) ? to : [to];
+
+  const bccRecipients =
+    typeof bcc === "string" ? bcc : bcc ? (Array.isArray(bcc) ? bcc : [bcc]).map(formatRecipient).join(", ") : process.env.ORDER_CONVERSATION_BACKUP_EMAIL;
 
   const oauth2Client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_CLIENT_SECRET!);
 
@@ -103,7 +112,8 @@ export async function sendGmailEmail({
     replyTo,
     inReplyTo,
     references,
-    bcc: process.env.ORDER_CONVERSATION_BACKUP_EMAIL,
+    bcc: bccRecipients,
+    threadToken,
   });
 
   const response = await gmail.users.messages.send({
@@ -113,7 +123,25 @@ export async function sendGmailEmail({
     },
   });
 
+  const gmailMessageId = response.data.id ?? null;
+  const gmailThreadId = response.data.threadId ?? null;
+
+  let rfcMessageId: string | null = null;
+
+  if (gmailMessageId) {
+    const sentMessage = await gmail.users.messages.get({
+      userId: "me",
+      id: gmailMessageId,
+      format: "metadata",
+      metadataHeaders: ["Message-ID"],
+    });
+
+    rfcMessageId = sentMessage.data.payload?.headers?.find((header) => header.name?.toLowerCase() === "message-id")?.value ?? null;
+  }
+
   return {
-    messageId: response.data.id ?? null,
+    messageId: rfcMessageId,
+    gmailMessageId,
+    gmailThreadId,
   };
 }

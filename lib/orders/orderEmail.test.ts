@@ -60,6 +60,7 @@ describe("orderEmail helpers", () => {
     const text = buildOrderConversationEmailText({
       messageText: "New reply",
       orderLabel: "Order 20001",
+      threadToken: "testtoken",
       replyContext: {
         bodyText: "Original line",
         personLabel: "Customer <customer@example.com>",

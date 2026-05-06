@@ -387,10 +387,11 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
 
   });
   const emailText = buildOrderConversationEmailText({
-    messageText: message,
-    orderLabel,
-    replyContext,
-  });
+  messageText: message,
+  orderLabel,
+  threadToken,
+  replyContext,
+});
   const emailHeaders: Record<string, string> = {};
 
   if (replyAnchor?.externalMessageId) {
@@ -411,6 +412,11 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
 
     const sendResult = await sendGmailEmail({
       to: recipients[0],
+      bcc: {
+        email: "bestilling@otman.no",
+        name: "Otman Transport",
+      },
+      threadToken,
       subject: finalSubject,
       html: emailHtml,
       text: emailText,
@@ -430,6 +436,8 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         source: "APP",
         sentByMembershipId: auth.membership.id,
         externalMessageId: sendResult.messageId,
+        gmailMessageId: sendResult.gmailMessageId,
+        gmailThreadId: sendResult.gmailThreadId,
         subject: finalSubject,
         bodyText: message,
         bodyHtml: emailHtml,

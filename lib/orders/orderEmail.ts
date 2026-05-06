@@ -228,6 +228,7 @@ function buildQuotedReplyText({
 export function buildOrderConversationEmailText(input: {
   messageText: string;
   orderLabel: string;
+  threadToken: string;
   replyContext?: OrderConversationReplyContext | null;
 }): string {
   const parts = [input.orderLabel.trim(), "", input.messageText.trim()];
@@ -236,12 +237,7 @@ export function buildOrderConversationEmailText(input: {
     parts.push(buildQuotedReplyText(input.replyContext));
   }
 
-  parts.push(
-    "",
-    "Med vennlig hilsen,",
-    "Otman Transport AS",
-    "+47 402 84 977 | bestilling@otman.no",
-  );
+  parts.push("", `[OTMAN:${input.threadToken}]`, "", "Med vennlig hilsen,", "Otman Transport AS", "+47 402 84 977 | bestilling@otman.no");
 
   return parts.join("\n").trim();
 }
@@ -269,9 +265,6 @@ export function buildOrderConversationEmailHtml(input: {
       <p style="margin:0 0 16px 0;">${escapeHtml(input.orderLabel)}</p>
       ${body}
       ${quotedReply}
-      <p style="margin:0;color:#e5e7eb;font-size:10px;line-height:1;">
-  [OTMAN:${escapeHtml(input.threadToken)}]
-</p>
       <p style="margin:24px 0 0 0;">
         Med vennlig hilsen,<br/>
         Otman Transport AS<br/>

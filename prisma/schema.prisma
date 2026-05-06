@@ -493,6 +493,8 @@ model OrderEmailMessage {
   order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   sentByMembership   Membership?         @relation("OrderEmailSentByMembership", fields: [sentByMembershipId], references: [id])
   source OrderEmailSource @default(APP)
+  gmailMessageId String?
+  gmailThreadId  String?
 
   @@index([orderId, createdAt])
   @@index([companyId, createdAt])
