@@ -13,6 +13,8 @@ import type {
 } from "@/app/_components/Dahsboard/booking/archive/types";
 import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
+import { bookingText } from "@/lib/booking/bookingUiText";
+import { useUserLanguage } from "@/lib/users/language";
 import BulkUpdateBar from "@/app/_components/Dahsboard/booking/archive/BulkUpdateBar";
 import SelectionActionBar from "@/app/_components/Dahsboard/booking/archive/SelectionActionBar";
 import BookingColumnVisibilityModal from "@/app/_components/Dahsboard/booking/archive/BookingColumnVisibilityModal";
@@ -33,6 +35,7 @@ type FilterOptionApiItem = {
 
 export default function BookingPage() {
   const currentUser = useCurrentUser();
+  const { locale } = useUserLanguage(currentUser);
   const access = useMemo(
     () => getBookingArchiveAccess(currentUser),
     [currentUser],
@@ -95,7 +98,7 @@ export default function BookingPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
-        setError("Failed to load orders");
+        setError(bookingText(locale, "failed to load orders"));
         setOrders([]);
         setSelectedOrderIds([]);
         return;
@@ -110,7 +113,7 @@ export default function BookingPage() {
         ),
       );
     } catch {
-      setError("Failed to load orders");
+      setError(bookingText(locale, "failed to load orders"));
       setOrders([]);
       setSelectedOrderIds([]);
     } finally {
@@ -478,7 +481,7 @@ export default function BookingPage() {
   return (
     <div className="w-full">
       <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl text-weird-landscape-large margin-weird-landscape">
-        Booking orders
+        {bookingText(locale, "Booking orders")}
       </h1>
 
       <div className="flex flex-col gap-3 pb-4 padding-weird-landscape">
@@ -491,6 +494,7 @@ export default function BookingPage() {
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}
+          locale={locale}
         />
       </div>
 
@@ -526,18 +530,18 @@ export default function BookingPage() {
             <div className="my-2 flex flex-col items-start gap-2">
               {access.viewMode !== "ADMIN" ? (
                 <button type="button" className="customButtonDefault" onClick={() => setColumnModalOpen(true)}>
-                  Hide columns
+                  {bookingText(locale, "Hide columns")}
                 </button>
               ) : null}
 
               <div className="text-sm text-textColorThird">
-                {canBulkSelect ? `${selectedOrderIds.length} selected • Pris uten MVA: NOK ${selectedPriceExVatLabel}` : ""}
+                {canBulkSelect ? `${selectedOrderIds.length} ${bookingText(locale, "selected")} - ${bookingText(locale, "Price ex. VAT")}: NOK ${selectedPriceExVatLabel}` : ""}
               </div>
             </div>
           </div>
 
           {loading ? (
-            <div className="py-6 text-textColorThird">Loading orders...</div>
+            <div className="py-6 text-textColorThird">{bookingText(locale, "Loading orders...")}</div>
           ) : error ? (
             <div className="py-6 text-red-600">{error}</div>
           ) : (
@@ -557,6 +561,7 @@ export default function BookingPage() {
               onToggleOrder={handleToggleOrder}
               onToggleAllVisible={handleToggleAllVisible}
               visibleColumnIds={visibleColumnIds}
+              locale={locale}
             />
           )}
         </div>
@@ -571,6 +576,7 @@ export default function BookingPage() {
         }}
         onSaved={() => void loadOrders(appliedFilters)}
         canDelete={access.viewMode === "ADMIN"}
+        locale={locale}
         onDeleted={() => {
           setModalOpen(false);
           setSelectedOrderId(null);

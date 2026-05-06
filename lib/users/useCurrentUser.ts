@@ -7,6 +7,7 @@ export type CurrentUser = {
   username: string;
   logoPath: string | null;
   usernameDisplayColor: string | null;
+  languagePreference: "EN" | "NO" | null;
   role: Role;
   permissions: AppPermission[];
 };
@@ -36,6 +37,11 @@ export function useCurrentUser() {
           username: data.user?.username ?? "",
           logoPath: data.user?.logoPath ?? null,
           usernameDisplayColor: data.user?.usernameDisplayColor ?? null,
+          languagePreference:
+            data.user?.languagePreference === "EN" ||
+            data.user?.languagePreference === "NO"
+              ? data.user.languagePreference
+              : null,
           role: (data.activeTenant?.role ?? "USER") as Role,
           permissions: data.activeTenant?.permissions ?? [],
         });

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import {
   ORDER_SLOT_LIMIT,
+  ORDER_SLOT_HARD_LIMIT,
   countOrdersInDeliverySlot,
   isDeliverySlotOverCapacity,
 } from "@/lib/orders/capacity";
@@ -26,6 +27,18 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
+  
+
+  const locale = optionalString(searchParams.get("locale"));
+  const overCapacityMessage =
+    locale === "nb"
+      ? "Dette tidsvinduet er fullbooket. Leveringstiden kan bli justert."
+      : "This time window is at full capacity. The delivery time may be adjusted.";
+
+  const hardLimitMessage =
+    locale === "nb"
+      ? "Ordregrensen for dette tidsvinduet er nådd. Endre tid eller dag."
+      : "Order limit for this time window has been reached. Change time or day.";
 
   const deliveryDate = optionalString(searchParams.get("deliveryDate"));
   const timeWindow = optionalString(searchParams.get("timeWindow"));
@@ -49,6 +62,7 @@ export async function GET(req: Request) {
     });
 
   const totalCount = excludeOrderId ? count + 1 : count;
+  const isHardLimitReached = totalCount >= ORDER_SLOT_HARD_LIMIT;
   const isOverCapacity = isDeliverySlotOverCapacity(
     totalCount,
     ORDER_SLOT_LIMIT,
@@ -58,9 +72,9 @@ export async function GET(req: Request) {
     ok: true,
     count: totalCount,
     limit: ORDER_SLOT_LIMIT,
+    hardLimit: ORDER_SLOT_HARD_LIMIT,
+    isHardLimitReached,
     isOverCapacity,
-    message: isOverCapacity
-      ? "This time window is at full capacity. The delivery time may be adjusted."
-      : "",
+    message: isHardLimitReached ? hardLimitMessage : isOverCapacity ? overCapacityMessage : "",
   });
 }

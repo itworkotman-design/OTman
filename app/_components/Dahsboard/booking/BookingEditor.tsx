@@ -126,10 +126,12 @@ type Props = {
   hideSubmitButton?: boolean;
   onSubmit?: (payload: OrderFormPayload) => void | Promise<void>;
   locale?: BookingUiLocale;
+  isOrderCreator: boolean;
   initialValues?: Partial<OrderFormPayload> & {
     id?: string;
     legacyWordpressOrderId?: number | null;
   };
+  showCapacityDetails?: boolean;
 };
 
 type PriceListOption = {
@@ -141,7 +143,9 @@ type PriceListOption = {
 type CapacityWarningState = {
   count: number;
   limit: number;
+  hardLimit: number;
   isOverCapacity: boolean;
+  isHardLimitReached: boolean;
   message: string;
 } | null;
 
@@ -419,7 +423,9 @@ export default function BookingEditor({
   hideSubmitButton = false,
   onSubmit,
   locale = "en",
+  isOrderCreator,
   initialValues,
+  showCapacityDetails = true,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const [saving, setSaving] = useState(false);
@@ -1073,10 +1079,13 @@ export default function BookingEditor({
       productBreakdowns: editableBreakdowns,
       priceLookup,
     });
-    const breakdownsByCardId = new Map<number, {
-      calculatedBreakdown: CalculatedLine[];
-      productBreakdown: ProductBreakdown;
-    }>();
+    const breakdownsByCardId = new Map<
+      number,
+      {
+        calculatedBreakdown: CalculatedLine[];
+        productBreakdown: ProductBreakdown;
+      }
+    >();
     let breakdownIndex = 0;
 
     for (const card of editableCards) {
@@ -1247,6 +1256,7 @@ export default function BookingEditor({
         const searchParams = new URLSearchParams({
           deliveryDate: normalizedDeliveryDate,
           timeWindow: normalizedTimeWindow,
+          locale,
         });
 
         if (initialValues?.id) {
@@ -1269,7 +1279,9 @@ export default function BookingEditor({
         setCapacityWarning({
           count: typeof data.count === "number" ? data.count : 0,
           limit: typeof data.limit === "number" ? data.limit : 15,
+          hardLimit: typeof data.hardLimit === "number" ? data.hardLimit : 20,
           isOverCapacity: Boolean(data.isOverCapacity),
+          isHardLimitReached: Boolean(data.isHardLimitReached),
           message: typeof data.message === "string" ? data.message : "",
         });
       } catch (error) {
@@ -1287,7 +1299,7 @@ export default function BookingEditor({
       window.clearTimeout(timer);
       abortController.abort();
     };
-  }, [customTimeFrom, customTimeTo, deliveryDate, finalTimeWindow, initialValues?.id, timeWindow]);
+  }, [customTimeFrom, customTimeTo, deliveryDate, finalTimeWindow, initialValues?.id,locale, timeWindow]);
   const normalizedEmail = normalizeOptionalEmail(email) ?? "";
   const normalizedPhone = normalizeOptionalPhone(phone) ?? "";
   const normalizedPhoneTwo = normalizeOptionalPhone(phoneTwo) ?? "";
@@ -1642,6 +1654,10 @@ export default function BookingEditor({
   }, [existingOrderId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    if (isOrderCreator && capacityWarning?.isHardLimitReached) {
+      setSubmitError(capacityWarning.message);
+      return;
+    }
     e.preventDefault();
     setSubmitError("");
     if (saving) return;
@@ -1994,8 +2010,11 @@ export default function BookingEditor({
             onDeleteAttachment={handleDeleteAttachment}
             capacityWarningMessage={capacityWarning?.isOverCapacity ? capacityWarning.message : ""}
             capacityWarningCount={capacityWarning?.count ?? 0}
-            capacityWarningLimit={capacityWarning?.limit ?? ORDER_SLOT_LIMIT}
+            capacityWarningLimit={capacityWarning?.isHardLimitReached ? capacityWarning.hardLimit : (capacityWarning?.limit ?? ORDER_SLOT_LIMIT)}
             capacityWarningLoading={capacityWarningLoading}
+            showCapacityDetails={showCapacityDetails}
+            isOrderCreator={isOrderCreator}
+            capacityHardLimitReached={Boolean(capacityWarning?.isHardLimitReached)}
           />
         </div>
 

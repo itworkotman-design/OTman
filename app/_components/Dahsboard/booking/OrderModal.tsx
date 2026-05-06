@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import BookingEditor, {
   type OrderFormPayload,
 } from "@/app/_components/Dahsboard/booking/BookingEditor";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type OrderDetails = OrderFormPayload & {
   id: string;
@@ -20,6 +21,7 @@ type Props = {
   onSaved?: () => void;
   canDelete?: boolean;
   onDeleted?: () => void;
+  locale?: BookingUiLocale;
 };
 
 export default function OrderModal({
@@ -29,6 +31,7 @@ export default function OrderModal({
   onSaved,
   canDelete = false,
   onDeleted,
+  locale = "en",
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -119,7 +122,7 @@ export default function OrderModal({
 
   async function handleDelete() {
     if (!orderId || deleteLoading) return;
-    if (!confirm("Delete this order?")) return;
+    if (!confirm(bookingText(locale, "Delete this order?"))) return;
 
     try {
       setDeleteLoading(true);
@@ -133,14 +136,16 @@ export default function OrderModal({
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
-        setDeleteError(data?.reason || "Failed to delete order");
+        setDeleteError(
+          bookingText(locale, data?.reason || "Failed to delete order"),
+        );
         return;
       }
 
       onDeleted?.();
       onClose();
     } catch {
-      setDeleteError("Failed to delete order");
+      setDeleteError(bookingText(locale, "Failed to delete order"));
     } finally {
       setDeleteLoading(false);
     }
@@ -159,7 +164,11 @@ export default function OrderModal({
           {/* Sticky header */}
           <div className="shrink-0 flex items-center justify-between rounded-t-2xl border-b bg-white px-6 py-4">
             <h2 className="text-2xl font-semibold text-logoblue">
-              {archiveOrderId ? `Editing order - ${archiveOrderId}` : orderId ? "Editing order" : "Order"}
+              {archiveOrderId
+                ? `${bookingText(locale, "Editing order")} - ${archiveOrderId}`
+                : orderId
+                  ? bookingText(locale, "Editing order")
+                  : bookingText(locale, "Order")}
             </h2>
             <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full bg-logoblue text-white cursor-pointer">
               ×
@@ -169,7 +178,7 @@ export default function OrderModal({
           {/* Scrollable body — only this div scrolls */}
           <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
             {loading ? (
-              <div className="py-6 text-textColorThird">Loading order...</div>
+              <div className="py-6 text-textColorThird">{bookingText(locale, "Loading order...")}</div>
             ) : error ? (
               <div className="py-6 text-red-600">{error}</div>
             ) : (
@@ -183,6 +192,8 @@ export default function OrderModal({
                       }
                     : undefined
                 }
+                locale={locale}
+                isOrderCreator={false}
               />
             )}
             <div className="mt-10">
@@ -193,7 +204,7 @@ export default function OrderModal({
                   disabled={deleteLoading}
                   className="customButtonDefault h-10 bg-red-600! text-white! disabled:opacity-50!"
                 >
-                  {deleteLoading ? "Deleting..." : "Delete order"}
+                  {deleteLoading ? bookingText(locale, "Deleting...") : bookingText(locale, "Delete order")}
                 </button>
               )}
               {deleteError ? <div className="mt-2 text-sm font-medium text-red-600">{deleteError}</div> : null}

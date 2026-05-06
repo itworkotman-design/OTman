@@ -61,6 +61,7 @@ export async function GET(req: Request) {
         username: session.username,
         logoPath: session.logoPath,
         usernameDisplayColor: session.usernameDisplayColor,
+        languagePreference: session.languagePreference ?? null,
         status: session.userStatus,
       },
       session: {

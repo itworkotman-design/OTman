@@ -136,14 +136,14 @@ export function CalculatorDisplayNew({
       <div className="pb-4">
         {result.totals.discount !== 0 && (
           <div className="priceRow">
-            <h1 className="text-md">Rabatt</h1>
+            <h1 className="text-md">{t("Discount")}</h1>
             <p className="font-semibold">-{formatSumNOK(result.totals.discount)} NOK</p>
           </div>
         )}
 
         {result.totals.extra !== 0 && (
           <div className="priceRow">
-            <h1 className="text-md">Ekstra</h1>
+            <h1 className="text-md">{t("Extra")}</h1>
             <p className="font-semibold">
               {result.totals.extra > 0 ? "+" : ""}
               {formatSumNOK(result.totals.extra)} NOK
@@ -152,7 +152,7 @@ export function CalculatorDisplayNew({
         )}
 
         <div className="priceRow">
-          <h1 className="font-bold text-2xl">Total</h1>
+          <h1 className="font-bold text-2xl">{t("Total")}</h1>
           <p className="font-bold text-2xl">{formatSumNOK(displayTotals.totalExVat)} NOK</p>
         </div>
 
@@ -162,14 +162,14 @@ export function CalculatorDisplayNew({
         </div>
 
         <div className="priceRow">
-          <h1 className="text-md">{locale === "nb" ? "Total inkl. MVA" : "Total incl. VAT"}</h1>
+          <h1 className="text-md">{t("Total incl. VAT")}</h1>
           <p className="font-semibold">{formatSumNOK(displayTotals.totalIncVat)} NOK</p>
         </div>
 
         {adminView && (
           <div className="mt-8 space-y-4">
             <div className="lg:flex items-center">
-              <h1 className="whitespace-nowrap">Discount (ex VAT):</h1>
+              <h1 className="whitespace-nowrap">{t("Discount (ex VAT)")}:</h1>
               <input
                 type="text"
                 value={rabatt}
@@ -185,7 +185,7 @@ export function CalculatorDisplayNew({
             </div>
 
             <div className="lg:flex items-center">
-              <h1 className="whitespace-nowrap">Extra (ex VAT):</h1>
+              <h1 className="whitespace-nowrap">{t("Extra (ex VAT)")}:</h1>
               <input
                 type="text"
                 value={leggTil}
@@ -201,7 +201,7 @@ export function CalculatorDisplayNew({
             </div>
 
             <div className="lg:flex items-center">
-              <h1 className="whitespace-nowrap">Subcontractor minus:</h1>
+              <h1 className="whitespace-nowrap">{t("Subcontractor minus")}:</h1>
               <input
                 type="text"
                 value={subcontractorMinus}
@@ -217,7 +217,7 @@ export function CalculatorDisplayNew({
             </div>
 
             <div className="lg:flex items-center">
-              <h1 className="whitespace-nowrap">Subcontractor plus:</h1>
+              <h1 className="whitespace-nowrap">{t("Subcontractor plus")}:</h1>
               <input
                 type="text"
                 value={subcontractorPlus}

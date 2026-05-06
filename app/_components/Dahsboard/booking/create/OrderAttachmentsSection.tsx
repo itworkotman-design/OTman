@@ -4,7 +4,6 @@
 import { useId } from "react";
 import {
   ATTACHMENT_CATEGORIES,
-  getAttachmentCategoryLabel,
   type AttachmentCategory,
   type AttachmentItem,
 } from "@/lib/orders/attachmentCategories";
@@ -56,6 +55,8 @@ export default function OrderAttachmentsSection({
           category === "RECEIPT" ? t("No receipts yet.") : t("No attachments yet.");
         const buttonLabel =
           category === "RECEIPT" ? t("Choose receipt") : t("Choose attachment");
+        const categoryLabel =
+          category === "RECEIPT" ? t("Receipts") : t("Attachments");
 
         return (
           <div key={category} className="mb-4 last:mb-0">
@@ -81,7 +82,7 @@ export default function OrderAttachmentsSection({
             </div>
 
             <div className="mb-2 text-sm font-medium text-neutral-700">
-              {getAttachmentCategoryLabel(category)}s
+              {categoryLabel}
             </div>
 
             {files.length > 0 ? (
@@ -135,7 +136,7 @@ export default function OrderAttachmentsSection({
                           download={file.filename}
                           className="text-textColorThird underline"
                         >
-                          {locale === "nb" ? "Last ned" : "Download"}
+                          {t("Download")}
                         </a>
                       </div>
                     </div>
@@ -160,7 +161,7 @@ export default function OrderAttachmentsSection({
         );
       })}
 
-      {uploading && <div className="mb-3 text-sm">{locale === "nb" ? "Laster opp..." : "Uploading..."}</div>}
+      {uploading && <div className="mb-3 text-sm">{t("Uploading...")}</div>}
 
       {error ? <div className="mb-2 text-sm text-red-600">{error}</div> : null}
     </div>

@@ -9,6 +9,7 @@ import type { BookingArchiveFilters, BookingArchiveOption, OrderRow } from "@/ap
 import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 import { bookingText } from "@/lib/booking/bookingUiText";
+import { useUserLanguage } from "@/lib/users/language";
 import  OrderCreatorContactModal  from "@/app/_components/Dahsboard/booking/orders/OrderCreatorContactModal";
 import { exportVisibleOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
 import { getDefaultVisibleBookingArchiveColumns } from "@/lib/booking/archiveColumns";
@@ -37,6 +38,7 @@ type OrderCreatorsResponse = {
 
 export default function BookingPage() {
   const currentUser = useCurrentUser();
+  const { locale } = useUserLanguage(currentUser);
   const access = useMemo(() => getBookingArchiveAccess(currentUser), [currentUser]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,14 +83,14 @@ export default function BookingPage() {
       const data = (await res.json().catch(() => null)) as OrdersResponse | null;
 
       if (!res.ok || !data?.ok) {
-        setError(bookingText("nb", data?.reason || "failed to load orders"));
+        setError(bookingText(locale, data?.reason || "failed to load orders"));
         setOrders([]);
         return;
       }
 
       setOrders(data.orders ?? []);
     } catch {
-      setError(bookingText("nb", "failed to load orders"));
+      setError(bookingText(locale, "failed to load orders"));
       setOrders([]);
     } finally {
       setLoading(false);
@@ -167,7 +169,7 @@ export default function BookingPage() {
 
   return (
     <div className="w-full">
-      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">{bookingText("nb", "Booking orders")}</h1>
+      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">{bookingText(locale, "Booking orders")}</h1>
 
       <div className="flex flex-col gap-3 pb-4">
         <BookingFilters
@@ -185,14 +187,14 @@ export default function BookingPage() {
               : undefined
           }
           downloadVisibleTableDisabled={loading || orders.length === 0}
-          locale="nb"
+          locale={locale}
         />
       </div>
 
       <div className="min-w-0 w-full">
         <div className="min-w-0 w-full">
           {loading ? (
-            <div className="py-6 text-textColorThird">{bookingText("nb", "Loading orders...")}</div>
+            <div className="py-6 text-textColorThird">{bookingText(locale, "Loading orders...")}</div>
           ) : error ? (
             <div className="py-6 text-red-600">{error}</div>
           ) : (
@@ -211,7 +213,7 @@ export default function BookingPage() {
               selectedOrderIds={[]}
               onToggleOrder={() => {}}
               onToggleAllVisible={() => {}}
-              locale="nb"
+              locale={locale}
             />
           )}
         </div>

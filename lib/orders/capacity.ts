@@ -3,6 +3,7 @@ import type { PrismaClient, Prisma } from "@prisma/client";
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
 export const ORDER_SLOT_LIMIT = 15;
+export const ORDER_SLOT_HARD_LIMIT = 20;
 
 const EXCLUDED_CAPACITY_STATUSES = [
   "paid",

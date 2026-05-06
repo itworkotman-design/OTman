@@ -130,8 +130,14 @@ export function ProductCardNew({
   );
 
   const isPalletProduct = selectedProduct?.productType === "PALLET";
-  const customSections = selectedProduct?.customSections ?? [];
-  const deliveryTypes = selectedProduct?.deliveryTypes ?? [];
+  const customSections = useMemo(
+    () => selectedProduct?.customSections ?? [],
+    [selectedProduct],
+  );
+  const deliveryTypes = useMemo(
+    () => selectedProduct?.deliveryTypes ?? [],
+    [selectedProduct],
+  );
   const supportsDeliveryTypes = !!selectedProduct?.allowDeliveryTypes;
   const supportsQuantity = !!selectedProduct?.allowQuantity || isPalletProduct;
   const supportsInstallOptions = !!selectedProduct?.allowInstallOptions;
@@ -402,7 +408,7 @@ export function ProductCardNew({
   }
 
   const shownCardNumber = displayIndex ?? cardId + 1;
-  const productLabel = selectedProduct?.label ?? "Velg";
+  const productLabel = selectedProduct?.label ?? t("Choose");
 
   function getSelectedCustomSectionOptionIds(sectionId: string) {
     return (
@@ -605,7 +611,7 @@ export function ProductCardNew({
           {showDeliveryType && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                {locale === "nb" ? "Velg leveringstype" : "Choose delivery type"}
+                {t("Choose delivery type")}
               </h1>
               <select
                 className="customInput w-full"
@@ -624,7 +630,7 @@ export function ProductCardNew({
                 }
               >
                 <option value="" disabled>
-                  Velg
+                  {t("Choose")}
                 </option>
                 {deliveryTypes.map((deliveryType) => (
                   <option key={deliveryType.key} value={deliveryType.key}>
@@ -645,7 +651,7 @@ export function ProductCardNew({
               </h1>
               {installOptions.length === 0 ? (
                 <p className="text-sm opacity-70">
-                  Ingen installasjonsalternativer for dette produktet
+                  {t("No installation options available.")}
                 </p>
               ) : (
                 installOptions.map((opt) => (
@@ -670,7 +676,7 @@ export function ProductCardNew({
           {showExtras && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                Utpakking / Demontering
+                {t("Unpacking / disassembly")}
               </h1>
               {extraOptions.length === 0 ? (
                 <p className="text-sm opacity-70">
@@ -699,7 +705,7 @@ export function ProductCardNew({
           {showDemont && (
             <>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                Demont
+                {t("Disassembly")}
               </h1>
               <label className="block my-1">
                 <input
@@ -745,7 +751,7 @@ export function ProductCardNew({
           {customSections.map((section) => (
             <div key={section.id}>
               <h1 className="font-semibold text-lg text-textcolor my-2">
-                {section.title || (locale === "nb" ? "Egendefinert seksjon" : "Custom section")}
+                {section.title || t("Custom section")}
               </h1>
               <div className="space-y-1">
                 {section.options.map((option) => (

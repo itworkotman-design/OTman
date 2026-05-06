@@ -186,6 +186,9 @@ type Props = {
   capacityWarningCount: number;
   capacityWarningLimit: number;
   capacityWarningLoading: boolean;
+  showCapacityDetails?: boolean;
+  capacityHardLimitReached: boolean;
+  isOrderCreator?: boolean;
   onUploadAttachment: (file: File, category: AttachmentCategory) => void | Promise<void>;
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
 };
@@ -301,6 +304,9 @@ export default function OrderFieldsForm({
   capacityWarningCount,
   capacityWarningLimit,
   capacityWarningLoading,
+  showCapacityDetails = true,
+  capacityHardLimitReached,
+  isOrderCreator = false,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const showLiftField = shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
@@ -324,7 +330,7 @@ export default function OrderFieldsForm({
   });
 
   return (
-    <div className="customContainer">
+    <div className="customContainer mb-20">
       {submitError ? <FieldErrorMessage message={submitError} /> : null}
 
       {shown(hidden, OrderFields.OrderNumber) && (
@@ -481,12 +487,20 @@ export default function OrderFieldsForm({
           )}
           <FieldErrorMessage message={timeWindowError} />
           {!capacityWarningLoading && capacityWarningMessage ? (
-            <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              <div className="font-semibold">{t("Warning")}</div>
+            <div
+              className={`mt-2 rounded-xl px-4 py-3 text-sm ${
+                capacityHardLimitReached ? "border border-red-200 bg-red-50 text-red-900" : "border border-amber-200 bg-amber-50 text-amber-900"
+              }`}
+            >
+              <div className="font-semibold">{capacityHardLimitReached ? t("Error") : t("Warning")}</div>
+
               <div className="mt-1">{capacityWarningMessage}</div>
-              <div className="mt-1 text-xs text-amber-800">
-                {locale === "nb" ? "Bestillinger i tidsvindu" : "Orders in slot"}: {capacityWarningCount} / {capacityWarningLimit}
-              </div>
+
+              {showCapacityDetails && !isOrderCreator && (
+                <div className={`mt-1 text-xs ${capacityHardLimitReached ? "text-red-800" : "text-amber-800"}`}>
+                  {locale === "nb" ? "Bestillinger i tidsvindu" : "Orders in slot"}: {capacityWarningCount} / {capacityWarningLimit}
+                </div>
+              )}
             </div>
           ) : null}
         </>
@@ -825,8 +839,12 @@ export default function OrderFieldsForm({
         </label>
       )}
       {!hideSubmitButton && (
-        <button className="w-full customButtonEnabled h-12 mt-8" type="submit" disabled={saving}>
-          {saving ? t("Saving...") : t("Submit")}
+        <button
+          className={`w-full h-12 mt-8 text-white ${capacityHardLimitReached && isOrderCreator ? "bg-red-600! customButtonEnabled cursor-not-allowed" : "customButtonEnabled"}`}
+          type="submit"
+          disabled={saving || (capacityHardLimitReached && isOrderCreator)}
+        >
+          {capacityHardLimitReached && isOrderCreator ? (locale === "nb" ? "Tidsvindu fullbooket" : "Time slot full") : saving ? t("Saving...") : t("Submit")}
         </button>
       )}
     </div>

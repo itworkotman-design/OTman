@@ -8,6 +8,8 @@ import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import FeatureRequestModal from "@/app/_components/Dahsboard/FeatureRequestModal";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 import { bookingText } from "@/lib/booking/bookingUiText";
+import { useUserLanguage } from "@/lib/users/language";
+import LanguageSwitchButton from "@/app/_components/Users/LanguageSwitchButton";
 
 type Props = {
   open: boolean;
@@ -55,6 +57,7 @@ function Icon({ path }: { path: string }) {
 
 export default function UserNavbar({ open, width, onOpenChange }: Props) {
   const currentUser = useCurrentUser();
+  const { locale } = useUserLanguage(currentUser);
   const access = getBookingArchiveAccess(currentUser);
   const pathname = usePathname();
   const router = useRouter();
@@ -123,9 +126,11 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
             <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
               {currentUser?.logoPath ? (
                 currentUser.logoPath.endsWith(".svg") ? (
-                  <img
+                  <Image
                     src={currentUser.logoPath}
                     alt={`${currentUserLabel} logo`}
+                    width={32}
+                    height={32}
                     className="h-8 w-8 shrink-0 object-contain"
                   />
                 ) : (
@@ -153,7 +158,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
           >
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
               <Icon path={ICONS.booking} />
-              {bookingText("nb", "Orders")}
+              {bookingText(locale, "Orders")}
             </div>
           </Link>
 
@@ -166,17 +171,22 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
             >
               <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
                 <Icon path={ICONS.createOrder} />
-                {bookingText("nb", "Create Order")}
+                {bookingText(locale, "Create Order")}
               </div>
             </Link>
           )}
 
+          <LanguageSwitchButton
+            currentUser={currentUser}
+            className={`${linkBase} mt-20 cursor-pointer items-center gap-2 text-left justify-end lg:justify-start hover:bg-linePrimary`}
+          />
+
           <button
             type="button"
             onClick={() => setRequestModalOpen(true)}
-            className={`${linkBase} mt-20 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
+            className={`${linkBase} mt-2 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
           >
-            {bookingText("nb", "Request new function / bug fix")}
+            {bookingText(locale, "Request new function / bug fix")}
           </button>
 
           <button
@@ -184,7 +194,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
             onClick={handleLogout}
             className={`${linkBase} mt-2 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
           >
-            {bookingText("nb", "log out")}
+            {bookingText(locale, "log out")}
           </button>
         </div>
       </div>
@@ -192,7 +202,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
       <FeatureRequestModal
         open={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
-        onSubmit={(payload) => {}}
+        onSubmit={() => {}}
       />
     </div>
   );

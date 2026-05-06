@@ -81,6 +81,7 @@ export type AuthenticatedSession = {
   username: string | null;
   logoPath: string | null;
   usernameDisplayColor: string | null;
+  languagePreference: string | null;
   userStatus: UserStatus;
   expiresAt: Date;
   activeCompanyId: string | null;
@@ -123,6 +124,7 @@ export async function getAuthenticatedSession(
           username: true,
           logoPath: true,
           usernameDisplayColor: true,
+          languagePreference: true,
           status: true,
         },
       },
@@ -148,9 +150,10 @@ export async function getAuthenticatedSession(
     sessionId: session.id,
     userId: session.userId,
     email: session.user.email,
-    username: session.user.username,
-    logoPath: session.user.logoPath,
-    usernameDisplayColor: session.user.usernameDisplayColor,
+    username: session.user.username ?? null,
+    logoPath: session.user.logoPath ?? null,
+    usernameDisplayColor: session.user.usernameDisplayColor ?? null,
+    languagePreference: session.user.languagePreference ?? null,
     userStatus: session.user.status,
     expiresAt: session.expiresAt,
     activeCompanyId: activeCompany ? session.activeCompanyId : null,

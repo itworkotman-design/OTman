@@ -15,3 +15,4 @@ This file does not define functions.
 ## Notes
 
 - `Order.orderCreatorEmailReadAt` stores when an order creator last marked admin replies as read, without clearing admin-facing inbound mail alerts.
+- `User.languagePreference` stores an optional dashboard language override as `EN` or `NO`; role-based defaults are used when it is empty.

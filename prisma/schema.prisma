@@ -20,6 +20,7 @@ model User {
   address               String?
   logoPath              String?
   usernameDisplayColor  String?
+  languagePreference    String?
   legacyWordpressUserId Int?                 @unique
   authEvents            AuthEvent[]
   invitesSent           Invite[]             @relation("InviteCreatedBy")

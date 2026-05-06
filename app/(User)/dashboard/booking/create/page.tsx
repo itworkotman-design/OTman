@@ -4,8 +4,14 @@ import { useState } from "react";
 import BookingEditor, {
   type OrderFormPayload,
 } from "@/app/_components/Dahsboard/booking/BookingEditor";
+import { bookingText } from "@/lib/booking/bookingUiText";
+import { useUserLanguage } from "@/lib/users/language";
+import { useCurrentUser } from "@/lib/users/useCurrentUser";
 
 export default function CreateBookingPage() {
+  const currentUser = useCurrentUser();
+  const { locale } = useUserLanguage(currentUser);
+  const t = (text: string) => bookingText(locale, text);
   const [editorKey, setEditorKey] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -22,10 +28,12 @@ export default function CreateBookingPage() {
     const data = await res.json().catch(() => null);
 
     if (!res.ok || !data?.ok) {
-      throw new Error(data?.message || data?.reason || "Failed to create order");
+      throw new Error(
+        data?.message || data?.reason || t("failed to create order"),
+      );
     }
 
-    setSuccessMessage(`Order created (${data.displayId ?? data.orderId})`);
+    setSuccessMessage(`${t("Order created")} (${data.displayId ?? data.orderId})`);
     setEditorKey((prev) => prev + 1);
 
     window.setTimeout(() => {
@@ -36,12 +44,16 @@ export default function CreateBookingPage() {
   return (
     <div className="mx-auto w-full max-w-[1600]">
       {successMessage ? (
-        <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-          {successMessage}
-        </div>
+        <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">{successMessage}</div>
       ) : null}
 
-      <BookingEditor key={editorKey} onSubmit={handleCreateOrder} />
+      <BookingEditor
+        key={editorKey}
+        onSubmit={handleCreateOrder}
+        showCapacityDetails={true}
+        locale={locale}
+        isOrderCreator={false}
+      />
     </div>
   );
 }

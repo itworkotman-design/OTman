@@ -6,6 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import FeatureRequestModal from "@/app/_components/Dahsboard/FeatureRequestModal";
+import { bookingText } from "@/lib/booking/bookingUiText";
+import { useUserLanguage } from "@/lib/users/language";
+import LanguageSwitchButton from "@/app/_components/Users/LanguageSwitchButton";
 
 type Props = {
   open: boolean;
@@ -64,6 +67,7 @@ const ICONS = {
 
 export default function Sidebar({ open, width, onOpenChange }: Props) {
   const currentUser = useCurrentUser();
+  const { locale } = useUserLanguage(currentUser);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -135,59 +139,75 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
           </div>
 
           <h1 className="text-right lg:text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
-            General
+            {bookingText(locale, "General")}
           </h1>
 
           <Link href="/dashboard" className={linkClass("/dashboard")}>
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.home} />
-              Home
+              {bookingText(locale, "Home")}
             </div>
           </Link>
 
           <Link href="/dashboard/booking" className={linkClass("/dashboard/booking")}>
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.booking} />
-              Booking system
+              {bookingText(locale, "Booking system")}
             </div>
           </Link>
 
           <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.users} />
-              User management
+              {bookingText(locale, "User management")}
             </div>
           </Link>
 
-          <Link href="/" className={linkClass("/") + ` hidden`}>
+          <Link href="/" className={linkClass("/dashboard/website") + ` ` + `hidden`}>
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.home} />
-              Edit website
+              {bookingText(locale, "Edit website")}
             </div>
           </Link>
 
-          <Link href="https://beta.cphours.no/" className={linkClass("/") + ``} target="_blank">
+          <Link href="/" className={linkClass("/dashboard/archive") + ` ` + `hidden`}>
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.hours} />
-              Custom Hours
+              <Icon path={ICONS.home} />
+              {bookingText(locale, "Archive")}
             </div>
           </Link>
+
+          <Link
+            href="https://beta.cphours.no/"
+            className="flex w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-right md:text-left bg-transparent hover:bg-linePrimary"
+            target="_blank"
+          >
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+              <Icon path={ICONS.hours} />
+              {bookingText(locale, "Custom Hours")}
+            </div>
+          </Link>
+
+          <LanguageSwitchButton
+            currentUser={currentUser}
+            className={`${linkBase} mt-20 cursor-pointer items-center gap-2 text-left hover:bg-linePrimary text-weird-landscape`}
+          />
 
           <button
             type="button"
             onClick={() => setRequestModalOpen(true)}
-            className={`${linkBase} mt-20 cursor-pointer text-left hover:bg-linePrimary text-weird-landscape`}
+            className={`${linkBase} mt-2 cursor-pointer text-left hover:bg-linePrimary text-weird-landscape`}
           >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">Request new function / bug fix</div>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">{bookingText(locale, "Request new function / bug fix")}</div>
           </button>
 
           <button type="button" onClick={handleLogout} className={`${linkBase} mt-2 cursor-pointer text-left hover:bg-linePrimary text-weird-landscape`}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">Log out</div>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">{bookingText(locale, "log out")}</div>
           </button>
         </div>
       </div>
 
-      <FeatureRequestModal open={requestModalOpen} onClose={() => setRequestModalOpen(false)} onSubmit={(payload) => {}} />
+      <FeatureRequestModal open={requestModalOpen} onClose={() => setRequestModalOpen(false)} onSubmit={() => {}} />
     </div>
   );
 }

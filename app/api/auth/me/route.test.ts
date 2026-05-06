@@ -100,6 +100,7 @@ describe("GET /api/auth/me", () => {
         username: "User One",
         logoPath: "/uploads/user-logos/user-1/logo.webp",
         usernameDisplayColor: "#112233",
+        languagePreference: null,
         status: "ACTIVE",
       },
       session: {
@@ -217,6 +218,7 @@ describe("GET /api/auth/me", () => {
         username: "User One",
         logoPath: null,
         usernameDisplayColor: null,
+        languagePreference: null,
         status: "ACTIVE",
       },
       session: {
@@ -293,6 +295,7 @@ describe("GET /api/auth/me", () => {
         username: "User One",
         logoPath: null,
         usernameDisplayColor: null,
+        languagePreference: null,
         status: "ACTIVE",
       },
       session: {
@@ -371,6 +374,7 @@ describe("GET /api/auth/me", () => {
         username: "User One",
         logoPath: null,
         usernameDisplayColor: null,
+        languagePreference: null,
         status: "ACTIVE",
       },
       session: {
