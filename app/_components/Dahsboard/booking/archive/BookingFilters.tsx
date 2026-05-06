@@ -29,6 +29,8 @@ type Props = {
   onApply: (filters: BookingArchiveFilters) => void;
   onReset: () => void;
   onRefresh?: () => void;
+  onDownloadVisibleTable?: () => void;
+  downloadVisibleTableDisabled?: boolean;
   locale?: BookingUiLocale;
 };
 
@@ -155,6 +157,8 @@ export default function BookingFilters({
   creators,
   onApply,
   onReset,
+  onDownloadVisibleTable,
+  downloadVisibleTableDisabled = false,
   locale = "en",
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
@@ -300,18 +304,10 @@ export default function BookingFilters({
 
   return (
     <section className="w-full">
-      <div className="customContainer w-full max-w-[1000]">
-        <div
-          className={`grid grid-cols-1 gap-3 ${
-            access.canFilterSubcontractor ? "md:grid-cols-3" : "md:grid-cols-2"
-          }`}
-        >
+      <div className="customContainer w-full max-w-[1000] padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[700] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
+        <div className={`grid grid-cols-1 gap-3 ${access.canFilterSubcontractor ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
           <Field label={t("Status")}>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="customInput w-full"
-            >
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput padding-weird-landscape text-weird-landscape w-full">
               <option value="">{t("All statuses")}</option>
               <option value="processing">{bookingStatusText(locale, "processing")}</option>
               <option value="confirmed">{bookingStatusText(locale, "confirmed")}</option>
@@ -329,7 +325,7 @@ export default function BookingFilters({
               <select
                 value={createdById}
                 onChange={(e) => setCreatedById(e.target.value)}
-                className="customInput w-full"
+                className="customInput padding-weird-landscape text-weird-landscape w-full"
               >
                 <option value="">{t("All stores")}</option>
                 {creators.map((item) => (
@@ -346,7 +342,7 @@ export default function BookingFilters({
               <select
                 value={subcontractorId}
                 onChange={(e) => setSubcontractorId(e.target.value)}
-                className="customInput w-full"
+                className="customInput padding-weird-landscape text-weird-landscape w-full"
               >
                 <option value="">{t("All subcontractors")}</option>
                 {subcontractors.map((item) => (
@@ -365,41 +361,29 @@ export default function BookingFilters({
               <button
                 type="button"
                 onClick={() => setDatePickerOpen((current) => !current)}
-                className="customInput flex w-full items-center justify-between text-left"
+                className="customInput padding-weird-landscape text-weird-landscape flex w-full items-center justify-between text-left"
               >
-                <span className={fromDate ? "text-black" : "text-neutral-500"}>
-                  {rangeLabel}
-                </span>
-                <span className="text-xs text-neutral-500">
-                  {datePickerOpen ? t("Close") : t("Select")}
-                </span>
+                <span className={fromDate ? "text-black" : "text-neutral-500"}>{rangeLabel}</span>
+                <span className="text-xs text-neutral-500 text-weird-landscape">{datePickerOpen ? t("Close") : t("Select")}</span>
               </button>
 
               {datePickerOpen ? (
-                <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-full rounded-xl border border-black/10 bg-white p-3 shadow-xl">
-                  <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-full rounded-xl border border-black/10 bg-white p-3 shadow-xl padding-weird-landscape">
+                  <div className="mb-3 flex items-center justify-between gap-2 margin-weird-landscape text-weird-landscape">
                     <button
                       type="button"
-                      onClick={() =>
-                        setVisibleMonth((current) => addMonths(current, -1))
-                      }
-                      className="customButtonDefault h-9 px-3!"
+                      onClick={() => setVisibleMonth((current) => addMonths(current, -1))}
+                      className="customButtonDefault h-9 px-3 padding-weird-landscape height-weird-landscape"
                     >
                       {t("Previous")}
                     </button>
-                    <button
-                      type="button"
-                      onClick={clearDateRange}
-                      className="customButtonDefault h-9 px-3!"
-                    >
+                    <button type="button" onClick={clearDateRange} className="customButtonDefault h-9 px-3 padding-weird-landscape height-weird-landscape">
                       {t("Clear dates")}
                     </button>
                     <button
                       type="button"
-                      onClick={() =>
-                        setVisibleMonth((current) => addMonths(current, 1))
-                      }
-                      className="customButtonDefault h-9 px-3!"
+                      onClick={() => setVisibleMonth((current) => addMonths(current, 1))}
+                      className="customButtonDefault h-9 px-3 padding-weird-landscape height-weird-landscape"
                     >
                       {t("Next")}
                     </button>
@@ -407,15 +391,12 @@ export default function BookingFilters({
 
                   <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                     {calendars.map((month) => (
-                      <div
-                        key={toIsoDate(month)}
-                        className="rounded-lg border border-black/5 p-2"
-                      >
-                        <div className="mb-2 text-center text-sm font-semibold capitalize text-logoblue">
+                      <div key={toIsoDate(month)} className="rounded-lg border border-black/5 p-2">
+                        <div className="mb-2 text-center text-sm font-semibold capitalize text-logoblue text-weird-landscape">
                           {getMonthLabel(month, locale)}
                         </div>
 
-                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-neutral-500">
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-neutral-500 text-weird-landscape">
                           {WEEKDAY_LABELS[locale].map((label) => (
                             <div key={label} className="py-1">
                               {label}
@@ -425,27 +406,18 @@ export default function BookingFilters({
 
                         <div className="grid grid-cols-7 gap-1">
                           {buildCalendarDays(month).map((day) => {
-                            const inRange = isIsoWithinRange(
-                              day.iso,
-                              fromDate,
-                              toDate,
-                            );
-                            const isBoundary = isRangeBoundary(
-                              day.iso,
-                              fromDate,
-                              toDate,
-                            );
-                            const isPendingStart =
-                              fromDate === day.iso && !toDate;
+                            const inRange = isIsoWithinRange(day.iso, fromDate, toDate);
+                            const isBoundary = isRangeBoundary(day.iso, fromDate, toDate);
+                            const isPendingStart = fromDate === day.iso && !toDate;
 
                             return (
                               <button
                                 key={day.iso}
                                 type="button"
                                 onClick={() => handleDaySelect(day.iso)}
-                                className={`h-10 rounded-md text-sm transition ${
+                                className={`h-10 rounded-md text-sm transition height-weird-landscape text-weird-landscape ${
                                   isBoundary || isPendingStart
-                                    ? "bg-logoblue text-white"
+                                    ? "bg-logoblue! text-white font-bold "
                                     : inRange
                                       ? "bg-logoblue/10 text-logoblue"
                                       : day.inCurrentMonth
@@ -467,44 +439,40 @@ export default function BookingFilters({
           </Field>
 
           <div className="flex items-end gap-2 md:flex-nowrap">
-            <button
-              type="button"
-              onClick={setToday}
-              className="customButtonDefault h-10 whitespace-nowrap px-3!"
-            >
+            <button type="button" onClick={setToday} className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape">
               {t("Today")}
             </button>
             <button
               type="button"
               onClick={setTomorrow}
-              className="customButtonDefault h-10 whitespace-nowrap px-3!"
+              className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
             >
               {t("Tomorrow")}
             </button>
             <button
               type="button"
               onClick={setThisWeek}
-              className="customButtonDefault h-10 whitespace-nowrap px-3!"
+              className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
             >
               {t("This week")}
             </button>
             <button
               type="button"
               onClick={setThisMonth}
-              className="customButtonDefault h-10 whitespace-nowrap px-3!"
+              className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
             >
               {t("This month")}
             </button>
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
           <Field label={t("Search")}>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("Search ID, name, phone, order no...")}
-              className="customInput w-full"
+              className="customInput w-full padding-weird-landscape text-weird-landscape"
             />
           </Field>
 
@@ -528,16 +496,16 @@ export default function BookingFilters({
                     setRowsPerPage(DEFAULT_BOOKING_ARCHIVE_FILTERS.rowsPerPage);
                   }
                 }}
-                className="customInput w-full"
+                className="customInput w-full text-weird-landscape padding-weird-landscape"
                 placeholder={t("Type any number")}
               />
-              <div className="flex flex-wrap gap-2">
-                {[10, 25, 50, 100, 250, 500].map((n) => (
+              <div className="flex flex-wrap gap-2 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
+                {[10, 25, 50, 100, 250].map((n) => (
                   <button
                     key={n}
                     type="button"
                     onClick={() => setRowsPerPage(n)}
-                    className="customButtonDefault mx-auto h-8 px-2! text-xs"
+                    className="customButtonDefault mx-auto h-8 px-2 text-xs text-weird-landscape padding-weird-landscape height-weird-landscape"
                   >
                     {n}
                   </button>
@@ -550,16 +518,30 @@ export default function BookingFilters({
             <button
               type="button"
               onClick={handleReset}
-              className="customButtonEnabled h-10"
+              className="customButtonEnabled h-10 text-weird-landscape padding-weird-landscape height-weird-landscape"
             >
               {t("Reset Filters")}
             </button>
           </div>
         </div>
       </div>
+      <div className="mt-4 margin-weird-landscape">
+        {onDownloadVisibleTable ? (
+          <button
+            type="button"
+            onClick={onDownloadVisibleTable}
+            disabled={downloadVisibleTableDisabled}
+            className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
+          >
+            Last ned table
+          </button>
+        ) : null}
+      </div>
     </section>
   );
+  
 }
+
 
 function Field({
   label,
@@ -572,7 +554,7 @@ function Field({
 }) {
   return (
     <label className={`block min-w-0 ${className}`}>
-      <span className="mb-1 block text-xs font-medium text-neutral-600">
+      <span className="mb-1 block text-xs font-medium text-neutral-600 text-weird-landscape">
         {label}
       </span>
       {children}

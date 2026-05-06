@@ -276,3 +276,39 @@ p, ul, li, a, td {
 button{
   cursor: pointer;
 }
+
+@layer utilities {
+  .text-weird-landscape-large {
+    @media (orientation: landscape) and (max-height: 800px) and (min-width: 900px) {
+      font-size: clamp(0.6rem, 2vh, 1rem) !important;
+    }
+  }
+  .text-weird-landscape {
+    @media (orientation: landscape) and (max-height: 800px) and (min-width: 900px) {
+      font-size: clamp(0.2rem, 1.6vh, 1rem) !important;
+    }
+  }
+  .padding-weird-landscape {
+    @media (orientation: landscape) and (max-height: 800px) and (min-width: 900px) {
+      padding-top: 0.25rem !important;
+      padding-bottom: 0.25rem !important;
+    }
+  }
+  .gap-weird-landscape {
+    @media (orientation: landscape) and (max-height: 800px) and (min-width: 900px) {
+      gap: 0.5rem !important;
+    }
+  }
+
+  .margin-weird-landscape{
+    @media (orientation: landscape) and (max-height: 800px) and (min-width: 900px) {
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
+    } 
+  }
+  .height-weird-landscape{
+    @media (orientation: landscape) and (max-height: 800px) and (min-width: 900px) {
+      height: 1.5rem !important;
+    }
+  }
+}

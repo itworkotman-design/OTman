@@ -1,0 +1,17 @@
+# Prisma Schema
+
+## Source
+
+- `prisma/schema.prisma`
+
+## Responsibility
+
+Defines the application database models and relations used by Prisma Client.
+
+## Functions
+
+This file does not define functions.
+
+## Notes
+
+- `Order.orderCreatorEmailReadAt` stores when an order creator last marked admin replies as read, without clearing admin-facing inbound mail alerts.

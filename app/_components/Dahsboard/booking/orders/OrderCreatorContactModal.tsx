@@ -134,6 +134,8 @@ export default function OrderCreatorContactModal({ open, order, onClose, onConve
   const [expandedMessageIds, setExpandedMessageIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [markReadLoading, setMarkReadLoading] = useState(false);
+  const [markReadError, setMarkReadError] = useState("");
 
   const [subject, setSubject] = useState("");
   const [messageText, setMessageText] = useState("");
@@ -150,6 +152,7 @@ export default function OrderCreatorContactModal({ open, order, onClose, onConve
     setSubject(order.orderNumber ? `Order ${order.displayId} | ${order.orderNumber}` : `Order ${order.displayId}`);
     setMessageText("");
     setSendError("");
+    setMarkReadError("");
     setError("");
   }, [open, order]);
 
@@ -241,6 +244,37 @@ export default function OrderCreatorContactModal({ open, order, onClose, onConve
     }
   }
 
+  async function handleMarkAsRead() {
+    if (!order?.id) return;
+
+    try {
+      setMarkReadLoading(true);
+      setMarkReadError("");
+
+      const response = await fetch(`/api/orders/${order.id}/contact`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        reason?: string;
+      } | null;
+
+      if (!response.ok || !data?.ok) {
+        setMarkReadError(data?.reason || "Kunne ikke markere som lest");
+        return;
+      }
+
+      await loadConversation(order.id);
+      onConversationChanged?.();
+    } catch {
+      setMarkReadError("Kunne ikke markere som lest");
+    } finally {
+      setMarkReadLoading(false);
+    }
+  }
+
   function toggleMessageExpansion(messageId: string) {
     setExpandedMessageIds((current) => (current.includes(messageId) ? current.filter((id) => id !== messageId) : [...current, messageId]));
   }
@@ -318,7 +352,28 @@ export default function OrderCreatorContactModal({ open, order, onClose, onConve
               ) : (
                 <>
                   <div className="rounded-2xl border border-black/10 bg-white px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-textColorThird"></div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-textColorThird">
+                      <div>
+                        {conversation?.needsEmailAttention
+                          ? "Ulest svar fra admin"
+                          : "Ingen uleste svar"}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleMarkAsRead}
+                        disabled={
+                          markReadLoading || !conversation?.needsEmailAttention
+                        }
+                        className="customButtonDefault h-9 disabled:opacity-50! disabled:cursor-auto!"
+                      >
+                        {markReadLoading ? "Markerer..." : "Marker som lest"}
+                      </button>
+                    </div>
+                    {markReadError ? (
+                      <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {markReadError}
+                      </div>
+                    ) : null}
                   </div>
 
                   {conversation?.messages.length ? (

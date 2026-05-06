@@ -369,6 +369,10 @@ const orderCreatorColumns: BookingArchiveColumn[] = [
     getExportValue: (row) => formatCell(row.status),
   },
   {
+    id: "mail",
+    label: "Alerts",
+  },
+  {
     id: "statusNotes",
     label: "Status notes",
     exportHeader: "Status notes",

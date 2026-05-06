@@ -95,49 +95,30 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
   }
 
   return (
-    <div
-      style={{ width }}
-      className={`h-full lg:bg-linePrimary ${open ? "w-full" : "w-10"}`}
-    >
+    <div style={{ width }} className={`h-full lg:bg-linePrimary ${open ? "w-full" : "w-10"}`}>
       <div className="flex py-4">
         {/* Desktop toggle */}
-        <button
-          onClick={() => onOpenChange(!open)}
-          className="ml-auto hidden cursor-pointer px-2 hover:text-textcolor lg:block"
-        >
+        <button onClick={() => onOpenChange(!open)} className="ml-auto hidden cursor-pointer px-2 hover:text-textcolor lg:block">
           <Icon path={open ? ICONS.sidebarOpen : ICONS.sidebarClose} />
         </button>
 
         {/* Mobile toggle */}
-        <button
-          onClick={() => onOpenChange(!open)}
-          className="ml-auto cursor-pointer hover:text-textcolor lg:hidden"
-        >
+        <button onClick={() => onOpenChange(!open)} className="ml-auto cursor-pointer hover:text-textcolor lg:hidden">
           <Icon path={ICONS.hamburger} />
         </button>
       </div>
 
       <div className={open ? "" : "hidden"}>
         <div className="flex justify-center">
-          <Image
-            src="/LogoSVG.svg"
-            alt="Logo"
-            width={116}
-            height={50}
-            className="h-auto w-full max-w-[200]"
-          />
+          <Image src="/LogoSVG.svg" alt="Logo" width={116} height={50} className="h-auto w-full max-w-[200]" />
         </div>
 
-        <div className="px-4">
-          <div className="mt-6 flex border-b border-lineSecondary px-2 py-1 pb-4">
+        <div className="px-4 padding-weird-landscape">
+          <div className="mt-6 flex border-b border-lineSecondary px-2 py-1 pb-4 padding-weird-landscape">
             <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
               {currentUser?.logoPath ? (
                 currentUser.logoPath.endsWith(".svg") ? (
-                  <Image
-                    src={currentUser.logoPath}
-                    alt={`${currentUser.username || currentUser.email} logo`}
-                    className="h-8 w-8 shrink-0 object-contain"
-                  />
+                  <Image src={currentUser.logoPath} alt={`${currentUser.username || currentUser.email} logo`} className="h-8 w-8 shrink-0 object-contain" />
                 ) : (
                   <Image
                     src={currentUser.logoPath}
@@ -148,48 +129,39 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
                   />
                 )
               ) : null}
-              <h1
-                className="wrap-break-word font-medium text-logoblue"
-                style={usernameStyle}
-              >
+              <h1 className="wrap-break-word font-medium text-logoblue text-weird-landscape" style={usernameStyle}>
                 {currentUser?.username ?? currentUser?.email ?? "error"}
               </h1>
             </div>
           </div>
 
-          <h1 className="text-right lg:text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond">
+          <h1 className="text-right lg:text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
             General
           </h1>
 
           <Link href="/dashboard" className={linkClass("/dashboard")}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.home} />
               Home
             </div>
           </Link>
 
-          <Link
-            href="/dashboard/booking"
-            className={linkClass("/dashboard/booking")}
-          >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+          <Link href="/dashboard/booking" className={linkClass("/dashboard/booking")}>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.booking} />
               Booking system
             </div>
           </Link>
 
-          <Link
-            href="/dashboard/users"
-            className={linkClass("/dashboard/users")}
-          >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+          <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.users} />
               User management
             </div>
           </Link>
 
           <Link href="/" className={linkClass("/") + ` hidden`}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.home} />
               Edit website
             </div>
@@ -198,30 +170,18 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
           <button
             type="button"
             onClick={() => setRequestModalOpen(true)}
-            className={`${linkBase} mt-20 cursor-pointer text-left hover:bg-linePrimary`}
+            className={`${linkBase} mt-20 cursor-pointer text-left hover:bg-linePrimary text-weird-landscape`}
           >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
-              Request new function / bug fix
-            </div>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">Request new function / bug fix</div>
           </button>
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            className={`${linkBase} mt-2 cursor-pointer text-left hover:bg-linePrimary`}
-          >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
-              Log out
-            </div>
+          <button type="button" onClick={handleLogout} className={`${linkBase} mt-2 cursor-pointer text-left hover:bg-linePrimary text-weird-landscape`}>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">Log out</div>
           </button>
         </div>
       </div>
 
-      <FeatureRequestModal
-        open={requestModalOpen}
-        onClose={() => setRequestModalOpen(false)}
-        onSubmit={(payload) => {}}
-      />
+      <FeatureRequestModal open={requestModalOpen} onClose={() => setRequestModalOpen(false)} onSubmit={(payload) => {}} />
     </div>
   );
 }

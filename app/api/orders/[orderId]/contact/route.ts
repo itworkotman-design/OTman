@@ -30,6 +30,30 @@ function appendThreadToken(message: string, token: string) {
   return `${trimmed}\n\n[OTMAN:${token}]`;
 }
 
+function getOrderCreatorEmailAttention(order: {
+  lastInboundEmailAt: Date | null;
+  lastOutboundEmailAt: Date | null;
+  orderCreatorEmailReadAt: Date | null;
+}) {
+  if (!order.lastOutboundEmailAt) {
+    return {
+      needsEmailAttention: false,
+      unreadInboundEmailCount: 0,
+    };
+  }
+
+  const lastInboundTime = order.lastInboundEmailAt?.getTime() ?? 0;
+  const lastOutboundTime = order.lastOutboundEmailAt.getTime();
+  const readTime = order.orderCreatorEmailReadAt?.getTime() ?? 0;
+  const hasUnreadAdminReply =
+    lastOutboundTime > lastInboundTime && lastOutboundTime > readTime;
+
+  return {
+    needsEmailAttention: hasUnreadAdminReply,
+    unreadInboundEmailCount: hasUnreadAdminReply ? 1 : 0,
+  };
+}
+
 async function getMembership(session: { userId: string; activeCompanyId: string | null }) {
   if (!session.activeCompanyId) return null;
 
@@ -104,6 +128,7 @@ export async function GET(req: Request, { params }: RouteContext) {
       unreadInboundEmailCount: true,
       lastInboundEmailAt: true,
       lastOutboundEmailAt: true,
+      orderCreatorEmailReadAt: true,
       emailMessages: {
         orderBy: {
           createdAt: "desc",
@@ -147,8 +172,12 @@ export async function GET(req: Request, { params }: RouteContext) {
       defaultRecipientEmail: "",
       defaultRecipientName: "",
       threadToken: order.emailThreadToken ?? "",
-      needsEmailAttention: order.needsEmailAttention,
-      unreadInboundEmailCount: order.unreadInboundEmailCount,
+      needsEmailAttention: isOrderCreator
+        ? getOrderCreatorEmailAttention(order).needsEmailAttention
+        : order.needsEmailAttention,
+      unreadInboundEmailCount: isOrderCreator
+        ? getOrderCreatorEmailAttention(order).unreadInboundEmailCount
+        : order.unreadInboundEmailCount,
       lastInboundEmailAt: order.lastInboundEmailAt,
       lastOutboundEmailAt: order.lastOutboundEmailAt,
       messages: order.emailMessages.map((message) => ({
@@ -303,6 +332,60 @@ export async function POST(req: Request, { params }: RouteContext) {
         lastInboundEmailAt: now,
       },
     });
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(req: Request, { params }: RouteContext) {
+  const session = await getAuthenticatedSession(req);
+
+  if (!session) {
+    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  if (!session.activeCompanyId) {
+    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
+  }
+
+  const membership = await getMembership(session);
+
+  if (!membership) {
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
+  }
+
+  const permissions = membership.permissions.map((item): AppPermission => item.permission);
+  const isAdminOrOwner = membership.role === "OWNER" || membership.role === "ADMIN";
+  const isOrderCreator = canCreateOrders(membership.role, permissions);
+
+  if (isAdminOrOwner || !isOrderCreator) {
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
+  }
+
+  const { orderId } = await params;
+
+  const order = await prisma.order.findFirst({
+    where: {
+      id: orderId,
+      companyId: session.activeCompanyId,
+      OR: [{ customerMembershipId: membership.id }, { createdByMembershipId: membership.id }],
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!order) {
+    return NextResponse.json({ ok: false, reason: "ORDER_NOT_FOUND" }, { status: 404 });
+  }
+
+  await prisma.order.update({
+    where: {
+      id: order.id,
+    },
+    data: {
+      orderCreatorEmailReadAt: new Date(),
+    },
   });
 
   return NextResponse.json({ ok: true });

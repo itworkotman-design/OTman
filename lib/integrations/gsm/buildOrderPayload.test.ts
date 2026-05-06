@@ -68,6 +68,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     emailThreadToken: null,
     lastInboundEmailAt: null,
     lastOutboundEmailAt: null,
+    orderCreatorEmailReadAt: null,
     needsEmailAttention: false,
     unreadInboundEmailCount: 0,
     lastNotificationAt: null,
@@ -78,6 +79,9 @@ function buildOrder(overrides?: Partial<Order>): Order {
     legacyWordpressOrderId: null,
     legacyWordpressAuthorId: null,
     legacyWordpressRawMeta: null,
+    completedAt: null,
+    gdprAnonymized: false,
+    gdprDeletedAt: null,
     ...overrides,
   };
 }

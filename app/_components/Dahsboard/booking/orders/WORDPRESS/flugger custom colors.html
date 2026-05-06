@@ -4,16 +4,14 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!userEls.length) return;
 
   const isFlugger = Array.from(userEls).some(el =>
-    (el.textContent || '').toLowerCase().trim().includes('flugger 028')
+    (el.textContent || '').toLowerCase().includes('flugger')
   );
 
   if (!isFlugger) return;
 
-  // Hide logo
   const icon = document.querySelector('.elementor-element-c114e45');
   if (icon) icon.style.display = 'none';
 
-  // Force blue text
   const style = document.createElement('style');
   style.innerHTML = `
     .sidebar-username,

@@ -91,10 +91,6 @@ function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
-function normalizeEmailAddress(value: string) {
-  return value.trim().toLowerCase();
-}
-
 function buildFailedConversationBody(message: string, reason: string) {
   const sections = ["Email failed to send.", `Reason: ${reason}`];
 
@@ -188,6 +184,7 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
       lastOutboundEmailAt: order.lastOutboundEmailAt,
       messages: messages.map((message) => ({
         id: message.id,
+        source: message.source,
         direction: message.direction,
         status: message.status,
         subject: message.subject,
@@ -325,17 +322,25 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       createdAt: "asc",
     },
     select: {
-      direction: true,
-      externalMessageId: true,
-      subject: true,
-      bodyText: true,
-      bodyHtml: true,
-      fromEmail: true,
-      fromName: true,
-      createdAt: true,
-    },
+    direction: true,
+    source: true,
+    externalMessageId: true,
+    subject: true,
+    bodyText: true,
+    bodyHtml: true,
+    fromEmail: true,
+    fromName: true,
+    toEmail: true,
+    toName: true,
+    createdAt: true,
+  },
   });
 
+  const latestInboundMessage = [...existingMessages]
+  .reverse()
+  .find((item) => item.direction === "INBOUND");
+
+  const shouldIncludeAppHistory = latestInboundMessage?.source === "APP";
   const threadToken = order.emailThreadToken || createOrderEmailThreadToken();
   const senderEmail = process.env.BREVO_SENDER_EMAIL || "bestilling@otman.no";
   const senderName = process.env.BREVO_SENDER_NAME || "Otman Transport";
@@ -363,12 +368,23 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
     .map((item) => (typeof item.externalMessageId === "string" ? item.externalMessageId.trim() : ""))
     .filter((item) => item.length > 0)
     .slice(-10);
-  const replyContext = null;
+  const latestInboundForContext = latestInboundMessage;
+
+  const replyContext =
+    shouldIncludeAppHistory && latestInboundForContext?.bodyText
+      ? {
+          bodyText: latestInboundForContext.bodyText,
+          personLabel: latestInboundForContext.fromName || latestInboundForContext.fromEmail || "Customer",
+          sentAtLabel: latestInboundForContext.createdAt.toLocaleString("nb-NO"),
+        }
+      : null;
+      
   const emailHtml = buildOrderConversationEmailHtml({
     messageText: message,
     orderLabel,
     threadToken,
     replyContext,
+
   });
   const emailText = buildOrderConversationEmailText({
     messageText: message,
@@ -411,6 +427,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         companyId: order.companyId,
         direction: "OUTBOUND",
         status: "SENT",
+        source: "APP",
         sentByMembershipId: auth.membership.id,
         externalMessageId: sendResult.messageId,
         subject: finalSubject,
@@ -463,6 +480,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         companyId: order.companyId,
         direction: "OUTBOUND",
         status: "FAILED",
+        source: "APP",
         sentByMembershipId: auth.membership.id,
         subject: finalSubject,
         bodyText: failedBodyText,

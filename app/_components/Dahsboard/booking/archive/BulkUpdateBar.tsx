@@ -57,25 +57,21 @@ export default function BulkUpdateBar({
   }
 
   return (
-    <section className="customContainer mt-3">
+    <section className="customContainer mt-3 margin-weird-landscape padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[700] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
       <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_1fr_auto_auto]">
         <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird">
-            Selected
-          </label>
-          <div className="customInput flex h-10 w-[60] items-center justify-center text-center">
+          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Selected</label>
+          <div className="customInput flex h-10 w-[60] items-center justify-center text-center text-weird-landscape height-weird-landscape">
             {selectedCount}
           </div>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird">
-            Status
-          </label>
+          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Status</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="customInput w-full"
+            className="customInput w-full text-weird-landscape padding-weird-landscape height-weird-landscape"
             disabled={loading}
           >
             <option value="">No status change</option>
@@ -91,13 +87,11 @@ export default function BulkUpdateBar({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird">
-            Subcontractor
-          </label>
+          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Subcontractor</label>
           <select
             value={subcontractorId}
             onChange={(e) => setSubcontractorId(e.target.value)}
-            className="customInput w-full"
+            className="customInput w-full text-weird-landscape padding-weird-landscape height-weird-landscape"
             disabled={loading}
           >
             <option value="">No subcontractor change</option>
@@ -113,32 +107,22 @@ export default function BulkUpdateBar({
           type="button"
           disabled={disabled || !canApply}
           onClick={handleApplyClick}
-          className={`h-10 disabled:opacity-50! disabled:cursor-auto! ${
-            successFlash
-              ? "customButtonEnabled bg-green-600!"
-              : "customButtonEnabled"
-          }`}
+          className={`h-10 disabled:opacity-50! disabled:cursor-auto! text-weird-landscape padding-weird-landscape height-weird-landscape ${successFlash ? "customButtonEnabled bg-green-600!" : "customButtonEnabled"}`}
         >
-          {loading
-            ? "Applying..."
-            : successFlash
-              ? "Updated"
-              : "Apply bulk update"}
+          {loading ? "Applying..." : successFlash ? "Updated" : "Apply bulk update"}
         </button>
 
         <button
           type="button"
           disabled={disabled}
           onClick={onClear}
-          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
+          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto! text-weird-landscape padding-weird-landscape height-weird-landscape"
         >
           Clear selection
         </button>
       </div>
 
-      {error ? (
-        <div className="mt-3 text-sm font-medium text-red-600">{error}</div>
-      ) : null}
+      {error ? <div className="mt-3 text-sm font-medium text-red-600">{error}</div> : null}
     </section>
   );
 }

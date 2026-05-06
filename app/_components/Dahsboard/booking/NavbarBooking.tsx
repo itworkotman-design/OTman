@@ -33,20 +33,15 @@ export const NavbarBooking = ({
           Navbar
         </button>
 
-        <div
-          className={[
-            "absolute left-0 top-full w-full bg-white z-50 shadow-md overflow-hidden",
-            open ? "py-6 rounded-b-2xl" : "max-h-0",
-          ].join(" ")}
-        >
+        <div className={["absolute left-0 top-full w-full bg-white z-50 shadow-md overflow-hidden", open ? "py-6 rounded-b-2xl" : "max-h-0"].join(" ")}>
           <div className="flex flex-col items-start gap-8 text-xl mx-5">
-            <NavLinks isExact={isExact} isStarts={isStarts} onNavigate={onClose}/>
+            <NavLinks isExact={isExact} isStarts={isStarts} onNavigate={onClose} />
           </div>
         </div>
       </div>
 
       {/* Desktop */}
-      <nav className="hidden lg:flex w-full lg:max-w-220 relative lg:left-1/2 lg:-translate-x-1/2 lg:py-4 lg:gap-6 shadow-md justify-center mb-8 rounded-b-2xl bg-white">
+      <nav className="hidden lg:flex w-full lg:max-w-220 relative lg:left-1/2 lg:-translate-x-1/2 lg:py-4 lg:gap-6 shadow-md justify-center mb-8 rounded-b-2xl bg-white padding-weird-landscape text-weird-landscape">
         <NavLinks isExact={isExact} isStarts={isStarts} onNavigate={onClose} />
       </nav>
     </>

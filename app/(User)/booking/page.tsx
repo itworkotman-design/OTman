@@ -10,6 +10,8 @@ import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 import { bookingText } from "@/lib/booking/bookingUiText";
 import  OrderCreatorContactModal  from "@/app/_components/Dahsboard/booking/orders/OrderCreatorContactModal";
+import { exportVisibleOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
+import { getDefaultVisibleBookingArchiveColumns } from "@/lib/booking/archiveColumns";
 
 
 type FilterOptionApiItem = {
@@ -153,6 +155,14 @@ export default function BookingPage() {
     void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
   }
 
+  function handleDownloadVisibleTable() {
+    void exportVisibleOrdersToExcel({
+      rows: orders,
+      viewMode: access.viewMode,
+      visibleColumnIds: getDefaultVisibleBookingArchiveColumns(access.viewMode),
+    });
+  }
+
   if (!currentUser) return null;
 
   return (
@@ -169,6 +179,12 @@ export default function BookingPage() {
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}
+          onDownloadVisibleTable={
+            access.viewMode === "ORDER_CREATOR"
+              ? handleDownloadVisibleTable
+              : undefined
+          }
+          downloadVisibleTableDisabled={loading || orders.length === 0}
           locale="nb"
         />
       </div>
@@ -208,14 +224,6 @@ export default function BookingPage() {
         onClose={() => {
           setModalOpen(false);
           setSelectedOrderId(null);
-        }}
-        onContactClick={() => {
-          const order = selectedOrderId ? (orders.find((order) => order.id === selectedOrderId) ?? null) : null;
-
-          if (!order) return;
-
-          setContactOrder(order);
-          setContactModalOpen(true);
         }}
       />
 

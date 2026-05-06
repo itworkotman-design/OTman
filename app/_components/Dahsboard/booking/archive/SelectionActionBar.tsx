@@ -168,27 +168,21 @@ export default function SelectionActionBar({
   }
 
   return (
-    <section className="customContainer mt-4 max-w-[1100]">
+    <section className="customContainer mt-4 max-w-[1100] padding-weird-landscape margin-weird-landscape text-weird-landscape padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[700] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
       <div className="grid items-start gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
         <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird">
-            Creator
-          </label>
+          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Creator</label>
           <select
             value={creatorId}
             onChange={(e) => {
               const nextCreatorId = e.target.value;
-              const nextCreator = creators.find(
-                (item) => item.id === nextCreatorId,
-              );
+              const nextCreator = creators.find((item) => item.id === nextCreatorId);
 
               setCreatorId(nextCreatorId);
               setSendToPrimaryEmail(false);
-              setSendToWarehouseEmail(
-                !!nextCreator?.warehouseEmail?.trim(),
-              );
+              setSendToWarehouseEmail(!!nextCreator?.warehouseEmail?.trim());
             }}
-            className="customInput w-full"
+            className="customInput w-full padding-weird-landscape"
             disabled={loading}
           >
             <option value="">Select creator...</option>
@@ -200,14 +194,12 @@ export default function SelectionActionBar({
           </select>
         </div>
 
-        <div >
-          <label className="mb-1 block text-xs font-medium text-textColorThird">
-            Email type
-          </label>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape padding">Email type</label>
           <select
             value={emailType}
             onChange={(e) => setEmailType(e.target.value as EmailType)}
-            className="customInput w-full"
+            className="customInput w-full  padding-weird-landscape"
             disabled={loading}
           >
             <option value="">Select type...</option>
@@ -219,11 +211,9 @@ export default function SelectionActionBar({
 
         {selectedCreator ? (
           <div>
-            <label className="mb-1 block text-xs font-medium text-textColorThird">
-              Recipients
-            </label>
+            <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Recipients</label>
             <div className="flex min-h-10 flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm text-weird-landscape">
                 <input
                   type="checkbox"
                   checked={sendToPrimaryEmail}
@@ -231,11 +221,11 @@ export default function SelectionActionBar({
                   onChange={(e) => setSendToPrimaryEmail(e.target.checked)}
                 />
                 <span>
-                  Send to 
+                  Send to
                   {primaryEmail ? ` - ${primaryEmail}` : " - no email set"}
                 </span>
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm text-weird-landscape ">
                 <input
                   type="checkbox"
                   checked={sendToWarehouseEmail}
@@ -243,10 +233,8 @@ export default function SelectionActionBar({
                   onChange={(e) => setSendToWarehouseEmail(e.target.checked)}
                 />
                 <span>
-                  Send to 
-                  {warehouseEmail
-                    ? ` - ${warehouseEmail}`
-                    : " - no warehouse email set"}
+                  Send to
+                  {warehouseEmail ? ` - ${warehouseEmail}` : " - no warehouse email set"}
                 </span>
               </label>
             </div>
@@ -255,14 +243,12 @@ export default function SelectionActionBar({
 
         {emailType === "custom" && (
           <div>
-            <label className="mb-1 block text-xs font-medium text-textColorThird">
-              Custom message
-            </label>
+            <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Custom message</label>
             <textarea
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
               rows={3}
-              className="customInput w-full resize-none"
+              className="customInput w-full resize-none padding-weird-landscape"
               placeholder="Write custom email message..."
             />
           </div>
@@ -272,11 +258,7 @@ export default function SelectionActionBar({
           type="button"
           disabled={disabled || !canSendEmail}
           onClick={handleSendEmailClick}
-          className={`mt-5 h-10 disabled:opacity-50! disabled:cursor-auto! ${
-            successFlash
-              ? "customButtonEnabled bg-green-600!"
-              : "customButtonEnabled"
-          }`}
+          className={`mt-5 h-10 disabled:opacity-50! disabled:cursor-auto! margin-weird-landscape height-weird-landscape ${successFlash ? "customButtonEnabled bg-green-600!" : "customButtonEnabled "}`}
         >
           {loading ? "Sending..." : successFlash ? "Sent" : "Send email"}
         </button>
@@ -287,24 +269,16 @@ export default function SelectionActionBar({
           type="button"
           disabled={disabled}
           onClick={handleSendGsmClick}
-          className={`h-10 disabled:opacity-50! disabled:cursor-auto! ${
-            gsmSuccessFlash
-              ? "customButtonEnabled bg-green-600!"
-              : "customButtonDefault"
-          }`}
+          className={`h-10 disabled:opacity-50! disabled:cursor-auto! height-weird-landscape ${gsmSuccessFlash ? "customButtonEnabled bg-green-600!" : "customButtonDefault"}`}
         >
-          {loading
-            ? "Sending..."
-            : gsmSuccessFlash
-              ? "Sent to GSM"
-              : "Send to GSM"}
+          {loading ? "Sending..." : gsmSuccessFlash ? "Sent to GSM" : "Send to GSM"}
         </button>
 
         <button
           type="button"
           disabled={disabled}
           onClick={onCopySelected}
-          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
+          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto! height-weird-landscape"
         >
           Copy selected
         </button>
@@ -313,36 +287,28 @@ export default function SelectionActionBar({
           type="button"
           disabled={disabled}
           onClick={onExportExcel}
-          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
+          className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto! height-weird-landscape"
         >
           Export Excel
         </button>
 
-        <button
-          type="button"
-          onClick={onManageColumns}
-          className="customButtonDefault h-10"
-        >
+        <button type="button" onClick={onManageColumns} className="customButtonDefault h-10 height-weird-landscape">
           Hide columns
         </button>
       </div>
 
       {gsmSuccessFlash ? (
-        <div className="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
+        <div className="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 text-weird-landscape">
           Selected orders were sent to GSM.
         </div>
       ) : null}
 
       {error ? (
-        <div className="mt-3 flex items-center gap-3 text-sm font-medium text-red-600">
+        <div className="mt-3 flex items-center gap-3 text-sm font-medium text-red-600 text-weird-landscape">
           <span>{error}</span>
 
           {showResendGsm && onResendGsm ? (
-            <button
-              type="button"
-              onClick={() => void onResendGsm()}
-              className="customButtonDefault h-8"
-            >
+            <button type="button" onClick={() => void onResendGsm()} className="customButtonDefault h-8">
               Resend anyway
             </button>
           ) : null}

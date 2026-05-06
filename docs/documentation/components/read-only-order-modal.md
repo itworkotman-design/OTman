@@ -50,4 +50,4 @@ Builds the printable order-details HTML, formats dates with the shared slash-dat
 Renders the calculator-style price panel in the read-only modal using the same row/container classes as the order modal calculator.
 
 ### `ReadOnlyOrderModal(props)`
-Renders the read-only modal. Subcontractor and order-creator views use the order-detail table plus calculator panel; other roles keep the previous details and totals layout.
+Renders the read-only modal. Subcontractor and order-creator views use the order-detail table plus calculator panel, order creators no longer get a separate contact button because contact opens from the archive alert column, and other roles keep the previous details and totals layout.

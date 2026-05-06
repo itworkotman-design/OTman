@@ -409,6 +409,7 @@ model Order {
   emailThreadToken                   String?             @unique
   lastInboundEmailAt                 DateTime?
   lastOutboundEmailAt                DateTime?
+  orderCreatorEmailReadAt            DateTime?
   needsEmailAttention                Boolean             @default(false)
   unreadInboundEmailCount            Int                 @default(0)
   expressDelivery                    Boolean             @default(false)

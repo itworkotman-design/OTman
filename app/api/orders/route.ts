@@ -120,6 +120,7 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   updatedAt: true,
   lastInboundEmailAt: true,
   lastOutboundEmailAt: true,
+  orderCreatorEmailReadAt: true,
   lastNotificationAt: true,
   needsEmailAttention: true,
   unreadInboundEmailCount: true,
@@ -303,6 +304,40 @@ function hasArchiveAlert(order: OrderArchiveRecord) {
     order.needsEmailAttention ||
     order.unreadInboundEmailCount > 0
   );
+}
+
+function getOrderCreatorEmailAttention(order: OrderArchiveRecord) {
+  if (!order.lastOutboundEmailAt) {
+    return {
+      needsEmailAttention: false,
+      unreadInboundEmailCount: 0,
+    };
+  }
+
+  const lastInboundTime = order.lastInboundEmailAt?.getTime() ?? 0;
+  const lastOutboundTime = order.lastOutboundEmailAt.getTime();
+  const readTime = order.orderCreatorEmailReadAt?.getTime() ?? 0;
+  const hasUnreadAdminReply =
+    lastOutboundTime > lastInboundTime && lastOutboundTime > readTime;
+
+  return {
+    needsEmailAttention: hasUnreadAdminReply,
+    unreadInboundEmailCount: hasUnreadAdminReply ? 1 : 0,
+  };
+}
+
+function getArchiveEmailAttention(
+  order: OrderArchiveRecord,
+  isOrderCreator: boolean,
+) {
+  if (isOrderCreator) {
+    return getOrderCreatorEmailAttention(order);
+  }
+
+  return {
+    needsEmailAttention: order.needsEmailAttention,
+    unreadInboundEmailCount: order.unreadInboundEmailCount,
+  };
 }
 
 function getDeliveryDateGroup(deliveryDate: string | null, todayDateKey: string) {
@@ -1174,6 +1209,7 @@ export async function GET(req: Request) {
       const storeLabel = assignedStore || legacyCreatedBy || createdBy;
       const latestEvent = order.events?.[0];
       const latestActionTitle = getLatestActionTitle(latestEvent?.payload);
+      const emailAttention = getArchiveEmailAttention(order, isOrderCreator);
 
       return {
         id: order.id,
@@ -1215,8 +1251,8 @@ export async function GET(req: Request) {
         lastInboundEmailAt: order.lastInboundEmailAt,
         lastOutboundEmailAt: order.lastOutboundEmailAt,
         lastNotificationAt: order.lastNotificationAt,
-        needsEmailAttention: order.needsEmailAttention,
-        unreadInboundEmailCount: order.unreadInboundEmailCount,
+        needsEmailAttention: emailAttention.needsEmailAttention,
+        unreadInboundEmailCount: emailAttention.unreadInboundEmailCount,
         needsNotificationAttention: order.needsNotificationAttention,
         unreadNotificationCount: order.unreadNotificationCount,
         priceExVat: order.priceExVat,

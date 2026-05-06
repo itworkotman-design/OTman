@@ -477,9 +477,11 @@ export default function BookingPage() {
 
   return (
     <div className="w-full">
-      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">Booking orders</h1>
+      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl text-weird-landscape-large margin-weird-landscape">
+        Booking orders
+      </h1>
 
-      <div className="flex flex-col gap-3 pb-4">
+      <div className="flex flex-col gap-3 pb-4 padding-weird-landscape">
         <BookingFilters
           key={`${filterPanelVersion}:${access.lockedCreatedById ?? ""}:${access.lockedSubcontractorId ?? ""}`}
           initialApplied={appliedFilters}

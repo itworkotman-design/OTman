@@ -13,19 +13,18 @@ import {
 type ExcelCellValue = string | number | boolean | null;
 type ExcelRow = Record<string, ExcelCellValue>;
 
-export async function exportOrdersToExcel({
+async function writeOrdersWorkbook({
   rows,
-  selectedIds,
   viewMode,
   visibleColumnIds,
+  filename,
 }: {
   rows: OrderRow[];
-  selectedIds: string[];
   viewMode: BookingArchiveViewMode;
   visibleColumnIds: BookingArchiveColumnId[];
+  filename: string;
 }) {
-  const selected = rows.filter((row) => selectedIds.includes(row.id));
-  if (selected.length === 0) return;
+  if (rows.length === 0) return;
 
   const exportColumns = getBookingArchiveExportColumns(viewMode, visibleColumnIds);
   if (exportColumns.length === 0) return;
@@ -41,7 +40,7 @@ export async function exportOrdersToExcel({
     width: column.exportWidth ?? 20,
   }));
 
-  selected.forEach((order) => {
+  rows.forEach((order) => {
     const row: ExcelRow = {};
 
     exportColumns.forEach((column) => {
@@ -109,6 +108,45 @@ export async function exportOrdersToExcel({
     new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }),
-    "orders.xlsx",
+    filename,
   );
+}
+
+export async function exportOrdersToExcel({
+  rows,
+  selectedIds,
+  viewMode,
+  visibleColumnIds,
+}: {
+  rows: OrderRow[];
+  selectedIds: string[];
+  viewMode: BookingArchiveViewMode;
+  visibleColumnIds: BookingArchiveColumnId[];
+}) {
+  const selectedIdSet = new Set(selectedIds);
+  const selected = rows.filter((row) => selectedIdSet.has(row.id));
+
+  await writeOrdersWorkbook({
+    rows: selected,
+    viewMode,
+    visibleColumnIds,
+    filename: "orders.xlsx",
+  });
+}
+
+export async function exportVisibleOrdersToExcel({
+  rows,
+  viewMode,
+  visibleColumnIds,
+}: {
+  rows: OrderRow[];
+  viewMode: BookingArchiveViewMode;
+  visibleColumnIds: BookingArchiveColumnId[];
+}) {
+  await writeOrdersWorkbook({
+    rows,
+    viewMode,
+    visibleColumnIds,
+    filename: "ordre-tabell.xlsx",
+  });
 }
