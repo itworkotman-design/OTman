@@ -10,6 +10,7 @@ import type {
 import {
   applyOrderPricingSnapshot,
   buildOrderPricingSnapshot,
+  type OrderPricingSnapshot,
   pricingSnapshotsEqual,
 } from "./snapshot";
 
@@ -42,6 +43,17 @@ function buildProduct(price: string): CatalogProduct {
         customerPrice: "500",
         subcontractorPrice: "200",
         effectiveCustomerPrice: price,
+        active: true,
+      },
+      {
+        id: "install-2",
+        code: "INSTALL2",
+        label: "Install 2",
+        description: "Install 2",
+        category: "install",
+        customerPrice: "999",
+        subcontractorPrice: "999",
+        effectiveCustomerPrice: "999",
         active: true,
       },
     ],
@@ -113,5 +125,97 @@ describe("order pricing snapshots", () => {
     });
 
     expect(pricingSnapshotsEqual(saved, current)).toBe(false);
+  });
+
+  it("compares price strings by cents", () => {
+    const card = buildCard();
+    const priceListSettings = createDefaultPriceListSettings();
+    const saved = buildOrderPricingSnapshot({
+      productCards: [card],
+      catalogProducts: [buildProduct("250")],
+      catalogSpecialOptions: specialOptions,
+      priceListSettings,
+    });
+    const current = buildOrderPricingSnapshot({
+      productCards: [card],
+      catalogProducts: [buildProduct("250.00")],
+      catalogSpecialOptions: specialOptions,
+      priceListSettings,
+    });
+
+    expect(pricingSnapshotsEqual(saved, current)).toBe(true);
+  });
+
+  it("treats numeric snapshot prices as cents", () => {
+    const card = buildCard();
+    const priceListSettings = createDefaultPriceListSettings();
+    const saved = buildOrderPricingSnapshot({
+      productCards: [card],
+      catalogProducts: [buildProduct("250")],
+      catalogSpecialOptions: specialOptions,
+      priceListSettings,
+    });
+    const current = buildOrderPricingSnapshot({
+      productCards: [card],
+      catalogProducts: [buildProduct("250")],
+      catalogSpecialOptions: specialOptions,
+      priceListSettings,
+    });
+    const savedWithNumericCents = {
+      ...saved,
+      productOptions: {
+        ...saved.productOptions,
+        "install-1": {
+          customerPrice: 50000,
+          subcontractorPrice: 20000,
+          effectiveCustomerPrice: 25000,
+        },
+      },
+    } as unknown as OrderPricingSnapshot;
+
+    expect(pricingSnapshotsEqual(savedWithNumericCents, current)).toBe(true);
+  });
+
+  it("only snapshots selected product options", () => {
+    const card = buildCard();
+    const priceListSettings = createDefaultPriceListSettings();
+    const snapshot = buildOrderPricingSnapshot({
+      productCards: [card],
+      catalogProducts: [buildProduct("300")],
+      catalogSpecialOptions: specialOptions,
+      priceListSettings,
+    });
+
+    expect(Object.keys(snapshot.productOptions)).toEqual(["install-1"]);
+  });
+
+  it("ignores unselected prices from older saved snapshots", () => {
+    const card = buildCard();
+    const priceListSettings = createDefaultPriceListSettings();
+    const saved = buildOrderPricingSnapshot({
+      productCards: [card],
+      catalogProducts: [buildProduct("300")],
+      catalogSpecialOptions: specialOptions,
+      priceListSettings,
+    });
+    const current = buildOrderPricingSnapshot({
+      productCards: [card],
+      catalogProducts: [buildProduct("300")],
+      catalogSpecialOptions: specialOptions,
+      priceListSettings,
+    });
+    const olderSavedSnapshot = {
+      ...saved,
+      productOptions: {
+        ...saved.productOptions,
+        "install-2": {
+          customerPrice: "100",
+          subcontractorPrice: "100",
+          effectiveCustomerPrice: "100",
+        },
+      },
+    };
+
+    expect(pricingSnapshotsEqual(olderSavedSnapshot, current)).toBe(true);
   });
 });

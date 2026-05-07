@@ -34,8 +34,8 @@ export type GsmOrderInput = Order & {
 
 const NO_PICKUP_ADDRESS = "no shop pickup address";
 const RETURN_LABELS_BY_CODE: Record<string, string> = {
-  RETURNSTORE: "Return to store",
-  RETURNREC: "Return to recycling station",
+  RETURNSTORE: "Retur til butikk",
+  RETURNREC: "Retur til gjenvinningsstasjon",
 };
 
 function normalizePhone(value?: string | null) {
@@ -164,6 +164,33 @@ function getRawDataCategory(rawData: unknown) {
   return typeof category === "string" ? category.trim().toLowerCase() : null;
 }
 
+function normalizeDeliveryTypeText(value?: string | null) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function isDropOffDeliveryType(value?: string | null) {
+  const deliveryType = normalizeDeliveryTypeText(value);
+
+  return (
+    deliveryType === "indoor" ||
+    deliveryType === "first_step" ||
+    deliveryType.includes("innb") ||
+    deliveryType.includes("første") ||
+    deliveryType.includes("forste") ||
+    deliveryType.includes("first step")
+  );
+}
+
+function isAssignmentDeliveryType(value?: string | null) {
+  const deliveryType = normalizeDeliveryTypeText(value);
+
+  return (
+    deliveryType === "install_only" ||
+    deliveryType.includes("install") ||
+    deliveryType.includes("montering")
+  );
+}
+
 function hasMontering(order: GsmOrderInput) {
   return (
     order.items?.some((item) =>
@@ -171,6 +198,26 @@ function hasMontering(order: GsmOrderInput) {
       getRawDataCategory(item.rawData) === "install",
     ) ?? false
   );
+}
+
+function getDeliveryTaskCategory(order: GsmOrderInput): GsmTask["category"] {
+  const productCardItems = order.items?.filter(
+    (item) => item.itemType === "PRODUCT_CARD",
+  ) ?? [];
+
+  if (productCardItems.some((item) => isDropOffDeliveryType(item.deliveryType))) {
+    return "drop_off";
+  }
+
+  if (
+    productCardItems.some((item) =>
+      isAssignmentDeliveryType(item.deliveryType),
+    )
+  ) {
+    return "assignment";
+  }
+
+  return hasMontering(order) ? "assignment" : "drop_off";
 }
 
 export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
@@ -234,7 +281,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   }
 
   if (order.deliveryAddress?.trim()) {
-    tasks.push(makeTask(hasMontering(order) ? "assignment" : "drop_off", order.deliveryAddress.trim(), customerContact));
+    tasks.push(makeTask(getDeliveryTaskCategory(order), order.deliveryAddress.trim(), customerContact));
   }
 
   if (order.returnAddress?.trim()) {

@@ -270,13 +270,67 @@ describe("buildOrderPayload", () => {
         servicesSummary: "",
       }),
       items: [
-        buildOrderItem(),
+        buildOrderItem({
+          deliveryType: "Kun Installasjon/Montering",
+        }),
         buildOrderItem({
           id: "item-2",
           itemType: "INSTALL_OPTION",
           optionCode: "INSWASH1",
           optionLabel: "Install service",
           rawData: { category: "install" },
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data.map((task) => task.category)).toEqual([
+      "assignment",
+    ]);
+  });
+
+  it("keeps innbaering as drop-off even when install options are selected", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+      items: [
+        buildOrderItem({
+          deliveryType: "Innbæring",
+        }),
+        buildOrderItem({
+          id: "item-2",
+          deliveryType: "Innbæring",
+          itemType: "INSTALL_OPTION",
+          optionCode: "INSWASH1",
+          optionLabel: "Install service",
+          rawData: { category: "install" },
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data.map((task) => task.category)).toEqual([
+      "drop_off",
+    ]);
+  });
+
+  it("uses assignment for install-only delivery type", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+      items: [
+        buildOrderItem({
+          deliveryType: "Kun Installasjon/Montering",
         }),
       ],
     });
@@ -333,7 +387,7 @@ describe("buildOrderPayload", () => {
       ],
     });
 
-    expect(payload.tasks_data[0]?.description).toContain("Return to store");
+    expect(payload.tasks_data[0]?.description).toContain("Retur til butikk");
     expect(payload.tasks_data[0]?.description).not.toContain(
       "Wrong saved return label",
     );
@@ -367,7 +421,7 @@ describe("buildOrderPayload", () => {
     });
 
     expect(payload.tasks_data[0]?.description).toContain(
-      "Return to recycling station",
+      "Retur til gjenvinningsstasjon",
     );
     expect(payload.tasks_data[0]?.description).not.toContain(
       "Wrong saved return label",
