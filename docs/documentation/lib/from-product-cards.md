@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Builds calculator-ready product breakdowns from saved product cards, including shared XTRA delivery pricing, the return-only rule that applies `RETURNIN` transport once per order to a deterministic primary return product, the guard that prevents return-only products from receiving `RETURNIN` or `XTRA` when indoor transport is already covered, the over-100-km rule that zeroes non-XTRA base delivery lines, imported install selections that must stay active even when no delivery type is selected on the card, and read-only WordPress price snapshots that preserve saved unit prices and quantities exactly.
+Builds calculator-ready product breakdowns from saved product cards, including shared XTRA delivery pricing where install-only can hold the main delivery price, install-only delivery-type pricing, visible custom-section pricing, the return-only rule that applies `RETURNIN` transport once per order to a deterministic primary return product, the guard that prevents return-only products from receiving `RETURNIN` or `XTRA` when indoor transport is already covered, the over-100-km rule that zeroes non-XTRA base delivery lines, imported install selections that must stay active even when no delivery type is selected on the card, and read-only WordPress price snapshots that preserve saved unit prices and quantities exactly.
 
 ## Functions
 
@@ -27,6 +27,6 @@ Builds calculator-ready product breakdowns from saved product cards, including s
 | `findDemontOption` | Finds the `DEMONT` option for products that support it. |
 | `getAmount` | Resolves the effective quantity for a product card. |
 | `getHoursInput` | Resolves the effective labor hours for labor products. |
-| `appendCustomSectionItems` | Appends custom-section priced options to the current card breakdown. |
-| `buildItemsForCard` | Builds all delivery, option, custom, and info lines for a single product card, including single-order `RETURNIN` pricing and install-only cards that only price selected install options. |
+| `appendCustomSectionItems` | Appends custom-section priced options to the current card breakdown when the section is visible for the selected delivery type. |
+| `buildItemsForCard` | Builds all delivery, option, custom, and info lines for a single product card, including single-order `RETURNIN` pricing and install-only delivery pricing. |
 | `buildProductBreakdowns` | Returns the final product breakdowns used by the booking calculator and pricing display, including read-only WordPress mismatch rows with saved quantities when a card carries an imported price snapshot. |

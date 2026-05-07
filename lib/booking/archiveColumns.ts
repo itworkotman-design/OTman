@@ -37,7 +37,7 @@ export type BookingArchiveColumn = {
   label: string;
   exportHeader?: string;
   exportWidth?: number;
-  getExportValue?: (row: OrderRow) => string;
+  getExportValue?: (row: OrderRow) => string | number | null;
 };
 
 const LEGACY_SUMMARY_COLUMN_IDS = new Set([
@@ -53,9 +53,8 @@ function formatCell(value: string | number | null | undefined): string {
   return value;
 }
 
-function formatMoney(value: number | null | undefined): string {
-  if (typeof value !== "number") return "-";
-  return `NOK ${value}`;
+function formatMoney(value: number | null | undefined): number | null {
+  return typeof value === "number" ? value : null;
 }
 
 const adminColumns: BookingArchiveColumn[] = [

@@ -62,6 +62,16 @@ function getMetafields(task: GsmTaskRecord | null): Record<string, unknown> {
   return metafields ?? {};
 }
 
+function syncPodPdfInBackground(orderId: string, gsmTaskId: string) {
+  void syncPodPdfWithRetry(orderId, gsmTaskId).catch((error: unknown) => {
+    console.error("POD IMPORT FAILED:", {
+      orderId,
+      gsmTaskId,
+      error,
+    });
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const secret = req.headers.get("x-otman-secret");
@@ -231,17 +241,8 @@ export async function POST(req: Request) {
 
     const metafields = getMetafields(fullTask);
 
-    // Import only POD PDF, with delay + retry, after completion
     if (gsmTaskId && state === "completed") {
-      try {
-        await syncPodPdfWithRetry(orderId, gsmTaskId);
-      } catch (error) {
-        console.error("POD IMPORT FAILED:", {
-          orderId,
-          gsmTaskId,
-          error,
-        });
-      }
+      syncPodPdfInBackground(orderId, gsmTaskId);
     }
 
     const tasks = await prisma.orderGsmTask.findMany({

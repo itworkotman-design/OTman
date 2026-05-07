@@ -17,4 +17,4 @@ Formats counted labels into a readable summary string such as `Washer x4, Dryer`
 Returns the best available display text for an option by preferring `description`, then `label`, then `code`.
 
 ### `buildOrderSummaries(productCards, catalogProducts, catalogSpecialOptions)`
-Builds `productsSummary`, `deliveryTypeSummary`, and `servicesSummary` for an order. Duplicate product and delivery-type labels are collapsed into counted entries while service selections remain listed individually.
+Builds `productsSummary`, `deliveryTypeSummary`, and `servicesSummary` for an order. Duplicate product and delivery-type labels are collapsed into counted entries while service selections remain listed individually. Custom-section selections are included only when the selected delivery type allows that section to display.

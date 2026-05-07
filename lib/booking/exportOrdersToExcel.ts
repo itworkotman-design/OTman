@@ -13,6 +13,15 @@ import {
 type ExcelCellValue = string | number | boolean | null;
 type ExcelRow = Record<string, ExcelCellValue>;
 
+const RIGHT_ALIGNED_COLUMN_IDS = new Set<BookingArchiveColumnId>([
+  "priceExVat",
+  "priceSubcontractor",
+]);
+
+function isRightAlignedColumn(columnId: BookingArchiveColumnId) {
+  return RIGHT_ALIGNED_COLUMN_IDS.has(columnId);
+}
+
 async function writeOrdersWorkbook({
   rows,
   viewMode,
@@ -83,12 +92,18 @@ async function writeOrdersWorkbook({
 
     row.height = 24;
 
-    row.eachCell((cell) => {
+    row.eachCell((cell, columnNumber) => {
+      const column = exportColumns[columnNumber - 1];
+      const rightAligned = column ? isRightAlignedColumn(column.id) : false;
+
       cell.alignment = {
         vertical: "top",
-        horizontal: "left",
+        horizontal: rightAligned ? "right" : "left",
         wrapText: true,
       };
+      if (rightAligned) {
+        cell.numFmt = "#,##0";
+      }
       cell.border = {
         top: { style: "thin", color: { argb: "FFE5E7EB" } },
         left: { style: "thin", color: { argb: "FFE5E7EB" } },

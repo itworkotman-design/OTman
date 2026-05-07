@@ -6,14 +6,14 @@
 
 ## Responsibility
 
-Defines the column sets, export metadata, and visibility helpers used by the booking archive across each dashboard role view. The admin view now labels the assigned-store column as `Store`, keeps that store column ahead of `Customer name`, uses the order `customerName` field for the admin customer column, order-creator archives include the non-exported `Alerts` column, subcontractor archives show `priceSubcontractor` instead of `priceExVat`, visibility sanitizing migrates older saved admin layouts from `customerName` to `createdBy`, and exported archive dates now use explicit slash-formatted dates.
+Defines the column sets, export metadata, and visibility helpers used by the booking archive across each dashboard role view. The admin view now labels the assigned-store column as `Store`, keeps that store column ahead of `Customer name`, uses the order `customerName` field for the admin customer column, order-creator archives include the non-exported `Alerts` column, subcontractor archives show `priceSubcontractor` instead of `priceExVat`, exported price columns return numeric values without `NOK`, visibility sanitizing migrates older saved admin layouts from `customerName` to `createdBy`, and exported archive dates now use explicit slash-formatted dates.
 
 ## Functions
 
 | Function | Description |
 | --- | --- |
 | `formatCell` | Normalizes empty export values into `-`. |
-| `formatMoney` | Formats archive numeric totals as `NOK` strings for export. |
+| `formatMoney` | Returns archive numeric totals as Excel-friendly numbers, or blank values when missing. |
 | `getBookingArchiveColumns` | Returns the configured column list for a given archive view mode. |
 | `getDefaultVisibleBookingArchiveColumns` | Returns the default visible-column order for a given view mode. |
 | `sanitizeVisibleBookingArchiveColumns` | Filters persisted column ids down to the valid ids for the current view mode and migrates older admin `customerName` visibility to `createdBy`. |
@@ -27,6 +27,7 @@ Defines the column sets, export metadata, and visibility helpers used by the boo
 - Admin and subcontractor views now use a single `orderSummary` column instead of separate `productsSummary`, `deliveryTypeSummary`, and `servicesSummary` columns. The export value comes from the shared compact summary text.
 - Subcontractor exports use the subcontractor price column and do not include the full customer total by default.
 - Order-creator exports skip the `Alerts` column because it has no export header or export value.
+- Price exports are numeric and omit `NOK` so Excel formulas and sums work.
 - Saved column visibility now migrates the removed legacy summary ids to `orderSummary`, keeps `orderSummary` always visible for admin and subcontractor archive views, and automatically restores `priceExVat` when `priceSubcontractor` is still visible.
 - Column labels and export headers are now English.
 - `deliveryDate` exports now use `dd/mm/yyyy`, while `createdAt` and `updatedAt` exports use `dd/mm/yyyy HH:mm`.

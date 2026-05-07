@@ -2,6 +2,7 @@ import type { CatalogProduct, CatalogSpecialOption, SavedProductCard } from "@/a
 import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeCode, getProductDeliveryTypeLabel, getProductDeliveryTypePrice } from "@/lib/products/deliveryTypes";
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
+import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
 import type { ProductBreakdown, ProductCardLineItem } from "@/lib/booking/pricing/types";
 import {
   canApplyReturnOption,
@@ -185,6 +186,15 @@ function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProdu
   for (const selection of card.customSectionSelections) {
     const section = product.customSections.find((item) => item.id === selection.sectionId);
     if (!section) continue;
+    if (
+      !isCustomSectionVisibleForDeliveryType({
+        allowDeliveryTypes: product.allowDeliveryTypes,
+        deliveryType: card.deliveryType,
+        section,
+      })
+    ) {
+      continue;
+    }
 
     for (const optionId of selection.optionIds) {
       const option = section.options.find((item) => item.id === optionId);
@@ -349,6 +359,53 @@ function buildItemsForCard(
         });
       }
     }
+  }
+
+  if (product.allowDeliveryTypes && card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY) {
+    const installOnlyPrice = useXtraDeliveryPricing
+      ? getProductDeliveryTypePrice({
+          deliveryTypes: product.deliveryTypes,
+          key: card.deliveryType,
+          useXtraPrice: true,
+        })
+      : getProductDeliveryTypePrice({
+          deliveryTypes: product.deliveryTypes,
+          key: card.deliveryType,
+        });
+    const installOnlySubcontractorPrice = useXtraDeliveryPricing
+      ? getProductDeliveryTypePrice({
+          deliveryTypes: product.deliveryTypes,
+          key: card.deliveryType,
+          useXtraPrice: true,
+          subcontractor: true,
+        })
+      : getProductDeliveryTypePrice({
+          deliveryTypes: product.deliveryTypes,
+          key: card.deliveryType,
+          subcontractor: true,
+        });
+    items.push({
+      kind: "deliveryType",
+      code: useXtraDeliveryPricing
+        ? OPTION_CODES.XTRA
+        : getProductDeliveryTypeCode(product.deliveryTypes, card.deliveryType),
+      label: getProductDeliveryTypeLabel(product.deliveryTypes, card.deliveryType),
+      qty: 1,
+      unitPrice: shouldZeroBaseDeliveryPrice(
+        card.deliveryType,
+        useXtraDeliveryPricing,
+        zeroBaseDeliveryPricesOver100Km,
+      )
+        ? 0
+        : installOnlyPrice,
+      subcontractorUnitPrice: shouldZeroBaseDeliveryPrice(
+        card.deliveryType,
+        useXtraDeliveryPricing,
+        zeroBaseDeliveryPricesOver100Km,
+      )
+        ? 0
+        : installOnlySubcontractorPrice,
+    });
   }
 
   if (product.allowDeliveryTypes && isReturnOnlyDeliveryType(card.deliveryType)) {

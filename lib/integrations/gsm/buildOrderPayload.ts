@@ -1,10 +1,6 @@
 // path: lib/integrations/gsm/buildOrderPayload.ts
 import type { Order, OrderItem } from "@prisma/client";
-import {
-  buildLegacyOrderSummaryGroups,
-  buildOrderSummaryGroups,
-  formatOrderSummaryText,
-} from "@/lib/orders/orderSummary";
+import { buildLegacyOrderSummaryGroups, buildOrderSummaryGroups, formatOrderSummaryText } from "@/lib/orders/orderSummary";
 
 type GsmContact = {
   name?: string;
@@ -37,6 +33,10 @@ export type GsmOrderInput = Order & {
 };
 
 const NO_PICKUP_ADDRESS = "no shop pickup address";
+const RETURN_LABELS_BY_CODE: Record<string, string> = {
+  RETURNSTORE: "Return to store",
+  RETURNREC: "Return to recycling station",
+};
 
 function normalizePhone(value?: string | null) {
   const raw = (value ?? "").trim();
@@ -50,17 +50,7 @@ function normalizePhone(value?: string | null) {
 }
 
 function normalizePhones(...values: Array<string | null | undefined>) {
-  return Array.from(
-    new Set(
-      values
-        .map((value) => normalizePhone(value))
-        .filter((value) => value.length > 0),
-    ),
-  );
-}
-
-function hasMontering(order: GsmOrderInput) {
-  return !!order.servicesSummary?.trim();
+  return Array.from(new Set(values.map((value) => normalizePhone(value)).filter((value) => value.length > 0)));
 }
 
 function normalizePickupAddress(value?: string | null) {
@@ -73,23 +63,70 @@ function normalizePickupAddress(value?: string | null) {
   return normalized.toLocaleLowerCase() === NO_PICKUP_ADDRESS ? "" : normalized;
 }
 
+function formatLiftForDescription(value?: string | null) {
+  return value?.trim().toLowerCase() === "yes" ? "Ja" : "No";
+}
+
+function buildLocationDetails(order: GsmOrderInput) {
+  return [
+    `Heis - ${formatLiftForDescription(order.lift)}`,
+    order.floorNo?.trim() ? `Etasje - ${order.floorNo.trim()}` : null,
+  ].filter((value): value is string => value !== null);
+}
+
+function getRawDataString(rawData: unknown, key: string) {
+  if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
+    return null;
+  }
+
+  const record = rawData as Record<string, unknown>;
+  const value = record[key];
+
+  return typeof value === "string" ? value.trim() : null;
+}
+
+function getItemOptionCode(item: OrderItem) {
+  return (
+    item.optionCode?.trim() ||
+    getRawDataString(item.rawData, "mappedOptionCode") ||
+    getRawDataString(item.rawData, "code") ||
+    ""
+  ).toUpperCase();
+}
+
+function getGsmSummaryItems(items: OrderItem[]) {
+  return items.map((item) => {
+    const returnLabel = RETURN_LABELS_BY_CODE[getItemOptionCode(item)];
+
+    if (!returnLabel) {
+      return item;
+    }
+
+    return {
+      ...item,
+      optionLabel: returnLabel,
+      rawData: {
+        ...(item.rawData && typeof item.rawData === "object" && !Array.isArray(item.rawData)
+          ? (item.rawData as Record<string, unknown>)
+          : {}),
+        description: returnLabel,
+        label: returnLabel,
+      },
+    };
+  });
+}
+
 function buildDescription(order: GsmOrderInput) {
   const summaryGroups =
     order.items && order.items.length > 0
-      ? buildOrderSummaryGroups(order.items)
+      ? buildOrderSummaryGroups(getGsmSummaryItems(order.items))
       : buildLegacyOrderSummaryGroups({
           productsSummary: order.productsSummary,
           deliveryTypeSummary: order.deliveryTypeSummary,
           servicesSummary: order.servicesSummary,
         });
 
-  return [
-    formatOrderSummaryText(summaryGroups),
-    order.description?.trim(),
-    order.customerComments?.trim(),
-    order.driverInfo?.trim(),
-    order.statusNotes?.trim(),
-  ]
+  return [formatOrderSummaryText(summaryGroups), ...buildLocationDetails(order), order.description?.trim(), order.customerComments?.trim(), order.driverInfo?.trim(), order.statusNotes?.trim()]
     .filter((value): value is string => !!value)
     .join("\n");
 }
@@ -102,16 +139,10 @@ function getTimeWindowIso(order: GsmOrderInput) {
   const date = order.deliveryDate.trim();
   const windowValue = (order.timeWindow ?? "").trim();
 
-  const match = windowValue.match(
-    /^(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})$/,
-  );
+  const match = windowValue.match(/^(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})$/);
 
-  const start = match
-    ? `${String(Number(match[1])).padStart(2, "0")}:${match[2]}:00`
-    : "06:00:00";
-  const end = match
-    ? `${String(Number(match[3])).padStart(2, "0")}:${match[4]}:00`
-    : "06:05:00";
+  const start = match ? `${String(Number(match[1])).padStart(2, "0")}:${match[2]}:00` : "06:00:00";
+  const end = match ? `${String(Number(match[3])).padStart(2, "0")}:${match[4]}:00` : "06:05:00";
 
   const completeAfter = new Date(`${date}T${start}+02:00`).toISOString();
   const completeBefore = new Date(`${date}T${end}+02:00`).toISOString();
@@ -120,6 +151,26 @@ function getTimeWindowIso(order: GsmOrderInput) {
     complete_after: completeAfter,
     complete_before: completeBefore,
   };
+}
+
+function getRawDataCategory(rawData: unknown) {
+  if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
+    return null;
+  }
+
+  const record = rawData as Record<string, unknown>;
+  const category = record.category;
+
+  return typeof category === "string" ? category.trim().toLowerCase() : null;
+}
+
+function hasMontering(order: GsmOrderInput) {
+  return (
+    order.items?.some((item) =>
+      item.itemType === "INSTALL_OPTION" ||
+      getRawDataCategory(item.rawData) === "install",
+    ) ?? false
+  );
 }
 
 export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
@@ -133,30 +184,24 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   const timeWindow = getTimeWindowIso(order);
 
   const customerContact: GsmContact = {
-    name: order.customerName?.trim()
-      ? `Kunde: ${order.customerName.trim()}`
-      : undefined,
+    name: order.customerName?.trim() ? `Kunde: ${order.customerName.trim()}` : undefined,
     emails: order.email ? [order.email.trim()] : [],
     phones: normalizePhones(order.phone, order.phoneTwo),
   };
 
   const cashierContact: GsmContact = {
-    name: order.cashierName?.trim()
-      ? `Kasserer: ${order.cashierName.trim()}`
-      : undefined,
+    name: order.cashierName?.trim() ? `Kasserer: ${order.cashierName.trim()}` : undefined,
     phones: normalizePhones(order.cashierPhone),
   };
 
   const orderer: GsmContact = {
-    name:
-      order.customerLabel?.trim() || order.customerName?.trim() || undefined,
+    name: order.customerLabel?.trim() || order.customerName?.trim() || undefined,
     emails: order.email ? [order.email.trim()] : [],
     phones: normalizePhones(order.phone),
   };
 
   const metafields: Record<string, string> = {
-    "app:signature":
-      "Jeg bekrefter at jeg har mottatt riktig vare uten synlige feil eller skader.",
+    "app:signature": "Jeg bekrefter at jeg har mottatt riktig vare uten synlige feil eller skader.",
     "gsmtasks:cashersname": order.cashierName?.trim() || "-",
     "gsmtasks:cashersnumber": normalizePhone(order.cashierPhone) || "-",
     "app:name": order.driver?.trim() || "-",
@@ -164,11 +209,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
     "app:carnumber": order.licensePlate?.trim() || "-",
   };
 
-  const makeTask = (
-    category: GsmTask["category"],
-    rawAddress: string,
-    contact?: GsmContact,
-  ): GsmTask => ({
+  const makeTask = (category: GsmTask["category"], rawAddress: string, contact?: GsmContact): GsmTask => ({
     account,
     category,
     address: { raw_address: rawAddress },
@@ -193,13 +234,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   }
 
   if (order.deliveryAddress?.trim()) {
-    tasks.push(
-      makeTask(
-        hasMontering(order) ? "assignment" : "drop_off",
-        order.deliveryAddress.trim(),
-        customerContact,
-      ),
-    );
+    tasks.push(makeTask(hasMontering(order) ? "assignment" : "drop_off", order.deliveryAddress.trim(), customerContact));
   }
 
   if (order.returnAddress?.trim()) {
@@ -212,9 +247,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
 
   return {
     account,
-    reference: order.orderNumber?.trim()
-      ? `ID${order.displayId} / ${order.orderNumber.trim()}`
-      : `ID${order.displayId}`,
+    reference: order.orderNumber?.trim() ? `ID${order.displayId} / ${order.orderNumber.trim()}` : `ID${order.displayId}`,
     external_id: `order:${order.id}`,
     orderer,
     tasks_data: tasks,

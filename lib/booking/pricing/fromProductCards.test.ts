@@ -476,6 +476,66 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
+  it("uses install-only as the main shared delivery so later products use XTRA", () => {
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          cardId: 1,
+          deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+          selectedInstallOptionIds: ["install-1"],
+        }),
+        buildCard({
+          cardId: 2,
+          deliveryType: DELIVERY_TYPES.INDOOR,
+        }),
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(result[0]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "INSTALL_ONLY",
+      unitPrice: 590,
+      label: "Kun Installasjon/Montering",
+    });
+    expect(result[1]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "XTRA",
+      unitPrice: 229,
+      label: "Innbæring",
+    });
+  });
+
+  it("uses XTRA pricing for install-only when another install-only card already has the main delivery", () => {
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          cardId: 1,
+          deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+        }),
+        buildCard({
+          cardId: 2,
+          deliveryType: DELIVERY_TYPES.INSTALL_ONLY,
+        }),
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(result[0]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "INSTALL_ONLY",
+      unitPrice: 590,
+    });
+    expect(result[1]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "XTRA",
+      unitPrice: 0,
+      label: "Kun Installasjon/Montering",
+    });
+  });
+
   it("zeros the non-XTRA base delivery price over 100 km", () => {
     const cards = [
       buildCard({
@@ -544,7 +604,13 @@ describe("buildProductBreakdowns", () => {
       automaticXtraOptions,
     );
 
-    expect(result[0]?.items).toEqual([]);
+    expect(result[0]?.items).toEqual([
+      expect.objectContaining({
+        kind: "deliveryType",
+        code: "INSTALL_ONLY",
+        qty: 1,
+      }),
+    ]);
     expect(result[0]?.items).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -632,7 +698,7 @@ describe("buildProductBreakdowns", () => {
     );
   });
 
-  it("keeps install-only cards limited to selected install options", () => {
+  it("prices install-only delivery type plus selected install options", () => {
     const result = buildProductBreakdowns(
       [
         buildCard({
@@ -654,10 +720,14 @@ describe("buildProductBreakdowns", () => {
         }),
       ]),
     );
-    expect(result[0]?.items).not.toEqual(
+    expect(result[0]?.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           kind: "deliveryType",
+          code: "INSTALL_ONLY",
+          qty: 1,
+          unitPrice: 590,
+          subcontractorUnitPrice: 0,
         }),
       ]),
     );
@@ -838,6 +908,11 @@ describe("buildProductBreakdowns", () => {
     ]);
     expect(result[2]?.items).toEqual([
       expect.objectContaining({
+        kind: "deliveryType",
+        code: "INSTALL_ONLY",
+        unitPrice: 590,
+      }),
+      expect.objectContaining({
         kind: "productOption",
         productOptionId: "install-freezer",
       }),
@@ -1014,11 +1089,12 @@ describe("buildProductBreakdowns", () => {
       expect.objectContaining({ code: "RETURNREC", lineTotal: 250 }),
     ]);
     expect(getProductLines(result, "Fryseskap")).toEqual([
+      expect.objectContaining({ code: "INSTALL_ONLY", lineTotal: 590 }),
       expect.objectContaining({ code: "INSFRIDGE", lineTotal: 399 }),
       expect.objectContaining({ code: "REHANGDOOR2", lineTotal: 699 }),
     ]);
     expectNoTransportCodes(result, "Fryseskap");
-    expect(result.totals.totalExVat).toBe(2017);
+    expect(result.totals.totalExVat).toBe(2607);
   });
 
   it("does not apply RETURNIN when a delivery product already covers transport", () => {
@@ -1354,11 +1430,13 @@ describe("buildProductBreakdowns", () => {
         }),
       ]),
     );
-    expect(result[0]?.items).not.toEqual(
+    expect(result[0]?.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           kind: "deliveryType",
           code: "INSTALL_ONLY",
+          qty: 1,
+          unitPrice: 590,
         }),
       ]),
     );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { OPTION_CATEGORIES, OPTION_CODES } from "@/lib/booking/constants";
+import { DELIVERY_TYPES, OPTION_CATEGORIES, OPTION_CODES } from "@/lib/booking/constants";
 import {
   normalizeProductCustomSections,
   type ProductCustomSection,
@@ -705,6 +705,7 @@ export default function EditPricesPage() {
                     title: "",
                     usePrices: false,
                     allowMultiple: true,
+                    displayOnDeliveryTypes: [DELIVERY_TYPES.INSTALL_ONLY],
                     options: [
                       {
                         id: createDraftId("option"),
@@ -750,6 +751,37 @@ export default function EditPricesPage() {
                   }
                 : section,
             ),
+          }
+        : current,
+    );
+  }
+
+  function toggleCustomSectionDisplayDeliveryType(
+    sectionId: string,
+    deliveryTypeKey: ProductDeliveryType["key"],
+  ) {
+    setProductSettingsDraft((current) =>
+      current
+        ? {
+            ...current,
+            customSections: current.customSections.map((section) => {
+              if (section.id !== sectionId) {
+                return section;
+              }
+
+              const currentKeys = section.displayOnDeliveryTypes;
+              const nextKeys = currentKeys.includes(deliveryTypeKey)
+                ? currentKeys.filter((key) => key !== deliveryTypeKey)
+                : [...currentKeys, deliveryTypeKey];
+
+              return {
+                ...section,
+                displayOnDeliveryTypes:
+                  nextKeys.length > 0
+                    ? nextKeys
+                    : [DELIVERY_TYPES.INSTALL_ONLY],
+              };
+            }),
           }
         : current,
     );
@@ -3320,6 +3352,44 @@ export default function EditPricesPage() {
                               placeholder="Example: Wall type"
                             />
                           </label>
+
+                          {productSettingsDraft.allowDeliveryTypes && (
+                            <div className="customContainer">
+                              <div className="mb-2 text-xs font-medium text-black/70">
+                                Display when delivery type is
+                              </div>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {productSettingsDraft.deliveryTypes.map(
+                                  (deliveryType) => (
+                                    <label
+                                      key={deliveryType.key}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={section.displayOnDeliveryTypes.includes(
+                                          deliveryType.key,
+                                        )}
+                                        onChange={() =>
+                                          toggleCustomSectionDisplayDeliveryType(
+                                            section.id,
+                                            deliveryType.key,
+                                          )
+                                        }
+                                        className="customInput h-4 w-4"
+                                      />
+                                      <span className="text-sm">
+                                        {deliveryType.label.trim() ||
+                                          getDeliveryTypeEditorTitle(
+                                            deliveryType.key,
+                                          )}
+                                      </span>
+                                    </label>
+                                  ),
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           <label className="flex items-center gap-2 customContainer">
                             <input

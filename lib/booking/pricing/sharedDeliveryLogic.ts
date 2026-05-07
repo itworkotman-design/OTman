@@ -61,6 +61,12 @@ export function isTransportDeliveryType(
   );
 }
 
+function isSharedDeliveryPricingType(
+  deliveryType: SavedProductCard["deliveryType"],
+) {
+  return isTransportDeliveryType(deliveryType) || deliveryType === DELIVERY_TYPES.INSTALL_ONLY;
+}
+
 export function isReturnOnlyDeliveryType(
   deliveryType: SavedProductCard["deliveryType"],
 ) {
@@ -78,6 +84,17 @@ export function usesTransportDeliveryPricing(
   return isTransportDeliveryType(card.deliveryType);
 }
 
+function usesSharedDeliveryPricing(
+  card: SavedProductCard,
+  product: CatalogProduct,
+) {
+  if (!product.allowDeliveryTypes) {
+    return false;
+  }
+
+  return isSharedDeliveryPricingType(card.deliveryType);
+}
+
 export function supportsSharedAutoDeliveryPricing(product: CatalogProduct) {
   const autoDeliveryPrice = normalizeProductAutoDeliveryPrice(
     product.autoDeliveryPrice,
@@ -89,6 +106,7 @@ export function supportsSharedAutoDeliveryPricing(product: CatalogProduct) {
 type SharedDeliveryCandidate = {
   cardId: number;
   index: number;
+  deliveryType: SavedProductCard["deliveryType"];
   standardPrice: number;
 };
 
@@ -97,10 +115,11 @@ function getSharedDeliveryCandidate(
   product: CatalogProduct,
   index: number,
 ): SharedDeliveryCandidate | null {
-  if (usesTransportDeliveryPricing(card, product)) {
+  if (usesSharedDeliveryPricing(card, product)) {
     return {
       cardId: card.cardId,
       index,
+      deliveryType: card.deliveryType,
       standardPrice: getProductDeliveryTypePrice({
         deliveryTypes: product.deliveryTypes,
         key: card.deliveryType,
@@ -119,8 +138,35 @@ function getSharedDeliveryCandidate(
   return {
     cardId: card.cardId,
     index,
+    deliveryType: card.deliveryType,
     standardPrice: Number(autoDeliveryPrice.price.replace(",", ".")) || 0,
   };
+}
+
+function getMainSharedDeliveryCandidate(
+  candidates: SharedDeliveryCandidate[],
+) {
+  const installOnlyCandidate = candidates.find(
+    (candidate) => candidate.deliveryType === DELIVERY_TYPES.INSTALL_ONLY,
+  );
+
+  if (installOnlyCandidate) {
+    return installOnlyCandidate;
+  }
+
+  let mainCandidate = candidates[0];
+
+  for (const candidate of candidates.slice(1)) {
+    if (
+      candidate.standardPrice > mainCandidate.standardPrice ||
+      (candidate.standardPrice === mainCandidate.standardPrice &&
+        candidate.index < mainCandidate.index)
+    ) {
+      mainCandidate = candidate;
+    }
+  }
+
+  return mainCandidate;
 }
 
 export function getAutomaticXtraDeliveryCardIds(
@@ -149,17 +195,7 @@ export function getAutomaticXtraDeliveryCardIds(
     return new Set<number>();
   }
 
-  let mainCandidate = candidates[0];
-
-  for (const candidate of candidates.slice(1)) {
-    if (
-      candidate.standardPrice > mainCandidate.standardPrice ||
-      (candidate.standardPrice === mainCandidate.standardPrice &&
-        candidate.index < mainCandidate.index)
-    ) {
-      mainCandidate = candidate;
-    }
-  }
+  const mainCandidate = getMainSharedDeliveryCandidate(candidates);
 
   return new Set(
     candidates

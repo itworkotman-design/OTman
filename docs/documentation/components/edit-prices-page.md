@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Renders the price-list editor for product option rows, special option rows, product settings, and price-list global settings. The price-list settings modal edits extra pickup, express delivery, pallet XTRA, kilometer rates, and all bomtur/deviation customer and subcontractor prices.
+Renders the price-list editor for product option rows, special option rows, product settings, and price-list global settings. Product custom sections include delivery-type display toggles that default to `INSTALL_ONLY`. The price-list settings modal edits extra pickup, express delivery, pallet XTRA, kilometer rates, and all bomtur/deviation customer and subcontractor prices.
 
 ## Functions
 
@@ -24,6 +24,7 @@ Renders the price-list editor for product option rows, special option rows, prod
 | `inferAutomaticXtraKind` | Detects whether an XTRA row is for indoor or first-step delivery. |
 | `buildAutomaticXtraDraft` | Creates the default draft values for an automatic XTRA row. |
 | `isExtraServiceRow` | Detects global extra-service special-option rows. |
+| `toggleCustomSectionDisplayDeliveryType` | Toggles which product delivery types display a custom section in booking. |
 | `EditPricesPage` | Main editor component. Loads price lists, switches active lists, edits rows and product settings, creates lists, and saves global price-list settings including deviation prices. |
 | `updatePriceListChargeSetting` | Updates one global non-deviation charge setting field in the draft. |
 | `updatePriceListDeviationSetting` | Updates one deviation customer or subcontractor price in the draft. |

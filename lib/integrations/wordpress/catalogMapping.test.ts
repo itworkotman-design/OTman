@@ -3,6 +3,7 @@ import type {
   CatalogProduct,
   CatalogSpecialOption,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { mapWordpressImportToProductCards } from "@/lib/integrations/wordpress/catalogMapping";
 
 const products: CatalogProduct[] = [
@@ -157,6 +158,7 @@ const products: CatalogProduct[] = [
         title: "Return services",
         usePrices: true,
         allowMultiple: false,
+        displayOnDeliveryTypes: [DELIVERY_TYPES.INSTALL_ONLY],
         options: [
           {
             id: "custom-return-option",

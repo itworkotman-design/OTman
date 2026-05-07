@@ -1,4 +1,4 @@
-import type { Order } from "@prisma/client";
+import type { Order, OrderItem } from "@prisma/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildOrderPayload } from "@/lib/integrations/gsm/buildOrderPayload";
 
@@ -86,6 +86,28 @@ function buildOrder(overrides?: Partial<Order>): Order {
   };
 }
 
+function buildOrderItem(overrides?: Partial<OrderItem>): OrderItem {
+  return {
+    id: "item-1",
+    createdAt: new Date("2026-04-20T09:00:00.000Z"),
+    orderId: "order-1",
+    cardId: 1,
+    productId: "product-1",
+    productCode: "WASHER",
+    productName: "Washer",
+    deliveryType: "Innbæring",
+    itemType: "PRODUCT_CARD",
+    optionId: null,
+    optionCode: null,
+    optionLabel: null,
+    quantity: 1,
+    customerPriceCents: 0,
+    subcontractorPriceCents: 0,
+    rawData: null,
+    ...overrides,
+  };
+}
+
 describe("buildOrderPayload", () => {
   afterEach(() => {
     delete process.env.GSM_ACCOUNT_URL;
@@ -94,13 +116,21 @@ describe("buildOrderPayload", () => {
   it("omits the pickup task when the order only has the pickup placeholder", () => {
     process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
 
-    const payload = buildOrderPayload(
-      buildOrder({
+    const payload = buildOrderPayload({
+      ...buildOrder({
         pickupAddress: "No shop pickup address",
         deliveryAddress: "Delivery 1",
         returnAddress: "Return 1",
       }),
-    );
+      items: [
+        buildOrderItem({
+          itemType: "INSTALL_OPTION",
+          optionCode: "INSWASH1",
+          optionLabel: "Install service",
+          rawData: { category: "install" },
+        }),
+      ],
+    });
 
     expect(payload.tasks_data).toHaveLength(2);
     expect(payload.tasks_data.map((task) => task.category)).toEqual([
@@ -193,6 +223,157 @@ describe("buildOrderPayload", () => {
     expect(payload.tasks_data[0]?.description).toContain("- Indoor carry x2");
     expect(payload.tasks_data[0]?.description).toContain("- Install only x2");
     expect(payload.tasks_data[0]?.description).toContain("Handle with care");
+    expect(payload.tasks_data[0]?.description).toContain("Heis - No");
     expect(payload.tasks_data[0]?.description).not.toContain("Legacy product");
+  });
+
+  it("adds lift and floor details to the GSM description", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        floorNo: "4",
+        lift: "yes",
+      }),
+    );
+
+    expect(payload.tasks_data[0]?.description).toContain("Heis - Ja");
+    expect(payload.tasks_data[0]?.description).toContain("Etasje - 4");
+  });
+
+  it("keeps innbaering deliveries as drop-off tasks", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+      items: [buildOrderItem({ deliveryType: "Innbæring" })],
+    });
+
+    expect(payload.tasks_data.map((task) => task.category)).toEqual([
+      "drop_off",
+    ]);
+  });
+
+  it("uses assignment for delivery when an order item is an install option", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+      items: [
+        buildOrderItem(),
+        buildOrderItem({
+          id: "item-2",
+          itemType: "INSTALL_OPTION",
+          optionCode: "INSWASH1",
+          optionLabel: "Install service",
+          rawData: { category: "install" },
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data.map((task) => task.category)).toEqual([
+      "assignment",
+    ]);
+  });
+
+  it("adds a return address as a drop-off task when provided", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        returnAddress: "Return 1",
+        servicesSummary: "",
+      }),
+      items: [buildOrderItem({ deliveryType: "Innbæring" })],
+    });
+
+    expect(payload.tasks_data.map((task) => task.category)).toEqual([
+      "drop_off",
+      "drop_off",
+    ]);
+    expect(payload.tasks_data.map((task) => task.address.raw_address)).toEqual([
+      "Delivery 1",
+      "Return 1",
+    ]);
+  });
+
+  it("uses canonical GSM text for return-to-store option codes", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        servicesSummary: "",
+      }),
+      items: [
+        buildOrderItem(),
+        buildOrderItem({
+          id: "item-2",
+          itemType: "RETURN_OPTION",
+          optionCode: "RETURNSTORE",
+          optionLabel: "Wrong saved return label",
+          rawData: {
+            code: "RETURNSTORE",
+            description: "Wrong saved return description",
+          },
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data[0]?.description).toContain("Return to store");
+    expect(payload.tasks_data[0]?.description).not.toContain(
+      "Wrong saved return label",
+    );
+    expect(payload.tasks_data[0]?.description).not.toContain(
+      "Wrong saved return description",
+    );
+  });
+
+  it("uses canonical GSM text for recycling-station return option codes", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        servicesSummary: "",
+      }),
+      items: [
+        buildOrderItem(),
+        buildOrderItem({
+          id: "item-2",
+          itemType: "RETURN_OPTION",
+          optionCode: "RETURNREC",
+          optionLabel: "Wrong saved return label",
+          rawData: {
+            mappedOptionCode: "RETURNREC",
+            description: "Wrong saved return description",
+          },
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data[0]?.description).toContain(
+      "Return to recycling station",
+    );
+    expect(payload.tasks_data[0]?.description).not.toContain(
+      "Wrong saved return label",
+    );
+    expect(payload.tasks_data[0]?.description).not.toContain(
+      "Wrong saved return description",
+    );
   });
 });

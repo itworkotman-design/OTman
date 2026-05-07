@@ -4,6 +4,7 @@ import type {
   CatalogSpecialOption,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
+import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
 
 type Result = {
   productsSummary: string;
@@ -126,6 +127,15 @@ export function buildOrderSummaries(
           (item) => item.id === selection.sectionId,
         );
         if (!section) continue;
+        if (
+          !isCustomSectionVisibleForDeliveryType({
+            allowDeliveryTypes: product.allowDeliveryTypes,
+            deliveryType: card.deliveryType,
+            section,
+          })
+        ) {
+          continue;
+        }
 
         for (const optionId of selection.optionIds) {
           const option = section.options.find((item) => item.id === optionId);

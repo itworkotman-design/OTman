@@ -10,6 +10,7 @@ import type {
 import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { canApplyReturnOption } from "@/lib/booking/pricing/sharedDeliveryLogic";
+import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
 import {
   normalizedUpper,
   isInstallOption,
@@ -134,11 +135,22 @@ export function ProductCardNew({
     () => selectedProduct?.customSections ?? [],
     [selectedProduct],
   );
+  const supportsDeliveryTypes = !!selectedProduct?.allowDeliveryTypes;
+  const visibleCustomSections = useMemo(
+    () =>
+      customSections.filter((section) =>
+        isCustomSectionVisibleForDeliveryType({
+          allowDeliveryTypes: supportsDeliveryTypes,
+          deliveryType: value.deliveryType,
+          section,
+        }),
+      ),
+    [customSections, supportsDeliveryTypes, value.deliveryType],
+  );
   const deliveryTypes = useMemo(
     () => selectedProduct?.deliveryTypes ?? [],
     [selectedProduct],
   );
-  const supportsDeliveryTypes = !!selectedProduct?.allowDeliveryTypes;
   const supportsQuantity = !!selectedProduct?.allowQuantity || isPalletProduct;
   const supportsInstallOptions = !!selectedProduct?.allowInstallOptions;
   const supportsReturnOptions = !!selectedProduct?.allowReturnOptions;
@@ -286,7 +298,7 @@ export function ProductCardNew({
 
     const validCustomSectionSelections = value.customSectionSelections.filter(
       (selection) => {
-        const section = customSections.find((item) => item.id === selection.sectionId);
+        const section = visibleCustomSections.find((item) => item.id === selection.sectionId);
         if (!section) return false;
         return true;
       },
@@ -294,7 +306,7 @@ export function ProductCardNew({
 
     const normalizedCustomSectionSelections = validCustomSectionSelections.map(
       (selection) => {
-        const section = customSections.find((item) => item.id === selection.sectionId);
+        const section = visibleCustomSections.find((item) => item.id === selection.sectionId);
 
         return {
           ...selection,
@@ -338,7 +350,7 @@ export function ProductCardNew({
     supportsQuantity,
     supportsReturnOptions,
     value,
-    customSections,
+    visibleCustomSections,
     deliveryTypes,
     returnOptions,
   ]);
@@ -418,7 +430,7 @@ export function ProductCardNew({
   }
 
   function toggleCustomSectionOption(sectionId: string, optionId: string) {
-    const section = customSections.find((item) => item.id === sectionId);
+    const section = visibleCustomSections.find((item) => item.id === sectionId);
     const existingSelection = value.customSectionSelections.find(
       (selection) => selection.sectionId === sectionId,
     );
@@ -748,7 +760,7 @@ export function ProductCardNew({
             </>
           )}
 
-          {customSections.map((section) => (
+          {visibleCustomSections.map((section) => (
             <div key={section.id}>
               <h1 className="font-semibold text-lg text-textcolor my-2">
                 {section.title || t("Custom section")}

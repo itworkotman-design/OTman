@@ -259,4 +259,51 @@ describe("POST /api/integrations/gsm/webhook", () => {
       }),
     );
   });
+
+  it("does not wait for POD sync before acknowledging completed webhooks", async () => {
+    mocks.fetchGsmTaskMock.mockResolvedValue({
+      id: "task-1",
+      external_id: "order:order-1",
+      state: "completed",
+      metafields: {},
+    });
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "completed" }]);
+    mocks.syncPodPdfWithRetryMock.mockReturnValue(
+      new Promise<never>(() => undefined),
+    );
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "status" }]);
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({
+          task: {
+            id: "task-1",
+            external_id: "order:order-1",
+            state: "completed",
+          },
+          to_state: "completed",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(mocks.syncPodPdfWithRetryMock).toHaveBeenCalledWith(
+      "order-1",
+      "task-1",
+    );
+    expect(mocks.gsmWebhookEventUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "event-1" },
+      data: {
+        processed: true,
+        processedAt: expect.any(Date),
+      },
+    });
+  });
 });

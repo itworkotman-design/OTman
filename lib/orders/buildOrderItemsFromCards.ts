@@ -6,6 +6,7 @@ import type {
 import { OPTION_CODES } from "@/lib/booking/constants";
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
+import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
 import {
   canApplyReturnOption,
   findAutomaticXtraSpecialOption,
@@ -424,7 +425,16 @@ export function buildOrderItemsFromCards(
       const section = product?.customSections.find(
         (item) => item.id === selection.sectionId,
       );
-      if (!section) continue;
+      if (!product || !section) continue;
+      if (
+        !isCustomSectionVisibleForDeliveryType({
+          allowDeliveryTypes: product.allowDeliveryTypes,
+          deliveryType: card.deliveryType,
+          section,
+        })
+      ) {
+        continue;
+      }
 
       for (const optionId of selection.optionIds) {
         const option = section.options.find((item) => item.id === optionId);
