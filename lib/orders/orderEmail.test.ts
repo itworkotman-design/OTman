@@ -6,6 +6,7 @@ import {
   buildReplyToAddress,
   extractThreadTokenFromRecipients,
   extractThreadTokenFromSubject,
+  getInitialAppMessageQuoteContext,
   stripThreadTokenMarkers,
 } from "./orderEmail";
 
@@ -63,6 +64,67 @@ describe("orderEmail helpers", () => {
     expect(html).not.toContain("[OTMAN:");
   });
 
+  it("quotes the initial app-created customer message on the first admin response", () => {
+    const createdAt = new Date("2026-05-08T13:27:48.000Z");
+
+    expect(
+      getInitialAppMessageQuoteContext([
+        {
+          direction: "INBOUND",
+          source: "APP",
+          bodyText: "customer msg 1",
+          fromEmail: "customer@example.com",
+          fromName: "Customer",
+          createdAt,
+        },
+      ]),
+    ).toEqual({
+      bodyText: "customer msg 1",
+      personLabel: "Customer",
+      sentAtLabel: createdAt.toLocaleString("nb-NO"),
+    });
+  });
+
+  it("does not quote app context after an outbound admin response exists", () => {
+    expect(
+      getInitialAppMessageQuoteContext([
+        {
+          direction: "INBOUND",
+          source: "APP",
+          bodyText: "customer msg 1",
+          fromEmail: "customer@example.com",
+          fromName: "Customer",
+          createdAt: new Date("2026-05-08T13:27:48.000Z"),
+        },
+        {
+          direction: "OUTBOUND",
+          source: "GMAIL",
+          bodyText: "admin msg 1",
+          fromEmail: "bestilling@otman.no",
+          fromName: "Otman Transport",
+          createdAt: new Date("2026-05-08T13:30:00.000Z"),
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  it("does not quote Gmail or Mailgun inbound replies back to the customer", () => {
+    for (const source of ["GMAIL", "MAILGUN"]) {
+      expect(
+        getInitialAppMessageQuoteContext([
+          {
+            direction: "INBOUND",
+            source,
+            bodyText: "customer email reply",
+            fromEmail: "customer@example.com",
+            fromName: "Customer",
+            createdAt: new Date("2026-05-08T13:27:48.000Z"),
+          },
+        ]),
+      ).toBeNull();
+    }
+  });
+
   it("strips visible thread markers from generated content", () => {
     expect(stripThreadTokenMarkers("Hello\n\n[OTMAN:abc123]\n\nThanks")).toBe(
       "Hello\n\nThanks",
@@ -81,5 +143,33 @@ describe("orderEmail helpers", () => {
 
     expect(text).not.toContain("[OTMAN:");
     expect(html).not.toContain("[OTMAN:");
+  });
+
+  it("does not duplicate the email subject or order label in the body", () => {
+    const text = buildOrderConversationEmailText({
+      messageText: "Admin message",
+      orderLabel: "Order 21236 | TEST",
+      threadToken: "testtoken",
+    });
+    const html = buildOrderConversationEmailHtml({
+      messageText: "Admin message",
+      orderLabel: "Order 21236 | TEST",
+      threadToken: "testtoken",
+    });
+
+    expect(text.startsWith("Admin message")).toBe(true);
+    expect(text).not.toContain("Order 21236 | TEST");
+    expect(html).not.toContain("Order 21236 | TEST");
+  });
+
+  it("includes the Otman logo in the HTML template", () => {
+    const html = buildOrderConversationEmailHtml({
+      messageText: "Admin message",
+      orderLabel: "Order 21236 | TEST",
+      threadToken: "testtoken",
+    });
+
+    expect(html).toContain("https://otman.no/wp-content/uploads/2023/12/logo-removebg.png");
+    expect(html).toContain('alt="Otman Transport AS"');
   });
 });

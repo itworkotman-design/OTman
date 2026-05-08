@@ -12,8 +12,18 @@ type OrderConversationReplyContext = {
   sentAtLabel: string;
 };
 
+type OrderConversationMessageForQuote = {
+  direction: "INBOUND" | "OUTBOUND";
+  source: string;
+  bodyText: string | null;
+  fromEmail: string;
+  fromName: string | null;
+  createdAt: Date;
+};
+
 const THREAD_TOKEN_REGEX = /\[OTMAN:([a-z0-9_-]+)\]/i;
 const REPLY_ADDRESS_TOKEN_REGEX = /reply\+([a-z0-9_-]+)@reply\.otman\.no/i;
+const OTMAN_LOGO_URL = "https://otman.no/wp-content/uploads/2023/12/logo-removebg.png";
 
 export function stripThreadTokenMarkers(value: string): string {
   return value
@@ -219,13 +229,55 @@ function buildQuotedReplyText({
   ].join("\n");
 }
 
+export function getInitialAppMessageQuoteContext(
+  messages: OrderConversationMessageForQuote[],
+): OrderConversationReplyContext | null {
+  const initialAppMessage = messages.find(
+    (message) =>
+      message.direction === "INBOUND" &&
+      message.source === "APP" &&
+      Boolean(message.bodyText?.trim()),
+  );
+
+  if (!initialAppMessage) {
+    return null;
+  }
+
+  const hasOutboundAfterInitialAppMessage = messages.some(
+    (message) =>
+      message.direction === "OUTBOUND" &&
+      message.createdAt.getTime() > initialAppMessage.createdAt.getTime(),
+  );
+
+  if (hasOutboundAfterInitialAppMessage) {
+    return null;
+  }
+
+  const hasNewerNonAppInbound = messages.some(
+    (message) =>
+      message.direction === "INBOUND" &&
+      message.source !== "APP" &&
+      message.createdAt.getTime() > initialAppMessage.createdAt.getTime(),
+  );
+
+  if (hasNewerNonAppInbound) {
+    return null;
+  }
+
+  return {
+    bodyText: initialAppMessage.bodyText ?? "",
+    personLabel: initialAppMessage.fromName || initialAppMessage.fromEmail || "Customer",
+    sentAtLabel: initialAppMessage.createdAt.toLocaleString("nb-NO"),
+  };
+}
+
 export function buildOrderConversationEmailText(input: {
   messageText: string;
   orderLabel: string;
   threadToken: string;
   replyContext?: OrderConversationReplyContext | null;
 }): string {
-  const parts = [input.orderLabel.trim(), "", stripThreadTokenMarkers(input.messageText)];
+  const parts = [stripThreadTokenMarkers(input.messageText)];
 
   if (input.replyContext) {
     parts.push(buildQuotedReplyText({
@@ -262,13 +314,20 @@ export function buildOrderConversationEmailHtml(input: {
 
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
-      <p style="margin:0 0 16px 0;">${escapeHtml(input.orderLabel)}</p>
       ${body}
       ${quotedReply}
       <p style="margin:24px 0 0 0;">
         Med vennlig hilsen,<br/>
         Otman Transport AS<br/>
         +47 402 84 977 | ${getGmailSendAsEmail()}
+      </p>
+      <p style="margin:16px 0 0 0;">
+        <img
+          src="${OTMAN_LOGO_URL}"
+          alt="Otman Transport AS"
+          width="140"
+          style="display:block;width:140px;max-width:140px;height:auto;border:0;"
+        />
       </p>
     </div>
   `;

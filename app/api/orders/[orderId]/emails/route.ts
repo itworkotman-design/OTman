@@ -9,6 +9,7 @@ import {
   buildReplySubject,
   buildReplyToAddress,
   createOrderEmailThreadToken,
+  getInitialAppMessageQuoteContext,
   stripThreadTokenMarkers,
 } from "@/lib/orders/orderEmail";
 
@@ -351,9 +352,6 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
     },
   });
 
-  const latestInboundMessage = [...existingMessages].reverse().find((item) => item.direction === "INBOUND");
-
-  const shouldIncludeAppHistory = latestInboundMessage?.source === "APP";
   const threadToken = order.emailThreadToken || createOrderEmailThreadToken();
   const senderEmail = senderAccount;
   const senderName = process.env.BREVO_SENDER_NAME || "Otman Transport";
@@ -385,16 +383,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         .slice(-10)
     : [];
   const finalSubject = baseSubject;
-  const latestInboundForContext = latestInboundMessage;
-
-  const replyContext =
-    shouldIncludeAppHistory && latestInboundForContext?.bodyText
-      ? {
-          bodyText: latestInboundForContext.bodyText,
-          personLabel: latestInboundForContext.fromName || latestInboundForContext.fromEmail || "Customer",
-          sentAtLabel: latestInboundForContext.createdAt.toLocaleString("nb-NO"),
-        }
-      : null;
+  const replyContext = getInitialAppMessageQuoteContext(existingMessages);
 
   const emailHtml = buildOrderConversationEmailHtml({
     messageText: message,
