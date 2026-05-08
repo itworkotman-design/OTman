@@ -177,8 +177,8 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
   return NextResponse.json({
     ok: true,
     conversation: {
-      defaultRecipientEmail: order.createdByMembership?.user.email || order.email || "",
-      defaultRecipientName: order.createdByMembership?.user.username || order.createdByMembership?.user.email || order.customerLabel || "",
+      defaultRecipientEmail: order.email || order.createdByMembership?.user.email || "",
+      defaultRecipientName: order.customerLabel || order.customerName || order.createdByMembership?.user.username || order.createdByMembership?.user.email || "",
       threadToken: order.emailThreadToken ?? "",
       needsEmailAttention: order.needsEmailAttention,
       unreadInboundEmailCount: order.unreadInboundEmailCount,

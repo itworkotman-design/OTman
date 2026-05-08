@@ -502,8 +502,8 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
       order.orderNumber && order.orderNumber.trim().length > 0 ? `Order ${order.displayId} | ${order.orderNumber}` : `Order ${order.displayId}`;
 
     setActiveTab(order.needsNotificationAttention && !(order.needsEmailAttention || order.unreadInboundEmailCount > 0) ? "notifications" : "conversation");
-    setRecipientEmail(order.createdByEmail || order.email || "");
-    setRecipientName(order.createdByName || order.customerLabel || "");
+    setRecipientEmail(order.email || order.createdByEmail || "");
+    setRecipientName(order.customerLabel || order.customerName || order.createdByName || "");
     setSubject(defaultSubject);
     setMessageText("");
     setSendError("");
@@ -587,25 +587,8 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
           const nextConversation = data.conversation ?? null;
           setConversation(nextConversation);
 
-          const firstOutboundMessage = [...(nextConversation?.messages ?? [])].reverse().find((message) => message.direction === "OUTBOUND");
-
-          if (firstOutboundMessage) {
-            const emails = firstOutboundMessage.toEmail
-              .split(",")
-              .map((value) => value.trim())
-              .filter(Boolean);
-
-            const names = firstOutboundMessage.toName
-              .split(",")
-              .map((value) => value.trim())
-              .filter(Boolean);
-
-            setRecipientEmail(emails[0] ?? "");
-            setRecipientName(names[0] ?? "");
-          } else {
-            setRecipientEmail(nextConversation?.defaultRecipientEmail ?? "");
-            setRecipientName(nextConversation?.defaultRecipientName ?? "");
-          }
+          setRecipientEmail(nextConversation?.defaultRecipientEmail ?? "");
+          setRecipientName(nextConversation?.defaultRecipientName ?? "");
         }
       } catch {
         if (active) {
@@ -930,7 +913,6 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
                           value={recipientEmail}
                           onChange={(event) => setRecipientEmail(event.target.value)}
                           className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
-                          readOnly={conversationStarted}
                           placeholder="customer@email.com"
                         />
                       </label>
@@ -941,7 +923,6 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
                           value={recipientName}
                           onChange={(event) => setRecipientName(event.target.value)}
                           className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
-                          readOnly={conversationStarted}
                           placeholder="Customer name"
                         />
                       </label>
