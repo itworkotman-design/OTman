@@ -13,7 +13,7 @@ vi.mock("googleapis", () => ({
     auth: {
       OAuth2: vi.fn(function OAuth2() {
         return {
-        setCredentials: vi.fn(),
+          setCredentials: vi.fn(),
         };
       }),
     },
@@ -42,6 +42,27 @@ describe("sendGmailEmail", () => {
     vi.clearAllMocks();
   });
 
+  function mockSuccessfulMetadataLookup() {
+    gmailMock.messagesSend.mockResolvedValue({
+      data: {
+        id: "gmail-message-id",
+        threadId: "gmail-thread-id",
+      },
+    });
+    gmailMock.messagesGet.mockResolvedValue({
+      data: {
+        payload: {
+          headers: [
+            {
+              name: "Message-ID",
+              value: "<message@example.com>",
+            },
+          ],
+        },
+      },
+    });
+  }
+
   it("passes the existing Gmail thread id to messages.send", async () => {
     process.env = {
       ...originalEnv,
@@ -66,24 +87,7 @@ describe("sendGmailEmail", () => {
         ],
       },
     });
-    gmailMock.messagesSend.mockResolvedValue({
-      data: {
-        id: "gmail-message-id",
-        threadId: "new-thread-id",
-      },
-    });
-    gmailMock.messagesGet.mockResolvedValue({
-      data: {
-        payload: {
-          headers: [
-            {
-              name: "Message-ID",
-              value: "<message@example.com>",
-            },
-          ],
-        },
-      },
-    });
+    mockSuccessfulMetadataLookup();
 
     await sendGmailEmail({
       to: {
@@ -103,5 +107,78 @@ describe("sendGmailEmail", () => {
         threadId: "existing-thread-id",
       }),
     });
+  });
+
+  it("allows the primary authenticated mailbox without alias verification", async () => {
+    process.env = {
+      ...originalEnv,
+      GMAIL_ACCOUNT_EMAIL: "bestilling@otman.no",
+      GMAIL_SEND_AS_EMAIL: "bestilling@otman.no",
+      GOOGLE_CLIENT_ID: "client-id",
+      GOOGLE_CLIENT_SECRET: "client-secret",
+      GOOGLE_REFRESH_TOKEN: "refresh-token",
+    };
+    gmailMock.getProfile.mockResolvedValue({
+      data: {
+        emailAddress: "bestilling@otman.no",
+      },
+    });
+    mockSuccessfulMetadataLookup();
+
+    await sendGmailEmail({
+      to: {
+        email: "customer@example.com",
+      },
+      subject: "Order 20001",
+      html: "<p>Hello</p>",
+      text: "Hello",
+    });
+
+    expect(gmailMock.sendAsList).not.toHaveBeenCalled();
+    expect(gmailMock.messagesSend).toHaveBeenCalledWith({
+      userId: "bestilling@otman.no",
+      requestBody: expect.objectContaining({
+        raw: expect.any(String),
+      }),
+    });
+  });
+
+  it("requires accepted verification for custom send-as aliases", async () => {
+    process.env = {
+      ...originalEnv,
+      GMAIL_ACCOUNT_EMAIL: "bestilling@otman.no",
+      GMAIL_SEND_AS_EMAIL: "orders@example.com",
+      GOOGLE_CLIENT_ID: "client-id",
+      GOOGLE_CLIENT_SECRET: "client-secret",
+      GOOGLE_REFRESH_TOKEN: "refresh-token",
+    };
+    gmailMock.getProfile.mockResolvedValue({
+      data: {
+        emailAddress: "bestilling@otman.no",
+      },
+    });
+    gmailMock.sendAsList.mockResolvedValue({
+      data: {
+        sendAs: [
+          {
+            sendAsEmail: "orders@example.com",
+            verificationStatus: "pending",
+          },
+        ],
+      },
+    });
+
+    await expect(
+      sendGmailEmail({
+        to: {
+          email: "customer@example.com",
+        },
+        subject: "Order 20001",
+        html: "<p>Hello</p>",
+        text: "Hello",
+      }),
+    ).rejects.toThrow("GMAIL_SEND_AS_ALIAS_NOT_ACCEPTED");
+
+    expect(gmailMock.messagesSend).not.toHaveBeenCalled();
   });
 });

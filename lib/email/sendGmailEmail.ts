@@ -173,47 +173,51 @@ export async function sendGmailEmail({
     userId: "me",
   });
   const oauthAccountEmail = profile.data.emailAddress ?? "";
+  const normalizedOauthAccountEmail = normalizeEmail(oauthAccountEmail);
+  const isPrimaryAccountSend = configuredSendAsEmail === normalizedOauthAccountEmail;
   let sendAsAliases: ReturnType<typeof formatSendAsAliases> = [];
-
-  try {
-    const sendAsResponse = await gmail.users.settings.sendAs.list({
-      userId: configuredAccountEmail || "me",
-    });
-    sendAsAliases = formatSendAsAliases(sendAsResponse.data.sendAs);
-    console.log("GMAIL SEND users.settings.sendAs.list RESULT", {
-      oauthAccountEmail,
-      configuredAccountEmail,
-      configuredSendAsEmail,
-      sendAsAliases,
-    });
-  } catch (error) {
-    console.warn("GMAIL SEND AS ALIASES LOOKUP FAILED", {
-      oauthAccountEmail,
-      configuredAccountEmail,
-      configuredSendAsEmail,
-      error: getGmailErrorDebug(error),
-    });
-  }
 
   console.log("GMAIL SEND STARTUP DEBUG", {
     oauthAccountEmail,
     configuredAccountEmail,
     configuredSendAsEmail,
-    sendAsAliases,
+    primaryAccountSend: isPrimaryAccountSend,
   });
 
-  if (normalizeEmail(oauthAccountEmail) !== configuredAccountEmail) {
+  if (normalizedOauthAccountEmail !== configuredAccountEmail) {
     throw new Error("GMAIL_ACCOUNT_MISMATCH");
   }
 
-  const configuredSendAsAlias = sendAsAliases.find((alias) => alias.sendAsEmail === configuredSendAsEmail);
-  if (sendAsAliases.length > 0 && (!configuredSendAsAlias || configuredSendAsAlias.verificationStatus !== "accepted")) {
-    console.error("GMAIL SEND AS ALIAS NOT ACCEPTED", {
-      configuredSendAsEmail,
-      configuredSendAsAlias: configuredSendAsAlias ?? null,
-      sendAsAliases,
-    });
-    throw new Error("GMAIL_SEND_AS_ALIAS_NOT_ACCEPTED");
+  if (!isPrimaryAccountSend) {
+    try {
+      const sendAsResponse = await gmail.users.settings.sendAs.list({
+        userId: configuredAccountEmail || "me",
+      });
+      sendAsAliases = formatSendAsAliases(sendAsResponse.data.sendAs);
+      console.log("GMAIL SEND users.settings.sendAs.list RESULT", {
+        oauthAccountEmail,
+        configuredAccountEmail,
+        configuredSendAsEmail,
+        sendAsAliases,
+      });
+    } catch (error) {
+      console.warn("GMAIL SEND AS ALIASES LOOKUP FAILED", {
+        oauthAccountEmail,
+        configuredAccountEmail,
+        configuredSendAsEmail,
+        error: getGmailErrorDebug(error),
+      });
+    }
+
+    const configuredSendAsAlias = sendAsAliases.find((alias) => alias.sendAsEmail === configuredSendAsEmail);
+    if (sendAsAliases.length > 0 && (!configuredSendAsAlias || configuredSendAsAlias.verificationStatus !== "accepted")) {
+      console.error("GMAIL SEND AS ALIAS NOT ACCEPTED", {
+        configuredSendAsEmail,
+        configuredSendAsAlias: configuredSendAsAlias ?? null,
+        sendAsAliases,
+      });
+      throw new Error("GMAIL_SEND_AS_ALIAS_NOT_ACCEPTED");
+    }
   }
 
   const from = `"${formatGmailSenderName()}" <${configuredSendAsEmail}>`;
