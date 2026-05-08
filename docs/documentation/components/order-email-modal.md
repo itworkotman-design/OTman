@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Renders the Alert Center modal for admins, combining order email conversation tools, order notifications that require approval, and the order history timeline.
+Renders the Alert Center modal for admins, combining order email conversation tools, order notifications that require approval, and the order history timeline. Conversation messages support sent, sent-with-sync-warning, failed, and received statuses.
 
 ## Functions
 

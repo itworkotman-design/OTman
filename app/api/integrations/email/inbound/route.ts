@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import { extractThreadTokenFromRecipients, extractThreadTokenFromSubject, parseEmailAddress } from "@/lib/orders/orderEmail";
 
 type InboundEmailBody = {
@@ -11,6 +12,7 @@ type InboundEmailBody = {
   from?: unknown;
   sender?: unknown;
   to?: unknown;
+  cc?: unknown;
   recipients?: unknown;
 };
 
@@ -29,7 +31,7 @@ function stripQuotedReply(value: string) {
 }
 
 function extractThreadTokenFromBody(value: string) {
-  const match = value.match(/\[OTMAN:([a-z0-9]+)\]/i);
+  const match = value.match(/\[OTMAN:([a-z0-9_-]+)\]/i);
   return match?.[1]?.toLowerCase() || "";
 }
 
@@ -45,6 +47,7 @@ async function parseInboundEmailBody(req: Request): Promise<InboundEmailBody | n
 
     const from = String(form.get("From") ?? form.get("sender") ?? form.get("from") ?? "");
     const to = String(form.get("recipient") ?? form.get("To") ?? form.get("to") ?? "");
+    const cc = String(form.get("Cc") ?? form.get("cc") ?? "");
     const subject = String(form.get("subject") ?? form.get("Subject") ?? "");
     const text = String(form.get("body-plain") ?? form.get("stripped-text") ?? form.get("body_plain") ?? "");
     const html = String(form.get("body-html") ?? form.get("stripped-html") ?? form.get("body_html") ?? "");
@@ -57,6 +60,7 @@ async function parseInboundEmailBody(req: Request): Promise<InboundEmailBody | n
     return {
       from,
       to,
+      cc,
       subject,
       text,
       html,
@@ -68,6 +72,11 @@ async function parseInboundEmailBody(req: Request): Promise<InboundEmailBody | n
 }
 
 export async function POST(req: Request) {
+  console.log("EMAIL INBOUND ROUTE HIT", {
+    contentType: req.headers.get("content-type"),
+    userAgent: req.headers.get("user-agent"),
+  });
+
   const secret = new URL(req.url).searchParams.get("secret");
   const expected = process.env.EMAIL_INBOUND_SECRET;
 
@@ -92,7 +101,14 @@ export async function POST(req: Request) {
     extractThreadTokenFromBody(bodyText) ||
     extractThreadTokenFromBody(bodyHtml) ||
     extractThreadTokenFromRecipients(body.to) ||
+    extractThreadTokenFromRecipients(body.cc) ||
     extractThreadTokenFromRecipients(body.recipients);
+  console.log("INBOUND ORDER EMAIL TOKEN DEBUG", {
+    inboundExtractedToken: threadToken || null,
+    to: body.to,
+    cc: body.cc,
+    recipients: body.recipients,
+  });
 
   if (!threadToken) {
     return NextResponse.json({ ok: false, reason: "THREAD_TOKEN_NOT_FOUND" }, { status: 406 });
@@ -104,7 +120,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: "SENDER_NOT_FOUND" }, { status: 406 });
   }
 
-  const primaryRecipient = parseEmailAddress(body.to) || parseEmailAddress(body.recipients);
+  const primaryRecipient = parseEmailAddress(body.to) || parseEmailAddress(body.cc) || parseEmailAddress(body.recipients);
 
   const order = await prisma.order.findFirst({
     where: {
@@ -121,8 +137,8 @@ export async function POST(req: Request) {
   }
 
   const receivedAt = new Date();
-  const defaultRecipientEmail = process.env.BREVO_SENDER_EMAIL || "bestilling@otman.no";
-  const defaultRecipientName = process.env.BREVO_SENDER_NAME || "Otman Transport";
+  const defaultRecipientEmail = getGmailSendAsEmail();
+  const defaultRecipientName = "Otman Transport";
 
   await prisma.orderEmailMessage.create({
     data: {

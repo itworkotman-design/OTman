@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 
 export type EmailAddress = {
   email: string;
@@ -11,7 +12,8 @@ type OrderConversationReplyContext = {
   sentAtLabel: string;
 };
 
-const THREAD_TOKEN_REGEX = /\[OTMAN:([a-z0-9]+)\]/i;
+const THREAD_TOKEN_REGEX = /\[OTMAN:([a-z0-9_-]+)\]/i;
+const REPLY_ADDRESS_TOKEN_REGEX = /reply\+([a-z0-9_-]+)@reply\.otman\.no/i;
 
 function escapeHtml(value: string) {
   return value
@@ -95,7 +97,7 @@ export function extractThreadTokenFromSubject(subject: string | null | undefined
 }
 
 export function buildReplyToAddress(threadToken: string): string | null {
-  const domain = process.env.EMAIL_REPLY_DOMAIN?.trim();
+  const domain = process.env.EMAIL_REPLY_DOMAIN?.trim() || "reply.otman.no";
 
   if (!domain) {
     return null;
@@ -107,6 +109,11 @@ export function buildReplyToAddress(threadToken: string): string | null {
 export function extractThreadTokenFromRecipientValue(
   value: string,
 ): string | null {
+  const directMatch = value.match(REPLY_ADDRESS_TOKEN_REGEX);
+  if (directMatch?.[1]) {
+    return directMatch[1].toLowerCase();
+  }
+
   const parsed = extractEmailAddressFromString(value);
 
   if (!parsed) {
@@ -237,7 +244,7 @@ export function buildOrderConversationEmailText(input: {
     parts.push(buildQuotedReplyText(input.replyContext));
   }
 
-  parts.push("", `[OTMAN:${input.threadToken}]`, "", "Med vennlig hilsen,", "Otman Transport AS", "+47 402 84 977 | bestilling@otman.no");
+  parts.push("", `[OTMAN:${input.threadToken}]`, "", "Med vennlig hilsen,", "Otman Transport AS", `+47 402 84 977 | ${getGmailSendAsEmail()}`);
 
   return parts.join("\n").trim();
 }
@@ -268,7 +275,7 @@ export function buildOrderConversationEmailHtml(input: {
       <p style="margin:24px 0 0 0;">
         Med vennlig hilsen,<br/>
         Otman Transport AS<br/>
-        +47 402 84 977 | bestilling@otman.no
+        +47 402 84 977 | ${getGmailSendAsEmail()}
       </p>
     </div>
   `;

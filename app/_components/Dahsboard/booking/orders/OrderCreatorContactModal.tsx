@@ -7,7 +7,7 @@ import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types
 type ConversationMessage = {
   id: string;
   direction: "OUTBOUND" | "INBOUND";
-  status: "SENT" | "FAILED" | "RECEIVED";
+  status: "SENT" | "SENT_WITH_SYNC_WARNING" | "FAILED" | "RECEIVED";
   subject: string;
   bodyText: string;
   bodyHtml: string;

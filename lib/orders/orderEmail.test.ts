@@ -45,10 +45,12 @@ describe("orderEmail helpers", () => {
     );
   });
 
-  it("returns null when reply domain is not configured", () => {
+  it("uses reply.otman.no when reply domain is not configured", () => {
     delete process.env.EMAIL_REPLY_DOMAIN;
 
-    expect(buildReplyToAddress("thread123")).toBeNull();
+    expect(buildReplyToAddress("thread123")).toBe(
+      "reply+thread123@reply.otman.no",
+    );
   });
 
   it("prefixes reply subjects once", () => {

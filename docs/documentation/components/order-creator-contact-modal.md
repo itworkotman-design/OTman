@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Renders the Norwegian order-creator mail center for an order, including reply composition, message history, and the creator-side unread state.
+Renders the Norwegian order-creator mail center for an order, including reply composition, message history, sent-with-sync-warning messages, and the creator-side unread state.
 
 ## Functions
 

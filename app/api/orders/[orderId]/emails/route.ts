@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
-import { sendGmailEmail } from "@/lib/email/sendGmailEmail";
+import { getGmailErrorDebug, isGmailOAuthScopeMissing, REQUIRED_GMAIL_SCOPES, sendGmailEmail } from "@/lib/email/sendGmailEmail";
+import { getAdminEmails, getGmailAccountEmail, getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import {
   buildOrderConversationEmailHtml,
   buildOrderConversationEmailText,
   buildReplySubject,
   buildReplyToAddress,
+  buildThreadedSubject,
   createOrderEmailThreadToken,
 } from "@/lib/orders/orderEmail";
 
@@ -281,15 +283,27 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   }
 
   const creatorUser = order.customerMembership?.user ?? order.createdByMembership.user;
-
-  const primaryRecipientEmail = typedTo || creatorUser.email.trim() || order.email?.trim() || "";
+  const senderAccount = getGmailSendAsEmail();
+  const backupEmail = process.env.ORDER_CONVERSATION_BACKUP_EMAIL?.trim() || "";
+  const notificationEmail = process.env.ORDER_NOTIFICATION_EMAIL?.trim() || "";
+  const disallowedToEmails = new Set(
+    [...getAdminEmails(), backupEmail.trim().toLowerCase(), notificationEmail.trim().toLowerCase()]
+      .filter((email) => email.length > 0),
+  );
+  const recipientCandidates = [
+    typedTo,
+    order.email?.trim() ?? "",
+    order.customerMembership?.user.email?.trim() ?? "",
+    creatorUser.email.trim(),
+  ].filter((email) => email.length > 0);
+  const primaryRecipientEmail = recipientCandidates.find((email) => !disallowedToEmails.has(email.trim().toLowerCase())) ?? "";
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(primaryRecipientEmail)) {
     return NextResponse.json({ ok: false, reason: "INVALID_RECIPIENT_EMAIL" }, { status: 400 });
   }
 
   const primaryRecipientName =
-    typedRecipientName || creatorUser.username?.trim() || creatorUser.email.trim() || order.customerName?.trim() || order.customerLabel?.trim() || "";
+    typedRecipientName || order.customerName?.trim() || order.customerLabel?.trim() || creatorUser.username?.trim() || creatorUser.email.trim() || "";
 
   if (!primaryRecipientEmail) {
     return NextResponse.json({ ok: false, reason: "MISSING_RECIPIENT" }, { status: 400 });
@@ -322,27 +336,25 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       createdAt: "asc",
     },
     select: {
-    direction: true,
-    source: true,
-    externalMessageId: true,
-    subject: true,
-    bodyText: true,
-    bodyHtml: true,
-    fromEmail: true,
-    fromName: true,
-    toEmail: true,
-    toName: true,
-    createdAt: true,
-  },
+      direction: true,
+      source: true,
+      externalMessageId: true,
+      subject: true,
+      bodyText: true,
+      bodyHtml: true,
+      fromEmail: true,
+      fromName: true,
+      toEmail: true,
+      toName: true,
+      createdAt: true,
+    },
   });
 
-  const latestInboundMessage = [...existingMessages]
-  .reverse()
-  .find((item) => item.direction === "INBOUND");
+  const latestInboundMessage = [...existingMessages].reverse().find((item) => item.direction === "INBOUND");
 
   const shouldIncludeAppHistory = latestInboundMessage?.source === "APP";
   const threadToken = order.emailThreadToken || createOrderEmailThreadToken();
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || "bestilling@otman.no";
+  const senderEmail = senderAccount;
   const senderName = process.env.BREVO_SENDER_NAME || "Otman Transport";
 
   if (!order.emailThreadToken) {
@@ -359,15 +371,17 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   const orderLabel = order.orderNumber && order.orderNumber.trim().length > 0 ? `Order ${order.displayId} | ${order.orderNumber}` : `Order ${order.displayId}`;
   const hasExistingConversation = existingMessages.length > 0;
   const baseSubject = hasExistingConversation ? buildReplySubject(subject) : subject;
-  const finalSubject = baseSubject;
   const replyToEmail = buildReplyToAddress(threadToken);
   const replyAnchor = existingMessages.find(
     (item) => item.direction === "OUTBOUND" && typeof item.externalMessageId === "string" && item.externalMessageId.trim().length > 0,
   );
-  const references = existingMessages
-    .map((item) => (typeof item.externalMessageId === "string" ? item.externalMessageId.trim() : ""))
-    .filter((item) => item.length > 0)
-    .slice(-10);
+  const references = replyAnchor
+    ? existingMessages
+        .map((item) => (typeof item.externalMessageId === "string" ? item.externalMessageId.trim() : ""))
+        .filter((item) => item.length > 0)
+        .slice(-10)
+    : [];
+  const finalSubject = replyAnchor?.externalMessageId ? baseSubject : buildThreadedSubject(baseSubject, threadToken);
   const latestInboundForContext = latestInboundMessage;
 
   const replyContext =
@@ -378,20 +392,19 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
           sentAtLabel: latestInboundForContext.createdAt.toLocaleString("nb-NO"),
         }
       : null;
-      
+
   const emailHtml = buildOrderConversationEmailHtml({
     messageText: message,
     orderLabel,
     threadToken,
     replyContext,
-
   });
   const emailText = buildOrderConversationEmailText({
-  messageText: message,
-  orderLabel,
-  threadToken,
-  replyContext,
-});
+    messageText: message,
+    orderLabel,
+    threadToken,
+    replyContext,
+  });
   const emailHeaders: Record<string, string> = {};
 
   if (replyAnchor?.externalMessageId) {
@@ -402,20 +415,26 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
     emailHeaders.References = references.join(" ");
   }
 
-  try {
-    console.log("EMAIL THREAD DEBUG", {
-      hasExistingConversation,
-      replyAnchor,
-      references,
-      emailHeaders,
-    });
+  console.log("ORDER EMAIL SEND DEBUG", {
+      senderAccount,
+      oauthAccountEmail: getGmailAccountEmail(),
+    to: recipients.map((recipient) => recipient.email),
+    cc: [],
+    bcc: backupEmail ? [backupEmail] : [],
+    replyTo: replyToEmail,
+    emailThreadToken: threadToken,
+    hasExistingConversation,
+    replyAnchor,
+    references,
+    emailHeaders,
+  });
 
-    const sendResult = await sendGmailEmail({
+  let sendResult: Awaited<ReturnType<typeof sendGmailEmail>>;
+
+  try {
+    sendResult = await sendGmailEmail({
       to: recipients[0],
-      bcc: {
-        email: "bestilling@otman.no",
-        name: "Otman Transport",
-      },
+      bcc: backupEmail || undefined,
       threadToken,
       subject: finalSubject,
       html: emailHtml,
@@ -424,51 +443,12 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       inReplyTo: replyAnchor?.externalMessageId || undefined,
       references,
     });
-
-    const sentAt = new Date();
-
-    const savedMessage = await prisma.orderEmailMessage.create({
-      data: {
-        orderId: order.id,
-        companyId: order.companyId,
-        direction: "OUTBOUND",
-        status: "SENT",
-        source: "APP",
-        sentByMembershipId: auth.membership.id,
-        externalMessageId: sendResult.messageId,
-        gmailMessageId: sendResult.gmailMessageId,
-        gmailThreadId: sendResult.gmailThreadId,
-        subject: finalSubject,
-        bodyText: message,
-        bodyHtml: emailHtml,
-        fromEmail: senderEmail,
-        fromName: senderName,
-        toEmail: storedToEmail,
-        toName: storedToName || null,
-        sentAt,
-      },
-    });
-
-    await prisma.order.update({
-      where: {
-        id: order.id,
-      },
-      data: {
-        lastOutboundEmailAt: sentAt,
-        needsEmailAttention: false,
-        unreadInboundEmailCount: 0,
-      },
-    });
-
-    return NextResponse.json({
-      ok: true,
-      message: {
-        id: savedMessage.id,
-      },
-    });
   } catch (error) {
+    const errorDebug = getGmailErrorDebug(error);
+    console.error("ORDER EMAIL SEND FAILED BEFORE GMAIL SUCCESS", errorDebug);
     const failedAt = new Date();
-    const reason = error instanceof Error && error.message ? error.message : "FAILED_TO_SEND_EMAIL";
+    const scopeMissing = isGmailOAuthScopeMissing(error);
+    const reason = scopeMissing ? "GMAIL_OAUTH_SCOPE_MISSING" : error instanceof Error && error.message ? error.message : "FAILED_TO_SEND_EMAIL";
     const failedBodyText = buildFailedConversationBody(message, reason);
     const failedBodyHtml = `
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
@@ -511,8 +491,102 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       },
     });
 
-    return NextResponse.json({ ok: false, reason }, { status: 502 });
+    return NextResponse.json(
+      {
+        ok: false,
+        reason,
+        gmailError: {
+          message: errorDebug.message,
+          code: errorDebug.code,
+          status: errorDebug.status,
+          responseData: errorDebug.responseData,
+        },
+        requiredScopes: scopeMissing ? REQUIRED_GMAIL_SCOPES : undefined,
+      },
+      { status: 502 },
+    );
   }
+
+  console.log("ORDER EMAIL GMAIL SEND RESULT", {
+    emailThreadToken: threadToken,
+    oauthAccountEmail: sendResult.oauthAccountEmail,
+    gmailMessageId: sendResult.gmailMessageId,
+    gmailThreadId: sendResult.gmailThreadId,
+    externalMessageId: sendResult.messageId,
+    syncWarning: sendResult.syncWarning,
+  });
+
+  const sentAt = new Date();
+  let savedMessage: { id: string };
+
+  try {
+    console.log("ORDER EMAIL BEFORE prisma.orderEmailMessage.create", {
+      orderId: order.id,
+      companyId: order.companyId,
+      status: sendResult.syncWarning ? "SENT_WITH_SYNC_WARNING" : "SENT",
+      source: "GMAIL",
+      externalMessageId: sendResult.messageId,
+      gmailMessageId: sendResult.gmailMessageId,
+      gmailThreadId: sendResult.gmailThreadId,
+    });
+    savedMessage = await prisma.orderEmailMessage.create({
+      data: {
+        orderId: order.id,
+        companyId: order.companyId,
+        direction: "OUTBOUND",
+        status: sendResult.syncWarning ? "SENT_WITH_SYNC_WARNING" : "SENT",
+        source: "GMAIL",
+        sentByMembershipId: auth.membership.id,
+        externalMessageId: sendResult.messageId,
+        gmailMessageId: sendResult.gmailMessageId,
+        gmailThreadId: sendResult.gmailThreadId,
+        subject: finalSubject,
+        bodyText: message,
+        bodyHtml: emailHtml,
+        fromEmail: senderEmail,
+        fromName: senderName,
+        toEmail: storedToEmail,
+        toName: storedToName || null,
+        sentAt,
+      },
+    });
+
+    console.log("ORDER EMAIL BEFORE prisma.order.update", {
+      orderId: order.id,
+      lastOutboundEmailAt: sentAt,
+      needsEmailAttention: false,
+      unreadInboundEmailCount: 0,
+    });
+    await prisma.order.update({
+      where: {
+        id: order.id,
+      },
+      data: {
+        lastOutboundEmailAt: sentAt,
+        needsEmailAttention: false,
+        unreadInboundEmailCount: 0,
+      },
+    });
+  } catch (error) {
+    console.error("ORDER EMAIL POST-GMAIL PRISMA PERSIST FAILED", getGmailErrorDebug(error));
+    throw error;
+  }
+
+  console.log("ORDER EMAIL BEFORE returning response", {
+    orderId: order.id,
+    messageId: savedMessage.id,
+    gmailMessageId: sendResult.gmailMessageId,
+    gmailThreadId: sendResult.gmailThreadId,
+    externalMessageId: sendResult.messageId,
+    status: sendResult.syncWarning ? "SENT_WITH_SYNC_WARNING" : "SENT",
+  });
+
+  return NextResponse.json({
+    ok: true,
+    message: {
+      id: savedMessage.id,
+    },
+  });
 }
 
 export async function PATCH(req: Request, { params }: OrderEmailRouteParams) {

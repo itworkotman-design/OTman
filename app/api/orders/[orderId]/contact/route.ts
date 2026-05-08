@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canCreateOrders } from "@/lib/users/orderAccess";
 import type { AppPermission } from "@/lib/users/types";
+import { sendGmailEmail } from "@/lib/email/sendGmailEmail";
+import { ORDER_NOTIFICATION_EMAIL } from "@/lib/orders/orderNotificationEmail";
 
 type RouteContext = {
   params: Promise<{
@@ -28,6 +30,63 @@ function appendThreadToken(message: string, token: string) {
   }
 
   return `${trimmed}\n\n[OTMAN:${token}]`;
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
+
+function textToHtml(value: string) {
+  return value
+    .split(/\r?\n\r?\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p style="margin:0 0 16px 0;">${escapeHtml(paragraph).replaceAll("\n", "<br/>")}</p>`)
+    .join("");
+}
+
+async function sendFirstCreatorMessageNotification(input: {
+  orderLabel: string;
+  senderName: string;
+  senderEmail: string;
+  subject: string;
+  bodyText: string;
+}) {
+  try {
+    const sendResult = await sendGmailEmail({
+      to: {
+        email: ORDER_NOTIFICATION_EMAIL,
+        name: "Otman Transport",
+      },
+      bcc: "",
+      threadToken: input.bodyText.match(/\[OTMAN:([a-z0-9_-]+)\]/i)?.[1],
+      subject: `New order message: ${input.orderLabel}`,
+      text: [`From: ${input.senderName} <${input.senderEmail}>`, `Subject: ${input.subject}`, "", input.bodyText].join("\n"),
+      html: `
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
+          <p style="margin:0 0 16px 0;"><strong>From:</strong> ${escapeHtml(input.senderName)} &lt;${escapeHtml(input.senderEmail)}&gt;</p>
+          <p style="margin:0 0 16px 0;"><strong>Subject:</strong> ${escapeHtml(input.subject)}</p>
+          ${textToHtml(input.bodyText)}
+        </div>
+      `,
+      replyTo: input.senderEmail,
+    });
+    console.log("ORDER CREATOR FIRST MESSAGE NOTIFICATION SENT", {
+      to: ORDER_NOTIFICATION_EMAIL,
+      senderEmail: input.senderEmail,
+      orderLabel: input.orderLabel,
+      gmailMessageId: sendResult.gmailMessageId,
+      gmailThreadId: sendResult.gmailThreadId,
+      externalMessageId: sendResult.messageId,
+      syncWarning: sendResult.syncWarning,
+    });
+  } catch (error) {
+    console.error("ORDER CREATOR FIRST MESSAGE NOTIFICATION FAILED", {
+      orderLabel: input.orderLabel,
+      senderEmail: input.senderEmail,
+      reason: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+    });
+  }
 }
 
 function getOrderCreatorEmailAttention(order: {
@@ -275,6 +334,11 @@ export async function POST(req: Request, { params }: RouteContext) {
           },
         },
       },
+      _count: {
+        select: {
+          emailMessages: true,
+        },
+      },
     },
   });
 
@@ -288,6 +352,7 @@ export async function POST(req: Request, { params }: RouteContext) {
   const bodyText = appendThreadToken(message, threadToken);
 
   const senderName = formatPersonName(membership.user.username, membership.user.email);
+  const isFirstConversationMessage = order._count.emailMessages === 0;
 
   await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     if (!order.emailThreadToken) {
@@ -333,6 +398,16 @@ export async function POST(req: Request, { params }: RouteContext) {
       },
     });
   });
+
+  if (isFirstConversationMessage) {
+    await sendFirstCreatorMessageNotification({
+      orderLabel: buildSubject(order),
+      senderName,
+      senderEmail: membership.user.email,
+      subject,
+      bodyText,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

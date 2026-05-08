@@ -1,6 +1,7 @@
 import { google, type gmail_v1 } from "googleapis";
 import { prisma } from "@/lib/db";
-import { parseEmailAddress } from "@/lib/orders/orderEmail";
+import { getAdminEmails, getGmailAccountEmail, getGmailSendAsEmail, normalizeEmail } from "@/lib/email/gmailAccounts";
+import { extractThreadTokenFromRecipients, parseEmailAddress } from "@/lib/orders/orderEmail";
 
 const OTMAN_THREAD_TOKEN_REGEX = /\[OTMAN:([a-zA-Z0-9_-]+)\]/;
 const DEFAULT_SEARCH_QUERY = '"[OTMAN:" newer_than:30d';
@@ -105,7 +106,9 @@ function parseGmailMessage(
   const headers = payload?.headers;
   const subject = getHeader(headers, "Subject") || "Gmail message";
   const from = parseEmailAddress(getHeader(headers, "From"));
-  const to = parseEmailAddress(getHeader(headers, "To"));
+  const toHeader = getHeader(headers, "To");
+  const ccHeader = getHeader(headers, "Cc");
+  const to = parseEmailAddress(toHeader);
   const sentAt = parseGmailDate(getHeader(headers, "Date"));
   const bodies = collectMessageBodies(payload);
   const bodyText = bodies.textParts.join("\n\n").trim();
@@ -123,10 +126,10 @@ function parseGmailMessage(
     bodyHtml,
     fromEmail: from.email,
     fromName: from.name ?? null,
-    toEmail: to?.email ?? process.env.GMAIL_USER ?? "",
+    toEmail: to?.email ?? getGmailAccountEmail(),
     toName: to?.name ?? null,
     sentAt,
-    token: extractThreadToken(subject, bodyText, bodyHtml, snippet),
+    token: extractThreadTokenFromRecipients(toHeader) || extractThreadTokenFromRecipients(ccHeader) || extractThreadToken(subject, bodyText, bodyHtml, snippet),
   };
 }
 
@@ -144,7 +147,7 @@ function createGmailClient() {
 }
 
 function isAdminSender(email: string) {
-  return email.toLowerCase() === (process.env.GMAIL_USER ?? "").toLowerCase();
+  return getAdminEmails().includes(email.toLowerCase());
 }
 
 export async function syncGmailOrderConversations(options?: {
@@ -152,6 +155,44 @@ export async function syncGmailOrderConversations(options?: {
   query?: string;
 }): Promise<GmailSyncResult> {
   const gmail = createGmailClient();
+  const gmailUserId = getGmailAccountEmail() || "me";
+  let oauthAccountEmail = "";
+  let sendAsAliases: string[] = [];
+
+  try {
+    const profile = await gmail.users.getProfile({
+      userId: "me",
+    });
+    oauthAccountEmail = profile.data.emailAddress ?? "";
+  } catch (error) {
+    console.warn("GMAIL SYNC PROFILE LOOKUP FAILED", {
+      configuredAccountEmail: getGmailAccountEmail(),
+      configuredSendAsEmail: getGmailSendAsEmail(),
+      reason: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+    });
+  }
+
+  try {
+    const sendAsResponse = await gmail.users.settings.sendAs.list({
+      userId: gmailUserId,
+    });
+    sendAsAliases = (sendAsResponse.data.sendAs ?? []).map((alias) => normalizeEmail(alias.sendAsEmail)).filter((alias) => alias.length > 0);
+  } catch (error) {
+    console.warn("GMAIL SYNC SEND AS ALIASES LOOKUP FAILED", {
+      oauthAccountEmail,
+      configuredAccountEmail: getGmailAccountEmail(),
+      configuredSendAsEmail: getGmailSendAsEmail(),
+      reason: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+    });
+  }
+
+  console.log("GMAIL SYNC STARTUP DEBUG", {
+    oauthAccountEmail,
+    configuredAccountEmail: getGmailAccountEmail(),
+    configuredSendAsEmail: getGmailSendAsEmail(),
+    sendAsAliases,
+  });
+
   const result: GmailSyncResult = {
     imported: 0,
     skippedDuplicates: 0,
@@ -160,7 +201,7 @@ export async function syncGmailOrderConversations(options?: {
   };
 
   const listResponse = await gmail.users.messages.list({
-    userId: process.env.GMAIL_USER || "me",
+    userId: gmailUserId,
     q: options?.query ?? DEFAULT_SEARCH_QUERY,
     maxResults: options?.maxResults ?? DEFAULT_MAX_RESULTS,
   });
@@ -169,7 +210,7 @@ export async function syncGmailOrderConversations(options?: {
     if (!listedMessage.id) continue;
 
     const messageResponse = await gmail.users.messages.get({
-      userId: process.env.GMAIL_USER || "me",
+      userId: gmailUserId,
       id: listedMessage.id,
       format: "full",
     });

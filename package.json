@@ -10,6 +10,7 @@
     "lint": "eslint",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
+    "gmail:token": "tsx scripts/generate-gmail-refresh-token.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

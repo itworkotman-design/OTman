@@ -1,4 +1,5 @@
 import { sendEmail } from "@/lib/email/sendEmail";
+import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import type { BuiltOrderItem } from "@/lib/orders/buildOrderItemsFromCards";
 
 export const ORDER_NOTIFICATION_EMAIL =
@@ -258,7 +259,7 @@ function buildSimpleEmailShell(content: string) {
       <p style="margin:20px 0 0 0;">Med vennlig hilsen,</p>
       <p style="margin:0;">
         Otman Transport AS<br/>
-        +47 402 84 977 | bestilling@otman.no
+        +47 402 84 977 | ${getGmailSendAsEmail()}
       </p>
 
       <div style="margin-top:12px;">

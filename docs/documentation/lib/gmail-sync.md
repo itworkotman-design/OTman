@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Polls Gmail for recent messages containing OTman thread tokens and imports matching messages into order conversations.
+Polls Gmail for recent messages containing OTman thread tokens or reply-alias recipients and imports matching messages into order conversations. The sync uses `GMAIL_ACCOUNT_EMAIL` as the Gmail API mailbox and treats both `GMAIL_ACCOUNT_EMAIL` and `GMAIL_SEND_AS_EMAIL` as admin/system senders when deciding inbound versus outbound direction.
 
 ## Functions
 
@@ -17,7 +17,7 @@ Polls Gmail for recent messages containing OTman thread tokens and imports match
 | `collectMessageBodies` | Recursively extracts plain-text and HTML body parts from a Gmail message payload. |
 | `extractThreadToken` | Finds an `[OTMAN:<threadToken>]` marker in message content. |
 | `parseGmailDate` | Parses Gmail header dates with a current-time fallback. |
-| `parseGmailMessage` | Converts a full Gmail API message into the app's import shape. |
+| `parseGmailMessage` | Converts a full Gmail API message into the app's import shape and extracts tokens from To/Cc reply aliases before falling back to subject/body markers. |
 | `createGmailClient` | Creates an OAuth-authenticated Gmail API client from environment credentials. |
-| `isAdminSender` | Checks whether a sender is the configured Gmail/admin account. |
-| `syncGmailOrderConversations` | Searches Gmail, skips duplicate imported message ids, stores matching order messages, and updates order email attention for inbound customer replies. |
+| `isAdminSender` | Checks whether a sender is one of the configured admin/system Gmail addresses. |
+| `syncGmailOrderConversations` | Searches Gmail using the authenticated account, logs OAuth/send-as startup details, skips duplicate imported message ids, stores matching order messages, and updates order email attention for inbound customer replies. |

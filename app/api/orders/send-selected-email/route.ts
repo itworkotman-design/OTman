@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
 import { sendEmail } from "@/lib/email/sendEmail";
+import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import type { AppPermission } from "@/lib/users/types";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
 
@@ -331,7 +332,7 @@ export async function POST(req: Request) {
         <p style="margin:0 0 16px 0;">
           Med vennlig hilsen,<br/>
           Otman Transport AS | otman.no<br/>
-          +47 402 84 977 | bestilling@otman.no
+          +47 402 84 977 | ${getGmailSendAsEmail()}
         </p>
 
         <div style="margin-top:12px;">
@@ -457,7 +458,7 @@ async function logFailedSelectedOrderEmails(params: {
             subject: params.subject,
             bodyText: params.bodyText,
             bodyHtml: params.bodyHtml,
-            fromEmail: process.env.BREVO_SENDER_EMAIL || "bestilling@otman.no",
+            fromEmail: process.env.BREVO_SENDER_EMAIL || getGmailSendAsEmail(),
             fromName: process.env.BREVO_SENDER_NAME || "Otman Transport",
             toEmail: params.toEmail,
             toName: params.toName,

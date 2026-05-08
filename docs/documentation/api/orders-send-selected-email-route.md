@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Sends one summary email for a set of selected orders to one or more selected recipients, writes an order-action history entry plus last-edited metadata for successful sends, blocks the send when the active company's outbound order emails are disabled, and logs failed outbound attempts back onto each selected order so the Alert Center conversation can show the failure reason.
+Sends one summary email for a set of selected orders to one or more selected recipients, writes an order-action history entry plus last-edited metadata for successful sends, blocks the send when the active company's outbound order emails are disabled, uses the configured Gmail send-as address in visible contact text and fallback logs, and logs failed outbound attempts back onto each selected order so the Alert Center conversation can show the failure reason.
 
 ## Functions
 

@@ -189,6 +189,61 @@ describe("POST /api/integrations/email/inbound", () => {
     });
   });
 
+  it("extracts the thread token from cc when the canonical mailbox is also a recipient", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-cc",
+      companyId: "company-cc",
+    });
+    mocks.orderEmailMessageCreateMock.mockResolvedValue({
+      id: "email-cc",
+    });
+    mocks.orderUpdateMock.mockResolvedValue({
+      id: "order-cc",
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/integrations/email/inbound?secret=secret-123",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Customer Name <customer@example.com>",
+            to: "bestilling@otman.no",
+            cc: "reply+threadcc@reply.otman.no",
+            subject: "Re: Order 20003",
+            text: "Cc routed body",
+            messageId: "<message-id-cc>",
+          }),
+        },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        emailThreadToken: "threadcc",
+      },
+      select: {
+        id: true,
+        companyId: true,
+      },
+    });
+    expect(mocks.orderEmailMessageCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orderId: "order-cc",
+        companyId: "company-cc",
+        direction: "INBOUND",
+        status: "RECEIVED",
+        externalMessageId: "<message-id-cc>",
+        fromEmail: "customer@example.com",
+        toEmail: "bestilling@otman.no",
+      }),
+    });
+  });
+
   it("maps Mailgun form-data fields into the inbound email shape", async () => {
     mocks.orderFindFirstMock.mockResolvedValue({
       id: "order-2",

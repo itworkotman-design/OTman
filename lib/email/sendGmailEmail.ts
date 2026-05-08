@@ -1,9 +1,74 @@
 import { google } from "googleapis";
+import { formatGmailSenderName, getGmailAccountEmail, getGmailSendAsEmail, normalizeEmail } from "@/lib/email/gmailAccounts";
+
+export const REQUIRED_GMAIL_SCOPES = [
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/gmail.settings.basic",
+] as const;
 
 type Recipient = {
   email: string;
   name?: string;
 };
+
+export function getGmailErrorDebug(error: unknown) {
+  const candidate = error as {
+    message?: unknown;
+    code?: unknown;
+    status?: unknown;
+    response?: {
+      data?: unknown;
+    };
+    stack?: unknown;
+  };
+
+  return {
+    message: typeof candidate?.message === "string" ? candidate.message : undefined,
+    code: candidate?.code,
+    status: candidate?.status,
+    responseData: candidate?.response?.data,
+    stack: typeof candidate?.stack === "string" ? candidate.stack : undefined,
+  };
+}
+
+export function isGmailOAuthScopeMissing(error: unknown) {
+  const debug = getGmailErrorDebug(error);
+  const haystack = JSON.stringify({
+    message: debug.message,
+    responseData: debug.responseData,
+  }).toLowerCase();
+
+  return (
+    debug.status === 403 &&
+    (haystack.includes("insufficient authentication scopes") ||
+      haystack.includes("insufficient permission") ||
+      haystack.includes("insufficientpermissions") ||
+      haystack.includes("access not configured"))
+  );
+}
+
+function formatSendAsAliases(
+  aliases:
+    | Array<{
+        sendAsEmail?: string | null;
+        verificationStatus?: string | null;
+        isDefault?: boolean | null;
+        displayName?: string | null;
+        replyToAddress?: string | null;
+        treatAsAlias?: boolean | null;
+      }>
+    | undefined,
+) {
+  return (aliases ?? []).map((alias) => ({
+    sendAsEmail: normalizeEmail(alias.sendAsEmail),
+    verificationStatus: alias.verificationStatus ?? null,
+    isDefault: alias.isDefault ?? null,
+    displayName: alias.displayName ?? null,
+    replyToAddress: alias.replyToAddress ?? null,
+    treatAsAlias: alias.treatAsAlias ?? null,
+  }));
+}
 
 function formatRecipient(recipient: Recipient) {
   return recipient.name ? `"${recipient.name}" <${recipient.email}>` : recipient.email;
@@ -47,7 +112,7 @@ function buildMimeMessage({
     `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    replyTo ? `Reply-To: ${replyTo}` : `Reply-To: bestilling@otman.no`,
+    replyTo ? `Reply-To: ${replyTo}` : `Reply-To: ${getGmailSendAsEmail()}`,
     inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
     references?.length ? `References: ${references.join(" ")}` : null,
   ].filter(Boolean);
@@ -100,8 +165,56 @@ export async function sendGmailEmail({
   });
 
   const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+  const configuredAccountEmail = getGmailAccountEmail();
+  const configuredSendAsEmail = getGmailSendAsEmail();
+  const profile = await gmail.users.getProfile({
+    userId: "me",
+  });
+  const oauthAccountEmail = profile.data.emailAddress ?? "";
+  let sendAsAliases: ReturnType<typeof formatSendAsAliases> = [];
 
-  const from = `"OtmanTransportAS" <${process.env.GMAIL_USER!}>`;
+  try {
+    const sendAsResponse = await gmail.users.settings.sendAs.list({
+      userId: configuredAccountEmail || "me",
+    });
+    sendAsAliases = formatSendAsAliases(sendAsResponse.data.sendAs);
+    console.log("GMAIL SEND users.settings.sendAs.list RESULT", {
+      oauthAccountEmail,
+      configuredAccountEmail,
+      configuredSendAsEmail,
+      sendAsAliases,
+    });
+  } catch (error) {
+    console.warn("GMAIL SEND AS ALIASES LOOKUP FAILED", {
+      oauthAccountEmail,
+      configuredAccountEmail,
+      configuredSendAsEmail,
+      error: getGmailErrorDebug(error),
+    });
+  }
+
+  console.log("GMAIL SEND STARTUP DEBUG", {
+    oauthAccountEmail,
+    configuredAccountEmail,
+    configuredSendAsEmail,
+    sendAsAliases,
+  });
+
+  if (normalizeEmail(oauthAccountEmail) !== configuredAccountEmail) {
+    throw new Error("GMAIL_ACCOUNT_MISMATCH");
+  }
+
+  const configuredSendAsAlias = sendAsAliases.find((alias) => alias.sendAsEmail === configuredSendAsEmail);
+  if (sendAsAliases.length > 0 && (!configuredSendAsAlias || configuredSendAsAlias.verificationStatus !== "accepted")) {
+    console.error("GMAIL SEND AS ALIAS NOT ACCEPTED", {
+      configuredSendAsEmail,
+      configuredSendAsAlias: configuredSendAsAlias ?? null,
+      sendAsAliases,
+    });
+    throw new Error("GMAIL_SEND_AS_ALIAS_NOT_ACCEPTED");
+  }
+
+  const from = `"${formatGmailSenderName()}" <${configuredSendAsEmail}>`;
 
   const mime = buildMimeMessage({
     from,
@@ -116,32 +229,69 @@ export async function sendGmailEmail({
     threadToken,
   });
 
-  const response = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      raw: encodeBase64Url(mime),
-    },
+  console.log("GMAIL SEND BEFORE users.messages.send", {
+    userId: configuredAccountEmail,
+    from,
+    to: recipients.map((recipient) => recipient.email),
+    bcc: bccRecipients,
+    replyTo,
+    inReplyTo,
+    references,
+    threadToken,
+    subject,
+  });
+
+  let response;
+  try {
+    response = await gmail.users.messages.send({
+      userId: configuredAccountEmail,
+      requestBody: {
+        raw: encodeBase64Url(mime),
+      },
+    });
+  } catch (error) {
+    console.error("GMAIL SEND users.messages.send FAILED", getGmailErrorDebug(error));
+    throw error;
+  }
+
+  console.log("GMAIL SEND AFTER users.messages.send", {
+    id: response.data.id ?? null,
+    threadId: response.data.threadId ?? null,
+    labelIds: response.data.labelIds ?? null,
   });
 
   const gmailMessageId = response.data.id ?? null;
   const gmailThreadId = response.data.threadId ?? null;
 
   let rfcMessageId: string | null = null;
+  let syncWarning: string | null = null;
 
   if (gmailMessageId) {
-    const sentMessage = await gmail.users.messages.get({
-      userId: "me",
-      id: gmailMessageId,
-      format: "metadata",
-      metadataHeaders: ["Message-ID"],
-    });
+    try {
+      console.log("GMAIL SEND BEFORE users.messages.get metadata", {
+        userId: configuredAccountEmail,
+        id: gmailMessageId,
+      });
+      const sentMessage = await gmail.users.messages.get({
+        userId: configuredAccountEmail,
+        id: gmailMessageId,
+        format: "metadata",
+        metadataHeaders: ["Message-ID"],
+      });
 
-    rfcMessageId = sentMessage.data.payload?.headers?.find((header) => header.name?.toLowerCase() === "message-id")?.value ?? null;
+      rfcMessageId = sentMessage.data.payload?.headers?.find((header) => header.name?.toLowerCase() === "message-id")?.value ?? null;
+    } catch (error) {
+      console.error("GMAIL SEND users.messages.get metadata FAILED", getGmailErrorDebug(error));
+      syncWarning = error instanceof Error && error.message ? error.message : "GMAIL_SENT_MESSAGE_METADATA_LOOKUP_FAILED";
+    }
   }
 
   return {
     messageId: rfcMessageId,
     gmailMessageId,
     gmailThreadId,
+    oauthAccountEmail,
+    senderAccount: configuredSendAsEmail,
+    syncWarning,
   };
 }
