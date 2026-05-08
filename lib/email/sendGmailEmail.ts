@@ -142,6 +142,7 @@ export async function sendGmailEmail({
   replyTo,
   inReplyTo,
   references,
+  gmailThreadId: existingGmailThreadId,
 }: {
   to: Recipient | Recipient[];
   bcc?: Recipient | Recipient[] | string;
@@ -152,6 +153,7 @@ export async function sendGmailEmail({
   replyTo?: string;
   inReplyTo?: string;
   references?: string[];
+  gmailThreadId?: string | null;
 }) {
   const recipients = Array.isArray(to) ? to : [to];
 
@@ -237,6 +239,7 @@ export async function sendGmailEmail({
     replyTo,
     inReplyTo,
     references,
+    gmailThreadId: existingGmailThreadId,
     threadToken,
     subject,
   });
@@ -247,6 +250,7 @@ export async function sendGmailEmail({
       userId: configuredAccountEmail,
       requestBody: {
         raw: encodeBase64Url(mime),
+        threadId: existingGmailThreadId || undefined,
       },
     });
   } catch (error) {

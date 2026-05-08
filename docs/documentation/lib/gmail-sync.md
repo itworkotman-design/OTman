@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Polls Gmail for recent messages containing OTman thread tokens or reply-alias recipients and imports matching messages into order conversations. The sync uses `GMAIL_ACCOUNT_EMAIL` as the Gmail API mailbox and treats both `GMAIL_ACCOUNT_EMAIL` and `GMAIL_SEND_AS_EMAIL` as admin/system senders when deciding inbound versus outbound direction.
+Polls Gmail for recent messages sent to reply-alias recipients, with legacy support for visible OTman thread tokens, and imports matching messages into order conversations. The sync uses `GMAIL_ACCOUNT_EMAIL` as the Gmail API mailbox and treats both `GMAIL_ACCOUNT_EMAIL` and `GMAIL_SEND_AS_EMAIL` as admin/system senders when deciding inbound versus outbound direction.
 
 ## Functions
 

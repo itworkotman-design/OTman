@@ -8,8 +8,8 @@ import {
   buildOrderConversationEmailText,
   buildReplySubject,
   buildReplyToAddress,
-  buildThreadedSubject,
   createOrderEmailThreadToken,
+  stripThreadTokenMarkers,
 } from "@/lib/orders/orderEmail";
 
 type OrderEmailRouteParams = {
@@ -230,8 +230,8 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   const typedRecipientName = getTrimmedString(body?.recipientName);
   const additionalTo = "";
   const additionalRecipientName = "";
-  const subject = getTrimmedString(body?.subject);
-  const message = getTrimmedString(body?.message);
+  const subject = stripThreadTokenMarkers(getTrimmedString(body?.subject));
+  const message = stripThreadTokenMarkers(getTrimmedString(body?.message));
 
   if (!subject) {
     return NextResponse.json({ ok: false, reason: "MISSING_SUBJECT" }, { status: 400 });
@@ -342,6 +342,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       subject: true,
       bodyText: true,
       bodyHtml: true,
+      gmailThreadId: true,
       fromEmail: true,
       fromName: true,
       toEmail: true,
@@ -372,6 +373,8 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   const hasExistingConversation = existingMessages.length > 0;
   const baseSubject = hasExistingConversation ? buildReplySubject(subject) : subject;
   const replyToEmail = buildReplyToAddress(threadToken);
+  const existingGmailThreadId =
+    existingMessages.find((item) => typeof item.gmailThreadId === "string" && item.gmailThreadId.trim().length > 0)?.gmailThreadId?.trim() ?? null;
   const replyAnchor = existingMessages.find(
     (item) => item.direction === "OUTBOUND" && typeof item.externalMessageId === "string" && item.externalMessageId.trim().length > 0,
   );
@@ -381,7 +384,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         .filter((item) => item.length > 0)
         .slice(-10)
     : [];
-  const finalSubject = replyAnchor?.externalMessageId ? baseSubject : buildThreadedSubject(baseSubject, threadToken);
+  const finalSubject = baseSubject;
   const latestInboundForContext = latestInboundMessage;
 
   const replyContext =
@@ -416,13 +419,14 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   }
 
   console.log("ORDER EMAIL SEND DEBUG", {
-      senderAccount,
-      oauthAccountEmail: getGmailAccountEmail(),
+    senderAccount,
+    oauthAccountEmail: getGmailAccountEmail(),
     to: recipients.map((recipient) => recipient.email),
     cc: [],
     bcc: backupEmail ? [backupEmail] : [],
     replyTo: replyToEmail,
     emailThreadToken: threadToken,
+    existingGmailThreadId,
     hasExistingConversation,
     replyAnchor,
     references,
@@ -442,6 +446,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       replyTo: replyToEmail || undefined,
       inReplyTo: replyAnchor?.externalMessageId || undefined,
       references,
+      gmailThreadId: existingGmailThreadId,
     });
   } catch (error) {
     const errorDebug = getGmailErrorDebug(error);
@@ -517,6 +522,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   });
 
   const sentAt = new Date();
+  const storedGmailThreadId = existingGmailThreadId || sendResult.gmailThreadId;
   let savedMessage: { id: string };
 
   try {
@@ -527,7 +533,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       source: "GMAIL",
       externalMessageId: sendResult.messageId,
       gmailMessageId: sendResult.gmailMessageId,
-      gmailThreadId: sendResult.gmailThreadId,
+      gmailThreadId: storedGmailThreadId,
     });
     savedMessage = await prisma.orderEmailMessage.create({
       data: {
@@ -539,7 +545,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
         sentByMembershipId: auth.membership.id,
         externalMessageId: sendResult.messageId,
         gmailMessageId: sendResult.gmailMessageId,
-        gmailThreadId: sendResult.gmailThreadId,
+        gmailThreadId: storedGmailThreadId,
         subject: finalSubject,
         bodyText: message,
         bodyHtml: emailHtml,
@@ -576,7 +582,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
     orderId: order.id,
     messageId: savedMessage.id,
     gmailMessageId: sendResult.gmailMessageId,
-    gmailThreadId: sendResult.gmailThreadId,
+    gmailThreadId: storedGmailThreadId,
     externalMessageId: sendResult.messageId,
     status: sendResult.syncWarning ? "SENT_WITH_SYNC_WARNING" : "SENT",
   });

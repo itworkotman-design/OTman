@@ -4,7 +4,7 @@ import { getAdminEmails, getGmailAccountEmail, getGmailSendAsEmail, normalizeEma
 import { extractThreadTokenFromRecipients, parseEmailAddress } from "@/lib/orders/orderEmail";
 
 const OTMAN_THREAD_TOKEN_REGEX = /\[OTMAN:([a-zA-Z0-9_-]+)\]/;
-const DEFAULT_SEARCH_QUERY = '"[OTMAN:" newer_than:30d';
+const DEFAULT_SEARCH_QUERY = 'newer_than:30d (to:reply.otman.no OR cc:reply.otman.no OR "[OTMAN:")';
 const DEFAULT_MAX_RESULTS = 50;
 
 type GmailSyncResult = {

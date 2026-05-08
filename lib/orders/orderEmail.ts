@@ -15,6 +15,14 @@ type OrderConversationReplyContext = {
 const THREAD_TOKEN_REGEX = /\[OTMAN:([a-z0-9_-]+)\]/i;
 const REPLY_ADDRESS_TOKEN_REGEX = /reply\+([a-z0-9_-]+)@reply\.otman\.no/i;
 
+export function stripThreadTokenMarkers(value: string): string {
+  return value
+    .replace(/\s*\[OTMAN:[a-z0-9_-]+\]/gi, "")
+    .replace(/[ \t]+\r?\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -58,21 +66,6 @@ export function createOrderEmailThreadToken(): string {
   return randomUUID().replaceAll("-", "");
 }
 
-export function buildThreadedSubject(subject: string, threadToken: string): string {
-  const trimmed = subject.trim();
-  const suffix = `[OTMAN:${threadToken}]`;
-
-  if (!trimmed) {
-    return suffix;
-  }
-
-  if (THREAD_TOKEN_REGEX.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `${trimmed} ${suffix}`;
-}
-
 export function buildReplySubject(subject: string): string {
   const trimmed = subject.trim();
 
@@ -96,14 +89,8 @@ export function extractThreadTokenFromSubject(subject: string | null | undefined
   return match?.[1]?.toLowerCase() ?? null;
 }
 
-export function buildReplyToAddress(threadToken: string): string | null {
-  const domain = process.env.EMAIL_REPLY_DOMAIN?.trim() || "reply.otman.no";
-
-  if (!domain) {
-    return null;
-  }
-
-  return `reply+${threadToken}@${domain}`;
+export function buildReplyToAddress(threadToken: string): string {
+  return `reply+${threadToken}@reply.otman.no`;
 }
 
 export function extractThreadTokenFromRecipientValue(
@@ -238,13 +225,16 @@ export function buildOrderConversationEmailText(input: {
   threadToken: string;
   replyContext?: OrderConversationReplyContext | null;
 }): string {
-  const parts = [input.orderLabel.trim(), "", input.messageText.trim()];
+  const parts = [input.orderLabel.trim(), "", stripThreadTokenMarkers(input.messageText)];
 
   if (input.replyContext) {
-    parts.push(buildQuotedReplyText(input.replyContext));
+    parts.push(buildQuotedReplyText({
+      ...input.replyContext,
+      bodyText: stripThreadTokenMarkers(input.replyContext.bodyText),
+    }));
   }
 
-  parts.push("", `[OTMAN:${input.threadToken}]`, "", "Med vennlig hilsen,", "Otman Transport AS", `+47 402 84 977 | ${getGmailSendAsEmail()}`);
+  parts.push("", "Med vennlig hilsen,", "Otman Transport AS", `+47 402 84 977 | ${getGmailSendAsEmail()}`);
 
   return parts.join("\n").trim();
 }
@@ -255,14 +245,17 @@ export function buildOrderConversationEmailHtml(input: {
   threadToken: string;
   replyContext?: OrderConversationReplyContext | null;
 }): string {
-  const body = convertPlainTextToHtml(input.messageText.trim());
+  const body = convertPlainTextToHtml(stripThreadTokenMarkers(input.messageText));
+  const replyContextBody = input.replyContext
+    ? stripThreadTokenMarkers(input.replyContext.bodyText)
+    : "";
   const quotedReply = input.replyContext
     ? `
       <div style="margin-top:24px;padding-left:12px;border-left:2px solid #d1d5db;">
         <p style="margin:0 0 12px 0;color:#6b7280;font-size:12px;">
           On ${escapeHtml(input.replyContext.sentAtLabel)}, ${escapeHtml(input.replyContext.personLabel)} wrote:
         </p>
-        ${convertPlainTextToHtml(input.replyContext.bodyText)}
+        ${convertPlainTextToHtml(replyContextBody)}
       </div>
     `
     : "";
