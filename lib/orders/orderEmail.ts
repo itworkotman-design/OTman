@@ -286,7 +286,14 @@ export function buildOrderConversationEmailText(input: {
     }));
   }
 
-  parts.push("", "Med vennlig hilsen,", "Otman Transport AS", `+47 402 84 977 | ${getGmailSendAsEmail()}`);
+  parts.push(
+    "",
+    "Med vennlig hilsen | Best regards,",
+    "Logistikkavdeling | Logistics department",
+    "OTMAN TRANSPORT AS",
+    "+47 402 84 977",
+    "Otman Transport AS | otman.no",
+  );
 
   return parts.join("\n").trim();
 }
@@ -317,9 +324,11 @@ export function buildOrderConversationEmailHtml(input: {
       ${body}
       ${quotedReply}
       <p style="margin:24px 0 0 0;">
-        Med vennlig hilsen,<br/>
-        Otman Transport AS<br/>
-        +47 402 84 977 | ${getGmailSendAsEmail()}
+        Med vennlig hilsen | Best regards,<br/>
+        Logistikkavdeling | Logistics department<br/>
+        OTMAN TRANSPORT AS<br/>
+        +47 402 84 977<br/>
+        Otman Transport AS | <a href="https://otman.no" style="color:#111827;text-decoration:underline;">otman.no</a>
       </p>
       <p style="margin:16px 0 0 0;">
         <img

@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Builds and parses order conversation email metadata, including internal thread tokens, reply aliases, subjects, sender addresses, and the HTML/plain-text bodies used by order conversation messages. Customer-visible subject and body output do not include `[OTMAN:<threadToken>]` or repeated order-title text; routing uses `reply+<threadToken>@reply.otman.no` and stored Gmail thread metadata. Conversation signatures use the configured Gmail send-as alias and the HTML template includes the Otman logo.
+Builds and parses order conversation email metadata, including internal thread tokens, reply aliases, subjects, sender addresses, and the HTML/plain-text bodies used by order conversation messages. Customer-visible subject and body output do not include `[OTMAN:<threadToken>]` or repeated order-title text; routing uses `reply+<threadToken>@reply.otman.no` and stored Gmail thread metadata. Conversation signatures use the bilingual logistics department block and the HTML template includes the Otman logo at the bottom.
 
 ## Functions
 

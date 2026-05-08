@@ -4,8 +4,15 @@ import { getAdminEmails, getGmailAccountEmail, getGmailSendAsEmail, normalizeEma
 import { extractThreadTokenFromRecipients, parseEmailAddress } from "@/lib/orders/orderEmail";
 
 const OTMAN_THREAD_TOKEN_REGEX = /\[OTMAN:([a-zA-Z0-9_-]+)\]/;
-const DEFAULT_SEARCH_QUERY = 'newer_than:30d (to:reply.otman.no OR cc:reply.otman.no OR "[OTMAN:")';
+const DEFAULT_INBOUND_SEARCH_QUERY = 'newer_than:30d (to:reply.otman.no OR cc:reply.otman.no OR "[OTMAN:")';
+const DEFAULT_SENT_SEARCH_QUERY = "in:sent newer_than:30d";
 const DEFAULT_MAX_RESULTS = 50;
+const GMAIL_ORDER_LABELS = {
+  orderEmails: "OTMAN/Order Emails",
+  customerReplies: "OTMAN/Customer Replies",
+  adminSent: "OTMAN/Admin Sent",
+  needsAttention: "OTMAN/Needs Attention",
+} as const;
 
 type GmailSyncResult = {
   imported: number;
@@ -15,7 +22,9 @@ type GmailSyncResult = {
 };
 
 type ParsedGmailMessage = {
-  externalMessageId: string;
+  gmailMessageId: string;
+  gmailThreadId: string | null;
+  externalMessageId: string | null;
   subject: string;
   bodyText: string;
   bodyHtml: string;
@@ -25,6 +34,14 @@ type ParsedGmailMessage = {
   toName: string | null;
   sentAt: Date;
   token: string | null;
+  inReplyTo: string | null;
+  references: string[];
+};
+
+type MatchedOrder = {
+  id: string;
+  companyId: string;
+  needsEmailAttention: boolean;
 };
 
 function decodeBase64Url(value: string | null | undefined) {
@@ -96,18 +113,22 @@ function parseGmailDate(value: string) {
 function parseGmailMessage(
   message: gmail_v1.Schema$Message,
 ): ParsedGmailMessage | null {
-  const externalMessageId = message.id?.trim();
+  const gmailMessageId = message.id?.trim();
 
-  if (!externalMessageId) {
+  if (!gmailMessageId) {
     return null;
   }
 
   const payload = message.payload;
   const headers = payload?.headers;
   const subject = getHeader(headers, "Subject") || "Gmail message";
+  const messageId = getHeader(headers, "Message-ID");
+  const inReplyTo = getHeader(headers, "In-Reply-To");
+  const referencesHeader = getHeader(headers, "References");
   const from = parseEmailAddress(getHeader(headers, "From"));
   const toHeader = getHeader(headers, "To");
   const ccHeader = getHeader(headers, "Cc");
+  const replyToHeader = getHeader(headers, "Reply-To");
   const to = parseEmailAddress(toHeader);
   const sentAt = parseGmailDate(getHeader(headers, "Date"));
   const bodies = collectMessageBodies(payload);
@@ -120,7 +141,9 @@ function parseGmailMessage(
   }
 
   return {
-    externalMessageId,
+    gmailMessageId,
+    gmailThreadId: message.threadId?.trim() || null,
+    externalMessageId: messageId || null,
     subject,
     bodyText: bodyText || snippet,
     bodyHtml,
@@ -129,7 +152,13 @@ function parseGmailMessage(
     toEmail: to?.email ?? getGmailAccountEmail(),
     toName: to?.name ?? null,
     sentAt,
-    token: extractThreadTokenFromRecipients(toHeader) || extractThreadTokenFromRecipients(ccHeader) || extractThreadToken(subject, bodyText, bodyHtml, snippet),
+    token:
+      extractThreadTokenFromRecipients(replyToHeader) ||
+      extractThreadTokenFromRecipients(toHeader) ||
+      extractThreadTokenFromRecipients(ccHeader) ||
+      extractThreadToken(subject, bodyText, bodyHtml, snippet),
+    inReplyTo: inReplyTo || null,
+    references: referencesHeader.split(/\s+/).map((item) => item.trim()).filter((item) => item.length > 0),
   };
 }
 
@@ -150,9 +179,114 @@ function isAdminSender(email: string) {
   return getAdminEmails().includes(email.toLowerCase());
 }
 
+async function ensureGmailOrderLabels(
+  gmail: gmail_v1.Gmail,
+  userId: string,
+): Promise<Record<keyof typeof GMAIL_ORDER_LABELS, string> | null> {
+  try {
+    const labelsResponse = await gmail.users.labels.list({
+      userId,
+    });
+    const labelsByName = new Map(
+      (labelsResponse.data.labels ?? [])
+        .filter((label) => label.name && label.id)
+        .map((label) => [label.name as string, label.id as string]),
+    );
+    const labelIds = {} as Record<keyof typeof GMAIL_ORDER_LABELS, string>;
+
+    for (const [key, name] of Object.entries(GMAIL_ORDER_LABELS) as Array<[keyof typeof GMAIL_ORDER_LABELS, string]>) {
+      const existingId = labelsByName.get(name);
+
+      if (existingId) {
+        labelIds[key] = existingId;
+        continue;
+      }
+
+      const createdLabel = await gmail.users.labels.create({
+        userId,
+        requestBody: {
+          name,
+          labelListVisibility: "labelShow",
+          messageListVisibility: "show",
+        },
+      });
+      const createdId = createdLabel.data.id;
+
+      if (!createdId) {
+        throw new Error(`GMAIL_LABEL_CREATE_MISSING_ID:${name}`);
+      }
+
+      labelsByName.set(name, createdId);
+      labelIds[key] = createdId;
+    }
+
+    return labelIds;
+  } catch (error) {
+    console.warn("GMAIL SYNC LABEL SETUP FAILED", {
+      reason: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+    });
+    return null;
+  }
+}
+
+async function applyGmailOrderLabels({
+  gmail,
+  userId,
+  parsed,
+  direction,
+  order,
+  labelIds,
+}: {
+  gmail: gmail_v1.Gmail;
+  userId: string;
+  parsed: ParsedGmailMessage;
+  direction: "INBOUND" | "OUTBOUND";
+  order: MatchedOrder;
+  labelIds: Record<keyof typeof GMAIL_ORDER_LABELS, string> | null;
+}) {
+  if (!labelIds) {
+    return;
+  }
+
+  try {
+    const addLabelIds =
+      direction === "INBOUND"
+        ? [labelIds.orderEmails, labelIds.customerReplies, labelIds.needsAttention]
+        : [labelIds.orderEmails, labelIds.adminSent];
+    const removeLabelIds = direction === "OUTBOUND" && !order.needsEmailAttention ? [labelIds.needsAttention] : [];
+
+    await gmail.users.messages.modify({
+      userId,
+      id: parsed.gmailMessageId,
+      requestBody: {
+        addLabelIds,
+        removeLabelIds,
+      },
+    });
+
+    if (direction === "OUTBOUND" && !order.needsEmailAttention && parsed.gmailThreadId) {
+      await gmail.users.threads.modify({
+        userId,
+        id: parsed.gmailThreadId,
+        requestBody: {
+          removeLabelIds: [labelIds.needsAttention],
+        },
+      });
+    }
+  } catch (error) {
+    console.warn("GMAIL SYNC LABEL APPLY FAILED", {
+      gmailMessageId: parsed.gmailMessageId,
+      gmailThreadId: parsed.gmailThreadId,
+      direction,
+      reason: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+    });
+  }
+}
+
 export async function syncGmailOrderConversations(options?: {
   maxResults?: number;
   query?: string;
+  sentQuery?: string;
 }): Promise<GmailSyncResult> {
   const gmail = createGmailClient();
   const gmailUserId = getGmailAccountEmail() || "me";
@@ -200,117 +334,186 @@ export async function syncGmailOrderConversations(options?: {
     orderNotFound: 0,
   };
 
-  const listResponse = await gmail.users.messages.list({
-    userId: gmailUserId,
-    q: options?.query ?? DEFAULT_SEARCH_QUERY,
-    maxResults: options?.maxResults ?? DEFAULT_MAX_RESULTS,
-  });
+  const seenMessageIds = new Set<string>();
+  const labelIds = await ensureGmailOrderLabels(gmail, gmailUserId);
+  const searchQueries = [
+    options?.query ?? DEFAULT_INBOUND_SEARCH_QUERY,
+    options?.sentQuery ?? DEFAULT_SENT_SEARCH_QUERY,
+  ];
 
-  for (const listedMessage of listResponse.data.messages ?? []) {
-    if (!listedMessage.id) continue;
-
-    const messageResponse = await gmail.users.messages.get({
+  for (const query of searchQueries) {
+    const listResponse = await gmail.users.messages.list({
       userId: gmailUserId,
-      id: listedMessage.id,
-      format: "full",
+      q: query,
+      maxResults: options?.maxResults ?? DEFAULT_MAX_RESULTS,
     });
 
-    const parsed = parseGmailMessage(messageResponse.data);
+    for (const listedMessage of listResponse.data.messages ?? []) {
+      if (!listedMessage.id || seenMessageIds.has(listedMessage.id)) continue;
+      seenMessageIds.add(listedMessage.id);
 
-    if (!parsed?.token) {
-      console.log("GMAIL SYNC TOKEN NOT FOUND", {
-        externalMessageId: listedMessage.id,
+      const messageResponse = await gmail.users.messages.get({
+        userId: gmailUserId,
+        id: listedMessage.id,
+        format: "full",
       });
-      result.tokenNotFound += 1;
-      continue;
-    }
 
-    const duplicate = await prisma.orderEmailMessage.findFirst({
-      where: {
-        externalMessageId: parsed.externalMessageId,
-      },
-      select: {
-        id: true,
-      },
-    });
+      const parsed = parseGmailMessage(messageResponse.data);
 
-    if (duplicate) {
-      console.log("GMAIL SYNC SKIPPED DUPLICATE", {
-        externalMessageId: parsed.externalMessageId,
+      if (!parsed) {
+        result.tokenNotFound += 1;
+        continue;
+      }
+
+      const duplicate = await prisma.orderEmailMessage.findFirst({
+        where: {
+          OR: [
+            { gmailMessageId: parsed.gmailMessageId },
+            ...(parsed.externalMessageId ? [{ externalMessageId: parsed.externalMessageId }] : []),
+          ],
+        },
+        select: {
+          id: true,
+        },
       });
-      result.skippedDuplicates += 1;
-      continue;
-    }
 
-    const order = await prisma.order.findFirst({
-      where: {
-        emailThreadToken: parsed.token,
-      },
-      select: {
-        id: true,
-        companyId: true,
-      },
-    });
+      if (duplicate) {
+        console.log("GMAIL SYNC SKIPPED DUPLICATE", {
+          gmailMessageId: parsed.gmailMessageId,
+          externalMessageId: parsed.externalMessageId,
+        });
+        result.skippedDuplicates += 1;
+        continue;
+      }
 
-    if (!order) {
-      result.orderNotFound += 1;
-      continue;
-    }
+      const orderByToken = parsed.token
+        ? await prisma.order.findFirst({
+            where: {
+              emailThreadToken: parsed.token,
+            },
+            select: {
+              id: true,
+              companyId: true,
+              needsEmailAttention: true,
+            },
+          })
+        : null;
+      const referenceIds = [...parsed.references, parsed.inReplyTo].filter((item): item is string => Boolean(item));
+      const orderMessageCriteria = [
+        ...(parsed.gmailThreadId ? [{ gmailThreadId: parsed.gmailThreadId }] : []),
+        ...(referenceIds.length > 0 ? [{ externalMessageId: { in: referenceIds } }] : []),
+      ];
+      const orderMessageMatch =
+        orderByToken || orderMessageCriteria.length === 0
+          ? null
+          : await prisma.orderEmailMessage.findFirst({
+              where: {
+                OR: orderMessageCriteria,
+              },
+              select: {
+                orderId: true,
+                companyId: true,
+                order: {
+                  select: {
+                    needsEmailAttention: true,
+                  },
+                },
+              },
+            });
+      const order: MatchedOrder | null =
+        orderByToken ??
+        (orderMessageMatch
+          ? {
+              id: orderMessageMatch.orderId,
+              companyId: orderMessageMatch.companyId,
+              needsEmailAttention: orderMessageMatch.order.needsEmailAttention,
+            }
+          : null);
 
-    const adminSender = isAdminSender(parsed.fromEmail);
-    const direction = adminSender ? "OUTBOUND" : "INBOUND";
-    const timestamp = parsed.sentAt;
+      if (!order) {
+        console.log("GMAIL SYNC ORDER NOT FOUND", {
+          gmailMessageId: parsed.gmailMessageId,
+          externalMessageId: parsed.externalMessageId,
+          gmailThreadId: parsed.gmailThreadId,
+          token: parsed.token,
+          inReplyTo: parsed.inReplyTo,
+          references: parsed.references,
+        });
+        if (!parsed.token && !parsed.gmailThreadId && referenceIds.length === 0) {
+          result.tokenNotFound += 1;
+        } else {
+          result.orderNotFound += 1;
+        }
+        continue;
+      }
 
-    await prisma.orderEmailMessage.create({
-      data: {
-        orderId: order.id,
-        companyId: order.companyId,
+      const adminSender = isAdminSender(parsed.fromEmail);
+      const direction = adminSender ? "OUTBOUND" : "INBOUND";
+      const timestamp = parsed.sentAt;
+
+      await prisma.orderEmailMessage.create({
+        data: {
+          orderId: order.id,
+          companyId: order.companyId,
+          direction,
+          source: "GMAIL",
+          status: adminSender ? "SENT" : "RECEIVED",
+          externalMessageId: parsed.externalMessageId,
+          gmailMessageId: parsed.gmailMessageId,
+          gmailThreadId: parsed.gmailThreadId,
+          subject: parsed.subject,
+          bodyText: parsed.bodyText || null,
+          bodyHtml: parsed.bodyHtml || null,
+          fromEmail: parsed.fromEmail,
+          fromName: parsed.fromName,
+          toEmail: parsed.toEmail,
+          toName: parsed.toName,
+          sentAt: adminSender ? timestamp : null,
+          receivedAt: adminSender ? null : timestamp,
+        },
+      });
+
+      await applyGmailOrderLabels({
+        gmail,
+        userId: gmailUserId,
+        parsed,
         direction,
-        source: "GMAIL",
-        status: adminSender ? "SENT" : "RECEIVED",
-        externalMessageId: parsed.externalMessageId,
-        subject: parsed.subject,
-        bodyText: parsed.bodyText || null,
-        bodyHtml: parsed.bodyHtml || null,
-        fromEmail: parsed.fromEmail,
-        fromName: parsed.fromName,
-        toEmail: parsed.toEmail,
-        toName: parsed.toName,
-        sentAt: adminSender ? timestamp : null,
-        receivedAt: adminSender ? null : timestamp,
-      },
-    });
+        order,
+        labelIds,
+      });
 
-    if (direction === "INBOUND") {
-      await prisma.order.update({
-        where: {
-          id: order.id,
-        },
-        data: {
-          needsEmailAttention: true,
-          unreadInboundEmailCount: {
-            increment: 1,
+      if (direction === "INBOUND") {
+        await prisma.order.update({
+          where: {
+            id: order.id,
           },
-          lastInboundEmailAt: new Date(),
-        },
-      });
-    } else {
-      await prisma.order.update({
-        where: {
-          id: order.id,
-        },
-        data: {
-          lastOutboundEmailAt: timestamp,
-        },
-      });
-    }
+          data: {
+            needsEmailAttention: true,
+            unreadInboundEmailCount: {
+              increment: 1,
+            },
+            lastInboundEmailAt: new Date(),
+          },
+        });
+      } else {
+        await prisma.order.update({
+          where: {
+            id: order.id,
+          },
+          data: {
+            lastOutboundEmailAt: timestamp,
+          },
+        });
+      }
 
-    console.log("GMAIL SYNC IMPORTED", {
-      externalMessageId: parsed.externalMessageId,
-      orderId: order.id,
-      direction,
-    });
-    result.imported += 1;
+      console.log("GMAIL SYNC IMPORTED", {
+        gmailMessageId: parsed.gmailMessageId,
+        externalMessageId: parsed.externalMessageId,
+        orderId: order.id,
+        direction,
+      });
+      result.imported += 1;
+    }
   }
 
   return result;

@@ -172,4 +172,28 @@ describe("orderEmail helpers", () => {
     expect(html).toContain("https://otman.no/wp-content/uploads/2023/12/logo-removebg.png");
     expect(html).toContain('alt="Otman Transport AS"');
   });
+
+  it("uses the bilingual logistics signature", () => {
+    const text = buildOrderConversationEmailText({
+      messageText: "Admin message",
+      orderLabel: "Order 21236 | TEST",
+      threadToken: "testtoken",
+    });
+    const html = buildOrderConversationEmailHtml({
+      messageText: "Admin message",
+      orderLabel: "Order 21236 | TEST",
+      threadToken: "testtoken",
+    });
+
+    expect(text).toContain("Med vennlig hilsen | Best regards,");
+    expect(text).toContain("Logistikkavdeling | Logistics department");
+    expect(text).toContain("OTMAN TRANSPORT AS");
+    expect(text).toContain("+47 402 84 977");
+    expect(text).toContain("Otman Transport AS | otman.no");
+    expect(html).toContain("Med vennlig hilsen | Best regards,");
+    expect(html).toContain("Logistikkavdeling | Logistics department");
+    expect(html).toContain("OTMAN TRANSPORT AS");
+    expect(html).toContain("+47 402 84 977");
+    expect(html).toContain('href="https://otman.no"');
+  });
 });

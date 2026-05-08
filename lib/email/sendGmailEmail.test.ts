@@ -63,6 +63,11 @@ describe("sendGmailEmail", () => {
     });
   }
 
+  function decodeRawMime(raw: string) {
+    const padded = raw.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(raw.length / 4) * 4, "=");
+    return Buffer.from(padded, "base64").toString("utf8");
+  }
+
   it("passes the existing Gmail thread id to messages.send", async () => {
     process.env = {
       ...originalEnv,
@@ -180,5 +185,46 @@ describe("sendGmailEmail", () => {
     ).rejects.toThrow("GMAIL_SEND_AS_ALIAS_NOT_ACCEPTED");
 
     expect(gmailMock.messagesSend).not.toHaveBeenCalled();
+  });
+
+  it("adds Otman order metadata headers to sent Gmail messages", async () => {
+    process.env = {
+      ...originalEnv,
+      GMAIL_ACCOUNT_EMAIL: "bestilling@otman.no",
+      GMAIL_SEND_AS_EMAIL: "bestilling@otman.no",
+      GOOGLE_CLIENT_ID: "client-id",
+      GOOGLE_CLIENT_SECRET: "client-secret",
+      GOOGLE_REFRESH_TOKEN: "refresh-token",
+    };
+    gmailMock.getProfile.mockResolvedValue({
+      data: {
+        emailAddress: "bestilling@otman.no",
+      },
+    });
+    mockSuccessfulMetadataLookup();
+
+    await sendGmailEmail({
+      to: {
+        email: "customer@example.com",
+      },
+      subject: "Order 21236 | TEST",
+      html: "<p>Hello</p>",
+      text: "Hello",
+      replyTo: "reply+threadtoken@reply.otman.no",
+      threadToken: "threadtoken",
+      orderId: "order-id",
+      orderNumber: "TEST",
+      direction: "outbound",
+    });
+
+    const request = gmailMock.messagesSend.mock.calls[0]?.[0];
+    const raw = request?.requestBody?.raw;
+
+    expect(typeof raw).toBe("string");
+    expect(decodeRawMime(raw)).toContain("X-Otman-Conversation: true");
+    expect(decodeRawMime(raw)).toContain("X-Otman-Order-Id: order-id");
+    expect(decodeRawMime(raw)).toContain("X-Otman-Order-Number: TEST");
+    expect(decodeRawMime(raw)).toContain("X-Otman-Direction: outbound");
+    expect(decodeRawMime(raw)).toContain("Reply-To: reply+threadtoken@reply.otman.no");
   });
 });

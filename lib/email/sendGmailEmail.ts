@@ -89,6 +89,9 @@ function buildMimeMessage({
   references,
   bcc,
   threadToken,
+  orderId,
+  orderNumber,
+  direction,
 }: {
   from: string;
   to: string;
@@ -100,6 +103,9 @@ function buildMimeMessage({
   references?: string[];
   bcc?: string;
   threadToken?: string;
+  orderId?: string;
+  orderNumber?: string | null;
+  direction?: "inbound" | "outbound";
 }) {
   const boundary = `boundary_${Date.now()}`;
 
@@ -108,6 +114,9 @@ function buildMimeMessage({
     `To: ${to}`,
     `X-Otman-Conversation: true`,
     threadToken ? `X-Otman-Thread: ${threadToken}` : null,
+    orderId ? `X-Otman-Order-Id: ${orderId}` : null,
+    orderNumber ? `X-Otman-Order-Number: ${orderNumber}` : null,
+    direction ? `X-Otman-Direction: ${direction}` : null,
     bcc ? `Bcc: ${bcc}` : null,
     `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
     `MIME-Version: 1.0`,
@@ -143,6 +152,9 @@ export async function sendGmailEmail({
   inReplyTo,
   references,
   gmailThreadId: existingGmailThreadId,
+  orderId,
+  orderNumber,
+  direction,
 }: {
   to: Recipient | Recipient[];
   bcc?: Recipient | Recipient[] | string;
@@ -154,6 +166,9 @@ export async function sendGmailEmail({
   inReplyTo?: string;
   references?: string[];
   gmailThreadId?: string | null;
+  orderId?: string;
+  orderNumber?: string | null;
+  direction?: "inbound" | "outbound";
 }) {
   const recipients = Array.isArray(to) ? to : [to];
 
@@ -233,6 +248,9 @@ export async function sendGmailEmail({
     references,
     bcc: bccRecipients,
     threadToken,
+    orderId,
+    orderNumber,
+    direction,
   });
 
   console.log("GMAIL SEND BEFORE users.messages.send", {
@@ -245,6 +263,9 @@ export async function sendGmailEmail({
     references,
     gmailThreadId: existingGmailThreadId,
     threadToken,
+    orderId,
+    orderNumber,
+    direction,
     subject,
   });
 

@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Builds a Gmail API MIME message and sends order conversation email with optional reply threading metadata. The helper verifies that the authenticated OAuth account matches `GMAIL_ACCOUNT_EMAIL`, sends visibly from `GMAIL_SEND_AS_EMAIL`, allows the primary authenticated mailbox without send-as alias verification, keeps backup recipients in BCC, can pass an existing Gmail `threadId` in `requestBody.threadId`, verifies custom send-as aliases only when the configured sender differs from the OAuth mailbox, logs detailed Gmail API failures around send and metadata lookup, and returns a sync warning instead of throwing when Gmail accepts the send but post-send metadata lookup fails.
+Builds a Gmail API MIME message and sends order conversation email with optional reply threading metadata. The helper verifies that the authenticated OAuth account matches `GMAIL_ACCOUNT_EMAIL`, sends visibly from `GMAIL_SEND_AS_EMAIL`, allows the primary authenticated mailbox without send-as alias verification, keeps backup recipients in BCC, can pass an existing Gmail `threadId` in `requestBody.threadId`, adds optional Otman order metadata headers for Gmail organization, verifies custom send-as aliases only when the configured sender differs from the OAuth mailbox, logs detailed Gmail API failures around send and metadata lookup, and returns a sync warning instead of throwing when Gmail accepts the send but post-send metadata lookup fails.
 
 ## Functions
 
@@ -18,5 +18,5 @@ Builds a Gmail API MIME message and sends order conversation email with optional
 | `formatSendAsAliases` | Reduces Gmail send-as alias rows to the fields needed for alias verification logging. |
 | `formatRecipient` | Converts a recipient object into a quoted display-name email string when a name is present. |
 | `encodeBase64Url` | Encodes raw MIME content into Gmail API base64url format. |
-| `buildMimeMessage` | Builds the multipart MIME payload with To, optional Bcc, Reply-To, and optional Gmail reply headers. |
-| `sendGmailEmail` | Creates the Gmail API client, verifies the OAuth mailbox against `GMAIL_ACCOUNT_EMAIL`, skips alias verification for the primary OAuth mailbox, verifies custom send-as aliases when needed, sends from `GMAIL_SEND_AS_EMAIL`, passes an existing Gmail thread id when provided, returns Gmail ids and RFC message id, and returns `syncWarning` when metadata lookup fails after send. |
+| `buildMimeMessage` | Builds the multipart MIME payload with To, optional Bcc, Reply-To, Gmail reply headers, and optional `X-Otman-*` order metadata headers. |
+| `sendGmailEmail` | Creates the Gmail API client, verifies the OAuth mailbox against `GMAIL_ACCOUNT_EMAIL`, skips alias verification for the primary OAuth mailbox, verifies custom send-as aliases when needed, sends from `GMAIL_SEND_AS_EMAIL`, passes an existing Gmail thread id and optional order metadata when provided, returns Gmail ids and RFC message id, and returns `syncWarning` when metadata lookup fails after send. |

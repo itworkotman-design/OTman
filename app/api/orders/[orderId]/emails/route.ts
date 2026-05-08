@@ -436,6 +436,9 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
       inReplyTo: replyAnchor?.externalMessageId || undefined,
       references,
       gmailThreadId: existingGmailThreadId,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      direction: "outbound",
     });
   } catch (error) {
     const errorDebug = getGmailErrorDebug(error);
