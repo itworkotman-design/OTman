@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Reads and updates a single order, including product-card pricing snapshots, selected price-list global settings, event snapshots, order-item rebuilding, native manual adjustments, hardcoded fee fields, and centralized alert rules from `lib/orders/alerts`. The read path now rebuilds missing legacy WordPress extra pickups from `legacyWordpressRawMeta` when older imports never populated the structured extra-pickup fields.
+Reads and updates a single order, including product-card pricing snapshots, selected price-list global settings, event snapshots, order-item rebuilding, native manual adjustments, hardcoded fee fields, and centralized alert rules from `lib/orders/alerts`. The read path preserves saved return selections as stored and rebuilds missing legacy WordPress extra pickups from `legacyWordpressRawMeta` when older imports never populated the structured extra-pickup fields.
 
 ## Functions
 

@@ -1969,7 +1969,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
     });
   });
 
-  it("forces return to store when a return address exists even if wordpress marked recycling", async () => {
+  it("preserves wordpress return-to-recycling when a return address exists", async () => {
     mocks.getBookingCatalogMock.mockResolvedValueOnce({
       products: [],
       specialOptions: [
@@ -2063,8 +2063,8 @@ describe("POST /api/integrations/wordpress/orders", () => {
           expect.objectContaining({
             cardId: 1,
             itemType: "RETURN_OPTION",
-            label: "Retur til butikk",
-            code: "RETURNSTORE",
+            label: "Retur til gjenvinning",
+            code: "RETURNREC",
           }),
         ]),
       }),
@@ -2076,7 +2076,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
         productCardsSnapshot: expect.arrayContaining([
           expect.objectContaining({
             cardId: 1,
-            selectedReturnOptionId: "return-store-id",
+            selectedReturnOptionId: "return-rec-id",
           }),
         ]),
       }),

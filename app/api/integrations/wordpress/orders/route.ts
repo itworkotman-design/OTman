@@ -1570,28 +1570,6 @@ const buildParsedServiceLookup = (serviceItems: ParsedWordpressServiceItem[]): M
   return lookup;
 };
 
-const coerceReturnServicesToStoreWhenAddressExists = (serviceItems: ParsedWordpressServiceItem[], hasReturnAddress: boolean): ParsedWordpressServiceItem[] => {
-  if (!hasReturnAddress) {
-    return serviceItems;
-  }
-
-  return serviceItems.map((item) =>
-    item.itemType === "RETURN_OPTION"
-      ? {
-          ...item,
-          label: "Retur til butikk",
-          code: "RETURNSTORE",
-          rawData: {
-            ...(toJsonRecord(item.rawData) as Record<string, Prisma.InputJsonValue>),
-            originalReturnLabel: item.label,
-            originalReturnCode: item.code ?? null,
-            forcedReturnStoreBecauseReturnAddressExists: true,
-          },
-        }
-      : item,
-  );
-};
-
 const takeParsedServiceRawData = (
   lookup: Map<string, JsonRecord[]>,
   service: {
@@ -2002,9 +1980,7 @@ export async function POST(req: NextRequest) {
       metaItems: buildServiceItemsFromMeta(meta, parsedProductItems),
     });
 
-    const hasReturnAddress = Boolean(returnAddress?.trim());
-
-    const parsedServiceItems = coerceReturnServicesToStoreWhenAddressExists(parsedServiceItemsRaw, hasReturnAddress);
+    const parsedServiceItems = parsedServiceItemsRaw;
     const expressDelivery = getWordpressExpressDelivery(meta);
     const productItems = attachServiceLabelsToProductItems(parsedProductItems, parsedServiceItems);
     const productsSummary =
@@ -2102,29 +2078,6 @@ export async function POST(req: NextRequest) {
       };
     }
     const effectiveWordpressPriceExVatCents = shouldApplyFailureDiscount ? protectedFailureFeeCents : wordpressPriceExVatCents;
-    const returnStoreOption = catalog.specialOptions.find((option) => option.type === "return" && option.code.trim().toUpperCase() === "RETURNSTORE");
-
-    if (returnAddress?.trim() && returnStoreOption) {
-      const cardIdsWithImportedReturn = new Set(parsedServiceItems.filter((service) => service.itemType === "RETURN_OPTION").map((service) => service.cardId));
-
-      mappedImport.productCards = mappedImport.productCards.map((card) => ({
-        ...card,
-        selectedReturnOptionId: cardIdsWithImportedReturn.has(card.cardId) ? returnStoreOption.id : card.selectedReturnOptionId,
-      }));
-
-      mappedImport.resolvedServices = mappedImport.resolvedServices.map((service) =>
-        service.resolvedItemType === "RETURN_OPTION"
-          ? {
-              ...service,
-              optionId: returnStoreOption.id,
-              optionCode: returnStoreOption.code,
-              optionLabel: returnStoreOption.label,
-              customerPriceCents: Math.round(Number(returnStoreOption.customerPrice) * 100),
-              subcontractorPriceCents: Math.round(Number(returnStoreOption.subcontractorPrice) * 100),
-            }
-          : service,
-      );
-    }
 
     mappedImport.productCards = applyWordpressPriceMatchPolicy({
       meta,

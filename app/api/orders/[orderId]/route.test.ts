@@ -235,7 +235,7 @@ describe("routes in /api/orders/[orderId]", () => {
     });
   });
 
-  it("GET rewrites saved return selections to return-to-store when a return address exists", async () => {
+  it("GET preserves saved return selections when a return address exists", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -357,7 +357,7 @@ describe("routes in /api/orders/[orderId]", () => {
         productCards: [
           expect.objectContaining({
             cardId: 1,
-            selectedReturnOptionId: "return-store-id",
+            selectedReturnOptionId: "return-rec-id",
           }),
         ],
       },

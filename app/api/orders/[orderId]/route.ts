@@ -43,32 +43,6 @@ type ProductChangeValue = {
   value: string;
 };
 
-function normalizeReturnSelectionsForAddress(params: {
-  productCards: SavedProductCard[];
-  returnAddress: string | null | undefined;
-  specialOptions: CatalogSpecialOption[];
-}) {
-  const { productCards, returnAddress, specialOptions } = params;
-  if (!returnAddress?.trim()) {
-    return productCards;
-  }
-
-  const returnStoreOption = specialOptions.find((option) => option.type === "return" && option.code.trim().toUpperCase() === "RETURNSTORE");
-
-  if (!returnStoreOption) {
-    return productCards;
-  }
-
-  return productCards.map((card) =>
-    card.selectedReturnOptionId
-      ? {
-          ...card,
-          selectedReturnOptionId: returnStoreOption.id,
-        }
-      : card,
-  );
-}
-
 function formatList(values: string[]) {
   return values.length > 0 ? values.join(", ") : "-";
 }
@@ -400,14 +374,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
         select: { id: true },
       });
   const effectivePriceListId = order.priceListId ?? defaultPriceList?.id ?? null;
-  const catalog = await getBookingCatalog(effectivePriceListId);
-  const normalizedProductCards = normalizeReturnSelectionsForAddress({
-    productCards: Array.isArray(order.productCardsSnapshot)
-      ? order.productCardsSnapshot.map((card, index) => normalizeSavedProductCard(card as Partial<SavedProductCard>, index))
-      : [],
-    returnAddress: order.returnAddress,
-    specialOptions: catalog.specialOptions,
-  });
+  const normalizedProductCards = Array.isArray(order.productCardsSnapshot)
+    ? order.productCardsSnapshot.map((card, index) => normalizeSavedProductCard(card as Partial<SavedProductCard>, index))
+    : [];
 
   return NextResponse.json({
     ok: true,

@@ -364,7 +364,7 @@ export default function OrderCreatorContactModal({ open, order, onClose, onConve
                         disabled={
                           markReadLoading || !conversation?.needsEmailAttention
                         }
-                        className="customButtonDefault h-9 disabled:opacity-50! disabled:cursor-auto!"
+                        className="customButtonEnabled h-9 disabled:opacity-50! disabled:cursor-auto!"
                       >
                         {markReadLoading ? "Markerer..." : "Marker som lest"}
                       </button>
