@@ -161,4 +161,111 @@ describe("PATCH /api/orders/bulk", () => {
     );
     expect(mocks.createOrderUpdatedEventMock).not.toHaveBeenCalled();
   });
+
+  it("clears discount only for cancelled orders changed to another status", async () => {
+    mocks.buildOrderEventSnapshotMock.mockImplementation((order) => ({
+      status: order.status ?? null,
+      statusNotes: order.statusNotes ?? null,
+      rabatt: order.rabatt ?? null,
+    }));
+    mocks.diffOrderEventSnapshotsMock.mockImplementation((previous, next) => {
+      const changes: Array<{ field: string }> = [];
+
+      if (previous.status !== next.status) {
+        changes.push({ field: "status" });
+      }
+
+      if (previous.rabatt !== next.rabatt) {
+        changes.push({ field: "rabatt" });
+      }
+
+      return changes;
+    });
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "OWNER",
+      user: {
+        username: "Owner",
+        email: "owner@example.com",
+      },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        companyId: "company-1",
+        status: "cancelled",
+        statusNotes: "",
+        rabatt: "500",
+      },
+      {
+        id: "order-2",
+        companyId: "company-1",
+        status: "new",
+        statusNotes: "",
+        rabatt: "200",
+      },
+    ]);
+    mocks.orderUpdateManyMock
+      .mockResolvedValueOnce({ count: 2 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/bulk", {
+        method: "PATCH",
+        body: JSON.stringify({
+          orderIds: ["order-1", "order-2"],
+          status: "active",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      updatedCount: 2,
+    });
+    expect(mocks.orderUpdateManyMock).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: { in: ["order-1", "order-2"] },
+        companyId: "company-1",
+      },
+      data: {
+        status: "active",
+        lastEditedByMembershipId: "membership-1",
+      },
+    });
+    expect(mocks.orderUpdateManyMock).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: { in: ["order-1"] },
+        companyId: "company-1",
+      },
+      data: {
+        rabatt: null,
+      },
+    });
+    expect(mocks.createOrderUpdatedEventMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        orderId: "order-1",
+        changes: expect.arrayContaining([
+          expect.objectContaining({ field: "status" }),
+          expect.objectContaining({ field: "rabatt" }),
+        ]),
+      }),
+    );
+    expect(mocks.createManyOrderStatusChangedEventsMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      [
+        expect.objectContaining({
+          orderId: "order-2",
+          fromStatus: "new",
+          toStatus: "active",
+        }),
+      ],
+    );
+  });
 });

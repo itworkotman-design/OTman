@@ -263,6 +263,16 @@ function diffProductCards(
   return productChanges;
 }
 
+function shouldClearCancelledDiscount(
+  previousStatus: string | null | undefined,
+  nextStatus: string | null | undefined,
+) {
+  return (
+    normalizeOrderStatus(previousStatus) === "cancelled" &&
+    normalizeOrderStatus(nextStatus) !== "cancelled"
+  );
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await getAuthenticatedSession(req);
 
@@ -648,12 +658,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     ? existingOrder.productCardsSnapshot.map((card, index) => normalizeSavedProductCard(card as Partial<SavedProductCard>, index))
     : [];
   const productChanges = diffProductCards(previousProductCards, productCards, optionLookup, productLookup);
+  const nextStatus = optionalString(body.status) ?? existingOrder.status;
+  const shouldClearRabatt = shouldClearCancelledDiscount(existingOrder.status, nextStatus);
+  const nextRabatt = shouldClearRabatt
+    ? null
+    : (optionalString(body.rabatt) ?? existingOrder.rabatt);
+  const updatedRabatt = shouldClearRabatt ? null : optionalString(body.rabatt);
 
   const previousSnapshot = buildOrderEventSnapshot(existingOrder);
   const nextSnapshot = buildOrderEventSnapshot({
     displayId: existingOrder.displayId,
     orderNumber: optionalString(body.orderNumber) ?? existingOrder.orderNumber,
-    status: optionalString(body.status) ?? existingOrder.status,
+    status: nextStatus,
     statusNotes: optionalString(body.statusNotes) ?? existingOrder.statusNotes,
     customerLabel: optionalString(body.customerLabel) ?? existingOrder.customerLabel,
     customerName: optionalString(body.customerName) ?? existingOrder.customerName,
@@ -692,7 +708,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     dontSendEmail: optionalBoolean(body.dontSendEmail),
     priceExVat: Math.round(safeNumber(body.priceExVat)),
     priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
-    rabatt: optionalString(body.rabatt) ?? existingOrder.rabatt,
+    rabatt: nextRabatt,
     leggTil: optionalString(body.leggTil) ?? existingOrder.leggTil,
     subcontractorMinus: optionalString(body.subcontractorMinus) ?? existingOrder.subcontractorMinus,
     subcontractorPlus: optionalString(body.subcontractorPlus) ?? existingOrder.subcontractorPlus,
@@ -760,7 +776,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         priceExVat: Math.round(safeNumber(body.priceExVat)),
         priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
 
-        rabatt: optionalString(body.rabatt),
+        rabatt: updatedRabatt,
         leggTil: optionalString(body.leggTil),
         subcontractorMinus: optionalString(body.subcontractorMinus),
         subcontractorPlus: optionalString(body.subcontractorPlus),

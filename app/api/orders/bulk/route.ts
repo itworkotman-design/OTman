@@ -8,6 +8,17 @@ import {
   createOrderUpdatedEvent,
   diffOrderEventSnapshots,
 } from "@/lib/orders/orderEvents";
+import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+
+function shouldClearCancelledDiscount(
+  previousStatus: string | null | undefined,
+  nextStatus: string | null | undefined,
+) {
+  return (
+    normalizeOrderStatus(previousStatus) === "cancelled" &&
+    normalizeOrderStatus(nextStatus) !== "cancelled"
+  );
+}
 
 export async function PATCH(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -237,6 +248,29 @@ export async function PATCH(req: Request) {
     },
   });
 
+  const cancelledOrdersLeavingCancelled = status
+    ? ordersBeforeUpdate
+        .filter((order) => shouldClearCancelledDiscount(order.status, status))
+        .map((order) => order.id)
+    : [];
+  const cancelledOrdersLeavingCancelledSet = new Set(
+    cancelledOrdersLeavingCancelled,
+  );
+
+  if (cancelledOrdersLeavingCancelled.length > 0) {
+    await prisma.order.updateMany({
+      where: {
+        id: {
+          in: cancelledOrdersLeavingCancelled,
+        },
+        companyId: session.activeCompanyId,
+      },
+      data: {
+        rabatt: null,
+      },
+    });
+  }
+
   const actor = {
     membershipId: membership.id,
     name: membership.user.username ?? null,
@@ -258,6 +292,9 @@ export async function PATCH(req: Request) {
     const nextSnapshot = buildOrderEventSnapshot({
       ...order,
       status: status ?? order.status,
+      rabatt: cancelledOrdersLeavingCancelledSet.has(order.id)
+        ? null
+        : order.rabatt,
       subcontractor: subcontractorName ?? order.subcontractor,
       customerName: customerName ?? order.customerName,
     });

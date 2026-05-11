@@ -104,4 +104,7 @@ Each documentation file should include:
 - [Lib: user modal helpers](./lib/user-modal.md)
 - [Lib: user types](./lib/user-types.md)
 - [Lib: WordPress attachment storage](./lib/wordpress-attachment-storage.md)
+- [Integration: GSM download POD PDF](./integrations/gsm-download-pod-pdf.md)
+- [Integration: GSM missing POD attachment recovery](./integrations/gsm-missing-pod-attachment-recovery.md)
+- [Integration: GSM POD attachment backfill](./integrations/gsm-pod-attachment-backfill.md)
 - [Integration: WordPress attachment backfill](./integrations/wordpress-attachment-backfill.md)

@@ -4,6 +4,12 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
 import { getGsmToken } from "@/lib/integrations/gsm/client";
+import {
+  deleteAttachmentFromS3,
+  isS3AttachmentStorageConfigured,
+  isS3StoragePath,
+  uploadAttachmentBufferToS3,
+} from "@/lib/orders/orderAttachmentStorage";
 
 const GSM_API_BASE = process.env.GSM_API_BASE ?? "https://api.gsmtasks.com";
 
@@ -43,11 +49,28 @@ function buildPaths(orderId: string) {
 }
 
 async function writePodPdf(orderId: string, taskId: string, buffer: Buffer) {
+  const storedFilename = `pod-${taskId}-${randomUUID()}.pdf`;
+
+  if (isS3AttachmentStorageConfigured()) {
+    const storedFile = await uploadAttachmentBufferToS3({
+      bytes: buffer,
+      scope: orderId,
+      filename: storedFilename,
+      contentType: "application/pdf",
+    });
+
+    return {
+      filename: storedFilename,
+      storagePath: storedFile.storagePath,
+      sizeBytes: buffer.length,
+      mimeType: "application/pdf",
+    };
+  }
+
   const { relativeDir, absoluteDir } = buildPaths(orderId);
 
   await mkdir(absoluteDir, { recursive: true });
 
-  const storedFilename = `pod-${taskId}-${randomUUID()}.pdf`;
   const absolutePath = path.join(absoluteDir, storedFilename);
   const publicPath = `/${relativeDir.replaceAll("\\", "/")}/${storedFilename}`;
 
@@ -124,7 +147,9 @@ export async function syncPodPdfWithRetry(orderId: string, taskId: string) {
       },
     });
 
-    if (existing.storagePath.startsWith("/uploads/")) {
+    if (isS3StoragePath(existing.storagePath)) {
+      await deleteAttachmentFromS3(existing.storagePath);
+    } else if (existing.storagePath.startsWith("/uploads/")) {
       const oldAbsolutePath = path.join(
         process.cwd(),
         "public",

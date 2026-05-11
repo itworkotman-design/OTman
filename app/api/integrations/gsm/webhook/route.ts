@@ -11,6 +11,7 @@ import {
   createOrderUpdatedEvent,
   diffOrderEventSnapshots,
 } from "@/lib/orders/orderEvents";
+import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 
 function normalizeGsmState(state?: string | null) {
   const value = state?.trim().toLowerCase() ?? "";
@@ -66,6 +67,16 @@ function getFirstNonEmptyString(...values: unknown[]): string | null {
   }
 
   return null;
+}
+
+function shouldClearCancelledDiscount(
+  previousStatus: string | null | undefined,
+  nextStatus: string | null | undefined,
+) {
+  return (
+    normalizeOrderStatus(previousStatus) === "cancelled" &&
+    normalizeOrderStatus(nextStatus) !== "cancelled"
+  );
 }
 
 function getMetafields(task: GsmTaskRecord | null): Record<string, unknown> {
@@ -358,6 +369,10 @@ export async function POST(req: Request) {
       metafields.status_notes,
       orderBeforeUpdate.statusNotes,
     );
+    const shouldClearRabatt = shouldClearCancelledDiscount(
+      orderBeforeUpdate.status,
+      nextStatus,
+    );
 
     await prisma.order.update({
       where: { id: orderId },
@@ -369,6 +384,7 @@ export async function POST(req: Request) {
         gsmLastTaskState: taskStateForStorage ?? undefined,
         gsmLastWebhookAt: new Date(),
         status: nextStatus ?? undefined,
+        rabatt: shouldClearRabatt ? null : undefined,
       },
     });
 
@@ -381,6 +397,7 @@ export async function POST(req: Request) {
       statusNotes: statusNotesValue,
       gsmLastTaskState: taskStateForStorage ?? orderBeforeUpdate.gsmLastTaskState,
       status: nextStatus,
+      rabatt: shouldClearRabatt ? null : orderBeforeUpdate.rabatt,
     });
     const changes = diffOrderEventSnapshots(previousSnapshot, nextSnapshot);
 

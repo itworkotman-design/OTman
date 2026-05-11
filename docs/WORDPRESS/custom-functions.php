@@ -3974,6 +3974,18 @@ if (!function_exists('otman_send_power_order_sync')) {
     function otman_send_power_order_sync($post_id) {
         $post_id = (int) $post_id;
         if ($post_id <= 0) return;
+        $skip_sync = get_post_meta($post_id, '_otman_skip_next_power_order_sync', true);
+
+        if ($skip_sync === '1') {
+            delete_post_meta($post_id, '_otman_skip_next_power_order_sync');
+
+            error_log(
+                'WP SYNC SKIPPED post_id=' . $post_id .
+                ' reason=new_app_gsm_mirror_update'
+            );
+
+            return;
+        }
         if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) return;
 
         $post = get_post($post_id);
@@ -4027,6 +4039,68 @@ if (!function_exists('otman_send_power_order_sync')) {
 
         error_log('WP SYNC RESPONSE post_id=' . $post_id . ' code=' . $code . ' body=' . $body);
     }
+}
+
+add_action('rest_api_init', function () {
+    register_rest_route('otman/v1', '/power-order-gsm-mirror', [
+        'methods'  => 'POST',
+        'callback' => 'otman_gsm_mirror_power_order',
+        'permission_callback' => function ($request) {
+            $secret = $request->get_header('x-otman-gsm-mirror-secret');
+
+            return hash_equals(
+                'CHANGE_THIS_SECRET',
+                (string) $secret
+            );
+        },
+    ]);
+});
+
+function otman_gsm_mirror_power_order(WP_REST_Request $request) {
+    $params = $request->get_json_params();
+
+    $post_id = isset($params['legacyWordpressOrderId'])
+        ? (int) $params['legacyWordpressOrderId']
+        : 0;
+
+    if ($post_id <= 0 || get_post_type($post_id) !== 'power_order') {
+        return new WP_REST_Response([
+            'ok' => false,
+            'message' => 'Invalid power_order id',
+        ], 400);
+    }
+
+    // Prevent this mirror update from syncing back to the new app.
+    update_post_meta($post_id, '_otman_skip_next_power_order_sync', '1');
+
+    if (isset($params['status'])) {
+        update_post_meta($post_id, 'status', sanitize_text_field($params['status']));
+    }
+
+    if (isset($params['completedAt'])) {
+        update_post_meta($post_id, 'gsm_completed_at', sanitize_text_field($params['completedAt']));
+    }
+
+    if (isset($params['podDownloadUrl'])) {
+        update_post_meta($post_id, 'gsm_pod_download_url', esc_url_raw($params['podDownloadUrl']));
+    }
+
+    if (isset($params['gsmTaskId'])) {
+        update_post_meta($post_id, 'gsm_task_id', sanitize_text_field($params['gsmTaskId']));
+    }
+
+    if (isset($params['gsmDocumentId'])) {
+        update_post_meta($post_id, 'gsm_document_id', sanitize_text_field($params['gsmDocumentId']));
+    }
+
+    wp_update_post([
+        'ID' => $post_id,
+    ]);
+
+    return new WP_REST_Response([
+        'ok' => true,
+        'postId' => $post_id,
+    ], 200);
 }
 
 if (!function_exists('otman_sync_latest_power_orders')) {

@@ -963,6 +963,105 @@ describe("routes in /api/orders/[orderId]", () => {
     );
   });
 
+  it("PATCH clears discount when status changes from cancelled to another status", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      user: {
+        username: "admin",
+        email: "admin@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      companyId: "company-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      productCardsSnapshot: [],
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      status: "cancelled",
+      completedAt: null,
+      statusNotes: "",
+      customerName: "",
+      deliveryDate: "",
+      timeWindow: "",
+      expressDelivery: false,
+      contactCustomerForCustomTimeWindow: false,
+      customTimeContactNote: null,
+      pickupAddress: "",
+      extraPickupAddress: [],
+      extraPickupContacts: [],
+      deliveryAddress: "",
+      returnAddress: "",
+      drivingDistance: "",
+      phone: "",
+      phoneTwo: "",
+      email: "",
+      customerComments: "",
+      description: "",
+      productsSummary: "",
+      deliveryTypeSummary: "",
+      servicesSummary: "",
+      cashierName: "",
+      cashierPhone: "",
+      subcontractor: "",
+      driver: "",
+      secondDriver: "",
+      driverInfo: "",
+      licensePlate: "",
+      deviation: "",
+      feeExtraWork: false,
+      extraWorkMinutes: 0,
+      feeAddToOrder: false,
+      dontSendEmail: false,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "999",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      gsmLastTaskState: null,
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          status: "active",
+          rabatt: "999",
+          priceExVat: 0,
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "active",
+          rabatt: null,
+        }),
+      }),
+    );
+    expect(mocks.buildOrderEventSnapshotMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "active",
+        rabatt: null,
+      }),
+    );
+  });
+
   it("DELETE returns 404 when no order row is removed", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

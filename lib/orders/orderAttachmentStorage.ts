@@ -149,19 +149,33 @@ export async function uploadAttachmentToS3(params: {
   file: File;
   scope: string;
 }): Promise<StoredAttachment> {
+  const bytes = Buffer.from(await params.file.arrayBuffer());
+  return uploadAttachmentBufferToS3({
+    bytes,
+    scope: params.scope,
+    filename: params.file.name,
+    contentType: params.file.type || "application/octet-stream",
+  });
+}
+
+export async function uploadAttachmentBufferToS3(params: {
+  bytes: Buffer;
+  scope: string;
+  filename: string;
+  contentType?: string | null;
+}): Promise<StoredAttachment> {
   const config = getRequiredS3Config();
   const client = getS3Client(config);
-  const bytes = Buffer.from(await params.file.arrayBuffer());
   const key = `orders/${params.scope}/${Date.now()}-${randomUUID()}-${sanitizeFilename(
-    params.file.name,
+    params.filename,
   )}`;
 
   await client.send(
     new PutObjectCommand({
       Bucket: config.bucket,
       Key: key,
-      Body: bytes,
-      ContentType: params.file.type || "application/octet-stream",
+      Body: params.bytes,
+      ContentType: params.contentType || "application/octet-stream",
     }),
   );
 
@@ -266,9 +280,15 @@ export async function getAttachmentAccessUrls(params: {
     mimeType: params.mimeType,
     download: false,
   });
+  const signedDownloadUrl = await getSignedAttachmentUrl({
+    storagePath: params.storagePath,
+    filename: params.filename,
+    mimeType: params.mimeType,
+    download: true,
+  });
 
   return {
     url: signedOpenUrl ?? params.defaultUrl,
-    downloadUrl: fallbackDownloadUrl,
+    downloadUrl: signedDownloadUrl ?? fallbackDownloadUrl,
   };
 }

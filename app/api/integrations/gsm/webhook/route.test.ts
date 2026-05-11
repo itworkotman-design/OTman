@@ -427,6 +427,60 @@ describe("POST /api/integrations/gsm/webhook", () => {
     );
   });
 
+  it("clears discount when GSM moves a cancelled order back to active", async () => {
+    mocks.orderFindUniqueMock.mockResolvedValue({
+      ...buildOrderBeforeUpdate(),
+      status: "cancelled",
+      rabatt: "500",
+    });
+    mocks.fetchGsmTaskMock.mockResolvedValue({
+      id: "task-1",
+      external_id: "order:order-1",
+      state: "assigned",
+      metafields: {},
+    });
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "assigned" }]);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([
+      { field: "status" },
+      { field: "rabatt" },
+    ]);
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({
+          task: {
+            id: "task-1",
+            external_id: "order:order-1",
+            state: "assigned",
+          },
+          to_state: "assigned",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
+      where: { id: "order-1" },
+      data: expect.objectContaining({
+        gsmLastTaskState: "assigned",
+        status: "active",
+        rabatt: null,
+      }),
+    });
+    expect(mocks.buildOrderEventSnapshotMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "active",
+        rabatt: null,
+      }),
+    );
+  });
+
   it("does not reactivate a cancelled order from an unassigned follow-up without a false-cancellation marker", async () => {
     mocks.orderFindUniqueMock.mockResolvedValue({
       ...buildOrderBeforeUpdate(),
