@@ -164,6 +164,30 @@ function getRawDataCategory(rawData: unknown) {
   return typeof category === "string" ? category.trim().toLowerCase() : null;
 }
 
+function getRawProductCardDeliveryType(item: OrderItem) {
+  return getRawDataString(item.rawData, "deliveryType");
+}
+
+function matchesDeliveryType(value: string | null | undefined, matches: string[]) {
+  const normalized = (value ?? "").trim().toLowerCase();
+
+  if (!normalized) {
+    return false;
+  }
+
+  return matches.some((match) => normalized === match || normalized.includes(match));
+}
+
+function itemMatchesDeliveryType(item: OrderItem, matches: string[]) {
+  return (
+    matchesDeliveryType(item.deliveryType, matches) ||
+    matchesDeliveryType(getRawProductCardDeliveryType(item), matches) ||
+    matchesDeliveryType(item.optionCode, matches) ||
+    matchesDeliveryType(getRawDataString(item.rawData, "code"), matches) ||
+    matchesDeliveryType(getRawDataString(item.rawData, "mappedOptionCode"), matches)
+  );
+}
+
 function normalizeDeliveryTypeText(value?: string | null) {
   return (value ?? "").trim().toLowerCase();
 }
@@ -205,19 +229,51 @@ function getDeliveryTaskCategory(order: GsmOrderInput): GsmTask["category"] {
     (item) => item.itemType === "PRODUCT_CARD",
   ) ?? [];
 
-  if (productCardItems.some((item) => isDropOffDeliveryType(item.deliveryType))) {
-    return "drop_off";
+  if (hasMontering(order)) {
+    return "assignment";
   }
 
   if (
     productCardItems.some((item) =>
-      isAssignmentDeliveryType(item.deliveryType),
+      itemMatchesDeliveryType(item, [
+        "install_only",
+        "kun installasjon/montering",
+      ]),
     )
   ) {
     return "assignment";
   }
 
-  return hasMontering(order) ? "assignment" : "drop_off";
+  if (
+    productCardItems.some((item) =>
+      itemMatchesDeliveryType(item, [
+        "returnin",
+        "return_only",
+        "kun retur",
+        "return only",
+      ]),
+    )
+  ) {
+    return "pick_up";
+  }
+
+  if (
+    productCardItems.some((item) =>
+      itemMatchesDeliveryType(item, [
+        "first_step",
+        "første",
+        "fÃ¸rste",
+        "forste",
+        "first step",
+        "indoor",
+        "innb",
+      ]),
+    )
+  ) {
+    return "drop_off";
+  }
+
+  return "drop_off";
 }
 
 export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {

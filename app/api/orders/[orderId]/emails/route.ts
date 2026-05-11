@@ -140,6 +140,16 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
           },
         },
       },
+      customerMembership: {
+        select: {
+          user: {
+            select: {
+              username: true,
+              email: true,
+            },
+          },
+        },
+      },
 
       emailThreadToken: true,
       needsEmailAttention: true,
@@ -175,11 +185,36 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
     },
   });
 
+  const latestSentOutbound = messages.find(
+    (message) =>
+      message.direction === "OUTBOUND" &&
+      (message.status === "SENT" ||
+        message.status === "SENT_WITH_SYNC_WARNING") &&
+      message.toEmail.trim().length > 0,
+  );
+  const linkedAccountUser = order.customerMembership?.user;
+  const createdByUser = order.createdByMembership?.user;
+  const defaultRecipientEmail =
+    latestSentOutbound?.toEmail.trim() ||
+    linkedAccountUser?.email.trim() ||
+    order.email?.trim() ||
+    createdByUser?.email.trim() ||
+    "";
+  const defaultRecipientName =
+    latestSentOutbound?.toName?.trim() ||
+    linkedAccountUser?.username?.trim() ||
+    linkedAccountUser?.email.trim() ||
+    order.customerLabel?.trim() ||
+    order.customerName?.trim() ||
+    createdByUser?.username?.trim() ||
+    createdByUser?.email.trim() ||
+    "";
+
   return NextResponse.json({
     ok: true,
     conversation: {
-      defaultRecipientEmail: order.email || order.createdByMembership?.user.email || "",
-      defaultRecipientName: order.customerLabel || order.customerName || order.createdByMembership?.user.username || order.createdByMembership?.user.email || "",
+      defaultRecipientEmail,
+      defaultRecipientName,
       threadToken: order.emailThreadToken ?? "",
       needsEmailAttention: order.needsEmailAttention,
       unreadInboundEmailCount: order.unreadInboundEmailCount,

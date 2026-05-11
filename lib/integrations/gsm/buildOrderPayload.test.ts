@@ -288,7 +288,7 @@ describe("buildOrderPayload", () => {
     ]);
   });
 
-  it("keeps innbaering as drop-off even when install options are selected", () => {
+  it("uses assignment for innbaering when install options are selected", () => {
     process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
 
     const payload = buildOrderPayload({
@@ -309,6 +309,29 @@ describe("buildOrderPayload", () => {
           optionCode: "INSWASH1",
           optionLabel: "Install service",
           rawData: { category: "install" },
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data.map((task) => task.category)).toEqual([
+      "assignment",
+    ]);
+  });
+
+  it("keeps first-step deliveries as drop-off tasks", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+      items: [
+        buildOrderItem({
+          deliveryType: "FÃ¸rste trinn",
+          rawData: { deliveryType: "FIRST_STEP" },
         }),
       ],
     });
@@ -337,6 +360,30 @@ describe("buildOrderPayload", () => {
 
     expect(payload.tasks_data.map((task) => task.category)).toEqual([
       "assignment",
+    ]);
+  });
+
+  it("uses pickup for return-in delivery type", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+      items: [
+        buildOrderItem({
+          deliveryType: "Kun retur",
+          optionCode: "RETURNIN",
+          rawData: { deliveryType: "RETURN_ONLY" },
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data.map((task) => task.category)).toEqual([
+      "pick_up",
     ]);
   });
 
