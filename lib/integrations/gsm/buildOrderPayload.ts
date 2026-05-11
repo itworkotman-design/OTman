@@ -33,6 +33,7 @@ export type GsmOrderInput = Order & {
 };
 
 const NO_PICKUP_ADDRESS = "no shop pickup address";
+const WORDPRESS_ORDER_PRICES_PRODUCT_NAME = "WordPress order prices";
 const RETURN_LABELS_BY_CODE: Record<string, string> = {
   RETURNSTORE: "Retur til butikk",
   RETURNREC: "Retur til gjenvinningsstasjon",
@@ -94,8 +95,28 @@ function getItemOptionCode(item: OrderItem) {
   ).toUpperCase();
 }
 
+function isWordpressOrderPriceItem(item: OrderItem) {
+  return item.productName?.trim() === WORDPRESS_ORDER_PRICES_PRODUCT_NAME;
+}
+
+function isWordpressKmPriceItem(item: OrderItem) {
+  if (!isWordpressOrderPriceItem(item)) {
+    return false;
+  }
+
+  const label = (
+    getRawDataString(item.rawData, "label") ||
+    getRawDataString(item.rawData, "description") ||
+    item.optionLabel ||
+    item.optionCode ||
+    ""
+  ).trim().toLowerCase();
+
+  return label === "km pris";
+}
+
 function getGsmSummaryItems(items: OrderItem[]) {
-  return items.map((item) => {
+  const summaryItems = items.map((item) => {
     const returnLabel = RETURN_LABELS_BY_CODE[getItemOptionCode(item)];
 
     if (!returnLabel) {
@@ -113,6 +134,30 @@ function getGsmSummaryItems(items: OrderItem[]) {
         label: returnLabel,
       },
     };
+  });
+
+  const wordpressOrderPriceCardsWithVisibleRows = new Set<number>();
+
+  for (const item of summaryItems) {
+    if (
+      isWordpressOrderPriceItem(item) &&
+      item.itemType !== "PRODUCT_CARD" &&
+      !isWordpressKmPriceItem(item)
+    ) {
+      wordpressOrderPriceCardsWithVisibleRows.add(item.cardId);
+    }
+  }
+
+  return summaryItems.filter((item) => {
+    if (!isWordpressOrderPriceItem(item)) {
+      return true;
+    }
+
+    if (item.itemType === "PRODUCT_CARD") {
+      return wordpressOrderPriceCardsWithVisibleRows.has(item.cardId);
+    }
+
+    return !isWordpressKmPriceItem(item);
   });
 }
 

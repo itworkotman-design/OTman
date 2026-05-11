@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   syncPodPdfWithRetryMock: vi.fn(),
   buildOrderEventSnapshotMock: vi.fn(),
   diffOrderEventSnapshotsMock: vi.fn(),
+  createOrderActionEventMock: vi.fn(),
   createOrderStatusChangedEventMock: vi.fn(),
   createOrderUpdatedEventMock: vi.fn(),
   orderGsmTaskFindUniqueMock: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("@/lib/integrations/gsm/downloadPodPdf", () => ({
 vi.mock("@/lib/orders/orderEvents", () => ({
   buildOrderEventSnapshot: mocks.buildOrderEventSnapshotMock,
   diffOrderEventSnapshots: mocks.diffOrderEventSnapshotsMock,
+  createOrderActionEvent: mocks.createOrderActionEventMock,
   createOrderStatusChangedEvent: mocks.createOrderStatusChangedEventMock,
   createOrderUpdatedEvent: mocks.createOrderUpdatedEventMock,
 }));
@@ -93,6 +95,7 @@ function buildOrderBeforeUpdate() {
     leggTil: "",
     subcontractorMinus: "",
     subcontractorPlus: "",
+    gsmOrderId: "gsm-order-1",
     gsmLastTaskState: "",
   };
 }
@@ -113,6 +116,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       { field: "statusNotes" },
       { field: "driver" },
     ]);
+    mocks.createOrderActionEventMock.mockResolvedValue(undefined);
     mocks.createOrderStatusChangedEventMock.mockResolvedValue(undefined);
     mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
     mocks.syncPodPdfWithRetryMock.mockResolvedValue(undefined);
@@ -258,6 +262,216 @@ describe("POST /api/integrations/gsm/webhook", () => {
         toStatus: "failed",
       }),
     );
+  });
+
+  it("cancels the order when webhook cancelled is verified by fresh GSM state", async () => {
+    mocks.fetchGsmTaskMock.mockResolvedValue({
+      id: "task-1",
+      external_id: "order:order-1",
+      state: "cancelled",
+      metafields: {},
+    });
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "cancelled" }]);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "status" }]);
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({
+          task: {
+            id: "task-1",
+            external_id: "order:order-1",
+            state: "cancelled",
+          },
+          to_state: "cancelled",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderGsmTaskUpsertMock).toHaveBeenCalledWith({
+      where: { gsmTaskId: "task-1" },
+      update: expect.objectContaining({
+        state: "cancelled",
+      }),
+      create: expect.objectContaining({
+        state: "cancelled",
+      }),
+    });
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
+      where: { id: "order-1" },
+      data: expect.objectContaining({
+        gsmLastTaskState: "cancelled",
+        status: "cancelled",
+      }),
+    });
+    expect(mocks.createOrderActionEventMock).not.toHaveBeenCalled();
+  });
+
+  it("does not cancel when webhook cancelled is contradicted by fresh unassigned GSM state", async () => {
+    mocks.fetchGsmTaskMock.mockResolvedValue({
+      id: "task-1",
+      external_id: "order:order-1",
+      state: "unassigned",
+      metafields: {},
+    });
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "unassigned" }]);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([
+      { field: "gsmLastTaskState" },
+    ]);
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({
+          task: {
+            id: "task-1",
+            external_id: "order:order-1",
+            state: "cancelled",
+          },
+          to_state: "cancelled",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderGsmTaskUpsertMock).toHaveBeenCalledWith({
+      where: { gsmTaskId: "task-1" },
+      update: expect.objectContaining({
+        state: "unassigned",
+      }),
+      create: expect.objectContaining({
+        state: "unassigned",
+      }),
+    });
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
+      where: { id: "order-1" },
+      data: expect.objectContaining({
+        gsmLastTaskState: "unassigned",
+        status: "processing",
+      }),
+    });
+    expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        orderId: "order-1",
+        title: "Ignored unverified GSM cancellation",
+        details: expect.arrayContaining([
+          "Webhook state: cancelled",
+          "Fresh GSM state: unassigned",
+          "Decision: ignored unverified GSM cancellation",
+          "Final status: processing",
+        ]),
+      }),
+    );
+  });
+
+  it("marks the order active when webhook cancelled is contradicted by fresh assigned GSM state", async () => {
+    mocks.fetchGsmTaskMock.mockResolvedValue({
+      id: "task-1",
+      external_id: "order:order-1",
+      state: "assigned",
+      metafields: {},
+    });
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "assigned" }]);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "status" }]);
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({
+          task: {
+            id: "task-1",
+            external_id: "order:order-1",
+            state: "cancelled",
+          },
+          to_state: "cancelled",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
+      where: { id: "order-1" },
+      data: expect.objectContaining({
+        gsmLastTaskState: "assigned",
+        status: "active",
+      }),
+    });
+    expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        title: "Ignored unverified GSM cancellation",
+        details: expect.arrayContaining([
+          "Webhook state: cancelled",
+          "Fresh GSM state: assigned",
+          "Decision: ignored unverified GSM cancellation",
+          "Final status: active",
+        ]),
+      }),
+    );
+  });
+
+  it("does not reactivate a cancelled order from an unassigned follow-up without a false-cancellation marker", async () => {
+    mocks.orderFindUniqueMock.mockResolvedValue({
+      ...buildOrderBeforeUpdate(),
+      status: "cancelled",
+      gsmLastTaskState: "cancelled",
+    });
+    mocks.fetchGsmTaskMock.mockResolvedValue({
+      id: "task-1",
+      external_id: "order:order-1",
+      state: "unassigned",
+      metafields: {},
+    });
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "unassigned" }]);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([
+      { field: "gsmLastTaskState" },
+    ]);
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({
+          task: {
+            id: "task-1",
+            external_id: "order:order-1",
+            state: "unassigned",
+          },
+          to_state: "unassigned",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
+      where: { id: "order-1" },
+      data: expect.objectContaining({
+        gsmLastTaskState: "unassigned",
+        status: "cancelled",
+      }),
+    });
+    expect(mocks.createOrderStatusChangedEventMock).not.toHaveBeenCalled();
   });
 
   it("does not wait for POD sync before acknowledging completed webhooks", async () => {

@@ -6,13 +6,24 @@ import { fetchGsmTask } from "@/lib/integrations/gsm/fetchTask";
 import { syncPodPdfWithRetry } from "@/lib/integrations/gsm/downloadPodPdf";
 import {
   buildOrderEventSnapshot,
+  createOrderActionEvent,
   createOrderStatusChangedEvent,
   createOrderUpdatedEvent,
   diffOrderEventSnapshots,
 } from "@/lib/orders/orderEvents";
 
+function normalizeGsmState(state?: string | null) {
+  const value = state?.trim().toLowerCase() ?? "";
+  return value || null;
+}
+
+function isCancelledState(state?: string | null) {
+  const value = normalizeGsmState(state);
+  return value === "cancelled" || value === "canceled";
+}
+
 function mapStatus(state?: string | null) {
-  const value = (state ?? "").toLowerCase();
+  const value = normalizeGsmState(state);
 
   if (value === "failed" || value === "fail") return "failed";
   if (value === "cancelled" || value === "canceled") return "cancelled";
@@ -62,6 +73,28 @@ function getMetafields(task: GsmTaskRecord | null): Record<string, unknown> {
   return metafields ?? {};
 }
 
+function getTaskState(task: GsmTaskRecord | null) {
+  return getTrimmedString(task?.state);
+}
+
+function getNextStatus(input: {
+  allCompleted: boolean;
+  currentStatus: string | null;
+  decisionState: string | null;
+}) {
+  if (input.allCompleted) {
+    return "completed";
+  }
+
+  const mapped = mapStatus(input.decisionState);
+
+  if (mapped) {
+    return mapped;
+  }
+
+  return input.currentStatus;
+}
+
 function syncPodPdfInBackground(orderId: string, gsmTaskId: string) {
   void syncPodPdfWithRetry(orderId, gsmTaskId).catch((error: unknown) => {
     console.error("POD IMPORT FAILED:", {
@@ -105,18 +138,24 @@ export async function POST(req: Request) {
             ? body.state
             : null;
 
-    const externalId =
-      typeof rawTask?.external_id === "string" ? rawTask.external_id : null;
-
     let fullTask: GsmTaskRecord | null = rawTask;
+    let freshTask: GsmTaskRecord | null = null;
+    let freshTaskState: string | null = null;
 
     if (gsmTaskId) {
       try {
-        fullTask = await fetchGsmTask(gsmTaskId);
+        freshTask = await fetchGsmTask(gsmTaskId);
+        fullTask = freshTask;
+        freshTaskState = getTaskState(freshTask);
       } catch (error) {
         console.error("FAILED TO FETCH FULL GSM TASK:", gsmTaskId, error);
       }
     }
+
+    const externalId = getFirstNonEmptyString(
+      rawTask?.external_id,
+      freshTask?.external_id,
+    );
 
     let orderId: string | null = null;
 
@@ -160,18 +199,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    let taskStateForStorage = state;
+    let statusDecisionState = state;
+    let cancellationDecision:
+      | "not_cancelled_webhook"
+      | "verified_cancelled"
+      | "transient_cancelled_ignored"
+      | "unverified_cancelled_ignored" = "not_cancelled_webhook";
+
+    if (isCancelledState(state)) {
+      if (freshTaskState) {
+        taskStateForStorage = freshTaskState;
+        statusDecisionState = freshTaskState;
+        cancellationDecision = isCancelledState(freshTaskState)
+          ? "verified_cancelled"
+          : "transient_cancelled_ignored";
+      } else {
+        statusDecisionState = null;
+        cancellationDecision = "unverified_cancelled_ignored";
+      }
+    }
+
     if (gsmTaskId) {
       await prisma.orderGsmTask.upsert({
         where: { gsmTaskId },
         update: {
-          state,
+          state: taskStateForStorage,
           lastWebhookAt: new Date(),
           rawPayload: body as Prisma.InputJsonValue,
         },
         create: {
           orderId,
           gsmTaskId,
-          state,
+          state: taskStateForStorage,
           lastWebhookAt: new Date(),
           rawPayload: body as Prisma.InputJsonValue,
         },
@@ -222,6 +282,7 @@ export async function POST(req: Request) {
         leggTil: true,
         subcontractorMinus: true,
         subcontractorPlus: true,
+        gsmOrderId: true,
         gsmLastTaskState: true,
       },
     });
@@ -253,10 +314,28 @@ export async function POST(req: Request) {
     const allCompleted =
       tasks.length > 0 && tasks.every((task) => task.state === "completed");
 
-    const mapped = mapStatus(state);
-    const nextStatus = allCompleted
-      ? "completed"
-      : mapped ?? orderBeforeUpdate.status;
+    const nextStatus = getNextStatus({
+      allCompleted,
+      currentStatus: orderBeforeUpdate.status,
+      decisionState: statusDecisionState,
+    });
+
+    if (cancellationDecision !== "not_cancelled_webhook") {
+      console.info("GSM WEBHOOK CANCELLATION DECISION:", {
+        orderId,
+        orderNumber: orderBeforeUpdate.orderNumber,
+        displayId: orderBeforeUpdate.displayId,
+        gsmOrderId: orderBeforeUpdate.gsmOrderId,
+        webhookState: state,
+        freshGsmState: freshTaskState,
+        finalDecision: cancellationDecision,
+        decisionText:
+          cancellationDecision === "verified_cancelled"
+            ? "verified GSM cancellation applied"
+            : "ignored unverified GSM cancellation",
+        finalStatus: nextStatus,
+      });
+    }
 
     const driverValue = getFirstNonEmptyString(
       metafields["app:name"],
@@ -287,7 +366,7 @@ export async function POST(req: Request) {
         secondDriver: secondDriverValue ?? undefined,
         licensePlate: licensePlateValue ?? undefined,
         statusNotes: statusNotesValue ?? undefined,
-        gsmLastTaskState: state ?? undefined,
+        gsmLastTaskState: taskStateForStorage ?? undefined,
         gsmLastWebhookAt: new Date(),
         status: nextStatus ?? undefined,
       },
@@ -300,7 +379,7 @@ export async function POST(req: Request) {
       secondDriver: secondDriverValue,
       licensePlate: licensePlateValue,
       statusNotes: statusNotesValue,
-      gsmLastTaskState: state ?? orderBeforeUpdate.gsmLastTaskState,
+      gsmLastTaskState: taskStateForStorage ?? orderBeforeUpdate.gsmLastTaskState,
       status: nextStatus,
     });
     const changes = diffOrderEventSnapshots(previousSnapshot, nextSnapshot);
@@ -327,6 +406,28 @@ export async function POST(req: Request) {
           source: "GSM_WEBHOOK",
         },
         changes,
+      });
+    }
+
+    if (
+      cancellationDecision === "transient_cancelled_ignored" ||
+      cancellationDecision === "unverified_cancelled_ignored"
+    ) {
+      await createOrderActionEvent(prisma, {
+        orderId,
+        companyId: orderBeforeUpdate.companyId,
+        actor: {
+          name: "GSM webhook",
+          email: null,
+          source: "GSM_WEBHOOK",
+        },
+        title: "Ignored unverified GSM cancellation",
+        details: [
+          `Webhook state: ${state ?? "-"}`,
+          `Fresh GSM state: ${freshTaskState ?? "-"}`,
+          `Decision: ignored unverified GSM cancellation`,
+          `Final status: ${nextStatus ?? "-"}`,
+        ],
       });
     }
 

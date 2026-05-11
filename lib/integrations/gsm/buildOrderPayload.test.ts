@@ -477,4 +477,49 @@ describe("buildOrderPayload", () => {
       "Wrong saved return description",
     );
   });
+
+  it("omits WordPress KM price rows from the GSM description", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        servicesSummary: "",
+      }),
+      items: [
+        buildOrderItem(),
+        buildOrderItem({
+          id: "item-2",
+          cardId: 99,
+          productName: "WordPress order prices",
+          itemType: "PRODUCT_CARD",
+          deliveryType: null,
+          rawData: {
+            source: "wordpress_sync",
+            readOnly: true,
+          },
+        }),
+        buildOrderItem({
+          id: "item-3",
+          cardId: 99,
+          productName: "WordPress order prices",
+          itemType: "EXTRA_OPTION",
+          deliveryType: null,
+          optionLabel: "KM pris",
+          rawData: {
+            source: "wordpress_sync",
+            readOnly: true,
+            label: "KM pris",
+          },
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data[0]?.description).toContain("Washer");
+    expect(payload.tasks_data[0]?.description).not.toContain("KM pris");
+    expect(payload.tasks_data[0]?.description).not.toContain(
+      "WordPress order prices",
+    );
+  });
 });
