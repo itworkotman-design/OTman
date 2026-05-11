@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Maps parsed WordPress product rows and WordPress service rows onto the native booking catalog. The helper resolves catalog products from WordPress product names, translates WordPress delivery labels into native delivery types, infers install-only or return-only delivery types from service rows when the product row has no explicit delivery type, maps generic or product-specific install labels to native install option codes only for actual legacy install rows, checks native option codes directly when the legacy label text differs, runs configured code aliases for hardcoded WordPress codes such as `RETURNSBSSTORE`, preserves return selections, can resolve return options by exact price when old labels or codes no longer match, maps hardcoded WordPress return codes into native custom-section selections, converts hourly WordPress products into native cards with `hoursInput`, and returns both normalized product cards and any unresolved legacy rows that still need fallback handling.
+Maps parsed WordPress product rows and WordPress service rows onto the native booking catalog. The helper resolves catalog products from WordPress product names, translates WordPress delivery labels into native delivery types, infers install-only or return-only delivery types from service rows when the product row has no explicit delivery type, maps generic or product-specific install labels to native install option codes only for actual legacy install rows, checks native option codes directly when the legacy label text differs, runs configured code aliases for hardcoded WordPress codes such as `RETURNSBSSTORE`, preserves return selections, can resolve return options by exact price when old labels or codes no longer match, avoids resolving explicit `RETURNREC` or `RETURNSTORE` rows to a different return option by price, maps hardcoded WordPress return codes into native custom-section selections, converts hourly WordPress products into native cards with `hoursInput`, and returns both normalized product cards and any unresolved legacy rows that still need fallback handling.
 
 ## Functions
 
@@ -26,6 +26,7 @@ Maps parsed WordPress product rows and WordPress service rows onto the native bo
 | `findProductOption` | Resolves a native catalog option by option code on a specific product. |
 | `findSpecialOption` | Resolves a native catalog special option by option code. |
 | `findReturnSpecialOptionByPrice` | Resolves a return special option by exact effective customer price when WordPress label or code matching fails. |
+| `isExplicitReturnCode` | Detects explicit WordPress return codes that must not fall back to a different return option by price. |
 | `findCustomSectionOption` | Resolves a native custom-section option by code so hardcoded legacy return rows can land in `customSectionSelections`. |
 | `resolveInstallAlias` | Maps a generic WordPress install label or code to a product-specific native install option code. |
 | `buildResolvedService` | Builds the resolved service metadata payload returned to the importer route. |

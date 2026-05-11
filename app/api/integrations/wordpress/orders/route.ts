@@ -959,7 +959,7 @@ const buildServiceItemsFromBreakdown = (meta: Record<string, unknown>, productIt
 const buildParsedServiceCoverageKey = (
   service: Pick<
     ParsedWordpressServiceItem,
-    "cardId" | "itemType" | "label" | "code" | "quantity" | "priceCents"
+    "cardId" | "itemType" | "label" | "code"
   >,
 ): string =>
   [
@@ -967,8 +967,6 @@ const buildParsedServiceCoverageKey = (
     service.itemType,
     service.code ?? "",
     service.label,
-    service.quantity,
-    service.priceCents ?? "",
   ].join("|");
 
 const mergeParsedServiceItems = (params: {

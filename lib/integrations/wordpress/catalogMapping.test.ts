@@ -252,6 +252,17 @@ const specialOptions: CatalogSpecialOption[] = [
     active: true,
   },
   {
+    id: "return-rec",
+    type: "return",
+    code: "RETURNREC",
+    label: "Retur til gjenvinning",
+    description: "Retur til gjenvinning",
+    customerPrice: "250",
+    subcontractorPrice: "0",
+    effectiveCustomerPrice: "250",
+    active: true,
+  },
+  {
     id: "unpacking",
     type: "extra_service",
     code: "UNPACKING",
@@ -493,8 +504,8 @@ describe("mapWordpressImportToProductCards", () => {
       expect.objectContaining({
         cardId: 3,
         productId: "product-3",
-        amount: 0.5,
-        hoursInput: 0.5,
+        amount: 1,
+        hoursInput: 1,
         selectedInstallOptionIds: ["labor-1", "labor-2", "labor-3", "labor-4"],
       }),
     ]);
@@ -538,6 +549,60 @@ describe("mapWordpressImportToProductCards", () => {
         deliveryType: "INSTALL_ONLY",
         selectedInstallOptionIds: ["install-1"],
         selectedReturnOptionId: "return-store",
+      }),
+    ]);
+  });
+
+  it("preserves explicit wordpress RETURNREC instead of falling back to RETURNSTORE by price", () => {
+    const result = mapWordpressImportToProductCards({
+      parsedProducts: [
+        {
+          cardId: 8,
+          productName: "Washing machine",
+          quantity: 1,
+          deliveryType: "Indoor carry",
+        },
+      ],
+      parsedServices: [
+        {
+          cardId: 8,
+          productName: "Washing machine",
+          quantity: 1,
+          itemType: "RETURN_OPTION",
+          label: "Retur til gjenvinning",
+          code: "RETURNREC",
+          priceCents: 25000,
+        },
+      ],
+      catalogProducts: products,
+      catalogSpecialOptions: [
+        {
+          id: "return-store-same-price",
+          type: "return",
+          code: "RETURNSTORE",
+          label: "Retur til butikk",
+          description: "Retur til butikk",
+          customerPrice: "250",
+          subcontractorPrice: "0",
+          effectiveCustomerPrice: "250",
+          active: true,
+        },
+        ...specialOptions.filter((option) => option.code !== "RETURNREC"),
+      ],
+    });
+
+    expect(result.productCards).toEqual([
+      expect.objectContaining({
+        cardId: 8,
+        selectedReturnOptionId: null,
+      }),
+    ]);
+    expect(result.resolvedServices).toEqual([]);
+    expect(result.unresolvedServices).toEqual([
+      expect.objectContaining({
+        cardId: 8,
+        label: "Retur til gjenvinning",
+        code: "RETURNREC",
       }),
     ]);
   });
@@ -656,7 +721,7 @@ describe("mapWordpressImportToProductCards", () => {
       expect.objectContaining({
         cardId: 5,
         productId: "product-4",
-        deliveryType: "FIRST_STEP",
+        deliveryType: "INDOOR",
         selectedInstallOptionIds: ["install-sbs-1", "install-sbs-2"],
         customSectionSelections: [
           {

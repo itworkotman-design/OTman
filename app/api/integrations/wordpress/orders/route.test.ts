@@ -414,7 +414,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
         ],
         status: "failed",
         productCardsSnapshot: expect.any(Array),
-        deliveryTypeSummary: "Indoor carry",
+        deliveryTypeSummary: "INDOOR",
         servicesSummary: "Install only x2, Return to store x2",
         drivingDistance: undefined,
         priceExVat: 0,
@@ -575,6 +575,124 @@ describe("POST /api/integrations/wordpress/orders", () => {
         select: { id: true, storagePath: true },
       },
     );
+  });
+
+  it("deduplicates unmatched wordpress services found in both meta and price breakdown", async () => {
+    mocks.buildOrderItemsFromCardsMock.mockReturnValueOnce([]);
+    mocks.mapWordpressImportToProductCardsMock.mockImplementationOnce(
+      (params: {
+        parsedProducts: Array<{
+          cardId: number;
+          productName: string;
+          quantity: number;
+          deliveryType?: string;
+        }>;
+        parsedServices: Array<{
+          cardId: number;
+          productName: string;
+          quantity: number;
+          itemType: string;
+          label: string;
+          code?: string | null;
+          priceCents?: number;
+        }>;
+      }) => ({
+        productCards: [],
+        resolvedServices: [],
+        unresolvedProducts: params.parsedProducts,
+        unresolvedServices: params.parsedServices,
+      }),
+    );
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 10005,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Processing",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-10005",
+            pickup_address: "Pickup 1",
+            delivery_address: "Delivery 1",
+            products_0_velg_produkt: "Legacy washer",
+            products_0_velg_leveringstype: "0:Innbæring:INDOOR",
+            products_0_antall_produkter: "2",
+            products_0_montering: "100:Install only:INSTALLDOOR",
+            products_0_retur: "250:Return to store:RETURNSTORE",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-group">
+                  <div class="price-group-label"><strong>Legacy washer</strong></div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Install only (INSTALLDOOR)</span>
+                    <span class="price-breakdown-price">200 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Return to store (RETURNSTORE)</span>
+                    <span class="price-breakdown-price">500 NOK</span>
+                  </div>
+                  <div class="price-breakdown-row">
+                    <span class="price-breakdown-label">Innbæring (INDOOR)</span>
+                    <span class="price-breakdown-price">1338 NOK</span>
+                  </div>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      order: {
+        id: "order-1",
+        displayId: 20001,
+        legacyWordpressOrderId: 9993,
+      },
+      importedItemCount: 3,
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.mapWordpressImportToProductCardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parsedServices: [
+          expect.objectContaining({
+            label: "Install only",
+            code: "INSTALLDOOR",
+            priceCents: 20000,
+          }),
+          expect.objectContaining({
+            label: "Return to store",
+            code: "RETURNSTORE",
+            priceCents: 50000,
+          }),
+        ],
+      }),
+    );
+    expect(mocks.orderItemCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          itemType: "PRODUCT_CARD",
+          productName: "Legacy washer",
+        }),
+        expect.objectContaining({
+          itemType: "INSTALL_OPTION",
+          optionLabel: "Install only",
+        }),
+        expect.objectContaining({
+          itemType: "RETURN_OPTION",
+          optionLabel: "Return to store",
+        }),
+      ],
+    });
   });
 
   it("upserts wordpress-imported attachments when an existing order is re-synced", async () => {
@@ -891,7 +1009,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
             cardId: 1,
             productName: "Washer",
             quantity: 2,
-            deliveryType: "Indoor carry",
+            deliveryType: "INDOOR",
           }),
         ],
       }),
@@ -978,8 +1096,8 @@ describe("POST /api/integrations/wordpress/orders", () => {
     expect(mocks.orderCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
         deviation: "Deviation, missed trip; Customer not at home",
-        rabatt: "1000",
-        priceExVat: 590,
+        rabatt: undefined,
+        priceExVat: 1590,
       }),
       select: {
         id: true,
@@ -1280,8 +1398,17 @@ describe("POST /api/integrations/wordpress/orders", () => {
       }),
     );
 
-    expect(response.status).toBe(500);
-    expect(mocks.orderCreateMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        priceExVat: 250,
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
   });
 
   it("imports admin price adjustments into native totals and persisted fields", async () => {
@@ -1357,7 +1484,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
         subcontractorMinus: "20",
         subcontractorPlus: undefined,
         priceExVat: 13,
-        priceSubcontractor: 8,
+        priceSubcontractor: 750,
       }),
       select: {
         id: true,
@@ -1655,7 +1782,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
       expect.objectContaining({
         parsedServices: expect.not.arrayContaining([
           expect.objectContaining({
-            code: "EXTRAPICKUP",
+            label: "KM pris",
           }),
         ]),
       }),
@@ -1752,9 +1879,13 @@ describe("POST /api/integrations/wordpress/orders", () => {
         productId: "product-1",
       }),
     );
-    expect(
-      createCall?.data.productCardsSnapshot[0].wordpressImportReadOnly,
-    ).toBeUndefined();
+    expect(createCall?.data.productCardsSnapshot[0]).toEqual(
+      expect.objectContaining({
+        wordpressImportReadOnly: expect.objectContaining({
+          productName: "Vaskemaskin",
+        }),
+      }),
+    );
     expect(createCall?.data.productCardsSnapshot[1]).toEqual(
       expect.objectContaining({
         wordpressImportReadOnly: expect.objectContaining({
@@ -2073,6 +2204,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
       data: expect.objectContaining({
         returnAddress:
           "POWER Drammen, C O Lunds gate 25, 3043 Drammen, Norway",
+        servicesSummary: "Retur til gjenvinning",
         productCardsSnapshot: expect.arrayContaining([
           expect.objectContaining({
             cardId: 1,
@@ -2144,7 +2276,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
     });
   });
 
-  it("creates a manual-review alert when the imported wordpress total mismatches the rebuilt native total", async () => {
+  it("preserves the imported wordpress total when it mismatches the rebuilt native total", async () => {
     mocks.calculateBookingPricingMock.mockReturnValue({
       totals: {
         totalExVat: 25,
@@ -2200,29 +2332,11 @@ describe("POST /api/integrations/wordpress/orders", () => {
       [],
       [],
       {
+        forcedXtraDeliveryCardIds: expect.any(Set),
         zeroBaseDeliveryPricesOver100Km: false,
       },
     );
-    expect(mocks.createOrderNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        order: expect.objectContaining({
-          create: mocks.orderCreateMock,
-        }),
-      }),
-      {
-        orderId: "order-1",
-        companyId: "company-1",
-        type: "MANUAL_REVIEW",
-        title: "WordPress price mismatch",
-        message:
-          "Imported WordPress price does not match the rebuilt native total. Review the order manually.",
-        payload: {
-          source: "wordpress_import",
-          wordpressPriceExVatCents: 1000000,
-          nativePriceExVatCents: 2500,
-        },
-      },
-    );
+    expect(mocks.createOrderNotificationMock).not.toHaveBeenCalled();
   });
 
   it("reads the alternate delivery-type field for Andre produkter imports", async () => {

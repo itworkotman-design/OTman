@@ -235,6 +235,11 @@ function findReturnSpecialOptionByPrice(catalogSpecialOptions: CatalogSpecialOpt
   );
 }
 
+function isExplicitReturnCode(value: string | null | undefined) {
+  const normalized = normalizeKey(value);
+  return normalized === "returnrec" || normalized === "returnstore";
+}
+
 function findCustomSectionOption(
   product: CatalogProduct,
   optionCode: string,
@@ -362,7 +367,7 @@ function resolveService(
     }
   }
 
-  if (service.itemType === "RETURN_OPTION") {
+  if (service.itemType === "RETURN_OPTION" && !isExplicitReturnCode(service.code)) {
     const returnOption = findReturnSpecialOptionByPrice(catalogSpecialOptions, service.priceCents);
 
     if (returnOption) {
