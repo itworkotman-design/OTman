@@ -163,10 +163,10 @@ export async function syncPodPdfWithRetry(orderId: string, taskId: string) {
       }
     }
 
-    return;
+    return existing.id;
   }
 
-  await prisma.orderAttachment.create({
+  const created = await prisma.orderAttachment.create({
     data: {
       orderId,
       filename: saved.filename,
@@ -177,5 +177,10 @@ export async function syncPodPdfWithRetry(orderId: string, taskId: string) {
       gsmTaskId: taskId,
       gsmDocumentId: podDocumentId,
     },
+    select: {
+      id: true,
+    },
   });
+
+  return created.id;
 }

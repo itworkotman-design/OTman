@@ -107,4 +107,6 @@ Each documentation file should include:
 - [Integration: GSM download POD PDF](./integrations/gsm-download-pod-pdf.md)
 - [Integration: GSM missing POD attachment recovery](./integrations/gsm-missing-pod-attachment-recovery.md)
 - [Integration: GSM POD attachment backfill](./integrations/gsm-pod-attachment-backfill.md)
+- [Integration: GSM WordPress mirror backfill](./integrations/gsm-wordpress-mirror-backfill.md)
 - [Integration: WordPress attachment backfill](./integrations/wordpress-attachment-backfill.md)
+- [Integration: WordPress GSM mirror](./integrations/wordpress-gsm-mirror.md)

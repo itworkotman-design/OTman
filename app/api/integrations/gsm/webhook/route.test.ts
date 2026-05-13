@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   fetchGsmTaskMock: vi.fn(),
   syncPodPdfWithRetryMock: vi.fn(),
+  mirrorGsmUpdateToWordpressMock: vi.fn(),
   buildOrderEventSnapshotMock: vi.fn(),
   diffOrderEventSnapshotsMock: vi.fn(),
   createOrderActionEventMock: vi.fn(),
@@ -23,6 +24,10 @@ vi.mock("@/lib/integrations/gsm/fetchTask", () => ({
 
 vi.mock("@/lib/integrations/gsm/downloadPodPdf", () => ({
   syncPodPdfWithRetry: mocks.syncPodPdfWithRetryMock,
+}));
+
+vi.mock("@/lib/integrations/wordpress/mirrorGsmUpdateToWordpress", () => ({
+  mirrorGsmUpdateToWordpress: mocks.mirrorGsmUpdateToWordpressMock,
 }));
 
 vi.mock("@/lib/orders/orderEvents", () => ({
@@ -87,6 +92,7 @@ function buildOrderBeforeUpdate() {
     licensePlate: "",
     deviation: "",
     feeExtraWork: false,
+    extraWorkMinutes: 0,
     feeAddToOrder: false,
     dontSendEmail: false,
     priceExVat: 0,
@@ -97,6 +103,20 @@ function buildOrderBeforeUpdate() {
     subcontractorPlus: "",
     gsmOrderId: "gsm-order-1",
     gsmLastTaskState: "",
+    legacyWordpressOrderId: 123,
+    completedAt: null,
+    orderAttachments: [
+      {
+        id: "attachment-1",
+        filename: "pod.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 1234,
+        category: "ATTACHMENT",
+        source: "GSM",
+        gsmTaskId: "task-1",
+        gsmDocumentId: "pod:task-1",
+      },
+    ],
   };
 }
 
@@ -120,6 +140,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
     mocks.createOrderStatusChangedEventMock.mockResolvedValue(undefined);
     mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
     mocks.syncPodPdfWithRetryMock.mockResolvedValue(undefined);
+    mocks.mirrorGsmUpdateToWordpressMock.mockResolvedValue(undefined);
   });
 
   it("stores returned drivers, license plate, and webhook notes on the order", async () => {
@@ -170,6 +191,89 @@ describe("POST /api/integrations/gsm/webhook", () => {
     });
     expect(mocks.createOrderUpdatedEventMock).toHaveBeenCalledTimes(1);
     expect(mocks.createOrderStatusChangedEventMock).not.toHaveBeenCalled();
+  });
+
+  it("mirrors GSM-updated fields and attachment download links to WordPress", async () => {
+    const beforeOrder = {
+      ...buildOrderBeforeUpdate(),
+      statusNotes: "Existing status note",
+      driverInfo: "Call before delivery",
+      deviation: "Bomtur",
+      feeExtraWork: true,
+      extraWorkMinutes: 30,
+      feeAddToOrder: true,
+      rabatt: "100",
+      leggTil: "50",
+      subcontractorMinus: "10",
+      subcontractorPlus: "20",
+    };
+    mocks.orderFindUniqueMock
+      .mockResolvedValueOnce(beforeOrder)
+      .mockResolvedValueOnce({
+        ...beforeOrder,
+        status: "active",
+        driver: "Driver One",
+        secondDriver: "Driver Two",
+        licensePlate: "AB12345",
+      });
+    mocks.fetchGsmTaskMock.mockResolvedValue({
+      id: "task-1",
+      external_id: "order:order-1",
+      state: "active",
+      metafields: {
+        "app:name": "Driver One",
+        "app:driver2": "Driver Two",
+        "app:carnumber": "AB12345",
+      },
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({
+          task: {
+            id: "task-1",
+            external_id: "order:order-1",
+            state: "active",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mirrorGsmUpdateToWordpressMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legacyWordpressOrderId: 123,
+        orderId: "order-1",
+        status: "active",
+        statusNotes: "Existing status note",
+        driver: "Driver One",
+        secondDriver: "Driver Two",
+        driverInfo: "Call before delivery",
+        licensePlate: "AB12345",
+        deviation: "Bomtur",
+        feeExtraWork: true,
+        extraWorkMinutes: 30,
+        feeAddToOrder: true,
+        rabatt: "100",
+        leggTil: "50",
+        subcontractorMinus: "10",
+        subcontractorPlus: "20",
+        gsmTaskId: "task-1",
+        attachments: [
+          expect.objectContaining({
+            id: "attachment-1",
+            filename: "pod.pdf",
+            source: "GSM",
+          }),
+        ],
+      }),
+    );
   });
 
   it("does not overwrite status notes with blank webhook notes", async () => {
