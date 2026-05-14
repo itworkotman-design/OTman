@@ -7,7 +7,7 @@ export const DEFAULT_BOOKING_ARCHIVE_FILTERS: BookingArchiveFilters = {
   fromDate: "",
   toDate: "",
   search: "",
-  rowsPerPage: 25,
+  rowsPerPage: 50,
   page: 1,
 };
 

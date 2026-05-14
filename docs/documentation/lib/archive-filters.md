@@ -5,7 +5,7 @@ Stores the shared default archive filter state and the quick date-range helpers 
 
 ## Constants
 ### `DEFAULT_BOOKING_ARCHIVE_FILTERS`
-Provides the shared initial archive filter state, including the default `rowsPerPage` value of `25`.
+Provides the shared initial archive filter state, including the default `rowsPerPage` value of `50`.
 
 ## Functions
 ### `getTodayRange()`
