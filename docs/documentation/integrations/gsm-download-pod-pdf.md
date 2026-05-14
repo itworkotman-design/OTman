@@ -16,4 +16,4 @@ Downloads GSM proof-of-delivery PDFs after completed task webhooks, retries whil
 | `fetchPodPdfBuffer` | Authenticates to GSM and downloads the POD PDF bytes for a task. |
 | `buildPaths` | Builds the local upload directory paths used only when S3 attachment storage is not configured. |
 | `writePodPdf` | Stores the POD PDF in S3 when configured, otherwise writes it to local public uploads. |
-| `syncPodPdfWithRetry` | Downloads the best available POD PDF, upserts the GSM attachment record, deletes the previous stored object/file when replacing an existing POD, and returns the attachment id for downstream mirroring. |
+| `syncPodPdfWithRetry` | Downloads the best available POD PDF, upserts the GSM attachment record, and deletes the previous stored object/file when replacing an existing POD. |

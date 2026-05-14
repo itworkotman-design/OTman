@@ -4,7 +4,6 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { fetchGsmTask } from "@/lib/integrations/gsm/fetchTask";
 import { syncPodPdfWithRetry } from "@/lib/integrations/gsm/downloadPodPdf";
-import { mirrorGsmUpdateToWordpress } from "@/lib/integrations/wordpress/mirrorGsmUpdateToWordpress";
 import {
   buildOrderEventSnapshot,
   createOrderActionEvent,
@@ -107,104 +106,14 @@ function getNextStatus(input: {
   return input.currentStatus;
 }
 
-async function mirrorStoredGsmOrderToWordpress(params: {
-  orderId: string;
-  podAttachmentId?: string | null;
-  gsmTaskId?: string | null;
-  gsmDocumentId?: string | null;
-}) {
-  const order = await prisma.order.findUnique({
-    where: { id: params.orderId },
-    select: {
-      id: true,
-      legacyWordpressOrderId: true,
-      status: true,
-      statusNotes: true,
-      driver: true,
-      secondDriver: true,
-      driverInfo: true,
-      licensePlate: true,
-      deviation: true,
-      feeExtraWork: true,
-      extraWorkMinutes: true,
-      feeAddToOrder: true,
-      rabatt: true,
-      leggTil: true,
-      subcontractorMinus: true,
-      subcontractorPlus: true,
-      completedAt: true,
-      orderAttachments: {
-        select: {
-          id: true,
-          filename: true,
-          mimeType: true,
-          sizeBytes: true,
-          category: true,
-          source: true,
-          gsmTaskId: true,
-          gsmDocumentId: true,
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-      },
-    },
-  });
-
-  if (!order?.legacyWordpressOrderId) {
-    return;
-  }
-
-  try {
-    await mirrorGsmUpdateToWordpress({
-      legacyWordpressOrderId: order.legacyWordpressOrderId,
-      orderId: order.id,
-      status: order.status,
-      statusNotes: order.statusNotes,
-      driver: order.driver,
-      secondDriver: order.secondDriver,
-      driverInfo: order.driverInfo,
-      licensePlate: order.licensePlate,
-      deviation: order.deviation,
-      feeExtraWork: order.feeExtraWork,
-      extraWorkMinutes: order.extraWorkMinutes,
-      feeAddToOrder: order.feeAddToOrder,
-      rabatt: order.rabatt,
-      leggTil: order.leggTil,
-      subcontractorMinus: order.subcontractorMinus,
-      subcontractorPlus: order.subcontractorPlus,
-      completedAt: order.completedAt,
-      podAttachmentId: params.podAttachmentId,
-      gsmTaskId: params.gsmTaskId,
-      gsmDocumentId: params.gsmDocumentId,
-      attachments: order.orderAttachments,
-    });
-  } catch (error) {
-    console.error("WP GSM mirror crashed", {
-      orderId: order.id,
-      legacyWordpressOrderId: order.legacyWordpressOrderId,
+function syncPodPdfInBackground(orderId: string, gsmTaskId: string) {
+  void syncPodPdfWithRetry(orderId, gsmTaskId).catch((error: unknown) => {
+    console.error("POD IMPORT FAILED:", {
+      orderId,
+      gsmTaskId,
       error,
     });
-  }
-}
-
-function syncPodPdfInBackground(orderId: string, gsmTaskId: string) {
-  void syncPodPdfWithRetry(orderId, gsmTaskId)
-    .then((podAttachmentId) =>
-      mirrorStoredGsmOrderToWordpress({
-        orderId,
-        podAttachmentId,
-        gsmTaskId,
-        gsmDocumentId: `pod:${gsmTaskId}`,
-      }),
-    )
-    .catch((error: unknown) => {
-      console.error("POD IMPORT FAILED:", {
-        orderId,
-        gsmTaskId,
-        error,
-      });
-    });
+  });
 }
 
 export async function POST(req: Request) {
@@ -386,7 +295,6 @@ export async function POST(req: Request) {
         subcontractorPlus: true,
         gsmOrderId: true,
         gsmLastTaskState: true,
-        legacyWordpressOrderId: true,
       },
     });
 
@@ -478,11 +386,6 @@ export async function POST(req: Request) {
         status: nextStatus ?? undefined,
         rabatt: shouldClearRabatt ? null : undefined,
       },
-    });
-
-    await mirrorStoredGsmOrderToWordpress({
-      orderId,
-      gsmTaskId,
     });
 
     const previousSnapshot = buildOrderEventSnapshot(orderBeforeUpdate);

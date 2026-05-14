@@ -371,17 +371,6 @@ function formatAutoDiscountAmount(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
-function isRecyclingReturnOption(option: CatalogSpecialOption | undefined): boolean {
-  if (!option) {
-    return false;
-  }
-
-  const normalizedCode = option.code.trim().toUpperCase();
-  const normalizedLabel = (option.label ?? "").trim().toLowerCase();
-
-  return normalizedCode === "RETURNREC" || normalizedLabel.includes("gjenvinning");
-}
-
 function scrollToPageTop() {
   window.scrollTo({
     top: 0,
@@ -1198,23 +1187,7 @@ export default function BookingEditor({
   );
 
   const hasSelectedReturnOption = useMemo(() => productCards.some((card) => !!card.selectedReturnOptionId), [productCards]);
-  const shouldShowReturnAddress = useMemo(
-    () =>
-      productCards.some((card) => {
-        if (!card.selectedReturnOptionId) {
-          return false;
-        }
-
-        const selectedReturnOption = catalogSpecialOptions.find((option) => option.id === card.selectedReturnOptionId);
-
-        if (!selectedReturnOption) {
-          return true;
-        }
-
-        return !isRecyclingReturnOption(selectedReturnOption);
-      }),
-    [catalogSpecialOptions, productCards],
-  );
+  const shouldShowReturnAddress = hasSelectedReturnOption;
   const hadVisibleReturnAddressRef = useRef(shouldShowReturnAddress);
 
   const selectedSubcontractor = useMemo(() => subcontractorOptions.find((option) => option.id === subcontractorId), [subcontractorId, subcontractorOptions]);

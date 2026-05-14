@@ -102,20 +102,6 @@ if ( $val === '' ) { continue; }
         }
  $published = get_the_date( 'd.m.Y', $post_id );
         echo '<p><strong>Bestillingsdato:</strong> '.esc_html( $published ).'</p>';
-        $gsm_attachment_links = get_post_meta($post_id, 'gsm_attachment_download_links', true);
-        if (is_array($gsm_attachment_links) && count($gsm_attachment_links) > 0) {
-            echo '<p><strong>GSM vedlegg:</strong></p><ul style="margin-top:4px;">';
-            foreach ($gsm_attachment_links as $attachment_link) {
-                if (!is_array($attachment_link)) { continue; }
-                $url = isset($attachment_link['downloadUrl']) ? esc_url($attachment_link['downloadUrl']) : '';
-                if ($url === '') { continue; }
-                $filename = isset($attachment_link['filename']) && trim((string) $attachment_link['filename']) !== ''
-                    ? (string) $attachment_link['filename']
-                    : 'Last ned vedlegg';
-                echo '<li><a href="' . $url . '" target="_blank" rel="noopener noreferrer">' . esc_html($filename) . '</a></li>';
-            }
-            echo '</ul>';
-        }
 		// Hent sist redigert-dato og -tid
 $mod_date = get_the_modified_date( 'd.m.Y', $post_id );
 
@@ -3980,17 +3966,6 @@ if (!function_exists('otman_send_power_order_sync')) {
     function otman_send_power_order_sync($post_id) {
         $post_id = (int) $post_id;
         if ($post_id <= 0) return;
-        $skip_sync = get_post_meta($post_id, '_otman_skip_next_power_order_sync', true);
-
-        if ($skip_sync === '1') {
-
-            error_log(
-                'WP SYNC SKIPPED post_id=' . $post_id .
-                ' reason=new_app_gsm_mirror_update'
-            );
-
-            return;
-        }
         if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) return;
 
         $post = get_post($post_id);
@@ -4044,166 +4019,6 @@ if (!function_exists('otman_send_power_order_sync')) {
 
         error_log('WP SYNC RESPONSE post_id=' . $post_id . ' code=' . $code . ' body=' . $body);
     }
-}
-
-add_action('rest_api_init', function () {
-    register_rest_route('otman/v1', '/power-order-gsm-mirror', [
-    'methods'  => 'POST',
-    'callback' => 'otman_gsm_mirror_power_order',
-    'permission_callback' => function ($request) {
-        $secret = $request->get_header('x-otman-gsm-mirror-secret');
-
-        return hash_equals(
-            'knvixnvlxvxlivxhvlxafsaf213asfafaxz213123zxvz',
-            (string) $secret
-        );
-    },
-]);
-});
-
-if (!function_exists('otman_gsm_mirror_text')) {
-    function otman_gsm_mirror_text(array $params, string $key): string {
-        if (!array_key_exists($key, $params)) {
-            return '';
-        }
-
-        if (is_bool($params[$key])) {
-            return $params[$key] ? '1' : '0';
-        }
-
-        return sanitize_text_field((string) $params[$key]);
-    }
-}
-
-if (!function_exists('otman_gsm_mirror_bool')) {
-    function otman_gsm_mirror_bool(array $params, string $key): string {
-        if (!array_key_exists($key, $params)) {
-            return '';
-        }
-
-        return !empty($params[$key]) ? '1' : '0';
-    }
-}
-
-if (!function_exists('otman_gsm_mirror_update_text_meta')) {
-    function otman_gsm_mirror_update_text_meta(int $post_id, array $params, string $param_key, array $meta_keys): void {
-        if (!array_key_exists($param_key, $params)) {
-            return;
-        }
-
-        $value = otman_gsm_mirror_text($params, $param_key);
-
-        foreach ($meta_keys as $meta_key) {
-            update_post_meta($post_id, $meta_key, $value);
-        }
-    }
-}
-
-if (!function_exists('otman_gsm_mirror_sanitize_attachments')) {
-    function otman_gsm_mirror_sanitize_attachments($attachments): array {
-        if (!is_array($attachments)) {
-            return [];
-        }
-
-        $clean = [];
-
-        foreach ($attachments as $attachment) {
-            if (!is_array($attachment)) {
-                continue;
-            }
-
-            $download_url = isset($attachment['downloadUrl']) ? esc_url_raw($attachment['downloadUrl']) : '';
-            if ($download_url === '') {
-                continue;
-            }
-
-            $clean[] = [
-                'id' => isset($attachment['id']) ? sanitize_text_field((string) $attachment['id']) : '',
-                'filename' => isset($attachment['filename']) ? sanitize_file_name((string) $attachment['filename']) : 'attachment',
-                'mimeType' => isset($attachment['mimeType']) ? sanitize_text_field((string) $attachment['mimeType']) : '',
-                'sizeBytes' => isset($attachment['sizeBytes']) ? (int) $attachment['sizeBytes'] : 0,
-                'category' => isset($attachment['category']) ? sanitize_text_field((string) $attachment['category']) : '',
-                'source' => isset($attachment['source']) ? sanitize_text_field((string) $attachment['source']) : '',
-                'gsmTaskId' => isset($attachment['gsmTaskId']) ? sanitize_text_field((string) $attachment['gsmTaskId']) : '',
-                'gsmDocumentId' => isset($attachment['gsmDocumentId']) ? sanitize_text_field((string) $attachment['gsmDocumentId']) : '',
-                'downloadUrl' => $download_url,
-            ];
-        }
-
-        return $clean;
-    }
-}
-
-function otman_gsm_mirror_power_order(WP_REST_Request $request) {
-    $params = $request->get_json_params();
-    if (!is_array($params)) {
-        $params = [];
-    }
-
-    $post_id = isset($params['legacyWordpressOrderId'])
-        ? (int) $params['legacyWordpressOrderId']
-        : 0;
-
-    if ($post_id <= 0 || get_post_type($post_id) !== 'power_order') {
-        return new WP_REST_Response([
-            'ok' => false,
-            'message' => 'Invalid power_order id',
-        ], 400);
-    }
-
-    // Prevent this mirror update from syncing back to the new app.
-    update_post_meta($post_id, '_otman_skip_next_power_order_sync', '1');
-
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'status', ['status']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'statusNotes', ['status_notes']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'driver', ['driver', 'driver1']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'secondDriver', ['driver2', 'ekstra_driver']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'driverInfo', ['info_til_sjaforen']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'licensePlate', ['bilskilt', 'bilskilt1']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'deviation', ['bomtur', 'deviation']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'rabatt', ['manual_discount', 'rabatt']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'leggTil', ['legg_til', 'leggTil']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'subcontractorMinus', ['subcontractor_minus', 'subcontractorMinus']);
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'subcontractorPlus', ['subcontractor_plus', 'subcontractorPlus']);
-
-    if (array_key_exists('feeExtraWork', $params)) {
-        update_post_meta($post_id, 'ekstra_arbeid', otman_gsm_mirror_bool($params, 'feeExtraWork'));
-        update_post_meta($post_id, 'extra_work', otman_gsm_mirror_bool($params, 'feeExtraWork'));
-    }
-
-    otman_gsm_mirror_update_text_meta($post_id, $params, 'extraWorkMinutes', ['extra_work_minutes', 'ekstra_arbeid_minutter']);
-
-    if (array_key_exists('feeAddToOrder', $params)) {
-        update_post_meta($post_id, 'gebyr_for_tillegg_av_bestilling', otman_gsm_mirror_bool($params, 'feeAddToOrder'));
-        update_post_meta($post_id, 'add_order_fee', otman_gsm_mirror_bool($params, 'feeAddToOrder'));
-    }
-
-    if (isset($params['completedAt'])) {
-        update_post_meta($post_id, 'gsm_completed_at', sanitize_text_field($params['completedAt']));
-    }
-
-    if (isset($params['podDownloadUrl'])) {
-        update_post_meta($post_id, 'gsm_pod_download_url', esc_url_raw($params['podDownloadUrl']));
-    }
-
-    if (isset($params['gsmTaskId'])) {
-        update_post_meta($post_id, 'gsm_task_id', sanitize_text_field($params['gsmTaskId']));
-    }
-
-    if (isset($params['gsmDocumentId'])) {
-        update_post_meta($post_id, 'gsm_document_id', sanitize_text_field($params['gsmDocumentId']));
-    }
-
-    if (array_key_exists('attachments', $params)) {
-    update_post_meta($post_id, 'gsm_attachment_download_links', otman_gsm_mirror_sanitize_attachments($params['attachments']));
-}
-
-    delete_post_meta($post_id, '_otman_skip_next_power_order_sync');
-
-    return new WP_REST_Response([
-        'ok' => true,
-        'postId' => $post_id,
-    ], 200);
 }
 
 if (!function_exists('otman_sync_latest_power_orders')) {
@@ -4313,7 +4128,6 @@ add_action('save_post_power_order', function ($post_id, $post, $update) {
     if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) return;
     if (!$post || $post->post_type !== 'power_order') return;
     if ($post->post_status !== 'publish') return;
-    if (get_post_meta($post_id, '_otman_skip_next_power_order_sync', true) === '1') return;
 
     otman_queue_power_order_sync($post_id);
 }, 200, 3);
@@ -4327,7 +4141,6 @@ add_action('acf/save_post', function ($post_id) {
     if ($post_id <= 0) return;
     if (get_post_type($post_id) !== 'power_order') return;
     if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) return;
-    if (get_post_meta($post_id, '_otman_skip_next_power_order_sync', true) === '1') return;
 
     otman_queue_power_order_sync($post_id);
 }, 200);

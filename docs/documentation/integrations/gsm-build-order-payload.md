@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Builds the GSM order payload from an OTman order, omits blank or placeholder pickup addresses so the rest of the order can still be sent to GSM, sends pickup addresses as `pick_up` tasks, maps delivery task categories from saved delivery types (`FIRST_STEP` and `INDOOR` as `drop_off`, `RETURNIN`/return-only as `pick_up`, `INSTALL_ONLY` as `assignment`), lets selected install options override the delivery type to `assignment`, sends return addresses as `drop_off`, and formats the GSM description from the same grouped product summary used in the archive table plus lift, floor, and Norwegian canonical return-option text. WordPress-imported global `KM pris` rows are omitted from the GSM description.
+Builds the GSM order payload from an OTman order, omits blank or placeholder pickup addresses so the rest of the order can still be sent to GSM, sends pickup addresses as `pick_up` tasks, maps delivery task categories from saved delivery types (`FIRST_STEP` and `INDOOR` as `drop_off`, `RETURNIN`/return-only as `pick_up`, `INSTALL_ONLY` as `assignment`), lets selected install options override the delivery type to `assignment`, sends return addresses as `drop_off` including return-to-recycling addresses, and formats the GSM description from the same grouped product summary used in the archive table plus lift, floor, and Norwegian canonical return-option text. WordPress-imported global `KM pris` rows are omitted from the GSM description.
 
 ## Functions
 

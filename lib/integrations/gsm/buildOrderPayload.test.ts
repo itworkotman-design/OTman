@@ -450,6 +450,7 @@ describe("buildOrderPayload", () => {
       ...buildOrder({
         pickupAddress: "",
         deliveryAddress: "Delivery 1",
+        returnAddress: "Recycling station 1",
         servicesSummary: "",
       }),
       items: [
@@ -470,6 +471,10 @@ describe("buildOrderPayload", () => {
     expect(payload.tasks_data[0]?.description).toContain(
       "Retur til gjenvinningsstasjon",
     );
+    expect(payload.tasks_data.map((task) => task.address.raw_address)).toEqual([
+      "Delivery 1",
+      "Recycling station 1",
+    ]);
     expect(payload.tasks_data[0]?.description).not.toContain(
       "Wrong saved return label",
     );
