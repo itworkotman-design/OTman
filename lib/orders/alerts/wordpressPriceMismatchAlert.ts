@@ -1,20 +1,62 @@
 import { Prisma } from "@prisma/client";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 
+function parseWordpressRawTotal(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeWordpressComparableTotal(value: number): number {
+  return Math.abs(value);
+}
+
+function roundSqlMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function hasWordpressStoredTotalMismatch(params: {
+  appPriceExVat: number;
+  wordpressRawTotal: unknown;
+}): boolean {
+  const wordpressTotal = parseWordpressRawTotal(params.wordpressRawTotal);
+  if (wordpressTotal === null) {
+    return false;
+  }
+
+  const appTotal = roundSqlMoney(params.appPriceExVat);
+  const wpTotal = roundSqlMoney(normalizeWordpressComparableTotal(wordpressTotal));
+  const appTotalAsCents = roundSqlMoney(params.appPriceExVat * 100);
+
+  return appTotal !== wpTotal && appTotalAsCents !== wpTotal;
+}
+
 export async function syncWordpressPriceMismatchAlert(
   tx: Prisma.TransactionClient,
   params: {
     orderId: string;
     companyId: string;
-    wordpressPriceExVatCents?: number;
-    nativePriceExVatCents: number;
+    appPriceExVat: number;
+    wordpressRawTotal: unknown;
   },
 ) {
   const {
     orderId,
     companyId,
-    wordpressPriceExVatCents,
-    nativePriceExVatCents,
+    appPriceExVat,
+    wordpressRawTotal,
   } = params;
 
   const existing = await tx.orderNotification.findFirst({
@@ -30,9 +72,10 @@ export async function syncWordpressPriceMismatchAlert(
     },
   });
 
-  const hasMismatch =
-    typeof wordpressPriceExVatCents === "number" &&
-    wordpressPriceExVatCents !== nativePriceExVatCents;
+  const hasMismatch = hasWordpressStoredTotalMismatch({
+    appPriceExVat,
+    wordpressRawTotal,
+  });
 
   if (!hasMismatch) {
     if (!existing) return;
@@ -69,17 +112,23 @@ export async function syncWordpressPriceMismatchAlert(
 
   if (existing) return;
 
+  const parsedWordpressRawTotal = parseWordpressRawTotal(wordpressRawTotal);
+
   await createOrderNotification(tx, {
     orderId,
     companyId,
     type: "MANUAL_REVIEW",
     title: "WordPress price mismatch",
     message:
-      "Imported WordPress price does not match the rebuilt native total. Review the order manually.",
+      "Stored order total does not match the imported WordPress total. Review the order manually.",
     payload: {
       source: "wordpress_import",
-      wordpressPriceExVatCents,
-      nativePriceExVatCents,
+      appPriceExVat,
+      wordpressRawTotal: parsedWordpressRawTotal,
+      comparedWordpressTotal:
+        parsedWordpressRawTotal === null
+          ? null
+          : normalizeWordpressComparableTotal(parsedWordpressRawTotal),
     },
   });
 }

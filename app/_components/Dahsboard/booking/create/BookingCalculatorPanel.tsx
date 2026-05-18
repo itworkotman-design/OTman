@@ -12,6 +12,7 @@ type Props = {
   productBreakdowns: ReturnType<typeof buildProductBreakdowns>;
   priceLookup: ReturnType<typeof buildPriceLookup>;
   forcedTotalExVat?: number;
+  forcedSubcontractorTotal?: number;
   adminView: boolean;
   onPriceChange: (exVat: number, subPrice: number) => void;
   rabatt?: string;
@@ -20,6 +21,8 @@ type Props = {
   subcontractorPlus?: string;
   onAdjustmentsChange: (adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => void;
   priceUpdateAvailable?: boolean;
+  priceUpdateStoredTotalExVat?: number;
+  priceUpdateCurrentTotalExVat?: number;
   onUseCurrentPrices?: () => void;
   sidebarMode?: boolean;
   locale?: BookingUiLocale;
@@ -31,6 +34,7 @@ export default function BookingCalculatorPanel({
   productBreakdowns,
   priceLookup,
   forcedTotalExVat,
+  forcedSubcontractorTotal,
   adminView,
   onPriceChange,
   rabatt,
@@ -39,14 +43,23 @@ export default function BookingCalculatorPanel({
   subcontractorPlus,
   onAdjustmentsChange,
   priceUpdateAvailable = false,
+  priceUpdateStoredTotalExVat,
+  priceUpdateCurrentTotalExVat,
   onUseCurrentPrices,
   sidebarMode = false,
   locale = "en",
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
+  const formatPrice = (value: number) => `${Math.round(value)} NOK`;
   const priceUpdateNotice = priceUpdateAvailable ? (
     <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
-      <p className="font-semibold">{locale === "nb" ? "Dette produktet har endret pris." : "Hey, this product changed prices."}</p>
+      <p className="font-semibold">{locale === "nb" ? "Dette bestillinger har endret pris." : "Hey, this order changed prices."}</p>
+      {priceUpdateStoredTotalExVat != null && priceUpdateCurrentTotalExVat != null ? (
+        <p className="mt-1">
+          {locale === "nb" ? "Gammel total" : "Old total"}: {formatPrice(priceUpdateStoredTotalExVat)} · {locale === "nb" ? "Ny total" : "New total"}:{" "}
+          {formatPrice(priceUpdateCurrentTotalExVat)}
+        </p>
+      ) : null}
       <button
         type="button"
         className="mt-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"
@@ -86,6 +99,7 @@ export default function BookingCalculatorPanel({
                 productBreakdowns={productBreakdowns}
                 priceLookup={priceLookup}
                 forcedTotalExVat={forcedTotalExVat}
+                forcedSubcontractorTotal={forcedSubcontractorTotal}
                 adminView={adminView}
                 onPriceChange={onPriceChange}
                 rabatt={rabatt}
@@ -109,6 +123,7 @@ export default function BookingCalculatorPanel({
           adminView={adminView}
           onPriceChange={onPriceChange}
           forcedTotalExVat={forcedTotalExVat}
+          forcedSubcontractorTotal={forcedSubcontractorTotal}
           rabatt={rabatt}
           leggTil={leggTil}
           subcontractorMinus={subcontractorMinus}

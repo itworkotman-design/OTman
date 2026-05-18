@@ -10,17 +10,18 @@ import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/Produ
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
-import { getStartedChargeableKilometers } from "@/lib/booking/pricing/distanceCharges";
 import {
   ADD_TO_ORDER_FEE_CODE,
-  ADD_TO_ORDER_FEE_LABEL,
-  calculateExtraWorkFee,
   EXTRA_WORK_FEE_CODE,
-  EXTRA_WORK_FEE_LABEL,
 } from "@/lib/booking/pricing/hardcodedFees";
-import { DEVIATION_FEE_OPTIONS, getDeviationFeeOption, normalizeDeviationLabel, type DeviationFeeOption } from "@/lib/booking/pricing/deviationFees";
+import { DEVIATION_FEE_OPTIONS, normalizeDeviationLabel } from "@/lib/booking/pricing/deviationFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import type { CalculatedLine, ProductBreakdown } from "@/lib/booking/pricing/types";
+import {
+  buildCalculatorBreakdownsWithOrderExtras,
+  parseDistanceKm,
+  parsePriceSetting,
+} from "@/lib/booking/pricing/orderCalculatorExtras";
 import { OrderFields, shown, type HiddenMask } from "@/app/_components/Dahsboard/booking/create/orderFields";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
@@ -35,6 +36,7 @@ import {
 import { getExtraPickupValidation, normalizeExtraPickups } from "@/lib/orders/extraPickups";
 import { createDefaultPriceListSettings, normalizePriceListSettings, type PriceListSettings } from "@/lib/products/priceListSettings";
 import { applyOrderPricingSnapshot, buildOrderPricingSnapshot, getSavedOrderPricingSnapshot, pricingSnapshotsEqual } from "@/lib/booking/pricing/snapshot";
+import { calculateCurrentTotalsWithFrozenExternalLines, frozenOrderTotalsDiffer } from "@/lib/booking/pricing/frozenOrderPricing";
 import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
 import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
@@ -173,30 +175,8 @@ const FIELD_ERROR_TARGETS: Record<keyof FieldErrorMap, string> = {
   cashierPhone: "order-cashier-phone",
 };
 
-function parseDistanceKm(value: string) {
-  const normalized = value.trim().replace(",", ".");
-  const match = normalized.match(/-?\d+(?:\.\d+)?/);
-
-  if (!match) {
-    return 0;
-  }
-
-  const parsed = Number(match[0]);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
-
-function parsePriceSetting(value: string) {
-  const parsed = Number(value.replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function getDeviationPriceSetting(settings: PriceListSettings, deviationFee: DeviationFeeOption) {
-  const setting = settings.deviations[deviationFee.code];
-
-  return {
-    customerPrice: parsePriceSetting(setting?.price ?? String(deviationFee.price)),
-    subcontractorPrice: parsePriceSetting(setting?.subcontractorPrice ?? String(deviationFee.subcontractorPrice)),
-  };
+function roundPriceRule(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function logPriceListDebug(event: string, payload: Record<string, unknown>) {
@@ -471,6 +451,8 @@ export default function BookingEditor({
   const [statusNotes, setStatusNotes] = useState(initialValues?.statusNotes ?? "");
   const [customerMembershipId, setCustomerMembershipId] = useState(initialValues?.customerMembershipId ?? "");
   const [status, setStatus] = useState(normalizeInitialStatus(initialValues?.status));
+  const previousStatusRef = useRef(status);
+  const lastAutomaticStatusDiscountRef = useRef<string | null>(null);
   const [dontSendEmail, setDontSendEmail] = useState(initialValues?.dontSendEmail ?? false);
   const [contactCustomerForCustomTimeWindow, setContactCustomerForCustomTimeWindow] = useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
   const [customTimeContactNote, setCustomTimeContactNote] = useState(initialValues?.customTimeContactNote ?? "");
@@ -840,8 +822,6 @@ export default function BookingEditor({
     [productCards, catalogProducts, catalogSpecialOptions, priceListSettings],
   );
 
-  const hasCurrentPriceUpdates = Boolean(initialValues?.id && savedPricingSnapshot) && !pricingSnapshotsEqual(savedPricingSnapshot, currentPricingSnapshot);
-
   const pricingSource = useMemo(
     () =>
       applyOrderPricingSnapshot({
@@ -899,155 +879,148 @@ export default function BookingEditor({
     ],
   );
 
-  const calculatorBreakdowns = useMemo(() => {
-    const nextBreakdowns = [...productBreakdowns];
-    const extraItems: Array<{
-      kind: "customPrice";
-      code: string;
-      label: string;
-      qty: number;
-      unitPrice: number;
-      subcontractorUnitPrice: number;
-    }> = [];
-    const totalDistanceKm = shouldUseNativeDistancePricing ? parseDistanceKm(drivingDistance) : 0;
-    const chargeableDistanceKm = getStartedChargeableKilometers(totalDistanceKm);
-    const kmFrom21Qty = totalDistanceKm > 20 && totalDistanceKm <= 100 ? chargeableDistanceKm : 0;
-
-    const kmOver100Qty = totalDistanceKm > 100 ? chargeableDistanceKm : 0;
-    const kmFrom21Price = parsePriceSetting(pricingSource.priceListSettings.kmFrom21.price);
-    const kmFrom21SubcontractorPrice = parsePriceSetting(pricingSource.priceListSettings.kmFrom21.subcontractorPrice);
-    const kmOver100Price = parsePriceSetting(pricingSource.priceListSettings.kmOver100.price);
-    const kmOver100SubcontractorPrice = parsePriceSetting(pricingSource.priceListSettings.kmOver100.subcontractorPrice);
-    const extraWorkFee = feeExtraWork ? calculateExtraWorkFee(extraWorkMinutes) : { blocks: 0, price: 0 };
-    const deviationFee = getDeviationFeeOption(deviation);
-
-    const expressDeliveryPrice = parsePriceSetting(pricingSource.priceListSettings.expressDelivery.price);
-    const expressDeliverySubcontractorPrice = parsePriceSetting(pricingSource.priceListSettings.expressDelivery.subcontractorPrice);
-
-    if (expressDelivery && Number.isFinite(expressDeliveryPrice)) {
-      extraItems.push({
-        kind: "customPrice",
-        code: pricingSource.priceListSettings.expressDelivery.code,
-        label: pricingSource.priceListSettings.expressDelivery.description,
-        qty: 1,
-        unitPrice: expressDeliveryPrice,
-        subcontractorUnitPrice: expressDeliverySubcontractorPrice,
-      });
-    }
-
-    const extraPickupCount = extraPickups.filter((pickup) => pickup.address.trim().length > 0).length;
-    const extraPickupPrice = parsePriceSetting(pricingSource.priceListSettings.extraPickup.price);
-    const extraPickupSubcontractorPrice = parsePriceSetting(pricingSource.priceListSettings.extraPickup.subcontractorPrice);
-
-    if (extraPickupCount > 0 && Number.isFinite(extraPickupPrice)) {
-      extraItems.push({
-        kind: "customPrice",
-        code: pricingSource.priceListSettings.extraPickup.code,
-        label: pricingSource.priceListSettings.extraPickup.description,
-        qty: extraPickupCount,
-        unitPrice: extraPickupPrice,
-        subcontractorUnitPrice: extraPickupSubcontractorPrice,
-      });
-    }
-
-    if (kmFrom21Qty > 0 && Number.isFinite(kmFrom21Price)) {
-      extraItems.push({
-        kind: "customPrice",
-        code: pricingSource.priceListSettings.kmFrom21.code,
-        label: pricingSource.priceListSettings.kmFrom21.description,
-        qty: kmFrom21Qty,
-        unitPrice: kmFrom21Price,
-        subcontractorUnitPrice: kmFrom21SubcontractorPrice,
-      });
-    }
-
-    if (kmOver100Qty > 0 && Number.isFinite(kmOver100Price)) {
-      extraItems.push({
-        kind: "customPrice",
-        code: pricingSource.priceListSettings.kmOver100.code,
-        label: pricingSource.priceListSettings.kmOver100.description,
-        qty: kmOver100Qty,
-        unitPrice: kmOver100Price,
-        subcontractorUnitPrice: kmOver100SubcontractorPrice,
-      });
-    }
-
-    if (deviationFee) {
-      const deviationPrices = getDeviationPriceSetting(pricingSource.priceListSettings, deviationFee);
-
-      extraItems.push({
-        kind: "customPrice",
-        code: deviationFee.code,
-        label: deviationFee.englishLabel,
-        qty: 1,
-        unitPrice: deviationPrices.customerPrice,
-        subcontractorUnitPrice: deviationPrices.subcontractorPrice,
-      });
-    }
-
-    if (extraWorkFee.price > 0) {
-      extraItems.push({
-        kind: "customPrice",
-        code: EXTRA_WORK_FEE_CODE,
-        label: `${EXTRA_WORK_FEE_LABEL} x${extraWorkFee.blocks}`,
-        qty: 1,
-        unitPrice: extraWorkFee.price,
-        subcontractorUnitPrice: 0,
-      });
-    }
-
-    if (feeAddToOrder) {
-      extraItems.push({
-        kind: "customPrice",
-        code: ADD_TO_ORDER_FEE_CODE,
-        label: ADD_TO_ORDER_FEE_LABEL,
-        qty: 1,
-        unitPrice: 99,
-        subcontractorUnitPrice: 0,
-      });
-    }
-
-    if (extraItems.length > 0) {
-      nextBreakdowns.push({
-        productName: "Order extras",
-        items: extraItems,
-      });
-    }
-
-    return nextBreakdowns;
-  }, [
+  const calculatorBreakdowns = useMemo(
+    () =>
+      buildCalculatorBreakdownsWithOrderExtras({
+        productBreakdowns,
+        priceListSettings: pricingSource.priceListSettings,
+        deviation,
+        drivingDistance,
+        expressDelivery,
+        extraWorkMinutes,
+        feeAddToOrder,
+        feeExtraWork,
+        extraPickups,
+        shouldUseNativeDistancePricing,
+      }),
+    [
     deviation,
     drivingDistance,
     expressDelivery,
     extraWorkMinutes,
     feeAddToOrder,
     feeExtraWork,
-    pricingSource.priceListSettings.expressDelivery.code,
-    pricingSource.priceListSettings.expressDelivery.description,
-    pricingSource.priceListSettings.expressDelivery.price,
-    pricingSource.priceListSettings.expressDelivery.subcontractorPrice,
-    pricingSource.priceListSettings.extraPickup.code,
-    pricingSource.priceListSettings.extraPickup.description,
-    pricingSource.priceListSettings.extraPickup.price,
-    pricingSource.priceListSettings.extraPickup.subcontractorPrice,
     pricingSource.priceListSettings,
-    pricingSource.priceListSettings.kmFrom21.code,
-    pricingSource.priceListSettings.kmFrom21.description,
-    pricingSource.priceListSettings.kmFrom21.price,
-    pricingSource.priceListSettings.kmFrom21.subcontractorPrice,
-    pricingSource.priceListSettings.kmOver100.code,
-    pricingSource.priceListSettings.kmOver100.description,
-    pricingSource.priceListSettings.kmOver100.price,
-    pricingSource.priceListSettings.kmOver100.subcontractorPrice,
     productBreakdowns,
     extraPickups,
     shouldUseNativeDistancePricing,
-  ]);
+    ],
+  );
 
   const priceLookup = useMemo(
     () => buildPriceLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions),
     [pricingSource.catalogProducts, pricingSource.catalogSpecialOptions],
   );
+
+  const currentCatalogProductBreakdowns = useMemo(
+    () =>
+      buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions, {
+        zeroBaseDeliveryPricesOver100Km: shouldUseNativeDistancePricing && parseDistanceKm(drivingDistance) > 100,
+        xtraPalletPrice: parsePriceSetting(priceListSettings.xtraPallet.price),
+        xtraPalletSubcontractorPrice: parsePriceSetting(priceListSettings.xtraPallet.subcontractorPrice),
+      }),
+    [
+      productCards,
+      catalogProducts,
+      catalogSpecialOptions,
+      drivingDistance,
+      priceListSettings.xtraPallet.price,
+      priceListSettings.xtraPallet.subcontractorPrice,
+      shouldUseNativeDistancePricing,
+    ],
+  );
+
+  const currentCatalogCalculatorBreakdowns = useMemo(
+    () =>
+      buildCalculatorBreakdownsWithOrderExtras({
+        productBreakdowns: currentCatalogProductBreakdowns,
+        priceListSettings,
+        deviation,
+        drivingDistance,
+        expressDelivery,
+        extraWorkMinutes,
+        feeAddToOrder,
+        feeExtraWork,
+        extraPickups,
+        shouldUseNativeDistancePricing,
+      }),
+    [
+      currentCatalogProductBreakdowns,
+      priceListSettings,
+      deviation,
+      drivingDistance,
+      expressDelivery,
+      extraWorkMinutes,
+      feeAddToOrder,
+      feeExtraWork,
+      extraPickups,
+      shouldUseNativeDistancePricing,
+    ],
+  );
+
+  const currentCatalogPriceLookup = useMemo(
+    () => buildPriceLookup(catalogProducts, catalogSpecialOptions),
+    [catalogProducts, catalogSpecialOptions],
+  );
+
+  const calculatorAdjustments = useMemo(
+    () => ({
+      rabatt,
+      leggTil,
+      subcontractorMinus,
+      subcontractorPlus,
+    }),
+    [leggTil, rabatt, subcontractorMinus, subcontractorPlus],
+  );
+
+  const storedSnapshotPricingResult = useMemo(
+    () =>
+      calculateBookingPricing({
+        productBreakdowns: calculatorBreakdowns,
+        priceLookup,
+        adjustments: calculatorAdjustments,
+      }),
+    [calculatorAdjustments, calculatorBreakdowns, priceLookup],
+  );
+
+  const currentCatalogPricingResult = useMemo(
+    () =>
+      calculateBookingPricing({
+        productBreakdowns: currentCatalogCalculatorBreakdowns,
+        priceLookup: currentCatalogPriceLookup,
+        adjustments: calculatorAdjustments,
+      }),
+    [calculatorAdjustments, currentCatalogCalculatorBreakdowns, currentCatalogPriceLookup],
+  );
+
+  const isExistingOrder = Boolean(initialValues?.id);
+  const storedOrderPricingTotals = useMemo(
+    () => ({
+      totalExVat: roundPriceRule(priceExVat),
+      subcontractorTotal: roundPriceRule(priceSubcontractor),
+    }),
+    [priceExVat, priceSubcontractor],
+  );
+  const currentOrderPricingTotals = useMemo(
+    () =>
+      isExistingOrder
+        ? calculateCurrentTotalsWithFrozenExternalLines({
+            stored: storedOrderPricingTotals,
+            snapshotCalculated: storedSnapshotPricingResult.totals,
+            currentCatalogCalculated: currentCatalogPricingResult.totals,
+          })
+        : {
+            totalExVat: roundPriceRule(currentCatalogPricingResult.totals.totalExVat),
+            subcontractorTotal: roundPriceRule(currentCatalogPricingResult.totals.subcontractorTotal),
+          },
+    [currentCatalogPricingResult.totals, isExistingOrder, storedOrderPricingTotals, storedSnapshotPricingResult.totals],
+  );
+  const currentCatalogTotalExVat = currentOrderPricingTotals.totalExVat;
+  const currentCatalogSubcontractorTotal = currentOrderPricingTotals.subcontractorTotal;
+  const hasCurrentPriceUpdates =
+    Boolean(initialValues?.id && savedPricingSnapshot) &&
+    (!pricingSnapshotsEqual(savedPricingSnapshot, currentPricingSnapshot) ||
+      frozenOrderTotalsDiffer(storedOrderPricingTotals, currentOrderPricingTotals));
 
   useEffect(() => {
     if (!initialValues?.legacyWordpressOrderId) {
@@ -1346,9 +1319,10 @@ export default function BookingEditor({
   const visibleFieldErrors = didAttemptSubmit ? computedFieldErrors : EMPTY_FIELD_ERRORS;
 
   const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
-    setPriceExVat(exVat);
-    setPriceSubcontractor(subPrice);
-  }, []);
+    setPriceExVat((prev) => (prev === exVat ? prev : exVat));
+    const nextSubcontractorPrice = shouldAutoDiscountStatus(status) ? 0 : subPrice;
+    setPriceSubcontractor((prev) => (prev === nextSubcontractorPrice ? prev : nextSubcontractorPrice));
+  }, [status]);
 
   const handleAdjustmentsChange = useCallback((adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => {
     setRabatt(adj.rabatt);
@@ -1364,15 +1338,38 @@ export default function BookingEditor({
         pricingSnapshot: currentPricingSnapshot,
       })),
     );
-  }, [currentPricingSnapshot]);
+    setPriceExVat(currentCatalogTotalExVat);
+    setPriceSubcontractor(currentCatalogSubcontractorTotal);
+  }, [currentCatalogSubcontractorTotal, currentCatalogTotalExVat, currentPricingSnapshot]);
 
   useEffect(() => {
-    if (!shouldAutoDiscountStatus(status) || rabatt === automaticStatusDiscount) {
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = status;
+
+    const isAutoDiscountStatus = shouldAutoDiscountStatus(status);
+    if (!isAutoDiscountStatus) {
+      lastAutomaticStatusDiscountRef.current = null;
       return;
     }
 
-    setRabatt(automaticStatusDiscount);
-  }, [automaticStatusDiscount, rabatt, status]);
+    setPriceSubcontractor(0);
+
+    const enteredAutoDiscountStatus = !shouldAutoDiscountStatus(previousStatus);
+
+    setRabatt((current) => {
+      const shouldApplyAutomaticDiscount =
+        enteredAutoDiscountStatus ||
+        current.trim() === "" ||
+        current === lastAutomaticStatusDiscountRef.current;
+
+      if (!shouldApplyAutomaticDiscount) {
+        return current;
+      }
+
+      lastAutomaticStatusDiscountRef.current = automaticStatusDiscount;
+      return automaticStatusDiscount;
+    });
+  }, [automaticStatusDiscount, status]);
 
   useEffect(() => {
     if (!shouldShowReturnAddress && returnAddress) {
@@ -2006,10 +2003,13 @@ export default function BookingEditor({
               subcontractorPlus={subcontractorPlus}
               onAdjustmentsChange={handleAdjustmentsChange}
               priceUpdateAvailable={hasCurrentPriceUpdates}
+              priceUpdateStoredTotalExVat={priceExVat}
+              priceUpdateCurrentTotalExVat={currentCatalogTotalExVat}
               onUseCurrentPrices={handleUseCurrentPrices}
               sidebarMode
               locale={locale}
-              forcedTotalExVat={calculatorBreakdowns.some((group) => group.readOnly) ? priceExVat : undefined}
+              forcedTotalExVat={initialValues?.id ? priceExVat : undefined}
+              forcedSubcontractorTotal={initialValues?.id ? priceSubcontractor : undefined}
             />
           </div>
         </div>
@@ -2028,9 +2028,12 @@ export default function BookingEditor({
             subcontractorPlus={subcontractorPlus}
             onAdjustmentsChange={handleAdjustmentsChange}
             priceUpdateAvailable={hasCurrentPriceUpdates}
+            priceUpdateStoredTotalExVat={priceExVat}
+            priceUpdateCurrentTotalExVat={currentCatalogTotalExVat}
             onUseCurrentPrices={handleUseCurrentPrices}
             locale={locale}
-            forcedTotalExVat={calculatorBreakdowns.some((group) => group.readOnly) ? priceExVat : undefined}
+            forcedTotalExVat={initialValues?.id ? priceExVat : undefined}
+            forcedSubcontractorTotal={initialValues?.id ? priceSubcontractor : undefined}
           />
         </div>
       </div>

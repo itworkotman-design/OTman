@@ -6,10 +6,10 @@
 
 ## Responsibility
 
-Wraps the booking calculator for desktop and mobile layouts and shows the price-update warning when a saved order has older prices than the current catalog. It forwards native manual adjustments, including discounts, extras, subcontractor minus, and subcontractor plus.
+Wraps the booking calculator for desktop and mobile layouts and shows the price-update warning when a saved order has older prices than the current catalog. The warning can show stored and current-catalog totals before the admin applies the new prices. It forwards native manual adjustments, including discounts, extras, subcontractor minus, and subcontractor plus.
 
 ## Functions
 
 | Function | Description |
 | --- | --- |
-| `BookingCalculatorPanel` | Renders the calculator in sidebar or mobile drawer mode, shows the red price-update action when available, and forwards calculator totals and admin adjustments to the editor. |
+| `BookingCalculatorPanel` | Renders the calculator in sidebar or mobile drawer mode, shows the red price-update action and old/new totals when available, forwards forced stored totals for frozen orders, and forwards calculator totals and admin adjustments to the editor. |

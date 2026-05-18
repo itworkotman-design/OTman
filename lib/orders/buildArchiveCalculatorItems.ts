@@ -6,6 +6,7 @@ import {
 
 type OrderItemInput = {
   cardId: number;
+  productCode: string | null;
   productName: string | null;
   deliveryType: string | null;
   itemType: string;
@@ -19,6 +20,7 @@ type OrderItemInput = {
 
 type ArchiveCalculatorItem = {
   cardId: number;
+  productCode: string;
   productName: string;
   productModelNumber: string;
   deliveryType: string;
@@ -70,6 +72,7 @@ function getRawString(rawData: unknown, key: string) {
 function toArchiveCalculatorItem(item: OrderItemInput): ArchiveCalculatorItem {
   return {
     cardId: item.cardId,
+    productCode: item.productCode?.trim() || "",
     productName: item.productName ?? "",
     productModelNumber: getProductModelNumber(item.rawData),
     deliveryType: item.deliveryType ?? "",
@@ -116,9 +119,32 @@ function findMatchingWordpressSubcontractorRow(
   return undefined;
 }
 
+function parsePriceCents(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.round(value);
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? Math.round(parsed) : null;
+  }
+
+  return null;
+}
+
 function buildWordpressReadOnlyItems(card: SavedProductCard): ArchiveCalculatorItem[] {
   const snapshot = card.wordpressImportReadOnly;
   if (!snapshot) {
+    return [];
+  }
+
+  const pricedRows = snapshot.rows
+    .map((row) => ({
+      ...row,
+      priceCents: parsePriceCents(row.priceCents),
+    }))
+    .filter((row): row is typeof row & { priceCents: number } => row.priceCents !== null);
+  if (pricedRows.length === 0) {
     return [];
   }
 
@@ -128,6 +154,7 @@ function buildWordpressReadOnlyItems(card: SavedProductCard): ArchiveCalculatorI
   return [
     {
       cardId: card.cardId,
+      productCode: "",
       productName: snapshot.productName,
       productModelNumber: card.modelNumber,
       deliveryType: "",
@@ -138,15 +165,17 @@ function buildWordpressReadOnlyItems(card: SavedProductCard): ArchiveCalculatorI
       customerPriceCents: null,
       subcontractorPriceCents: null,
     },
-    ...snapshot.rows.map((row) => {
+    ...pricedRows.map((row) => {
       const subcontractorRow = findMatchingWordpressSubcontractorRow(
         row,
         subcontractorRows,
         usedSubcontractorIndexes,
       );
+      const subcontractorPriceCents = parsePriceCents(subcontractorRow?.priceCents);
 
       return {
         cardId: card.cardId,
+        productCode: "",
         productName: snapshot.productName,
         productModelNumber: card.modelNumber,
         deliveryType: "",
@@ -155,7 +184,7 @@ function buildWordpressReadOnlyItems(card: SavedProductCard): ArchiveCalculatorI
         optionLabel: row.label,
         quantity: row.quantity,
         customerPriceCents: row.priceCents,
-        subcontractorPriceCents: subcontractorRow?.priceCents ?? null,
+        subcontractorPriceCents,
       };
     }),
   ];
@@ -184,44 +213,20 @@ export function buildArchiveCalculatorItems(params: {
 }): ArchiveCalculatorItem[] {
   const baseItems = params.orderItems.map(toArchiveCalculatorItem);
   const productCards = normalizeProductCardsSnapshot(params.productCardsSnapshot);
-
-  if (!productCards.some((card) => Boolean(card.wordpressImportReadOnly))) {
-    return baseItems;
-  }
-
-  const groupedBaseItems = new Map<number, ArchiveCalculatorItem[]>();
-  const baseOrder: number[] = [];
-
-  for (const item of baseItems) {
-    const existing = groupedBaseItems.get(item.cardId);
-    if (existing) {
-      existing.push(item);
-      continue;
-    }
-
-    groupedBaseItems.set(item.cardId, [item]);
-    baseOrder.push(item.cardId);
-  }
-
-  const overrides = new Map<number, ArchiveCalculatorItem[]>();
-  for (const card of productCards) {
-    if (!card.wordpressImportReadOnly) {
-      continue;
-    }
-
-    overrides.set(card.cardId, buildWordpressReadOnlyItems(card));
-  }
-
-  const orderedCardIds = [
-    ...productCards.map((card) => card.cardId),
-    ...baseOrder.filter(
-      (cardId, index, array) =>
-        !productCards.some((card) => card.cardId === cardId) &&
-        array.indexOf(cardId) === index,
-    ),
-  ];
-
-  return orderedCardIds.flatMap(
-    (cardId) => overrides.get(cardId) ?? groupedBaseItems.get(cardId) ?? [],
+  const existingPricedLineKeys = new Set(
+    baseItems
+      .filter((item) => item.customerPriceCents !== null || item.subcontractorPriceCents !== null)
+      .map((item) => [item.cardId, item.optionCode, item.optionLabel, item.quantity, item.customerPriceCents, item.subcontractorPriceCents].join("|")),
   );
+  const wordpressItems = productCards.flatMap(buildWordpressReadOnlyItems);
+  const wordpressAdditions = wordpressItems.filter((item) => {
+    if (item.customerPriceCents === null && item.subcontractorPriceCents === null) {
+      return false;
+    }
+
+    const key = [item.cardId, item.optionCode, item.optionLabel, item.quantity, item.customerPriceCents, item.subcontractorPriceCents].join("|");
+    return !existingPricedLineKeys.has(key);
+  });
+
+  return [...baseItems, ...wordpressAdditions];
 }

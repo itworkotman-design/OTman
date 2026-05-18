@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Defines the archive view modes, filter/access shapes, and the order-row payload used by the archive table and related UI. The row payload also includes the read-only PDF fields and saved calculator item prices used by subcontractor and order-creator PDF previews/downloads.
+Defines the archive view modes, filter/access shapes, and the order-row payload used by the archive table and related UI. The row payload also includes the read-only PDF fields and saved calculator item codes, descriptions, and prices used by subcontractor and order-creator PDF previews/downloads.
 
 ## Types
 
@@ -17,4 +17,4 @@ Defines the archive view modes, filter/access shapes, and the order-row payload 
 | `BookingArchiveAccess` | Describes archive permissions and locked filters for the active user, including whether the creator filter is available. |
 | `BookingArchiveOption` | Represents a selectable archive filter option and can also carry optional primary and warehouse email addresses for creator-driven actions. |
 | `OrderRow` | Defines the row data used by the archive, including grouped summaries, customer contact/floor/lift/distance fields, manual price adjustments, and calculator items for the read-only PDF modal. |
-| `OrderCalculatorItem` | Defines one saved order item line with role-specific customer and subcontractor price cents for PDF calculator rendering. |
+| `OrderCalculatorItem` | Defines one saved order item line with product code, option code/description, and role-specific customer and subcontractor price cents for PDF calculator rendering. |

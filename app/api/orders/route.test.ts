@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   buildOrderItemsFromCardsMock: vi.fn(),
   buildOrderEventSnapshotMock: vi.fn(),
   createOrderCreatedEventMock: vi.fn(),
+  reserveNextManualOrderNumberMock: vi.fn(),
   sendOrderNotificationEmailMock: vi.fn(),
   sendExtraPickupNotificationEmailMock: vi.fn(),
   createOrderNotificationMock: vi.fn(),
@@ -56,6 +57,10 @@ vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
 vi.mock("@/lib/orders/orderEvents", () => ({
   buildOrderEventSnapshot: mocks.buildOrderEventSnapshotMock,
   createOrderCreatedEvent: mocks.createOrderCreatedEventMock,
+}));
+
+vi.mock("@/lib/orders/orderNumber", () => ({
+  reserveNextManualOrderNumber: mocks.reserveNextManualOrderNumberMock,
 }));
 
 vi.mock("@/lib/orders/orderNotificationEmail", () => ({
@@ -114,6 +119,7 @@ describe("routes in /api/orders", () => {
       statusNotes: "",
     });
     mocks.createOrderCreatedEventMock.mockResolvedValue(undefined);
+    mocks.reserveNextManualOrderNumberMock.mockResolvedValue(20000);
     mocks.createOrderNotificationMock.mockResolvedValue({
       id: "notification-1",
       createdAt: new Date("2030-01-01T00:00:00.000Z"),
@@ -688,6 +694,84 @@ describe("routes in /api/orders", () => {
           phone: "+4798765432",
           phoneTwo: "12345678",
           cashierPhone: "90123456",
+        }),
+      }),
+    );
+  });
+
+  it("POST assigns manual app orders the next internal order number from 20000", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.reserveNextManualOrderNumberMock.mockResolvedValueOnce(20000);
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "SHOULD-NOT-BE-USED",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.reserveNextManualOrderNumberMock).toHaveBeenCalledWith("company-1");
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          legacyWordpressOrderId: null,
+          displayId: 20000,
+          orderNumber: "20000",
+        }),
+      }),
+    );
+  });
+
+  it("POST stores cancelled orders with zero subcontractor price", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      priceListId: "price-list-1",
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          status: "cancelled",
+          priceSubcontractor: 700,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "cancelled",
+          priceSubcontractor: 0,
         }),
       }),
     );

@@ -97,20 +97,21 @@ describe("POST /api/integrations/wordpress/orders", () => {
       id: "default-price-list-id",
     });
     mocks.orderFindUniqueMock.mockResolvedValue(null);
-    mocks.companyOrderCounterUpsertMock.mockResolvedValue({
-      nextNumber: 20001,
-    });
     mocks.companyOrderCounterUpdateMock.mockResolvedValue(undefined);
-    mocks.orderCreateMock.mockResolvedValue({
-      id: "order-1",
-      displayId: 20001,
-      legacyWordpressOrderId: 9993,
-    });
-    mocks.orderUpdateMock.mockResolvedValue({
-      id: "order-1",
-      displayId: 20001,
-      legacyWordpressOrderId: 9993,
-    });
+    mocks.orderCreateMock.mockImplementation(
+      async (args: { data: { displayId: number; legacyWordpressOrderId: number } }) => ({
+        id: "order-1",
+        displayId: args.data.displayId,
+        legacyWordpressOrderId: args.data.legacyWordpressOrderId,
+      }),
+    );
+    mocks.orderUpdateMock.mockImplementation(
+      async (args: { data: { displayId?: number }; where: { legacyWordpressOrderId: number } }) => ({
+        id: "order-1",
+        displayId: args.data.displayId ?? args.where.legacyWordpressOrderId,
+        legacyWordpressOrderId: args.where.legacyWordpressOrderId,
+      }),
+    );
     mocks.orderNotificationFindFirstMock.mockResolvedValue(null);
     mocks.orderNotificationUpdateMock.mockResolvedValue(undefined);
     mocks.orderNotificationCountMock.mockResolvedValue(0);
@@ -369,7 +370,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
       ok: true,
       order: {
         id: "order-1",
-        displayId: 20001,
+        displayId: 9993,
         legacyWordpressOrderId: 9993,
       },
       importedItemCount: 3,
@@ -381,6 +382,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
         createdByMembershipId: "membership-1",
         customerMembershipId: "membership-1",
         priceListId: "price-list-1",
+        displayId: 9993,
         legacyWordpressOrderId: 9993,
         legacyWordpressAuthorId: 15,
         customerLabel: "WordPress Customer",
@@ -425,6 +427,8 @@ describe("POST /api/integrations/wordpress/orders", () => {
         legacyWordpressOrderId: true,
       },
     });
+    expect(mocks.companyOrderCounterUpsertMock).not.toHaveBeenCalled();
+    expect(mocks.companyOrderCounterUpdateMock).not.toHaveBeenCalled();
 
     expect(mocks.orderItemCreateManyMock).toHaveBeenCalledWith({
       data: [
@@ -654,8 +658,8 @@ describe("POST /api/integrations/wordpress/orders", () => {
       ok: true,
       order: {
         id: "order-1",
-        displayId: 20001,
-        legacyWordpressOrderId: 9993,
+        displayId: 10005,
+        legacyWordpressOrderId: 10005,
       },
       importedItemCount: 3,
     });
@@ -731,6 +735,16 @@ describe("POST /api/integrations/wordpress/orders", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          legacyWordpressOrderId: 10005,
+        },
+        data: expect.objectContaining({
+          displayId: 10005,
+        }),
+      }),
+    );
     expect(mocks.orderAttachmentDeleteManyMock).not.toHaveBeenCalled();
     expect(mocks.orderAttachmentCreateMock).toHaveBeenCalledWith({
       data:
@@ -981,8 +995,8 @@ describe("POST /api/integrations/wordpress/orders", () => {
       ok: true,
       order: {
         id: "order-1",
-        displayId: 20001,
-        legacyWordpressOrderId: 9993,
+        displayId: 9994,
+        legacyWordpressOrderId: 9994,
       },
       importedItemCount: 3,
     });
@@ -1105,6 +1119,63 @@ describe("POST /api/integrations/wordpress/orders", () => {
         legacyWordpressOrderId: true,
       },
     });
+  });
+
+  it("keeps all wordpress deviation rows out of cancelled-order auto discount", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 99941,
+          legacyWordpressUserId: 15,
+          status: "cancelled",
+          meta: {
+            bestillingsnr: "PO-99941",
+            kundens_navn: "WordPress Customer",
+            total_price: "2000",
+            field_682e0baebb080:
+              "590:Avvik, bomtur; Kunde ikke hjemme:NOTHOME",
+            price_breakdown_html: `
+              <div class="price-breakdown-wrapper">
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>Avvik, bomtur; Kunde ikke hjemme (NOTHOME)</strong></span>
+                  <span class="price-breakdown-price">590 NOK</span>
+                </div>
+                <div class="price-breakdown-row">
+                  <span class="price-breakdown-label"><strong>Avvik, bomtur; Avlyst dagen før (CANCELEDBEFORE)</strong></span>
+                  <span class="price-breakdown-price">290 NOK</span>
+                </div>
+                <div class="price-breakdown-row total-highlight">
+                  <span class="price-breakdown-label"><strong>Total</strong></span>
+                  <span class="price-breakdown-price">2000 NOK</span>
+                </div>
+              </div>
+            `,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        status: "cancelled",
+        deviation: "Deviation, missed trip; Customer not at home",
+        rabatt: "1120",
+        priceExVat: 880,
+        priceSubcontractor: 0,
+      }),
+      select: {
+        id: true,
+        displayId: true,
+        legacyWordpressOrderId: true,
+      },
+    });
+    expect(mocks.createOrderNotificationMock).not.toHaveBeenCalled();
   });
 
   it("fills missing Andre produkter delivery type from the breakdown and keeps quantity-based cards at quantity 1", async () => {
@@ -1789,7 +1860,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
     );
   });
 
-  it("keeps extra pickup as a global wordpress price when it appears after a product group", async () => {
+  it("does not duplicate extra pickup as a global wordpress price when pickup locations are imported", async () => {
     mocks.calculateBookingPricingMock
       .mockReturnValueOnce({
         totals: {
@@ -1879,25 +1950,15 @@ describe("POST /api/integrations/wordpress/orders", () => {
         productId: "product-1",
       }),
     );
-    expect(createCall?.data.productCardsSnapshot[0]).toEqual(
-      expect.objectContaining({
-        wordpressImportReadOnly: expect.objectContaining({
-          productName: "Vaskemaskin",
+    expect(createCall?.data.productCardsSnapshot).toHaveLength(1);
+    expect(createCall?.data.productCardsSnapshot).toEqual(
+      expect.not.arrayContaining([
+        expect.objectContaining({
+          wordpressImportReadOnly: expect.objectContaining({
+            productName: "WordPress order prices",
+          }),
         }),
-      }),
-    );
-    expect(createCall?.data.productCardsSnapshot[1]).toEqual(
-      expect.objectContaining({
-        wordpressImportReadOnly: expect.objectContaining({
-          productName: "WordPress order prices",
-          rows: expect.arrayContaining([
-            expect.objectContaining({
-              code: "EXTRAPICKUP",
-              priceCents: 59000,
-            }),
-          ]),
-        }),
-      }),
+      ]),
     );
   });
 

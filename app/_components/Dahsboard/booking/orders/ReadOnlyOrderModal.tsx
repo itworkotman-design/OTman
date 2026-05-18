@@ -1,8 +1,31 @@
 "use client";
 
-import type { BookingArchiveViewMode, OrderCalculatorItem } from "@/app/_components/Dahsboard/booking/archive/types";
+import { useEffect, useMemo, useState } from "react";
+import type { BookingArchiveViewMode } from "@/app/_components/Dahsboard/booking/archive/types";
+import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
 import { bookingStatusText } from "@/lib/booking/bookingUiText";
 import { formatDisplayDate } from "@/lib/dateDisplay";
+import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
+import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
+import {
+  normalizeSavedProductCard,
+  type CatalogProduct,
+  type CatalogSpecialOption,
+  type SavedProductCard,
+} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
+import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
+import {
+  applyOrderPricingSnapshot,
+  getSavedOrderPricingSnapshot,
+} from "@/lib/booking/pricing/snapshot";
+import {
+  buildCalculatorBreakdownsWithOrderExtras,
+  parseDistanceKm,
+  parsePriceSetting,
+} from "@/lib/booking/pricing/orderCalculatorExtras";
+import type { PriceListSettings } from "@/lib/products/priceListSettings";
+import type { PriceLookup } from "@/lib/booking/pricing/types";
 
 type ReadOnlyOrder = {
   id: string;
@@ -38,7 +61,6 @@ type ReadOnlyOrder = {
   leggTil: string;
   subcontractorMinus: string;
   subcontractorPlus: string;
-  calculatorItems: OrderCalculatorItem[];
   createdBy?: string;
   lastEditedBy?: string;
 };
@@ -47,7 +69,52 @@ type Props = {
   open: boolean;
   order: ReadOnlyOrder | null;
   viewMode?: BookingArchiveViewMode;
+  locale?: BookingUiLocale;
   onClose: () => void;
+};
+
+type FullOrderResponse = {
+  ok: boolean;
+  order?: {
+    id: string;
+    legacyWordpressOrderId?: number | null;
+    priceListId: string;
+    productCards: SavedProductCard[];
+    pickupAddress: string;
+    deliveryAddress: string;
+    returnAddress: string;
+    drivingDistance: string;
+    extraPickups: Array<{
+      address: string;
+      phone: string;
+      email: string;
+      sendEmail: boolean;
+    }>;
+    expressDelivery: boolean;
+    deviation: string;
+    feeExtraWork: boolean;
+    extraWorkMinutes: number;
+    feeAddToOrder: boolean;
+    priceExVat: number;
+    priceSubcontractor: number;
+  };
+  reason?: string;
+};
+
+type CatalogResponse = {
+  ok: boolean;
+  products?: CatalogProduct[];
+  specialOptions?: CatalogSpecialOption[];
+  priceListSettings?: PriceListSettings;
+  reason?: string;
+};
+
+type AdminCalculatorState = {
+  productBreakdowns: ReturnType<typeof buildCalculatorBreakdownsWithOrderExtras>;
+  priceLookup: PriceLookup;
+  priceExVat: number;
+  priceSubcontractor: number;
+  hasWordpressReadOnlyRows: boolean;
 };
 
 type PdfDetailRow = {
@@ -55,27 +122,6 @@ type PdfDetailRow = {
   value: string;
 };
 
-type CalculatorLine = {
-  label: string;
-  code: string;
-  qty: number;
-  lineTotal: number;
-};
-
-type CalculatorGroup = {
-  title: string;
-  modelNumber: string;
-  lines: CalculatorLine[];
-};
-
-type CalculatorDisplayData = {
-  groups: CalculatorGroup[];
-  totalExVat: number;
-  vat: number;
-  totalIncVat: number;
-  discount: number;
-  extra: number;
-};
 
 function formatCell(value: string | null | undefined) {
   if (!value || !value.trim()) return "-";
@@ -106,11 +152,7 @@ function isCalculatorPdfView(viewMode: BookingArchiveViewMode | undefined) {
   return viewMode === "SUBCONTRACTOR" || viewMode === "ORDER_CREATOR";
 }
 
-function parseNokAdjustment(value: string | null | undefined) {
-  const normalized = (value ?? "").replace(/[^\d.,-]/g, "").replace(",", ".");
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -159,116 +201,69 @@ function getPdfDetailRows(order: ReadOnlyOrder): PdfDetailRow[] {
   ];
 }
 
-function getCalculatorDisplayData(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode | undefined): CalculatorDisplayData {
-  const useSubcontractorPrices = viewMode === "SUBCONTRACTOR";
-  const groups = new Map<number, CalculatorGroup>();
 
-  for (const item of order.calculatorItems ?? []) {
-    const current = groups.get(item.cardId) ?? {
-      title: item.productName || "Produkt",
-      modelNumber: item.productModelNumber,
-      lines: [],
-    };
+function renderAdminCalculatorHtml(state: AdminCalculatorState) {
+  const result = calculateBookingPricing({
+    productBreakdowns: state.productBreakdowns,
+    priceLookup: state.priceLookup,
+    adjustments: {
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+    },
+  });
 
-    if (!groups.has(item.cardId)) {
-      groups.set(item.cardId, current);
-    }
-
-    if (item.itemType === "PRODUCT_CARD" || !item.optionLabel.trim()) {
-      continue;
-    }
-
-    const priceCents = useSubcontractorPrices ? item.subcontractorPriceCents : item.customerPriceCents;
-
-    if (priceCents == null) {
-      continue;
-    }
-
-    current.lines.push({
-      label: item.optionLabel,
-      code: item.optionCode,
-      qty: item.quantity,
-      lineTotal: roundMoney((priceCents * item.quantity) / 100),
-    });
-  }
-
-  const totalExVat = roundMoney(getVisibleOrderPrice(order, viewMode));
-  const hasWordpressReadOnlyRows = (order.calculatorItems ?? []).some((item) => item.optionCode === "WP_PRICE");
-  const discount = hasWordpressReadOnlyRows
-    ? 0
-    : viewMode === "ORDER_CREATOR"
-      ? parseNokAdjustment(order.rabatt)
-      : viewMode === "SUBCONTRACTOR"
-        ? parseNokAdjustment(order.subcontractorMinus)
-        : 0;
-
-  const hasWordpressItems = (order.calculatorItems ?? []).some((item) => item.itemType === "EXTRA_OPTION" && item.optionCode);
-
-  const extra = hasWordpressItems
-    ? 0
-    : viewMode === "ORDER_CREATOR"
-      ? parseNokAdjustment(order.leggTil)
-      : viewMode === "SUBCONTRACTOR"
-        ? parseNokAdjustment(order.subcontractorPlus)
-        : 0;
-  const vat = roundMoney(totalExVat * 0.25);
-
-  return {
-    groups: Array.from(groups.values()).filter((group) => group.lines.length > 0),
-    totalExVat,
-    vat,
-    totalIncVat: roundMoney(totalExVat + vat),
-    discount,
-    extra,
-  };
-}
-
-function renderCalculatorHtml(data: CalculatorDisplayData) {
   const groupsHtml =
-    data.groups.length > 0
-      ? data.groups
-          .map(
-            (group) => `
+    result.breakdowns.length > 0
+      ? result.breakdowns
+          .map((product) => {
+            const linesHtml = product.lines
+              .map(
+                (line) => `
+                  <div class="priceRow">
+                    <div>${line.qty > 1 ? `x${escapeHtml(formatQty(line.qty))} ` : ""}${
+                      line.code ? `<span class="line-code">(${escapeHtml(line.code)})</span> ` : ""
+                    }${escapeHtml(line.label)}</div>
+                    <strong>${escapeHtml(formatMoney(line.lineTotal))}</strong>
+                  </div>
+                `,
+              )
+              .join("");
+
+            return `
               <div class="calculator-group">
-                <h2>${escapeHtml(group.title)}${group.modelNumber ? ` <span>(${escapeHtml(group.modelNumber)})</span>` : ""}</h2>
-                ${group.lines
-                  .map(
-                    (line) => `
-                      <div class="priceRow">
-                        <div>${line.qty > 1 ? `x${escapeHtml(formatQty(line.qty))} ` : ""}${
-                          line.code ? `<span class="line-code">(${escapeHtml(line.code)})</span> ` : ""
-                        }${escapeHtml(line.label)}</div>
-                        <strong>${escapeHtml(formatMoney(line.lineTotal))}</strong>
-                      </div>
-                    `,
-                  )
-                  .join("")}
+                <h2>${escapeHtml(product.productName)}</h2>
+                ${linesHtml || `<p class="empty-calculator">Ingen varelinjer lagret.</p>`}
               </div>
-            `,
-          )
+            `;
+          })
           .join("")
       : `<p class="empty-calculator">Ingen varelinjer lagret.</p>`;
+
+  const totalExVat = roundMoney(state.priceExVat);
+  const vat = roundMoney(totalExVat * 0.25);
+  const totalIncVat = roundMoney(totalExVat + vat);
 
   return `
     <aside class="calculator-card">
       <div class="calculator-lines">${groupsHtml}</div>
       <div class="calculator-summary">
-        ${data.discount !== 0 ? `<div class="priceRow"><div>Rabatt</div><strong>-${escapeHtml(formatMoney(data.discount))}</strong></div>` : ""}
-        ${data.extra !== 0 ? `<div class="priceRow"><div>Ekstra</div><strong>+${escapeHtml(formatMoney(data.extra))}</strong></div>` : ""}
-        <div class="priceRow total-row"><div>Total</div><strong>${escapeHtml(formatMoney(data.totalExVat, { forceDecimals: true }))}</strong></div>
-        <div class="priceRow"><div>MVA (25%)</div><strong>${escapeHtml(formatMoney(data.vat, { forceDecimals: true }))}</strong></div>
-        <div class="priceRow"><div>Total inkl. MVA</div><strong>${escapeHtml(formatMoney(data.totalIncVat, { forceDecimals: true }))}</strong></div>
-      </div> 
+        <div class="priceRow total-row"><div>Total</div><strong>${escapeHtml(formatMoney(totalExVat, { forceDecimals: true }))}</strong></div>
+        <div class="priceRow"><div>MVA (25%)</div><strong>${escapeHtml(formatMoney(vat, { forceDecimals: true }))}</strong></div>
+        <div class="priceRow"><div>Total inkl. MVA</div><strong>${escapeHtml(formatMoney(totalIncVat, { forceDecimals: true }))}</strong></div>
+      </div>
     </aside>
   `;
 }
 
-function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode | undefined) {
+
+
+function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode | undefined, calculatorState: AdminCalculatorState | null) {
   const totalExVat = getVisibleOrderPrice(order, viewMode);
   const vat = totalExVat * 0.25;
   const totalIncVat = totalExVat + vat;
   const usePdfCalculatorLayout = isCalculatorPdfView(viewMode);
-  const calculatorData = getCalculatorDisplayData(order, viewMode);
   const detailRowsHtml = getPdfDetailRows(order)
     .map(
       (row) => `
@@ -286,21 +281,54 @@ function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode
       <head>
         <title>Ordre ${escapeHtml(order.orderNumber || order.id)}</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 24px; color: #111; font-size: 12px; }
+          body { font-family: Arial, sans-serif; padding: 16px; color: #111; font-size: 12px; }
           h1 { font-size: 20px; margin: 0 0 18px; }
-          .pdf-layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 18px; align-items: start; }
           table { width: 100%; border-collapse: collapse; }
           th, td { border: 1px solid #d8dee8; padding: 8px 10px; vertical-align: top; }
           th { width: 190px; text-align: left; background: #f8fafc; font-weight: 700; }
-          .calculator-card { border: 1px solid #d8dee8; border-radius: 16px; box-shadow: 0 0 10px rgba(0,0,0,0.1); padding: 16px; background: #f8fafc; }
+          .pdf-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 320px;
+            gap: 18px;
+            align-items: start;
+          }
+
+          .calculator-card {
+            position: static;
+            width: auto;
+            max-width: 320px;
+            border: 1px solid #d8dee8;
+            border-radius: 16px;
+            padding: 16px;
+            box-sizing: border-box;
+          }
           .calculator-lines { border-bottom: 2px solid #d8dee8; padding-bottom: 12px; }
           .calculator-group { margin-bottom: 14px; }
           .calculator-group:last-child { margin-bottom: 0; }
           .calculator-group h2 { font-size: 14px; margin: 0 0 8px; }
           .calculator-group h2 span { color: #64748b; font-size: 12px; font-weight: 400; }
-          .priceRow { border-bottom: 1px solid #cfcfcf; padding: 4px 0; display: flex; justify-content: space-between; gap: 16px; }
-          .priceRow:last-child { border-bottom: 0; }
-          .line-code { color: #2563eb; }
+          .priceRow {
+            border-bottom: 1px solid #cfcfcf;
+            padding: 4px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+          }
+
+          .priceRow > div:first-child {
+            flex: 1;
+            min-width: 0;
+          }
+
+          .priceRow strong {
+            white-space: nowrap;
+            flex-shrink: 0;
+          }
+
+          .priceRow:last-child {
+            border-bottom: 0;
+          }
           .calculator-summary { padding-top: 12px; }
           .total-row { font-size: 20px; font-weight: 700; }
           .empty-calculator { margin: 0; color: #64748b; }
@@ -310,7 +338,7 @@ function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode
         <h1>Ordredetaljer</h1>
         <div class="pdf-layout">
           <table><tbody>${detailRowsHtml}</tbody></table>
-          ${renderCalculatorHtml(calculatorData)}
+          ${calculatorState ? renderAdminCalculatorHtml(calculatorState) : `<p>Calculator missing data.</p>`}
         </div>
         <script>window.onload = function() { window.print(); }</script>
       </body>
@@ -381,71 +409,182 @@ function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode
   win.document.close();
 }
 
-function OrderPdfCalculator({ data }: { data: CalculatorDisplayData }) {
+function useAdminCalculatorState(order: ReadOnlyOrder | null) {
+  const [fullOrder, setFullOrder] = useState<FullOrderResponse["order"] | null>(null);
+  const [catalog, setCatalog] = useState<{
+    products: CatalogProduct[];
+    specialOptions: CatalogSpecialOption[];
+    priceListSettings: PriceListSettings;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!order) return;
+    const currentOrder = order;
+
+    let cancelled = false;
+
+    async function loadCalculatorData() {
+      try {
+        setLoading(true);
+        setError("");
+        setFullOrder(null);
+        setCatalog(null);
+
+        const orderResponse = await fetch(`/api/orders/${currentOrder.id}`, {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const orderData = (await orderResponse.json().catch(() => null)) as FullOrderResponse | null;
+
+        if (!orderResponse.ok || !orderData?.ok || !orderData.order) {
+          if (!cancelled) setError(orderData?.reason || "Failed to load order");
+          return;
+        }
+
+        const catalogParams = new URLSearchParams();
+        if (orderData.order.priceListId) {
+          catalogParams.set("priceListId", orderData.order.priceListId);
+        }
+
+        const catalogResponse = await fetch(`/api/booking/catalog?${catalogParams.toString()}`, {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const catalogData = (await catalogResponse.json().catch(() => null)) as CatalogResponse | null;
+
+        if (!catalogResponse.ok || !catalogData?.ok || !catalogData.priceListSettings) {
+          if (!cancelled) setError(catalogData?.reason || "Failed to load catalog");
+          return;
+        }
+
+        if (!cancelled) {
+          setFullOrder(orderData.order);
+          setCatalog({
+            products: catalogData.products ?? [],
+            specialOptions: catalogData.specialOptions ?? [],
+            priceListSettings: catalogData.priceListSettings,
+          });
+        }
+      } catch {
+        if (!cancelled) setError("Failed to load calculator");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadCalculatorData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [order]);
+
+  const calculatorState = useMemo(() => {
+    if (!fullOrder || !catalog) return null;
+
+    const productCards = fullOrder.productCards.map((card, index) => normalizeSavedProductCard(card, index));
+
+    const hasWordpressReadOnlyRows = productCards.some((card) => Boolean(card.wordpressImportReadOnly));
+
+    const savedPricingSnapshot = getSavedOrderPricingSnapshot(productCards);
+
+    const pricingSource = applyOrderPricingSnapshot({
+      catalogProducts: catalog.products,
+      catalogSpecialOptions: catalog.specialOptions,
+      priceListSettings: catalog.priceListSettings,
+      pricingSnapshot: savedPricingSnapshot,
+    });
+
+    const shouldUseNativeDistancePricing = !fullOrder.legacyWordpressOrderId;
+
+    const productBreakdowns = buildProductBreakdowns(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
+      zeroBaseDeliveryPricesOver100Km: shouldUseNativeDistancePricing && parseDistanceKm(fullOrder.drivingDistance) > 100,
+      xtraPalletPrice: parsePriceSetting(pricingSource.priceListSettings.xtraPallet.price),
+      xtraPalletSubcontractorPrice: parsePriceSetting(pricingSource.priceListSettings.xtraPallet.subcontractorPrice),
+    });
+
+    return {
+      productBreakdowns: buildCalculatorBreakdownsWithOrderExtras({
+        productBreakdowns,
+        priceListSettings: pricingSource.priceListSettings,
+        deviation: fullOrder.deviation,
+        drivingDistance: fullOrder.drivingDistance,
+        expressDelivery: fullOrder.expressDelivery,
+        extraWorkMinutes: fullOrder.extraWorkMinutes,
+        feeAddToOrder: fullOrder.feeAddToOrder,
+        feeExtraWork: fullOrder.feeExtraWork,
+        extraPickups: fullOrder.extraPickups,
+        shouldUseNativeDistancePricing,
+      }),
+      priceLookup: buildPriceLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions),
+      priceExVat: fullOrder.priceExVat,
+      priceSubcontractor: fullOrder.priceSubcontractor,
+      hasWordpressReadOnlyRows,
+    };
+  }, [catalog, fullOrder]);
+
+  return { calculatorState, loading, error };
+}
+
+function AdminStyleReadOnlyCalculator({
+  calculatorState,
+  loading,
+  error,
+  rabatt,
+  leggTil,
+  subcontractorMinus,
+  subcontractorPlus,
+  viewMode,
+  locale,
+}: {
+  calculatorState: AdminCalculatorState | null;
+  loading: boolean;
+  error: string;
+  rabatt: string;
+  leggTil: string;
+  subcontractorMinus: string;
+  subcontractorPlus: string;
+  viewMode?: BookingArchiveViewMode;
+  locale?: BookingUiLocale;
+}) {
+  
+  if (loading) return <p className="text-sm text-textColorThird">Laster kalkulator...</p>;
+  if (error || !calculatorState) return <p className="text-sm text-red-600">{error || "Kalkulator mangler data."}</p>;
+
+  const isSubcontractor = viewMode === "SUBCONTRACTOR";
+  const hideWordpressImportWarnings = viewMode === "SUBCONTRACTOR" || viewMode === "ORDER_CREATOR";
+
+  const hideSubcontractorAdjustments = isSubcontractor && calculatorState.hasWordpressReadOnlyRows;
+
+  const calculatorLocale = locale ?? "nb";
+
   return (
-    <section className="w-full customContainer rounded-2xl bg-mainPrimary px-4">
-      <div className="border-b-2 border-lineSecondary py-4">
-        {data.groups.length === 0 ? (
-          <p className="text-sm opacity-30">Ingen varelinjer lagret.</p>
-        ) : (
-          data.groups.map((group, groupIndex) => (
-            <div key={`${group.title}-${groupIndex}`} className="mb-4 last:mb-0">
-              <h1 className="mb-2 text-md font-bold">
-                {group.title}
-                {group.modelNumber ? <span className="ml-1 text-sm font-normal text-gray-500">({group.modelNumber})</span> : null}
-              </h1>
-
-              {group.lines.map((line, lineIndex) => (
-                <div key={`${line.label}-${lineIndex}`} className="priceRow ml-2">
-                  <h1 className="text-sm">
-                    {line.qty > 1 ? <span className="mr-1 opacity-70">x{formatQty(line.qty)}</span> : null}
-                    {line.code ? <span className="mr-1 text-logoblue">({line.code})</span> : null}
-                    {line.label}
-                  </h1>
-
-                  <p className="whitespace-nowrap text-sm font-semibold">{formatMoney(line.lineTotal)}</p>
-                </div>
-              ))}
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="pb-4">
-        {data.discount !== 0 ? (
-          <div className="priceRow">
-            <h1 className="text-md">Rabatt</h1>
-            <p className="font-semibold">-{formatMoney(data.discount)}</p>
-          </div>
-        ) : null}
-
-        {data.extra !== 0 ? (
-          <div className="priceRow">
-            <h1 className="text-md">Ekstra</h1>
-            <p className="font-semibold">+{formatMoney(data.extra)}</p>
-          </div>
-        ) : null}
-
-        <div className="priceRow">
-          <h1 className="text-2xl font-bold">Total</h1>
-          <p className="text-2xl font-bold">{formatMoney(data.totalExVat, { forceDecimals: true })}</p>
-        </div>
-
-        <div className="priceRow">
-          <h1 className="text-md">MVA (25%)</h1>
-          <p className="font-semibold">{formatMoney(data.vat, { forceDecimals: true })}</p>
-        </div>
-
-        <div className="priceRow">
-          <h1 className="text-md">Total inkl. MVA</h1>
-          <p className="font-semibold">{formatMoney(data.totalIncVat, { forceDecimals: true })}</p>
-        </div>
-      </div>
-    </section>
+    <CalculatorDisplayNew
+      productBreakdowns={calculatorState.productBreakdowns}
+      priceLookup={calculatorState.priceLookup}
+      forcedTotalExVat={isSubcontractor ? calculatorState.priceSubcontractor : calculatorState.priceExVat}
+      forcedSubcontractorTotal={calculatorState.priceSubcontractor}
+      adminView={false}
+      hideWordpressImportWarnings={hideWordpressImportWarnings}
+      rabatt={isSubcontractor ? "" : rabatt}
+      leggTil={isSubcontractor ? "" : leggTil}
+      subcontractorMinus={isSubcontractor && !hideSubcontractorAdjustments ? subcontractorMinus : ""}
+      subcontractorPlus={isSubcontractor && !hideSubcontractorAdjustments ? subcontractorPlus : ""}
+      sidebarMode={false}
+      locale={calculatorLocale}
+    />
   );
 }
 
-export default function ReadOnlyOrderModal({ open, order, viewMode, onClose }: Props) {
+export default function ReadOnlyOrderModal({ open, order, viewMode, locale, onClose }: Props) {
+  const { calculatorState, loading: calculatorLoading, error: calculatorError } = useAdminCalculatorState(order);
+
   if (!open || !order) return null;
 
   const totalExVat = getVisibleOrderPrice(order, viewMode);
@@ -453,7 +592,6 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, onClose }: P
   const totalIncVat = totalExVat + vat;
   const usePdfCalculatorLayout = isCalculatorPdfView(viewMode);
   const pdfDetailRows = getPdfDetailRows(order);
-  const calculatorData = getCalculatorDisplayData(order, viewMode);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -478,7 +616,17 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, onClose }: P
               </tbody>
             </table>
 
-            <OrderPdfCalculator data={calculatorData} />
+            <AdminStyleReadOnlyCalculator
+              calculatorState={calculatorState}
+              loading={calculatorLoading}
+              error={calculatorError}
+              viewMode={viewMode}
+              rabatt={order.rabatt}
+              leggTil={order.leggTil}
+              subcontractorMinus={order.subcontractorMinus}
+              subcontractorPlus={order.subcontractorPlus}
+              locale={locale ?? "nb"}
+            />
           </div>
         ) : (
           <>
@@ -538,7 +686,7 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, onClose }: P
                 <span className="font-semibold">Sjåførinfo:</span> {formatCell(order.driverInfo)}
               </p>
               <p>
-                <span className="font-semibold">Status:</span> {order.status ? bookingStatusText("nb", order.status) : "-"}
+                <span className="font-semibold">Status:</span> {order.status ? bookingStatusText(locale ?? "en", order.status) : "-"}
               </p>
               <p>
                 <span className="font-semibold">Statusnotater:</span> {formatCell(order.statusNotes)}
@@ -569,7 +717,12 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, onClose }: P
         )}
 
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={() => downloadOrderPdf(order, viewMode)} className="customButtonEnabled">
+          <button
+            type="button"
+            disabled={usePdfCalculatorLayout && (!calculatorState || calculatorLoading)}
+            onClick={() => downloadOrderPdf(order, viewMode, calculatorState)}
+            className="customButtonEnabled disabled:cursor-not-allowed disabled:opacity-50"
+          >
             Last ned PDF
           </button>
         </div>

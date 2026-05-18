@@ -18,6 +18,7 @@ import { syncWordpressPriceMismatchAlert } from "@/lib/orders/alerts";
 import { createEmptyProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { normalizeAttachmentCategory } from "@/lib/orders/attachmentCategories";
 import { isSubcontractorAccess } from "@/lib/users/access";
+import { buildOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
 import type { AppPermission } from "@/lib/users/types";
 import {
   upsertWordpressOrderAttachment,
@@ -1215,16 +1216,24 @@ const getDeviationPriceCents = (
 };
 
 const getProtectedFailureFeeCents = (params: {
+  meta: Record<string, unknown>;
   importedFees: ImportedWordpressFees;
   deviation?: string;
   priceListSettings: PriceListSettings;
 }): number => {
   const extraWorkFeeCents = params.importedFees.feeExtraWork ? calculateExtraWorkFee(params.importedFees.extraWorkMinutes).price * 100 : 0;
   const addToOrderFeeCents = params.importedFees.feeAddToOrder ? 99 * 100 : 0;
-  const deviationFeeCents = getDeviationPriceCents(
-    params.priceListSettings,
-    getDeviationFeeOption(params.deviation),
-  ).customerPriceCents;
+  const deviationRows = getBreakdownRowsWithCodes(asString(params.meta.price_breakdown_html)).filter(isDeviationBreakdownRow);
+  const deviationFeeCents =
+    deviationRows.length > 0
+      ? deviationRows.reduce((sum, row) => {
+          const option = getDeviationFeeOption(`${row.label}:${row.code ?? ""}`);
+          return sum + (row.priceCents ?? getDeviationPriceCents(params.priceListSettings, option).customerPriceCents);
+        }, 0)
+      : getDeviationPriceCents(
+          params.priceListSettings,
+          getDeviationFeeOption(params.deviation),
+        ).customerPriceCents;
 
   return extraWorkFeeCents + addToOrderFeeCents + deviationFeeCents;
 };
@@ -1239,6 +1248,7 @@ const getNativeCalculatedPricing = (params: {
   drivingDistance: string | undefined;
   adjustments: ImportedWordpressAdjustments;
   importedFees?: ImportedWordpressFees;
+  importedExtraPickupCount?: number;
   deviation?: string;
   priceListSettings: PriceListSettings;
 }): { totalExVatCents: number; subcontractorTotalCents: number } => {
@@ -1254,14 +1264,22 @@ const getNativeCalculatedPricing = (params: {
   });
   const extraWorkFeeCents = params.importedFees?.feeExtraWork === true ? calculateExtraWorkFee(params.importedFees.extraWorkMinutes).price * 100 : 0;
   const addToOrderFeeCents = params.importedFees?.feeAddToOrder === true ? 99 * 100 : 0;
+  const extraPickupCount = params.importedExtraPickupCount ?? 0;
+  const extraPickupFeeCents = extraPickupCount * parsePriceSettingCents(params.priceListSettings?.extraPickup.price ?? "0");
+  const extraPickupSubcontractorFeeCents =
+    extraPickupCount * parsePriceSettingCents(params.priceListSettings?.extraPickup.subcontractorPrice ?? "0");
   const deviationPrices = getDeviationPriceCents(
     params.priceListSettings,
     getDeviationFeeOption(params.deviation),
   );
 
   return {
-    totalExVatCents: Math.round(result.totals.totalExVat * 100 + extraWorkFeeCents + addToOrderFeeCents + deviationPrices.customerPriceCents),
-    subcontractorTotalCents: Math.round((result.totals.subcontractorTotal ?? 0) * 100 + deviationPrices.subcontractorPriceCents),
+    totalExVatCents: Math.round(
+      result.totals.totalExVat * 100 + extraWorkFeeCents + addToOrderFeeCents + extraPickupFeeCents + deviationPrices.customerPriceCents,
+    ),
+    subcontractorTotalCents: Math.round(
+      (result.totals.subcontractorTotal ?? 0) * 100 + extraPickupSubcontractorFeeCents + deviationPrices.subcontractorPriceCents,
+    ),
   };
 };
 
@@ -1324,6 +1342,7 @@ const applyWordpressPriceMatchPolicy = (params: {
   meta: Record<string, unknown>;
   productCards: ReturnType<typeof mapWordpressImportToProductCards>["productCards"];
   resolvedServices: ResolvedWordpressService[];
+  importedExtraPickupCount: number;
   catalogProducts: Awaited<ReturnType<typeof getBookingCatalog>>["products"];
   catalogSpecialOptions: Awaited<ReturnType<typeof getBookingCatalog>>["specialOptions"];
 }) => {
@@ -1372,7 +1391,7 @@ const applyWordpressPriceMatchPolicy = (params: {
   const allRows = getBreakdownRowsWithCodes(asString(params.meta.price_breakdown_html));
 
   const globalFallbackRows = allRows.filter(
-    (row) => isKmBreakdownRow(row) || isExtraPickupBreakdownRow(row),
+    (row) => isKmBreakdownRow(row) || (isExtraPickupBreakdownRow(row) && params.importedExtraPickupCount === 0),
   );
 
   if (globalFallbackRows.length === 0) {
@@ -1924,8 +1943,6 @@ export async function POST(req: NextRequest) {
 
     const meta = body.meta && typeof body.meta === "object" && !Array.isArray(body.meta) ? (body.meta as Record<string, unknown>) : {};
     const wordpressAttachments = normalizeWordpressAttachments(body.attachments);
-    console.log("WP ATTACHMENTS RAW", body.attachments);
-    console.log("WP ATTACHMENTS NORMALIZED", wordpressAttachments);
     const importedCreatedAt = parseImportedDateTime(body.createdAt);
     const importedModifiedAt = parseImportedDateTime(body.modifiedAt) ?? importedCreatedAt;
 
@@ -2064,6 +2081,7 @@ export async function POST(req: NextRequest) {
     //   );
     // }
     const protectedFailureFeeCents = getProtectedFailureFeeCents({
+      meta,
       importedFees,
       deviation,
       priceListSettings: catalog.priceListSettings,
@@ -2081,6 +2099,7 @@ export async function POST(req: NextRequest) {
       meta,
       productCards: mappedImport.productCards,
       resolvedServices: mappedImport.resolvedServices,
+      importedExtraPickupCount: extraPickupAddresses.length,
       catalogProducts: catalog.products,
       catalogSpecialOptions: catalog.specialOptions,
     });
@@ -2096,6 +2115,7 @@ export async function POST(req: NextRequest) {
       drivingDistance: undefined,
       adjustments: importedAdjustments,
       importedFees,
+      importedExtraPickupCount: extraPickupAddresses.length,
       deviation,
       priceListSettings: catalog.priceListSettings,
       forcedXtraDeliveryCardIds,
@@ -2113,17 +2133,37 @@ export async function POST(req: NextRequest) {
         drivingDistance: undefined,
         adjustments: importedAdjustments,
         importedFees,
+        importedExtraPickupCount: extraPickupAddresses.length,
         deviation,
         priceListSettings: catalog.priceListSettings,
         forcedXtraDeliveryCardIds,
       });
     }
+    const orderPricingSnapshot = buildOrderPricingSnapshot({
+      productCards: mappedImport.productCards,
+      catalogProducts: catalog.products,
+      catalogSpecialOptions: catalog.specialOptions,
+      priceListSettings: catalog.priceListSettings,
+    });
+
+    const productCardsSnapshot = mappedImport.productCards.map((card) => ({
+      ...card,
+      pricingSnapshot: orderPricingSnapshot,
+    }));
 
     const nativePriceExVatCents = nativePricing.totalExVatCents;
     const nativePriceSubcontractorCents = nativePricing.subcontractorTotalCents;
+    const finalPriceExVat =
+      typeof effectiveWordpressPriceExVatCents === "number"
+        ? Math.round(effectiveWordpressPriceExVatCents / 100)
+        : Math.round(nativePriceExVatCents / 100);
 
     const finalPriceSubcontractorCents =
-      typeof wordpressSubcontractorTotalCents === "number" ? wordpressSubcontractorTotalCents : nativePriceSubcontractorCents;
+      isFailureDiscountStatus(status)
+        ? 0
+        : typeof wordpressSubcontractorTotalCents === "number"
+          ? wordpressSubcontractorTotalCents
+          : nativePriceSubcontractorCents;
 
     const resolvedServiceQueues = buildResolvedServiceQueues(mappedImport.resolvedServices);
     const nativeItems = enrichNativeItemsWithWordpressRawData({
@@ -2163,14 +2203,6 @@ export async function POST(req: NextRequest) {
       ...supplementalItems,
       ...fallbackItems,
     ];
-    console.log("WP PRICE DEBUG", {
-      total_price: meta.total_price,
-      wordpressPriceExVatCents,
-      effectiveWordpressPriceExVatCents,
-      nativePriceExVatCents,
-      wordpressSubcontractorTotalCents,
-      finalPriceSubcontractorCents,
-    });
     const existing = await prisma.order.findUnique({
       where: {
         legacyWordpressOrderId: body.legacyWordpressOrderId,
@@ -2191,6 +2223,7 @@ export async function POST(req: NextRequest) {
               createdByMembershipId: membership.id,
               customerMembershipId: membership.id,
               priceListId,
+              displayId: body.legacyWordpressOrderId,
               legacyWordpressAuthorId: body.legacyWordpressUserId,
               legacyWordpressRawMeta: body.meta ?? Prisma.JsonNull,
               updatedAt: importedModifiedAt,
@@ -2234,12 +2267,9 @@ export async function POST(req: NextRequest) {
               feeExtraWork: importedFees.feeExtraWork,
               extraWorkMinutes: importedFees.extraWorkMinutes,
               feeAddToOrder: importedFees.feeAddToOrder,
-              priceExVat:
-                typeof effectiveWordpressPriceExVatCents === "number"
-                  ? Math.round(effectiveWordpressPriceExVatCents / 100)
-                  : Math.round(nativePriceExVatCents / 100),
+              priceExVat: finalPriceExVat,
               priceSubcontractor: Math.round(finalPriceSubcontractorCents / 100),
-              productCardsSnapshot: mappedImport.productCards.length > 0 ? (mappedImport.productCards as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+              productCardsSnapshot: productCardsSnapshot.length > 0 ? (productCardsSnapshot as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
             },
             select: {
               id: true,
@@ -2263,25 +2293,16 @@ export async function POST(req: NextRequest) {
           await syncWordpressPriceMismatchAlert(tx, {
             orderId: updated.id,
             companyId,
-            wordpressPriceExVatCents: effectiveWordpressPriceExVatCents,
-            nativePriceExVatCents: effectiveWordpressPriceExVatCents ?? nativePriceExVatCents,
+            appPriceExVat: finalPriceExVat,
+            wordpressRawTotal:
+              typeof effectiveWordpressPriceExVatCents === "number"
+                ? effectiveWordpressPriceExVatCents / 100
+                : meta.total_price,
           });
 
           return updated;
         })
       : await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-          const currentCounter = await tx.companyOrderCounter.upsert({
-            where: { companyId },
-            update: {},
-            create: {
-              companyId,
-              nextNumber: 1,
-            },
-            select: {
-              nextNumber: true,
-            },
-          });
-
           const created = await tx.order.create({
             data: {
               companyId,
@@ -2293,7 +2314,7 @@ export async function POST(req: NextRequest) {
               legacyWordpressRawMeta: body.meta ?? Prisma.JsonNull,
               createdAt: importedCreatedAt,
               updatedAt: importedModifiedAt,
-              displayId: currentCounter.nextNumber,
+              displayId: body.legacyWordpressOrderId,
               status,
               deviation,
               description,
@@ -2334,12 +2355,9 @@ export async function POST(req: NextRequest) {
               feeExtraWork: importedFees.feeExtraWork,
               extraWorkMinutes: importedFees.extraWorkMinutes,
               feeAddToOrder: importedFees.feeAddToOrder,
-              priceExVat:
-                typeof effectiveWordpressPriceExVatCents === "number"
-                  ? Math.round(effectiveWordpressPriceExVatCents / 100)
-                  : Math.round(nativePriceExVatCents / 100),
+              priceExVat: finalPriceExVat,
               priceSubcontractor: Math.round(finalPriceSubcontractorCents / 100),
-              productCardsSnapshot: mappedImport.productCards.length > 0 ? (mappedImport.productCards as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+              productCardsSnapshot: productCardsSnapshot.length > 0 ? (productCardsSnapshot as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
               dontSendEmail: true,
             },
             select: {
@@ -2358,15 +2376,11 @@ export async function POST(req: NextRequest) {
           await syncWordpressPriceMismatchAlert(tx, {
             orderId: created.id,
             companyId,
-            wordpressPriceExVatCents: effectiveWordpressPriceExVatCents,
-            nativePriceExVatCents: effectiveWordpressPriceExVatCents ?? nativePriceExVatCents,
-          });
-
-          await tx.companyOrderCounter.update({
-            where: { companyId },
-            data: {
-              nextNumber: { increment: 1 },
-            },
+            appPriceExVat: finalPriceExVat,
+            wordpressRawTotal:
+              typeof effectiveWordpressPriceExVatCents === "number"
+                ? effectiveWordpressPriceExVatCents / 100
+                : meta.total_price,
           });
 
           return created;

@@ -68,13 +68,13 @@ function getOnlineMemberLabel(member: Membership) {
 
 function StatusBreakdownChart({ items }: { items: StatusItem[] }) {
   const sortedItems = items
-    .filter((item) => item.count > 0)
+    .filter((item) => item.count > 0 && item.status !== "invoiced")
     .toSorted((left, right) => right.count - left.count);
   const maxCount = sortedItems.reduce(
     (currentMax, item) => Math.max(currentMax, item.count),
     0,
   );
-  const totalCount = sortedItems.reduce((sum, item) => sum + item.count, 0);
+  const totalCount = items.reduce((sum, item) => sum + item.count, 0);
 
   return (
     <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">

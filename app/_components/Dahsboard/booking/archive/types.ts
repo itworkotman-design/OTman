@@ -90,6 +90,7 @@ export type OrderRow = {
 
 export type OrderCalculatorItem = {
   cardId: number;
+  productCode: string;
   productName: string;
   productModelNumber: string;
   deliveryType: string;

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canCreateOrders } from "@/lib/users/orderAccess";
+import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import {
   optionalBoolean,
   optionalString,
@@ -92,6 +93,7 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   items: {
     select: {
       cardId: true,
+      productCode: true,
       productName: true,
       deliveryType: true,
       itemType: true,
@@ -400,36 +402,6 @@ function compareArchiveOrders(todayDateKey: string) {
   };
 }
 
-async function reserveNextOrderNumber(companyId: string): Promise<number> {
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.companyOrderCounter.findUnique({
-      where: { companyId },
-    });
-
-    if (!existing) {
-      await tx.companyOrderCounter.create({
-        data: {
-          companyId,
-          nextNumber: 20001,
-        },
-      });
-
-      return 20000;
-    }
-
-    const reserved = existing.nextNumber;
-
-    await tx.companyOrderCounter.update({
-      where: { companyId },
-      data: {
-        nextNumber: existing.nextNumber + 1,
-      },
-    });
-
-    return reserved;
-  });
-}
-
 export async function POST(req: Request) {
   const session = await getAuthenticatedSession(req);
 
@@ -658,7 +630,10 @@ export async function POST(req: Request) {
     pricingSource.catalogSpecialOptions,
   );
 
-  const nextDisplayId = await reserveNextOrderNumber(session.activeCompanyId);
+  const nextOrderNumber = await reserveNextManualOrderNumber(session.activeCompanyId);
+
+  const normalizedStatus = optionalString(body.status) || "processing";
+  const submittedPriceSubcontractor = Math.round(safeNumber(body.priceSubcontractor));
 
   const order = await prisma.order.create({
     data: {
@@ -671,8 +646,9 @@ export async function POST(req: Request) {
       customerLabel,
       customerName,
 
-      displayId: nextDisplayId,
-      orderNumber: optionalString(body.orderNumber),
+      legacyWordpressOrderId: null,
+      displayId: nextOrderNumber,
+      orderNumber: String(nextOrderNumber),
 
       description: optionalString(body.description),
       modelNr: optionalString(body.modelNr),
@@ -718,11 +694,11 @@ export async function POST(req: Request) {
         : 0,
       feeAddToOrder: optionalBoolean(body.feeAddToOrder),
       statusNotes: optionalString(body.statusNotes),
-      status: optionalString(body.status) || "processing",
+      status: normalizedStatus,
       dontSendEmail: optionalBoolean(body.dontSendEmail),
 
       priceExVat: Math.round(safeNumber(body.priceExVat)),
-      priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
+      priceSubcontractor: normalizeOrderStatus(normalizedStatus) === "cancelled" ? 0 : submittedPriceSubcontractor,
 
       rabatt: optionalString(body.rabatt),
       leggTil: optionalString(body.leggTil),

@@ -664,6 +664,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     ? null
     : (optionalString(body.rabatt) ?? existingOrder.rabatt);
   const updatedRabatt = shouldClearRabatt ? null : optionalString(body.rabatt);
+  const nextPriceSubcontractor =
+    normalizeOrderStatus(nextStatus) === "cancelled" ? 0 : Math.round(safeNumber(body.priceSubcontractor));
 
   const previousSnapshot = buildOrderEventSnapshot(existingOrder);
   const nextSnapshot = buildOrderEventSnapshot({
@@ -707,7 +709,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     feeAddToOrder: optionalBoolean(body.feeAddToOrder),
     dontSendEmail: optionalBoolean(body.dontSendEmail),
     priceExVat: Math.round(safeNumber(body.priceExVat)),
-    priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
+    priceSubcontractor: nextPriceSubcontractor,
     rabatt: nextRabatt,
     leggTil: optionalString(body.leggTil) ?? existingOrder.leggTil,
     subcontractorMinus: optionalString(body.subcontractorMinus) ?? existingOrder.subcontractorMinus,
@@ -774,7 +776,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         dontSendEmail: optionalBoolean(body.dontSendEmail),
 
         priceExVat: Math.round(safeNumber(body.priceExVat)),
-        priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
+        priceSubcontractor: nextPriceSubcontractor,
 
         rabatt: updatedRabatt,
         leggTil: optionalString(body.leggTil),
@@ -913,7 +915,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   }
 
   const nextPriceExVat = nextSnapshot.priceExVat ?? 0;
-  const nextPriceSubcontractor = nextSnapshot.priceSubcontractor ?? 0;
 
   await createSubcontractorPriceAlert(prisma, {
     orderId,

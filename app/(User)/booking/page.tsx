@@ -181,11 +181,7 @@ export default function BookingPage() {
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}
-          onDownloadVisibleTable={
-            access.viewMode === "ORDER_CREATOR"
-              ? handleDownloadVisibleTable
-              : undefined
-          }
+          onDownloadVisibleTable={access.viewMode === "ORDER_CREATOR" ? handleDownloadVisibleTable : undefined}
           downloadVisibleTableDisabled={loading || orders.length === 0}
           locale={locale}
         />
@@ -223,6 +219,7 @@ export default function BookingPage() {
         open={modalOpen}
         viewMode={access.viewMode}
         order={selectedOrderId ? (orders.find((order) => order.id === selectedOrderId) ?? null) : null}
+        locale={locale}
         onClose={() => {
           setModalOpen(false);
           setSelectedOrderId(null);

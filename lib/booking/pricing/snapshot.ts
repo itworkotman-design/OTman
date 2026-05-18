@@ -301,41 +301,32 @@ export function applyOrderPricingSnapshot(params: {
   catalogProducts: CatalogProduct[];
   catalogSpecialOptions: CatalogSpecialOption[];
   priceListSettings: PriceListSettings;
-  pricingSnapshot: OrderPricingSnapshot | null | undefined;
+  pricingSnapshot: OrderPricingSnapshot | null;
 }) {
-  const { pricingSnapshot } = params;
+  const { catalogProducts, catalogSpecialOptions, priceListSettings, pricingSnapshot } = params;
 
   if (!pricingSnapshot) {
     return {
-      catalogProducts: params.catalogProducts,
-      catalogSpecialOptions: params.catalogSpecialOptions,
-      priceListSettings: params.priceListSettings,
+      catalogProducts,
+      catalogSpecialOptions,
+      priceListSettings,
     };
   }
 
   return {
     catalogProducts: params.catalogProducts.map((product) => ({
       ...product,
-      autoDeliveryPrice: normalizeProductAutoDeliveryPrice(
-        pricingSnapshot.autoDeliveryPrices?.[product.id] ??
-          product.autoDeliveryPrice,
-      ),
+      autoDeliveryPrice: normalizeProductAutoDeliveryPrice(pricingSnapshot.autoDeliveryPrices?.[product.id] ?? product.autoDeliveryPrice),
       deliveryTypes: product.deliveryTypes.map((deliveryType) => {
-        const snapshot =
-          pricingSnapshot.deliveryTypes[
-            deliveryTypeSnapshotKey(product.id, deliveryType.key)
-          ];
+        const snapshot = pricingSnapshot.deliveryTypes[deliveryTypeSnapshotKey(product.id, deliveryType.key)];
 
         return snapshot
           ? {
               ...deliveryType,
               price: snapshot.price,
-              subcontractorPrice:
-                snapshot.subcontractorPrice ?? deliveryType.subcontractorPrice,
+              subcontractorPrice: snapshot.subcontractorPrice ?? deliveryType.subcontractorPrice,
               xtraPrice: snapshot.xtraPrice,
-              xtraSubcontractorPrice:
-                snapshot.xtraSubcontractorPrice ??
-                deliveryType.xtraSubcontractorPrice,
+              xtraSubcontractorPrice: snapshot.xtraSubcontractorPrice ?? deliveryType.xtraSubcontractorPrice,
             }
           : deliveryType;
       }),
@@ -360,8 +351,7 @@ export function applyOrderPricingSnapshot(params: {
             ? {
                 ...option,
                 price: snapshot.price,
-                subcontractorPrice:
-                  snapshot.subcontractorPrice ?? option.subcontractorPrice,
+                subcontractorPrice: snapshot.subcontractorPrice ?? option.subcontractorPrice,
               }
             : option;
         }),
@@ -379,9 +369,7 @@ export function applyOrderPricingSnapshot(params: {
           }
         : option;
     }),
-    priceListSettings: normalizePriceListSettings(
-      pricingSnapshot.priceListSettings,
-    ),
+    priceListSettings: normalizePriceListSettings(pricingSnapshot.priceListSettings),
   };
 }
 

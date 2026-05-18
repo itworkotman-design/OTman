@@ -2,40 +2,11 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import {
   buildOrderEventSnapshot,
   createOrderCreatedEvent,
 } from "@/lib/orders/orderEvents";
-
-async function reserveNextOrderNumber(companyId: string): Promise<number> {
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.companyOrderCounter.findUnique({
-      where: { companyId },
-    });
-
-    if (!existing) {
-      await tx.companyOrderCounter.create({
-        data: {
-          companyId,
-          nextNumber: 20001,
-        },
-      });
-
-      return 20000;
-    }
-
-    const reserved = existing.nextNumber;
-
-    await tx.companyOrderCounter.update({
-      where: { companyId },
-      data: {
-        nextNumber: existing.nextNumber + 1,
-      },
-    });
-
-    return reserved;
-  });
-}
 
 export async function POST(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -129,7 +100,7 @@ export async function POST(req: Request) {
 
   await prisma.$transaction(async (tx) => {
     for (const sourceOrder of sourceOrders) {
-      const reservedDisplayId = await reserveNextOrderNumber(
+      const reservedOrderNumber = await reserveNextManualOrderNumber(
         session.activeCompanyId!,
       );
 
@@ -141,8 +112,9 @@ export async function POST(req: Request) {
           customerMembershipId: sourceOrder.customerMembershipId,
           priceListId: sourceOrder.priceListId,
 
-          displayId: reservedDisplayId,
-          orderNumber: sourceOrder.orderNumber,
+          legacyWordpressOrderId: null,
+          displayId: reservedOrderNumber,
+          orderNumber: String(reservedOrderNumber),
 
           customerLabel: sourceOrder.customerLabel,
           customerName: sourceOrder.customerName,
