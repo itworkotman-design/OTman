@@ -988,7 +988,7 @@ export async function GET(req: Request) {
 
   const page = parsePositiveInt(searchParams.get("page"), 1);
   const rowsPerPage = Math.min(
-    200,
+    1000,
     parsePositiveInt(searchParams.get("rowsPerPage"), 25),
   );
 

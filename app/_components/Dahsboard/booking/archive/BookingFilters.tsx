@@ -32,6 +32,7 @@ type Props = {
   onDownloadSelectedTable?: () => void;
   downloadSelectedTableDisabled?: boolean;
   downloadSelectedTableLabel?: string;
+  displayedOrderCount?: number;
   locale?: BookingUiLocale;
 };
 
@@ -40,6 +41,8 @@ type CalendarDay = {
   dayOfMonth: number;
   inCurrentMonth: boolean;
 };
+
+const MAX_ARCHIVE_ROWS_PER_PAGE = 1000;
 
 const WEEKDAY_LABELS: Record<BookingUiLocale, string[]> = {
   en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -161,6 +164,7 @@ export default function BookingFilters({
   onDownloadSelectedTable,
   downloadSelectedTableDisabled = false,
   downloadSelectedTableLabel,
+  displayedOrderCount,
   locale = "en",
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
@@ -234,6 +238,22 @@ export default function BookingFilters({
     toDate,
   ]);
 
+  useEffect(() => {
+    if (
+      typeof displayedOrderCount !== "number" ||
+      displayedOrderCount <= 0 ||
+      displayedOrderCount === rowsPerPage
+    ) {
+      return;
+    }
+
+    skipAutoApplyRef.current = true;
+    setRowsPerPage(displayedOrderCount);
+  // Only sync after the loaded table count changes. A rowsPerPage dependency
+  // would immediately undo manual edits before the request can run.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayedOrderCount]);
+
   const handleReset = () => {
     skipAutoApplyRef.current = true;
     setStatus(DEFAULT_BOOKING_ARCHIVE_FILTERS.status);
@@ -264,21 +284,25 @@ export default function BookingFilters({
 
   const setToday = () => {
     const range = getTodayRange();
+    setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
     applyRange(range.fromDate, range.toDate);
   };
 
   const setTomorrow = () => {
     const range = getTomorrowRange();
+    setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
     applyRange(range.fromDate, range.toDate);
   };
 
   const setThisWeek = () => {
     const range = getThisWeekRange();
+    setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
     applyRange(range.fromDate, range.toDate);
   };
 
   const setThisMonth = () => {
     const range = getThisMonthRange();
+    setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
     applyRange(range.fromDate, range.toDate);
   };
 
@@ -484,14 +508,14 @@ export default function BookingFilters({
                 type="number"
                 inputMode="numeric"
                 min={10}
-                max={10000}
+                max={MAX_ARCHIVE_ROWS_PER_PAGE}
                 value={Number.isFinite(rowsPerPage) ? rowsPerPage : ""}
                 onChange={(e) => {
                   const raw = e.target.value;
                   if (raw === "") return;
                   const n = Number(raw);
                   if (!Number.isFinite(n)) return;
-                  setRowsPerPage(Math.max(1, Math.min(10000, Math.floor(n))));
+                  setRowsPerPage(Math.max(1, Math.min(MAX_ARCHIVE_ROWS_PER_PAGE, Math.floor(n))));
                 }}
                 onBlur={(e) => {
                   if (e.target.value === "") {

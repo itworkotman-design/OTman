@@ -498,6 +498,7 @@ export default function BookingPage() {
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}
+          displayedOrderCount={!loading && !error ? orders.length : undefined}
           locale={locale}
         />
       </div>

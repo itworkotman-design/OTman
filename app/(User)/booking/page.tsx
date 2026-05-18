@@ -216,6 +216,7 @@ export default function BookingPage() {
           onDownloadSelectedTable={handleDownloadSelectedTable}
           downloadSelectedTableDisabled={loading || selectedOrderIds.length === 0}
           downloadSelectedTableLabel={`Last ned valgte (${selectedOrderIds.length})`}
+          displayedOrderCount={!loading && !error ? orders.length : undefined}
           locale={locale}
         />
       </div>
