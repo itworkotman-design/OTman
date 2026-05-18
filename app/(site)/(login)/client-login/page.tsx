@@ -1,5 +1,5 @@
 import LoginPageContent from "../LoginPageContent";
 
-export default function LoginPage() {
+export default function ClientLoginPage() {
   return <LoginPageContent />;
 }

@@ -230,12 +230,12 @@ export default function UserPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1500]">
+    <div className="min-w-0 max-w-1800">
       <h1 className="mb-20 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
         User management
       </h1>
 
-      <div className="w-full">
+    <div className="mx-auto min-w-0 w-full max-w-1800">
         <UserModal
           key={`${selectedUser?.id ?? "new"}-${modalKey}`}
           isOpen={open}
@@ -387,58 +387,59 @@ export default function UserPage() {
           }}
         />
 
-        <div className="shadow-xs flex pb-2">
-          <div className="whitespace-nowrap">
-            <select
-              className="customInput mr-2 cursor-pointer duration-200 hover:bg-black/3"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="">Role</option>
-              <option value="OWNER">Owner</option>
-              <option value="ADMIN">Admin</option>
-              <option value="USER">User</option>
-            </select>
+        <div className="min-w-0 max-w-500 overflow-x-auto [-webkit-overflow-scrolling:touch]">
+          <div className="min-w-[1350px] w-full">
+            <div className="shadow-xs flex flex-wrap gap-2 pb-2">
+              <div className="whitespace-nowrap">
+                <select
+                  className="customInput mr-2 cursor-pointer duration-200 hover:bg-black/3"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                  <option value="">Role</option>
+                  <option value="OWNER">Owner</option>
+                  <option value="ADMIN">Admin</option>
+                  <option value="USER">User</option>
+                </select>
 
-            <input
-              className="customInput w-60"
-              placeholder="Search email, role, id"
-              type="search"
-              name="membership-search"
-              autoComplete="off"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
+                <input
+                  className="customInput w-60"
+                  placeholder="Search email, role, id"
+                  type="search"
+                  name="membership-search"
+                  autoComplete="off"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
 
-          <div className="ml-auto flex gap-2">
-            <button
-              className="customButtonDefault"
-              onClick={() => {
-                setSelectedUser(null);
-                setModalKey((prev) => prev + 1);
-                setOpen(true);
-              }}
-            >
-              Add User
-            </button>
+              <div className="ml-auto flex gap-2">
+                <button
+                  className="customButtonDefault"
+                  onClick={() => {
+                    setSelectedUser(null);
+                    setModalKey((prev) => prev + 1);
+                    setOpen(true);
+                  }}
+                >
+                  Add User
+                </button>
 
-            <button
-              className="customButtonDefault hidden hover:bg-black/3! lg:block"
-              disabled
-            >
-              Export
-            </button>
-          </div>
-        </div>
+                <button
+                  className="customButtonDefault hidden hover:bg-black/3! lg:block"
+                  disabled
+                >
+                  Export
+                </button>
+              </div>
+            </div>
 
-        {loading ? (
-          <div className="py-6 text-textColorThird">Loading users...</div>
-        ) : error ? (
-          <div className="py-6 text-red-600">{error}</div>
-        ) : (
-          <div className="w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
-            <table className="w-full border-y border-black/10">
+            {loading ? (
+              <div className="py-6 text-textColorThird">Loading users...</div>
+            ) : error ? (
+              <div className="py-6 text-red-600">{error}</div>
+            ) : (
+              <table className="w-full border-y border-black/10">
               <thead>
                 <tr className="border-y border-black/10 bg-black/3 text-left text-textColorSecond">
                   <th className="table-cell whitespace-nowrap border-r border-black/3 px-1 py-3 text-center font-medium">
@@ -580,9 +581,10 @@ export default function UserPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

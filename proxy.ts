@@ -7,17 +7,12 @@ const defaultLocale = "no";
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname === "/client-login" || pathname.startsWith("/client-login/")) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/booking") ||
+    pathname.startsWith("/client-login") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/accept-invite") ||
