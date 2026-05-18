@@ -319,9 +319,11 @@ export default function BookingFilters({
     }
 
     if (selectedDate < fromDate) {
+      setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
       setFromDate(selectedDate);
       setToDate(fromDate);
     } else {
+      setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
       setToDate(selectedDate);
     }
 
@@ -530,7 +532,11 @@ export default function BookingFilters({
                   <button
                     key={n}
                     type="button"
-                    onClick={() => setRowsPerPage(n)}
+                    onClick={() => {
+                      setFromDate("");
+                      setToDate("");
+                      setRowsPerPage(n);
+                    }}
                     className="customButtonDefault mx-auto h-8 px-2 text-xs text-weird-landscape padding-weird-landscape height-weird-landscape"
                   >
                     {n}
