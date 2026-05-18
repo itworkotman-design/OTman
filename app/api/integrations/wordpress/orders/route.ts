@@ -403,6 +403,51 @@ const normalizeImportedTimeWindow = (raw?: string): string | undefined => {
   return `${from}-${to}`;
 };
 
+const normalizeImportedManualTime = (raw?: string): string | undefined => {
+  if (!raw) return undefined;
+
+  const normalized = raw.trim().toLowerCase().replace(/\s+/gu, "");
+  if (!normalized) return undefined;
+
+  const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/u);
+  if (twentyFourHourMatch) {
+    const hour = Number(twentyFourHourMatch[1]);
+    const minute = Number(twentyFourHourMatch[2]);
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return undefined;
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+
+  const meridiemMatch = normalized.match(/^(\d{1,2})(?::(\d{2}))?(am|pm)$/u);
+  if (!meridiemMatch) return undefined;
+
+  let hour = Number(meridiemMatch[1]);
+  const minute = Number(meridiemMatch[2] ?? "0");
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return undefined;
+  const meridiem = meridiemMatch[3];
+  if (meridiem === "am") {
+    hour = hour === 12 ? 0 : hour;
+  } else {
+    hour = hour === 12 ? 12 : hour + 12;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+};
+
+const getImportedManualTimeWindow = (meta: Record<string, unknown>): string | undefined => {
+  const from = normalizeImportedManualTime(getFirstMetaString(meta, ["endre_tid_fra"]));
+  const to = normalizeImportedManualTime(getFirstMetaString(meta, ["endre_tid_til"]));
+
+  if (!from || !to || (from === "00:00" && to === "00:00")) {
+    return undefined;
+  }
+
+  return `${from}-${to}`;
+};
+
+const getImportedTimeWindow = (meta: Record<string, unknown>): string | undefined =>
+  getImportedManualTimeWindow(meta) ??
+  normalizeImportedTimeWindow(getFirstMetaString(meta, ["tidsvindu_for_levering", "delivery_time_window", "time_window"]));
+
 const normalizeImportedLift = (raw?: string): "yes" | "no" | undefined => {
   if (!raw) return undefined;
 
@@ -1965,7 +2010,7 @@ export async function POST(req: NextRequest) {
     const cashierName = getFirstMetaString(meta, ["kasserers_navn", "cashier_name"]);
     const cashierPhone = getFirstMetaString(meta, ["kasserers_telefon_full", "kasserers_telefon", "cashier_phone"]);
     const deliveryDate = normalizeImportedDate(getFirstMetaString(meta, ["leveringsdato", "delivery_date"]));
-    const timeWindow = normalizeImportedTimeWindow(getFirstMetaString(meta, ["tidsvindu_for_levering", "delivery_time_window", "time_window"]));
+    const timeWindow = getImportedTimeWindow(meta);
     const orderNumber = getFirstMetaString(meta, ["bestillingsnr", "order_number"]);
     const status =
       normalizeImportedStatus(getFirstMetaString(meta, ["status", "order_status", "post_status"])) ??

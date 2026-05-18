@@ -494,6 +494,78 @@ describe("POST /api/integrations/wordpress/orders", () => {
     expect(mocks.createOrderNotificationMock).not.toHaveBeenCalled();
   });
 
+  it("uses legacy endre tid values as a custom time-window override", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 9911,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Fakturert",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-9911",
+            kundens_navn: "WordPress Customer",
+            leveringsdato: "20260425",
+            tidsvindu_for_levering: "Kontakt kunde",
+            endre_tid_fra: "12:30",
+            endre_tid_til: "14:45",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        legacyWordpressOrderId: 9911,
+        timeWindow: "12:30-14:45",
+      }),
+      select: expect.any(Object),
+    });
+  });
+
+  it("ignores legacy endre tid midnight placeholders", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/integrations/wordpress/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wp-sync-secret": "sync-secret",
+        },
+        body: JSON.stringify({
+          legacyWordpressOrderId: 9912,
+          legacyWordpressUserId: 15,
+          createdAt: "2026-04-22 06:30:00",
+          status: "Fakturert",
+          title: "Imported order",
+          meta: {
+            bestillingsnr: "PO-9912",
+            kundens_navn: "WordPress Customer",
+            leveringsdato: "20260425",
+            tidsvindu_for_levering: "Kontakt kunde",
+            endre_tid_fra: "12am",
+            endre_tid_til: "12am",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        legacyWordpressOrderId: 9912,
+        timeWindow: "Kontakt kunde",
+      }),
+      select: expect.any(Object),
+    });
+  });
+
   it("imports explicit wordpress attachments onto created orders", async () => {
     const response = await POST(
       new NextRequest("http://localhost/api/integrations/wordpress/orders", {
