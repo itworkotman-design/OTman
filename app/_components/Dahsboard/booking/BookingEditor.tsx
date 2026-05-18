@@ -35,8 +35,8 @@ import {
 } from "@/lib/orders/contactValidation";
 import { getExtraPickupValidation, normalizeExtraPickups } from "@/lib/orders/extraPickups";
 import { createDefaultPriceListSettings, normalizePriceListSettings, type PriceListSettings } from "@/lib/products/priceListSettings";
-import { applyOrderPricingSnapshot, buildOrderPricingSnapshot, getSavedOrderPricingSnapshot, pricingSnapshotsEqual } from "@/lib/booking/pricing/snapshot";
-import { calculateCurrentTotalsWithFrozenExternalLines, frozenOrderTotalsDiffer } from "@/lib/booking/pricing/frozenOrderPricing";
+import { applyOrderPricingSnapshot, buildOrderPricingSnapshot, getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
+import { calculateCurrentTotalsWithFrozenExternalLines } from "@/lib/booking/pricing/frozenOrderPricing";
 import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
 import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
@@ -1019,8 +1019,8 @@ export default function BookingEditor({
   const currentCatalogSubcontractorTotal = currentOrderPricingTotals.subcontractorTotal;
   const hasCurrentPriceUpdates =
     Boolean(initialValues?.id && savedPricingSnapshot) &&
-    (!pricingSnapshotsEqual(savedPricingSnapshot, currentPricingSnapshot) ||
-      frozenOrderTotalsDiffer(storedOrderPricingTotals, currentOrderPricingTotals));
+    roundPriceRule(storedOrderPricingTotals.totalExVat) !==
+      roundPriceRule(currentOrderPricingTotals.totalExVat);
 
   useEffect(() => {
     if (!initialValues?.legacyWordpressOrderId) {
