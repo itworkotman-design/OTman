@@ -64,8 +64,15 @@ function normalizePickupAddress(value?: string | null) {
   return normalized.toLocaleLowerCase() === NO_PICKUP_ADDRESS ? "" : normalized;
 }
 
+function normalizeLiftForDescription(value?: string | null) {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (normalized === "yes") return "Ja";
+  if (normalized === "no") return "Nei";
+  return "Nei";
+}
+
 function formatLiftForDescription(value?: string | null) {
-  return value?.trim().toLowerCase() === "yes" ? "Ja" : "No";
+  return normalizeLiftForDescription(value);
 }
 
 function buildLocationDetails(order: GsmOrderInput) {

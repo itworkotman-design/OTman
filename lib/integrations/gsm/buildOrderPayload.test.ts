@@ -223,7 +223,7 @@ describe("buildOrderPayload", () => {
     expect(payload.tasks_data[0]?.description).toContain("- Indoor carry x2");
     expect(payload.tasks_data[0]?.description).toContain("- Install only x2");
     expect(payload.tasks_data[0]?.description).toContain("Handle with care");
-    expect(payload.tasks_data[0]?.description).toContain("Heis - No");
+    expect(payload.tasks_data[0]?.description).toContain("Heis - Nei");
     expect(payload.tasks_data[0]?.description).not.toContain("Legacy product");
   });
 
@@ -240,6 +240,39 @@ describe("buildOrderPayload", () => {
     expect(payload.tasks_data[0]?.description).toContain("Heis - Ja");
     expect(payload.tasks_data[0]?.description).toContain("Etasje - 4");
   });
+
+  it("sends the no radio value as no lift in the GSM description", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        floorNo: "4",
+        lift: "no",
+      }),
+    );
+
+    expect(payload.tasks_data[0]?.description).toContain("Heis - Nei");
+    expect(payload.tasks_data[0]?.description).toContain("Etasje - 4");
+    expect(payload.tasks_data[0]?.description).not.toContain("Heis - Ja");
+  });
+
+  it.each(["", "No", "nei"])(
+    "defaults non-radio lift value %s to no lift in the GSM description",
+    (lift) => {
+      process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+      const payload = buildOrderPayload(
+        buildOrder({
+          floorNo: "4",
+          lift,
+        }),
+      );
+
+      expect(payload.tasks_data[0]?.description).toContain("Heis - Nei");
+      expect(payload.tasks_data[0]?.description).toContain("Etasje - 4");
+      expect(payload.tasks_data[0]?.description).not.toContain("Heis - Ja");
+    },
+  );
 
   it("keeps innbaering deliveries as drop-off tasks", () => {
     process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";

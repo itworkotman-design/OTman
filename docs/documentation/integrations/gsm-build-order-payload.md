@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Builds the GSM order payload from an OTman order, omits blank or placeholder pickup addresses so the rest of the order can still be sent to GSM, sends pickup addresses as `pick_up` tasks, maps delivery task categories from saved delivery types (`FIRST_STEP` and `INDOOR` as `drop_off`, `RETURNIN`/return-only as `pick_up`, `INSTALL_ONLY` as `assignment`), lets selected install options override the delivery type to `assignment`, sends return addresses as `drop_off` including return-to-recycling addresses, and formats the GSM description from the same grouped product summary used in the archive table plus lift, floor, and Norwegian canonical return-option text. WordPress-imported global `KM pris` rows are omitted from the GSM description.
+Builds the GSM order payload from an OTman order, omits blank or placeholder pickup addresses so the rest of the order can still be sent to GSM, sends pickup addresses as `pick_up` tasks, maps delivery task categories from saved delivery types (`FIRST_STEP` and `INDOOR` as `drop_off`, `RETURNIN`/return-only as `pick_up`, `INSTALL_ONLY` as `assignment`), lets selected install options override the delivery type to `assignment`, sends return addresses as `drop_off` including return-to-recycling addresses, and formats the GSM description from the same grouped product summary used in the archive table plus radio-normalized lift, floor, and Norwegian canonical return-option text. WordPress-imported global `KM pris` rows are omitted from the GSM description.
 
 ## Functions
 
@@ -15,7 +15,8 @@ Builds the GSM order payload from an OTman order, omits blank or placeholder pic
 | `normalizePhone` | Normalizes a phone string to digits with an optional leading `+`. |
 | `normalizePhones` | Deduplicates and normalizes a list of optional phone values. |
 | `normalizePickupAddress` | Converts blank values and the `No shop pickup address` placeholder into an omitted GSM pickup task. |
-| `formatLiftForDescription` | Converts saved lift values into `Ja` or default `No` text for GSM. |
+| `normalizeLiftForDescription` | Maps the saved radio value `yes` to `Ja`, `no` to `Nei`, and defaults blank or non-radio values to `Nei`. |
+| `formatLiftForDescription` | Returns the normalized lift text used in GSM descriptions. |
 | `buildLocationDetails` | Builds the GSM description location lines for lift and floor. |
 | `getRawDataString` | Reads a string field from order item raw data without trusting the raw data shape. |
 | `getItemOptionCode` | Resolves the best option code for a saved order item from `optionCode`, `mappedOptionCode`, or raw `code`. |
