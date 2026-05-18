@@ -14,5 +14,5 @@ Builds styled Excel workbooks for booking archive exports using the same column 
 | --- | --- |
 | `isRightAlignedColumn` | Checks whether an exported column should use right alignment and numeric formatting. |
 | `writeOrdersWorkbook` | Creates the shared styled workbook and saves it with the provided filename. |
-| `exportOrdersToExcel` | Exports only the selected archive rows, used by the admin selection action bar. |
-| `exportVisibleOrdersToExcel` | Exports every currently loaded visible archive row, used by the order-creator table download. |
+| `exportOrdersToExcel` | Exports only the selected archive rows, used by admin bulk actions plus subcontractor and order-creator selected-row downloads. |
+| `exportVisibleOrdersToExcel` | Exports every currently loaded visible archive row for callers that need a non-selected export. |

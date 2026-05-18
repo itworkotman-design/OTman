@@ -29,8 +29,9 @@ type Props = {
   onApply: (filters: BookingArchiveFilters) => void;
   onReset: () => void;
   onRefresh?: () => void;
-  onDownloadVisibleTable?: () => void;
-  downloadVisibleTableDisabled?: boolean;
+  onDownloadSelectedTable?: () => void;
+  downloadSelectedTableDisabled?: boolean;
+  downloadSelectedTableLabel?: string;
   locale?: BookingUiLocale;
 };
 
@@ -157,8 +158,9 @@ export default function BookingFilters({
   creators,
   onApply,
   onReset,
-  onDownloadVisibleTable,
-  downloadVisibleTableDisabled = false,
+  onDownloadSelectedTable,
+  downloadSelectedTableDisabled = false,
+  downloadSelectedTableLabel,
   locale = "en",
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
@@ -526,14 +528,14 @@ export default function BookingFilters({
         </div>
       </div>
       <div className="mt-4 margin-weird-landscape">
-        {onDownloadVisibleTable ? (
+        {onDownloadSelectedTable ? (
           <button
             type="button"
-            onClick={onDownloadVisibleTable}
-            disabled={downloadVisibleTableDisabled}
+            onClick={onDownloadSelectedTable}
+            disabled={downloadSelectedTableDisabled}
             className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
           >
-            Last ned table
+            {downloadSelectedTableLabel ?? "Last ned valgte"}
           </button>
         ) : null}
       </div>

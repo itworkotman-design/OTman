@@ -464,6 +464,10 @@ export default function BookingPage() {
   }
 
   const canBulkSelect = access.viewMode === "ADMIN";
+  const canSelectOrders =
+    access.viewMode === "ADMIN" ||
+    access.viewMode === "SUBCONTRACTOR" ||
+    access.viewMode === "ORDER_CREATOR";
   const selectedOrderIdSet = new Set(selectedOrderIds);
   const selectedPriceExVatTotal = orders.reduce((sum, order) => {
     if (!selectedOrderIdSet.has(order.id)) return sum;
@@ -529,13 +533,24 @@ export default function BookingPage() {
           <div className="my-4 flex items-center justify-between gap-2">
             <div className="my-2 flex flex-col items-start gap-2">
               {access.viewMode !== "ADMIN" ? (
-                <button type="button" className="customButtonDefault" onClick={() => setColumnModalOpen(true)}>
-                  {bookingText(locale, "Hide columns")}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="customButtonDefault" onClick={() => setColumnModalOpen(true)}>
+                    {bookingText(locale, "Hide columns")}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="customButtonDefault disabled:opacity-50! disabled:cursor-auto!"
+                    onClick={handleExportSelected}
+                    disabled={selectedOrderIds.length === 0}
+                  >
+                    Last ned valgte ({selectedOrderIds.length})
+                  </button>
+                </div>
               ) : null}
 
               <div className="text-sm text-textColorThird">
-                {canBulkSelect ? `${selectedOrderIds.length} ${bookingText(locale, "selected")} - ${bookingText(locale, "Price ex. VAT")}: NOK ${selectedPriceExVatLabel}` : ""}
+                {canSelectOrders ? `${selectedOrderIds.length} ${bookingText(locale, "selected")} - ${bookingText(locale, "Price ex. VAT")}: NOK ${selectedPriceExVatLabel}` : ""}
               </div>
             </div>
           </div>
@@ -556,7 +571,7 @@ export default function BookingPage() {
                 setEmailOrder(order);
                 setEmailModalOpen(true);
               }}
-              selectable={canBulkSelect}
+              selectable={canSelectOrders}
               selectedOrderIds={selectedOrderIds}
               onToggleOrder={handleToggleOrder}
               onToggleAllVisible={handleToggleAllVisible}

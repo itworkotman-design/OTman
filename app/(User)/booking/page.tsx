@@ -11,7 +11,7 @@ import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 import { bookingText } from "@/lib/booking/bookingUiText";
 import { useUserLanguage } from "@/lib/users/language";
 import  OrderCreatorContactModal  from "@/app/_components/Dahsboard/booking/orders/OrderCreatorContactModal";
-import { exportVisibleOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
+import { exportOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
 import { getDefaultVisibleBookingArchiveColumns } from "@/lib/booking/archiveColumns";
 
 
@@ -51,6 +51,7 @@ export default function BookingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [contactOrder, setContactOrder] = useState<OrderRow | null>(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
 
   const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>([]);
   const [creators, setCreators] = useState<BookingArchiveOption[]>([]);
@@ -88,10 +89,15 @@ export default function BookingPage() {
         return;
       }
 
-      setOrders(data.orders ?? []);
+      const nextOrders = data.orders ?? [];
+      setOrders(nextOrders);
+      setSelectedOrderIds((prev) =>
+        prev.filter((id) => nextOrders.some((order) => order.id === id)),
+      );
     } catch {
       setError(bookingText(locale, "failed to load orders"));
       setOrders([]);
+      setSelectedOrderIds([]);
     } finally {
       setLoading(false);
     }
@@ -157,9 +163,35 @@ export default function BookingPage() {
     void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
   }
 
-  function handleDownloadVisibleTable() {
-    void exportVisibleOrdersToExcel({
+  function handleToggleOrder(orderId: string) {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId)
+        ? prev.filter((id) => id !== orderId)
+        : [...prev, orderId],
+    );
+  }
+
+  function handleToggleAllVisible() {
+    const visibleIds = orders.map((order) => order.id);
+
+    setSelectedOrderIds((prev) => {
+      const allSelected =
+        visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+
+      if (allSelected) {
+        return prev.filter((id) => !visibleIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...visibleIds]));
+    });
+  }
+
+  function handleDownloadSelectedTable() {
+    if (selectedOrderIds.length === 0) return;
+
+    void exportOrdersToExcel({
       rows: orders,
+      selectedIds: selectedOrderIds,
       viewMode: access.viewMode,
       visibleColumnIds: getDefaultVisibleBookingArchiveColumns(access.viewMode),
     });
@@ -181,8 +213,9 @@ export default function BookingPage() {
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}
-          onDownloadVisibleTable={access.viewMode === "ORDER_CREATOR" ? handleDownloadVisibleTable : undefined}
-          downloadVisibleTableDisabled={loading || orders.length === 0}
+          onDownloadSelectedTable={handleDownloadSelectedTable}
+          downloadSelectedTableDisabled={loading || selectedOrderIds.length === 0}
+          downloadSelectedTableLabel={`Last ned valgte (${selectedOrderIds.length})`}
           locale={locale}
         />
       </div>
@@ -205,10 +238,10 @@ export default function BookingPage() {
                 setContactOrder(order);
                 setContactModalOpen(true);
               }}
-              selectable={false}
-              selectedOrderIds={[]}
-              onToggleOrder={() => {}}
-              onToggleAllVisible={() => {}}
+              selectable
+              selectedOrderIds={selectedOrderIds}
+              onToggleOrder={handleToggleOrder}
+              onToggleAllVisible={handleToggleAllVisible}
               locale={locale}
             />
           )}
