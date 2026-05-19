@@ -189,6 +189,50 @@ describe("POST /api/integrations/email/inbound", () => {
     });
   });
 
+  it("strips Gmail's wrapped quoted reply header from inbound text", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-gmail-quote",
+      companyId: "company-gmail-quote",
+    });
+    mocks.orderEmailMessageCreateMock.mockResolvedValue({
+      id: "email-gmail-quote",
+    });
+    mocks.orderUpdateMock.mockResolvedValue({
+      id: "order-gmail-quote",
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/integrations/email/inbound?secret=secret-123",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Customer Name <customer@example.com>",
+            to: "reply+threadgmailquote@reply.otman.no",
+            subject: "Re: Order 20001",
+            text: [
+              "test",
+              "",
+              "On Tue, 19 May 2026 at 23:49, Ralfs Kolveits <kolveitsstudio@gmail.com>",
+              "wrote:",
+            ].join("\n"),
+            messageId: "<message-id-gmail-quote>",
+          }),
+        },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderEmailMessageCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        bodyText: "test",
+      }),
+    });
+  });
+
   it("extracts the thread token from cc when the canonical mailbox is also a recipient", async () => {
     mocks.orderFindFirstMock.mockResolvedValue({
       id: "order-cc",

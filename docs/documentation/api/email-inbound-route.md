@@ -6,11 +6,11 @@
 
 ## Responsibility
 
-Receives inbound order conversation emails, extracts the OTman thread token from explicit payload fields, subject/body markers, or any To/Cc/recipient reply alias, stores the message as an inbound order email, and marks the order for admin attention. Messages are accepted even when the canonical conversation mailbox is also a recipient.
+Receives inbound order conversation emails, extracts the OTman thread token from explicit payload fields, subject/body markers, or any To/Cc/recipient `reply+<threadToken>@...` alias, strips common quoted reply blocks including Gmail's wrapped `On ... wrote:` header, stores the message as an inbound order email, and marks the order for admin attention. Messages are accepted even when the canonical conversation mailbox is also a recipient.
 
 ## Mailgun Route
 
-- Expression: `match_recipient(".*@reply.otman.no")`
+- Expression: match the domain configured by `EMAIL_REPLY_DOMAIN`, for example `match_recipient(".*@reply.otman.no")`
 - Webhook action: `https://OUR_APP_DOMAIN/api/integrations/email/inbound?secret=EMAIL_INBOUND_SECRET`
 - Optional backup action: forward to `itworkotman@gmail.com`
 

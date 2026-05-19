@@ -23,7 +23,8 @@ type OrderConversationMessageForQuote = {
 };
 
 const THREAD_TOKEN_REGEX = /\[OTMAN:([a-z0-9_-]+)\]/i;
-const REPLY_ADDRESS_TOKEN_REGEX = /reply\+([a-z0-9_-]+)@reply\.otman\.no/i;
+const REPLY_ADDRESS_TOKEN_REGEX = /reply\+([a-z0-9_-]+)@[a-z0-9.-]+/i;
+const DEFAULT_EMAIL_REPLY_DOMAIN = "reply.otman.no";
 
 export function stripThreadTokenMarkers(value: string): string {
   return value
@@ -99,8 +100,15 @@ export function extractThreadTokenFromSubject(subject: string | null | undefined
   return match?.[1]?.toLowerCase() ?? null;
 }
 
+function getEmailReplyDomain() {
+  return (
+    process.env.EMAIL_REPLY_DOMAIN?.trim().toLowerCase().replace(/^@/, "") ||
+    DEFAULT_EMAIL_REPLY_DOMAIN
+  );
+}
+
 export function buildReplyToAddress(threadToken: string): string {
-  return `reply+${threadToken}@reply.otman.no`;
+  return `reply+${threadToken}@${getEmailReplyDomain()}`;
 }
 
 export function extractThreadTokenFromRecipientValue(

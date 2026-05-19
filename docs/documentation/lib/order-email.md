@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Builds and parses order conversation email metadata, including internal thread tokens, reply aliases, subjects, sender addresses, and the HTML/plain-text bodies used by order conversation messages. Customer-visible subject and body output do not include `[OTMAN:<threadToken>]` or repeated order-title text; routing uses `reply+<threadToken>@reply.otman.no` and stored Gmail thread metadata. Conversation signatures use the bilingual logistics department block and the HTML template includes the configured public order email logo URL through `lib/email/emailAssets`.
+Builds and parses order conversation email metadata, including internal thread tokens, reply aliases, subjects, sender addresses, and the HTML/plain-text bodies used by order conversation messages. Customer-visible subject and body output do not include `[OTMAN:<threadToken>]` or repeated order-title text; routing uses `reply+<threadToken>@<EMAIL_REPLY_DOMAIN>` with a `reply.otman.no` fallback and stored Gmail thread metadata. Conversation signatures use the bilingual logistics department block and the HTML template includes the configured public order email logo URL through `lib/email/emailAssets`.
 
 ## Functions
 
@@ -16,7 +16,7 @@ Builds and parses order conversation email metadata, including internal thread t
 | `createOrderEmailThreadToken` | Creates a unique token used to link email replies back to one order. |
 | `buildReplySubject` | Prefixes a subject with `Re:` when needed. |
 | `extractThreadTokenFromSubject` | Reads a legacy thread token from an OTman subject marker. |
-| `buildReplyToAddress` | Builds the `reply+<threadToken>@reply.otman.no` reply alias. |
+| `buildReplyToAddress` | Builds the `reply+<threadToken>@<EMAIL_REPLY_DOMAIN>` reply alias, falling back to `reply.otman.no`. |
 | `extractThreadTokenFromRecipientValue` | Reads a thread token from a reply alias recipient string. |
 | `extractThreadTokenFromRecipients` | Searches strings, arrays, and address objects for the first reply alias token. |
 | `parseEmailAddress` | Normalizes a string or address object into an email/name pair. |

@@ -22,6 +22,7 @@ function getTextValue(value: unknown) {
 
 function stripQuotedReply(value: string) {
   return value
+    .split(/\r?\nOn [\s\S]*?wrote:\s*/i)[0]
     .split(/\r?\nOn .+ wrote:\r?\n/i)[0]
     .split(/\r?\nDen .+ skrev .+:\r?\n/i)[0]
     .split(/\r?\nFra: .+\r?\n/i)[0]

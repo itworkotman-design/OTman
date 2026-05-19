@@ -13,6 +13,7 @@ import {
 describe("orderEmail helpers", () => {
   afterEach(() => {
     delete process.env.ORDER_EMAIL_LOGO_URL;
+    delete process.env.EMAIL_REPLY_DOMAIN;
   });
 
   it("extracts the thread token from subject and recipients", () => {
@@ -31,6 +32,17 @@ describe("orderEmail helpers", () => {
     expect(buildReplyToAddress("thread123")).toBe(
       "reply+thread123@reply.otman.no",
     );
+  });
+
+  it("builds and parses reply addresses with the configured reply domain", () => {
+    process.env.EMAIL_REPLY_DOMAIN = "replies.example.com";
+
+    expect(buildReplyToAddress("thread123")).toBe(
+      "reply+thread123@replies.example.com",
+    );
+    expect(
+      extractThreadTokenFromRecipients("reply+thread123@replies.example.com"),
+    ).toBe("thread123");
   });
 
   it("prefixes reply subjects once", () => {
