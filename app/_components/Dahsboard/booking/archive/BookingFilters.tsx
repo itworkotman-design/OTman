@@ -205,6 +205,16 @@ export default function BookingFilters({
     () => [visibleMonth, addMonths(visibleMonth, 1)],
     [visibleMonth],
   );
+  const showDisplayedCountPlaceholder =
+    rowsPerPage === MAX_ARCHIVE_ROWS_PER_PAGE &&
+    Boolean(fromDate || toDate) &&
+    typeof displayedOrderCount === "number";
+  const rowsPerPageInputValue = showDisplayedCountPlaceholder
+    ? ""
+    : String(rowsPerPage);
+  const rowsPerPagePlaceholder = showDisplayedCountPlaceholder
+    ? `${locale === "nb" ? "Viser" : "Showing"} ${displayedOrderCount}`
+    : t("Type any number");
 
   useEffect(() => {
     if (skipAutoApplyRef.current) {
@@ -237,22 +247,6 @@ export default function BookingFilters({
     subcontractorId,
     toDate,
   ]);
-
-  useEffect(() => {
-    if (
-      typeof displayedOrderCount !== "number" ||
-      displayedOrderCount <= 0 ||
-      displayedOrderCount === rowsPerPage
-    ) {
-      return;
-    }
-
-    skipAutoApplyRef.current = true;
-    setRowsPerPage(displayedOrderCount);
-  // Only sync after the loaded table count changes. A rowsPerPage dependency
-  // would immediately undo manual edits before the request can run.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayedOrderCount]);
 
   const handleReset = () => {
     skipAutoApplyRef.current = true;
@@ -507,11 +501,9 @@ export default function BookingFilters({
           <Field label={t("Orders per page")}>
             <div className="space-y-2">
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
-                min={10}
-                max={MAX_ARCHIVE_ROWS_PER_PAGE}
-                value={Number.isFinite(rowsPerPage) ? rowsPerPage : ""}
+                value={rowsPerPageInputValue}
                 onChange={(e) => {
                   const raw = e.target.value;
                   if (raw === "") return;
@@ -525,7 +517,7 @@ export default function BookingFilters({
                   }
                 }}
                 className="customInput w-full text-weird-landscape padding-weird-landscape"
-                placeholder={t("Type any number")}
+                placeholder={rowsPerPagePlaceholder}
               />
               <div className="flex flex-wrap gap-2 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
                 {[10, 25, 50, 100, 250].map((n) => (

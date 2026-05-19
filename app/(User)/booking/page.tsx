@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
@@ -55,8 +55,17 @@ export default function BookingPage() {
 
   const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>([]);
   const [creators, setCreators] = useState<BookingArchiveOption[]>([]);
+  const orderLoadRequestIdRef = useRef(0);
+  const orderLoadAbortRef = useRef<AbortController | null>(null);
 
-  async function loadOrders(filters: BookingArchiveFilters = appliedFilters) {
+  async function loadOrders(filters: BookingArchiveFilters = appliedFilters): Promise<boolean> {
+    const requestId = orderLoadRequestIdRef.current + 1;
+    orderLoadRequestIdRef.current = requestId;
+    orderLoadAbortRef.current?.abort();
+
+    const abortController = new AbortController();
+    orderLoadAbortRef.current = abortController;
+
     try {
       setLoading(true);
       setError("");
@@ -79,14 +88,22 @@ export default function BookingPage() {
         method: "GET",
         credentials: "include",
         cache: "no-store",
+        signal: abortController.signal,
       });
 
       const data = (await res.json().catch(() => null)) as OrdersResponse | null;
 
+      if (
+        abortController.signal.aborted ||
+        requestId !== orderLoadRequestIdRef.current
+      ) {
+        return false;
+      }
+
       if (!res.ok || !data?.ok) {
         setError(bookingText(locale, data?.reason || "failed to load orders"));
         setOrders([]);
-        return;
+        return false;
       }
 
       const nextOrders = data.orders ?? [];
@@ -94,12 +111,26 @@ export default function BookingPage() {
       setSelectedOrderIds((prev) =>
         prev.filter((id) => nextOrders.some((order) => order.id === id)),
       );
+      return true;
     } catch {
+      if (
+        abortController.signal.aborted ||
+        requestId !== orderLoadRequestIdRef.current
+      ) {
+        return false;
+      }
+
       setError(bookingText(locale, "failed to load orders"));
       setOrders([]);
       setSelectedOrderIds([]);
+      return false;
     } finally {
-      setLoading(false);
+      if (requestId === orderLoadRequestIdRef.current) {
+        setLoading(false);
+        if (orderLoadAbortRef.current === abortController) {
+          orderLoadAbortRef.current = null;
+        }
+      }
     }
   }
 
@@ -149,6 +180,9 @@ export default function BookingPage() {
   useEffect(() => {
     void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
     void loadFilterOptions();
+    return () => {
+      orderLoadAbortRef.current?.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

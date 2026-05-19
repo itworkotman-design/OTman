@@ -178,8 +178,63 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   },
 });
 
+const orderArchiveCandidateSelect = Prisma.validator<Prisma.OrderSelect>()({
+  id: true,
+  displayId: true,
+  deliveryDate: true,
+  timeWindow: true,
+  customerLabel: true,
+  customerName: true,
+  orderNumber: true,
+  phone: true,
+  phoneTwo: true,
+  email: true,
+  pickupAddress: true,
+  extraPickupAddress: true,
+  deliveryAddress: true,
+  returnAddress: true,
+  productsSummary: true,
+  deliveryTypeSummary: true,
+  servicesSummary: true,
+  description: true,
+  cashierName: true,
+  cashierPhone: true,
+  customerComments: true,
+  driverInfo: true,
+  subcontractor: true,
+  driver: true,
+  needsEmailAttention: true,
+  unreadInboundEmailCount: true,
+  needsNotificationAttention: true,
+  unreadNotificationCount: true,
+  createdByMembership: {
+    select: {
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
+    },
+  },
+  customerMembership: {
+    select: {
+      user: {
+        select: {
+          username: true,
+          email: true,
+        },
+      },
+    },
+  },
+});
+
 type OrderArchiveRecord = Prisma.OrderGetPayload<{
   select: typeof orderArchiveSelect;
+}>;
+
+type OrderArchiveCandidate = Prisma.OrderGetPayload<{
+  select: typeof orderArchiveCandidateSelect;
 }>;
 
 function getLatestActionTitle(payload: unknown): string {
@@ -257,7 +312,7 @@ function getMembershipUserLabel(user: {
   return user.email.trim();
 }
 
-function orderMatchesSearch(order: OrderArchiveRecord, search: string) {
+function orderMatchesSearch(order: OrderArchiveCandidate, search: string) {
   const fields: Array<string | number | null | undefined> = [
     order.id,
     order.displayId,
@@ -298,7 +353,13 @@ function getTodayDateKey() {
   return `${year}-${month}-${day}`;
 }
 
-function hasArchiveAlert(order: OrderArchiveRecord) {
+function hasArchiveAlert(order: Pick<
+  OrderArchiveCandidate,
+  | "needsNotificationAttention"
+  | "unreadNotificationCount"
+  | "needsEmailAttention"
+  | "unreadInboundEmailCount"
+>) {
   return Boolean(
     order.needsNotificationAttention ||
     order.unreadNotificationCount > 0 ||
@@ -369,7 +430,7 @@ function compareNullableText(left: string | null, right: string | null) {
 }
 
 function compareArchiveOrders(todayDateKey: string) {
-  return (left: OrderArchiveRecord, right: OrderArchiveRecord) => {
+  return (left: OrderArchiveCandidate, right: OrderArchiveCandidate) => {
     const alertComparison = Number(hasArchiveAlert(right)) - Number(hasArchiveAlert(left));
     if (alertComparison !== 0) {
       return alertComparison;
@@ -1047,7 +1108,7 @@ export async function GET(req: Request) {
   }
 
   const orderFindManyArgs: Prisma.OrderFindManyArgs & {
-    select: typeof orderArchiveSelect;
+    select: typeof orderArchiveCandidateSelect;
   } = {
     where,
     orderBy: [
@@ -1057,7 +1118,7 @@ export async function GET(req: Request) {
       { timeWindow: { sort: "asc", nulls: "last" } },
       { displayId: "desc" },
     ],
-    select: orderArchiveSelect,
+    select: orderArchiveCandidateSelect,
   };
 
   if (trimmedSearch) {
@@ -1069,14 +1130,36 @@ export async function GET(req: Request) {
 
   const orderCandidates = (await prisma.order.findMany(
     orderFindManyArgs,
-  )) as OrderArchiveRecord[];
+  )) as OrderArchiveCandidate[];
 
   const todayDateKey = getTodayDateKey();
   const sortedOrders = orderCandidates.toSorted(compareArchiveOrders(todayDateKey));
   const matchedOrders = normalizedSearch
     ? sortedOrders.filter((order) => orderMatchesSearch(order, normalizedSearch))
     : sortedOrders;
-  const orders = matchedOrders.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+  const pageOrderIds = matchedOrders
+    .slice((page - 1) * rowsPerPage, page * rowsPerPage)
+    .map((order) => order.id);
+
+  const pageOrderPosition = new Map(
+    pageOrderIds.map((orderId, index) => [orderId, index]),
+  );
+
+  const orders =
+    pageOrderIds.length > 0
+      ? ((await prisma.order.findMany({
+          where: {
+            id: {
+              in: pageOrderIds,
+            },
+          },
+          select: orderArchiveSelect,
+        })) as OrderArchiveRecord[]).toSorted(
+          (left, right) =>
+            (pageOrderPosition.get(left.id) ?? 0) -
+            (pageOrderPosition.get(right.id) ?? 0),
+        )
+      : [];
 
   const legacyAuthorIds = Array.from(
     new Set(
