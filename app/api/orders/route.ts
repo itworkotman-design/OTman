@@ -692,6 +692,7 @@ export async function POST(req: Request) {
   );
 
   const nextOrderNumber = await reserveNextManualOrderNumber(session.activeCompanyId);
+  const submittedOrderNumber = optionalString(body.orderNumber);
 
   const normalizedStatus = optionalString(body.status) || "processing";
   const submittedPriceSubcontractor = Math.round(safeNumber(body.priceSubcontractor));
@@ -709,7 +710,7 @@ export async function POST(req: Request) {
 
       legacyWordpressOrderId: null,
       displayId: nextOrderNumber,
-      orderNumber: String(nextOrderNumber),
+      orderNumber: submittedOrderNumber,
 
       description: optionalString(body.description),
       modelNr: optionalString(body.modelNr),

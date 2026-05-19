@@ -699,7 +699,7 @@ describe("routes in /api/orders", () => {
     );
   });
 
-  it("POST assigns manual app orders the next internal order number from 20000", async () => {
+  it("POST assigns manual app orders an internal display id and preserves the submitted company order number", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -733,7 +733,7 @@ describe("routes in /api/orders", () => {
         data: expect.objectContaining({
           legacyWordpressOrderId: null,
           displayId: 20000,
-          orderNumber: "20000",
+          orderNumber: "SHOULD-NOT-BE-USED",
         }),
       }),
     );
