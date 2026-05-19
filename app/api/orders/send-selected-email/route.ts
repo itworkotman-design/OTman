@@ -5,6 +5,7 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
 import { sendEmail } from "@/lib/email/sendEmail";
 import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
+import { getOrderEmailLogoUrl } from "@/lib/email/emailAssets";
 import type { AppPermission } from "@/lib/users/types";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
 
@@ -294,6 +295,7 @@ export async function POST(req: Request) {
       : "kunde";
 
   const greetingName = recipientName;
+  const logoUrl = getOrderEmailLogoUrl();
 
   const htmlBody = `
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;max-width:900px;margin:0 auto;">
@@ -337,7 +339,7 @@ export async function POST(req: Request) {
 
         <div style="margin-top:12px;">
           <img
-            src="https://otman.no/wp-content/uploads/2023/12/logo-removebg.png"
+            src="${escapeHtml(logoUrl)}"
             alt="Otman Transport Logo"
             style="display:block;max-height:48px;width:auto;"
           />

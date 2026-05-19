@@ -91,6 +91,10 @@ describe("POST /api/orders/send-selected-email", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "ADMIN",
+      user: {
+        username: "Admin",
+        email: "admin@example.com",
+      },
       permissions: [{ permission: "BOOKING_CREATE" }],
     });
     mocks.orderFindManyMock.mockResolvedValue([
@@ -146,10 +150,13 @@ describe("POST /api/orders/send-selected-email", () => {
     );
     expect(mocks.sendEmailMock.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        to: { email: "customer@example.com" },
+        to: [{ email: "customer@example.com", name: "Alice" }],
         subject: "Selected orders",
         html: expect.stringContaining("PO-1"),
       }),
+    );
+    expect(mocks.sendEmailMock.mock.calls[0][0].html).toContain(
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/LogoLG.png",
     );
   });
 

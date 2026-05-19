@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
+import { getOrderEmailLogoUrl } from "@/lib/email/emailAssets";
 
 export type EmailAddress = {
   email: string;
@@ -23,7 +24,6 @@ type OrderConversationMessageForQuote = {
 
 const THREAD_TOKEN_REGEX = /\[OTMAN:([a-z0-9_-]+)\]/i;
 const REPLY_ADDRESS_TOKEN_REGEX = /reply\+([a-z0-9_-]+)@reply\.otman\.no/i;
-const OTMAN_LOGO_URL = "https://otman.no/wp-content/uploads/2023/12/logo-removebg.png";
 
 export function stripThreadTokenMarkers(value: string): string {
   return value
@@ -318,6 +318,7 @@ export function buildOrderConversationEmailHtml(input: {
       </div>
     `
     : "";
+  const logoUrl = getOrderEmailLogoUrl();
 
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
@@ -330,14 +331,14 @@ export function buildOrderConversationEmailHtml(input: {
         +47 402 84 977<br/>
         Otman Transport AS | <a href="https://otman.no" style="color:#111827;text-decoration:underline;">otman.no</a>
       </p>
-      <p style="margin:16px 0 0 0;">
+
+      <div style="margin-top:12px;">
         <img
-          src="${OTMAN_LOGO_URL}"
-          alt="Otman Transport AS"
-          width="140"
-          style="display:block;width:140px;max-width:140px;height:auto;border:0;"
+          src="${escapeHtml(logoUrl)}"
+          alt="Otman Transport Logo"
+          style="display:block;max-height:48px;width:auto;"
         />
-      </p>
+      </div>
     </div>
   `;
 }

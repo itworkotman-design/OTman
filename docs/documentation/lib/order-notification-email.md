@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Builds and sends order notification emails, using the configured Gmail send-as address in visible contact text.
+Builds and sends order notification emails, using the configured Gmail send-as address in visible contact text and the configured public order email logo URL for the footer image.
 
 ## Functions
 

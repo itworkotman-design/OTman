@@ -1,5 +1,6 @@
 import { sendEmail } from "@/lib/email/sendEmail";
 import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
+import { getOrderEmailLogoUrl } from "@/lib/email/emailAssets";
 import type { BuiltOrderItem } from "@/lib/orders/buildOrderItemsFromCards";
 
 export const ORDER_NOTIFICATION_EMAIL =
@@ -253,6 +254,8 @@ function renderSimpleLines(lines: Array<[string, string]>) {
 }
 
 function buildSimpleEmailShell(content: string) {
+  const logoUrl = getOrderEmailLogoUrl();
+
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;text-align:left;">
       ${content}
@@ -264,7 +267,7 @@ function buildSimpleEmailShell(content: string) {
 
       <div style="margin-top:12px;">
         <img
-          src="https://otman.no/wp-content/uploads/2023/12/logo-removebg.png"
+          src="${escapeHtml(logoUrl)}"
           alt="Otman Transport Logo"
           style="display:block;max-height:48px;width:auto;"
         />

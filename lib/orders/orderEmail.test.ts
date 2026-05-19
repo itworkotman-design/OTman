@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   buildOrderConversationEmailHtml,
   buildOrderConversationEmailText,
@@ -11,6 +11,10 @@ import {
 } from "./orderEmail";
 
 describe("orderEmail helpers", () => {
+  afterEach(() => {
+    delete process.env.ORDER_EMAIL_LOGO_URL;
+  });
+
   it("extracts the thread token from subject and recipients", () => {
     expect(extractThreadTokenFromSubject("Re: Test [OTMAN:abc123]")).toBe(
       "abc123",
@@ -169,8 +173,24 @@ describe("orderEmail helpers", () => {
       threadToken: "testtoken",
     });
 
-    expect(html).toContain("https://otman.no/wp-content/uploads/2023/12/logo-removebg.png");
-    expect(html).toContain('alt="Otman Transport AS"');
+    expect(html).toContain(
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/LogoLG.png",
+    );
+    expect(html).toContain('alt="Otman Transport Logo"');
+    expect(html).toContain("display:block;max-height:48px;width:auto;");
+  });
+
+  it("uses the configured public email logo URL", () => {
+    process.env.ORDER_EMAIL_LOGO_URL =
+      "https://s3.example.test/email-assets/logo.png";
+
+    const html = buildOrderConversationEmailHtml({
+      messageText: "Admin message",
+      orderLabel: "Order 21236 | TEST",
+      threadToken: "testtoken",
+    });
+
+    expect(html).toContain("https://s3.example.test/email-assets/logo.png");
   });
 
   it("uses the bilingual logistics signature", () => {
