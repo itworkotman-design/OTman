@@ -41,7 +41,7 @@ export default function About({content, locale}:PageTypes) {
                 <p className="text-xl">{content.historyText[locale]}</p>
             </div>
         </section>
-        <section>
+        {/* <section>
             <div className="mx-auto px-6 my-20">
                 <h1 className="text-center text-4xl font-semibold text-logoblue mb-8">
                     {content.teamTitle[locale]}
@@ -59,7 +59,7 @@ export default function About({content, locale}:PageTypes) {
                     ))}
                 </div>
             </div>
-        </section>
+        </section> */}
         <PartnersDisplay content={partnersContent} locale="no" />
     </div>
 )

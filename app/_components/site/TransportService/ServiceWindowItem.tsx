@@ -15,7 +15,7 @@ export function ServiceWindowItem({
 }: ServiceWindowItemProps) {
   return (
     <button
-      onClick={onClick}
+      //onClick={onClick}
       className="flex h-[250] w-[240] flex-col rounded-[28px] border border-white/70 bg-white p-5 shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-xl active:scale-[0.98] cursor-pointer"
     >
       <div className="flex-1 flex items-center justify-center">

@@ -32,7 +32,7 @@ export const footerContent = {
     },
     {
       id: "about",
-      href: "/about",
+      href: "/om-oss",
       label: {
         en: "About",
         no: "Om oss",
@@ -40,7 +40,7 @@ export const footerContent = {
     },
     {
       id: "contact",
-      href: "/contact",
+      href: "/kontakt",
       label: {
         en: "Contact",
         no: "Kontakt",
