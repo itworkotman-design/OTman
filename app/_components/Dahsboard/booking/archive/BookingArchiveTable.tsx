@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type {
   BookingArchiveViewMode,
   OrderRow,
@@ -35,6 +36,8 @@ type BookingArchiveTableProps = {
 };
 
 const SELECT_COLUMN_WIDTH = 48;
+const ARCHIVE_SCROLLBAR_CLASS =
+  "[scrollbar-color:var(--logoblue)_#e5e7eb20] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-logoblue";
 
 const COLUMN_WIDTHS: Record<BookingArchiveColumnId, number> = {
   displayId: 90,
@@ -218,6 +221,8 @@ export default function BookingArchiveTable({
   visibleColumnIds,
   locale = "en",
 }: BookingArchiveTableProps) {
+  const topScrollRef = useRef<HTMLDivElement | null>(null);
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const t = (text: string) => bookingText(locale, text);
   const resolvedVisibleColumnIds =
     visibleColumnIds && visibleColumnIds.length > 0
@@ -240,9 +245,38 @@ export default function BookingArchiveTable({
     orders.length > 0 &&
     orders.every((order) => selectedOrderIds.includes(order.id));
 
+  function syncTopScroll(event: React.UIEvent<HTMLDivElement>) {
+    if (tableScrollRef.current) {
+      tableScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+    }
+  }
+
+  function syncTableScroll(event: React.UIEvent<HTMLDivElement>) {
+    if (topScrollRef.current) {
+      topScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+    }
+  }
+
   return (
-    <div className="mb-10 max-h-[1000] min-w-0 w-full overflow-x-auto overflow-y-auto [-webkit-overflow-scrolling:touch]">
-      <table className="table-fixed border-y border-black/10 text-sm" style={{ width: `${tableWidth}px`, minWidth: `${tableWidth}px` }}>
+    <div className="mb-10 min-w-0 w-full">
+      <div
+        ref={topScrollRef}
+        className={`h-4 min-w-0 w-full overflow-x-auto overflow-y-hidden [-webkit-overflow-scrolling:touch] ${ARCHIVE_SCROLLBAR_CLASS}`}
+        onScroll={syncTopScroll}
+        aria-hidden="true"
+      >
+        <div
+          className="h-px"
+          style={{ width: `${tableWidth}px`, minWidth: `${tableWidth}px` }}
+        />
+      </div>
+
+      <div
+        ref={tableScrollRef}
+        className={`max-h-[1000] min-w-0 w-full overflow-x-auto overflow-y-auto [-webkit-overflow-scrolling:touch] ${ARCHIVE_SCROLLBAR_CLASS}`}
+        onScroll={syncTableScroll}
+      >
+        <table className="table-fixed border-y border-black/10 text-sm" style={{ width: `${tableWidth}px`, minWidth: `${tableWidth}px` }}>
         <colgroup>
           {selectable ? <col style={{ width: `${SELECT_COLUMN_WIDTH}px` }} /> : null}
           {visibleColumns.map((column) => (
@@ -800,8 +834,8 @@ export default function BookingArchiveTable({
         </tbody>
       </table>
 
-      {orders.length === 0 && <div className="py-8 text-center text-textColorThird padding-weird-landscape text-weird-landscape">{t("No orders found")}</div>}
+        {orders.length === 0 && <div className="py-8 text-center text-textColorThird padding-weird-landscape text-weird-landscape">{t("No orders found")}</div>}
+      </div>
     </div>
   );
 }
-
