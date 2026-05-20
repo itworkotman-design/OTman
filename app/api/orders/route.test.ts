@@ -658,6 +658,80 @@ describe("routes in /api/orders", () => {
     });
   });
 
+  it("POST lets owners and admins create an order without an order number", async () => {
+    for (const role of ["OWNER", "ADMIN"] as const) {
+      vi.clearAllMocks();
+      mocks.canCreateOrdersMock.mockReturnValue(true);
+      mocks.buildOrderSummariesMock.mockReturnValue({
+        productsSummary: "Product summary",
+        deliveryTypeSummary: "Delivery summary",
+        servicesSummary: "Service summary",
+      });
+      mocks.buildOrderEventSnapshotMock.mockReturnValue({
+        status: "processing",
+        statusNotes: "",
+      });
+      mocks.createOrderCreatedEventMock.mockResolvedValue(undefined);
+      mocks.reserveNextManualOrderNumberMock.mockResolvedValue(20000);
+      mocks.createOrderNotificationMock.mockResolvedValue({
+        id: "notification-1",
+        createdAt: new Date("2030-01-01T00:00:00.000Z"),
+      });
+      mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
+      mocks.getBookingCatalogMock.mockResolvedValue({
+        products: [],
+        specialOptions: [],
+      });
+      mocks.membershipFindManyMock.mockResolvedValue([]);
+      mocks.priceListFindFirstMock.mockResolvedValue({
+        id: "selected-price-list",
+      });
+      mocks.orderNotificationFindFirstMock.mockResolvedValue(null);
+      mocks.orderNotificationFindManyMock.mockResolvedValue([]);
+      mocks.pendingFindManyMock.mockResolvedValue([]);
+      mocks.pendingDeleteManyMock.mockResolvedValue({ count: 0 });
+      mocks.orderCreateMock.mockResolvedValue({
+        id: "order-1",
+        companyId: "company-1",
+        displayId: 20000,
+        orderNumber: null,
+        createdAt: new Date("2030-01-01T00:00:00.000Z"),
+      });
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+        userId: `${role.toLowerCase()}-1`,
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+        id: `${role.toLowerCase()}-membership`,
+        role,
+      priceListId: "price-list-1",
+      user: {
+          username: role.toLowerCase(),
+          email: `${role.toLowerCase()}@example.com`,
+      },
+      permissions: [],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          orderNumber: null,
+        }),
+      }),
+    );
+    }
+  });
+
   it("POST removes spaces from phone values before saving", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

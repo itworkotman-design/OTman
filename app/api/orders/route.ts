@@ -600,7 +600,11 @@ export async function POST(req: Request) {
   const extraPickups = normalizeExtraPickups(parsedExtraPickups);
   const submittedOrderNumber = optionalString(body.orderNumber);
 
-  if (!submittedOrderNumber) {
+  if (
+    !submittedOrderNumber &&
+    membership.role !== "OWNER" &&
+    membership.role !== "ADMIN"
+  ) {
     return NextResponse.json(
       {
         ok: false,

@@ -22,6 +22,7 @@ export function PickupLocations({
   pickups,
   onPickupsChange,
   locale = "en",
+  required = true,
 }: {
   disabled?: boolean;
   overrideValue?: string;
@@ -31,6 +32,7 @@ export function PickupLocations({
   pickups: Pickup[];
   onPickupsChange: (pickups: Pickup[]) => void;
   locale?: BookingUiLocale;
+  required?: boolean;
 }) {
   const t = (text: string) => bookingText(locale, text);
   const additionalDisabled = useMemo(
@@ -70,7 +72,8 @@ export function PickupLocations({
     <div className="w-full py-2">
       <div>
         <label className="font-bold">
-          {t("Pickup address")}<span className="text-red-600">*</span>
+          {t("Pickup address")}
+          {required ? <span className="text-red-600">*</span> : null}
         </label>
         <AddressAutocompleteInput
           inputId="order-pickup-address"
@@ -110,7 +113,7 @@ export function PickupLocations({
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <span className="text-md pl-1 font-semibold">
                       {t("Pickup")} {idx + 1}
-                      <span className="text-red-600">*</span>
+                      {required ? <span className="text-red-600">*</span> : null}
                     </span>
 
                     <button

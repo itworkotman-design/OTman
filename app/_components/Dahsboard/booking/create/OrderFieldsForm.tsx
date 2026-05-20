@@ -64,6 +64,7 @@ type Props = {
   isReturnOnly: boolean;
   shouldLockPickupAddress: boolean;
   hideSubmitButton: boolean;
+  allowIncompleteRequiredFields: boolean;
   subcontractorLoading: boolean;
   subcontractorOptions: UserOption[];
   changeCustomerLoading: boolean;
@@ -201,6 +202,7 @@ export default function OrderFieldsForm({
   allowPastDeliveryDates,
   shouldLockPickupAddress,
   hideSubmitButton,
+  allowIncompleteRequiredFields,
   subcontractorLoading,
   subcontractorOptions,
   changeCustomerLoading,
@@ -339,9 +341,15 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">
             {t("Order number")}
-            <span className="text-red-600">*</span>
+            {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
           </h1>
-          <input id="order-number" value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} className="customInput w-full" required />
+          <input
+            id="order-number"
+            value={orderNumber}
+            onChange={(e) => setOrderNumber(e.target.value)}
+            className="customInput w-full"
+            required={!allowIncompleteRequiredFields}
+          />
           <FieldErrorMessage message={orderNumberError} />
         </>
       )}
@@ -357,7 +365,7 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">
             {t("Delivery date")}
-            <span className="text-red-600">*</span>
+            {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
           </h1>
           <input
             id="order-delivery-date"
@@ -376,7 +384,7 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">
             {t("Delivery Time window")}
-            <span className="text-red-600">*</span>
+            {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
           </h1>
           <select
             id="order-time-window"
@@ -524,6 +532,7 @@ export default function OrderFieldsForm({
           pickups={extraPickups}
           onPickupsChange={setExtraPickups}
           locale={locale}
+          required={!allowIncompleteRequiredFields}
         />
       )}
 
@@ -531,7 +540,7 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">
             {t("Delivery address")}
-            <span className="text-red-600">*</span>
+            {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
           </h1>
           <AddressAutocompleteInput
             inputId="order-delivery-address"
@@ -576,7 +585,7 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">
             {t("Customer's phone")}
-            <span className="text-red-600">*</span>
+            {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
           </h1>
           <input id="order-customer-phone" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="customInput w-full" />
           <FieldErrorMessage message={phoneError} />

@@ -498,6 +498,7 @@ export default function BookingEditor({
   const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>([]);
   const { effectiveHidden, effectiveHideDontSendEmail } = getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
   const allowPastDeliveryDates = role === "OWNER" || role === "ADMIN";
+  const allowIncompleteRequiredFields = role === "OWNER" || role === "ADMIN";
   const showAdminCalculatorAdjustments = !!initialValues?.id && (role === "OWNER" || role === "ADMIN");
   const canSelectPriceList = !initialValues?.id && dataset === "default" && (role === "OWNER" || role === "ADMIN");
 
@@ -1257,13 +1258,13 @@ export default function BookingEditor({
   const normalizedLift = normalizedFloorNo ? lift : "";
   const shouldSuppressEmailForCustomTimeWindow = timeWindow === "custom" && contactCustomerForCustomTimeWindow;
   const normalizedCustomTimeContactNote = timeWindow === "custom" && contactCustomerForCustomTimeWindow ? customTimeContactNote.trim() : "";
-  const requiresDeliveryDate = shown(effectiveHidden, OrderFields.DeliveryDate);
-  const requiresOrderNumber = shown(effectiveHidden, OrderFields.OrderNumber);
-  const requiresTimeWindow = shown(effectiveHidden, OrderFields.DeliveryTimeWindow);
-  const requiresPickupAddress = shown(effectiveHidden, OrderFields.PickupLocations);
-  const requiresReturnAddress = shown(effectiveHidden, OrderFields.DeliveryAddress) && shouldShowReturnAddress;
-  const requiresDeliveryAddress = shown(effectiveHidden, OrderFields.DeliveryAddress);
-  const requiresCustomerPhone = shown(effectiveHidden, OrderFields.CustomerPhone1);
+  const requiresDeliveryDate = !allowIncompleteRequiredFields && shown(effectiveHidden, OrderFields.DeliveryDate);
+  const requiresOrderNumber = !allowIncompleteRequiredFields && shown(effectiveHidden, OrderFields.OrderNumber);
+  const requiresTimeWindow = !allowIncompleteRequiredFields && shown(effectiveHidden, OrderFields.DeliveryTimeWindow);
+  const requiresPickupAddress = !allowIncompleteRequiredFields && shown(effectiveHidden, OrderFields.PickupLocations);
+  const requiresReturnAddress = !allowIncompleteRequiredFields && shown(effectiveHidden, OrderFields.DeliveryAddress) && shouldShowReturnAddress;
+  const requiresDeliveryAddress = !allowIncompleteRequiredFields && shown(effectiveHidden, OrderFields.DeliveryAddress);
+  const requiresCustomerPhone = !allowIncompleteRequiredFields && shown(effectiveHidden, OrderFields.CustomerPhone1);
   const emailError = getOptionalEmailError(email);
   const phoneError = getOptionalPhoneError(phone);
   const phoneTwoError = getOptionalPhoneError(phoneTwo);
@@ -1887,6 +1888,7 @@ export default function BookingEditor({
             isReturnOnly={isReturnOnly}
             shouldLockPickupAddress={shouldLockPickupAddress}
             hideSubmitButton={hideSubmitButton}
+            allowIncompleteRequiredFields={allowIncompleteRequiredFields}
             subcontractorLoading={subcontractorLoading}
             subcontractorOptions={subcontractorOptions}
             changeCustomerLoading={changeCustomerLoading}

@@ -23,6 +23,8 @@ function isCancelledState(state?: string | null) {
   return value === "cancelled" || value === "canceled";
 }
 
+const NON_CANCELLING_EVENTS = new Set(["unassign", "assign", "reject"]);
+
 function mapStatus(state?: string | null) {
   const value = normalizeGsmState(state);
 
@@ -40,6 +42,8 @@ function mapStatus(state?: string | null) {
   return null;
 }
 
+
+
 type GsmTaskRecord = Record<string, unknown>;
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -55,6 +59,10 @@ function getTrimmedString(value: unknown): string | null {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function getEventAction(body: Record<string, unknown>): string | null {
+  return getTrimmedString(body.event) ?? getTrimmedString(body.action);
 }
 
 function getFirstNonEmptyString(...values: unknown[]): string | null {
@@ -149,6 +157,9 @@ export async function POST(req: Request) {
             ? body.state
             : null;
 
+    const eventAction = getEventAction(body);
+    const eventActionBlocksCancellation = eventAction !== null && NON_CANCELLING_EVENTS.has(eventAction);
+
     let fullTask: GsmTaskRecord | null = rawTask;
     let freshTask: GsmTaskRecord | null = null;
     let freshTaskState: string | null = null;
@@ -218,17 +229,19 @@ export async function POST(req: Request) {
       | "transient_cancelled_ignored"
       | "unverified_cancelled_ignored" = "not_cancelled_webhook";
 
-    if (isCancelledState(state)) {
+    if (isCancelledState(state) && !eventActionBlocksCancellation) {
       if (freshTaskState) {
         taskStateForStorage = freshTaskState;
         statusDecisionState = freshTaskState;
-        cancellationDecision = isCancelledState(freshTaskState)
-          ? "verified_cancelled"
-          : "transient_cancelled_ignored";
+        cancellationDecision = isCancelledState(freshTaskState) ? "verified_cancelled" : "transient_cancelled_ignored";
       } else {
         statusDecisionState = null;
         cancellationDecision = "unverified_cancelled_ignored";
       }
+    } else if (isCancelledState(state) && eventActionBlocksCancellation) {
+      statusDecisionState = null;
+      taskStateForStorage = freshTaskState ?? state;
+      cancellationDecision = "transient_cancelled_ignored";
     }
 
     if (gsmTaskId) {
@@ -339,11 +352,10 @@ export async function POST(req: Request) {
         gsmOrderId: orderBeforeUpdate.gsmOrderId,
         webhookState: state,
         freshGsmState: freshTaskState,
+        eventAction,
+        eventActionBlocksCancellation,
         finalDecision: cancellationDecision,
-        decisionText:
-          cancellationDecision === "verified_cancelled"
-            ? "verified GSM cancellation applied"
-            : "ignored unverified GSM cancellation",
+        decisionText: cancellationDecision === "verified_cancelled" ? "verified GSM cancellation applied" : "ignored unverified GSM cancellation",
         finalStatus: nextStatus,
       });
     }
