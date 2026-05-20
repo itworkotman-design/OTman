@@ -9,6 +9,7 @@ import {
   getBookingArchiveColumns,
   getDefaultVisibleBookingArchiveColumns,
   getEffectiveArchiveCustomerTotal,
+  getEffectiveArchiveSubcontractorTotal,
   sanitizeVisibleBookingArchiveColumns,
   type BookingArchiveColumnId,
 } from "@/lib/booking/archiveColumns";
@@ -684,7 +685,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("priceSubcontractor") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatMoney(order.priceSubcontractor)}</Cell>
+                      <Cell>{formatMoney(getEffectiveArchiveSubcontractorTotal(order))}</Cell>
                     </td>
                   ) : null}
                 </>
@@ -779,7 +780,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("priceSubcontractor") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatMoney(order.priceSubcontractor)}</Cell>
+                      <Cell>{formatMoney(getEffectiveArchiveSubcontractorTotal(order))}</Cell>
                     </td>
                   ) : null}
                 </>

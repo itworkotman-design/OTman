@@ -434,6 +434,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       ...buildOrderBeforeUpdate(),
       status: "cancelled",
       rabatt: "500",
+      subcontractorMinus: "300",
     });
     mocks.fetchGsmTaskMock.mockResolvedValue({
       id: "task-1",
@@ -445,6 +446,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([
       { field: "status" },
       { field: "rabatt" },
+      { field: "subcontractorMinus" },
     ]);
 
     const response = await POST(
@@ -473,12 +475,14 @@ describe("POST /api/integrations/gsm/webhook", () => {
         gsmLastTaskState: "assigned",
         status: "active",
         rabatt: null,
+        subcontractorMinus: null,
       }),
     });
     expect(mocks.buildOrderEventSnapshotMock).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "active",
         rabatt: null,
+        subcontractorMinus: null,
       }),
     );
   });

@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Defines the column sets, export metadata, and visibility helpers used by the booking archive across each dashboard role view. The admin view now labels the assigned-store column as `Store`, keeps that store column ahead of `Customer name`, uses the order `customerName` field for the admin customer column, order-creator archives include the non-exported `Alerts` column, subcontractor archives show `priceSubcontractor` instead of `priceExVat`, customer price columns export the effective total from `priceExVat - rabatt + leggTil`, and cancelled rows without a stored discount derive the same automatic cancelled total from protected fee lines that the editor shows. Exported price columns return numeric values without `NOK`, visibility sanitizing migrates older saved admin layouts from `customerName` to `createdBy`, and exported archive dates now use explicit slash-formatted dates.
+Defines the column sets, export metadata, and visibility helpers used by the booking archive across each dashboard role view. The admin view now labels the assigned-store column as `Store`, keeps that store column ahead of `Customer name`, uses the order `customerName` field for the admin customer column, order-creator archives include the non-exported `Alerts` column, subcontractor archives show `priceSubcontractor` instead of `priceExVat`, customer price columns export the effective total from `priceExVat - rabatt + leggTil`, subcontractor price columns export the effective total from `priceSubcontractor - subcontractorMinus + subcontractorPlus`, and cancelled rows never display below the protected-fee cancelled total even when older stored base prices are already zeroed. Exported price columns return numeric values without `NOK`, visibility sanitizing migrates older saved admin layouts from `customerName` to `createdBy`, and exported archive dates now use explicit slash-formatted dates.
 
 ## Functions
 
@@ -14,7 +14,8 @@ Defines the column sets, export metadata, and visibility helpers used by the boo
 | --- | --- |
 | `formatCell` | Normalizes empty export values into `-`. |
 | `formatMoney` | Returns archive numeric totals as Excel-friendly numbers, or blank values when missing. |
-| `getEffectiveArchiveCustomerTotal` | Calculates the customer-facing archive total from stored price, discount, and add-on fields, or from protected fee lines for cancelled rows without a stored discount. |
+| `getEffectiveArchiveCustomerTotal` | Calculates the customer-facing archive total from stored price, discount, and add-on fields, with cancelled rows clamped to at least the protected fee total. |
+| `getEffectiveArchiveSubcontractorTotal` | Calculates the subcontractor archive total from stored subcontractor price, minus, and plus fields, with cancelled rows clamped to at least the protected fee total. |
 | `getBookingArchiveColumns` | Returns the configured column list for a given archive view mode. |
 | `getDefaultVisibleBookingArchiveColumns` | Returns the default visible-column order for a given view mode. |
 | `sanitizeVisibleBookingArchiveColumns` | Filters persisted column ids down to the valid ids for the current view mode and migrates older admin `customerName` visibility to `createdBy`. |

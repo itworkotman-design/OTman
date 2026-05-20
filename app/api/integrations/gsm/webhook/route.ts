@@ -386,6 +386,9 @@ export async function POST(req: Request) {
       nextStatus,
     );
     const nextRabatt = shouldClearRabatt ? null : orderBeforeUpdate.rabatt;
+    const nextSubcontractorMinus = shouldClearRabatt
+      ? null
+      : orderBeforeUpdate.subcontractorMinus;
 
     await prisma.order.update({
       where: { id: orderId },
@@ -398,6 +401,7 @@ export async function POST(req: Request) {
         gsmLastWebhookAt: new Date(),
         status: nextStatus ?? undefined,
         rabatt: shouldClearRabatt ? nextRabatt : undefined,
+        subcontractorMinus: shouldClearRabatt ? nextSubcontractorMinus : undefined,
       },
     });
 
@@ -411,6 +415,7 @@ export async function POST(req: Request) {
       gsmLastTaskState: taskStateForStorage ?? orderBeforeUpdate.gsmLastTaskState,
       status: nextStatus,
       rabatt: nextRabatt,
+      subcontractorMinus: nextSubcontractorMinus,
     });
     const changes = diffOrderEventSnapshots(previousSnapshot, nextSnapshot);
 

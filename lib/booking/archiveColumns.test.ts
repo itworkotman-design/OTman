@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
 import {
   getEffectiveArchiveCustomerTotal,
+  getEffectiveArchiveSubcontractorTotal,
   getBookingArchiveColumns,
   sanitizeVisibleBookingArchiveColumns,
 } from "@/lib/booking/archiveColumns";
@@ -201,5 +202,83 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
         },
       ],
     }))).toBe(590);
+  });
+
+  it("does not show negative customer totals for cancelled rows with zeroed stored price and a discount", () => {
+    expect(getEffectiveArchiveCustomerTotal(buildOrderRow({
+      status: "cancelled",
+      priceExVat: 0,
+      rabatt: "919",
+      leggTil: "",
+    }))).toBe(0);
+  });
+
+  it("calculates effective subcontractor total from minus and plus adjustments", () => {
+    const row = buildOrderRow({
+      priceSubcontractor: 567,
+      subcontractorMinus: "500",
+      subcontractorPlus: "25,50",
+    });
+    const adminPriceSubcontractor = getBookingArchiveColumns("ADMIN").find(
+      (column) => column.id === "priceSubcontractor",
+    );
+
+    expect(getEffectiveArchiveSubcontractorTotal(row)).toBe(92.5);
+    expect(adminPriceSubcontractor?.getExportValue?.(row)).toBe(92.5);
+  });
+
+  it("derives zero archive subcontractor total for cancelled rows without a stored minus", () => {
+    expect(getEffectiveArchiveSubcontractorTotal(buildOrderRow({
+      status: "cancelled",
+      priceSubcontractor: 567,
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+    }))).toBe(0);
+  });
+
+  it("keeps protected cancelled subcontractor fee lines visible when no minus is stored", () => {
+    expect(getEffectiveArchiveSubcontractorTotal(buildOrderRow({
+      status: "cancelled",
+      priceSubcontractor: 567,
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      calculatorItems: [
+        {
+          cardId: 1,
+          productCode: "",
+          productName: "Order extras",
+          productModelNumber: "",
+          deliveryType: "",
+          itemType: "EXTRA_OPTION",
+          optionCode: "CANCELED",
+          optionLabel: "Deviation, dead end; Customer cancelled",
+          quantity: 1,
+          customerPriceCents: 59000,
+          subcontractorPriceCents: 14900,
+        },
+        {
+          cardId: 1,
+          productCode: "",
+          productName: "Delivery",
+          productModelNumber: "",
+          deliveryType: "",
+          itemType: "EXTRA_OPTION",
+          optionCode: "DELIVERY",
+          optionLabel: "Delivery",
+          quantity: 1,
+          customerPriceCents: 64400,
+          subcontractorPriceCents: 30000,
+        },
+      ],
+    }))).toBe(149);
+  });
+
+  it("does not show negative subcontractor totals for cancelled rows with zeroed stored price and a minus", () => {
+    expect(getEffectiveArchiveSubcontractorTotal(buildOrderRow({
+      status: "cancelled",
+      priceSubcontractor: 0,
+      subcontractorMinus: "600",
+      subcontractorPlus: "",
+    }))).toBe(0);
   });
 });

@@ -963,7 +963,7 @@ describe("routes in /api/orders/[orderId]", () => {
     );
   });
 
-  it("PATCH clears discount when status changes from cancelled to another status", async () => {
+  it("PATCH clears cancelled adjustments when status changes from cancelled to another status", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -1027,7 +1027,7 @@ describe("routes in /api/orders/[orderId]", () => {
       priceSubcontractor: 0,
       rabatt: "999",
       leggTil: "",
-      subcontractorMinus: "",
+      subcontractorMinus: "500",
       subcontractorPlus: "",
       gsmLastTaskState: null,
     });
@@ -1040,6 +1040,8 @@ describe("routes in /api/orders/[orderId]", () => {
           status: "active",
           rabatt: "999",
           priceExVat: 0,
+          priceSubcontractor: 500,
+          subcontractorMinus: "500",
         }),
       }),
       { params: Promise.resolve({ orderId: "order-1" }) },
@@ -1051,6 +1053,8 @@ describe("routes in /api/orders/[orderId]", () => {
         data: expect.objectContaining({
           status: "active",
           rabatt: null,
+          subcontractorMinus: null,
+          priceSubcontractor: 500,
         }),
       }),
     );
@@ -1058,6 +1062,8 @@ describe("routes in /api/orders/[orderId]", () => {
       expect.objectContaining({
         status: "active",
         rabatt: null,
+        subcontractorMinus: null,
+        priceSubcontractor: 500,
       }),
     );
   });

@@ -267,6 +267,7 @@ export async function PATCH(req: Request) {
       },
       data: {
         rabatt: null,
+        subcontractorMinus: null,
       },
     });
   }
@@ -295,6 +296,9 @@ export async function PATCH(req: Request) {
       rabatt: cancelledOrdersLeavingCancelledSet.has(order.id)
         ? null
         : order.rabatt,
+      subcontractorMinus: cancelledOrdersLeavingCancelledSet.has(order.id)
+        ? null
+        : order.subcontractorMinus,
       subcontractor: subcontractorName ?? order.subcontractor,
       customerName: customerName ?? order.customerName,
     });

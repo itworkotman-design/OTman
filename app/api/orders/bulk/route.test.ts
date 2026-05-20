@@ -167,6 +167,7 @@ describe("PATCH /api/orders/bulk", () => {
       status: order.status ?? null,
       statusNotes: order.statusNotes ?? null,
       rabatt: order.rabatt ?? null,
+      subcontractorMinus: order.subcontractorMinus ?? null,
     }));
     mocks.diffOrderEventSnapshotsMock.mockImplementation((previous, next) => {
       const changes: Array<{ field: string }> = [];
@@ -177,6 +178,10 @@ describe("PATCH /api/orders/bulk", () => {
 
       if (previous.rabatt !== next.rabatt) {
         changes.push({ field: "rabatt" });
+      }
+
+      if (previous.subcontractorMinus !== next.subcontractorMinus) {
+        changes.push({ field: "subcontractorMinus" });
       }
 
       return changes;
@@ -200,6 +205,7 @@ describe("PATCH /api/orders/bulk", () => {
         status: "cancelled",
         statusNotes: "",
         rabatt: "500",
+        subcontractorMinus: "300",
       },
       {
         id: "order-2",
@@ -207,6 +213,7 @@ describe("PATCH /api/orders/bulk", () => {
         status: "new",
         statusNotes: "",
         rabatt: "200",
+        subcontractorMinus: "100",
       },
     ]);
     mocks.orderUpdateManyMock
@@ -245,6 +252,7 @@ describe("PATCH /api/orders/bulk", () => {
       },
       data: {
         rabatt: null,
+        subcontractorMinus: null,
       },
     });
     expect(mocks.createOrderUpdatedEventMock).toHaveBeenCalledWith(
@@ -254,6 +262,7 @@ describe("PATCH /api/orders/bulk", () => {
         changes: expect.arrayContaining([
           expect.objectContaining({ field: "status" }),
           expect.objectContaining({ field: "rabatt" }),
+          expect.objectContaining({ field: "subcontractorMinus" }),
         ]),
       }),
     );

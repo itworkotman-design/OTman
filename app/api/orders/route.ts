@@ -710,8 +710,6 @@ export async function POST(req: Request) {
   const nextOrderNumber = await reserveNextManualOrderNumber(session.activeCompanyId);
 
   const normalizedStatus = optionalString(body.status) || "processing";
-  const submittedPriceSubcontractor = Math.round(safeNumber(body.priceSubcontractor));
-
   const order = await prisma.order.create({
     data: {
       companyId: session.activeCompanyId,
@@ -775,7 +773,7 @@ export async function POST(req: Request) {
       dontSendEmail: optionalBoolean(body.dontSendEmail),
 
       priceExVat: Math.round(safeNumber(body.priceExVat)),
-      priceSubcontractor: normalizeOrderStatus(normalizedStatus) === "cancelled" ? 0 : submittedPriceSubcontractor,
+      priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
 
       rabatt: optionalString(body.rabatt),
       leggTil: optionalString(body.leggTil),

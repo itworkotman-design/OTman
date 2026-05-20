@@ -813,7 +813,7 @@ describe("routes in /api/orders", () => {
     );
   });
 
-  it("POST stores cancelled orders with zero subcontractor price", async () => {
+  it("POST preserves cancelled orders' stored subcontractor price", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -846,7 +846,7 @@ describe("routes in /api/orders", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           status: "cancelled",
-          priceSubcontractor: 0,
+          priceSubcontractor: 700,
         }),
       }),
     );

@@ -659,13 +659,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     : [];
   const productChanges = diffProductCards(previousProductCards, productCards, optionLookup, productLookup);
   const nextStatus = optionalString(body.status) ?? existingOrder.status;
-  const shouldClearRabatt = shouldClearCancelledDiscount(existingOrder.status, nextStatus);
-  const nextRabatt = shouldClearRabatt
+  const shouldClearCancelledAdjustments = shouldClearCancelledDiscount(existingOrder.status, nextStatus);
+  const nextRabatt = shouldClearCancelledAdjustments
     ? null
     : (optionalString(body.rabatt) ?? existingOrder.rabatt);
-  const updatedRabatt = shouldClearRabatt ? null : optionalString(body.rabatt);
-  const nextPriceSubcontractor =
-    normalizeOrderStatus(nextStatus) === "cancelled" ? 0 : Math.round(safeNumber(body.priceSubcontractor));
+  const updatedRabatt = shouldClearCancelledAdjustments ? null : optionalString(body.rabatt);
+  const nextSubcontractorMinus = shouldClearCancelledAdjustments
+    ? null
+    : (optionalString(body.subcontractorMinus) ?? existingOrder.subcontractorMinus);
+  const updatedSubcontractorMinus = shouldClearCancelledAdjustments ? null : optionalString(body.subcontractorMinus);
+  const nextPriceSubcontractor = Math.round(safeNumber(body.priceSubcontractor));
 
   const previousSnapshot = buildOrderEventSnapshot(existingOrder);
   const nextSnapshot = buildOrderEventSnapshot({
@@ -712,7 +715,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     priceSubcontractor: nextPriceSubcontractor,
     rabatt: nextRabatt,
     leggTil: optionalString(body.leggTil) ?? existingOrder.leggTil,
-    subcontractorMinus: optionalString(body.subcontractorMinus) ?? existingOrder.subcontractorMinus,
+    subcontractorMinus: nextSubcontractorMinus,
     subcontractorPlus: optionalString(body.subcontractorPlus) ?? existingOrder.subcontractorPlus,
     gsmLastTaskState: existingOrder.gsmLastTaskState,
   });
@@ -780,7 +783,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
 
         rabatt: updatedRabatt,
         leggTil: optionalString(body.leggTil),
-        subcontractorMinus: optionalString(body.subcontractorMinus),
+        subcontractorMinus: updatedSubcontractorMinus,
         subcontractorPlus: optionalString(body.subcontractorPlus),
 
         productsSummary: summaries.productsSummary,

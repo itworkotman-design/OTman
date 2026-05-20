@@ -92,13 +92,51 @@ function getProtectedCancelledCustomerTotal(
   return Math.round((total + Number.EPSILON) * 100) / 100;
 }
 
+function getProtectedCancelledSubcontractorTotal(
+  row: Pick<OrderRow, "calculatorItems">,
+): number {
+  const total = row.calculatorItems.reduce((sum, item) => {
+    if (!PROTECTED_CANCELLED_TOTAL_CODES.has(item.optionCode)) {
+      return sum;
+    }
+
+    const lineCents = item.subcontractorPriceCents ?? 0;
+    return sum + lineCents / 100;
+  }, 0);
+
+  return Math.round((total + Number.EPSILON) * 100) / 100;
+}
+
 export function getEffectiveArchiveCustomerTotal(row: Pick<OrderRow, "status" | "priceExVat" | "rabatt" | "leggTil" | "calculatorItems">): number {
   if (row.status === "cancelled" && !row.rabatt.trim()) {
     return getProtectedCancelledCustomerTotal(row);
   }
 
   const total = row.priceExVat - parseNokAdjustment(row.rabatt) + parseNokAdjustment(row.leggTil);
-  return Math.round((total + Number.EPSILON) * 100) / 100;
+  const roundedTotal = Math.round((total + Number.EPSILON) * 100) / 100;
+
+  if (row.status !== "cancelled") {
+    return roundedTotal;
+  }
+
+  return Math.max(roundedTotal, getProtectedCancelledCustomerTotal(row));
+}
+
+export function getEffectiveArchiveSubcontractorTotal(
+  row: Pick<OrderRow, "status" | "priceSubcontractor" | "subcontractorMinus" | "subcontractorPlus" | "calculatorItems">,
+): number {
+  if (row.status === "cancelled" && !row.subcontractorMinus.trim()) {
+    return getProtectedCancelledSubcontractorTotal(row);
+  }
+
+  const total = row.priceSubcontractor - parseNokAdjustment(row.subcontractorMinus) + parseNokAdjustment(row.subcontractorPlus);
+  const roundedTotal = Math.round((total + Number.EPSILON) * 100) / 100;
+
+  if (row.status !== "cancelled") {
+    return roundedTotal;
+  }
+
+  return Math.max(roundedTotal, getProtectedCancelledSubcontractorTotal(row));
 }
 
 const adminColumns: BookingArchiveColumn[] = [
@@ -262,7 +300,7 @@ const adminColumns: BookingArchiveColumn[] = [
     label: "Subcontractor price",
     exportHeader: "Subcontractor price",
     exportWidth: 18,
-    getExportValue: (row) => formatMoney(row.priceSubcontractor),
+    getExportValue: (row) => formatMoney(getEffectiveArchiveSubcontractorTotal(row)),
   },
 ];
 
@@ -392,7 +430,7 @@ const subcontractorColumns: BookingArchiveColumn[] = [
     label: "Subcontractor price",
     exportHeader: "Subcontractor price",
     exportWidth: 18,
-    getExportValue: (row) => formatMoney(row.priceSubcontractor),
+    getExportValue: (row) => formatMoney(getEffectiveArchiveSubcontractorTotal(row)),
   },
 ];
 

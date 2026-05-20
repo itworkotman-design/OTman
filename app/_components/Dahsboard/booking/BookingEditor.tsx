@@ -456,6 +456,7 @@ export default function BookingEditor({
   const [status, setStatus] = useState(normalizeInitialStatus(initialValues?.status));
   const previousStatusRef = useRef(status);
   const lastAutomaticStatusDiscountRef = useRef<string | null>(null);
+  const lastAutomaticSubcontractorMinusRef = useRef<string | null>(null);
   const [dontSendEmail, setDontSendEmail] = useState(initialValues?.dontSendEmail ?? false);
   const [contactCustomerForCustomTimeWindow, setContactCustomerForCustomTimeWindow] = useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
   const [customTimeContactNote, setCustomTimeContactNote] = useState(initialValues?.customTimeContactNote ?? "");
@@ -1148,6 +1149,26 @@ export default function BookingEditor({
     return formatAutoDiscountAmount(result.totals.totalExVat);
   }, [calculatorBreakdowns, leggTil, priceLookup, status]);
 
+  const automaticSubcontractorMinus = useMemo(() => {
+    if (!shouldAutoDiscountStatus(status)) {
+      return "";
+    }
+
+    const discountableBreakdowns = removeProtectedAutoDiscountItems(calculatorBreakdowns);
+    const result = calculateBookingPricing({
+      productBreakdowns: discountableBreakdowns,
+      priceLookup,
+      adjustments: {
+        rabatt: "",
+        leggTil: "",
+        subcontractorMinus: "",
+        subcontractorPlus,
+      },
+    });
+
+    return formatAutoDiscountAmount(result.totals.subcontractorTotal);
+  }, [calculatorBreakdowns, priceLookup, status, subcontractorPlus]);
+
   const isInstallationOnly = useMemo(
     () => productCards.length > 0 && productCards.every((card) => card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY),
     [productCards],
@@ -1328,9 +1349,8 @@ export default function BookingEditor({
 
   const handlePriceChange = useCallback((exVat: number, subPrice: number) => {
     setPriceExVat((prev) => (prev === exVat ? prev : exVat));
-    const nextSubcontractorPrice = shouldAutoDiscountStatus(status) ? 0 : subPrice;
-    setPriceSubcontractor((prev) => (prev === nextSubcontractorPrice ? prev : nextSubcontractorPrice));
-  }, [status]);
+    setPriceSubcontractor((prev) => (prev === subPrice ? prev : subPrice));
+  }, []);
 
   const handleAdjustmentsChange = useCallback((adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => {
     setRabatt(adj.rabatt);
@@ -1356,11 +1376,14 @@ export default function BookingEditor({
 
     const isAutoDiscountStatus = shouldAutoDiscountStatus(status);
     if (!isAutoDiscountStatus) {
+      if (shouldAutoDiscountStatus(previousStatus)) {
+        setRabatt("");
+        setSubcontractorMinus("");
+      }
       lastAutomaticStatusDiscountRef.current = null;
+      lastAutomaticSubcontractorMinusRef.current = null;
       return;
     }
-
-    setPriceSubcontractor(0);
 
     const enteredAutoDiscountStatus = !shouldAutoDiscountStatus(previousStatus);
 
@@ -1377,7 +1400,21 @@ export default function BookingEditor({
       lastAutomaticStatusDiscountRef.current = automaticStatusDiscount;
       return automaticStatusDiscount;
     });
-  }, [automaticStatusDiscount, status]);
+
+    setSubcontractorMinus((current) => {
+      const shouldApplyAutomaticSubcontractorMinus =
+        enteredAutoDiscountStatus ||
+        current.trim() === "" ||
+        current === lastAutomaticSubcontractorMinusRef.current;
+
+      if (!shouldApplyAutomaticSubcontractorMinus) {
+        return current;
+      }
+
+      lastAutomaticSubcontractorMinusRef.current = automaticSubcontractorMinus;
+      return automaticSubcontractorMinus;
+    });
+  }, [automaticStatusDiscount, automaticSubcontractorMinus, status]);
 
   useEffect(() => {
     if (!shouldShowReturnAddress && returnAddress) {
