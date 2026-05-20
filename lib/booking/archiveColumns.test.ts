@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
 import {
+  getEffectiveArchiveCustomerTotal,
   getBookingArchiveColumns,
   sanitizeVisibleBookingArchiveColumns,
 } from "@/lib/booking/archiveColumns";
@@ -135,5 +136,24 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
     );
 
     expect(priceExVat?.getExportValue?.(row)).toBe(987);
+  });
+
+  it("calculates effective customer total from discount and add-on adjustments", () => {
+    const row = buildOrderRow({
+      priceExVat: 1234,
+      rabatt: "1234",
+      leggTil: "",
+    });
+    const adminPriceExVat = getBookingArchiveColumns("ADMIN").find(
+      (column) => column.id === "priceExVat",
+    );
+
+    expect(getEffectiveArchiveCustomerTotal(row)).toBe(0);
+    expect(adminPriceExVat?.getExportValue?.(row)).toBe(0);
+    expect(getEffectiveArchiveCustomerTotal({
+      ...row,
+      rabatt: "100",
+      leggTil: "25,50",
+    })).toBe(1159.5);
   });
 });

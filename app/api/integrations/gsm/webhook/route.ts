@@ -385,6 +385,7 @@ export async function POST(req: Request) {
       orderBeforeUpdate.status,
       nextStatus,
     );
+    const nextRabatt = shouldClearRabatt ? null : orderBeforeUpdate.rabatt;
 
     await prisma.order.update({
       where: { id: orderId },
@@ -396,7 +397,7 @@ export async function POST(req: Request) {
         gsmLastTaskState: taskStateForStorage ?? undefined,
         gsmLastWebhookAt: new Date(),
         status: nextStatus ?? undefined,
-        rabatt: shouldClearRabatt ? null : undefined,
+        rabatt: shouldClearRabatt ? nextRabatt : undefined,
       },
     });
 
@@ -409,7 +410,7 @@ export async function POST(req: Request) {
       statusNotes: statusNotesValue,
       gsmLastTaskState: taskStateForStorage ?? orderBeforeUpdate.gsmLastTaskState,
       status: nextStatus,
-      rabatt: shouldClearRabatt ? null : orderBeforeUpdate.rabatt,
+      rabatt: nextRabatt,
     });
     const changes = diffOrderEventSnapshots(previousSnapshot, nextSnapshot);
 

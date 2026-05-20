@@ -8,6 +8,7 @@ import type {
 import {
   getBookingArchiveColumns,
   getDefaultVisibleBookingArchiveColumns,
+  getEffectiveArchiveCustomerTotal,
   sanitizeVisibleBookingArchiveColumns,
   type BookingArchiveColumnId,
 } from "@/lib/booking/archiveColumns";
@@ -678,7 +679,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("priceExVat") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatMoney(order.priceExVat)}</Cell>
+                      <Cell>{formatMoney(getEffectiveArchiveCustomerTotal(order))}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("priceSubcontractor") ? (
@@ -824,7 +825,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("priceExVat") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatMoney(order.priceExVat)}</Cell>
+                      <Cell>{formatMoney(getEffectiveArchiveCustomerTotal(order))}</Cell>
                     </td>
                   ) : null}
                 </>

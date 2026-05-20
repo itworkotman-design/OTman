@@ -310,6 +310,8 @@ describe("POST /api/integrations/gsm/webhook", () => {
         status: "cancelled",
       }),
     });
+    expect(mocks.orderUpdateMock.mock.calls[0]?.[0]?.data).not.toHaveProperty("priceExVat");
+    expect(mocks.orderUpdateMock.mock.calls[0]?.[0]?.data).not.toHaveProperty("priceSubcontractor");
     expect(mocks.createOrderActionEventMock).not.toHaveBeenCalled();
   });
 

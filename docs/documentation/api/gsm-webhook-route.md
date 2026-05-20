@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Processes GSM task webhooks, stores the raw webhook event, refreshes the full GSM task payload when possible, syncs order task state back into OTman, verifies cancelled/canceled webhooks against the fresh GSM task before cancelling the OTman order, clears discounts when GSM moves an order out of `cancelled`, schedules POD PDF import outside the response path for completed tasks, and records order history updates while preserving hardcoded fee fields in event snapshots.
+Processes GSM task webhooks, stores the raw webhook event, refreshes the full GSM task payload when possible, syncs order task state back into OTman, verifies cancelled/canceled webhooks against the fresh GSM task before cancelling the OTman order, clears discounts when GSM moves an order out of `cancelled`, schedules POD PDF import outside the response path for completed tasks, and records order history updates while preserving hardcoded fee fields in event snapshots. The webhook never changes stored price fields.
 
 ## Functions
 
@@ -23,4 +23,4 @@ Processes GSM task webhooks, stores the raw webhook event, refreshes the full GS
 | `getTaskState` | Reads the current state from the fresh GSM task payload. |
 | `getNextStatus` | Chooses the next OTman status from completed-task coverage and verified GSM status mapping, while preserving the current status for unmapped states such as `unassigned`. |
 | `syncPodPdfInBackground` | Starts the retrying POD PDF sync for completed GSM tasks without awaiting it, and logs failures from the async import. |
-| `POST` | Verifies the webhook secret, resolves the related order, stores the webhook payload, updates GSM task tracking rows, pulls driver and vehicle metafields plus webhook notes back onto the order, checks cancelled/canceled webhooks against the freshly fetched GSM task before changing order status, clears `rabatt` when status moves from `cancelled` to a non-cancelled status, logs and records an `Ignored unverified GSM cancellation` action event when an unverified cancellation is ignored, schedules retrying POD PDF import on completion, and writes order-history events for the resulting changes. |
+| `POST` | Verifies the webhook secret, resolves the related order, stores the webhook payload, updates GSM task tracking rows, pulls driver and vehicle metafields plus webhook notes back onto the order, checks cancelled/canceled webhooks against the freshly fetched GSM task before changing order status, leaves `priceExVat` and `priceSubcontractor` untouched in every webhook path, clears `rabatt` when status moves from `cancelled` to a non-cancelled status, logs and records an `Ignored unverified GSM cancellation` action event when an unverified cancellation is ignored, schedules retrying POD PDF import on completion, and writes order-history events for the resulting changes. |

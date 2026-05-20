@@ -57,6 +57,20 @@ function formatMoney(value: number | null | undefined): number | null {
   return typeof value === "number" ? value : null;
 }
 
+function parseNokAdjustment(value: string | null | undefined): number {
+  if (!value) {
+    return 0;
+  }
+
+  const parsed = Number(value.replace(/[^\d.,-]/g, "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function getEffectiveArchiveCustomerTotal(row: Pick<OrderRow, "priceExVat" | "rabatt" | "leggTil">): number {
+  const total = row.priceExVat - parseNokAdjustment(row.rabatt) + parseNokAdjustment(row.leggTil);
+  return Math.round((total + Number.EPSILON) * 100) / 100;
+}
+
 const adminColumns: BookingArchiveColumn[] = [
   {
     id: "displayId",
@@ -211,7 +225,7 @@ const adminColumns: BookingArchiveColumn[] = [
     label: "Price ex. VAT",
     exportHeader: "Price ex. VAT",
     exportWidth: 16,
-    getExportValue: (row) => formatMoney(row.priceExVat),
+    getExportValue: (row) => formatMoney(getEffectiveArchiveCustomerTotal(row)),
   },
   {
     id: "priceSubcontractor",
@@ -411,7 +425,7 @@ const orderCreatorColumns: BookingArchiveColumn[] = [
     label: "Price ex. VAT",
     exportHeader: "Price ex. VAT",
     exportWidth: 16,
-    getExportValue: (row) => formatMoney(row.priceExVat),
+    getExportValue: (row) => formatMoney(getEffectiveArchiveCustomerTotal(row)),
   },
 ];
 
