@@ -2,6 +2,11 @@ import type {
   BookingArchiveViewMode,
   OrderRow,
 } from "@/app/_components/Dahsboard/booking/archive/types";
+import {
+  ADD_TO_ORDER_FEE_CODE,
+  EXTRA_WORK_FEE_CODE,
+} from "@/lib/booking/pricing/hardcodedFees";
+import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
 
 export type BookingArchiveColumnId =
@@ -66,7 +71,32 @@ function parseNokAdjustment(value: string | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function getEffectiveArchiveCustomerTotal(row: Pick<OrderRow, "priceExVat" | "rabatt" | "leggTil">): number {
+const PROTECTED_CANCELLED_TOTAL_CODES = new Set([
+  EXTRA_WORK_FEE_CODE,
+  ADD_TO_ORDER_FEE_CODE,
+  ...DEVIATION_FEE_OPTIONS.map((option) => option.code),
+]);
+
+function getProtectedCancelledCustomerTotal(
+  row: Pick<OrderRow, "calculatorItems">,
+): number {
+  const total = row.calculatorItems.reduce((sum, item) => {
+    if (!PROTECTED_CANCELLED_TOTAL_CODES.has(item.optionCode)) {
+      return sum;
+    }
+
+    const lineCents = item.customerPriceCents ?? 0;
+    return sum + lineCents / 100;
+  }, 0);
+
+  return Math.round((total + Number.EPSILON) * 100) / 100;
+}
+
+export function getEffectiveArchiveCustomerTotal(row: Pick<OrderRow, "status" | "priceExVat" | "rabatt" | "leggTil" | "calculatorItems">): number {
+  if (row.status === "cancelled" && !row.rabatt.trim()) {
+    return getProtectedCancelledCustomerTotal(row);
+  }
+
   const total = row.priceExVat - parseNokAdjustment(row.rabatt) + parseNokAdjustment(row.leggTil);
   return Math.round((total + Number.EPSILON) * 100) / 100;
 }

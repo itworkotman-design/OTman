@@ -156,4 +156,50 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
       leggTil: "25,50",
     })).toBe(1159.5);
   });
+
+  it("derives zero archive customer total for cancelled rows without a stored discount", () => {
+    expect(getEffectiveArchiveCustomerTotal(buildOrderRow({
+      status: "cancelled",
+      priceExVat: 1234,
+      rabatt: "",
+      leggTil: "",
+    }))).toBe(0);
+  });
+
+  it("keeps protected cancelled fee lines visible when no discount is stored", () => {
+    expect(getEffectiveArchiveCustomerTotal(buildOrderRow({
+      status: "cancelled",
+      priceExVat: 1234,
+      rabatt: "",
+      leggTil: "",
+      calculatorItems: [
+        {
+          cardId: 1,
+          productCode: "",
+          productName: "Order extras",
+          productModelNumber: "",
+          deliveryType: "",
+          itemType: "EXTRA_OPTION",
+          optionCode: "CANCELED",
+          optionLabel: "Deviation, dead end; Customer cancelled",
+          quantity: 1,
+          customerPriceCents: 59000,
+          subcontractorPriceCents: 14900,
+        },
+        {
+          cardId: 1,
+          productCode: "",
+          productName: "Delivery",
+          productModelNumber: "",
+          deliveryType: "",
+          itemType: "EXTRA_OPTION",
+          optionCode: "DELIVERY",
+          optionLabel: "Delivery",
+          quantity: 1,
+          customerPriceCents: 64400,
+          subcontractorPriceCents: 30000,
+        },
+      ],
+    }))).toBe(590);
+  });
 });
