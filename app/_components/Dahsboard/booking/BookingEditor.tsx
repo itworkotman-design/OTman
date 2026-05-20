@@ -110,6 +110,7 @@ type ExtraPickupDraft = {
 } & OrderFormPayload["extraPickups"][number];
 
 type FieldErrorMap = {
+  orderNumber: string | null;
   deliveryDate: string | null;
   timeWindow: string | null;
   pickupAddress: string | null;
@@ -153,6 +154,7 @@ type CapacityWarningState = {
 
 const PRESET_TIME_WINDOWS = ["10:00-16:00", "16:00-21:00"] as const;
 const EMPTY_FIELD_ERRORS: FieldErrorMap = {
+  orderNumber: null,
   deliveryDate: null,
   timeWindow: null,
   pickupAddress: null,
@@ -164,6 +166,7 @@ const EMPTY_FIELD_ERRORS: FieldErrorMap = {
   cashierPhone: null,
 };
 const FIELD_ERROR_TARGETS: Record<keyof FieldErrorMap, string> = {
+  orderNumber: "order-number",
   deliveryDate: "order-delivery-date",
   timeWindow: "order-time-window",
   pickupAddress: "order-pickup-address",
@@ -1255,6 +1258,7 @@ export default function BookingEditor({
   const shouldSuppressEmailForCustomTimeWindow = timeWindow === "custom" && contactCustomerForCustomTimeWindow;
   const normalizedCustomTimeContactNote = timeWindow === "custom" && contactCustomerForCustomTimeWindow ? customTimeContactNote.trim() : "";
   const requiresDeliveryDate = shown(effectiveHidden, OrderFields.DeliveryDate);
+  const requiresOrderNumber = shown(effectiveHidden, OrderFields.OrderNumber);
   const requiresTimeWindow = shown(effectiveHidden, OrderFields.DeliveryTimeWindow);
   const requiresPickupAddress = shown(effectiveHidden, OrderFields.PickupLocations);
   const requiresReturnAddress = shown(effectiveHidden, OrderFields.DeliveryAddress) && shouldShowReturnAddress;
@@ -1271,6 +1275,7 @@ export default function BookingEditor({
   const deliveryDateWarning = allowPastDeliveryDates && deliveryDateChanged && deliveryDateIsPast ? t("Warning: delivery date is in the past") : null;
   const computedFieldErrors = useMemo(
     (): FieldErrorMap => ({
+      orderNumber: requiresOrderNumber && !orderNumber.trim() ? t("Order number is required.") : null,
       deliveryDate:
         requiresDeliveryDate && !deliveryDate.trim()
           ? t("Delivery date is required.")
@@ -1302,12 +1307,14 @@ export default function BookingEditor({
       emailError,
       finalTimeWindow,
       normalizedPhone,
+      orderNumber,
       phoneError,
       phoneTwoError,
       pickupAddress,
       requiresCustomerPhone,
       requiresDeliveryAddress,
       requiresDeliveryDate,
+      requiresOrderNumber,
       requiresPickupAddress,
       requiresReturnAddress,
       requiresTimeWindow,
@@ -1892,6 +1899,7 @@ export default function BookingEditor({
             pickupAddressError={visibleFieldErrors.pickupAddress}
             deliveryAddressError={visibleFieldErrors.deliveryAddress}
             returnAddressError={visibleFieldErrors.returnAddress}
+            orderNumberError={visibleFieldErrors.orderNumber}
             orderNumber={orderNumber}
             setOrderNumber={setOrderNumber}
             description={description}

@@ -76,6 +76,7 @@ type Props = {
   pickupAddressError: string | null;
   deliveryAddressError: string | null;
   returnAddressError: string | null;
+  orderNumberError: string | null;
 
   orderNumber: string;
   setOrderNumber: React.Dispatch<React.SetStateAction<string>>;
@@ -212,6 +213,7 @@ export default function OrderFieldsForm({
   pickupAddressError,
   deliveryAddressError,
   returnAddressError,
+  orderNumberError,
 
   orderNumber,
   setOrderNumber,
@@ -335,8 +337,12 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.OrderNumber) && (
         <>
-          <h1 className="font-bold py-2">{t("Order number")}</h1>
-          <input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} className="customInput w-full" />
+          <h1 className="font-bold py-2">
+            {t("Order number")}
+            <span className="text-red-600">*</span>
+          </h1>
+          <input id="order-number" value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} className="customInput w-full" required />
+          <FieldErrorMessage message={orderNumberError} />
         </>
       )}
 
@@ -789,6 +795,13 @@ export default function OrderFieldsForm({
         </>
       )}
 
+      {shown(hidden, OrderFields.StatusNotes) && (
+        <>
+          <h1 className="font-bold py-2">{t("Status notes")}</h1>
+          <textarea value={statusNotes} onChange={(e) => setStatusNotes(e.target.value)} rows={6} className="customInput w-full resize-y py-3 leading-normal" />
+        </>
+      )}
+
       {shown(hidden, OrderFields.Status) && (
         <>
           <h1 className="font-bold py-2">{t("Status")}</h1>
@@ -806,19 +819,12 @@ export default function OrderFieldsForm({
         </>
       )}
 
-      {shown(hidden, OrderFields.StatusNotes) && (
-        <>
-          <h1 className="font-bold py-2">{t("Status notes")}</h1>
-          <textarea value={statusNotes} onChange={(e) => setStatusNotes(e.target.value)} rows={6} className="customInput w-full resize-y py-3 leading-normal" />
-        </>
-      )}
-
       {shown(hidden, OrderFields.Attachment) && (
         <>
-          <div className="mt-2">
+          <div className="my-2">
             <label className="font-bold py-2">{t("Attachments")}</label>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 py-2">
               <OrderAttachmentsSection
                 attachments={attachments}
                 uploading={attachmentsUploading}

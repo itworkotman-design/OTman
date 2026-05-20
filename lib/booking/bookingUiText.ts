@@ -88,6 +88,7 @@ const NB_TEXT: Record<string, string> = {
   "Loading order...": "Laster bestilling...",
   "Loading orders...": "Laster bestillinger...",
   "Model number": "Modellnummer",
+  "Order number is required.": "Ordrenummer er pÃ¥krevd.",
   Next: "Neste",
   No: "Nei",
   "No attachments yet.": "Ingen vedlegg enda.",

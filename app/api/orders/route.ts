@@ -598,6 +598,18 @@ export async function POST(req: Request) {
     );
   }
   const extraPickups = normalizeExtraPickups(parsedExtraPickups);
+  const submittedOrderNumber = optionalString(body.orderNumber);
+
+  if (!submittedOrderNumber) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: "ORDER_NUMBER_REQUIRED",
+        message: "Order number is required.",
+      },
+      { status: 400 },
+    );
+  }
 
   const isAdminOrOwner =
     membership.role === "OWNER" || membership.role === "ADMIN";
@@ -692,7 +704,6 @@ export async function POST(req: Request) {
   );
 
   const nextOrderNumber = await reserveNextManualOrderNumber(session.activeCompanyId);
-  const submittedOrderNumber = optionalString(body.orderNumber);
 
   const normalizedStatus = optionalString(body.status) || "processing";
   const submittedPriceSubcontractor = Math.round(safeNumber(body.priceSubcontractor));

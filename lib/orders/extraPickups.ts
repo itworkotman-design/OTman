@@ -1,5 +1,4 @@
 import {
-  DEFAULT_PHONE_PREFIX,
   getOptionalEmailError,
   getOptionalPhoneError,
   normalizeOptionalEmail,
@@ -31,7 +30,7 @@ type ExtraPickupCandidate = {
 export function createEmptyExtraPickup(): ExtraPickupInput {
   return {
     address: "",
-    phone: DEFAULT_PHONE_PREFIX,
+    phone: "",
     email: "",
     sendEmail: true,
   };
@@ -67,18 +66,12 @@ export function parseExtraPickups(value: unknown): ExtraPickupInput[] {
 export function getExtraPickupValidation(
   pickup: Pick<ExtraPickupInput, "phone" | "email">,
 ): ExtraPickupValidation {
-  const normalizedPhone = normalizeOptionalPhone(pickup.phone);
-  const normalizedEmail = normalizeOptionalEmail(pickup.email);
-
   return {
     phoneError: getOptionalPhoneError(pickup.phone),
     emailError: getOptionalEmailError(pickup.email),
-    contactError:
-      normalizedPhone || normalizedEmail
-        ? null
-        : "Enter a phone number or an email address.",
-    phoneRequired: !normalizedEmail,
-    emailRequired: !normalizedPhone,
+    contactError: null,
+    phoneRequired: false,
+    emailRequired: false,
   };
 }
 
@@ -98,10 +91,6 @@ export function getExtraPickupApiError(
 ): string | null {
   for (const [index, pickup] of extraPickups.entries()) {
     const validation = getExtraPickupValidation(pickup);
-
-    if (validation.contactError) {
-      return `Extra pickup ${index + 1} needs a phone number or email address.`;
-    }
 
     if (validation.phoneError) {
       return `Extra pickup ${index + 1}: ${validation.phoneError}`;

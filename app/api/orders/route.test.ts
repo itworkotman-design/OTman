@@ -625,7 +625,7 @@ describe("routes in /api/orders", () => {
     });
   });
 
-  it("POST returns 400 when an extra pickup has no phone or email", async () => {
+  it("POST returns 400 when order number is missing", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -646,7 +646,6 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
-          extraPickups: [{ address: "Store 2", phone: "+47", email: "" }],
         }),
       }),
     );
@@ -654,8 +653,8 @@ describe("routes in /api/orders", () => {
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({
       ok: false,
-      reason: "INVALID_EXTRA_PICKUP_CONTACT",
-      message: "Extra pickup 1 needs a phone number or email address.",
+      reason: "ORDER_NUMBER_REQUIRED",
+      message: "Order number is required.",
     });
   });
 
@@ -680,6 +679,7 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
           phone: "+47 98 76 54 32",
           phoneTwo: "12 34 56 78",
           cashierPhone: "90 12 34 56",
@@ -760,6 +760,7 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
           status: "cancelled",
           priceSubcontractor: 700,
         }),
@@ -798,6 +799,7 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
           phone: "+47",
           phoneTwo: "+47",
           cashierPhone: "+47",
@@ -845,6 +847,7 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
           customerMembershipId: "customer-membership",
           priceListId: "selected-price-list",
         }),
@@ -894,6 +897,7 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
           priceListId: "other-price-list",
         }),
       }),
@@ -932,6 +936,7 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
           timeWindow: "08:30-10:00",
           contactCustomerForCustomTimeWindow: true,
           customTimeContactNote: "Call before confirming arrival window.",
@@ -1136,10 +1141,11 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
           extraPickups: [
             {
               address: "Store 2",
-              phone: "+47 98 76 54 32",
+              phone: "",
               email: "",
               sendEmail: false,
             },
@@ -1195,6 +1201,7 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
         }),
       }),
     );

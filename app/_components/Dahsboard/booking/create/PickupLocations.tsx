@@ -192,7 +192,7 @@ export function PickupLocations({
                     </div>
                   ) : null}
 
-                  <label className="mt-3 flex items-center gap-2">
+                  {/* <label className="mt-3 flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={pickup.sendEmail}
@@ -201,7 +201,7 @@ export function PickupLocations({
                       }
                     />
                     <span>{locale === "nb" ? "Send e-post" : "Send email"}</span>
-                  </label>
+                  </label> */}
                 </div>
               );
             })}
