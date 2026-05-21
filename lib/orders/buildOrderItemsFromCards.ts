@@ -59,11 +59,14 @@ export type BuiltOrderItem = {
 
 const MAX_INT32 = 2_147_483_647;
 
+function safeInt32Cents(value: number): number | null {
+  return value > MAX_INT32 || value < -MAX_INT32 ? null : value;
+}
+
 function decimalStringToCents(value: string | null | undefined): number | null {
   const n = Number(value ?? "0");
   if (!Number.isFinite(n)) return 0;
-  const cents = Math.round(n * 100);
-  return cents > MAX_INT32 || cents < -MAX_INT32 ? null : cents;
+  return safeInt32Cents(Math.round(n * 100));
 }
 
 function getEffectiveCustomerPrice(option: {
@@ -282,38 +285,38 @@ export function buildOrderItemsFromCards(
       const customerPriceCents = useXtraDeliveryPricing
         ? xtraOption
           ? decimalStringToCents(xtraOption.effectiveCustomerPrice)
-          : Math.round(
+          : safeInt32Cents(Math.round(
               getProductDeliveryTypePrice({
                 deliveryTypes: product.deliveryTypes,
                 key: card.deliveryType,
                 useXtraPrice: true,
               }) * 100,
-            )
-        : Math.round(
+            ))
+        : safeInt32Cents(Math.round(
             getProductDeliveryTypePrice({
               deliveryTypes: product.deliveryTypes,
               key: card.deliveryType,
             }) * 100,
-          );
+          ));
 
       const subcontractorPriceCents = useXtraDeliveryPricing
         ? xtraOption
           ? decimalStringToCents(xtraOption.subcontractorPrice)
-          : Math.round(
+          : safeInt32Cents(Math.round(
               getProductDeliveryTypePrice({
                 deliveryTypes: product.deliveryTypes,
                 key: card.deliveryType,
                 useXtraPrice: true,
                 subcontractor: true,
               }) * 100,
-            )
-        : Math.round(
+            ))
+        : safeInt32Cents(Math.round(
             getProductDeliveryTypePrice({
               deliveryTypes: product.deliveryTypes,
               key: card.deliveryType,
               subcontractor: true,
             }) * 100,
-          );
+          ));
 
       if (customerPriceCents !== null && customerPriceCents > 0) {
         const deliveryTypeCode = getProductDeliveryTypeCode(
