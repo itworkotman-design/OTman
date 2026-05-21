@@ -268,17 +268,51 @@ export function buildOrderItemsFromCards(
       (isTransportDeliveryType(card.deliveryType) ||
         card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY)
     ) {
-      const deliveryPrice = getProductDeliveryTypePrice({
-        deliveryTypes: product.deliveryTypes,
-        key: card.deliveryType,
-      });
-      const deliverySubPrice = getProductDeliveryTypePrice({
-        deliveryTypes: product.deliveryTypes,
-        key: card.deliveryType,
-        subcontractor: true,
-      });
+      const useXtraDeliveryPricing = automaticXtraDeliveryCardIds.has(card.cardId);
+      const xtraOption = useXtraDeliveryPricing
+        ? findAutomaticXtraSpecialOption({
+            catalogSpecialOptions,
+            deliveryType: card.deliveryType,
+          })
+        : null;
 
-      if (deliveryPrice > 0) {
+      const customerPriceCents = useXtraDeliveryPricing
+        ? xtraOption
+          ? decimalStringToCents(xtraOption.effectiveCustomerPrice)
+          : Math.round(
+              getProductDeliveryTypePrice({
+                deliveryTypes: product.deliveryTypes,
+                key: card.deliveryType,
+                useXtraPrice: true,
+              }) * 100,
+            )
+        : Math.round(
+            getProductDeliveryTypePrice({
+              deliveryTypes: product.deliveryTypes,
+              key: card.deliveryType,
+            }) * 100,
+          );
+
+      const subcontractorPriceCents = useXtraDeliveryPricing
+        ? xtraOption
+          ? decimalStringToCents(xtraOption.subcontractorPrice)
+          : Math.round(
+              getProductDeliveryTypePrice({
+                deliveryTypes: product.deliveryTypes,
+                key: card.deliveryType,
+                useXtraPrice: true,
+                subcontractor: true,
+              }) * 100,
+            )
+        : Math.round(
+            getProductDeliveryTypePrice({
+              deliveryTypes: product.deliveryTypes,
+              key: card.deliveryType,
+              subcontractor: true,
+            }) * 100,
+          );
+
+      if (customerPriceCents > 0) {
         const deliveryTypeCode = getProductDeliveryTypeCode(
           product.deliveryTypes,
           card.deliveryType,
@@ -291,12 +325,12 @@ export function buildOrderItemsFromCards(
           productName: product.label,
           deliveryType: deliveryTypeLabel,
           itemType: "EXTRA_OPTION",
-          optionId: null,
-          optionCode: deliveryTypeCode,
+          optionId: xtraOption?.id ?? null,
+          optionCode: xtraOption?.code ?? deliveryTypeCode,
           optionLabel: deliveryTypeLabel ?? "",
           quantity: 1,
-          customerPriceCents: Math.round(deliveryPrice * 100),
-          subcontractorPriceCents: Math.round(deliverySubPrice * 100),
+          customerPriceCents,
+          subcontractorPriceCents,
           rawData: { source: "delivery_type_price" },
         });
       }

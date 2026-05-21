@@ -670,14 +670,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const productChanges = diffProductCards(previousProductCards, productCards, optionLookup, productLookup);
   const nextStatus = optionalString(body.status) ?? existingOrder.status;
   const shouldClearCancelledAdjustments = shouldClearCancelledDiscount(existingOrder.status, nextStatus);
+  const updatedRabatt = shouldClearCancelledAdjustments ? null : optionalString(body.rabatt);
   const nextRabatt = shouldClearCancelledAdjustments
     ? null
-    : (optionalString(body.rabatt) ?? existingOrder.rabatt);
-  const updatedRabatt = shouldClearCancelledAdjustments ? null : optionalString(body.rabatt);
+    : body.rabatt !== undefined
+      ? optionalString(body.rabatt)
+      : existingOrder.rabatt;
+  const updatedSubcontractorMinus = shouldClearCancelledAdjustments ? null : optionalString(body.subcontractorMinus);
   const nextSubcontractorMinus = shouldClearCancelledAdjustments
     ? null
-    : (optionalString(body.subcontractorMinus) ?? existingOrder.subcontractorMinus);
-  const updatedSubcontractorMinus = shouldClearCancelledAdjustments ? null : optionalString(body.subcontractorMinus);
+    : body.subcontractorMinus !== undefined
+      ? optionalString(body.subcontractorMinus)
+      : existingOrder.subcontractorMinus;
   const pricingSnapshot = buildOrderPricingSnapshot({
     lines: builtItems,
     rabatt: nextRabatt,
