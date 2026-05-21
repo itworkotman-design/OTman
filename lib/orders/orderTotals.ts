@@ -144,35 +144,32 @@ export function buildOrderPricingSnapshot(params: {
   const totals = getOrderLinePriceTotals(params.lines);
   const discount = roundNok(parseNokAdjustment(params.rabatt));
   const extra = roundNok(parseNokAdjustment(params.leggTil));
-  const fallbackCustomerTotalExVat = roundNok(
-    params.fallbackCustomerTotalExVat ?? 0,
-  );
-  const hasCustomerLines = totals.customerSubtotal !== null;
-  const customerSubtotal =
-    totals.customerSubtotal ?? roundNok(fallbackCustomerTotalExVat + discount - extra);
-  const totalExVat = hasCustomerLines
-    ? getAdjustedCustomerTotal({
-        subtotal: customerSubtotal,
+  const hasSubmittedCustomerTotal =
+    typeof params.fallbackCustomerTotalExVat === "number";
+  const totalExVat = hasSubmittedCustomerTotal
+    ? roundNok(params.fallbackCustomerTotalExVat ?? 0)
+    : getAdjustedCustomerTotal({
+        subtotal: totals.customerSubtotal ?? 0,
         rabatt: params.rabatt,
         leggTil: params.leggTil,
-      })
-    : fallbackCustomerTotalExVat;
+      });
+  const customerSubtotal = hasSubmittedCustomerTotal
+    ? roundNok(totalExVat + discount - extra)
+    : totals.customerSubtotal ?? 0;
   const minus = roundNok(parseNokAdjustment(params.subcontractorMinus));
   const plus = roundNok(parseNokAdjustment(params.subcontractorPlus));
-  const fallbackSubcontractorTotal = roundNok(
-    params.fallbackSubcontractorTotal ?? 0,
-  );
-  const hasSubcontractorLines = totals.subcontractorSubtotal !== null;
-  const subcontractorSubtotal =
-    totals.subcontractorSubtotal ??
-    roundNok(fallbackSubcontractorTotal + minus - plus);
-  const subcontractorTotal = hasSubcontractorLines
-    ? getAdjustedSubcontractorTotal({
-        subtotal: subcontractorSubtotal,
+  const hasSubmittedSubcontractorTotal =
+    typeof params.fallbackSubcontractorTotal === "number";
+  const subcontractorTotal = hasSubmittedSubcontractorTotal
+    ? roundNok(params.fallbackSubcontractorTotal ?? 0)
+    : getAdjustedSubcontractorTotal({
+        subtotal: totals.subcontractorSubtotal ?? 0,
         subcontractorMinus: params.subcontractorMinus,
         subcontractorPlus: params.subcontractorPlus,
-      })
-    : fallbackSubcontractorTotal;
+      });
+  const subcontractorSubtotal = hasSubmittedSubcontractorTotal
+    ? roundNok(subcontractorTotal + minus - plus)
+    : totals.subcontractorSubtotal ?? 0;
   const vat = roundNok(totalExVat * 0.25);
 
   return {
