@@ -49,6 +49,7 @@ function buildOrderRow(overrides?: Partial<OrderRow>): OrderRow {
     unreadNotificationCount: 0,
     priceExVat: 1234,
     priceSubcontractor: 567,
+    pricingSnapshot: null,
     rabatt: "",
     leggTil: "",
     subcontractorMinus: "",
@@ -156,6 +157,36 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
       rabatt: "100",
       leggTil: "25,50",
     })).toBe(1159.5);
+  });
+
+  it("uses saved pricing snapshot totals when present", () => {
+    const row = buildOrderRow({
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "1519",
+      subcontractorMinus: "500",
+      pricingSnapshot: {
+        version: 1,
+        customer: {
+          subtotalExVat: 1819,
+          discount: 1519,
+          extra: 0,
+          totalExVat: 300,
+          vat: 75,
+          totalIncVat: 375,
+        },
+        subcontractor: {
+          subtotal: 900,
+          minus: 0,
+          plus: 0,
+          total: 900,
+        },
+        lines: [],
+      },
+    });
+
+    expect(getEffectiveArchiveCustomerTotal(row)).toBe(300);
+    expect(getEffectiveArchiveSubcontractorTotal(row)).toBe(900);
   });
 
   it("derives zero archive customer total for cancelled rows without a stored discount", () => {

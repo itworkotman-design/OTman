@@ -8,6 +8,9 @@ import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import { getOrderEmailLogoUrl } from "@/lib/email/emailAssets";
 import type { AppPermission } from "@/lib/users/types";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
+import {
+  getPricingSnapshotCustomerTotal,
+} from "@/lib/orders/orderTotals";
 
 type EmailRecipient = {
   email: string;
@@ -81,12 +84,20 @@ function formatOrderBlockHtml(order: {
   productsSummary?: string | null;
   cashierName?: string | null;
   priceExVat?: number | null;
+  pricingSnapshot?: unknown;
 }) {
   const extraPickupAddress =
     Array.isArray(order.extraPickupAddress) &&
     order.extraPickupAddress.length > 0
       ? order.extraPickupAddress.join(", ")
       : "";
+  const snapshotPriceExVat = getPricingSnapshotCustomerTotal(
+    order.pricingSnapshot,
+  );
+  const displayPriceExVat =
+    typeof order.priceExVat === "number"
+      ? snapshotPriceExVat ?? order.priceExVat
+      : null;
 
   return `
     <table width="100%" cellpadding="0" cellspacing="0" border="0"
@@ -109,7 +120,7 @@ function formatOrderBlockHtml(order: {
       ${tableRow("Returadresse", order.returnAddress)}
       ${tableRow("Produkter", order.productsSummary)}
       ${tableRow("Kasserers navn", order.cashierName)}
-      ${tableRow("Pris uten MVA", formatPriceNok(order.priceExVat))}
+      ${tableRow("Pris uten MVA", formatPriceNok(displayPriceExVat))}
     </table>
   `;
 }
@@ -275,6 +286,7 @@ export async function POST(req: Request) {
       productsSummary: true,
       cashierName: true,
       priceExVat: true,
+      pricingSnapshot: true,
     },
     orderBy: {
       createdAt: "desc",

@@ -8,6 +8,12 @@ import {
 } from "@/lib/booking/pricing/hardcodedFees";
 import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
+import {
+  getAdjustedCustomerTotal,
+  getAdjustedSubcontractorTotal,
+  getPricingSnapshotCustomerTotal,
+  getPricingSnapshotSubcontractorTotal,
+} from "@/lib/orders/orderTotals";
 
 export type BookingArchiveColumnId =
   | "displayId"
@@ -62,15 +68,6 @@ function formatMoney(value: number | null | undefined): number | null {
   return typeof value === "number" ? value : null;
 }
 
-function parseNokAdjustment(value: string | null | undefined): number {
-  if (!value) {
-    return 0;
-  }
-
-  const parsed = Number(value.replace(/[^\d.,-]/g, "").replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 const PROTECTED_CANCELLED_TOTAL_CODES = new Set([
   EXTRA_WORK_FEE_CODE,
   ADD_TO_ORDER_FEE_CODE,
@@ -86,7 +83,8 @@ function getProtectedCancelledCustomerTotal(
     }
 
     const lineCents = item.customerPriceCents ?? 0;
-    return sum + lineCents / 100;
+    const quantity = item.quantity > 0 ? item.quantity : 1;
+    return sum + (lineCents * quantity) / 100;
   }, 0);
 
   return Math.round((total + Number.EPSILON) * 100) / 100;
@@ -101,19 +99,28 @@ function getProtectedCancelledSubcontractorTotal(
     }
 
     const lineCents = item.subcontractorPriceCents ?? 0;
-    return sum + lineCents / 100;
+    const quantity = item.quantity > 0 ? item.quantity : 1;
+    return sum + (lineCents * quantity) / 100;
   }, 0);
 
   return Math.round((total + Number.EPSILON) * 100) / 100;
 }
 
-export function getEffectiveArchiveCustomerTotal(row: Pick<OrderRow, "status" | "priceExVat" | "rabatt" | "leggTil" | "calculatorItems">): number {
+export function getEffectiveArchiveCustomerTotal(row: Pick<OrderRow, "status" | "priceExVat" | "pricingSnapshot" | "rabatt" | "leggTil" | "calculatorItems">): number {
+  const snapshotTotal = getPricingSnapshotCustomerTotal(row.pricingSnapshot);
+  if (snapshotTotal !== null) {
+    return snapshotTotal;
+  }
+
   if (row.status === "cancelled" && !row.rabatt.trim()) {
     return getProtectedCancelledCustomerTotal(row);
   }
 
-  const total = row.priceExVat - parseNokAdjustment(row.rabatt) + parseNokAdjustment(row.leggTil);
-  const roundedTotal = Math.round((total + Number.EPSILON) * 100) / 100;
+  const roundedTotal = getAdjustedCustomerTotal({
+    subtotal: row.priceExVat,
+    rabatt: row.rabatt,
+    leggTil: row.leggTil,
+  });
 
   if (row.status !== "cancelled") {
     return roundedTotal;
@@ -123,14 +130,22 @@ export function getEffectiveArchiveCustomerTotal(row: Pick<OrderRow, "status" | 
 }
 
 export function getEffectiveArchiveSubcontractorTotal(
-  row: Pick<OrderRow, "status" | "priceSubcontractor" | "subcontractorMinus" | "subcontractorPlus" | "calculatorItems">,
+  row: Pick<OrderRow, "status" | "priceSubcontractor" | "pricingSnapshot" | "subcontractorMinus" | "subcontractorPlus" | "calculatorItems">,
 ): number {
+  const snapshotTotal = getPricingSnapshotSubcontractorTotal(row.pricingSnapshot);
+  if (snapshotTotal !== null) {
+    return snapshotTotal;
+  }
+
   if (row.status === "cancelled" && !row.subcontractorMinus.trim()) {
     return getProtectedCancelledSubcontractorTotal(row);
   }
 
-  const total = row.priceSubcontractor - parseNokAdjustment(row.subcontractorMinus) + parseNokAdjustment(row.subcontractorPlus);
-  const roundedTotal = Math.round((total + Number.EPSILON) * 100) / 100;
+  const roundedTotal = getAdjustedSubcontractorTotal({
+    subtotal: row.priceSubcontractor,
+    subcontractorMinus: row.subcontractorMinus,
+    subcontractorPlus: row.subcontractorPlus,
+  });
 
   if (row.status !== "cancelled") {
     return roundedTotal;

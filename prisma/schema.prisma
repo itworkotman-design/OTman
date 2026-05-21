@@ -392,6 +392,7 @@ model Order {
   deliveryTypeSummary                String?
   servicesSummary                    String?
   productCardsSnapshot               Json?
+  pricingSnapshot                    Json?
   extraPickupAddress                 String[]
   customerMembershipId               String?
   subcontractorMembershipId          String?

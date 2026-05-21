@@ -75,6 +75,7 @@ export type OrderRow = {
   unreadNotificationCount: number;
   priceExVat: number;
   priceSubcontractor: number;
+  pricingSnapshot: unknown;
   rabatt: string;
   leggTil: string;
   subcontractorMinus: string;

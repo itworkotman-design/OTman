@@ -75,6 +75,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     needsNotificationAttention: false,
     unreadNotificationCount: 0,
     productCardsSnapshot: null,
+    pricingSnapshot: null,
     lastEditedByMembershipId: null,
     legacyWordpressOrderId: null,
     legacyWordpressAuthorId: null,

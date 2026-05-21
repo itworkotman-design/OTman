@@ -37,6 +37,9 @@ import {
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildWordpressExtraPickupContacts, getWordpressExtraPickupAddresses, toWordpressMetaRecord } from "@/lib/integrations/wordpress/orderMeta";
 import { applyOrderPricingSnapshot, getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
+import {
+  buildOrderPricingSnapshot,
+} from "@/lib/orders/orderTotals";
 
 type ProductChangeValue = {
   label: string;
@@ -298,6 +301,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       priceListId: true,
       customerMembershipId: true,
       productCardsSnapshot: true,
+      pricingSnapshot: true,
       orderNumber: true,
       description: true,
       modelNr: true,
@@ -454,6 +458,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       dontSendEmail: order.dontSendEmail,
       priceExVat: order.priceExVat,
       priceSubcontractor: order.priceSubcontractor,
+      pricingSnapshot: order.pricingSnapshot,
       rabatt: order.rabatt ?? "",
       leggTil: order.leggTil ?? "",
       subcontractorMinus: order.subcontractorMinus ?? "",
@@ -534,6 +539,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       displayId: true,
       orderNumber: true,
       productCardsSnapshot: true,
+      pricingSnapshot: true,
       priceListId: true,
       customerMembershipId: true,
       customerLabel: true,
@@ -668,7 +674,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     ? null
     : (optionalString(body.subcontractorMinus) ?? existingOrder.subcontractorMinus);
   const updatedSubcontractorMinus = shouldClearCancelledAdjustments ? null : optionalString(body.subcontractorMinus);
-  const nextPriceSubcontractor = Math.round(safeNumber(body.priceSubcontractor));
+  const pricingSnapshot = buildOrderPricingSnapshot({
+    lines: builtItems,
+    rabatt: nextRabatt,
+    leggTil: optionalString(body.leggTil),
+    subcontractorMinus: nextSubcontractorMinus,
+    subcontractorPlus: optionalString(body.subcontractorPlus),
+    fallbackCustomerTotalExVat: Math.round(safeNumber(body.priceExVat)),
+    fallbackSubcontractorTotal: Math.round(safeNumber(body.priceSubcontractor)),
+  });
+  const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
+  const nextPriceSubcontractor = pricingSnapshot.subcontractor.total;
 
   const previousSnapshot = buildOrderEventSnapshot(existingOrder);
   const nextSnapshot = buildOrderEventSnapshot({
@@ -711,7 +727,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     extraWorkMinutes: optionalBoolean(body.feeExtraWork) ? safeInteger(body.extraWorkMinutes) : 0,
     feeAddToOrder: optionalBoolean(body.feeAddToOrder),
     dontSendEmail: optionalBoolean(body.dontSendEmail),
-    priceExVat: Math.round(safeNumber(body.priceExVat)),
+    priceExVat: Math.round(finalCustomerTotalExVat),
     priceSubcontractor: nextPriceSubcontractor,
     rabatt: nextRabatt,
     leggTil: optionalString(body.leggTil) ?? existingOrder.leggTil,
@@ -778,8 +794,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         completedAt: normalizeOrderStatus(optionalString(body.status)) === "completed" && !existingOrder.completedAt ? new Date() : existingOrder.completedAt,
         dontSendEmail: optionalBoolean(body.dontSendEmail),
 
-        priceExVat: Math.round(safeNumber(body.priceExVat)),
-        priceSubcontractor: nextPriceSubcontractor,
+        priceExVat: Math.round(finalCustomerTotalExVat),
+        priceSubcontractor: Math.round(nextPriceSubcontractor),
 
         rabatt: updatedRabatt,
         leggTil: optionalString(body.leggTil),
@@ -791,6 +807,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         servicesSummary: summaries.servicesSummary,
 
         productCardsSnapshot: productCards as unknown as Prisma.InputJsonValue,
+        pricingSnapshot: pricingSnapshot as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -880,7 +897,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         status: optionalString(body.status) ?? existingOrder.status,
         createdAt: existingOrder.createdAt,
         productsSummary: summaries.productsSummary,
-        priceExVat: Math.round(safeNumber(body.priceExVat)),
+        priceExVat: finalCustomerTotalExVat,
       };
 
       await sendOrderNotificationEmail({
@@ -917,12 +934,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     });
   }
 
-  const nextPriceExVat = nextSnapshot.priceExVat ?? 0;
-
   await createSubcontractorPriceAlert(prisma, {
     orderId,
     companyId: existingOrder.companyId,
-    customerPrice: nextPriceExVat,
+    customerPrice: finalCustomerTotalExVat,
     subcontractorPrice: nextPriceSubcontractor,
   });
 

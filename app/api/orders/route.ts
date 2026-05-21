@@ -67,6 +67,9 @@ import {
   getSavedOrderPricingSnapshot,
 } from "@/lib/booking/pricing/snapshot";
 import { buildArchiveCalculatorItems } from "@/lib/orders/buildArchiveCalculatorItems";
+import {
+  buildOrderPricingSnapshot,
+} from "@/lib/orders/orderTotals";
 
 const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   id: true,
@@ -109,6 +112,7 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   deliveryTypeSummary: true,
   servicesSummary: true,
   productCardsSnapshot: true,
+  pricingSnapshot: true,
   description: true,
   cashierName: true,
   cashierPhone: true,
@@ -706,6 +710,17 @@ export async function POST(req: Request) {
     pricingSource.catalogProducts,
     pricingSource.catalogSpecialOptions,
   );
+  const pricingSnapshot = buildOrderPricingSnapshot({
+    lines: builtItems,
+    rabatt: optionalString(body.rabatt),
+    leggTil: optionalString(body.leggTil),
+    subcontractorMinus: optionalString(body.subcontractorMinus),
+    subcontractorPlus: optionalString(body.subcontractorPlus),
+    fallbackCustomerTotalExVat: Math.round(safeNumber(body.priceExVat)),
+    fallbackSubcontractorTotal: Math.round(safeNumber(body.priceSubcontractor)),
+  });
+  const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
+  const finalSubcontractorTotal = pricingSnapshot.subcontractor.total;
 
   const nextOrderNumber = await reserveNextManualOrderNumber(session.activeCompanyId);
 
@@ -772,8 +787,8 @@ export async function POST(req: Request) {
       status: normalizedStatus,
       dontSendEmail: optionalBoolean(body.dontSendEmail),
 
-      priceExVat: Math.round(safeNumber(body.priceExVat)),
-      priceSubcontractor: Math.round(safeNumber(body.priceSubcontractor)),
+      priceExVat: Math.round(finalCustomerTotalExVat),
+      priceSubcontractor: Math.round(finalSubcontractorTotal),
 
       rabatt: optionalString(body.rabatt),
       leggTil: optionalString(body.leggTil),
@@ -785,6 +800,7 @@ export async function POST(req: Request) {
       servicesSummary: summaries.servicesSummary,
 
       productCardsSnapshot: productCards as unknown as Prisma.InputJsonValue,
+      pricingSnapshot: pricingSnapshot as unknown as Prisma.InputJsonValue,
     },
   });
 
@@ -899,7 +915,7 @@ export async function POST(req: Request) {
   await createSubcontractorPriceAlert(prisma, {
     orderId: order.id,
     companyId: order.companyId,
-    customerPrice: order.priceExVat,
+    customerPrice: finalCustomerTotalExVat,
     subcontractorPrice: order.priceSubcontractor,
   });
 
@@ -966,7 +982,7 @@ export async function POST(req: Request) {
         status: optionalString(body.status) || "processing",
         createdAt: order.createdAt,
         productsSummary: summaries.productsSummary,
-        priceExVat: Math.round(safeNumber(body.priceExVat)),
+        priceExVat: finalCustomerTotalExVat,
       };
 
       await sendOrderNotificationEmail({
@@ -1221,7 +1237,6 @@ export async function GET(req: Request) {
         getMembershipUserLabel(legacyCreatorMembership.user),
       ]),
   );
-
   return NextResponse.json({
     ok: true,
     orders: orders.map((order) => {
@@ -1300,6 +1315,7 @@ export async function GET(req: Request) {
         unreadNotificationCount: isOrderCreator ? 0 : order.unreadNotificationCount,
         priceExVat: order.priceExVat,
         priceSubcontractor: order.priceSubcontractor,
+        pricingSnapshot: order.pricingSnapshot,
         rabatt: order.rabatt ?? "",
         leggTil: order.leggTil ?? "",
         subcontractorMinus: order.subcontractorMinus ?? "",

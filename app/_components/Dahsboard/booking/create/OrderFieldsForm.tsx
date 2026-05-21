@@ -724,6 +724,34 @@ export default function OrderFieldsForm({
         </>
       )}
 
+      {shown(hidden, OrderFields.ChangeCustomer) && (
+        <>
+          <h1 className="font-bold py-2">{locale === "nb" ? "Endre butikk" : "Change store"}</h1>
+          <select
+            value={customerMembershipId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setCustomerMembershipId(id);
+
+              const selected = changeCustomerOptions.find((o) => o.id === id);
+              if (selected) {
+                setCustomerLabel(selected.name);
+              }
+            }}
+            className="customInput w-full"
+            disabled={changeCustomerLoading}
+          >
+            <option value="">{changeCustomerLoading ? t("Loading...") : t("Choose")}</option>
+
+            {changeCustomerOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+
       {shown(hidden, OrderFields.Deviation) && (
         <>
           <h1 className="font-bold py-2">{locale === "nb" ? "Avvik" : "Deviation"}</h1>
@@ -774,34 +802,6 @@ export default function OrderFieldsForm({
           <input type="checkbox" className="inline" checked={feeAddToOrder} onChange={(e) => setFeeAddToOrder(e.target.checked)} />
           <p className="inline pl-2">{locale === "nb" ? "Gebyr for å legge til på ordre" : "Fee for adding to order"}</p>
         </div>
-      )}
-
-      {shown(hidden, OrderFields.ChangeCustomer) && (
-        <>
-          <h1 className="font-bold py-2">{locale === "nb" ? "Endre butikk" : "Change store"}</h1>
-          <select
-            value={customerMembershipId}
-            onChange={(e) => {
-              const id = e.target.value;
-              setCustomerMembershipId(id);
-
-              const selected = changeCustomerOptions.find((o) => o.id === id);
-              if (selected) {
-                setCustomerLabel(selected.name);
-              }
-            }}
-            className="customInput w-full"
-            disabled={changeCustomerLoading}
-          >
-            <option value="">{changeCustomerLoading ? t("Loading...") : t("Choose")}</option>
-
-            {changeCustomerOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-        </>
       )}
 
       {shown(hidden, OrderFields.StatusNotes) && (
