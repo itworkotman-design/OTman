@@ -57,10 +57,13 @@ export type BuiltOrderItem = {
   rawData?: unknown;
 };
 
-function decimalStringToCents(value: string | null | undefined) {
+const MAX_INT32 = 2_147_483_647;
+
+function decimalStringToCents(value: string | null | undefined): number | null {
   const n = Number(value ?? "0");
   if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
+  const cents = Math.round(n * 100);
+  return cents > MAX_INT32 || cents < -MAX_INT32 ? null : cents;
 }
 
 function getEffectiveCustomerPrice(option: {
@@ -312,7 +315,7 @@ export function buildOrderItemsFromCards(
             }) * 100,
           );
 
-      if (customerPriceCents > 0) {
+      if (customerPriceCents !== null && customerPriceCents > 0) {
         const deliveryTypeCode = getProductDeliveryTypeCode(
           product.deliveryTypes,
           card.deliveryType,
