@@ -805,6 +805,10 @@ export async function POST(req: Request) {
   });
 
   if (builtItems.length > 0) {
+    const MAX_SAFE_CENTS = 2_147_483_647;
+    const clampCents = (v: number | null) =>
+      v === null || Math.abs(v) > MAX_SAFE_CENTS ? null : v;
+
     await prisma.orderItem.createMany({
       data: builtItems.map((item) => ({
         orderId: order.id,
@@ -818,8 +822,8 @@ export async function POST(req: Request) {
         optionCode: item.optionCode,
         optionLabel: item.optionLabel,
         quantity: item.quantity,
-        customerPriceCents: item.customerPriceCents,
-        subcontractorPriceCents: item.subcontractorPriceCents,
+        customerPriceCents: clampCents(item.customerPriceCents),
+        subcontractorPriceCents: clampCents(item.subcontractorPriceCents),
         rawData: item.rawData
           ? (item.rawData as Prisma.InputJsonValue)
           : Prisma.JsonNull,

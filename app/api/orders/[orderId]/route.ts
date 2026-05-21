@@ -821,6 +821,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       },
     });
 
+    const MAX_SAFE_CENTS = 2_147_483_647;
+    const clampCents = (v: number | null) =>
+      v === null || Math.abs(v) > MAX_SAFE_CENTS ? null : v;
+
     for (const item of builtItems) {
       await tx.orderItem.create({
         data: {
@@ -835,8 +839,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
           optionCode: item.optionCode,
           optionLabel: item.optionLabel,
           quantity: item.quantity,
-          customerPriceCents: item.customerPriceCents,
-          subcontractorPriceCents: item.subcontractorPriceCents,
+          customerPriceCents: clampCents(item.customerPriceCents),
+          subcontractorPriceCents: clampCents(item.subcontractorPriceCents),
           rawData: item.rawData ? (item.rawData as Prisma.InputJsonValue) : Prisma.JsonNull,
         },
       });
