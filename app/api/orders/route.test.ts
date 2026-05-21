@@ -52,6 +52,7 @@ vi.mock("@/lib/orders/buildOrderSummaries", () => ({
 
 vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
   buildOrderItemsFromCards: mocks.buildOrderItemsFromCardsMock,
+  hasDeliveryPriceLines: () => false,
 }));
 
 vi.mock("@/lib/orders/orderEvents", () => ({

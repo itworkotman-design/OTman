@@ -3,14 +3,19 @@ import type {
   CatalogProduct,
   CatalogSpecialOption,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { OPTION_CODES } from "@/lib/booking/constants";
+import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
-import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
+import {
+  getProductDeliveryTypeCode,
+  getProductDeliveryTypeLabel,
+  getProductDeliveryTypePrice,
+} from "@/lib/products/deliveryTypes";
 import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
 import {
   canApplyReturnOption,
   findAutomaticXtraSpecialOption,
   getAutomaticXtraDeliveryCardIds,
+  isTransportDeliveryType,
 } from "@/lib/booking/pricing/sharedDeliveryLogic";
 import {
   isInstallOption,
@@ -234,6 +239,10 @@ export function buildOrderItemsFromCards(
       !!product?.allowInstallOptions &&
       (!product.allowDeliveryTypes || !!card.deliveryType);
 
+    const autoDeliveryPrice = normalizeProductAutoDeliveryPrice(
+      product?.autoDeliveryPrice,
+    );
+
     items.push({
       cardId: card.cardId,
       productId: card.productId ?? null,
@@ -250,9 +259,48 @@ export function buildOrderItemsFromCards(
       rawData: card,
     });
 
-    const autoDeliveryPrice = normalizeProductAutoDeliveryPrice(
-      product?.autoDeliveryPrice,
-    );
+    if (
+      product &&
+      product.productType === "PHYSICAL" &&
+      product.allowDeliveryTypes &&
+      card.deliveryType &&
+      !autoDeliveryPrice.enabled &&
+      (isTransportDeliveryType(card.deliveryType) ||
+        card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY)
+    ) {
+      const deliveryPrice = getProductDeliveryTypePrice({
+        deliveryTypes: product.deliveryTypes,
+        key: card.deliveryType,
+      });
+      const deliverySubPrice = getProductDeliveryTypePrice({
+        deliveryTypes: product.deliveryTypes,
+        key: card.deliveryType,
+        subcontractor: true,
+      });
+
+      if (deliveryPrice > 0) {
+        const deliveryTypeCode = getProductDeliveryTypeCode(
+          product.deliveryTypes,
+          card.deliveryType,
+        );
+
+        items.push({
+          cardId: card.cardId,
+          productId: card.productId ?? null,
+          productCode: product.code,
+          productName: product.label,
+          deliveryType: deliveryTypeLabel,
+          itemType: "EXTRA_OPTION",
+          optionId: null,
+          optionCode: deliveryTypeCode,
+          optionLabel: deliveryTypeLabel ?? "",
+          quantity: 1,
+          customerPriceCents: Math.round(deliveryPrice * 100),
+          subcontractorPriceCents: Math.round(deliverySubPrice * 100),
+          rawData: { source: "delivery_type_price" },
+        });
+      }
+    }
 
     if (product && autoDeliveryPrice.enabled) {
       const xtraOption =
@@ -588,4 +636,13 @@ export function buildOrderItemsFromCards(
   }
 
   return items;
+}
+
+export function hasDeliveryPriceLines(items: BuiltOrderItem[]): boolean {
+  return items.some(
+    (item) =>
+      typeof item.rawData === "object" &&
+      item.rawData !== null &&
+      (item.rawData as Record<string, unknown>).source === "delivery_type_price",
+  );
 }
