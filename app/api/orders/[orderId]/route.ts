@@ -7,10 +7,7 @@ import { optionalBoolean, optionalString, safeInteger, safeNumber } from "@/lib/
 import { getOptionalEmailError, getOptionalPhoneError, normalizeOptionalEmail, normalizeOptionalPhone } from "@/lib/orders/contactValidation";
 import { getExtraPickupApiError, normalizeExtraPickups, parseExtraPickups } from "@/lib/orders/extraPickups";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
-import {
-  buildOrderItemsFromCards,
-  hasDeliveryPriceLines,
-} from "@/lib/orders/buildOrderItemsFromCards";
+import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
 import { sendExtraPickupNotificationEmail, sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
 import {
@@ -661,7 +658,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const summaries = buildOrderSummaries(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
 
   const builtItems = buildOrderItemsFromCards(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
-  const deliveryInLines = hasDeliveryPriceLines(builtItems);
   const optionLookup = buildOptionLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
   const productLookup = new Map(pricingSource.catalogProducts.map((product) => [product.id, product]));
   const previousProductCards = Array.isArray(existingOrder.productCardsSnapshot)
@@ -688,12 +684,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     leggTil: optionalString(body.leggTil),
     subcontractorMinus: nextSubcontractorMinus,
     subcontractorPlus: optionalString(body.subcontractorPlus),
-    fallbackCustomerTotalExVat: deliveryInLines
-      ? undefined
-      : Math.round(safeNumber(body.priceExVat)),
-    fallbackSubcontractorTotal: deliveryInLines
-      ? undefined
-      : Math.round(safeNumber(body.priceSubcontractor)),
+    fallbackCustomerTotalExVat: Math.round(safeNumber(body.priceExVat)),
+    fallbackSubcontractorTotal: Math.round(safeNumber(body.priceSubcontractor)),
   });
   const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
   const nextPriceSubcontractor = pricingSnapshot.subcontractor.total;

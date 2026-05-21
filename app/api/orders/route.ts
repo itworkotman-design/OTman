@@ -23,10 +23,7 @@ import {
 } from "@/lib/orders/extraPickups";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
-import {
-  buildOrderItemsFromCards,
-  hasDeliveryPriceLines,
-} from "@/lib/orders/buildOrderItemsFromCards";
+import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import {
   sendExtraPickupNotificationEmail,
   sendOrderNotificationEmail,
@@ -713,19 +710,14 @@ export async function POST(req: Request) {
     pricingSource.catalogProducts,
     pricingSource.catalogSpecialOptions,
   );
-  const deliveryInLines = hasDeliveryPriceLines(builtItems);
   const pricingSnapshot = buildOrderPricingSnapshot({
     lines: builtItems,
     rabatt: optionalString(body.rabatt),
     leggTil: optionalString(body.leggTil),
     subcontractorMinus: optionalString(body.subcontractorMinus),
     subcontractorPlus: optionalString(body.subcontractorPlus),
-    fallbackCustomerTotalExVat: deliveryInLines
-      ? undefined
-      : Math.round(safeNumber(body.priceExVat)),
-    fallbackSubcontractorTotal: deliveryInLines
-      ? undefined
-      : Math.round(safeNumber(body.priceSubcontractor)),
+    fallbackCustomerTotalExVat: Math.round(safeNumber(body.priceExVat)),
+    fallbackSubcontractorTotal: Math.round(safeNumber(body.priceSubcontractor)),
   });
   const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
   const finalSubcontractorTotal = pricingSnapshot.subcontractor.total;
