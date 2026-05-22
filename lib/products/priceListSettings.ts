@@ -17,6 +17,7 @@ export type PriceListSettings = {
   kmOver100: PriceListChargeSetting;
   extraWork: PriceListChargeSetting;
   addToOrder: PriceListChargeSetting;
+  subcontractorRabattPercentage: string;
   deviations: Record<string, PriceListChargeSetting>;
 };
 
@@ -76,6 +77,7 @@ export function createDefaultPriceListSettings(): PriceListSettings {
       "99",
       "0",
     ),
+    subcontractorRabattPercentage: "100",
     deviations: Object.fromEntries(
       DEVIATION_FEE_OPTIONS.map((option) => [
         option.code,
@@ -190,6 +192,7 @@ export function normalizePriceListSettings(
     ),
     extraWork: normalizeChargeSetting(input?.extraWork, defaults.extraWork),
     addToOrder: normalizeChargeSetting(input?.addToOrder, defaults.addToOrder),
+    subcontractorRabattPercentage: toPriceString(input?.subcontractorRabattPercentage, "100"),
     deviations: normalizeDeviationSettings(
       input?.deviations,
       defaults.deviations,

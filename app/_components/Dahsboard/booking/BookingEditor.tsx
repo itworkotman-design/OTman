@@ -457,6 +457,8 @@ export default function BookingEditor({
   const previousStatusRef = useRef(status);
   const lastAutomaticStatusDiscountRef = useRef<string | null>(null);
   const lastAutomaticSubcontractorMinusRef = useRef<string | null>(null);
+  const priceListSettingsRef = useRef(priceListSettings);
+  const statusRef = useRef(status);
   const [dontSendEmail, setDontSendEmail] = useState(initialValues?.dontSendEmail ?? false);
   const [contactCustomerForCustomTimeWindow, setContactCustomerForCustomTimeWindow] = useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
   const [customTimeContactNote, setCustomTimeContactNote] = useState(initialValues?.customTimeContactNote ?? "");
@@ -1354,10 +1356,31 @@ export default function BookingEditor({
     setPriceSubcontractor((prev) => (prev === subPrice ? prev : subPrice));
   }, []);
 
+  useEffect(() => {
+    priceListSettingsRef.current = priceListSettings;
+    statusRef.current = status;
+  });
+
   const handleAdjustmentsChange = useCallback((adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => {
-    setRabatt(adj.rabatt);
+    setRabatt((prevRabatt) => {
+      const isAutoDiscountOrder = shouldAutoDiscountStatus(statusRef.current);
+      if (!isAutoDiscountOrder && adj.rabatt !== prevRabatt) {
+        const pct = Number((priceListSettingsRef.current.subcontractorRabattPercentage || "100").replace(",", "."));
+        const rabattAmount = Number(adj.rabatt.replace(/[^\d.,-]/g, "").replace(",", "."));
+        const autoMinus =
+          Number.isFinite(pct) && Number.isFinite(rabattAmount) && rabattAmount > 0
+            ? Math.round(rabattAmount * pct / 100)
+            : 0;
+        setSubcontractorMinus(String(autoMinus));
+      } else {
+        // On cancelled orders, normalise "" → "0" so the cancelled-status effect
+        // doesn't treat it as "not yet set" and re-apply the auto-discount on next load.
+        const nextMinus = isAutoDiscountOrder && adj.subcontractorMinus === "" ? "0" : adj.subcontractorMinus;
+        setSubcontractorMinus(nextMinus);
+      }
+      return isAutoDiscountOrder && adj.rabatt === "" ? "0" : adj.rabatt;
+    });
     setLeggTil(adj.leggTil);
-    setSubcontractorMinus(adj.subcontractorMinus);
     setSubcontractorPlus(adj.subcontractorPlus);
   }, []);
 
