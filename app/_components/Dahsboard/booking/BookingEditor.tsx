@@ -500,7 +500,7 @@ export default function BookingEditor({
   const { effectiveHidden, effectiveHideDontSendEmail } = getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
   const allowPastDeliveryDates = role === "OWNER" || role === "ADMIN";
   const allowIncompleteRequiredFields = role === "OWNER" || role === "ADMIN";
-  const showAdminCalculatorAdjustments = !!initialValues?.id && (role === "OWNER" || role === "ADMIN");
+  const showAdminCalculatorAdjustments = role === "OWNER" || role === "ADMIN";
   const canSelectPriceList = !initialValues?.id && dataset === "default" && (role === "OWNER" || role === "ADMIN");
 
   useEffect(() => {
@@ -1024,8 +1024,10 @@ export default function BookingEditor({
   const currentCatalogSubcontractorTotal = currentOrderPricingTotals.subcontractorTotal;
   const hasCurrentPriceUpdates =
     Boolean(initialValues?.id && savedPricingSnapshot) &&
-    roundPriceRule(storedOrderPricingTotals.totalExVat) !==
-      roundPriceRule(currentOrderPricingTotals.totalExVat);
+    (roundPriceRule(storedOrderPricingTotals.totalExVat) !==
+      roundPriceRule(currentOrderPricingTotals.totalExVat) ||
+      roundPriceRule(storedOrderPricingTotals.subcontractorTotal) !==
+        roundPriceRule(currentOrderPricingTotals.subcontractorTotal));
 
   useEffect(() => {
     if (!initialValues?.legacyWordpressOrderId) {
