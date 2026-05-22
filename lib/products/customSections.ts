@@ -17,6 +17,8 @@ export type ProductCustomSection = {
   title: string;
   usePrices: boolean;
   allowMultiple: boolean;
+  allowDeselect: boolean;
+  useAsReturnOptions: boolean;
   displayOnDeliveryTypes: DeliveryTypeKey[];
   options: ProductCustomSectionOption[];
 };
@@ -90,6 +92,8 @@ export function normalizeProductCustomSections(
         title?: unknown;
         usePrices?: unknown;
         allowMultiple?: unknown;
+        allowDeselect?: unknown;
+        useAsReturnOptions?: unknown;
         displayOnDeliveryTypes?: unknown;
         options?: unknown;
       };
@@ -131,6 +135,11 @@ export function normalizeProductCustomSections(
           rawSection.allowMultiple === undefined
             ? true
             : !!rawSection.allowMultiple,
+        allowDeselect:
+          rawSection.allowDeselect === undefined
+            ? true
+            : !!rawSection.allowDeselect,
+        useAsReturnOptions: !!rawSection.useAsReturnOptions,
         displayOnDeliveryTypes: normalizeDisplayOnDeliveryTypes(
           rawSection.displayOnDeliveryTypes,
         ),

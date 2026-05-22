@@ -158,6 +158,8 @@ const products: CatalogProduct[] = [
         title: "Return services",
         usePrices: true,
         allowMultiple: false,
+        allowDeselect: true,
+        useAsReturnOptions: false,
         displayOnDeliveryTypes: [DELIVERY_TYPES.INSTALL_ONLY],
         options: [
           {

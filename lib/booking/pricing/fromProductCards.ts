@@ -182,7 +182,7 @@ function getHoursInput(card: SavedProductCard, product: CatalogProduct) {
   return Math.max(0.5, card.hoursInput || 1);
 }
 
-function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProductCard, product: CatalogProduct, qty: number) {
+function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProductCard, product: CatalogProduct, qty: number, returnOnlyPriceOverride?: number) {
   for (const selection of card.customSectionSelections) {
     const section = product.customSections.find((item) => item.id === selection.sectionId);
     if (!section) continue;
@@ -204,13 +204,15 @@ function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProdu
         continue;
       }
 
+      const applyReturnOverride = section.useAsReturnOptions && returnOnlyPriceOverride !== undefined;
+
       items.push({
         kind: "customPrice",
         code: option.code || section.title,
         label: option.label,
         qty,
-        unitPrice: Number(option.price) || 0,
-        subcontractorUnitPrice: Number(option.subcontractorPrice) || 0,
+        unitPrice: applyReturnOverride ? returnOnlyPriceOverride : Number(option.price) || 0,
+        subcontractorUnitPrice: applyReturnOverride ? returnOnlyPriceOverride : Number(option.subcontractorPrice) || 0,
       });
     }
   }
@@ -490,7 +492,7 @@ function buildItemsForCard(
         appendSelectedReturnOption(items, selectedReturn, amount);
       }
     }
-    appendCustomSectionItems(items, card, product, 1);
+    appendCustomSectionItems(items, card, product, 1, returnOnlySelectedReturnPriceOverride);
     return items;
   }
 
@@ -522,7 +524,7 @@ function buildItemsForCard(
       });
     }
 
-    appendCustomSectionItems(items, card, product, amount);
+    appendCustomSectionItems(items, card, product, amount, returnOnlySelectedReturnPriceOverride);
     return items;
   }
 
@@ -573,7 +575,7 @@ function buildItemsForCard(
     }
   }
 
-  appendCustomSectionItems(items, card, product, amount);
+  appendCustomSectionItems(items, card, product, amount, returnOnlySelectedReturnPriceOverride);
 
   return items;
 }

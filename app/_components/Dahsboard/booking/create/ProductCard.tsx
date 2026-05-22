@@ -324,11 +324,33 @@ export function ProductCardNew({
       },
     );
 
+    let finalCustomSectionSelections = normalizedCustomSectionSelections;
+
+    if (nextDeliveryType === DELIVERY_TYPES.RETURN_ONLY) {
+      const autoSelections = visibleCustomSections
+        .filter(
+          (section) =>
+            section.useAsReturnOptions &&
+            section.options.length > 0 &&
+            !normalizedCustomSectionSelections.some((s) => s.sectionId === section.id && s.optionIds.length > 0),
+        )
+        .map((section) => ({ sectionId: section.id, optionIds: [section.options[0].id] }));
+
+      if (autoSelections.length > 0) {
+        finalCustomSectionSelections = [
+          ...normalizedCustomSectionSelections.filter(
+            (s) => !autoSelections.some((a) => a.sectionId === s.sectionId),
+          ),
+          ...autoSelections,
+        ];
+      }
+    }
+
     if (
-      JSON.stringify(normalizedCustomSectionSelections) !==
+      JSON.stringify(finalCustomSectionSelections) !==
       JSON.stringify(value.customSectionSelections)
     ) {
-      nextValue.customSectionSelections = normalizedCustomSectionSelections;
+      nextValue.customSectionSelections = finalCustomSectionSelections;
     }
 
     if (Object.keys(nextValue).length > 0) {
@@ -435,12 +457,23 @@ export function ProductCardNew({
       (selection) => selection.sectionId === sectionId,
     );
     const currentOptionIds = existingSelection?.optionIds ?? [];
-    const nextOptionIds =
-      section?.allowMultiple === false
-        ? [optionId]
-        : currentOptionIds.includes(optionId)
-          ? currentOptionIds.filter((id) => id !== optionId)
-          : [...currentOptionIds, optionId];
+    let nextOptionIds: string[];
+    if (section?.allowMultiple === false) {
+      if (section.useAsReturnOptions) {
+        if (value.deliveryType === DELIVERY_TYPES.RETURN_ONLY && currentOptionIds.includes(optionId)) {
+          return;
+        }
+        nextOptionIds = currentOptionIds.includes(optionId) ? [] : [optionId];
+      } else {
+        nextOptionIds = currentOptionIds.includes(optionId) && section.allowDeselect
+          ? []
+          : [optionId];
+      }
+    } else {
+      nextOptionIds = currentOptionIds.includes(optionId)
+        ? currentOptionIds.filter((id) => id !== optionId)
+        : [...currentOptionIds, optionId];
+    }
 
     if (!existingSelection && nextOptionIds.length > 0) {
       update({
@@ -766,24 +799,33 @@ export function ProductCardNew({
                 {section.title || t("Custom section")}
               </h1>
               <div className="space-y-1">
-                {section.options.map((option) => (
+                {section.options.map((option) => {
+                  const isSelected = getSelectedCustomSectionOptionIds(section.id).includes(option.id);
+                  return (
                   <label key={option.id} className="block my-1">
                     <input
                       className="inline mr-2"
                       type={section.allowMultiple ? "checkbox" : "radio"}
                       name={`custom-section-${value.cardId}-${section.id}`}
-                      checked={getSelectedCustomSectionOptionIds(section.id).includes(
-                        option.id,
-                      )}
-                      onChange={() =>
-                        toggleCustomSectionOption(section.id, option.id)
-                      }
+                      checked={isSelected}
+                      onClick={section.allowMultiple ? undefined : (event) => {
+                        if (isSelected) {
+                          event.preventDefault();
+                        }
+                        toggleCustomSectionOption(section.id, option.id);
+                      }}
+                      onChange={() => {
+                        if (section.allowMultiple || !isSelected) {
+                          toggleCustomSectionOption(section.id, option.id);
+                        }
+                      }}
                     />
                     <span className="inline">
                       {option.label}
                     </span>
                   </label>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}

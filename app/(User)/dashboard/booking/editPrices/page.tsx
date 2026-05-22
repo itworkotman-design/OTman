@@ -705,6 +705,8 @@ export default function EditPricesPage() {
                     title: "",
                     usePrices: false,
                     allowMultiple: true,
+                    allowDeselect: true,
+                    useAsReturnOptions: false,
                     displayOnDeliveryTypes: [DELIVERY_TYPES.INSTALL_ONLY],
                     options: [
                       {
@@ -3418,6 +3420,38 @@ export default function EditPricesPage() {
                             />
                             <span className="text-sm">Allow multiple selections</span>
                           </label>
+
+                          {!section.allowMultiple && (
+                            <label className="flex items-center gap-2 customContainer">
+                              <input
+                                type="checkbox"
+                                checked={section.allowDeselect}
+                                onChange={(e) =>
+                                  updateCustomSection(section.id, {
+                                    allowDeselect: e.target.checked,
+                                  })
+                                }
+                                className="customInput h-4 w-4"
+                              />
+                              <span className="text-sm">Allow deselect</span>
+                            </label>
+                          )}
+
+                          {!section.allowMultiple && (
+                            <label className="flex items-center gap-2 customContainer">
+                              <input
+                                type="checkbox"
+                                checked={section.useAsReturnOptions}
+                                onChange={(e) =>
+                                  updateCustomSection(section.id, {
+                                    useAsReturnOptions: e.target.checked,
+                                  })
+                                }
+                                className="customInput h-4 w-4"
+                              />
+                              <span className="text-sm">Use as return options</span>
+                            </label>
+                          )}
 
                           <div className="space-y-2">
                             {section.options.map((option) => (
