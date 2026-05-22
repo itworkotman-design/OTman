@@ -146,7 +146,7 @@ function appendSelectedReturnOption(
     kind: "productOption",
     productOptionId: selectedReturn.id,
     qty: amount,
-    ...(priceOverride === undefined ? {} : { priceOverride }),
+    ...(priceOverride === undefined ? {} : { priceOverride, subcontractorPriceOverride: priceOverride }),
   });
 }
 

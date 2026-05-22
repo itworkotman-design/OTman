@@ -117,7 +117,11 @@ export function calculateBookingPricing(params: {
           : lookup.customerPrice,
       );
 
-      const subcontractorUnitPrice = roundPriceRule(lookup.subcontractorPrice);
+      const subcontractorUnitPrice = roundPriceRule(
+        item.subcontractorPriceOverride !== undefined
+          ? item.subcontractorPriceOverride
+          : lookup.subcontractorPrice,
+      );
       const lineTotal = roundPriceRule(unitPrice * item.qty);
       const subcontractorLineTotal = roundPriceRule(
         subcontractorUnitPrice * item.qty,
