@@ -553,6 +553,7 @@ export default function BookingPage() {
             onClear={() => setSelectedOrderIds([])}
             loading={bulkLoading}
             error={bulkError}
+            locale={locale}
           />
 
           <SelectionActionBar

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { optionalString } from "@/lib/orders/normalizeOrderInput";
@@ -257,6 +258,27 @@ export async function PATCH(req: Request) {
     cancelledOrdersLeavingCancelled,
   );
 
+  const newlyCancelledOrders =
+    status && normalizeOrderStatus(status) === "cancelled"
+      ? ordersBeforeUpdate.filter(
+          (order) =>
+            normalizeOrderStatus(order.status) !== "cancelled" &&
+            !cancelledOrdersLeavingCancelledSet.has(order.id),
+        )
+      : [];
+
+  const newlyCancelledMap = new Map(
+    newlyCancelledOrders.map((order) => [
+      order.id,
+      {
+        rabatt: String(Math.round(Number(order.priceExVat ?? 0))),
+        subcontractorMinus: String(
+          Math.round(Number(order.priceSubcontractor ?? 0)),
+        ),
+      },
+    ]),
+  );
+
   if (cancelledOrdersLeavingCancelled.length > 0) {
     await prisma.order.updateMany({
       where: {
@@ -270,6 +292,22 @@ export async function PATCH(req: Request) {
         subcontractorMinus: null,
       },
     });
+  }
+
+  if (newlyCancelledOrders.length > 0) {
+    await Promise.all(
+      newlyCancelledOrders.map((order) => {
+        const values = newlyCancelledMap.get(order.id)!;
+        return prisma.order.update({
+          where: { id: order.id },
+          data: {
+            rabatt: values.rabatt,
+            subcontractorMinus: values.subcontractorMinus,
+            pricingSnapshot: Prisma.DbNull,
+          },
+        });
+      }),
+    );
   }
 
   const actor = {
@@ -290,15 +328,17 @@ export async function PATCH(req: Request) {
 
   for (const order of ordersBeforeUpdate) {
     const previousSnapshot = buildOrderEventSnapshot(order);
+    const isLeavingCancelled = cancelledOrdersLeavingCancelledSet.has(order.id);
+    const newlyCancelledValues = newlyCancelledMap.get(order.id);
     const nextSnapshot = buildOrderEventSnapshot({
       ...order,
       status: status ?? order.status,
-      rabatt: cancelledOrdersLeavingCancelledSet.has(order.id)
+      rabatt: isLeavingCancelled
         ? null
-        : order.rabatt,
-      subcontractorMinus: cancelledOrdersLeavingCancelledSet.has(order.id)
+        : (newlyCancelledValues?.rabatt ?? order.rabatt),
+      subcontractorMinus: isLeavingCancelled
         ? null
-        : order.subcontractorMinus,
+        : (newlyCancelledValues?.subcontractorMinus ?? order.subcontractorMinus),
       subcontractor: subcontractorName ?? order.subcontractor,
       customerName: customerName ?? order.customerName,
     });

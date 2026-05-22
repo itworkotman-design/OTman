@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { bookingText, bookingStatusText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { BookingArchiveOption } from "./types";
 
 type Props = {
@@ -13,7 +14,19 @@ type Props = {
   onClear: () => void;
   loading?: boolean;
   error?: string;
+  locale?: BookingUiLocale;
 };
+
+const STATUS_OPTIONS = [
+  "processing",
+  "confirmed",
+  "active",
+  "cancelled",
+  "failed",
+  "completed",
+  "invoiced",
+  "paid",
+] as const;
 
 export default function BulkUpdateBar({
   selectedCount,
@@ -22,7 +35,9 @@ export default function BulkUpdateBar({
   onClear,
   loading = false,
   error = "",
+  locale = "en",
 }: Props) {
+  const t = (text: string) => bookingText(locale, text);
   const [status, setStatus] = useState("");
   const [subcontractorId, setSubcontractorId] = useState("");
   const [successFlash, setSuccessFlash] = useState(false);
@@ -33,16 +48,20 @@ export default function BulkUpdateBar({
   useEffect(() => {
     if (!successFlash) return;
 
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       setSuccessFlash(false);
     }, 1000);
 
-    return () => window.clearTimeout(t);
+    return () => window.clearTimeout(timer);
   }, [successFlash]);
 
   async function handleApplyClick() {
     if (disabled || !canApply) return;
-    if (!confirm(`Update ${selectedCount} orders?`)) return;
+    const confirmMsg =
+      locale === "nb"
+        ? `Oppdater ${selectedCount} bestillinger?`
+        : `Update ${selectedCount} orders?`;
+    if (!confirm(confirmMsg)) return;
 
     const ok = await onApply({
       status: status || undefined,
@@ -60,41 +79,38 @@ export default function BulkUpdateBar({
     <section className="customContainer mt-4 margin-weird-landscape padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[700] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
       <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_1fr_auto_auto]">
         <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Selected</label>
+          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Selected")}</label>
           <div className="customInput flex h-10 w-[60] items-center justify-center text-center text-weird-landscape height-weird-landscape">
             {selectedCount}
           </div>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Status</label>
+          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Status")}</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             className="customInput w-full text-weird-landscape padding-weird-landscape height-weird-landscape"
             disabled={loading}
           >
-            <option value="">No status change</option>
-            <option value="processing">Processing</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="active">Active</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="failed">Failed</option>
-            <option value="completed">Completed</option>
-            <option value="invoiced">Invoiced</option>
-            <option value="paid">Paid</option>
+            <option value="">{t("No status change")}</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {bookingStatusText(locale, s)}
+              </option>
+            ))}
           </select>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">Subcontractor</label>
+          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Subcontractor")}</label>
           <select
             value={subcontractorId}
             onChange={(e) => setSubcontractorId(e.target.value)}
             className="customInput w-full text-weird-landscape padding-weird-landscape height-weird-landscape"
             disabled={loading}
           >
-            <option value="">No subcontractor change</option>
+            <option value="">{t("No subcontractor change")}</option>
             {subcontractors.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.label}
@@ -109,7 +125,7 @@ export default function BulkUpdateBar({
           onClick={handleApplyClick}
           className={`h-10 disabled:opacity-50! disabled:cursor-auto! text-weird-landscape padding-weird-landscape height-weird-landscape ${successFlash ? "customButtonEnabled bg-green-600!" : "customButtonEnabled"}`}
         >
-          {loading ? "Applying..." : successFlash ? "Updated" : "Apply bulk update"}
+          {loading ? t("Applying...") : successFlash ? t("Updated") : t("Apply bulk update")}
         </button>
 
         <button
@@ -118,7 +134,7 @@ export default function BulkUpdateBar({
           onClick={onClear}
           className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto! text-weird-landscape padding-weird-landscape height-weird-landscape"
         >
-          Clear selection
+          {t("Clear selection")}
         </button>
       </div>
 
