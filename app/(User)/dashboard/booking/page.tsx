@@ -640,7 +640,7 @@ export default function BookingPage() {
             </div>
 
             {access.viewMode === "ADMIN" && (
-              <div className=" absolute left-56 items-start gap-1 w-50">
+              <div className=" absolute left-56 items-start gap-1 w-60">
                 <button
                   type="button"
                   className={`customButtonDefault${changeFlags.hasNewOrders || changeFlags.hasChangedOrders ? " bg-red-600! text-white! border-red-600!" : ""}`}
