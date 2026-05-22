@@ -18,32 +18,6 @@ function normalizeGsmState(state?: string | null) {
   return value || null;
 }
 
-function isCancelledState(state?: string | null) {
-  const value = normalizeGsmState(state);
-  return value === "cancelled" || value === "canceled";
-}
-
-const NON_CANCELLING_EVENTS = new Set(["unassign", "assign", "reject"]);
-
-function mapStatus(state?: string | null) {
-  const value = normalizeGsmState(state);
-
-  if (value === "failed" || value === "fail") return "failed";
-  if (value === "cancelled" || value === "canceled") return "cancelled";
-  if (
-    value === "active" ||
-    value === "transit" ||
-    value === "accepted" ||
-    value === "assigned"
-  ) {
-    return "active";
-  }
-
-  return null;
-}
-
-
-
 type GsmTaskRecord = Record<string, unknown>;
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -56,7 +30,6 @@ function getTrimmedString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
-
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
@@ -68,12 +41,10 @@ function getEventAction(body: Record<string, unknown>): string | null {
 function getFirstNonEmptyString(...values: unknown[]): string | null {
   for (const value of values) {
     const trimmed = getTrimmedString(value);
-
     if (trimmed) {
       return trimmed;
     }
   }
-
   return null;
 }
 
@@ -96,22 +67,82 @@ function getTaskState(task: GsmTaskRecord | null) {
   return getTrimmedString(task?.state);
 }
 
+// Only "active" and "completed" are valid status transitions from GSM.
+// "completed" is handled separately via allCompleted + canAutoComplete.
+function mapStatus(state?: string | null) {
+  const value = normalizeGsmState(state);
+  if (
+    value === "active" ||
+    value === "transit" ||
+    value === "accepted" ||
+    value === "assigned"
+  ) {
+    return "active";
+  }
+  return null;
+}
+
 function getNextStatus(input: {
   allCompleted: boolean;
+  canAutoComplete: boolean;
   currentStatus: string | null;
   decisionState: string | null;
 }) {
-  if (input.allCompleted) {
+  if (input.allCompleted && input.canAutoComplete) {
     return "completed";
   }
-
   const mapped = mapStatus(input.decisionState);
-
   if (mapped) {
     return mapped;
   }
-
   return input.currentStatus;
+}
+
+// Blocks auto-complete only if the driver left a written note (body.notes on the
+// task_event). Documents and signatures are expected POD artifacts — not blockers.
+function hasTaskBlockingContent(
+  _task: GsmTaskRecord | null,
+  eventNotes: string | null,
+): boolean {
+  return typeof eventNotes === "string" && eventNotes.trim().length > 0;
+}
+
+// GSM task assignee name — the driver who actually performed the task.
+function getGsmAssigneeName(task: GsmTaskRecord | null): string | null {
+  if (!task) return null;
+  return getFirstNonEmptyString(task.assignee_name);
+}
+
+// GSM subcontractor company name — stored in metafields["sub:contr"].
+function getGsmSubcontractorName(task: GsmTaskRecord | null): string | null {
+  if (!task) return null;
+  const metafields = getMetafields(task);
+  return getFirstNonEmptyString(metafields["sub:contr"]);
+}
+
+function normalizeForSubcontractorMatch(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9æøå]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function fuzzyMatchSubcontractor(username: string, gsmName: string): boolean {
+  const a = normalizeForSubcontractorMatch(username);
+  const b = normalizeForSubcontractorMatch(gsmName);
+  if (!a || !b) return false;
+  return a.includes(b) || b.includes(a);
+}
+
+// Driver comments are appended to the task description after a blank line.
+// Everything after the first "\n\n" is what the driver added.
+function extractDriverComment(description: unknown): string | null {
+  if (typeof description !== "string") return null;
+  const separatorIndex = description.indexOf("\n\n");
+  if (separatorIndex === -1) return null;
+  const comment = description.slice(separatorIndex + 2).trim();
+  return comment.length > 0 ? comment : null;
 }
 
 function syncPodPdfInBackground(orderId: string, gsmTaskId: string) {
@@ -148,7 +179,7 @@ export async function POST(req: Request) {
           ? body.task_id
           : null;
 
-    const state =
+    const webhookState =
       typeof rawTask?.state === "string"
         ? rawTask.state
         : typeof body.to_state === "string"
@@ -157,16 +188,13 @@ export async function POST(req: Request) {
             ? body.state
             : null;
 
-    const eventAction = getEventAction(body);
-    const eventActionBlocksCancellation = eventAction !== null && NON_CANCELLING_EVENTS.has(eventAction);
-
+    // Always fetch fresh task so we have the latest state and full field set
     let fullTask: GsmTaskRecord | null = rawTask;
-    let freshTask: GsmTaskRecord | null = null;
     let freshTaskState: string | null = null;
 
     if (gsmTaskId) {
       try {
-        freshTask = await fetchGsmTask(gsmTaskId);
+        const freshTask = await fetchGsmTask(gsmTaskId);
         fullTask = freshTask;
         freshTaskState = getTaskState(freshTask);
       } catch (error) {
@@ -174,9 +202,11 @@ export async function POST(req: Request) {
       }
     }
 
+    const taskState = freshTaskState ?? webhookState;
+
     const externalId = getFirstNonEmptyString(
       rawTask?.external_id,
-      freshTask?.external_id,
+      fullTask?.external_id,
     );
 
     let orderId: string | null = null;
@@ -221,41 +251,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    let taskStateForStorage = state;
-    let statusDecisionState = state;
-    let cancellationDecision:
-      | "not_cancelled_webhook"
-      | "verified_cancelled"
-      | "transient_cancelled_ignored"
-      | "unverified_cancelled_ignored" = "not_cancelled_webhook";
-
-    if (isCancelledState(state) && !eventActionBlocksCancellation) {
-      if (freshTaskState) {
-        taskStateForStorage = freshTaskState;
-        statusDecisionState = freshTaskState;
-        cancellationDecision = isCancelledState(freshTaskState) ? "verified_cancelled" : "transient_cancelled_ignored";
-      } else {
-        statusDecisionState = null;
-        cancellationDecision = "unverified_cancelled_ignored";
-      }
-    } else if (isCancelledState(state) && eventActionBlocksCancellation) {
-      statusDecisionState = null;
-      taskStateForStorage = freshTaskState ?? state;
-      cancellationDecision = "transient_cancelled_ignored";
-    }
-
     if (gsmTaskId) {
       await prisma.orderGsmTask.upsert({
         where: { gsmTaskId },
         update: {
-          state: taskStateForStorage,
+          state: taskState,
           lastWebhookAt: new Date(),
           rawPayload: body as Prisma.InputJsonValue,
         },
         create: {
           orderId,
           gsmTaskId,
-          state: taskStateForStorage,
+          state: taskState,
           lastWebhookAt: new Date(),
           rawPayload: body as Prisma.InputJsonValue,
         },
@@ -291,6 +298,7 @@ export async function POST(req: Request) {
         cashierName: true,
         cashierPhone: true,
         subcontractor: true,
+        subcontractorMembershipId: true,
         driver: true,
         secondDriver: true,
         driverInfo: true,
@@ -324,9 +332,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const metafields = getMetafields(fullTask);
-
-    if (gsmTaskId && state === "completed") {
+    // POD is per task — sync whenever a task completes regardless of order status
+    if (gsmTaskId && taskState === "completed") {
       syncPodPdfInBackground(orderId, gsmTaskId);
     }
 
@@ -338,33 +345,52 @@ export async function POST(req: Request) {
     const allCompleted =
       tasks.length > 0 && tasks.every((task) => task.state === "completed");
 
-    const nextStatus = getNextStatus({
-      allCompleted,
-      currentStatus: orderBeforeUpdate.status,
-      decisionState: statusDecisionState,
-    });
+    // Driver notes live on the task_event (body.notes), not on the task object itself.
+    const eventNotes = getTrimmedString(body.notes);
 
-    if (cancellationDecision !== "not_cancelled_webhook") {
-      console.info("GSM WEBHOOK CANCELLATION DECISION:", {
+    // Auto-complete is blocked only when the driver left a written note.
+    const blockingContent = hasTaskBlockingContent(fullTask, eventNotes);
+
+    const normalizedTaskState = normalizeGsmState(taskState);
+    const isCancelledOrFailed =
+      normalizedTaskState === "cancelled" ||
+      normalizedTaskState === "cancel" ||
+      normalizedTaskState === "failed" ||
+      normalizedTaskState === "fail";
+
+    if (allCompleted && blockingContent) {
+      console.info("GSM AUTO-COMPLETE BLOCKED:", {
         orderId,
         orderNumber: orderBeforeUpdate.orderNumber,
-        displayId: orderBeforeUpdate.displayId,
-        gsmOrderId: orderBeforeUpdate.gsmOrderId,
-        webhookState: state,
-        freshGsmState: freshTaskState,
-        eventAction,
-        eventActionBlocksCancellation,
-        finalDecision: cancellationDecision,
-        decisionText: cancellationDecision === "verified_cancelled" ? "verified GSM cancellation applied" : "ignored unverified GSM cancellation",
-        finalStatus: nextStatus,
+        gsmTaskId,
+        reason: "Driver left a note requiring manual review",
       });
     }
 
+    const metafields = getMetafields(fullTask);
+
+    const nextStatus = getNextStatus({
+      allCompleted,
+      canAutoComplete: !blockingContent,
+      currentStatus: orderBeforeUpdate.status,
+      decisionState: taskState,
+    });
+
     const driverValue = getFirstNonEmptyString(
+      getGsmAssigneeName(fullTask),
       metafields["app:name"],
       metafields.driver,
       orderBeforeUpdate.driver,
     );
+
+    const driverInfoParts = [
+      extractDriverComment(fullTask?.description),
+      eventNotes,
+    ].filter(Boolean);
+    const driverInfoValue =
+      driverInfoParts.length > 0
+        ? driverInfoParts.join(" ")
+        : orderBeforeUpdate.driverInfo;
     const secondDriverValue = getFirstNonEmptyString(
       metafields["app:driver2"],
       metafields.driver2,
@@ -375,12 +401,26 @@ export async function POST(req: Request) {
       metafields.carnumber,
       orderBeforeUpdate.licensePlate,
     );
-    const statusNotesValue = getFirstNonEmptyString(
-      body.notes,
-      metafields["app:status_notes"],
-      metafields.status_notes,
-      orderBeforeUpdate.statusNotes,
-    );
+
+    // Subcontractor: fuzzy-match GSM company name against user profiles in this company
+    let nextSubcontractorMembershipId: string | undefined = undefined;
+    let nextSubcontractor: string | undefined = undefined;
+
+    const gsmSubName = getGsmSubcontractorName(fullTask);
+    if (gsmSubName) {
+      const memberships = await prisma.membership.findMany({
+        where: { companyId: orderBeforeUpdate.companyId, status: "ACTIVE" },
+        select: { id: true, user: { select: { username: true } } },
+      });
+      const matched = memberships.find(
+        (m) => m.user.username && fuzzyMatchSubcontractor(m.user.username, gsmSubName),
+      );
+      if (matched) {
+        nextSubcontractorMembershipId = matched.id;
+        nextSubcontractor = gsmSubName;
+      }
+    }
+
     const shouldClearRabatt = shouldClearCancelledDiscount(
       orderBeforeUpdate.status,
       nextStatus,
@@ -396,8 +436,10 @@ export async function POST(req: Request) {
         driver: driverValue ?? undefined,
         secondDriver: secondDriverValue ?? undefined,
         licensePlate: licensePlateValue ?? undefined,
-        statusNotes: statusNotesValue ?? undefined,
-        gsmLastTaskState: taskStateForStorage ?? undefined,
+        driverInfo: driverInfoValue ?? undefined,
+        subcontractor: nextSubcontractor,
+        subcontractorMembershipId: nextSubcontractorMembershipId,
+        gsmLastTaskState: taskState ?? undefined,
         gsmLastWebhookAt: new Date(),
         status: nextStatus ?? undefined,
         rabatt: shouldClearRabatt ? nextRabatt : undefined,
@@ -411,8 +453,9 @@ export async function POST(req: Request) {
       driver: driverValue,
       secondDriver: secondDriverValue,
       licensePlate: licensePlateValue,
-      statusNotes: statusNotesValue,
-      gsmLastTaskState: taskStateForStorage ?? orderBeforeUpdate.gsmLastTaskState,
+      driverInfo: driverInfoValue,
+      subcontractor: nextSubcontractor ?? orderBeforeUpdate.subcontractor,
+      gsmLastTaskState: taskState ?? orderBeforeUpdate.gsmLastTaskState,
       status: nextStatus,
       rabatt: nextRabatt,
       subcontractorMinus: nextSubcontractorMinus,
@@ -431,7 +474,7 @@ export async function POST(req: Request) {
         fromStatus: previousSnapshot.status,
         toStatus: nextSnapshot.status,
       });
-    } else {
+    } else if (changes.length > 0) {
       await createOrderUpdatedEvent(prisma, {
         orderId,
         companyId: orderBeforeUpdate.companyId,
@@ -444,10 +487,7 @@ export async function POST(req: Request) {
       });
     }
 
-    if (
-      cancellationDecision === "transient_cancelled_ignored" ||
-      cancellationDecision === "unverified_cancelled_ignored"
-    ) {
+    if (allCompleted && blockingContent) {
       await createOrderActionEvent(prisma, {
         orderId,
         companyId: orderBeforeUpdate.companyId,
@@ -456,12 +496,25 @@ export async function POST(req: Request) {
           email: null,
           source: "GSM_WEBHOOK",
         },
-        title: "Ignored unverified GSM cancellation",
+        title: "Auto-complete blocked — manual review required",
         details: [
-          `Webhook state: ${state ?? "-"}`,
-          `Fresh GSM state: ${freshTaskState ?? "-"}`,
-          `Decision: ignored unverified GSM cancellation`,
-          `Final status: ${nextStatus ?? "-"}`,
+          "All GSM tasks are completed, but the driver left a note that requires manual review before the order can be marked complete.",
+        ],
+      });
+    }
+
+    if (isCancelledOrFailed) {
+      await createOrderActionEvent(prisma, {
+        orderId,
+        companyId: orderBeforeUpdate.companyId,
+        actor: {
+          name: "GSM webhook",
+          email: null,
+          source: "GSM_WEBHOOK",
+        },
+        title: `GSM task ${normalizedTaskState} — manual review required`,
+        details: [
+          `Task ${gsmTaskId ?? "unknown"} was marked as ${taskState} in GSM. The order has not been automatically completed and requires manual review.`,
         ],
       });
     }
