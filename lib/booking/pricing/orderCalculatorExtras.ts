@@ -1,11 +1,5 @@
 import { getStartedChargeableKilometers } from "@/lib/booking/pricing/distanceCharges";
-import {
-  ADD_TO_ORDER_FEE_CODE,
-  ADD_TO_ORDER_FEE_LABEL,
-  calculateExtraWorkFee,
-  EXTRA_WORK_FEE_CODE,
-  EXTRA_WORK_FEE_LABEL,
-} from "@/lib/booking/pricing/hardcodedFees";
+import { calculateExtraWorkFee } from "@/lib/booking/pricing/hardcodedFees";
 import {
   getDeviationFeeOption,
   type DeviationFeeOption,
@@ -93,8 +87,12 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
   const kmOver100SubcontractorPrice = parsePriceSetting(
     priceListSettings.kmOver100.subcontractorPrice,
   );
+  const extraWorkPricePerBlock = parsePriceSetting(priceListSettings.extraWork.price);
+  const extraWorkSubcontractorPricePerBlock = parsePriceSetting(
+    priceListSettings.extraWork.subcontractorPrice,
+  );
   const extraWorkFee = feeExtraWork
-    ? calculateExtraWorkFee(extraWorkMinutes)
+    ? calculateExtraWorkFee(extraWorkMinutes, extraWorkPricePerBlock)
     : { blocks: 0, price: 0 };
   const deviationFee = getDeviationFeeOption(deviation);
   const expressDeliveryPrice = parsePriceSetting(
@@ -172,25 +170,29 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
     });
   }
 
-  if (extraWorkFee.price > 0) {
+  if (extraWorkFee.blocks > 0) {
     extraItems.push({
       kind: "customPrice",
-      code: EXTRA_WORK_FEE_CODE,
-      label: `${EXTRA_WORK_FEE_LABEL} x${extraWorkFee.blocks}`,
+      code: priceListSettings.extraWork.code,
+      label: `${priceListSettings.extraWork.description} x${extraWorkFee.blocks}`,
       qty: 1,
       unitPrice: extraWorkFee.price,
-      subcontractorUnitPrice: 0,
+      subcontractorUnitPrice: extraWorkFee.blocks * extraWorkSubcontractorPricePerBlock,
     });
   }
 
   if (feeAddToOrder) {
+    const addToOrderPrice = parsePriceSetting(priceListSettings.addToOrder.price);
+    const addToOrderSubcontractorPrice = parsePriceSetting(
+      priceListSettings.addToOrder.subcontractorPrice,
+    );
     extraItems.push({
       kind: "customPrice",
-      code: ADD_TO_ORDER_FEE_CODE,
-      label: ADD_TO_ORDER_FEE_LABEL,
+      code: priceListSettings.addToOrder.code,
+      label: priceListSettings.addToOrder.description,
       qty: 1,
-      unitPrice: 99,
-      subcontractorUnitPrice: 0,
+      unitPrice: addToOrderPrice,
+      subcontractorUnitPrice: addToOrderSubcontractorPrice,
     });
   }
 

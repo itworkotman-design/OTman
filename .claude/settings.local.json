@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\rkolv\\\\Documents\\\\School\\\\Git\\\\otmanTransport\\\\OTman\\\\app\" -Recurse -Filter \"*booking*\" -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }

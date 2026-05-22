@@ -4,7 +4,7 @@ export const EXTRA_WORK_FEE_LABEL =
 export const ADD_TO_ORDER_FEE_CODE = "ADDORDER";
 export const ADD_TO_ORDER_FEE_LABEL = "Gebyr for tillegg av bestilling";
 
-export function calculateExtraWorkFee(minutes: number): {
+export function calculateExtraWorkFee(minutes: number, pricePerBlock = 150): {
   blocks: number;
   price: number;
 } {
@@ -15,6 +15,6 @@ export function calculateExtraWorkFee(minutes: number): {
   const blocks = Math.ceil(minutes / 20);
   return {
     blocks,
-    price: blocks * 150,
+    price: blocks * pricePerBlock,
   };
 }

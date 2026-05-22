@@ -15,6 +15,8 @@ export type PriceListSettings = {
   xtraPallet: PriceListChargeSetting;
   kmFrom21: PriceListChargeSetting;
   kmOver100: PriceListChargeSetting;
+  extraWork: PriceListChargeSetting;
+  addToOrder: PriceListChargeSetting;
   deviations: Record<string, PriceListChargeSetting>;
 };
 
@@ -61,6 +63,18 @@ export function createDefaultPriceListSettings(): PriceListSettings {
     kmOver100: createDefaultChargeSetting(
       "KM_OVER_100",
       "Per km when distance is over 100 km",
+    ),
+    extraWork: createDefaultChargeSetting(
+      "XTRAARBEID",
+      "Extra work fee per started 20 min",
+      "150",
+      "0",
+    ),
+    addToOrder: createDefaultChargeSetting(
+      "ADDORDER",
+      "Gebyr for tillegg av bestilling",
+      "99",
+      "0",
     ),
     deviations: Object.fromEntries(
       DEVIATION_FEE_OPTIONS.map((option) => [
@@ -174,6 +188,8 @@ export function normalizePriceListSettings(
       },
       defaults.kmOver100,
     ),
+    extraWork: normalizeChargeSetting(input?.extraWork, defaults.extraWork),
+    addToOrder: normalizeChargeSetting(input?.addToOrder, defaults.addToOrder),
     deviations: normalizeDeviationSettings(
       input?.deviations,
       defaults.deviations,

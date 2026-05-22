@@ -2946,6 +2946,178 @@ export default function EditPricesPage() {
 
               <div className="space-y-3 rounded-lg border border-black/10 p-4">
                 <h3 className="text-sm font-semibold text-logoblue">
+                  Extra work fee (per started 20 min)
+                </h3>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Code
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.extraWork.code}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "extraWork",
+                        "code",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Code"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Description
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.extraWork.description}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "extraWork",
+                        "description",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Description"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Price per block
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.extraWork.price}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "extraWork",
+                        "price",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Price per 20 min block"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Subcontractor price per block
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.extraWork.subcontractorPrice}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "extraWork",
+                        "subcontractorPrice",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Subcontractor price per 20 min block"
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-black/10 p-4">
+                <h3 className="text-sm font-semibold text-logoblue">
+                  Fee for adding to order
+                </h3>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Code
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.addToOrder.code}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "addToOrder",
+                        "code",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Code"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Description
+                  </span>
+                  <input
+                    type="text"
+                    value={priceListSettingsDraft.addToOrder.description}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "addToOrder",
+                        "description",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Description"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.addToOrder.price}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "addToOrder",
+                        "price",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Price"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Subcontractor price
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={priceListSettingsDraft.addToOrder.subcontractorPrice}
+                    onChange={(e) =>
+                      updatePriceListChargeSetting(
+                        "addToOrder",
+                        "subcontractorPrice",
+                        e.target.value,
+                      )
+                    }
+                    className="customInput w-full"
+                    placeholder="Subcontractor price"
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-black/10 p-4">
+                <h3 className="text-sm font-semibold text-logoblue">
                   Bomtur / deviation prices
                 </h3>
 
