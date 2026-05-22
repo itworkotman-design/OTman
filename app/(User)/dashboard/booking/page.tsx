@@ -77,6 +77,8 @@ export default function BookingPage() {
   const [gsmResendAvailable, setGsmResendAvailable] = useState(false);
   const orderLoadRequestIdRef = useRef(0);
   const orderLoadAbortRef = useRef<AbortController | null>(null);
+  const lastLoadedAtRef = useRef(new Date().toISOString());
+  const [changeFlags, setChangeFlags] = useState({ hasNewOrders: false, hasChangedOrders: false });
 
   async function loadOrders(
     filters: BookingArchiveFilters = appliedFilters,
@@ -130,6 +132,8 @@ export default function BookingPage() {
 
       const nextOrders = data.orders ?? [];
       setOrders(nextOrders);
+      lastLoadedAtRef.current = new Date().toISOString();
+      setChangeFlags({ hasNewOrders: false, hasChangedOrders: false });
 
       setSelectedOrderIds((prev) =>
         prev.filter((id) =>
@@ -452,6 +456,42 @@ export default function BookingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (access.viewMode !== "ADMIN") return;
+
+    let cancelled = false;
+
+    const check = async () => {
+      if (cancelled) return;
+      try {
+        const res = await fetch("/api/auth/heartbeat", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lastChecked: lastLoadedAtRef.current }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok && data?.ok) {
+          setChangeFlags({
+            hasNewOrders: !!data.hasNewOrders,
+            hasChangedOrders: !!data.hasChangedOrders,
+          });
+        }
+      } catch {
+        // silently ignore heartbeat errors
+      }
+    };
+
+    const initialTimer = setTimeout(check, 3_000);
+    const interval = setInterval(check, 60_000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [access.viewMode]);
+
   function handleApplyFilters(next: BookingArchiveFilters) {
     setAppliedFilters(next);
     void loadOrders(next);
@@ -573,7 +613,7 @@ export default function BookingPage() {
       )}
       <div className="min-w-0 w-full overflow-x-auto">
         <div className="min-w-0 w-full">
-          <div className="my-4 flex items-center justify-between gap-2">
+          <div className="relative my-4 flex items-center justify-between gap-2">
             <div className="my-2 flex flex-col items-start gap-2">
               {access.viewMode !== "ADMIN" ? (
                 <div className="flex flex-wrap gap-2">
@@ -593,9 +633,34 @@ export default function BookingPage() {
               ) : null}
 
               <div className="text-sm text-textColorThird">
-                {canSelectOrders ? `${selectedOrderIds.length} ${bookingText(locale, "selected")} - ${bookingText(locale, "Price ex. VAT")}: NOK ${selectedPriceExVatLabel}` : ""}
+                {canSelectOrders
+                  ? `${selectedOrderIds.length} ${bookingText(locale, "selected")} - ${bookingText(locale, "Price ex. VAT")}: NOK ${selectedPriceExVatLabel}`
+                  : ""}
               </div>
             </div>
+
+            {access.viewMode === "ADMIN" && (
+              <div className=" absolute left-56 items-start gap-1 w-50">
+                <button
+                  type="button"
+                  className={`customButtonDefault${changeFlags.hasNewOrders || changeFlags.hasChangedOrders ? " bg-red-600! text-white! border-red-600!" : ""}`}
+                  onClick={() => void loadOrders(appliedFilters)}
+                  disabled={loading}
+                >
+                  {bookingText(locale, "Refresh")}
+                </button>
+
+                <span className={`text-xs font-medium pl-4 ${changeFlags.hasNewOrders || changeFlags.hasChangedOrders ? " text-red-600" : " text-textColorThird"}`}>
+                  {changeFlags.hasNewOrders && changeFlags.hasChangedOrders
+                    ? `${bookingText(locale, "New order")} · ${bookingText(locale, "Order changed")}`
+                    : changeFlags.hasNewOrders
+                      ? bookingText(locale, "New order")
+                      : changeFlags.hasChangedOrders
+                        ? bookingText(locale, "Order changed")
+                        : bookingText(locale, "Up to date")}
+                </span>
+              </div>
+            )}
           </div>
 
           {loading ? (
