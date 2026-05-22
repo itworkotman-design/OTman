@@ -63,6 +63,7 @@ export function calculateBookingPricing(params: {
           qty: item.qty,
           unitPrice,
           lineTotal,
+          subcontractorLineTotal,
         });
 
         continue;
@@ -74,6 +75,7 @@ export function calculateBookingPricing(params: {
           qty: item.qty,
           unitPrice: 0,
           lineTotal: 0,
+          subcontractorLineTotal: 0,
         });
 
         continue;
@@ -100,6 +102,7 @@ export function calculateBookingPricing(params: {
           qty: item.qty,
           unitPrice,
           lineTotal,
+          subcontractorLineTotal,
         });
 
         continue;
@@ -131,6 +134,7 @@ export function calculateBookingPricing(params: {
         qty: item.qty,
         unitPrice,
         lineTotal,
+        subcontractorLineTotal,
       });
     }
 

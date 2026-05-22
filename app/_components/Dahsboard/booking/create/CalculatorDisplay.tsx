@@ -168,20 +168,6 @@ useEffect(() => {
           </div>
         )}
 
-        {result.totals.subcontractorMinus !== 0 && (
-          <div className="priceRow">
-            <h1 className="text-md">{t("Subcontractor minus")}</h1>
-            <p className="font-semibold">-{formatSumNOK(result.totals.subcontractorMinus)} NOK</p>
-          </div>
-        )}
-
-        {result.totals.subcontractorPlus !== 0 && (
-          <div className="priceRow">
-            <h1 className="text-md">{t("Subcontractor plus")}</h1>
-            <p className="font-semibold">+{formatSumNOK(result.totals.subcontractorPlus)} NOK</p>
-          </div>
-        )}
-
         <div className="priceRow">
           <h1 className="font-bold text-2xl">{t("Total")}</h1>
           <p className="font-bold text-2xl">{formatSumNOK(displayTotals.totalExVat)} NOK</p>
@@ -230,40 +216,139 @@ useEffect(() => {
                 placeholder="e.g. 300"
               />
             </div>
-
-            <div className="lg:flex items-center">
-              <h1 className="whitespace-nowrap">{t("Subcontractor minus")}:</h1>
-              <input
-                type="text"
-                value={subcontractorMinus}
-                onChange={(e) =>
-                  onAdjustmentsChange?.({
-                    ...adjustments,
-                    subcontractorMinus: e.target.value,
-                  })
-                }
-                className="customInput w-full ml-2 h-8"
-                placeholder="e.g. 200"
-              />
-            </div>
-
-            <div className="lg:flex items-center">
-              <h1 className="whitespace-nowrap">{t("Subcontractor plus")}:</h1>
-              <input
-                type="text"
-                value={subcontractorPlus}
-                onChange={(e) =>
-                  onAdjustmentsChange?.({
-                    ...adjustments,
-                    subcontractorPlus: e.target.value,
-                  })
-                }
-                className="customInput w-full ml-2 h-8"
-                placeholder="e.g. 200"
-              />
-            </div>
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+type SubcontractorProps = {
+  productBreakdowns: ProductBreakdown[];
+  priceLookup: PriceLookup;
+  subcontractorMinus?: string;
+  subcontractorPlus?: string;
+  onSubcontractorAdjustmentsChange?: (
+    subcontractorMinus: string,
+    subcontractorPlus: string,
+  ) => void;
+};
+
+export function SubcontractorCalculatorDisplay({
+  productBreakdowns,
+  priceLookup,
+  subcontractorMinus = "",
+  subcontractorPlus = "",
+  onSubcontractorAdjustmentsChange,
+}: SubcontractorProps) {
+  const result = useMemo(
+    () =>
+      calculateBookingPricing({
+        productBreakdowns,
+        priceLookup,
+        adjustments: {
+          rabatt: "",
+          leggTil: "",
+          subcontractorMinus,
+          subcontractorPlus,
+        },
+      }),
+    [productBreakdowns, priceLookup, subcontractorMinus, subcontractorPlus],
+  );
+
+  return (
+    <section className="w-full customContainer rounded-2xl px-4 mt-4 bg-amber-50 border border-amber-200">
+      <div className="border-b-2 border-amber-200 py-3 flex items-center gap-2">
+        <h2 className="font-bold text-amber-800 text-sm uppercase tracking-wide">
+          Subcontractor View
+        </h2>
+      </div>
+
+      <div className="border-b-2 border-amber-200 py-4">
+        {result.breakdowns.length === 0 ? (
+          <p className="text-sm opacity-30">No products selected.</p>
+        ) : (
+          result.breakdowns.map((product, productIdx) => (
+            <div key={productIdx} className="mb-4 last:mb-0">
+              <h1 className="font-bold text-md mb-2">{product.productName}</h1>
+              {product.lines.length === 0 ? (
+                <p className="text-sm opacity-30 ml-2">No services selected for this product.</p>
+              ) : (
+                product.lines.map((line, idx) => (
+                  <div key={idx} className="priceRow ml-2">
+                    <h1 className="text-sm">
+                      {line.qty > 1 && (
+                        <span className="opacity-70 mr-1">x{formatQty(line.qty)}</span>
+                      )}
+                      {line.code && (
+                        <span className="text-amber-700 mr-1">({line.code})</span>
+                      )}
+                      {line.label}
+                    </h1>
+                    <p className="font-semibold text-sm whitespace-nowrap">
+                      {formatNOK(line.subcontractorLineTotal ?? 0)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="pb-4">
+        {result.totals.subcontractorMinus !== 0 && (
+          <div className="priceRow">
+            <h1 className="text-md">Minus</h1>
+            <p className="font-semibold">
+              -{formatSumNOK(result.totals.subcontractorMinus)} NOK
+            </p>
+          </div>
+        )}
+
+        {result.totals.subcontractorPlus !== 0 && (
+          <div className="priceRow">
+            <h1 className="text-md">Plus</h1>
+            <p className="font-semibold">
+              +{formatSumNOK(result.totals.subcontractorPlus)} NOK
+            </p>
+          </div>
+        )}
+
+        <div className="priceRow">
+          <h1 className="font-bold text-2xl">Total</h1>
+          <p className="font-bold text-2xl">
+            {formatSumNOK(result.totals.subcontractorTotal)} NOK
+          </p>
+        </div>
+
+        <div className="mt-8 space-y-4">
+          <div className="lg:flex items-center">
+            <h1 className="whitespace-nowrap">Subcontractor minus:</h1>
+            <input
+              type="text"
+              value={subcontractorMinus}
+              onChange={(e) =>
+                onSubcontractorAdjustmentsChange?.(e.target.value, subcontractorPlus)
+              }
+              className="customInput w-full ml-2 h-8"
+              placeholder="e.g. 200"
+            />
+          </div>
+
+          <div className="lg:flex items-center">
+            <h1 className="whitespace-nowrap">Subcontractor plus:</h1>
+            <input
+              type="text"
+              value={subcontractorPlus}
+              onChange={(e) =>
+                onSubcontractorAdjustmentsChange?.(subcontractorMinus, e.target.value)
+              }
+              className="customInput w-full ml-2 h-8"
+              placeholder="e.g. 200"
+            />
+          </div>
+        </div>
       </div>
     </section>
   );

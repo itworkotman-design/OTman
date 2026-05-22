@@ -78,6 +78,7 @@ export type CalculatedLine = {
   qty: number;
   unitPrice: number;
   lineTotal: number;
+  subcontractorLineTotal?: number;
 };
 
 export type CalculatedBreakdown = {

@@ -1,7 +1,10 @@
 "use client";
 
 import React from "react";
-import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
+import {
+  CalculatorDisplayNew,
+  SubcontractorCalculatorDisplay,
+} from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
@@ -51,6 +54,18 @@ export default function BookingCalculatorPanel({
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const formatPrice = (value: number) => `${Math.round(value)} NOK`;
+
+  function handleSubcontractorAdjustmentsChange(
+    nextMinus: string,
+    nextPlus: string,
+  ) {
+    onAdjustmentsChange({
+      rabatt: rabatt ?? "",
+      leggTil: leggTil ?? "",
+      subcontractorMinus: nextMinus,
+      subcontractorPlus: nextPlus,
+    });
+  }
   const priceUpdateNotice = priceUpdateAvailable ? (
     <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
       <p className="font-semibold">{locale === "nb" ? "Dette bestillinger har endret pris." : "Hey, this order changed prices."}</p>
@@ -110,6 +125,15 @@ export default function BookingCalculatorPanel({
                 sidebarMode={false}
                 locale={locale}
               />
+              {adminView && (
+                <SubcontractorCalculatorDisplay
+                  productBreakdowns={productBreakdowns}
+                  priceLookup={priceLookup}
+                  subcontractorMinus={subcontractorMinus}
+                  subcontractorPlus={subcontractorPlus}
+                  onSubcontractorAdjustmentsChange={handleSubcontractorAdjustmentsChange}
+                />
+              )}
             </div>
           </div>
         )}
@@ -132,6 +156,15 @@ export default function BookingCalculatorPanel({
           sidebarMode={sidebarMode}
           locale={locale}
         />
+        {adminView && (
+          <SubcontractorCalculatorDisplay
+            productBreakdowns={productBreakdowns}
+            priceLookup={priceLookup}
+            subcontractorMinus={subcontractorMinus}
+            subcontractorPlus={subcontractorPlus}
+            onSubcontractorAdjustmentsChange={handleSubcontractorAdjustmentsChange}
+          />
+        )}
       </div>
     </>
   );
