@@ -75,9 +75,21 @@ function getOptionDetail(item: OrderSummaryItem) {
   return `${baseLabel}${formatQuantity(item.quantity)}`;
 }
 
+function getModelNumber(rawData: unknown): string | null {
+  if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
+    return null;
+  }
+  const card = rawData as { modelNumber?: unknown };
+  return typeof card.modelNumber === "string" && card.modelNumber.trim()
+    ? card.modelNumber.trim()
+    : null;
+}
+
 function getProductTitle(item: OrderSummaryItem | undefined) {
   const label = item?.productName?.trim() || "Product";
-  return `${label}${formatQuantity(item?.quantity)}`;
+  const modelNumber = getModelNumber(item?.rawData);
+  const titleWithModel = modelNumber ? `${label} - ${modelNumber}` : label;
+  return `${titleWithModel}${formatQuantity(item?.quantity)}`;
 }
 
 function groupItemsByCard(items: OrderSummaryItem[]) {
@@ -126,9 +138,16 @@ export function buildOrderSummaryGroups(
       }
     }
 
+    const seenDetails = new Set<string>();
+    const uniqueDetails = details.filter((d) => {
+      if (seenDetails.has(d)) return false;
+      seenDetails.add(d);
+      return true;
+    });
+
     return {
       title: getProductTitle(productItem),
-      details,
+      details: uniqueDetails,
     };
   });
 }

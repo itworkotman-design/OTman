@@ -555,7 +555,7 @@ export function sanitizeVisibleBookingArchiveColumns(
     LEGACY_SUMMARY_COLUMN_IDS.has(columnId),
   );
 
-  if (shouldForceOrderSummary && (hadLegacySummaryColumn || !sanitized.has("orderSummary"))) {
+  if (shouldForceOrderSummary && hadLegacySummaryColumn) {
     sanitized.add("orderSummary");
   }
 
