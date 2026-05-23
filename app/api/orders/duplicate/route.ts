@@ -104,6 +104,28 @@ export async function POST(req: Request) {
         session.activeCompanyId!,
       );
 
+      const sourceOrderNumber = sourceOrder.orderNumber ?? String(reservedOrderNumber);
+      // Strip any existing copy suffix so copies of copies still branch from the original
+      const baseOrderNumber = sourceOrderNumber.replace(/-\d+$/, "");
+      const existingCopies = await tx.order.findMany({
+        where: {
+          companyId: session.activeCompanyId!,
+          orderNumber: { startsWith: `${baseOrderNumber}-` },
+        },
+        select: { orderNumber: true },
+      });
+
+      const usedSuffixes = existingCopies
+        .map((o) => {
+          const suffix = o.orderNumber?.slice(baseOrderNumber.length + 1);
+          const n = suffix ? parseInt(suffix, 10) : NaN;
+          return !isNaN(n) && String(n) === suffix ? n : null;
+        })
+        .filter((n): n is number => n !== null);
+
+      const nextSuffix = usedSuffixes.length > 0 ? Math.max(...usedSuffixes) + 1 : 1;
+      const newOrderNumber = `${baseOrderNumber}-${nextSuffix}`;
+
       const newOrder = await tx.order.create({
         data: {
           companyId: sourceOrder.companyId,
@@ -114,7 +136,7 @@ export async function POST(req: Request) {
 
           legacyWordpressOrderId: null,
           displayId: reservedOrderNumber,
-          orderNumber: String(reservedOrderNumber),
+          orderNumber: newOrderNumber,
 
           customerLabel: sourceOrder.customerLabel,
           customerName: sourceOrder.customerName,
