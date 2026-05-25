@@ -135,15 +135,6 @@ function fuzzyMatchSubcontractor(username: string, gsmName: string): boolean {
   return a.includes(b) || b.includes(a);
 }
 
-// Driver comments are appended to the task description after a blank line.
-// Everything after the first "\n\n" is what the driver added.
-function extractDriverComment(description: unknown): string | null {
-  if (typeof description !== "string") return null;
-  const separatorIndex = description.indexOf("\n\n");
-  if (separatorIndex === -1) return null;
-  const comment = description.slice(separatorIndex + 2).trim();
-  return comment.length > 0 ? comment : null;
-}
 
 function syncPodPdfInBackground(orderId: string, gsmTaskId: string) {
   void syncPodPdfWithRetry(orderId, gsmTaskId).catch((error: unknown) => {
@@ -383,14 +374,6 @@ export async function POST(req: Request) {
       orderBeforeUpdate.driver,
     );
 
-    const driverInfoParts = [
-      extractDriverComment(fullTask?.description),
-      eventNotes,
-    ].filter(Boolean);
-    const driverInfoValue =
-      driverInfoParts.length > 0
-        ? driverInfoParts.join(" ")
-        : orderBeforeUpdate.driverInfo;
     const secondDriverValue = getFirstNonEmptyString(
       metafields["app:driver2"],
       metafields.driver2,
@@ -436,7 +419,6 @@ export async function POST(req: Request) {
         driver: driverValue ?? undefined,
         secondDriver: secondDriverValue ?? undefined,
         licensePlate: licensePlateValue ?? undefined,
-        driverInfo: driverInfoValue ?? undefined,
         subcontractor: nextSubcontractor,
         subcontractorMembershipId: nextSubcontractorMembershipId,
         gsmLastTaskState: taskState ?? undefined,
@@ -453,7 +435,6 @@ export async function POST(req: Request) {
       driver: driverValue,
       secondDriver: secondDriverValue,
       licensePlate: licensePlateValue,
-      driverInfo: driverInfoValue,
       subcontractor: nextSubcontractor ?? orderBeforeUpdate.subcontractor,
       gsmLastTaskState: taskState ?? orderBeforeUpdate.gsmLastTaskState,
       status: nextStatus,

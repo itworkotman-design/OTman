@@ -178,9 +178,12 @@ function buildDescription(order: GsmOrderInput) {
           servicesSummary: order.servicesSummary,
         });
 
-  return [formatOrderSummaryText(summaryGroups), ...buildLocationDetails(order), order.description?.trim(), order.customerComments?.trim(), order.driverInfo?.trim(), order.statusNotes?.trim()]
+  const summaryBlock = [formatOrderSummaryText(summaryGroups), ...buildLocationDetails(order)]
     .filter((value): value is string => !!value)
     .join("\n");
+  return [summaryBlock, order.description?.trim(), order.customerComments?.trim(), order.statusNotes?.trim(), order.driverInfo?.trim()]
+    .filter((value): value is string => !!value)
+    .join("\n\n");
 }
 
 function getTimeWindowIso(order: GsmOrderInput) {

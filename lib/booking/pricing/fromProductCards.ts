@@ -51,10 +51,10 @@ function parsePrice(value: string) {
 
 function shouldZeroBaseDeliveryPrice(
   deliveryType: SavedProductCard["deliveryType"],
-  useXtraDeliveryPricing: boolean,
+  _useXtraDeliveryPricing: boolean,
   zeroBaseDeliveryPricesOver100Km: boolean,
 ) {
-  if (!zeroBaseDeliveryPricesOver100Km || useXtraDeliveryPricing) {
+  if (!zeroBaseDeliveryPricesOver100Km) {
     return false;
   }
 

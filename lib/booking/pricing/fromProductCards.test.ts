@@ -536,7 +536,7 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
-  it("zeros the non-XTRA base delivery price over 100 km", () => {
+  it("zeros ALL base delivery prices over 100 km, including XTRA cards", () => {
     const cards = [
       buildCard({
         cardId: 1,
@@ -555,7 +555,7 @@ describe("buildProductBreakdowns", () => {
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
       code: "XTRA",
-      unitPrice: 150,
+      unitPrice: 0,
     });
     expect(result[1]?.items[0]).toMatchObject({
       kind: "deliveryType",

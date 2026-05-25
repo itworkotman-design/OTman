@@ -841,7 +841,7 @@ export default function BookingEditor({
   );
 
   const importedWordpressRouteChanged = useMemo(() => {
-    if (!initialValues?.legacyWordpressOrderId) {
+    if (!initialValues?.id) {
       return true;
     }
 
@@ -854,9 +854,9 @@ export default function BookingEditor({
   }, [
     deliveryAddress,
     extraPickups,
+    initialValues?.id,
     initialValues?.deliveryAddress,
     initialValues?.extraPickups,
-    initialValues?.legacyWordpressOrderId,
     initialValues?.pickupAddress,
     initialValues?.returnAddress,
     pickupAddress,
@@ -1516,7 +1516,7 @@ export default function BookingEditor({
   }, [floorNo, lift]);
 
   useEffect(() => {
-    if (initialValues?.legacyWordpressOrderId && !importedWordpressRouteChanged) {
+    if (!importedWordpressRouteChanged) {
       return;
     }
 
@@ -1585,7 +1585,6 @@ export default function BookingEditor({
     deliveryAddress,
     extraPickups,
     importedWordpressRouteChanged,
-    initialValues?.legacyWordpressOrderId,
     pickupAddress,
     returnAddress,
     shouldShowReturnAddress,
