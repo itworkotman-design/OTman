@@ -1188,7 +1188,20 @@ export default function BookingEditor({
     [productCards],
   );
 
-  const hasSelectedReturnOption = useMemo(() => productCards.some((card) => !!card.selectedReturnOptionId), [productCards]);
+  const hasSelectedReturnOption = useMemo(
+    () =>
+      productCards.some((card) => {
+        if (card.selectedReturnOptionId) return true;
+        if (!card.customSectionSelections.length) return false;
+        const product = catalogProducts.find((p) => p.id === card.productId);
+        if (!product) return false;
+        return card.customSectionSelections.some((sel) => {
+          const section = product.customSections.find((s) => s.id === sel.sectionId);
+          return section?.useAsReturnOptions && sel.optionIds.length > 0;
+        });
+      }),
+    [productCards, catalogProducts],
+  );
   const shouldShowReturnAddress = hasSelectedReturnOption;
   const hadVisibleReturnAddressRef = useRef(shouldShowReturnAddress);
 
