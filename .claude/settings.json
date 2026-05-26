@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"c:\\\\\\\\Users\\\\\\\\rkolv\\\\\\\\Documents\\\\\\\\School\\\\\\\\Git\\\\\\\\otmanTransport\\\\\\\\OTman\")",
+      "Bash(find \"c:\\\\\\\\Users\\\\\\\\rkolv\\\\\\\\Documents\\\\\\\\School\\\\\\\\Git\\\\\\\\otmanTransport\\\\\\\\OTman\\\\\\\\app\" -type f -name \"*.tsx\")"
+    ]
+  }
+}

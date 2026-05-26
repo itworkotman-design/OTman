@@ -1879,16 +1879,30 @@ export default function BookingEditor({
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    let startHH = 0;
+    let startMM = 0;
 
-    const delivery = new Date(deliveryDate);
-    delivery.setHours(0, 0, 0, 0);
+    if (timeWindow === "10:00-16:00") {
+      startHH = 10;
+    } else if (timeWindow === "16:00-21:00") {
+      startHH = 16;
+    } else if (timeWindow === "custom") {
+      const match = customTimeFrom.match(/^(\d{2}):(\d{2})$/);
+      if (!match) {
+        setExpressDelivery(false);
+        return;
+      }
+      startHH = Number(match[1]);
+      startMM = Number(match[2]);
+    }
 
-    const diffDays = (delivery.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+    const deliveryStart = new Date(
+      `${deliveryDate}T${String(startHH).padStart(2, "0")}:${String(startMM).padStart(2, "0")}:00`,
+    );
+    const diffHours = (deliveryStart.getTime() - Date.now()) / (1000 * 60 * 60);
 
-    setExpressDelivery(diffDays <= 1);
-  }, [deliveryDate, existingOrderId]);
+    setExpressDelivery(diffHours < 24);
+  }, [deliveryDate, timeWindow, customTimeFrom, existingOrderId]);
 
   //For locking pickupadress when isonlyreturn or install
   useEffect(() => {
