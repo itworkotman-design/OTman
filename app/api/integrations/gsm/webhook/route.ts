@@ -339,8 +339,16 @@ export async function POST(req: Request) {
     // Driver notes live on the task_event (body.notes), not on the task object itself.
     const eventNotes = getTrimmedString(body.notes);
 
-    // Auto-complete is blocked only when the driver left a written note.
-    const blockingContent = hasTaskBlockingContent(fullTask, eventNotes);
+    // If the task was previously failed and is now being completed, always require
+    // manual review — something went wrong on a prior attempt.
+    const fromState = getTrimmedString(body.from_state);
+    const completedAfterFailure =
+      taskState === "completed" && fromState === "failed";
+
+    // Auto-complete is blocked when the driver left a written note, or when the
+    // task was completed after a prior failure.
+    const blockingContent =
+      hasTaskBlockingContent(fullTask, eventNotes) || completedAfterFailure;
 
     const normalizedTaskState = normalizeGsmState(taskState);
     const isCancelledOrFailed =
@@ -354,7 +362,9 @@ export async function POST(req: Request) {
         orderId,
         orderNumber: orderBeforeUpdate.orderNumber,
         gsmTaskId,
-        reason: "Driver left a note requiring manual review",
+        reason: completedAfterFailure
+          ? "Task completed after a prior failure — manual review required"
+          : "Driver left a note requiring manual review",
       });
     }
 
