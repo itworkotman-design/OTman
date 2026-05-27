@@ -488,6 +488,7 @@ export default function BookingEditor({
   const previousSelectedCustomerIdRef = useRef<string | null>(null);
   const hasProcessedInitialReturnSyncRef = useRef(false);
   const lastUnlockedPickupAddressRef = useRef(initialValues?.pickupAddress ?? "");
+  const pricingResultRef = useRef<ReturnType<typeof calculateBookingPricing> | null>(null);
   const [capacityWarning, setCapacityWarning] = useState<CapacityWarningState>(null);
   const [capacityWarningLoading, setCapacityWarningLoading] = useState(false);
 
@@ -1000,6 +1001,10 @@ export default function BookingEditor({
     [calculatorAdjustments, currentCatalogCalculatorBreakdowns, currentCatalogPriceLookup],
   );
 
+  useEffect(() => {
+    pricingResultRef.current = storedSnapshotPricingResult;
+  }, [storedSnapshotPricingResult]);
+
   const isExistingOrder = Boolean(initialValues?.id);
   const storedOrderPricingTotals = useMemo(
     () => ({
@@ -1378,11 +1383,11 @@ export default function BookingEditor({
     setRabatt((prevRabatt) => {
       const isAutoDiscountOrder = shouldAutoDiscountStatus(statusRef.current);
       if (!isAutoDiscountOrder && adj.rabatt !== prevRabatt) {
-        const pct = Number((priceListSettingsRef.current.subcontractorRabattPercentage || "100").replace(",", "."));
         const rabattAmount = Number(adj.rabatt.replace(/[^\d.,-]/g, "").replace(",", "."));
+        const { subtotalExVat, subcontractorBase } = pricingResultRef.current?.totals ?? { subtotalExVat: 0, subcontractorBase: 0 };
         const autoMinus =
-          Number.isFinite(pct) && Number.isFinite(rabattAmount) && rabattAmount > 0
-            ? Math.round(rabattAmount * pct / 100)
+          Number.isFinite(rabattAmount) && rabattAmount > 0 && subtotalExVat > 0
+            ? Math.round(subcontractorBase * rabattAmount / subtotalExVat)
             : 0;
         setSubcontractorMinus(String(autoMinus));
       } else {

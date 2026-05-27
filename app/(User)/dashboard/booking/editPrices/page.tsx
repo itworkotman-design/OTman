@@ -921,7 +921,7 @@ export default function EditPricesPage() {
   }
 
   function updatePriceListChargeSetting(
-    key: Exclude<keyof PriceListSettings, "deviations" | "subcontractorRabattPercentage">,
+    key: Exclude<keyof PriceListSettings, "deviations">,
     field: "code" | "description" | "price" | "subcontractorPrice",
     value: string,
   ) {
@@ -3112,35 +3112,6 @@ export default function EditPricesPage() {
                     }
                     className="customInput w-full"
                     placeholder="Subcontractor price"
-                  />
-                </label>
-              </div>
-
-              <div className="space-y-3 rounded-lg border border-black/10 p-4">
-                <h3 className="text-sm font-semibold text-logoblue">
-                  Auto subcontractor discount
-                </h3>
-                <p className="text-xs text-black/60">
-                  When a customer discount (rabatt) is set, the subcontractor minus is automatically set to this percentage of the rabatt. Can still be adjusted manually after.
-                </p>
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-black/80">
-                    Percentage (0–100)
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={priceListSettingsDraft.subcontractorRabattPercentage}
-                    onChange={(e) =>
-                      setPriceListSettingsDraft((current) => ({
-                        ...current,
-                        subcontractorRabattPercentage: e.target.value,
-                      }))
-                    }
-                    className="customInput w-full"
-                    placeholder="e.g. 100"
                   />
                 </label>
               </div>
