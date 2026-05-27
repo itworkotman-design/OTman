@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import BookingEditor, {
   type OrderFormPayload,
@@ -152,6 +152,14 @@ export default function OrderModal({
   }
 
 
+  const bookingEditorInitialValues = useMemo(
+    () =>
+      order
+        ? { ...order, subcontractorId: order.subcontractorId || order.subcontractorMembershipId || "" }
+        : undefined,
+    [order],
+  );
+
   if (!open || !mounted) return null;
 
   // createPortal renders directly into document.body, escaping any parent
@@ -184,14 +192,7 @@ export default function OrderModal({
             ) : (
               <BookingEditor
                 onSubmit={handleSave}
-                initialValues={
-                  order
-                    ? {
-                        ...order,
-                        subcontractorId: order.subcontractorId || order.subcontractorMembershipId || "",
-                      }
-                    : undefined
-                }
+                initialValues={bookingEditorInitialValues}
                 locale={locale}
                 isOrderCreator={false}
               />
