@@ -700,7 +700,7 @@ export function ProductCardNew({
                 </p>
               ) : (
                 installOptions.map((opt) => (
-                  <label key={opt.id} className="block my-1">
+                  <div key={opt.id} className="block my-1">
                     <input
                       className="inline mr-2"
                       type="checkbox"
@@ -712,7 +712,7 @@ export function ProductCardNew({
                     <span className="inline">
                       {opt.description || opt.label || opt.code}
                     </span>
-                  </label>
+                  </div>
                 ))
               )}
             </>
@@ -729,7 +729,7 @@ export function ProductCardNew({
                 </p>
               ) : (
                 extraOptions.map((opt) => (
-                  <label key={opt.id} className="block my-1">
+                  <div key={opt.id} className="block my-1">
                     <input
                       className="inline mr-2"
                       type="checkbox"
@@ -741,7 +741,7 @@ export function ProductCardNew({
                     <span className="inline">
                       {opt.description || opt.label || opt.code}
                     </span>
-                  </label>
+                  </div>
                 ))
               )}
             </>
@@ -752,7 +752,7 @@ export function ProductCardNew({
               <h1 className="font-semibold text-lg text-textcolor my-2">
                 {t("Disassembly")}
               </h1>
-              <label className="block my-1">
+              <div className="block my-1">
                 <input
                   className="inline mr-2"
                   type="checkbox"
@@ -769,7 +769,7 @@ export function ProductCardNew({
                     demontOption?.code ||
                     "Demont"}
                 </span>
-              </label>
+              </div>
             </>
           )}
 
@@ -802,7 +802,7 @@ export function ProductCardNew({
                 {section.options.map((option) => {
                   const isSelected = getSelectedCustomSectionOptionIds(section.id).includes(option.id);
                   return (
-                  <label key={option.id} className="block my-1">
+                  <div key={option.id} className="block my-1">
                     <input
                       className="inline mr-2"
                       type={section.allowMultiple ? "checkbox" : "radio"}
@@ -823,7 +823,7 @@ export function ProductCardNew({
                     <span className="inline">
                       {option.label}
                     </span>
-                  </label>
+                  </div>
                   );
                 })}
               </div>
@@ -841,7 +841,7 @@ export function ProductCardNew({
                 </p>
               ) : (
                 returnOptions.map((opt) => (
-                  <label key={opt.id} className="block my-1">
+                  <div key={opt.id} className="block my-1">
                     <input
                       className="inline mr-2"
                       type="radio"
@@ -862,7 +862,7 @@ export function ProductCardNew({
                     <span className="inline">
                       {opt.description || opt.label || opt.code}
                     </span>
-                  </label>
+                  </div>
                 ))
               )}
             </>
