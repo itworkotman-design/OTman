@@ -1460,7 +1460,7 @@ export default function BookingEditor({
   }, [automaticStatusDiscount, automaticSubcontractorMinus, status]);
 
   useEffect(() => {
-    if (!shouldShowReturnAddress && returnAddress) {
+    if (!shouldShowReturnAddress && returnAddress && hasProcessedInitialReturnSyncRef.current) {
       setReturnAddress("");
     }
   }, [returnAddress, shouldShowReturnAddress]);
