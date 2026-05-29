@@ -3560,13 +3560,13 @@ export default function EditPricesPage() {
                                     </label>
                                     {!section.allowMultiple && (
                                       <>
-                                        <label className="flex items-center gap-2 customContainer">
+                                        <label className="flex items-center gap-2">
                                           <input type="checkbox" checked={section.allowDeselect}
                                             onChange={(e) => updateCustomSection(section.id, { allowDeselect: e.target.checked })}
                                             className="customInput h-4 w-4" />
                                           <span className="text-sm">Allow deselect</span>
                                         </label>
-                                        <label className="flex items-center gap-2 customContainer">
+                                        <label className="flex items-center gap-2">
                                           <input type="checkbox" checked={section.useAsReturnOptions}
                                             onChange={(e) => updateCustomSection(section.id, { useAsReturnOptions: e.target.checked })}
                                             className="customInput h-4 w-4" />
@@ -3749,7 +3749,7 @@ export default function EditPricesPage() {
                           </label>
 
                           {!section.allowMultiple && (
-                            <label className="flex items-center gap-2 customContainer">
+                            <label className="flex items-center gap-2">
                               <input
                                 type="checkbox"
                                 checked={section.allowDeselect}
@@ -3765,7 +3765,7 @@ export default function EditPricesPage() {
                           )}
 
                           {!section.allowMultiple && (
-                            <label className="flex items-center gap-2 customContainer">
+                            <label className="flex items-center gap-2">
                               <input
                                 type="checkbox"
                                 checked={section.useAsReturnOptions}

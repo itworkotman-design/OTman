@@ -827,17 +827,14 @@ export function ProductCardNew({
                       type={section.allowMultiple ? "checkbox" : "radio"}
                       name={`custom-section-${value.cardId}-${section.id}`}
                       checked={isSelected}
-                      onClick={section.allowMultiple ? undefined : (event) => {
-                        if (isSelected) {
-                          event.preventDefault();
-                        }
-                        toggleCustomSectionOption(section.id, option.id);
-                      }}
-                      onChange={() => {
-                        if (section.allowMultiple || !isSelected) {
-                          toggleCustomSectionOption(section.id, option.id);
-                        }
-                      }}
+                      onChange={section.allowMultiple
+                        ? () => toggleCustomSectionOption(section.id, option.id)
+                        : () => {}
+                      }
+                      onClick={!section.allowMultiple
+                        ? () => toggleCustomSectionOption(section.id, option.id)
+                        : undefined
+                      }
                     />
                     <span className="inline">
                       {option.label}
