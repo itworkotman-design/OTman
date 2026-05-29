@@ -17,8 +17,6 @@ import {
   isReturnOption,
   isXtraOption,
   isExtraCheckboxOption,
-  showsInstallOptions,
-  showsExtraCheckboxes,
 } from "@/lib/booking/pricing/rules";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
@@ -47,11 +45,12 @@ function getDefaultDeliveryType(product: CatalogProduct | null): DeliveryType {
     return "";
   }
 
-  const indoorDeliveryType = product.deliveryTypes.find(
+  const enabled = product.deliveryTypes.filter((dt) => dt.enabled);
+  const indoorDeliveryType = enabled.find(
     (item) => item.key === DELIVERY_TYPES.INDOOR,
   );
 
-  return indoorDeliveryType?.key ?? product.deliveryTypes[0]?.key ?? "";
+  return indoorDeliveryType?.key ?? enabled[0]?.key ?? "";
 }
 
 function getDefaultReturnOptionId(
@@ -148,46 +147,53 @@ export function ProductCardNew({
     [customSections, supportsDeliveryTypes, value.deliveryType],
   );
   const deliveryTypes = useMemo(
-    () => selectedProduct?.deliveryTypes ?? [],
+    () => (selectedProduct?.deliveryTypes ?? []).filter((dt) => dt.enabled),
     [selectedProduct],
   );
   const supportsQuantity = !!selectedProduct?.allowQuantity || isPalletProduct;
   const supportsInstallOptions = !!selectedProduct?.allowInstallOptions;
   const supportsReturnOptions = !!selectedProduct?.allowReturnOptions;
   const supportsExtraServices = !!selectedProduct?.allowExtraServices;
-  const supportsDemont = !!selectedProduct?.allowDemont;
   const supportsHoursInput = !!selectedProduct?.allowHoursInput;
   const supportsModelNumber = !!selectedProduct?.allowModelNumber;
 
-  const showInstallOptions =
-    !!selectedProduct &&
-    supportsInstallOptions &&
-    (!supportsDeliveryTypes ||
-      showsInstallOptions(value.deliveryType) ||
-      value.selectedInstallOptionIds.length > 0);
-  const showReturnOptions =
-    !!selectedProduct &&
-    canApplyReturnOption({
-      allowReturnOptions: supportsReturnOptions,
-      allowDeliveryTypes: supportsDeliveryTypes,
-      deliveryType: value.deliveryType,
-    });
-  const showExtras =
-    !!selectedProduct &&
-    supportsExtraServices &&
-    (!supportsDeliveryTypes || showsExtraCheckboxes(value.deliveryType)) &&
-    value.selectedInstallOptionIds.length === 0;
-  const showDemont =
-    !!selectedProduct &&
-    supportsDemont &&
-    (!supportsDeliveryTypes || showsExtraCheckboxes(value.deliveryType)) &&
-    value.selectedInstallOptionIds.length === 0 &&
-    !!demontOption;
+  const selectedDeliveryTypeConfig = supportsDeliveryTypes
+    ? (deliveryTypes.find((dt) => dt.key === value.deliveryType) ?? null)
+    : null;
+
+  const showInstallOptions = !!selectedProduct && supportsInstallOptions && (
+    selectedDeliveryTypeConfig
+      ? (selectedDeliveryTypeConfig.allowInstallOptions || value.selectedInstallOptionIds.length > 0)
+      : (!supportsDeliveryTypes || value.selectedInstallOptionIds.length > 0)
+  );
+  const showReturnOptions = !!selectedProduct && (
+    selectedDeliveryTypeConfig
+      ? selectedDeliveryTypeConfig.allowReturnOptions
+      : canApplyReturnOption({
+          allowReturnOptions: supportsReturnOptions,
+          allowDeliveryTypes: supportsDeliveryTypes,
+          deliveryType: value.deliveryType,
+        })
+  );
+  const showExtras = !!selectedProduct && supportsExtraServices && value.selectedInstallOptionIds.length === 0 && (
+    selectedDeliveryTypeConfig
+      ? selectedDeliveryTypeConfig.allowExtraServices
+      : !supportsDeliveryTypes
+  );
+  const showDemont = !!selectedProduct && !!demontOption && value.selectedInstallOptionIds.length === 0 && (
+    selectedDeliveryTypeConfig
+      ? selectedDeliveryTypeConfig.allowExtraServices
+      : (supportsExtraServices && !supportsDeliveryTypes)
+  );
 
   const showDeliveryType = !!value.productId && supportsDeliveryTypes;
   const showAmount = !!value.productId && supportsQuantity;
   const showHoursInput = !!value.productId && supportsHoursInput;
-  const showModelNumber = !!value.productId && supportsModelNumber;
+  const showModelNumber = !!value.productId && supportsModelNumber && (
+    selectedDeliveryTypeConfig
+      ? selectedDeliveryTypeConfig.allowModelNumber
+      : !supportsDeliveryTypes
+  );
 
   useEffect(() => {
     if (!selectedProduct) return;
@@ -211,7 +217,7 @@ export function ProductCardNew({
         (id) => id !== demontOption!.id,
       );
 
-      if (supportsDemont) {
+      if (supportsExtraServices) {
         nextValue.demontEnabled = true;
       }
     }
@@ -227,11 +233,15 @@ export function ProductCardNew({
       nextValue.deliveryType = nextDeliveryType;
     }
 
+    const nextDeliveryTypeConfig = supportsDeliveryTypes
+      ? (deliveryTypes.find((dt) => dt.key === nextDeliveryType) ?? null)
+      : null;
+
     if (
       (!supportsInstallOptions ||
-        (supportsDeliveryTypes &&
-          !showsInstallOptions(nextDeliveryType) &&
-          nextDeliveryType !== "")) &&
+        (nextDeliveryTypeConfig
+          ? !nextDeliveryTypeConfig.allowInstallOptions
+          : (supportsDeliveryTypes && nextDeliveryType !== ""))) &&
       value.selectedInstallOptionIds.length > 0
     ) {
       nextValue.selectedInstallOptionIds = [];
@@ -239,8 +249,11 @@ export function ProductCardNew({
 
     if (
       (!supportsExtraServices ||
-        (supportsDeliveryTypes && !showsExtraCheckboxes(nextDeliveryType))) &&
-        value.selectedExtraOptionIds.length > 0) {
+        (nextDeliveryTypeConfig
+          ? !nextDeliveryTypeConfig.allowExtraServices
+          : supportsDeliveryTypes)) &&
+      value.selectedExtraOptionIds.length > 0
+    ) {
       nextValue.selectedExtraOptionIds = [];
     }
 
@@ -251,11 +264,13 @@ export function ProductCardNew({
       nextValue.selectedExtraOptionIds = [];
     }
 
-    const allowsReturnOption = canApplyReturnOption({
-      allowReturnOptions: supportsReturnOptions,
-      allowDeliveryTypes: supportsDeliveryTypes,
-      deliveryType: nextDeliveryType,
-    });
+    const allowsReturnOption = nextDeliveryTypeConfig
+      ? nextDeliveryTypeConfig.allowReturnOptions
+      : canApplyReturnOption({
+          allowReturnOptions: supportsReturnOptions,
+          allowDeliveryTypes: supportsDeliveryTypes,
+          deliveryType: nextDeliveryType,
+        });
 
     if (!allowsReturnOption && value.selectedReturnOptionId) {
       nextValue.selectedReturnOptionId = null;
@@ -270,11 +285,11 @@ export function ProductCardNew({
       }
     }
 
-    if ((!supportsDemont ||
-        (supportsDeliveryTypes && !showsExtraCheckboxes(nextDeliveryType)) ||
-        value.selectedInstallOptionIds.length > 0 ||
-        !demontOption) &&
-        value.demontEnabled) {
+    const nextShowDemont = nextDeliveryTypeConfig
+      ? nextDeliveryTypeConfig.allowExtraServices
+      : (supportsExtraServices && !supportsDeliveryTypes);
+
+    if (!nextShowDemont && value.demontEnabled) {
       nextValue.demontEnabled = false;
     }
 
@@ -292,7 +307,12 @@ export function ProductCardNew({
       nextValue.hoursInput = 1;
     }
 
-    if (!supportsModelNumber && value.modelNumber.trim()) {
+    const nextShowModelNumber = supportsModelNumber && (
+      nextDeliveryTypeConfig
+        ? nextDeliveryTypeConfig.allowModelNumber
+        : !supportsDeliveryTypes
+    );
+    if (!nextShowModelNumber && value.modelNumber.trim()) {
       nextValue.modelNumber = "";
     }
 
@@ -364,7 +384,6 @@ export function ProductCardNew({
     onChange,
     selectedProduct,
     supportsDeliveryTypes,
-    supportsDemont,
     supportsExtraServices,
     supportsHoursInput,
     supportsInstallOptions,

@@ -297,12 +297,17 @@ describe("buildOrderItemsFromCards", () => {
           deliveryTypes: [
             {
               key: DELIVERY_TYPES.INDOOR,
+              enabled: true,
               code: "INDOOR",
               label: "Innbæring",
               price: "669",
               subcontractorPrice: "350",
               xtraPrice: "229",
               xtraSubcontractorPrice: "100",
+              allowInstallOptions: true,
+              allowExtraServices: true,
+              allowReturnOptions: true,
+              allowModelNumber: false,
             },
           ],
         },

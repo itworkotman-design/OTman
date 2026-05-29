@@ -64,10 +64,15 @@ describe("buildOrderSummaries", () => {
       deliveryTypes: [
         {
           key: DELIVERY_TYPES.INDOOR,
+          enabled: true,
           code: "INDOOR",
           label: "Indoor carry",
           price: "669",
           xtraPrice: "229",
+          allowInstallOptions: true,
+          allowExtraServices: true,
+          allowReturnOptions: true,
+          allowModelNumber: false,
         },
       ],
     });
@@ -97,10 +102,15 @@ describe("buildOrderSummaries", () => {
       deliveryTypes: [
         {
           key: DELIVERY_TYPES.INDOOR,
+          enabled: true,
           code: "INDOOR",
           label: "Indoor carry",
           price: "669",
           xtraPrice: "229",
+          allowInstallOptions: true,
+          allowExtraServices: true,
+          allowReturnOptions: true,
+          allowModelNumber: false,
         },
       ],
     });
@@ -112,10 +122,15 @@ describe("buildOrderSummaries", () => {
       deliveryTypes: [
         {
           key: DELIVERY_TYPES.FIRST_STEP,
+          enabled: true,
           code: "FIRST_STEP",
           label: "First step",
           price: "590",
           xtraPrice: "150",
+          allowInstallOptions: false,
+          allowExtraServices: false,
+          allowReturnOptions: false,
+          allowModelNumber: false,
         },
       ],
     });

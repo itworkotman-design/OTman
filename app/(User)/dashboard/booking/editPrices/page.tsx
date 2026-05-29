@@ -14,6 +14,7 @@ import {
 import {
   createDefaultProductDeliveryTypes,
   normalizeProductDeliveryTypes,
+  type DeliveryTypeKey,
   type ProductDeliveryType,
 } from "@/lib/products/deliveryTypes";
 import {
@@ -41,7 +42,6 @@ type PriceListItem = {
   allowInstallOptions?: boolean;
   allowReturnOptions?: boolean;
   allowExtraServices?: boolean;
-  allowDemont?: boolean;
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
   allowModelNumber?: boolean;
@@ -70,7 +70,6 @@ type EditableRow = PriceListItem & {
   allowInstallOptions?: boolean;
   allowReturnOptions?: boolean;
   allowExtraServices?: boolean;
-  allowDemont?: boolean;
   allowPeopleCount?: boolean;
   allowHoursInput?: boolean;
   allowModelNumber?: boolean;
@@ -102,7 +101,6 @@ type ProductSettingsDraft = {
   allowInstallOptions: boolean;
   allowReturnOptions: boolean;
   allowExtraServices: boolean;
-  allowDemont: boolean;
   allowPeopleCount: boolean;
   allowHoursInput: boolean;
   allowModelNumber: boolean;
@@ -128,7 +126,6 @@ function buildProductSettingsDefaults(
         allowInstallOptions: false,
         allowReturnOptions: false,
         allowExtraServices: false,
-        allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput: false,
         allowModelNumber: true,
@@ -145,7 +142,6 @@ function buildProductSettingsDefaults(
         allowInstallOptions: true,
         allowReturnOptions: false,
         allowExtraServices: false,
-        allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput: true,
         allowModelNumber: true,
@@ -163,7 +159,6 @@ function buildProductSettingsDefaults(
         allowInstallOptions: true,
         allowReturnOptions: true,
         allowExtraServices: true,
-        allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput: false,
         allowModelNumber: true,
@@ -225,23 +220,47 @@ const PRODUCT_SETTING_FIELDS: Array<{
     ProductSettingsDraft,
     | "allowDeliveryTypes"
     | "allowQuantity"
-    | "allowInstallOptions"
-    | "allowReturnOptions"
-    | "allowExtraServices"
     | "allowHoursInput"
-    | "allowModelNumber"
     | "autoXtraPerPallet"
   >;
   label: string;
 }> = [
   { key: "allowDeliveryTypes", label: "Delivery type selection" },
   { key: "allowQuantity", label: "Quantity" },
+  { key: "allowHoursInput", label: "Hours input" },
+  { key: "autoXtraPerPallet", label: "Automatic pallet XTRA" },
+];
+
+const GLOBAL_FEATURE_FIELDS: Array<{
+  key: keyof Pick<
+    ProductSettingsDraft,
+    | "allowInstallOptions"
+    | "allowReturnOptions"
+    | "allowExtraServices"
+    | "allowModelNumber"
+  >;
+  label: string;
+}> = [
   { key: "allowInstallOptions", label: "Install options" },
   { key: "allowReturnOptions", label: "Return options" },
   { key: "allowExtraServices", label: "Utpakking / Demontering" },
-  { key: "allowHoursInput", label: "Hours input" },
   { key: "allowModelNumber", label: "Model number input" },
-  { key: "autoXtraPerPallet", label: "Automatic pallet XTRA" },
+];
+
+const DELIVERY_TYPE_FEATURE_FLAGS: Array<{
+  key: keyof Pick<
+    ProductDeliveryType,
+    | "allowInstallOptions"
+    | "allowExtraServices"
+    | "allowReturnOptions"
+    | "allowModelNumber"
+  >;
+  label: string;
+}> = [
+  { key: "allowInstallOptions", label: "Install options" },
+  { key: "allowExtraServices", label: "Utpakking / Demontering" },
+  { key: "allowReturnOptions", label: "Return options" },
+  { key: "allowModelNumber", label: "Model number input" },
 ];
 
 function isReturnRow(
@@ -525,7 +544,6 @@ export default function EditPricesPage() {
       allowInstallOptions: row.allowInstallOptions ?? true,
       allowReturnOptions: row.allowReturnOptions ?? true,
       allowExtraServices: row.allowExtraServices ?? true,
-      allowDemont: false,
       allowPeopleCount: false,
       allowHoursInput: row.allowHoursInput ?? false,
       allowModelNumber: row.allowModelNumber ?? true,
@@ -570,7 +588,6 @@ export default function EditPricesPage() {
           },
           body: JSON.stringify({
             ...productSettingsDraft,
-            allowDemont: false,
             allowPeopleCount: false,
             deliveryTypes: normalizeProductDeliveryTypes(
               productSettingsDraft.deliveryTypes,
@@ -606,7 +623,6 @@ export default function EditPricesPage() {
         allowExtraServices:
           data.item.allowExtraServices ??
           productSettingsDraft.allowExtraServices,
-        allowDemont: false,
         allowPeopleCount: false,
         allowHoursInput:
           data.item.allowHoursInput ?? productSettingsDraft.allowHoursInput,
@@ -693,29 +709,31 @@ export default function EditPricesPage() {
     );
   }
 
-  function addCustomSection() {
+  function addCustomSection(forDeliveryTypeKey?: DeliveryTypeKey) {
     setProductSettingsDraft((current) =>
       current
         ? {
             ...current,
-                customSections: [
-                  ...current.customSections,
+            customSections: [
+              ...current.customSections,
+              {
+                id: createDraftId("section"),
+                title: "",
+                usePrices: false,
+                allowMultiple: true,
+                allowDeselect: true,
+                useAsReturnOptions: false,
+                displayOnDeliveryTypes: forDeliveryTypeKey
+                  ? [forDeliveryTypeKey]
+                  : [DELIVERY_TYPES.INSTALL_ONLY],
+                options: [
                   {
-                    id: createDraftId("section"),
-                    title: "",
-                    usePrices: false,
-                    allowMultiple: true,
-                    allowDeselect: true,
-                    useAsReturnOptions: false,
-                    displayOnDeliveryTypes: [DELIVERY_TYPES.INSTALL_ONLY],
-                    options: [
-                      {
-                        id: createDraftId("option"),
-                        code: "",
-                        label: "",
-                        price: "0",
-                        subcontractorPrice: "0",
-                      },
+                    id: createDraftId("option"),
+                    code: "",
+                    label: "",
+                    price: "0",
+                    subcontractorPrice: "0",
+                  },
                 ],
               },
             ],
@@ -888,8 +906,6 @@ export default function EditPricesPage() {
       (!isSpecialRow &&
         (row.allowExtraServices ?? false) !==
           (original.allowExtraServices ?? false)) ||
-      (!isSpecialRow &&
-        (row.allowDemont ?? false) !== (original.allowDemont ?? false)) ||
       (!isSpecialRow &&
         (row.allowPeopleCount ?? false) !==
           (original.allowPeopleCount ?? false)) ||
@@ -1129,7 +1145,6 @@ export default function EditPricesPage() {
       allowInstallOptions: row.allowInstallOptions,
       allowReturnOptions: row.allowReturnOptions,
       allowExtraServices: row.allowExtraServices,
-      allowDemont: row.allowDemont,
       allowPeopleCount: row.allowPeopleCount,
       allowHoursInput: row.allowHoursInput,
       allowModelNumber: row.allowModelNumber,
@@ -3277,13 +3292,36 @@ export default function EditPricesPage() {
                 ))}
               </div>
 
+              {!productSettingsDraft.allowDeliveryTypes && (
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-black/60 uppercase tracking-wide">Features</div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {GLOBAL_FEATURE_FIELDS.map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-2 customContainer">
+                        <input
+                          type="checkbox"
+                          checked={productSettingsDraft[key]}
+                          onChange={(e) =>
+                            setProductSettingsDraft((current) =>
+                              current ? { ...current, [key]: e.target.checked } : current,
+                            )
+                          }
+                          className="background h-4 w-4"
+                        />
+                        <span className="text-sm">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <details className="customContainer p-3" open>
                 <summary className="cursor-pointer text-sm font-semibold text-black/80">
                   Auto add delivery price
                 </summary>
 
                 <div className="mt-3 space-y-3">
-                  <label className="flex items-center gap-2 customContainer">
+                  <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={productSettingsDraft.autoDeliveryPrice.enabled}
@@ -3297,7 +3335,7 @@ export default function EditPricesPage() {
                     <span className="text-sm">Auto add delivery price</span>
                   </label>
 
-                  <label className="flex items-center gap-2 customContainer">
+                  <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={
@@ -3370,108 +3408,225 @@ export default function EditPricesPage() {
                   </summary>
 
                   <div className="mt-3 space-y-3">
-                    {productSettingsDraft.deliveryTypes.map((deliveryType) => (
-                      <div key={deliveryType.key} className="customContainer p-3">
-                        <div className="mb-3 text-sm font-semibold text-black/80">
-                          {getDeliveryTypeEditorTitle(deliveryType.key)}
-                        </div>
+                    {productSettingsDraft.deliveryTypes.map((deliveryType) => {
+                      const dtSections = productSettingsDraft.customSections.filter(
+                        (s) => s.displayOnDeliveryTypes.includes(deliveryType.key),
+                      );
+                      return (
+                        <div key={deliveryType.key} className={`customContainer p-3 space-y-3 transition-opacity${deliveryType.enabled ? "" : " opacity-40"}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <input
+                              type="text"
+                              value={deliveryType.label}
+                              onChange={(e) =>
+                                updateDeliveryType(deliveryType.key, { label: e.target.value })
+                              }
+                              className="customInput text-sm font-semibold"
+                              placeholder={getDeliveryTypeEditorTitle(deliveryType.key)}
+                            />
+                            <label className="flex shrink-0 items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={deliveryType.enabled}
+                                onChange={(e) =>
+                                  updateDeliveryType(deliveryType.key, { enabled: e.target.checked })
+                                }
+                                className="background h-4 w-4"
+                              />
+                              <span className="text-xs text-black/60">Enabled</span>
+                            </label>
+                          </div>
 
-                        <div
-                          className={
-                            supportsXtraPrice(deliveryType.key)
-                              ? "grid grid-cols-1 gap-2 sm:grid-cols-6"
-                              : "grid grid-cols-1 gap-2 sm:grid-cols-4"
-                          }
-                        >
-                          <input
-                            type="text"
-                            value={deliveryType.code}
-                            onChange={(e) =>
-                              updateDeliveryType(deliveryType.key, {
-                                code: e.target.value,
-                              })
+                          <div
+                            className={
+                              supportsXtraPrice(deliveryType.key)
+                                ? "grid grid-cols-1 gap-2 sm:grid-cols-5"
+                                : "grid grid-cols-1 gap-2 sm:grid-cols-3"
                             }
-                            className="customInput w-full"
-                            placeholder="Code"
-                          />
-                          <input
-                            type="text"
-                            value={deliveryType.label}
-                            onChange={(e) =>
-                              updateDeliveryType(deliveryType.key, {
-                                label: e.target.value,
-                              })
-                            }
-                            className="customInput w-full"
-                            placeholder="Name"
-                          />
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={deliveryType.price}
-                            onChange={(e) =>
-                              updateDeliveryType(deliveryType.key, {
-                                price: e.target.value,
-                              })
-                            }
-                            className="customInput w-full"
-                            placeholder={getDeliveryTypePricePlaceholder(
-                              deliveryType.key,
+                          >
+                            <input
+                              type="text"
+                              value={deliveryType.code}
+                              onChange={(e) =>
+                                updateDeliveryType(deliveryType.key, { code: e.target.value })
+                              }
+                              className="customInput w-full"
+                              placeholder="Code"
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={deliveryType.price}
+                              onChange={(e) =>
+                                updateDeliveryType(deliveryType.key, { price: e.target.value })
+                              }
+                              className="customInput w-full"
+                              placeholder={getDeliveryTypePricePlaceholder(deliveryType.key)}
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={deliveryType.subcontractorPrice}
+                              onChange={(e) =>
+                                updateDeliveryType(deliveryType.key, { subcontractorPrice: e.target.value })
+                              }
+                              className="customInput w-full"
+                              placeholder="Subcontractor price"
+                            />
+                            {supportsXtraPrice(deliveryType.key) && (
+                              <>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={deliveryType.xtraPrice}
+                                  onChange={(e) =>
+                                    updateDeliveryType(deliveryType.key, { xtraPrice: e.target.value })
+                                  }
+                                  className="customInput w-full"
+                                  placeholder={getDeliveryTypeXtraPlaceholder(deliveryType.key)}
+                                />
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={deliveryType.xtraSubcontractorPrice}
+                                  onChange={(e) =>
+                                    updateDeliveryType(deliveryType.key, { xtraSubcontractorPrice: e.target.value })
+                                  }
+                                  className="customInput w-full"
+                                  placeholder="XTRA subcontractor price"
+                                />
+                              </>
                             )}
-                          />
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={deliveryType.subcontractorPrice}
-                            onChange={(e) =>
-                              updateDeliveryType(deliveryType.key, {
-                                subcontractorPrice: e.target.value,
-                              })
-                            }
-                            className="customInput w-full"
-                            placeholder="Subcontractor price"
-                          />
-                          {supportsXtraPrice(deliveryType.key) && (
-                            <>
-                              <input
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={deliveryType.xtraPrice}
-                                onChange={(e) =>
-                                  updateDeliveryType(deliveryType.key, {
-                                    xtraPrice: e.target.value,
-                                  })
-                                }
-                                className="customInput w-full"
-                                placeholder={getDeliveryTypeXtraPlaceholder(
-                                  deliveryType.key,
-                                )}
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={deliveryType.xtraSubcontractorPrice}
-                                onChange={(e) =>
-                                  updateDeliveryType(deliveryType.key, {
-                                    xtraSubcontractorPrice: e.target.value,
-                                  })
-                                }
-                                className="customInput w-full"
-                                placeholder="XTRA subcontractor price"
-                              />
-                            </>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {DELIVERY_TYPE_FEATURE_FLAGS.map(({ key, label }) => (
+                              <label key={key} className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={deliveryType[key]}
+                                  onChange={(e) =>
+                                    updateDeliveryType(deliveryType.key, { [key]: e.target.checked })
+                                  }
+                                  className="background h-4 w-4"
+                                />
+                                <span className="text-xs">{label}</span>
+                              </label>
+                            ))}
+                          </div>
+
+                          {dtSections.length > 0 && (
+                            <div className="space-y-3">
+                              {dtSections.map((section) => (
+                                <div key={section.id} className="customContainer p-3">
+                                  <div className="mb-3 flex items-center justify-between gap-2">
+                                    <h4 className="text-sm font-semibold text-black/80">
+                                      Custom section
+                                    </h4>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeCustomSection(section.id)}
+                                      className="customButtonDefault text-xs"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                  <div className="space-y-3">
+                                    <label className="block">
+                                      <span className="mb-1 block text-xs font-medium text-black/70">Title</span>
+                                      <input
+                                        type="text"
+                                        value={section.title}
+                                        onChange={(e) => updateCustomSection(section.id, { title: e.target.value })}
+                                        className="customInput w-full"
+                                        placeholder="Example: Wall type"
+                                      />
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                      <input type="checkbox" checked={section.usePrices}
+                                        onChange={(e) => updateCustomSection(section.id, { usePrices: e.target.checked })}
+                                        className="customInput h-4 w-4" />
+                                      <span className="text-sm">Use prices</span>
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                      <input type="checkbox" checked={section.allowMultiple}
+                                        onChange={(e) => updateCustomSection(section.id, { allowMultiple: e.target.checked })}
+                                        className="customInput h-4 w-4" />
+                                      <span className="text-sm">Allow multiple selections</span>
+                                    </label>
+                                    {!section.allowMultiple && (
+                                      <>
+                                        <label className="flex items-center gap-2 customContainer">
+                                          <input type="checkbox" checked={section.allowDeselect}
+                                            onChange={(e) => updateCustomSection(section.id, { allowDeselect: e.target.checked })}
+                                            className="customInput h-4 w-4" />
+                                          <span className="text-sm">Allow deselect</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 customContainer">
+                                          <input type="checkbox" checked={section.useAsReturnOptions}
+                                            onChange={(e) => updateCustomSection(section.id, { useAsReturnOptions: e.target.checked })}
+                                            className="customInput h-4 w-4" />
+                                          <span className="text-sm">Use as return options</span>
+                                        </label>
+                                      </>
+                                    )}
+                                    <div className="space-y-2">
+                                      {section.options.map((option) => (
+                                        <div key={option.id}
+                                          className={section.usePrices
+                                            ? "grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_110px_110px_auto]"
+                                            : "grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_auto]"}
+                                        >
+                                          <input type="text" value={option.code}
+                                            onChange={(e) => updateCustomSectionOption(section.id, option.id, { code: e.target.value })}
+                                            className="customInput w-full" placeholder="Code (optional)" />
+                                          <input type="text" value={option.label}
+                                            onChange={(e) => updateCustomSectionOption(section.id, option.id, { label: e.target.value })}
+                                            className="customInput w-full" placeholder="Option label" />
+                                          {section.usePrices && (
+                                            <>
+                                              <input type="number" min="0" step="1" value={option.price}
+                                                onChange={(e) => updateCustomSectionOption(section.id, option.id, { price: e.target.value })}
+                                                className="customInput w-full" placeholder="Price" />
+                                              <input type="number" min="0" step="1" value={option.subcontractorPrice}
+                                                onChange={(e) => updateCustomSectionOption(section.id, option.id, { subcontractorPrice: e.target.value })}
+                                                className="customInput w-full" placeholder="Sub price" />
+                                            </>
+                                          )}
+                                          <button type="button"
+                                            onClick={() => removeCustomSectionOption(section.id, option.id)}
+                                            className="customButtonDefault text-xs">Remove</button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <button type="button"
+                                      onClick={() => addCustomSectionOption(section.id)}
+                                      className="customButtonDefault text-xs">Add option</button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => addCustomSection(deliveryType.key)}
+                            className="customButtonDefault text-xs"
+                          >
+                            + Add custom section
+                          </button>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </details>
               )}
 
+              {!productSettingsDraft.allowDeliveryTypes && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -3481,7 +3636,7 @@ export default function EditPricesPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={addCustomSection}
+                    onClick={() => addCustomSection()}
                     className="customButtonDefault text-xs"
                   >
                     Add custom section
@@ -3732,6 +3887,7 @@ export default function EditPricesPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {productSettingsError && (
                 <p className="text-sm text-red-600">{productSettingsError}</p>

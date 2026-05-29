@@ -25,7 +25,6 @@ import {
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
-const RETURN_IN_CODE = "RETURNIN";
 
 type BuildProductBreakdownsOptions = {
   zeroBaseDeliveryPricesOver100Km?: boolean;
@@ -272,16 +271,26 @@ function buildItemsForCard(
   const items: ProductCardLineItem[] = [];
   const amount = getAmount(card, product);
   const hoursInput = getHoursInput(card, product);
-  const showInstallOptions =
-    product.allowInstallOptions && (!product.allowDeliveryTypes || showsInstallOptions(card.deliveryType) || card.selectedInstallOptionIds.length > 0);
-  const showReturnOptions = canApplyReturnOption({
-    allowReturnOptions: product.allowReturnOptions,
-    allowDeliveryTypes: product.allowDeliveryTypes,
-    deliveryType: card.deliveryType,
-  });
+  const deliveryTypeConfig = product.allowDeliveryTypes
+    ? (product.deliveryTypes.find((dt) => dt.key === card.deliveryType) ?? null)
+    : null;
   const installSelected = card.selectedInstallOptionIds.length > 0;
-  const showExtras = product.allowExtraServices && (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType)) && !installSelected;
-  const showDemont = product.allowDemont && (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType));
+  const showInstallOptions = deliveryTypeConfig
+    ? (deliveryTypeConfig.allowInstallOptions || installSelected)
+    : (product.allowInstallOptions && (!product.allowDeliveryTypes || showsInstallOptions(card.deliveryType) || installSelected));
+  const showReturnOptions = deliveryTypeConfig
+    ? deliveryTypeConfig.allowReturnOptions
+    : canApplyReturnOption({
+        allowReturnOptions: product.allowReturnOptions,
+        allowDeliveryTypes: product.allowDeliveryTypes,
+        deliveryType: card.deliveryType,
+      });
+  const showExtras = deliveryTypeConfig
+    ? (deliveryTypeConfig.allowExtraServices && !installSelected)
+    : (product.allowExtraServices && (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType)) && !installSelected);
+  const showDemont = deliveryTypeConfig
+    ? deliveryTypeConfig.allowExtraServices
+    : (product.allowExtraServices && (!product.allowDeliveryTypes || showsExtraCheckboxes(card.deliveryType)));
   const demontOption = findDemontOption(product);
   const baseProductOption = findBaseProductOption(product);
   let returnOnlySelectedReturnPriceOverride: number | undefined;
@@ -430,10 +439,14 @@ function buildItemsForCard(
         product.deliveryTypes,
         card.deliveryType,
       );
+      const returnInCode = getProductDeliveryTypeCode(
+        product.deliveryTypes,
+        card.deliveryType,
+      );
 
       items.push({
         kind: "deliveryType",
-        code: RETURN_IN_CODE,
+        code: returnInCode,
         label: returnInLabel,
         qty: 1,
         unitPrice: shouldZeroBaseDeliveryPrice(

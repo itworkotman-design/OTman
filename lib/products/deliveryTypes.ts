@@ -8,12 +8,17 @@ export type DeliveryTypeKey =
 
 export type ProductDeliveryType = {
   key: DeliveryTypeKey;
+  enabled: boolean;
   code: string;
   label: string;
   price: string;
   subcontractorPrice?: string;
   xtraPrice: string;
   xtraSubcontractorPrice?: string;
+  allowInstallOptions: boolean;
+  allowExtraServices: boolean;
+  allowReturnOptions: boolean;
+  allowModelNumber: boolean;
 };
 
 function toNonEmptyString(value: unknown, fallback = "") {
@@ -39,39 +44,59 @@ function toPriceString(value: unknown, fallback: string) {
 export const DEFAULT_PRODUCT_DELIVERY_TYPES: ProductDeliveryType[] = [
   {
     key: DELIVERY_TYPES.FIRST_STEP,
+    enabled: true,
     code: "FIRST_STEP",
     label: "Første trinn",
     price: "590",
     subcontractorPrice: "0",
     xtraPrice: "150",
     xtraSubcontractorPrice: "0",
+    allowInstallOptions: false,
+    allowExtraServices: false,
+    allowReturnOptions: false,
+    allowModelNumber: false,
   },
   {
     key: DELIVERY_TYPES.INDOOR,
+    enabled: true,
     code: "INDOOR",
     label: "Innbæring",
     price: "669",
     subcontractorPrice: "0",
     xtraPrice: "229",
     xtraSubcontractorPrice: "0",
+    allowInstallOptions: true,
+    allowExtraServices: true,
+    allowReturnOptions: true,
+    allowModelNumber: false,
   },
   {
     key: DELIVERY_TYPES.INSTALL_ONLY,
+    enabled: true,
     code: "INSTALL_ONLY",
     label: "Kun Installasjon/Montering",
     price: "590",
     subcontractorPrice: "0",
     xtraPrice: "0",
     xtraSubcontractorPrice: "0",
+    allowInstallOptions: true,
+    allowExtraServices: false,
+    allowReturnOptions: true,
+    allowModelNumber: false,
   },
   {
     key: DELIVERY_TYPES.RETURN_ONLY,
+    enabled: true,
     code: "RETURN_ONLY",
     label: "Kun retur",
     price: "669",
     subcontractorPrice: "0",
     xtraPrice: "0",
     xtraSubcontractorPrice: "0",
+    allowInstallOptions: false,
+    allowExtraServices: false,
+    allowReturnOptions: true,
+    allowModelNumber: false,
   },
 ];
 
@@ -126,6 +151,10 @@ export function normalizeProductDeliveryTypes(
       subcontractorPrice?: unknown;
       xtraPrice?: unknown;
       xtraSubcontractorPrice?: unknown;
+      allowInstallOptions?: unknown;
+      allowExtraServices?: unknown;
+      allowReturnOptions?: unknown;
+      allowModelNumber?: unknown;
     };
     const key = normalizeDeliveryTypeKey(rawType.key);
     if (!key) continue;
@@ -140,16 +169,22 @@ export function normalizeProductDeliveryTypes(
     }
 
     const typedRaw = rawType as {
+      enabled?: unknown;
       code?: unknown;
       label?: unknown;
       price?: unknown;
       subcontractorPrice?: unknown;
       xtraPrice?: unknown;
       xtraSubcontractorPrice?: unknown;
+      allowInstallOptions?: unknown;
+      allowExtraServices?: unknown;
+      allowReturnOptions?: unknown;
+      allowModelNumber?: unknown;
     };
 
     return {
       key: item.key,
+      enabled: typeof typedRaw.enabled === "boolean" ? typedRaw.enabled : item.enabled,
       code: toNonEmptyString(typedRaw.code, item.code),
       label: toNonEmptyString(typedRaw.label, item.label),
       price: toPriceString(typedRaw.price, item.price),
@@ -162,6 +197,10 @@ export function normalizeProductDeliveryTypes(
         typedRaw.xtraSubcontractorPrice,
         item.xtraSubcontractorPrice ?? "0",
       ),
+      allowInstallOptions: typeof typedRaw.allowInstallOptions === "boolean" ? typedRaw.allowInstallOptions : item.allowInstallOptions,
+      allowExtraServices: typeof typedRaw.allowExtraServices === "boolean" ? typedRaw.allowExtraServices : item.allowExtraServices,
+      allowReturnOptions: typeof typedRaw.allowReturnOptions === "boolean" ? typedRaw.allowReturnOptions : item.allowReturnOptions,
+      allowModelNumber: typeof typedRaw.allowModelNumber === "boolean" ? typedRaw.allowModelNumber : item.allowModelNumber,
     };
   });
 }

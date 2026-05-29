@@ -638,15 +638,18 @@ export function buildOrderItemsFromCards(
       });
     }
 
-    if (
-      product &&
-      canApplyReturnOption({
-        allowReturnOptions: product.allowReturnOptions,
-        allowDeliveryTypes: product.allowDeliveryTypes,
-        deliveryType: card.deliveryType,
-      }) &&
-      card.selectedReturnOptionId
-    ) {
+    const returnDeliveryTypeConfig = product?.allowDeliveryTypes
+      ? (product.deliveryTypes.find((dt) => dt.key === card.deliveryType) ?? null)
+      : null;
+    const showReturnOptionForCard = returnDeliveryTypeConfig
+      ? returnDeliveryTypeConfig.allowReturnOptions
+      : canApplyReturnOption({
+          allowReturnOptions: product?.allowReturnOptions ?? false,
+          allowDeliveryTypes: product?.allowDeliveryTypes ?? false,
+          deliveryType: card.deliveryType,
+        });
+
+    if (product && showReturnOptionForCard && card.selectedReturnOptionId) {
       const special =
         catalogSpecialOptions.find(
           (o) => o.id === card.selectedReturnOptionId,

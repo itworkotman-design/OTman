@@ -388,10 +388,15 @@ describe("buildProductBreakdowns", () => {
       deliveryTypes: [
         {
           key: DELIVERY_TYPES.INDOOR,
+          enabled: true,
           code: "INDOOR",
           label: "Innbæring",
           price: "600",
           xtraPrice: "250",
+          allowInstallOptions: true,
+          allowExtraServices: true,
+          allowReturnOptions: true,
+          allowModelNumber: false,
         },
         ...createDefaultProductDeliveryTypes().filter(
           (item) => item.key !== DELIVERY_TYPES.INDOOR,
@@ -405,10 +410,15 @@ describe("buildProductBreakdowns", () => {
       deliveryTypes: [
         {
           key: DELIVERY_TYPES.INDOOR,
+          enabled: true,
           code: "INDOOR",
           label: "Innbæring",
           price: "1300",
           xtraPrice: "250",
+          allowInstallOptions: true,
+          allowExtraServices: true,
+          allowReturnOptions: true,
+          allowModelNumber: false,
         },
         ...createDefaultProductDeliveryTypes().filter(
           (item) => item.key !== DELIVERY_TYPES.INDOOR,
