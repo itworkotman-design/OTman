@@ -354,8 +354,8 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
 
   const orderer: GsmContact = {
     name: order.customerLabel?.trim() || order.customerName?.trim() || undefined,
-    emails: order.email ? [order.email.trim()] : [],
-    phones: normalizePhones(order.phone),
+    emails: [],
+    phones: normalizePhones(order.cashierPhone),
   };
 
   const metafields: Record<string, string> = {
