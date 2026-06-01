@@ -44,6 +44,7 @@ type Body = {
 
   discountAmount?: string | number | null;
   discountEndsAt?: string | null;
+  sortOrder?: number;
 };
 
 function parseNokToCents(value: string | number): number | null {
@@ -282,6 +283,7 @@ export async function PATCH(
     label?: string;
     description?: string | null;
     category?: string | null;
+    sortOrder?: number;
   } = {};
 
   if (optionCode !== undefined) {
@@ -298,6 +300,10 @@ export async function PATCH(
 
   if (body.category !== undefined) {
     productOptionData.category = parseOptionalString(body.category);
+  }
+
+  if (typeof body.sortOrder === "number" && Number.isFinite(body.sortOrder)) {
+    productOptionData.sortOrder = body.sortOrder;
   }
 
   const productData: {

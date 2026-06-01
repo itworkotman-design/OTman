@@ -1,6 +1,21 @@
-/* eslint-disable no-use-before-define */ 
+/* eslint-disable no-use-before-define */
 
 @import "tailwindcss";
+
+.scrollbar-always {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 transparent;
+}
+.scrollbar-always::-webkit-scrollbar {
+  height: 6px;
+}
+.scrollbar-always::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-always::-webkit-scrollbar-thumb {
+  background-color: #c1c1c1;
+  border-radius: 3px;
+}
 @source "./app/**/*.{js,ts,jsx,tsx}";
 @source "./components/**/*.{js,ts,jsx,tsx}";
 @plugin "@tailwindcss/forms" {

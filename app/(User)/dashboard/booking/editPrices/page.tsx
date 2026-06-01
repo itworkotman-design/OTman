@@ -1223,6 +1223,47 @@ export default function EditPricesPage() {
     }
   }
 
+  async function moveOption(itemId: string, direction: "up" | "down") {
+    const row = rows.find((r) => r.id === itemId);
+    if (!row?.productId || !row.productOptionId) return;
+
+    const siblings = rows
+      .filter((r) => r.productId === row.productId && r.productOptionId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const idx = siblings.findIndex((r) => r.id === itemId);
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= siblings.length) return;
+
+    // Swap positions in the array, then assign fresh sequential sortOrders
+    // to avoid equal-value no-op swaps (e.g. all new options start at sortOrder 999)
+    const reordered = [...siblings];
+    [reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]];
+    const updates = reordered.map((r, i) => ({ id: r.id, sortOrder: i }));
+
+    setRows((current) =>
+      current.map((r) => {
+        const u = updates.find((x) => x.id === r.id);
+        return u ? { ...r, sortOrder: u.sortOrder } : r;
+      }),
+    );
+
+    const toSave = updates.filter((u) => {
+      const original = siblings.find((s) => s.id === u.id);
+      return original?.sortOrder !== u.sortOrder;
+    });
+
+    await Promise.all(
+      toSave.map((u) =>
+        fetch(`/api/products/pricelists/items/${u.id}/full`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sortOrder: u.sortOrder }),
+        }),
+      ),
+    );
+  }
+
   async function addOption(productId: string) {
     if (!priceList) return;
 
@@ -1547,8 +1588,8 @@ export default function EditPricesPage() {
               </button>
             </div>
 
-            <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
-              <table className="w-full table-fixed border border-black/10">
+            <div className="w-full overflow-x-scroll scrollbar-always [-webkit-overflow-scrolling:touch]">
+              <table className="min-w-full table-fixed border border-black/10">
                 <thead className="bg-gray-100">
                   <tr className="text-left">
                     <th className="w-64 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
@@ -1584,9 +1625,11 @@ export default function EditPricesPage() {
                   </tr>
                 </thead>
 
-                {groupedProducts.map((group) => (
+                {groupedProducts.map((group) => {
+                  const sortedItems = [...group.items].sort((a, b) => a.sortOrder - b.sortOrder);
+                  return (
                   <tbody key={group.productId} className="group">
-                    {group.items.map((item, index) => {
+                    {sortedItems.map((item, index) => {
                       const discountActive =
                         item.discountAmount &&
                         item.discountEndsAt &&
@@ -1599,7 +1642,7 @@ export default function EditPricesPage() {
                         >
                           {index === 0 && (
                             <td
-                              rowSpan={group.items.length}
+                              rowSpan={sortedItems.length}
                               className="border-r border-logoblue/50 font-medium align-center relative before:content-[''] before:absolute before:top-0 before:bottom-0 before:left-[-100] before:w-[200] before:bg-transparent"
                             >
                               <div className="flex flex-col gap-3 p-3">
@@ -1775,7 +1818,23 @@ export default function EditPricesPage() {
                                 )}
                               </div>
 
-                              <div className="flex items-center">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  title="Move down"
+                                  onClick={() => void moveOption(item.id, "down")}
+                                  className={`px-1.5 py-1 rounded border transition-opacity cursor-pointer ${index < sortedItems.length - 1 ? "border-gray-300 text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100" : "invisible"}`}
+                                >
+                                  ▼
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Move up"
+                                  onClick={() => void moveOption(item.id, "up")}
+                                  className={`px-1.5 py-1 rounded border transition-opacity cursor-pointer ${index > 0 ? "border-gray-300 text-gray-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100" : "invisible"}`}
+                                >
+                                  ▲
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => deleteRow(item.id)}
@@ -1790,7 +1849,8 @@ export default function EditPricesPage() {
                       );
                     })}
                   </tbody>
-                ))}
+                  );
+                })}
               </table>
             </div>
           </section>
@@ -1809,8 +1869,8 @@ export default function EditPricesPage() {
               </button>
             </div>
 
-            <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
-              <table className="w-full table-fixed border border-black/10">
+            <div className="w-full overflow-x-scroll scrollbar-always [-webkit-overflow-scrolling:touch]">
+              <table className="min-w-full table-fixed border border-black/10">
                 <thead className="bg-gray-100">
                   <tr className="text-left">
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
@@ -2039,8 +2099,8 @@ export default function EditPricesPage() {
               </button>
             </div>
 
-            <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
-              <table className="w-full table-fixed border border-black/10">
+            <div className="w-full overflow-x-scroll scrollbar-always [-webkit-overflow-scrolling:touch]">
+              <table className="min-w-full table-fixed border border-black/10">
                 <thead className="bg-gray-100">
                   <tr className="text-left">
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
@@ -2281,8 +2341,8 @@ export default function EditPricesPage() {
               )}
             </div>
 
-            <div className="w-full overflow-x-auto lg:overflow-x-visible [-webkit-overflow-scrolling:touch]">
-              <table className="w-full table-fixed border border-black/10">
+            <div className="w-full overflow-x-scroll scrollbar-always [-webkit-overflow-scrolling:touch]">
+              <table className="min-w-full table-fixed border border-black/10">
                 <thead className="bg-gray-100">
                   <tr className="text-left">
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
