@@ -230,7 +230,14 @@ export default function UserModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+          e.preventDefault();
+        }
+      }}
+    >
       <div className="customContainer max-h-[90vh] w-full max-w-[1000] overflow-y-auto bg-white">
         <div className="grid grid-cols-3 items-start">
           <div />

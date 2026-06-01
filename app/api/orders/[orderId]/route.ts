@@ -375,8 +375,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
     return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
+  const wordpressRawMeta = toWordpressMetaRecord(order.legacyWordpressRawMeta);
   const fallbackExtraPickupAddresses =
-    order.extraPickupAddress.length > 0 ? order.extraPickupAddress : getWordpressExtraPickupAddresses(toWordpressMetaRecord(order.legacyWordpressRawMeta));
+    order.extraPickupAddress.length > 0 ? order.extraPickupAddress : getWordpressExtraPickupAddresses(wordpressRawMeta);
 
   const extraPickupContacts = Array.isArray(order.extraPickupContacts)
     ? order.extraPickupContacts
@@ -432,6 +433,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       deliveryAddress: order.deliveryAddress ?? "",
       returnAddress: order.returnAddress ?? "",
       drivingDistance: order.drivingDistance ?? "",
+      legacyWordpressDrivingDistance: order.legacyWordpressOrderId
+        ? (typeof wordpressRawMeta.total_km === "string" ? wordpressRawMeta.total_km : typeof wordpressRawMeta.driving_distance === "string" ? wordpressRawMeta.driving_distance : null)
+        : null,
       customerName: order.customerName ?? "",
       customerLabel: order.customerLabel ?? "",
       customer: order.customerLabel ?? "",

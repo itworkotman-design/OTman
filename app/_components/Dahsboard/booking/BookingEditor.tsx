@@ -133,6 +133,7 @@ type Props = {
   initialValues?: Partial<OrderFormPayload> & {
     id?: string;
     legacyWordpressOrderId?: number | null;
+    legacyWordpressDrivingDistance?: string | null;
   };
   showCapacityDetails?: boolean;
 };
@@ -865,7 +866,9 @@ export default function BookingEditor({
   ]);
 
   const importedWordpressDistanceChanged =
-    Boolean(initialValues?.legacyWordpressOrderId) && normalizeRouteAddress(drivingDistance) !== normalizeRouteAddress(initialValues?.drivingDistance);
+    Boolean(initialValues?.legacyWordpressOrderId) &&
+    normalizeRouteAddress(drivingDistance) !==
+      normalizeRouteAddress(initialValues?.legacyWordpressDrivingDistance ?? initialValues?.drivingDistance);
 
   const shouldUseNativeDistancePricing = !initialValues?.legacyWordpressOrderId || importedWordpressRouteChanged || importedWordpressDistanceChanged;
 
@@ -1921,7 +1924,15 @@ export default function BookingEditor({
   }, [selectedCustomerAddress, shouldLockPickupAddress]);
 
   return (
-    <form onSubmit={handleSubmit} className="w-full">
+    <form
+      onSubmit={handleSubmit}
+      className="w-full"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+          e.preventDefault();
+        }
+      }}
+    >
       {canSelectPriceList ? (
         <div className="mb-5 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <label htmlFor="admin-price-list" className="mb-2 block text-sm font-semibold text-gray-800">

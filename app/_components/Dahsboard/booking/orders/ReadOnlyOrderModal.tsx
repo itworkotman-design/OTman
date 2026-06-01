@@ -78,6 +78,7 @@ type FullOrderResponse = {
   order?: {
     id: string;
     legacyWordpressOrderId?: number | null;
+    legacyWordpressDrivingDistance?: string | null;
     priceListId: string;
     productCards: SavedProductCard[];
     pickupAddress: string;
@@ -501,7 +502,11 @@ function useAdminCalculatorState(order: ReadOnlyOrder | null) {
       pricingSnapshot: savedPricingSnapshot,
     });
 
-    const shouldUseNativeDistancePricing = !fullOrder.legacyWordpressOrderId;
+    const shouldUseNativeDistancePricing =
+      !fullOrder.legacyWordpressOrderId ||
+      (!!fullOrder.drivingDistance &&
+        (fullOrder.legacyWordpressDrivingDistance == null ||
+          fullOrder.drivingDistance !== fullOrder.legacyWordpressDrivingDistance));
 
     const productBreakdowns = buildProductBreakdowns(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
       zeroBaseDeliveryPricesOver100Km: shouldUseNativeDistancePricing && parseDistanceKm(fullOrder.drivingDistance) > 100,
