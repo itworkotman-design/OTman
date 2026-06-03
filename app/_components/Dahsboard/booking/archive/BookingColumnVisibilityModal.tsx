@@ -48,7 +48,7 @@ export default function BookingColumnVisibilityModal({
       onClick={onClose}
     >
       <div
-        className="customContainer w-full max-w-[640] bg-white"
+        className="customContainer w-full max-w-[640] max-h-[90vh] overflow-y-auto bg-white"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
