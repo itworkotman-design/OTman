@@ -632,16 +632,15 @@ export async function POST(req: Request) {
 
   const customerName = optionalString(body.customerName);
   const deliveryDate = optionalString(body.deliveryDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
 
   const deliveryDateObj = deliveryDate ? new Date(deliveryDate) : null;
   if (deliveryDateObj) {
-    deliveryDateObj.setHours(0, 0, 0, 0);
+    deliveryDateObj.setHours(23, 59, 59, 999);
   }
 
   const diffDays = deliveryDateObj
-    ? (deliveryDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    ? (deliveryDateObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
     : null;
 
   const effectiveExpressDelivery =
