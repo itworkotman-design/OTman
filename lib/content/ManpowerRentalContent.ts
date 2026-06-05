@@ -19,7 +19,6 @@ export const ManpowerRentalContent = {
         en: "Moving jobs",
         no: "Flytteoppdrag",
       },
-      highlighted: true,
     },
     {
       label: {
@@ -54,18 +53,8 @@ export const ManpowerRentalContent = {
   ],
 
   benefits: {
-    en: [
-      "Reliable and punctual staff",
-      "Flexible booking based on your needs",
-      "Suitable for private and business customers",
-      "Practical, efficient support",
-    ],
-    no: [
-      "Pålitelig og punktlig personell",
-      "Fleksibel bestilling etter behov",
-      "Passer for både private og bedrifter",
-      "Praktisk og effektiv hjelp",
-    ],
+    en: ["Reliable and punctual staff", "Suitable for private and business customers", "Flexible booking based on your needs", "Practical, efficient support"],
+    no: ["Pålitelig og punktlig personell", "Fleksibel bestilling etter behov", "Passer for både private og bedrifter", "Praktisk og effektiv hjelp"],
   },
 
   processTitle: {

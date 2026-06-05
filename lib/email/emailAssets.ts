@@ -1,5 +1,4 @@
-const FALLBACK_ORDER_EMAIL_LOGO_URL =
-  "https://public-otman-img.s3.eu-north-1.amazonaws.com/LogoLG.png";
+const FALLBACK_ORDER_EMAIL_LOGO_URL = "https://public-otman-img.s3.eu-north-1.amazonaws.com/Otman+Logo+Horizontal+Blue.svg";
 
 export function getOrderEmailLogoUrl() {
   return (

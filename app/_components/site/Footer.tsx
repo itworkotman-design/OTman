@@ -25,6 +25,11 @@ type FooterProps = {
 };
 
 export function Footer({ locale, content }: FooterProps) {
+  const localizeHref = (href: string) => {
+    if (href.startsWith("http")) return href;
+    return `/${locale}${href}`;
+  };
+
   return (
     <footer className="w-full bg-logoblue md:bg-white shadow-[0_-1px_2px_0_rgba(0,0,0,0.1)]">
       <div className="mx-auto w-full max-w-200 px-[20] pt-6">
@@ -47,7 +52,7 @@ export function Footer({ locale, content }: FooterProps) {
             <ul className="mt-4 space-y-1 text-sm md:text-textcolor">
               {content.navigationLinks.map((link) => (
                 <li key={link.id}>
-                  <Link href={link.href} className="hover:underline text-white! md:text-textcolor!">
+                  <Link href={localizeHref(link.href)} className="hover:underline text-white! md:text-textcolor!">
                     {link.label[locale]}
                   </Link>
                 </li>
@@ -62,7 +67,7 @@ export function Footer({ locale, content }: FooterProps) {
             <ul className="mt-4 space-y-1 text-sm">
               {content.legalLinks.map((link) => (
                 <li key={link.id}>
-                  <Link href={link.href} className="hover:underline text-white! md:text-textcolor!">
+                  <Link href={localizeHref(link.href)} className="hover:underline text-white! md:text-textcolor!">
                     {link.label[locale]}
                   </Link>
                 </li>

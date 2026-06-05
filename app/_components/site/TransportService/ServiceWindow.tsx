@@ -216,13 +216,13 @@ const localizedItems = useMemo(
         </div>
       </section>
 
-      {selectedServiceId && (
+      {/* {selectedServiceId && (
         <ServiceModal
           service={items.find((item) => item.id === selectedServiceId) ?? items[0]}
           locale={locale}
           onClose={() => setSelectedServiceId(null)}
         />
-      )}
+      )} */}
     </>
   );
 }

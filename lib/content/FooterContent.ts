@@ -24,7 +24,7 @@ export const footerContent = {
   navigationLinks: [
     {
       id: "services",
-      href: "/services",
+      href: "/",
       label: {
         en: "Services",
         no: "Tjenester",
@@ -54,29 +54,21 @@ export const footerContent = {
       href: "/privacy-policy",
       label: {
         en: "Privacy policy",
-        no: "Personvernerklæring",
+        no: "Personvernerklaering",
       },
     },
     {
       id: "terms",
       href: "/terms",
       label: {
-        en: "Terms & Conditions",
-        no: "Vilkår og betingelser",
-      },
-    },
-    {
-      id: "cookie-policy",
-      href: "/cookie-policy",
-      label: {
-        en: "Cookie Policy",
-        no: "Cookie-erklæring",
+        en: "Terms and conditions",
+        no: "Vilkaar og betingelser",
       },
     },
   ],
 
   copyright: {
-    en: "© 2023 - 2026 Otman Transport AS. All rights reserved.",
-    no: "© 2023 - 2026 Otman Transport AS. Alle rettigheter forbeholdt.",
+    en: "Copyright 2023 - 2026 Otman Transport AS. All rights reserved.",
+    no: "Copyright 2023 - 2026 Otman Transport AS. Alle rettigheter forbeholdt.",
   },
 };

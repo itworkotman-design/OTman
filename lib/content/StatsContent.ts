@@ -1,24 +1,24 @@
 export const statsContent = {
   stats: [
     {
-      value: 737363,
+      value: 6675,
       label: {
-        en: "Newspapers delivered",
-        no: "Aviser levert",
+        en: "White goods installed",
+        no: "Hvitevarer installert",
       },
     },
     {
-      value: 101236,
+      value: 240927,
       label: {
         en: "Km driven",
         no: "Km kjørt",
       },
     },
     {
-      value: 49696,
+      value: 4234,
       label: {
-        en: "Packages delivered",
-        no: "Pakker levert",
+        en: "Orders completed",
+        no: "Ordrer fullført",
       },
     },
   ],

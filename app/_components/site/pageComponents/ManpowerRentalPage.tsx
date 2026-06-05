@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ManpowerRentalContent } from "@/lib/content/ManpowerRentalContent";
 
 type Locale = "en" | "no";
@@ -31,6 +31,8 @@ export default function ManpowerRentalPage({ content, locale }: PageProps) {
   });
 
   const [touched, setTouched] = useState<TouchedFields>({});
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const honeypotRef = useRef<HTMLInputElement>(null);
 
   const validate = (data: FormData): FormErrors => {
     const nextErrors: FormErrors = {};
@@ -93,70 +95,62 @@ export default function ManpowerRentalPage({ content, locale }: PageProps) {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
 
     const finalErrors = validate(formData);
-    setTouched({
-      name: true,
-      contact: true,
-      jobType: true,
-      description: true,
-    });
+    setTouched({ name: true, contact: true, jobType: true, description: true });
 
     if (Object.keys(finalErrors).length > 0) return;
 
-    const payload = {
-      name: formData.name.trim(),
-      contact: formData.contact.trim(),
-      jobType: formData.jobType.trim(),
-      description: formData.description.trim(),
-    };
+    setSubmitStatus("submitting");
 
+    try {
+      const res = await fetch("/api/public/manpower", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          contact: formData.contact.trim(),
+          jobType: formData.jobType.trim(),
+          description: formData.description.trim(),
+          _hp: honeypotRef.current?.value ?? "",
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed");
+      setSubmitStatus("success");
+      setFormData({ name: "", contact: "", jobType: "", description: "" });
+      setTouched({});
+    } catch {
+      setSubmitStatus("error");
+    }
   };
 
   return (
     <div className="my-8">
       <section className="mb-10">
         <div className="overflow-hidden">
-          <div className="grid gap-10 md:grid-cols-2">
-            <div className="flex flex-col justify-center">
-              <h1 className="text-2xl lg:text-5xl font-semibold text-logoblue">{content.heroTitle[locale]}</h1>
-              <p className="mt-5 text-black/50">{content.heroText[locale]}</p>
-            </div>
-
-            <div className="relative min-h-[320] overflow-hidden">
+          <div className="max-w-200 text-center justify-self-center mb-10">
+            <h1 className="text-2xl lg:text-5xl font-semibold text-logoblue">{content.heroTitle[locale]}</h1>
+            <p className="mt-5 text-black/50">{content.heroText[locale]}</p>
+          </div>
+          <div className="">
+            <div className="relative overflow-hidden">
               <div className="relative flex h-full flex-col justify-between">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   {content.featureCards.map((card, index) => (
-                    <div
-                      key={index}
-                      className={
-                        card.highlighted
-                          ? "rounded-3xl bg-logoblue p-5 text-white shadow-sm"
-                          : "rounded-3xl p-5 shadow-sm"
-                      }
-                    >
-                      <div className={card.highlighted ? "text-sm text-white" : "text-sm text-black/50"}>
-                        {card.label[locale]}
-                      </div>
-                      <div
-                        className={
-                          card.highlighted
-                            ? "mt-2 text-lg font-semibold"
-                            : "mt-2 text-lg font-semibold text-textcolor"
-                        }
-                      >
-                        {card.title[locale]}
-                      </div>
+                    <div key={index} className="rounded-3xl bg-logoblue p-5 text-white shadow-sm">
+                      <div className="text-sm text-white text-">{card.label[locale]}</div>
+                      <div className="mt-2 text-lg font-semibold text-center">{card.title[locale]}</div>
                     </div>
                   ))}
                 </div>
 
                 <div className="mt-6">
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-4">
                     {content.benefits[locale].map((item) => (
-                      <div key={item} className="flex items-start gap-3 text-sm text-black/50">
+                      <div key={item} className="flex items-start gap-3 text-sm text-black/50 justify-self-center">
                         <span className="mt-0.5 inline-block h-2.5 w-2.5 rounded-full bg-lineSecondary" />
                         <span>{item}</span>
                       </div>
@@ -193,6 +187,17 @@ export default function ManpowerRentalPage({ content, locale }: PageProps) {
             </div>
 
             <form className="mt-8 space-y-6 flex-col" onSubmit={handleSubmit} noValidate>
+              {/* Honeypot: visually hidden, must stay empty — bots fill it */}
+              <input
+                type="text"
+                name="_hp"
+                aria-hidden="true"
+                tabIndex={-1}
+                autoComplete="off"
+                ref={honeypotRef}
+                defaultValue=""
+                style={{ position: "absolute", opacity: 0, pointerEvents: "none", height: 0, width: 0 }}
+              />
               <div>
                 <input
                   name="name"
@@ -255,18 +260,24 @@ export default function ManpowerRentalPage({ content, locale }: PageProps) {
                   className="min-h-[120] w-full rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200 text-sm text-black/50"
                   placeholder={content.formPlaceholders.description[locale]}
                 />
-                {touched.description && errors.description && (
-                  <p className="mt-1 text-sm text-red-600">{errors.description}</p>
-                )}
+                {touched.description && errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
               </div>
+
+              {submitStatus === "success" && (
+                <p className="text-sm text-green-600 text-center">{locale === "no" ? "Forespørselen ble sendt!" : "Request sent!"}</p>
+              )}
+
+              {submitStatus === "error" && (
+                <p className="text-sm text-red-600 text-center">{locale === "no" ? "Noe gikk galt. Prøv igjen." : "Something went wrong. Please try again."}</p>
+              )}
 
               <div className="mt-auto">
                 <button
                   type="submit"
-                  disabled={!isValid}
+                  disabled={!isValid || submitStatus === "submitting"}
                   className="customButtonEnabled w-full h-12 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {content.submitButton[locale]}
+                  {submitStatus === "submitting" ? (locale === "no" ? "Sender..." : "Sending...") : content.submitButton[locale]}
                 </button>
               </div>
             </form>

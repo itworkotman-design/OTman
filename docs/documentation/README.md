@@ -19,6 +19,15 @@ Each documentation file should include:
 2. File responsibility
 3. Function list with a short description for each function
 
+## External apis
+
+- [Oauth] bestilling@otman.no
+- [MapsAPI] itworkotman@gmail.com Project Otman
+
+## External connections
+
+- [S3-buckets] itworkotman.no https://eu-north-1.console.aws.amazon.com/s3/buckets?region=eu-north-1
+
 ## Current Entries
 
 - [API: address search](./api/address-search.md)

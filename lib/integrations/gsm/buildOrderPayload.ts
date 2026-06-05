@@ -348,7 +348,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   };
 
   const cashierContact: GsmContact = {
-    name: order.cashierName?.trim() ? `Kasserer: ${order.cashierName.trim()}` : undefined,
+    name: order.cashierName?.trim() || undefined,
     phones: normalizePhones(order.cashierPhone),
   };
 

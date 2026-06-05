@@ -634,6 +634,14 @@ model CompanyOrderCounter {
   updatedAt  DateTime @updatedAt
 }
 
+model SiteStats {
+  id                String   @id @default("main")
+  productsInstalled Int
+  kmDriven          Int
+  ordersCompleted   Int
+  updatedAt         DateTime @updatedAt
+}
+
 enum UserStatus {
   ACTIVE
   DISABLED

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import GoogleMap from "@/app/_components/site/GoogleMap";
 import { ContactContent } from "@/lib/content/ContactContent";
 
@@ -32,6 +32,8 @@ export default function ContactPage({ content, locale }: PageProps) {
   });
 
   const [touched, setTouched] = useState<TouchedFields>({});
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const honeypotRef = useRef<HTMLInputElement>(null);
 
   const validate = (data: FormData): FormErrors => {
     const nextErrors: FormErrors = {};
@@ -94,25 +96,36 @@ export default function ContactPage({ content, locale }: PageProps) {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
 
     const finalErrors = validate(formData);
-    setTouched({
-      name: true,
-      email: true,
-      phone: true,
-      message: true,
-    });
+    setTouched({ name: true, email: true, phone: true, message: true });
 
     if (Object.keys(finalErrors).length > 0) return;
 
-    const payload = {
-      name: formData.name.trim(),
-      email: formData.email.trim().toLowerCase(),
-      phone: formData.phone.trim(),
-      message: formData.message.trim(),
-    };
+    setSubmitStatus("submitting");
+
+    try {
+      const res = await fetch("/api/public/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim(),
+          message: formData.message.trim(),
+          _hp: honeypotRef.current?.value ?? "",
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed");
+      setSubmitStatus("success");
+      setFormData({ name: "", email: "", phone: "", message: "" });
+      setTouched({});
+    } catch {
+      setSubmitStatus("error");
+    }
   };
 
   return (
@@ -175,6 +188,17 @@ export default function ContactPage({ content, locale }: PageProps) {
 
         <div className="w-full lg:flex-1 flex flex-col justify-center">
           <form onSubmit={handleSubmit} noValidate>
+              {/* Honeypot: visually hidden, must stay empty — bots fill it */}
+              <input
+                type="text"
+                name="_hp"
+                aria-hidden="true"
+                tabIndex={-1}
+                autoComplete="off"
+                style={{ position: "absolute", opacity: 0, pointerEvents: "none", height: 0, width: 0 }}
+                defaultValue=""
+                ref={honeypotRef}
+              />
             <div className="bg-logoblue rounded-2xl p-6 max-w-[480] mx-auto">
               <h1 className="text-center text-white text-2xl pb-2">{content.form.title[locale]}</h1>
 
@@ -259,13 +283,29 @@ export default function ContactPage({ content, locale }: PageProps) {
                 {touched.message && errors.message && <p className="mt-1 text-sm text-red-200">{errors.message}</p>}
               </div>
 
-              <div className="flex pt-4">
+              {submitStatus === "success" && (
+                <p className="mt-4 text-sm text-green-300 text-center">
+                  {locale === "no" ? "Meldingen ble sendt!" : "Message sent!"}
+                </p>
+              )}
+
+              {submitStatus === "error" && (
+                <p className="mt-4 text-sm text-red-300 text-center">
+                  {locale === "no"
+                    ? "Noe gikk galt. Prøv igjen."
+                    : "Something went wrong. Please try again."}
+                </p>
+              )}
+
+              <div className="pt-4">
                 <button
                   type="submit"
-                  disabled={!isValid}
-                  className="customButtonEnabled bg-white! text-logoblue! font-semibold! w-full max-w-[400] mx-auto h-10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!isValid || submitStatus === "submitting"}
+                  className="customButtonEnabled bg-white! text-logoblue! font-semibold! w-full mx-auto h-10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {content.form.submitButton[locale]}
+                  {submitStatus === "submitting"
+                    ? locale === "no" ? "Sender..." : "Sending..."
+                    : content.form.submitButton[locale]}
                 </button>
               </div>
             </div>
