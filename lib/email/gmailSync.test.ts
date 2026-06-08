@@ -187,7 +187,7 @@ describe("syncGmailOrderConversations", () => {
       gmailMessage({
         id: "gmail-sent-id",
         threadId: "gmail-thread-1",
-        from: "Otman Transport <bestilling@otman.no>",
+        from: "Otman AS <bestilling@otman.no>",
         to: "Customer <customer@example.com>",
         subject: "Re: Order 21236 | TEST",
         messageId: "<manual-reply@example.com>",

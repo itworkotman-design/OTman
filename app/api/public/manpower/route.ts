@@ -82,7 +82,7 @@ export async function POST(req: Request) {
 
   try {
     await sendEmail({
-      to: { email: "otman@otman.no", name: "Otman Transport" },
+      to: { email: "otman@otman.no", name: "Otman AS" },
       subject: `Manpower rental inquiry: ${escapeHtml(nameTrimmed)}`,
       html: `
         <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">

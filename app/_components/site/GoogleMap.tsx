@@ -77,7 +77,7 @@ export default function GoogleMap() {
       new AdvancedMarkerElement({
         map,
         position: center,
-        title: "Otman Transport",
+        title: "Otman AS",
         content: pin.element,
       });
     }

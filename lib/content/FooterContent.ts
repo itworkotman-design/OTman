@@ -16,7 +16,7 @@ export const footerContent = {
   },
 
   companyInfo: {
-    name: "Otman Transport AS",
+    name: "Otman AS",
     orgNumber: "Org.nr. 926425293",
     address: "Kjeller, Nittebergsvingen 8, 2007",
   },
@@ -68,7 +68,7 @@ export const footerContent = {
   ],
 
   copyright: {
-    en: "Copyright 2023 - 2026 Otman Transport AS. All rights reserved.",
-    no: "Copyright 2023 - 2026 Otman Transport AS. Alle rettigheter forbeholdt.",
+    en: "Copyright 2023 - 2026 Otman AS. All rights reserved.",
+    no: "Copyright 2023 - 2026 Otman AS. Alle rettigheter forbeholdt.",
   },
 };

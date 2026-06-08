@@ -261,14 +261,14 @@ function buildSimpleEmailShell(content: string) {
       ${content}
       <p style="margin:20px 0 0 0;">Med vennlig hilsen,</p>
       <p style="margin:0;">
-        Otman Transport AS<br/>
+        Otman AS<br/>
         +47 402 84 977 | ${getGmailSendAsEmail()}
       </p>
 
       <div style="margin-top:12px;">
         <img
           src="${escapeHtml(logoUrl)}"
-          alt="Otman Transport Logo"
+          alt="Otman AS Logo"
           style="display:block;max-height:48px;width:auto;"
         />
       </div>

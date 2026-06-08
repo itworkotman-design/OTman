@@ -389,7 +389,7 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
 
   const threadToken = order.emailThreadToken || createOrderEmailThreadToken();
   const senderEmail = senderAccount;
-  const senderName = process.env.BREVO_SENDER_NAME || "Otman Transport";
+  const senderName = process.env.BREVO_SENDER_NAME || "Otman";
 
   if (!order.emailThreadToken) {
     await prisma.order.update({

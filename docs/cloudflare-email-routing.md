@@ -9,7 +9,7 @@ Set these variables in the Next.js app:
 ```env
 BREVO_API_KEY=...
 BREVO_SENDER_EMAIL=bestilling@otman.no
-BREVO_SENDER_NAME=Otman Transport
+BREVO_SENDER_NAME=Otman
 
 EMAIL_REPLY_DOMAIN=reply.otman.no
 EMAIL_INBOUND_SECRET=...

@@ -345,14 +345,14 @@ export async function POST(req: Request) {
 
         <p style="margin:0 0 16px 0;">
           Med vennlig hilsen,<br/>
-          Otman Transport AS | otman.no<br/>
+          Otman AS | otman.no<br/>
           +47 402 84 977 | ${getGmailSendAsEmail()}
         </p>
 
         <div style="margin-top:12px;">
           <img
             src="${escapeHtml(logoUrl)}"
-            alt="Otman Transport Logo"
+            alt="Otman AS Logo"
             style="display:block;max-height:48px;width:auto;"
           />
         </div>
@@ -473,7 +473,7 @@ async function logFailedSelectedOrderEmails(params: {
             bodyText: params.bodyText,
             bodyHtml: params.bodyHtml,
             fromEmail: process.env.BREVO_SENDER_EMAIL || getGmailSendAsEmail(),
-            fromName: process.env.BREVO_SENDER_NAME || "Otman Transport",
+            fromName: process.env.BREVO_SENDER_NAME || "Otman",
             toEmail: params.toEmail,
             toName: params.toName,
             sentAt: failedAt,

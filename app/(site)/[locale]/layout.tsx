@@ -6,12 +6,93 @@ import { Footer } from "@/app/_components/site/Footer";
 import { footerContent } from "@/lib/content/FooterContent";
 
 export const metadata: Metadata = {
-  title: "Otman Transport",
-  description: "Otman Transport",
+  metadataBase: new URL("https://otman.no"),
+  title: {
+    default: "Otman, flytting og logistikk i Norge",
+    template: "%s | Otman AS",
+  },
+  description:
+    "Otman AS leverer transport, henting, pakkelevering, flytting, spesialtransport og bemanning for private og bedrifter i Norge.",
+  applicationName: "Otman",
+  keywords: [
+    "Otman",
+    "Otman AS",
+    "transport Norge",
+    "transport Oslo",
+    "budbil",
+    "pakkelevering",
+    "henting",
+    "flytting",
+    "spesialtransport",
+    "logistikk",
+    "bemanning transport",
+    "manpower rental Norway",
+    "transport services Norway",
+  ],
+  authors: [{ name: "Otman AS" }],
+  creator: "Otman AS",
+  publisher: "Otman AS",
+  alternates: {
+    canonical: "/",
+    languages: {
+      en: "/en",
+      no: "/no",
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "nb_NO",
+    alternateLocale: ["en_US"],
+    siteName: "Otman AS",
+    url: "https://otman.no",
+    title: "Otman AS | Transport, flytting og logistikk i Norge",
+    description:
+      "Transport, henting, pakkelevering, flytting, spesialtransport og bemanning for private og bedrifter i Norge.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Otman AS | Transport, flytting og logistikk i Norge",
+    description:
+      "Transport, henting, pakkelevering, flytting, spesialtransport og bemanning for private og bedrifter i Norge.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
 };
 
 const locales = ["en", "no"] as const;
 type Locale = (typeof locales)[number];
+
+const localBusinessJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  name: "Otman AS",
+  url: "https://otman.no",
+  telephone: "+47 402 84 977",
+  email: "info@otman.no",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "Nittebergsvingen 8",
+    postalCode: "2007",
+    addressLocality: "Kjeller",
+    addressCountry: "NO",
+  },
+  areaServed: {
+    "@type": "Country",
+    name: "Norway",
+  },
+  description:
+    "Transport, pakkelevering, flytting, spesialtransport og bemanning for private og bedrifter i Norge.",
+  sameAs: ["https://otman.no"],
+} as const;
 
 export default async function SiteLayout({
   children,
@@ -28,6 +109,12 @@ export default async function SiteLayout({
 
   return (
     <div className="min-h-screen flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(localBusinessJsonLd),
+        }}
+      />
       <Navbar locale={locale as Locale} content={navbarContent} />
       <main className="mx-auto w-full max-w-7xl px-5 flex-1 flex flex-col">
         {children}

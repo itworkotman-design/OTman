@@ -1,7 +1,13 @@
 import "./globals.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 
-import type { ReactNode } from "react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Otman AS",
+  description: "Otman AS",
+  applicationName: "Otman",
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

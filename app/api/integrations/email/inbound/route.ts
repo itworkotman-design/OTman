@@ -139,7 +139,7 @@ export async function POST(req: Request) {
 
   const receivedAt = new Date();
   const defaultRecipientEmail = getGmailSendAsEmail();
-  const defaultRecipientName = "Otman Transport";
+  const defaultRecipientName = "Otman";
 
   await prisma.orderEmailMessage.create({
     data: {

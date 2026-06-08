@@ -26,12 +26,12 @@ export const privacyPolicyContent: LegalPageContent = {
   },
   intro: [
     {
-      en: "This privacy policy explains how Otman Transport AS collects, uses, stores, and protects personal data when you use our website, contact us, request transport services, or use our customer and operations platform.",
-      no: "Denne personvernerklaeringen forklarer hvordan Otman Transport AS samler inn, bruker, lagrer og beskytter personopplysninger naar du bruker nettsiden, kontakter oss, ber om transporttjenester eller bruker kunde- og driftsplattformen vaar.",
+      en: "This privacy policy explains how Otman AS collects, uses, stores, and protects personal data when you use our website, contact us, request transport services, or use our customer and operations platform.",
+      no: "Denne personvernerklaeringen forklarer hvordan Otman AS samler inn, bruker, lagrer og beskytter personopplysninger naar du bruker nettsiden, kontakter oss, ber om transporttjenester eller bruker kunde- og driftsplattformen vaar.",
     },
     {
-      en: "Otman Transport AS is the data controller for the personal data described in this policy.",
-      no: "Otman Transport AS er behandlingsansvarlig for personopplysningene som er beskrevet i denne erklaeringen.",
+      en: "Otman AS is the data controller for the personal data described in this policy.",
+      no: "Otman AS er behandlingsansvarlig for personopplysningene som er beskrevet i denne erklaeringen.",
     },
   ],
   sections: [
@@ -42,8 +42,8 @@ export const privacyPolicyContent: LegalPageContent = {
       },
       paragraphs: [
         {
-          en: "Otman Transport AS, org. no. 926425293, Kjeller, Nittebergsvingen 8, 2007.",
-          no: "Otman Transport AS, org.nr. 926425293, Kjeller, Nittebergsvingen 8, 2007.",
+          en: "Otman AS, org. no. 926425293, Kjeller, Nittebergsvingen 8, 2007.",
+          no: "Otman AS, org.nr. 926425293, Kjeller, Nittebergsvingen 8, 2007.",
         },
         {
           en: "For privacy questions, contact us at info@otman.no or +47 402 84 977.",
@@ -229,8 +229,8 @@ export const termsContent: LegalPageContent = {
   },
   intro: [
     {
-      en: "These general terms apply to freight assignments ordered from Otman Transport AS. They are based on the company's lawyer-prepared terms dated 5 September 2025.",
-      no: "Disse alminnelige vilkaarene gjelder for fraktoppdrag bestilt hos Otman Transport AS. De bygger paa selskapets advokatutarbeidede vilkaar datert 5. september 2025.",
+      en: "These general terms apply to freight assignments ordered from Otman AS. They are based on the company's lawyer-prepared terms dated 5 September 2025.",
+      no: "Disse alminnelige vilkaarene gjelder for fraktoppdrag bestilt hos Otman AS. De bygger paa selskapets advokatutarbeidede vilkaar datert 5. september 2025.",
     },
   ],
   sections: [
@@ -241,8 +241,8 @@ export const termsContent: LegalPageContent = {
       },
       paragraphs: [
         {
-          en: "Otman Transport AS, org. no. 926425293, Kjeller, Nittebergsvingen 8, 2007. Contact: info@otman.no, +47 402 84 977.",
-          no: "Otman Transport AS, org.nr. 926425293, Kjeller, Nittebergsvingen 8, 2007. Kontakt: info@otman.no, +47 402 84 977.",
+          en: "Otman AS, org. no. 926425293, Kjeller, Nittebergsvingen 8, 2007. Contact: info@otman.no, +47 402 84 977.",
+          no: "Otman AS, org.nr. 926425293, Kjeller, Nittebergsvingen 8, 2007. Kontakt: info@otman.no, +47 402 84 977.",
         },
       ],
     },
@@ -253,8 +253,8 @@ export const termsContent: LegalPageContent = {
       },
       paragraphs: [
         {
-          en: "These terms apply when ordering freight assignments from Otman Transport AS.",
-          no: "Disse vilkaarene kommer til anvendelse ved bestilling av fraktoppdrag hos Otman Transport AS.",
+          en: "These terms apply when ordering freight assignments from Otman AS.",
+          no: "Disse vilkaarene kommer til anvendelse ved bestilling av fraktoppdrag hos Otman AS.",
         },
       ],
     },

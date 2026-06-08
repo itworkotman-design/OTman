@@ -12,7 +12,12 @@ export default async function Page({
 }) {
   const { locale } = await params;
 
-  const liveStats = await getOrRefreshSiteStats();
+  let liveStats = { productsInstalled: 0, kmDriven: 0, ordersCompleted: 0 };
+  try {
+    liveStats = await getOrRefreshSiteStats();
+  } catch {
+    // DB unavailable — page still renders using historical baseline only
+  }
 
   const dynamicStatsContent = {
     stats: [

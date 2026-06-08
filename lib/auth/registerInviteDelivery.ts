@@ -10,7 +10,7 @@ export function ensureInviteDeliveryRegistered() {
   registerInviteDeliveryAdapter(async ({ email, inviteUrl }) => {
     const emailContent = buildInviteEmail({
       inviteUrl,
-      companyName: "Otman Transport",
+      companyName: "Otman AS",
       role: "USER",
       recipientEmail: email,
     });

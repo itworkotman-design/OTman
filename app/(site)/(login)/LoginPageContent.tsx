@@ -104,7 +104,7 @@ export default function LoginPageContent() {
           <div className="mb-8 flex justify-center sm:mb-10">
             <Image
               src="/LogoSVG.svg"
-              alt="Otman Transport"
+              alt="Otman"
               width={260}
               height={120}
               priority

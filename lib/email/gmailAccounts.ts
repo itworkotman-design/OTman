@@ -18,5 +18,5 @@ export function getAdminEmails(): string[] {
 }
 
 export function formatGmailSenderName() {
-  return process.env.BREVO_SENDER_NAME?.trim() || "Otman Transport";
+  return process.env.BREVO_SENDER_NAME?.trim() || "Otman AS";
 }

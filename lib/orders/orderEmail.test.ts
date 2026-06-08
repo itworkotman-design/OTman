@@ -117,7 +117,7 @@ describe("orderEmail helpers", () => {
           source: "GMAIL",
           bodyText: "admin msg 1",
           fromEmail: "bestilling@otman.no",
-          fromName: "Otman Transport",
+          fromName: "Otman AS",
           createdAt: new Date("2026-05-08T13:30:00.000Z"),
         },
       ]),
@@ -188,7 +188,7 @@ describe("orderEmail helpers", () => {
     expect(html).toContain(
       "https://public-otman-img.s3.eu-north-1.amazonaws.com/LogoLG.png",
     );
-    expect(html).toContain('alt="Otman Transport Logo"');
+    expect(html).toContain('alt="Otman AS Logo"');
     expect(html).toContain("display:block;max-height:48px;width:auto;");
   });
 
@@ -219,12 +219,12 @@ describe("orderEmail helpers", () => {
 
     expect(text).toContain("Med vennlig hilsen | Best regards,");
     expect(text).toContain("Logistikkavdeling | Logistics department");
-    expect(text).toContain("OTMAN TRANSPORT AS");
+    expect(text).toContain("OTMAN AS");
     expect(text).toContain("+47 402 84 977");
-    expect(text).toContain("Otman Transport AS | otman.no");
+    expect(text).toContain("Otman AS | otman.no");
     expect(html).toContain("Med vennlig hilsen | Best regards,");
     expect(html).toContain("Logistikkavdeling | Logistics department");
-    expect(html).toContain("OTMAN TRANSPORT AS");
+    expect(html).toContain("OTMAN AS");
     expect(html).toContain("+47 402 84 977");
     expect(html).toContain('href="https://otman.no"');
   });

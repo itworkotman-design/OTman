@@ -11,7 +11,7 @@ function buildPasswordResetHtml(resetUrl: string) {
               <table width="680" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:24px; overflow:hidden;">
                 <tr>
                   <td style="background-color:#273097; padding:28px 40px;">
-                    <h1 style="margin:0; color:white; font-size:24px;">Otman Transport</h1>
+                    <h1 style="margin:0; color:white; font-size:24px;">Otman AS</h1>
                   </td>
                 </tr>
 

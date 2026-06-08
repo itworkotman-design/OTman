@@ -22,7 +22,7 @@ export function buildInviteEmail({
                   <tr>
                     <td style="background:#273097; padding:28px 40px;">
                       <div style="font-size:24px; font-weight:bold; color:#fff;">
-                        Otman Transport
+                        Otman AS
                       </div>
                     </td>
                   </tr>
@@ -61,7 +61,7 @@ export function buildInviteEmail({
 
                   <tr>
                     <td style="padding:24px 40px; background:#fafafa; font-size:12px; color:#888;">
-                      This is an automated email from Otman Transport.
+                      This is an automated email from Otman AS.
                     </td>
                   </tr>
                 </table>

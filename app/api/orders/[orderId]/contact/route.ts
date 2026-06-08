@@ -56,7 +56,7 @@ async function sendFirstCreatorMessageNotification(input: {
     const sendResult = await sendGmailEmail({
       to: {
         email: ORDER_NOTIFICATION_EMAIL,
-        name: "Otman Transport",
+        name: "Otman AS",
       },
       bcc: "",
       threadToken: input.bodyText.match(/\[OTMAN:([a-z0-9_-]+)\]/i)?.[1],

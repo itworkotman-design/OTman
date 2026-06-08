@@ -29,7 +29,7 @@ describe("POST /api/integrations/email/inbound", () => {
     vi.clearAllMocks();
     process.env.EMAIL_INBOUND_SECRET = "secret-123";
     process.env.BREVO_SENDER_EMAIL = "bestilling@otman.no";
-    process.env.BREVO_SENDER_NAME = "Otman Transport";
+    process.env.BREVO_SENDER_NAME = "Otman";
   });
 
   afterAll(() => {
@@ -171,7 +171,7 @@ describe("POST /api/integrations/email/inbound", () => {
         fromEmail: "customer@example.com",
         fromName: "Customer Name",
         toEmail: "reply+thread123@otman.no",
-        toName: "Otman Transport",
+        toName: "Otman",
       }),
     });
 
@@ -344,7 +344,7 @@ describe("POST /api/integrations/email/inbound", () => {
         fromEmail: "customer@example.com",
         fromName: "Customer Name",
         toEmail: "reply+thread456@otman.no",
-        toName: "Otman Transport",
+        toName: "Otman",
       }),
     });
   });

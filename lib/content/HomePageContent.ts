@@ -1,7 +1,7 @@
 export const homePageContent = {
   title: {
-    en: "Otman Transport",
-    no: "Otman Transport",
+    en: "Otman AS",
+    no: "Otman AS",
   },
   subtitle: {
     en: "Smart Transport. Simple Ordering.",

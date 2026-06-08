@@ -298,9 +298,9 @@ export function buildOrderConversationEmailText(input: {
     "",
     "Med vennlig hilsen | Best regards,",
     "Logistikkavdeling | Logistics department",
-    "OTMAN TRANSPORT AS",
+    "OTMAN AS",
     "+47 402 84 977",
-    "Otman Transport AS | otman.no",
+    "Otman AS | otman.no",
   );
 
   return parts.join("\n").trim();
@@ -335,15 +335,15 @@ export function buildOrderConversationEmailHtml(input: {
       <p style="margin:24px 0 0 0;">
         Med vennlig hilsen | Best regards,<br/>
         Logistikkavdeling | Logistics department<br/>
-        OTMAN TRANSPORT AS<br/>
+        OTMAN AS<br/>
         +47 402 84 977<br/>
-        Otman Transport AS | <a href="https://otman.no" style="color:#111827;text-decoration:underline;">otman.no</a>
+        Otman AS | <a href="https://otman.no" style="color:#111827;text-decoration:underline;">otman.no</a>
       </p>
 
       <div style="margin-top:12px;">
         <img
           src="${escapeHtml(logoUrl)}"
-          alt="Otman Transport Logo"
+          alt="Otman AS Logo"
           style="display:block;max-height:48px;width:auto;"
         />
       </div>

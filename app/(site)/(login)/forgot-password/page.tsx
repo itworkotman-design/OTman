@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
           <div className="flex justify-center">
             <Image
               src="/LogoSVG.svg"
-              alt="Otman Transport"
+              alt="Otman"
               width={260}
               height={120}
               priority
