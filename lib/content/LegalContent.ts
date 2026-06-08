@@ -224,13 +224,13 @@ export const termsContent: LegalPageContent = {
     no: "Vilkaar og betingelser",
   },
   lastUpdated: {
-    en: "Last updated: 5 June 2026",
-    no: "Sist oppdatert: 5. juni 2026",
+    en: "Last updated: 8 June 2026",
+    no: "Sist oppdatert: 8. juni 2026",
   },
   intro: [
     {
-      en: "These terms apply when you use the Otman Transport AS website, request an offer, book services, or use our customer and operations platform. Separate written agreements, order confirmations, or customer-specific price lists take priority if they conflict with these general terms.",
-      no: "Disse vilkaarene gjelder naar du bruker nettsiden til Otman Transport AS, ber om tilbud, bestiller tjenester eller bruker kunde- og driftsplattformen vaar. Saerskilte skriftlige avtaler, ordrebekreftelser eller kundespesifikke prislister gaar foran dersom de er i konflikt med disse generelle vilkaarene.",
+      en: "These general terms apply to freight assignments ordered from Otman Transport AS. They are based on the company's lawyer-prepared terms dated 5 September 2025.",
+      no: "Disse alminnelige vilkaarene gjelder for fraktoppdrag bestilt hos Otman Transport AS. De bygger paa selskapets advokatutarbeidede vilkaar datert 5. september 2025.",
     },
   ],
   sections: [
@@ -248,121 +248,179 @@ export const termsContent: LegalPageContent = {
     },
     {
       title: {
-        en: "Services",
-        no: "Tjenester",
+        en: "Scope",
+        no: "Anvendelsesomraade",
       },
       paragraphs: [
         {
-          en: "We provide transport, collection, package delivery, moving, custom transport, manpower support, and related logistics services for private and business customers. The exact scope, addresses, timing, pricing, and special requirements are agreed in the relevant offer or order confirmation.",
-          no: "Vi tilbyr transport, henting, pakkelevering, flytting, spesialtransport, bemanning og tilknyttede logistikktjenester for privat- og bedriftskunder. Det konkrete omfanget, adresser, tidspunkt, pris og spesielle krav avtales i relevant tilbud eller ordrebekreftelse.",
+          en: "These terms apply when ordering freight assignments from Otman Transport AS.",
+          no: "Disse vilkaarene kommer til anvendelse ved bestilling av fraktoppdrag hos Otman Transport AS.",
         },
       ],
     },
     {
       title: {
-        en: "Requests, offers, and bookings",
-        no: "Forespoersler, tilbud og bestillinger",
+        en: "Booking and order confirmation",
+        no: "Bestilling og oppdragsbekreftelse",
       },
       paragraphs: [
         {
-          en: "A request through the website or platform is not binding until we confirm the assignment or issue a written order confirmation. Offers are based on the information provided by the customer. If the information is incomplete or changes, price, timing, capacity, and availability may also change.",
-          no: "En forespoersel via nettsiden eller plattformen er ikke bindende foer vi bekrefter oppdraget eller sender skriftlig ordrebekreftelse. Tilbud baseres paa opplysningene kunden gir. Dersom opplysningene er ufullstendige eller endres, kan pris, tidspunkt, kapasitet og tilgjengelighet ogsaa endres.",
+          en: "All assignments with Otman are carried out in accordance with the Norwegian Road Carriage Contracts Act and NSAB 2015. If there is a conflict, specifically agreed terms apply first, these general terms apply second, and NSAB 2015 applies after that.",
+          no: "Alle oppdrag hos Otman utfoeres i henhold til vegfraktloven og NSAB 2015. Ved motstrid gaar saerskilt avtalte vilkaar foran Otman sine alminnelige vilkaar, og de alminnelige vilkaarene gaar foran NSAB 2015.",
+        },
+        {
+          en: "Booking is made on Otman's website or by phone. After receiving a booking, Otman issues an order confirmation describing the assignment and its scope.",
+          no: "Bestilling skjer paa Otman sin nettside eller per telefon. Etter mottatt bestilling utstedes en oppdragsbekreftelse. Oppdragsbekreftelsen inneholder en beskrivelse av oppdraget og dets omfang.",
         },
       ],
     },
     {
       title: {
-        en: "Customer responsibilities",
-        no: "Kundens ansvar",
+        en: "Prices and price adjustments",
+        no: "Priser og prisjusteringer",
       },
       paragraphs: [
         {
-          en: "The customer must provide correct contact details, pickup and delivery addresses, access information, item descriptions, dimensions, weight, special handling needs, parking or building restrictions, and any other information needed to perform the assignment safely and efficiently.",
-          no: "Kunden maa gi riktige kontaktopplysninger, hente- og leveringsadresser, tilgangsinformasjon, varebeskrivelser, maal, vekt, behov for spesialhaandtering, parkerings- eller bygningsbegrensninger og annen informasjon som trengs for aa utfoere oppdraget trygt og effektivt.",
-        },
-        {
-          en: "Items must be properly packed unless packing is part of the agreed service. The customer is responsible for ensuring that the goods may legally be transported and that no prohibited, dangerous, or undeclared items are included.",
-          no: "Varer maa vaere forsvarlig pakket med mindre pakking er en del av avtalt tjeneste. Kunden er ansvarlig for at godset lovlig kan transporteres, og at forbudte, farlige eller uoppgitte gjenstander ikke inngaar.",
+          en: "Otman's prices are set out in the price list that applies at any time and is available on https://otman.no/. General price adjustments are made at the start of the fourth quarter each year. The customer is encouraged to stay updated on Otman's current price lists.",
+          no: "Otman sine priser fremkommer av den til enhver tid gjeldende prislisten paa https://otman.no/. Alminnelige prisjusteringer skjer ved inngangen av fjerde kvartal hvert aar. Kunden oppfordres til aa holde seg oppdatert paa Otman sine gjeldende prislister.",
         },
       ],
     },
     {
       title: {
-        en: "Access, delays, and failed delivery",
-        no: "Tilgang, forsinkelser og mislykket levering",
+        en: "Payment terms",
+        no: "Betalingsvilkaar",
       },
       paragraphs: [
         {
-          en: "The customer must ensure access at pickup and delivery locations within the agreed time window. Extra waiting time, failed access, incorrect addresses, changed instructions, additional stops, special lifting needs, or other added work may result in extra charges or rescheduling.",
-          no: "Kunden maa sikre tilgang paa hente- og leveringssted innen avtalt tidsvindu. Ekstra ventetid, manglende tilgang, feil adresse, endrede instrukser, ekstra stopp, spesielle loeftebehov eller annet tilleggsarbeid kan medfoere ekstra kostnader eller ny avtale om tidspunkt.",
+          en: "An invoice is issued when the assignment has been completed. Unless otherwise agreed, the assignment is invoiced with a 14-day payment deadline. The invoice will clearly describe the service delivered and state when and where it was performed. Supporting documentation is provided on request.",
+          no: "Faktura utstedes naar oppdraget er utfoert. Med mindre annet er avtalt, faktureres oppdraget med 14 dagers betalingsfrist. Fakturaen vil ha en tydelig beskrivelse av tjenesten som ble levert, og oppgi naar og hvor den ble utfoert. Underlag oversendes paa forespoersel.",
+        },
+        {
+          en: "The deadline for objections to an invoice is the same as the invoice payment deadline. The customer may not set off claims against Otman unless Otman accepts this. In case of late payment, statutory late-payment interest accrues from the due date under section 2 of the Norwegian Late Payment Interest Act.",
+          no: "Fristen for aa komme med innsigelser paa fakturaen tilsvarer fakturaens betalingsfrist. Kunden kan ikke motregne i krav paa Otman sin haand med mindre dette aksepteres av Otman. Ved forsinket betaling paaloeper lovens forsinkelsesrente fra forfall i henhold til forsinkelsesrenteloven paragraf 2.",
         },
       ],
     },
     {
       title: {
-        en: "Prices and payment",
-        no: "Priser og betaling",
+        en: "Lien in goods",
+        no: "Tilbakeholdsrett",
       },
       paragraphs: [
         {
-          en: "Prices are stated in the offer, order confirmation, platform, or applicable price list. Unless otherwise agreed, prices are exclusive of VAT for business customers and may include agreed additions such as extra work, returns, pallets, express handling, or manual adjustments.",
-          no: "Priser fremgaar av tilbud, ordrebekreftelse, plattform eller gjeldende prisliste. Med mindre annet er avtalt, er priser ekskl. mva. for bedriftskunder og kan inkludere avtalte tillegg som ekstraarbeid, retur, pall, ekspresshaandtering eller manuelle justeringer.",
-        },
-        {
-          en: "Invoices must be paid by the due date stated on the invoice. Late payment may result in statutory interest, reminder fees, collection costs, suspension of services, or account restrictions.",
-          no: "Fakturaer maa betales innen forfallsdatoen som fremgaar av fakturaen. Forsinket betaling kan medfoere lovbestemt forsinkelsesrente, purregebyr, inkassokostnader, stans av tjenester eller begrensning av konto.",
+          en: "Otman reserves the right to retain freighted goods if the customer does not pay overdue invoices, in accordance with NSAB section 14.",
+          no: "Otman forbeholder seg tilbakeholdsrett i fraktet gods dersom kunden ikke gjoer opp forfalte fakturaer i henhold til NSAB paragraf 14.",
         },
       ],
     },
     {
       title: {
-        en: "Cancellation and changes",
-        no: "Avbestilling og endringer",
+        en: "Changes, additions, and incorrect information",
+        no: "Endringer, tillegg og feil informasjon",
       },
       paragraphs: [
         {
-          en: "Cancellations or changes must be sent as soon as possible. If an assignment has already been planned, started, dispatched, or reserved with dedicated capacity, we may charge for incurred costs, used time, reserved capacity, or other documented losses.",
-          no: "Avbestillinger eller endringer maa sendes saa tidlig som mulig. Dersom et oppdrag allerede er planlagt, startet, sendt ut eller reservert med dedikert kapasitet, kan vi fakturere paaloepte kostnader, brukt tid, reservert kapasitet eller andre dokumenterte tap.",
+          en: "If an assignment causes special costs that are not covered by Otman's price list, Otman reserves the right to require additional payment to cover those costs.",
+          no: "Dersom oppdraget medfoerer saerskilte kostnader som ikke dekkes av Otman sin prisliste, forbeholder Otman seg retten til aa kreve tillegg for aa dekke disse.",
+        },
+        {
+          en: "The customer must provide correct information to Otman when ordering. If the customer gives incorrect or incomplete information when ordering an assignment, Otman reserves the right to reject the assignment, stop performance of the assignment, and/or invoice additional remuneration and costs.",
+          no: "Kunden er forpliktet til aa gi riktig informasjon til Otman ved bestilling. Dersom kunden gir uriktig eller ufullstendig informasjon ved bestilling av et oppdrag, forbeholder Otman seg retten til aa avvise oppdraget, stanse oppdragsutfoerelsen og/eller fakturere tilleggsvederlag og kostnader.",
+        },
+        {
+          en: "If fuel prices, public charges, tolls, ferry costs, or other costs for Otman when carrying out the assignment increase by 15% or more, Otman has the right to require renegotiation of the remuneration for the agreed assignment.",
+          no: "Ved en oekning paa 15% eller mer i drivstoffpriser, offentlige avgifter, bom, fergekostnader og andre kostnader for Otman ved utfoerelsen av oppdraget, har Otman rett til aa kreve reforhandling av vederlaget for det inngaate oppdraget.",
         },
       ],
     },
     {
       title: {
-        en: "Damage, loss, and claims",
-        no: "Skade, tap og reklamasjon",
+        en: "Liability and performance of assignments",
+        no: "Forpliktelser, ansvar og utfoerelse av oppdrag",
       },
       paragraphs: [
         {
-          en: "Visible damage, missing goods, or other delivery issues should be reported immediately and documented with photos, receipt information, order number, and a description of the issue. Claims must be submitted without undue delay so we can investigate.",
-          no: "Synlig skade, manglende gods eller andre leveringsproblemer boer meldes umiddelbart og dokumenteres med bilder, kvitteringsinformasjon, ordrenummer og beskrivelse av problemet. Reklamasjoner maa sendes uten ugrunnet opphold slik at vi kan undersoeke saken.",
-        },
-        {
-          en: "Our liability is limited to direct documented loss caused by our breach or negligence, unless mandatory law states otherwise. We are not liable for indirect losses, loss of profit, delays caused by circumstances outside our control, or damage caused by insufficient packaging, incorrect information, unavailable access, or the nature of the goods.",
-          no: "Vaart ansvar er begrenset til direkte dokumentert tap foraarsaket av vaart avtalebrudd eller uaktsomhet, med mindre ufravikelig lov sier noe annet. Vi er ikke ansvarlige for indirekte tap, tapt fortjeneste, forsinkelser som skyldes forhold utenfor vaar kontroll, eller skade som skyldes mangelfull emballering, feil informasjon, manglende tilgang eller godsets egenart.",
+          en: "The customer is made aware that Otman's liability for damage during domestic road transport is limited to 8.33 SDR under NSAB 2015 section 21. In any event, liability is limited to an amount equal to the remuneration for the assignment. The customer is encouraged to take out transport insurance when shipping valuable goods.",
+          no: "Kunden gjoeres oppmerksom paa at Otman sitt erstatningsansvar ved skade under innenlands veitransport er begrenset til 8,33 SDR i henhold til NSAB 2015 paragraf 21. Ansvaret er uansett begrenset til et beloep lik vederlaget for oppdraget. Kunden oppfordres til aa tegne transportforsikring ved frakt av dyre varer.",
         },
       ],
     },
     {
       title: {
-        en: "Platform accounts",
-        no: "Plattformkontoer",
+        en: "Breach",
+        no: "Mislighold",
       },
       paragraphs: [
         {
-          en: "Users with access to the customer or operations platform must keep login details confidential and use the platform only for authorized business purposes. We may suspend or restrict access if we suspect misuse, security risk, non-payment, or breach of these terms.",
-          no: "Brukere med tilgang til kunde- eller driftsplattformen maa holde innloggingsopplysninger konfidensielle og bare bruke plattformen til autoriserte forretningsformaal. Vi kan stanse eller begrense tilgang ved mistanke om misbruk, sikkerhetsrisiko, manglende betaling eller brudd paa disse vilkaarene.",
+          en: "If a party does not fulfil its obligations under the agreement, this constitutes breach. The breaching party must remedy the breach without undue delay after receiving a written demand from the other party.",
+          no: "Dersom en part ikke oppfyller sine forpliktelser etter avtalen, foreligger mislighold. Den misligholdende part plikter aa rette misligholdet uten ugrunnet opphold etter aa ha mottatt skriftlig paakrav fra den andre parten.",
         },
       ],
     },
     {
       title: {
-        en: "Third-party services",
-        no: "Tredjepartstjenester",
+        en: "Complaints",
+        no: "Reklamasjon",
       },
       paragraphs: [
         {
-          en: "We may use third-party services for mapping, storage, email, route planning, subcontractor coordination, and delivery documentation. Availability and accuracy may depend on those providers, and we are not responsible for interruptions or errors outside our reasonable control.",
-          no: "Vi kan bruke tredjepartstjenester for kart, lagring, e-post, ruteplanlegging, koordinering med underleverandoerer og leveringsdokumentasjon. Tilgjengelighet og noeyaktighet kan avhenge av disse leverandoerene, og vi er ikke ansvarlige for avbrudd eller feil utenfor vaar rimelige kontroll.",
+          en: "Complaints must be made in writing to Otman's stated email address. A complaint must include the following information:",
+          no: "Reklamasjoner skal skje skriftlig til Otman sin oppgitte e-postadresse. Reklamasjonen maa inneholde foelgende opplysninger:",
+        },
+      ],
+      items: [
+        {
+          en: "Order number.",
+          no: "Ordrenummer.",
+        },
+        {
+          en: "Contact person.",
+          no: "Kontaktperson.",
+        },
+        {
+          en: "Transport date.",
+          no: "Transportdato.",
+        },
+        {
+          en: "Which goods are damaged, where they are located, the cause of damage, and pictures of the goods.",
+          no: "Hvilket gods som er skadet, hvor det befinner seg, skadeaarsak og bilder av varene.",
+        },
+        {
+          en: "Copy of the consignment note and commercial invoice.",
+          no: "Kopi av fraktbrev og handelsfaktura.",
+        },
+        {
+          en: "Complaints must be made immediately for visible damage and within 7 days for hidden damage, cf. NSAB section 27.",
+          no: "Reklamasjon maa finne sted umiddelbart ved synlige skader, og innen 7 dager ved skjulte skader, jf. NSAB paragraf 27.",
+        },
+      ],
+    },
+    {
+      title: {
+        en: "Compensation",
+        no: "Erstatning",
+      },
+      paragraphs: [
+        {
+          en: "The affected party may claim compensation for documented loss resulting from the breach, subject to the limitations that follow from NSAB 2015 and the Norwegian Road Carriage Contracts Act as described in the liability section above.",
+          no: "Den beroerte part kan kreve erstattet dokumentert tap som foelge av misligholdet, med de begrensninger som foelger av NSAB 2015 og lov om vegfraktavtaler i henhold til punktet om ansvar over.",
+        },
+      ],
+    },
+    {
+      title: {
+        en: "Termination",
+        no: "Heving",
+      },
+      paragraphs: [
+        {
+          en: "If the breach constitutes a material breach of contract, the affected party may terminate the assignment with immediate effect. Termination must be made in writing within a reasonable time after the affected party became, or should have become, aware of the breach.",
+          no: "Dersom misligholdet innebaerer et vesentlig kontraktsbrudd, kan den beroerte part heve oppdraget med umiddelbar virkning. Heving maa skje skriftlig innen rimelig tid etter at den beroerte part fikk eller burde faatt kunnskap om misligholdet.",
+        },
+        {
+          en: "The right to terminate lapses if the termination notice is not given within such deadline, unless the breaching party has acted with gross negligence or contrary to honesty and good faith.",
+          no: "Retten til aa heve bortfaller dersom hevingsmelding ikke gis innen slik frist, med mindre den misligholdende part har opptraadt grovt uaktsomt eller i strid med redelighet og god tro.",
         },
       ],
     },
@@ -373,32 +431,32 @@ export const termsContent: LegalPageContent = {
       },
       paragraphs: [
         {
-          en: "We are not liable for delay or failure caused by circumstances outside our reasonable control, including severe weather, traffic incidents, road closures, strikes, illness, power or network outages, public authority decisions, accidents, or supplier failures.",
-          no: "Vi er ikke ansvarlige for forsinkelse eller manglende oppfyllelse som skyldes forhold utenfor vaar rimelige kontroll, inkludert ekstremvaer, trafikkhendelser, stengte veier, streik, sykdom, stroem- eller nettverksbrudd, offentlige paalegg, ulykker eller leverandoersvikt.",
+          en: "Otman cannot be held liable for delays, losses, or other compensable circumstances caused by circumstances outside its control. This includes weather conditions and natural disasters, extraordinary traffic challenges, technical problems on road and freight networks, strikes, and similar circumstances that Otman cannot reasonably be expected to overcome or prevent the effects of. The customer cannot claim a price reduction or compensation for consequences of force majeure.",
+          no: "Otman kan ikke holdes ansvarlig for forsinkelser, tap eller andre erstatningsbetingende forhold som skyldes forhold utenfor dets kontroll. Dette gjelder blant annet vaerforhold og naturkatastrofer, ekstraordinaere trafikale utfordringer, tekniske problemer paa vei og godsnett, streik osv., som Otman ikke med rimelighet kan forventes aa overvinne eller forhindre virkningene av. Kunden kan heller ikke kreve prisavslag eller erstatning for konsekvenser av force majeure.",
         },
       ],
     },
     {
       title: {
-        en: "Privacy",
-        no: "Personvern",
+        en: "Cancellation",
+        no: "Avbestilling",
       },
       paragraphs: [
         {
-          en: "We process personal data as described in our privacy policy. By using the website, requesting services, or using the platform, you acknowledge that personal data may be processed to administer and deliver the services.",
-          no: "Vi behandler personopplysninger som beskrevet i personvernerklaeringen vaar. Ved aa bruke nettsiden, be om tjenester eller bruke plattformen, erkjenner du at personopplysninger kan behandles for aa administrere og levere tjenestene.",
+          en: "The customer may cancel the assignment in whole or in part by written notice to Otman. Cancellation must take place no later than 48 hours before the assignment is to be carried out. If cancellation is made later than this, the customer will be charged a cancellation fee equal to 40% of the assignment remuneration.",
+          no: "Kunden kan avbestille oppdraget helt eller delvis ved skriftlig melding til Otman. Avbestilling maa senest skje 48 timer foer oppdraget skal finne sted. Ved avbestilling senere enn dette vil kunden bli belastet et bruddgebyr tilsvarende 40% av oppdragets vederlag.",
         },
       ],
     },
     {
       title: {
-        en: "Governing law and disputes",
-        no: "Lovvalg og tvister",
+        en: "Right of withdrawal",
+        no: "Angrerett",
       },
       paragraphs: [
         {
-          en: "These terms are governed by Norwegian law. Disputes should first be resolved through dialogue. If no solution is reached, disputes may be brought before the ordinary Norwegian courts unless mandatory law gives the customer another venue or complaint option.",
-          no: "Disse vilkaarene er underlagt norsk rett. Tvister boer foerst soekes loest gjennom dialog. Dersom partene ikke kommer til en loesning, kan tvisten bringes inn for de ordinaere norske domstolene med mindre ufravikelig lov gir kunden et annet verneting eller klagealternativ.",
+          en: "For consumer purchases, the provisions of the Norwegian Right of Withdrawal Act apply in the ordinary way.",
+          no: "I forbrukerkjoep kommer angrerettlovens bestemmelser til anvendelse paa alminnelig maate.",
         },
       ],
     },

@@ -1,7 +1,9 @@
 import HomePage from "@/app/_components/site/pageComponents/HomePage";
 import { homePageContent } from "@/lib/content/HomePageContent";
 import { statsContent } from "@/lib/content/StatsContent";
-import { getOrRefreshSiteStats } from "@/lib/site/siteStats";
+import { getOrRefreshSiteStats, HISTORICAL_BASELINE } from "@/lib/site/siteStats";
+
+export const revalidate = 86400;
 
 export default async function Page({
   params,
@@ -10,15 +12,15 @@ export default async function Page({
 }) {
   const { locale } = await params;
 
-  //const siteStats = await getOrRefreshSiteStats();
+  const liveStats = await getOrRefreshSiteStats();
 
-  // const dynamicStatsContent = {
-  //   stats: [
-  //     { value: siteStats.productsInstalled, label: statsContent.stats[0].label },
-  //     { value: siteStats.kmDriven, label: statsContent.stats[1].label },
-  //     { value: siteStats.ordersCompleted, label: statsContent.stats[2].label },
-  //   ],
-  // };
+  const dynamicStatsContent = {
+    stats: [
+      { value: HISTORICAL_BASELINE.productsInstalled + liveStats.productsInstalled, label: statsContent.stats[0].label },
+      { value: HISTORICAL_BASELINE.kmDriven + liveStats.kmDriven,                   label: statsContent.stats[1].label },
+      { value: HISTORICAL_BASELINE.ordersCompleted + liveStats.ordersCompleted,     label: statsContent.stats[2].label },
+    ],
+  };
 
-  return <HomePage content={homePageContent} locale={locale} />;
+  return <HomePage content={homePageContent} statsContent={dynamicStatsContent} locale={locale} />;
 }

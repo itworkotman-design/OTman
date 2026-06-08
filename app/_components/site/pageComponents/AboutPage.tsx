@@ -1,4 +1,4 @@
-import { AboutContent } from "@/lib/content/AboutContent"
+import { AboutContent } from "@/lib/content/AboutContent";
 import { PersonItem } from "@/app/_components/site/PersonItem";
 import { PartnersDisplay } from "@/app/_components/site/TransportService/PartnersDisplay";
 import { partnersContent } from "@/lib/content/PartnersContent";
@@ -8,14 +8,19 @@ type Locale = "en" | "no";
 type PageTypes = {
   content: typeof AboutContent;
   locale: Locale;
-}
+};
 
-export default function About({content, locale}:PageTypes) {
+export default function About({ content, locale }: PageTypes) {
   return (
     <div className="">
       <section>
         <div className="absolute left-0 w-full h-[400] [clip-path:polygon(0_0,100%_0,100%_100%,0_85%)]">
-          <Image src="/IMG-1.png" alt="bg-img" fill className="object-cover object-[center_40%]" />
+          <Image
+            src="https://public-otman-img.s3.eu-north-1.amazonaws.com/Content/About/Otman+background.png"
+            alt="bg-img"
+            fill
+            className="object-cover object-[center_40%]"
+          />
 
           {/* Overlay */}
           <div className="absolute inset-0 backdrop-blur-xs flex items-center justify-center">
@@ -43,7 +48,7 @@ export default function About({content, locale}:PageTypes) {
           </div>
         </div>
       </section>
-      {/*<PartnersDisplay content={partnersContent} locale={locale} />*/}
+      <PartnersDisplay content={partnersContent} locale={locale} />
     </div>
   );
 }

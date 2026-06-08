@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Provides localized privacy policy and terms and conditions copy for the public legal pages.
+Provides localized privacy policy and terms and conditions copy for the public legal pages. The terms content includes the clauses from the lawyer-prepared Otman Transport terms document dated 5 September 2025.
 
 ## Functions
 

@@ -4,9 +4,11 @@ export const partnersContent = {
     no: "Betrodd av bedrifter over hele Norge",
   },
   partners: [
-    { id: 1, title: "Bring", src: "/PartnerBring.png", scale: 1.05, yOffset: 0 },
-    { id: 2, title: "Helthjem", src: "/PartnerHelthjem.png", scale: 1.15, yOffset: -3 },
-    { id: 3, title: "Hoggestabben", src: "/PartnerHoggestabben.png", scale: 1.4, yOffset: -8 },
-    { id: 4, title: "OsloBudservice", src: "/PartnerOsloBudservice.png", scale: 0.8, yOffset: 2 },
+    { id: 1, title: "Albittar Transport AS", src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Partners/Partners-01.jpg", scale: 1, yOffset: 0 },
+    { id: 2, title: "Christiania Flytt & Vask AS", src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Partners/Partners-02.jpg", scale: 1, yOffset: 0 },
+    { id: 3, title: "Linecare AS", src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Partners/Partners-03.jpg", scale: 1, yOffset: 0 },
+    { id: 4, title: "KolveitsStudio", src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Partners/Partners-04.jpg", scale: 1, yOffset: 0 },
+    { id: 5, title: "Arnosan AS", src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Partners/Partners-05.jpg", scale: 1, yOffset: 0 },
+    { id: 6, title: "Custom Projects AS", src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Partners/Partners-06.jpg", scale: 1, yOffset: 0 },
   ],
 };

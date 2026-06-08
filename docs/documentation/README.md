@@ -26,7 +26,7 @@ Each documentation file should include:
 
 ## External connections
 
-- [S3-buckets] itworkotman.no https://eu-north-1.console.aws.amazon.com/s3/buckets?region=eu-north-1
+- [S3-buckets] cloud storage for PODS and media - itworkotman.no https://eu-north-1.console.aws.amazon.com/s3/buckets?region=eu-north-1
 
 ## Current Entries
 

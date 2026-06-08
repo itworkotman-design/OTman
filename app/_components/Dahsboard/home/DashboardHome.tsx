@@ -610,7 +610,7 @@ export default function DashboardHome() {
           </div>
 
           <div className="p-6">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6">
+            {/* <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <div className="text-base font-semibold text-slate-800">
@@ -642,7 +642,7 @@ export default function DashboardHome() {
                   {finishMonthError}
                 </div>
               ) : null}
-            </div>
+            </div> */}
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

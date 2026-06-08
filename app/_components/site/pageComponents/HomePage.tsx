@@ -27,7 +27,7 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
         <p className="text-center mx-auto w-full max-w-200">{content.introText[locale]}</p>
       </section>
       <StatsDisplay content={resolvedStatsContent} locale={locale} />
-      {/*<PartnersDisplay content={partnersContent} locale={locale} />*/}
+      <PartnersDisplay content={partnersContent} locale={locale} />
     </>
   );
 }
