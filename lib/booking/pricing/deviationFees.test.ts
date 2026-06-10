@@ -5,7 +5,7 @@ import {
 } from "./deviationFees";
 
 describe("deviationFees", () => {
-  it("matches Norwegian WordPress values to the English deviation option", () => {
+  it("matches Norwegian WordPress values to the Norwegian deviation option", () => {
     const option = getDeviationFeeOption(
       "590:Avvik, bomtur; Kunde ikke hjemme:NOTHOME",
     );
@@ -13,18 +13,18 @@ describe("deviationFees", () => {
     expect(option).toEqual(
       expect.objectContaining({
         code: "NOTHOME",
-        englishLabel: "Deviation, missed trip; Customer not at home",
+        norwegianLabel: "Avvik, bomtur; Kunde ikke hjemme",
         price: 590,
       }),
     );
   });
 
-  it("normalizes English and Norwegian labels with different casing", () => {
+  it("normalizes Norwegian labels with different casing", () => {
     expect(normalizeDeviationLabel("avvik, bomtur; feil adresse")).toBe(
-      "Deviation, toll; Wrong address",
+      "Avvik, bomtur; Feil adresse",
     );
     expect(
-      normalizeDeviationLabel("DEVIATION, TOLL TRIP; CANCELLED THE DAY BEFORE"),
-    ).toBe("Deviation, toll trip; Cancelled the day before");
+      normalizeDeviationLabel("Avvik, bomtur; Avlyst dagen før"),
+    ).toBe("Avvik, bomtur; Avlyst dagen før");
   });
 });

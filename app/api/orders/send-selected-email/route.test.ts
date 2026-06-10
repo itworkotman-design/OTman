@@ -156,7 +156,7 @@ describe("POST /api/orders/send-selected-email", () => {
       }),
     );
     expect(mocks.sendEmailMock.mock.calls[0][0].html).toContain(
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/LogoLG.png",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Otman+Logo+Horizontal+Blue.svg",
     );
   });
 

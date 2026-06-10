@@ -157,6 +157,7 @@ describe("POST /api/auth/users/create", () => {
       usernameDisplayColor: "#112233",
       priceListId: "price-list-1",
       permissions: ["BOOKING_VIEW", "BOOKING_CREATE"],
+      warehouseEmail: "",
     });
   });
 

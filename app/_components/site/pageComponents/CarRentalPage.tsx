@@ -69,10 +69,11 @@ export default function CarRentalPage({content, locale}: PageTypes) {
     return true;
   });
 
+  const getPrice = (v: typeof filtered[0]) => v.pricePerDay ?? v.price ?? 0;
   filtered = [...filtered].sort((a, b) =>
     applied.sort === "lowest"
-      ? a.pricePerDay - b.pricePerDay
-      : b.pricePerDay - a.pricePerDay
+      ? getPrice(a) - getPrice(b)
+      : getPrice(b) - getPrice(a)
   );
 
   return (

@@ -126,6 +126,7 @@ describe("POST /api/auth/invites/create", () => {
             phoneNumber: "",
             priceListId: null,
             username: "",
+            warehouseEmail: "",
         });
     });
 
@@ -219,6 +220,7 @@ describe("POST /api/auth/invites/create", () => {
             phoneNumber: "",
             priceListId: null,
             username: "",
+            warehouseEmail: "",
         });
     });
 
@@ -263,6 +265,7 @@ describe("POST /api/auth/invites/create", () => {
             phoneNumber: "",
             priceListId: null,
             username: "",
+            warehouseEmail: "",
         });
     });
 });

@@ -4,7 +4,8 @@
       "Bash(ls -la \"c:\\\\\\\\Users\\\\\\\\rkolv\\\\\\\\Documents\\\\\\\\School\\\\\\\\Git\\\\\\\\otmanTransport\\\\\\\\OTman\")",
       "Bash(find \"c:\\\\\\\\Users\\\\\\\\rkolv\\\\\\\\Documents\\\\\\\\School\\\\\\\\Git\\\\\\\\otmanTransport\\\\\\\\OTman\\\\\\\\app\" -type f -name \"*.tsx\")",
       "Bash(Select-Object -First 20)",
-      "Bash(Get-ChildItem -Path \"app/api\" -Recurse -Filter \"route.ts\" -ErrorAction SilentlyContinue)"
+      "Bash(Get-ChildItem -Path \"app/api\" -Recurse -Filter \"route.ts\" -ErrorAction SilentlyContinue)",
+      "Bash(npm test *)"
     ]
   }
 }

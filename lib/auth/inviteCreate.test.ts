@@ -228,6 +228,7 @@ describe("createInvite", () => {
         logoPath: null,
         usernameDisplayColor: null,
         priceListId: null,
+        warehouseEmail: null,
       },
       select: {
         id: true,
@@ -255,6 +256,7 @@ describe("createInvite", () => {
         logoPath: null,
         usernameDisplayColor: null,
         priceListId: null,
+        warehouseEmail: null,
         permissions: [],
       },
     });

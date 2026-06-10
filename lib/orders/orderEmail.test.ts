@@ -186,7 +186,7 @@ describe("orderEmail helpers", () => {
     });
 
     expect(html).toContain(
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/LogoLG.png",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Otman+Logo+Horizontal+Blue.svg",
     );
     expect(html).toContain('alt="Otman AS Logo"');
     expect(html).toContain("display:block;max-height:48px;width:auto;");

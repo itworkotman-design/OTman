@@ -172,6 +172,7 @@ describe("acceptInvite", () => {
         logoPath: true,
         usernameDisplayColor: true,
         priceListId: true,
+        warehouseEmail: true,
         permissions: {
           select: {
             permission: true,
@@ -290,6 +291,7 @@ describe("acceptInvite", () => {
         role: "USER",
         status: "ACTIVE",
         priceListId: null,
+        warehouseEmail: null,
       },
       select: {
         id: true,
@@ -378,6 +380,7 @@ describe("acceptInvite", () => {
         role: "USER",
         status: "ACTIVE",
         priceListId: null,
+        warehouseEmail: null,
       },
       select: {
         id: true,

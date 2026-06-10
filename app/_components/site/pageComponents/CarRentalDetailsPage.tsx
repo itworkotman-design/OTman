@@ -48,8 +48,10 @@ export default function CarRentalDetailsPage({ params }: Props) {
     fuelType,
     vehicleType,
     gearbox,
+    listingType,
     extraKmPrice,
     pricePerDay,
+    price,
   } = vehicle;
 
   return (
@@ -75,7 +77,7 @@ export default function CarRentalDetailsPage({ params }: Props) {
             <h2 className="text-logoblue text-2xl font-semibold mb-4">
               {c.aboutVehicle[locale]}
             </h2>
-            <p className="text-textcolor leading-relaxed">{description}</p>
+            <p className="text-textcolor leading-relaxed">{description[locale]}</p>
           </div>
 
           <div className="lg:w-72 flex flex-col gap-6">
@@ -87,14 +89,18 @@ export default function CarRentalDetailsPage({ params }: Props) {
               <SpecRow label={c.specFuelType[locale]}    value={fuelMap[fuelType] ?? fuelType} />
               <SpecRow label={c.specVehicleType[locale]} value={typeMap[vehicleType] ?? vehicleType} />
               <SpecRow label={c.specGearbox[locale]}     value={gearMap[gearbox] ?? gearbox} />
-              <SpecRow label={c.specExtraKm[locale]}     value={`${extraKmPrice} kr/km`} />
+              {extraKmPrice != null && (
+                <SpecRow label={c.specExtraKm[locale]} value={`${extraKmPrice} kr/km`} />
+              )}
             </div>
 
             <div className="customContainer rounded-2xl p-6 flex flex-col gap-4">
               <div className="flex items-end gap-2">
-                <span className="text-textcolor">{c.pricePerDay[locale]}:</span>
+                <span className="text-textcolor">
+                  {listingType === "sale" ? c.price[locale] : c.pricePerDay[locale]}:
+                </span>
                 <span className="text-logoblue text-4xl font-semibold leading-none">
-                  {pricePerDay}
+                  {price ?? pricePerDay}
                 </span>
                 <span className="text-textcolor">kr</span>
               </div>

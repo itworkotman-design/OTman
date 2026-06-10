@@ -85,19 +85,18 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
       ]),
     ).toEqual([
       "displayId",
-      "orderSummary",
       "priceExVat",
       "priceSubcontractor",
     ]);
   });
 
-  it("always keeps the grouped products column visible for admin rows", () => {
+  it("keeps only valid column ids for admin rows without legacy summary columns", () => {
     expect(
       sanitizeVisibleBookingArchiveColumns("ADMIN", [
         "displayId",
         "description",
       ]),
-    ).toEqual(["displayId", "orderSummary", "description"]);
+    ).toEqual(["displayId", "description"]);
   });
 
   it("migrates the legacy admin customer-name column to the creator column", () => {
@@ -107,7 +106,7 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
         "customerName",
         "description",
       ]),
-    ).toEqual(["displayId", "createdBy", "orderSummary", "description"]);
+    ).toEqual(["displayId", "createdBy", "description"]);
   });
 
   it("uses subcontractor price instead of full order price for subcontractor rows", () => {

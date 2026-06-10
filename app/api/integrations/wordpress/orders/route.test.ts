@@ -1181,7 +1181,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
     expect(response.status).toBe(200);
     expect(mocks.orderCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        deviation: "Deviation, missed trip; Customer not at home",
+        deviation: "Avvik, bomtur; Kunde ikke hjemme",
         rabatt: undefined,
         priceExVat: 1590,
       }),
@@ -1236,7 +1236,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
     expect(mocks.orderCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
         status: "cancelled",
-        deviation: "Deviation, missed trip; Customer not at home",
+        deviation: "Avvik, bomtur; Kunde ikke hjemme",
         rabatt: "1120",
         priceExVat: 880,
         priceSubcontractor: 0,

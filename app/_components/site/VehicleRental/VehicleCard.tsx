@@ -9,13 +9,15 @@ export interface VehicleProps {
   name: string;
   imageUrl: string;
   images: string[];
-  description: string;
+  description: { en: string; no: string };
   seats: number;
   fuelType: string;
   vehicleType: string;
   gearbox: string;
-  extraKmPrice: number;
-  pricePerDay: number;
+  listingType: "rental" | "sale";
+  extraKmPrice?: number;
+  pricePerDay?: number;
+  price?: number;
 }
 
 type Locale = "en" | "no";
@@ -33,8 +35,10 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
   fuelType,
   vehicleType,
   gearbox,
+  listingType,
   extraKmPrice,
   pricePerDay,
+  price,
   locale,
   content,
 }) => {
@@ -70,9 +74,9 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
   return (
     <div className="relative left-0 w-full flex flex-col lg:flex-row customContainer gap-4 lg:gap-10">
 
-      <div className="relative w-full min-h-[250] lg:min-h-[400] lg:flex-1 order-2 lg:order-1 bg-amber-100 rounded-2xl overflow-hidden">
+      <div className="relative w-full min-h-[250] lg:min-h-[400] lg:flex-1 order-2 lg:order-1 rounded-2xl overflow-hidden">
         <Link href={`/bil-utleie/${id}`} className="absolute inset-0 block">
-          <Image src={imageUrl} fill alt="Vehicle img" className="object-cover" />
+          <Image src={imageUrl} fill alt="Vehicle img" className="object-contain scale-100" />
         </Link>
       </div>
 
@@ -112,19 +116,23 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
                 </svg>
                 <FeatureItem label={gearMap[gearbox] ?? gearbox} />
               </li>
+              {listingType === "rental" && (
               <li className="flex gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="size-5"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
                 <FeatureItem label={`${extraKmPrice}kr ${content.extraKm[locale]}`} />
               </li>
+              )}
             </ul>
           </div>
 
           <div className="flex-1 flex justify-end items-end">
             <div className="flex items-center">
-              <span className="text-textcolor pr-4">{content.pricePerDay[locale]}:</span>
+              <span className="text-textcolor pr-4">
+                {listingType === "sale" ? content.price[locale] : content.pricePerDay[locale]}:
+              </span>
               <div className="flex items-end">
                 <span className="text-logoblue text-4xl font-semibold">
-                  {pricePerDay}
+                  {price ?? pricePerDay}
                 </span>
                 <span className="text-textcolor pl-1">kr</span>
               </div>

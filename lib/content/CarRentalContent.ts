@@ -95,6 +95,10 @@ export const CarRentalContent = {
         en: "per extra km",
         no: "per ekstra km"
     },
+    price: {
+        en: "Price",
+        no: "Pris"
+    },
     pricePerDay: {
         en: "Price per day",
         no: "Pris per dag"

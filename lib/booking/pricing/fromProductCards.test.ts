@@ -588,7 +588,7 @@ describe("buildProductBreakdowns", () => {
 
     expect(result[0]?.items[0]).toMatchObject({
       kind: "deliveryType",
-      code: "RETURNIN",
+      code: "RETURN_ONLY",
       unitPrice: 0,
       label: "Kun retur",
     });
@@ -637,7 +637,7 @@ describe("buildProductBreakdowns", () => {
       expect.arrayContaining([
         expect.objectContaining({
           kind: "deliveryType",
-          code: "RETURNIN",
+          code: "RETURN_ONLY",
           qty: 1,
         }),
       ]),
@@ -769,7 +769,7 @@ describe("buildProductBreakdowns", () => {
       expect.arrayContaining([
         expect.objectContaining({
           kind: "deliveryType",
-          code: "RETURNIN",
+          code: "RETURN_ONLY",
           unitPrice: 669,
         }),
         expect.objectContaining({
@@ -825,7 +825,7 @@ describe("buildProductBreakdowns", () => {
     expect(result[1]?.items).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          code: "RETURNIN",
+          code: "RETURN_ONLY",
         }),
       ]),
     );
@@ -905,7 +905,7 @@ describe("buildProductBreakdowns", () => {
         }),
         expect.objectContaining({
           kind: "deliveryType",
-          code: "RETURNIN",
+          code: "RETURN_ONLY",
           unitPrice: 669,
         }),
       ]),
@@ -956,7 +956,7 @@ describe("buildProductBreakdowns", () => {
     expect(lines).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          code: "RETURNIN",
+          code: "RETURN_ONLY",
           unitPrice: 669,
           lineTotal: 669,
         }),
@@ -1004,7 +1004,7 @@ describe("buildProductBreakdowns", () => {
     expect(getProductLines(result, "Mikrobølgeovn")).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          code: "RETURNIN",
+          code: "RETURN_ONLY",
           unitPrice: 669,
           lineTotal: 669,
         }),
@@ -1091,7 +1091,7 @@ describe("buildProductBreakdowns", () => {
 
     expect(getProductLines(result, "Mikrobølgeovn")).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: "RETURNIN", lineTotal: 669 }),
+        expect.objectContaining({ code: "RETURN_ONLY", lineTotal: 669 }),
         expect.objectContaining({ code: "RETURNSTORE", lineTotal: 0 }),
       ]),
     );
@@ -1181,7 +1181,7 @@ describe("buildProductBreakdowns", () => {
     expect(result.breakdowns.flatMap((breakdown) => breakdown.lines)).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          code: "RETURNIN",
+          code: "RETURN_ONLY",
         }),
       ]),
     );
@@ -1294,7 +1294,7 @@ describe("buildProductBreakdowns", () => {
     for (const productName of ["Fryseskap", "Tørketrommel"]) {
       expect(getProductLines(result, productName)).not.toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ code: "RETURNIN" }),
+          expect.objectContaining({ code: "RETURN_ONLY" }),
           expect.objectContaining({ code: "XTRA" }),
         ]),
       );
@@ -1387,7 +1387,7 @@ describe("buildProductBreakdowns", () => {
       expect(getChargedCodes(result)).toEqual(getChargedCodes(expected));
       expect(getProductLines(result, "Mikrobølgeovn")).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ code: "RETURNIN", lineTotal: 669 }),
+          expect.objectContaining({ code: "RETURN_ONLY", lineTotal: 669 }),
           expect.objectContaining({ code: "RETURNSTORE", lineTotal: 0 }),
         ]),
       );

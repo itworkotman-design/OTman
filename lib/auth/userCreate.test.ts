@@ -202,6 +202,7 @@ describe("createUserWithPassword", () => {
         role: "USER",
         status: "ACTIVE",
         priceListId: "price-list-1",
+        warehouseEmail: null,
       },
       select: { id: true },
     });

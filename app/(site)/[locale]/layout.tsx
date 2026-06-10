@@ -48,12 +48,21 @@ export const metadata: Metadata = {
     title: "Otman AS | Transport, flytting og logistikk i Norge",
     description:
       "Transport, henting, pakkelevering, flytting, spesialtransport og bemanning for private og bedrifter i Norge.",
+    images: [
+      {
+        url: "https://public-otman-img.s3.eu-north-1.amazonaws.com/OGIMAGE.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Otman AS, flytting og logistikk i Norge",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Otman AS | Transport, flytting og logistikk i Norge",
     description:
       "Transport, henting, pakkelevering, flytting, spesialtransport og bemanning for private og bedrifter i Norge.",
+    images: ["https://public-otman-img.s3.eu-north-1.amazonaws.com/OGIMAGE.jpg"],
   },
   robots: {
     index: true,
