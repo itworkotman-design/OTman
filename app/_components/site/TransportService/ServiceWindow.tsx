@@ -115,12 +115,15 @@ const localizedItems = useMemo(
     // ResizeObserver fallback: fires once the cards have a measured width,
     // which guarantees getStride() will return a non-zero value
     const firstCard = el.querySelector<HTMLElement>("[data-card]");
-    const ro = firstCard ? new ResizeObserver(() => {
-      cancelAnimationFrame(rafId);
-      init();
-      ro.disconnect();
-    }) : null;
-    ro?.observe(firstCard!);
+    let ro: ResizeObserver | null = null;
+    if (firstCard) {
+      ro = new ResizeObserver(() => {
+        cancelAnimationFrame(rafId);
+        init();
+        ro?.disconnect();
+      });
+      ro.observe(firstCard);
+    }
 
     return () => {
       cancelAnimationFrame(rafId);
