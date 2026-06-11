@@ -75,6 +75,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
                   <li key={link.id}>
                     <Link
                       href={fullHref}
+                      onClick={() => setOpen(false)}
                       className={`
                         block px-3 py-6 md:py-0 text-lg md:text-sm
                         transition-colors duration-140
@@ -89,6 +90,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
               <li>
                 <Link
                   href="/login"
+                  onClick={() => setOpen(false)}
                   className="block px-3 py-6 md:py-0 text-lg md:text-sm transition-colors duration-140 text-pink-600"
                 >
                   {content.dashboardLabel[locale]}
@@ -98,6 +100,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
               <li className="block md:hidden">
                 <Link
                   href={`/${locale}/kontakt`}
+                  onClick={() => setOpen(false)}
                   className={`
                     block px-3 py-6 md:py-0 text-lg md:text-sm
                     transition-colors duration-140

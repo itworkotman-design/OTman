@@ -98,15 +98,34 @@ const localizedItems = useMemo(
     const el = scrollerRef.current;
     if (!el || !isCarousel) return;
 
-    requestAnimationFrame(() => {
+    let rafId: number;
+
+    const init = () => {
       const stride = getStride();
       if (!stride) return;
-
-      doInstant(el, () => {
-        el.scrollLeft = stride * base;
-      });
+      doInstant(el, () => { el.scrollLeft = stride * base; });
       setActive(0);
+    };
+
+    // Double RAF: first frame commits the render, second frame has layout
+    rafId = requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(init);
     });
+
+    // ResizeObserver fallback: fires once the cards have a measured width,
+    // which guarantees getStride() will return a non-zero value
+    const firstCard = el.querySelector<HTMLElement>("[data-card]");
+    const ro = firstCard ? new ResizeObserver(() => {
+      cancelAnimationFrame(rafId);
+      init();
+      ro.disconnect();
+    }) : null;
+    ro?.observe(firstCard!);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (ro) ro.disconnect();
+    };
   }, [base, isCarousel]);
 
   useEffect(() => {
@@ -192,7 +211,7 @@ const localizedItems = useMemo(
             <div className="md:hidden">
               <div
                 ref={scrollerRef}
-                className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[10vw] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[calc(50%-120px)] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 {loopItems.map((item, idx) => (
                   <div key={`${item.title}-${idx}`} data-card className="shrink-0 snap-center">
