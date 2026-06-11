@@ -16,7 +16,7 @@ type StatsDisplayProps = {
 export const StatsDisplay = ({ content, locale }: StatsDisplayProps) => {
   return (
     <section className="w-full py-10">
-      <div className="grid grid-cols-1 md:grid-cols-3 md:gap-32 max-w-200 justify-self-center">
+      <div className="grid grid-cols-1 md:grid-cols-3 md:gap-32 max-w-200 mx-auto">
         {content.stats.map((stat, i) => (
           <div key={i} className="text-center">
             <h1 className="text-[40px] text-logoblue font-bold">

@@ -12,14 +12,14 @@ export const navbarContent = {
         no: "Transporttjenester",
       },
     },
-    // {
-    //   id: "vehicle-rental",
-    //   href: "/bil-utleie",
-    //   label: {
-    //     en: "Vehicle Rental",
-    //     no: "Bilutleie",
-    //   },
-    // },
+    {
+      id: "vehicle-rental",
+      href: "/bil-utleie",
+      label: {
+        en: "Vehicle Rental",
+        no: "Bilutleie",
+      },
+    },
     {
       id: "manpower",
       href: "/manpower",

@@ -131,14 +131,14 @@ export default function ManpowerRentalPage({ content, locale }: PageProps) {
     <div className="my-8">
       <section className="mb-10">
         <div className="overflow-hidden">
-          <div className="max-w-200 text-center justify-self-center mb-10">
+          <div className="max-w-200 sm:text-center mx-auto mb-10">
             <h1 className="text-2xl lg:text-5xl font-semibold text-logoblue">{content.heroTitle[locale]}</h1>
             <p className="mt-5 text-black/50">{content.heroText[locale]}</p>
           </div>
           <div className="">
             <div className="relative overflow-hidden">
               <div className="relative flex h-full flex-col justify-between">
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   {content.featureCards.map((card, index) => (
                     <div key={index} className="rounded-3xl bg-logoblue p-5 text-white shadow-sm">
                       <div className="text-sm text-white text-">{card.label[locale]}</div>
@@ -150,7 +150,7 @@ export default function ManpowerRentalPage({ content, locale }: PageProps) {
                 <div className="mt-6">
                   <div className="grid gap-3 sm:grid-cols-4">
                     {content.benefits[locale].map((item) => (
-                      <div key={item} className="flex items-start gap-3 text-sm text-black/50 justify-self-center">
+                      <div key={item} className="flex items-start gap-3 text-sm text-black/50 sm:justify-self-center">
                         <span className="mt-0.5 inline-block h-2.5 w-2.5 rounded-full bg-lineSecondary" />
                         <span>{item}</span>
                       </div>

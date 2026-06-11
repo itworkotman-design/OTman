@@ -51,7 +51,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
             className="md:hidden"
           >
             <span className="sr-only">{content.openMenuLabel[locale]}</span>
-            <svg className="w-8 h-8" viewBox="0 0 24 24">
+            <svg className="w-8 h-8 text-logoblue" viewBox="0 0 24 24">
               <path
                 stroke="currentColor"
                 strokeLinecap="round"

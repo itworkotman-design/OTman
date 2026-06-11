@@ -1,15 +1,11 @@
-import Image from "next/image";
-
 export type ServiceWindowItemProps = {
   title: string;
-  subtitle?: string;
   svg: string;
   onClick?: () => void;
 };
 
 export function ServiceWindowItem({
   title,
-  subtitle,
   svg,
   onClick,
 }: ServiceWindowItemProps) {
@@ -20,7 +16,7 @@ export function ServiceWindowItem({
     >
       <div className="flex-1 flex items-center justify-center">
         <div className="grid h-40 w-40 place-items-center">
-          <Image src={svg} alt={title} width={160} height={160} />
+          <img src={svg} alt={title} width={160} height={160} />
         </div>
       </div>
       <div className="space-y-2 text-center">

@@ -46,18 +46,18 @@ export const AboutContent = {
       src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Content/About/Profiles/Kaiva+image.PNG",
       name: "Kaiva Otmane",
       position: {
-        en: "Operations Manager",
-        no: "Driftsleder",
+        en: "Transport Manager",
+        no: "Transportleder",
       },
-      email: "janis@otman.no",
+      email: "otman@otman.no",
     },
     {
       id: 3,
       src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Content/About/Profiles/Carlos+image.png",
       name: "Carlos Eduardo Lazo",
       position: {
-        en: "Customer Manager",
-        no: "Kundeleder",
+        en: "Sales Manager",
+        no: "Salgsleder",
       },
       email: "carlos@otman.no",
     },

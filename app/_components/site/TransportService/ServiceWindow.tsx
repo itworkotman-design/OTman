@@ -2,8 +2,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ServiceWindowItem } from "./ServiceWindowItem";
-import { ServiceModal } from "./ServiceModal";
 import type {
   Locale,
   LocalizedText,
@@ -16,11 +16,22 @@ type ServiceWindowProps = {
   locale: Locale;
 };
 
+const COMING_SOON = {
+  en: { heading: "Coming soon", body: "We are still working on this feature. Please contact us for details." },
+  no: { heading: "Kommer snart", body: "Vi jobber fortsatt med denne funksjonen. Ta kontakt med oss for detaljer." },
+};
+
+const NAV_MAP: Record<string, string> = {
+  "manpower-rental": "manpower",
+  "car-rental-services": "bil-utleie",
+};
+
 export function ServiceWindow({
   title,
   items,
   locale,
 }: ServiceWindowProps) {
+  const router = useRouter();
   const isCarousel = items.length > 1;
 
 const localizedItems = useMemo(
@@ -42,7 +53,16 @@ const localizedItems = useMemo(
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
+
+  const handleItemClick = (id: string) => {
+    const path = NAV_MAP[id];
+    if (path) {
+      router.push(`/${locale}/${path}`);
+    } else {
+      setComingSoonOpen(true);
+    }
+  };
 
   const isTeleportingRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -178,7 +198,7 @@ const localizedItems = useMemo(
                   <div key={`${item.title}-${idx}`} data-card className="shrink-0 snap-center">
                     <ServiceWindowItem
                       {...item}
-                      onClick={() => setSelectedServiceId(item.id)}
+                      onClick={() => handleItemClick(item.id)}
                     />
                   </div>
                 ))}
@@ -208,7 +228,7 @@ const localizedItems = useMemo(
                   key={item.id}
                   title={item.title[locale]}
                   svg={item.svg}
-                  onClick={() => setSelectedServiceId(item.id)}
+                  onClick={() => handleItemClick(item.id)}
                 />
               ))}
             </div>
@@ -216,13 +236,28 @@ const localizedItems = useMemo(
         </div>
       </section>
 
-      {/* {selectedServiceId && (
-        <ServiceModal
-          service={items.find((item) => item.id === selectedServiceId) ?? items[0]}
-          locale={locale}
-          onClose={() => setSelectedServiceId(null)}
-        />
-      )} */}
+      {comingSoonOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(e) => { if (e.currentTarget === e.target) setComingSoonOpen(false); }}
+        >
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 flex flex-col items-center gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-logoblue/10 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-logoblue">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <h2 className="text-logoblue font-semibold text-xl">{COMING_SOON[locale].heading}</h2>
+            <p className="text-textcolor text-sm leading-relaxed">{COMING_SOON[locale].body}</p>
+            <button
+              onClick={() => setComingSoonOpen(false)}
+              className="customButtonEnabled h-10 px-6 mt-2"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
