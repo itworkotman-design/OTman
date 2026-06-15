@@ -22,13 +22,12 @@ type Props = {
     recipientName?: string;
   }) => void | Promise<boolean>;
   onSendGsm: () => void | Promise<boolean>;
-  onResendGsm?: () => void | Promise<boolean>;
-  showResendGsm?: boolean;
   onCopySelected: () => void | Promise<void>;
   onExportExcel: () => void | Promise<void>;
   onManageColumns: () => void;
   loading?: boolean;
   error?: string;
+  gsmDuplicateWarning?: string[];
 };
 
 export default function SelectionActionBar({
@@ -36,13 +35,12 @@ export default function SelectionActionBar({
   selectedCount,
   onSendEmail,
   onSendGsm,
-  onResendGsm,
-  showResendGsm = false,
   onCopySelected,
   onExportExcel,
   onManageColumns,
   loading = false,
   error = "",
+  gsmDuplicateWarning = [],
 }: Props) {
   const [creatorId, setCreatorId] = useState("");
   const [emailType, setEmailType] = useState<EmailType>("");
@@ -304,14 +302,15 @@ export default function SelectionActionBar({
       ) : null}
 
       {error ? (
-        <div className="mt-3 flex items-center gap-3 text-sm font-medium text-red-600 text-weird-landscape">
-          <span>{error}</span>
+        <div className="mt-3 text-sm font-medium text-red-600 text-weird-landscape">
+          {error}
+        </div>
+      ) : null}
 
-          {showResendGsm && onResendGsm ? (
-            <button type="button" onClick={() => void onResendGsm()} className="customButtonDefault h-8">
-              Resend anyway
-            </button>
-          ) : null}
+      {gsmDuplicateWarning.length > 0 ? (
+        <div className="mt-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 text-weird-landscape">
+          The following orders were already sent to GSM and were sent again — GSM will handle any duplicates:{" "}
+          <span className="font-medium">{gsmDuplicateWarning.join(", ")}</span>
         </div>
       ) : null}
     </section>

@@ -74,7 +74,8 @@ export default function BookingPage() {
   const [bulkError, setBulkError] = useState("");
   const [customerActionLoading, setCustomerActionLoading] = useState(false);
   const [customerActionError, setCustomerActionError] = useState("");
-  const [gsmResendAvailable, setGsmResendAvailable] = useState(false);
+  const [gsmDuplicateWarning, setGsmDuplicateWarning] = useState<string[]>([]);
+  const gsmDuplicateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const orderLoadRequestIdRef = useRef(0);
   const orderLoadAbortRef = useRef<AbortController | null>(null);
   const lastLoadedAtRef = useRef(new Date().toISOString());
@@ -296,24 +297,18 @@ export default function BookingPage() {
     }
   }
 
-  async function handleSendSelectedToGsm(force = false): Promise<boolean> {
+  async function handleSendSelectedToGsm(): Promise<boolean> {
     if (selectedOrderIds.length === 0) return false;
 
     try {
       setCustomerActionLoading(true);
       setCustomerActionError("");
-      setGsmResendAvailable(false);
 
       const res = await fetch("/api/orders/send-to-gsm", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderIds: selectedOrderIds,
-          force,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: selectedOrderIds }),
       });
 
       const data = await res.json().catch(() => null);
@@ -323,32 +318,20 @@ export default function BookingPage() {
         return false;
       }
 
-      const results = Array.isArray(data.results) ? data.results : [];
-      const successCount = results.filter(
-        (item: { ok: boolean }) => item.ok,
-      ).length;
+      const results: Array<{ ok: boolean; orderNumber?: string; wasAlreadySent?: boolean }> =
+        Array.isArray(data.results) ? data.results : [];
 
-      const alreadySentCount = results.filter(
-        (item: { error?: string }) => item.error === "ALREADY_SENT_TO_GSM",
-      ).length;
+      const duplicates = results
+        .filter((r) => r.ok && r.wasAlreadySent)
+        .map((r) => r.orderNumber ?? "unknown");
 
-      const failedCount = results.filter(
-        (item: { ok: boolean; error?: string }) =>
-          !item.ok && item.error !== "ALREADY_SENT_TO_GSM",
-      ).length;
-
-      if (
-        alreadySentCount > 0 &&
-        successCount === 0 &&
-        failedCount === 0 &&
-        !force
-      ) {
-        setCustomerActionError(
-          `${alreadySentCount} selected order(s) were already sent to GSM.`,
-        );
-        setGsmResendAvailable(true);
-        return false;
+      if (duplicates.length > 0) {
+        if (gsmDuplicateTimerRef.current) clearTimeout(gsmDuplicateTimerRef.current);
+        setGsmDuplicateWarning(duplicates);
+        gsmDuplicateTimerRef.current = setTimeout(() => setGsmDuplicateWarning([]), 2 * 60 * 1000);
       }
+
+      const successCount = results.filter((r) => r.ok).length;
 
       if (successCount > 0) {
         setSelectedOrderIds([]);
@@ -600,14 +583,13 @@ export default function BookingPage() {
             creators={creators}
             selectedCount={selectedOrderIds.length}
             onSendEmail={handleSendSelectedEmail}
-            onSendGsm={() => handleSendSelectedToGsm(false)}
-            onResendGsm={() => handleSendSelectedToGsm(true)}
-            showResendGsm={gsmResendAvailable}
+            onSendGsm={() => handleSendSelectedToGsm()}
             onCopySelected={handleCopySelected}
             onExportExcel={handleExportSelected}
             onManageColumns={() => setColumnModalOpen(true)}
             loading={customerActionLoading}
             error={customerActionError}
+            gsmDuplicateWarning={gsmDuplicateWarning}
           />
         </div>
       )}

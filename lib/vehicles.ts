@@ -1,8 +1,5 @@
 import { VehicleProps } from "@/app/_components/site/VehicleRental/VehicleCard";
 
-const defaultBoxVanImage = "/Vehicle_default_crafter.jpg";
-const vegvesenVehicleLookup = "https://www.vegvesen.no/kjoretoy/kjop-og-salg/kjoretoyopplysninger/";
-
 export const vehicles: VehicleProps[] = [
   {
     id: 1,

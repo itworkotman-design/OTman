@@ -419,6 +419,7 @@ export default function BookingEditor({
   const [priceListSettings, setPriceListSettings] = useState<PriceListSettings>(createDefaultPriceListSettings());
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
   const [priceExVat, setPriceExVat] = useState(0);
   const [priceSubcontractor, setPriceSubcontractor] = useState(0);
   const [rabatt, setRabatt] = useState("");
@@ -508,6 +509,17 @@ export default function BookingEditor({
   const canSelectPriceList = !initialValues?.id && dataset === "default" && (role === "OWNER" || role === "ADMIN");
 
   useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        setCatalogRefreshKey((k) => k + 1);
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
     if (!canSelectPriceList) {
       return;
     }
@@ -578,7 +590,7 @@ export default function BookingEditor({
     return () => {
       cancelled = true;
     };
-  }, [canSelectPriceList, initialValues?.priceListId, selectedPriceListId]);
+  }, [canSelectPriceList, initialValues?.priceListId, selectedPriceListId, catalogRefreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -680,7 +692,7 @@ export default function BookingEditor({
       cancelled = true;
       controller.abort();
     };
-  }, [initialValues?.priceListId, selectedPriceListId]);
+  }, [initialValues?.priceListId, selectedPriceListId, catalogRefreshKey]);
 
   useEffect(() => {
     if (!initialValues) return;

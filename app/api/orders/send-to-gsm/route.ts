@@ -59,7 +59,6 @@ export async function POST(req: Request) {
   }
  
   const body = await req.json().catch(() => null);
-  const force = body?.force === true;
 
   const orderIds = Array.isArray(body?.orderIds)
     ? body.orderIds.filter(
@@ -94,22 +93,16 @@ export async function POST(req: Request) {
 
   const results: Array<{
     orderId: string;
+    orderNumber?: string;
     ok: boolean;
     gsmOrderId?: string;
+    wasAlreadySent?: boolean;
     error?: string;
   }> = [];
 
   for (const order of orders) {
     try {
-      //  Prevent duplicate sending
-      if (order.gsmOrderId && !force) {
-        results.push({
-          orderId: order.id,
-          ok: false,
-          error: "ALREADY_SENT_TO_GSM",
-        });
-        continue;
-      }
+      const wasAlreadySent = !!order.gsmOrderId;
 
       const response = await sendOrderToGsm(order);
 
@@ -157,19 +150,22 @@ export async function POST(req: Request) {
           email: membership.user.email,
           source: "USER",
         },
-        title: force ? "Order sent for GSM resend" : "Order sent for GSM",
+        title: wasAlreadySent ? "Order sent for GSM resend" : "Order sent for GSM",
         details: [`GSM order ID: ${response.gsmOrderId}`],
         createdAt: syncedAt,
       });
 
       results.push({
         orderId: order.id,
+        orderNumber: order.orderNumber ?? undefined,
         ok: true,
         gsmOrderId: response.gsmOrderId,
+        wasAlreadySent,
       });
     } catch (error) {
       results.push({
         orderId: order.id,
+        orderNumber: order.orderNumber ?? undefined,
         ok: false,
         error: error instanceof Error ? error.message : "UNKNOWN_ERROR",
       });
