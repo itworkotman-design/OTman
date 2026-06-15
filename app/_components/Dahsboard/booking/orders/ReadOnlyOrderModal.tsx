@@ -410,6 +410,45 @@ function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode
   win.document.close();
 }
 
+type PodAttachment = {
+  id: string;
+  filename: string;
+  url: string;
+  downloadUrl?: string;
+};
+
+function usePodAttachments(orderId: string | null) {
+  const [podAttachments, setPodAttachments] = useState<PodAttachment[]>([]);
+
+  useEffect(() => {
+    if (!orderId) {
+      setPodAttachments([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(`/api/orders/${orderId}/attachments`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((res) => res.json() as Promise<{ ok: boolean; attachments?: PodAttachment[] }>)
+      .then((data) => {
+        if (cancelled || !data?.ok) return;
+        setPodAttachments(
+          (data.attachments ?? []).filter((a) => a.filename.startsWith("pod-")),
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId]);
+
+  return podAttachments;
+}
+
 function useAdminCalculatorState(order: ReadOnlyOrder | null) {
   const [fullOrder, setFullOrder] = useState<FullOrderResponse["order"] | null>(null);
   const [catalog, setCatalog] = useState<{
@@ -589,6 +628,7 @@ function AdminStyleReadOnlyCalculator({
 
 export default function ReadOnlyOrderModal({ open, order, viewMode, locale, onClose }: Props) {
   const { calculatorState, loading: calculatorLoading, error: calculatorError } = useAdminCalculatorState(order);
+  const podAttachments = usePodAttachments(order?.id ?? null);
 
   if (!open || !order) return null;
 
@@ -719,6 +759,24 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, locale, onCl
               </div>
             </div>
           </>
+        )}
+
+        {podAttachments.length > 0 && (
+          <div className="mt-4 rounded-xl bg-slate-50 p-4">
+            <p className="mb-2 text-sm font-semibold">Leveringsbekreftelse</p>
+            <div className="space-y-1">
+              {podAttachments.map((pod, index) => (
+                <div key={pod.id} className="flex gap-4 text-sm">
+                  <a href={pod.url} target="_blank" rel="noopener noreferrer" className="text-logoblue underline">
+                    {podAttachments.length > 1 ? `Åpne bekreftelse ${index + 1}` : "Åpne bekreftelse"}
+                  </a>
+                  <a href={pod.downloadUrl ?? pod.url} download={pod.filename} className="text-textColorThird underline">
+                    Last ned
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         <div className="mt-6 flex justify-end gap-3">

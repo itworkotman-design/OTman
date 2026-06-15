@@ -194,7 +194,16 @@ export const vehicles: VehicleProps[] = [
     id: 5,
     name: "Ford Transit",
     imageUrl: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Ford+Transit/Ford-transit-boxy.png",
-    images: ["https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Ford+Transit/DP63137/Ford-transit-img.jpeg"],
+    images: [
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Ford+Transit/DP63137/Ford-transit-img+(3).jpeg",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Ford+Transit/DP63137/Ford-transit-img+(6).jpeg",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Ford+Transit/DP63137/Ford-transit-img.jpeg",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Ford+Transit/DP63137/Ford-transit-img+(1).jpeg",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Ford+Transit/DP63137/Ford-transit-img+(2).jpeg",
+
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Ford+Transit/DP63137/Ford-transit-img+(4).jpeg",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Ford+Transit/DP63137/Ford-transit-img+(5).jpeg",
+    ],
     extraImages: [],
     description: {
       en: "The Ford Transit is a 2014 manual diesel box van in Oslo with a 19 m2 cargo area, cruise control, 3 seats, and lift equipment. It is built for larger deliveries, moving assignments, and heavy everyday transport.",
@@ -363,7 +372,7 @@ export const vehicles: VehicleProps[] = [
       "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/tesla+model+y/EC97409/tesla-model-y-img+(10).jpeg",
       "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/tesla+model+y/EC97409/tesla-model-y-img+(11).jpeg",
     ],
-    extraImages: [""],
+    extraImages: [],
     description: {
       en: "The Tesla Model Y is a 2021 all-electric family SUV in Oslo with automatic transmission, a spacious interior, advanced safety features, and excellent driving comfort. It is an ideal choice for family trips, business travel, and everyday driving.",
       no: "Tesla Model Y er en 2021-modell helelektrisk familiebil i Oslo med automatgir, romslig kupé, avanserte sikkerhetsfunksjoner og høy kjørekomfort. Den er et ideelt valg for familieturer, forretningsreiser og daglig kjøring.",
