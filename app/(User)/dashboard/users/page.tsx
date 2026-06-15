@@ -18,6 +18,23 @@ const ROLE_PRIORITY: Record<Role, number> = {
   USER: 2,
 };
 
+type SortField = "name" | "role" | "lastSeen";
+type SortDir = "asc" | "desc";
+
+function formatLastSeen(lastSeenAt: string | null | undefined, isOnline: boolean): string {
+  if (isOnline) return "Online";
+  if (!lastSeenAt) return "Never";
+  const diff = Date.now() - new Date(lastSeenAt).getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(diff / 3_600_000);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(diff / 86_400_000);
+  if (days < 30) return `${days}d ago`;
+  return new Date(lastSeenAt).toLocaleDateString();
+}
+
 function getRoleRowClass(role: Role) {
   switch (role) {
     case "OWNER":
@@ -40,6 +57,8 @@ export default function UserPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [roleFilter, setRoleFilter] = useState<string>("");
   const [query, setQuery] = useState<string>("");
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [priceLists, setPriceLists] = useState<{ id: string; name: string }[]>(
@@ -122,6 +141,15 @@ export default function UserPage() {
     };
   }, [loadUsers, open]);
 
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir(field === "lastSeen" ? "desc" : "asc");
+    }
+  }
+
   const filteredUsers = useMemo(() => {
     const normalizedQuery = normalizeSearchText(query);
 
@@ -141,33 +169,43 @@ export default function UserPage() {
         return roleOk && queryOk;
       })
       .toSorted((a, b) => {
+        if (sortField) {
+          const dir = sortDir === "asc" ? 1 : -1;
+          if (sortField === "name") {
+            const labelA = (a.user.username || a.user.email).toLowerCase();
+            const labelB = (b.user.username || b.user.email).toLowerCase();
+            return labelA.localeCompare(labelB) * dir;
+          }
+          if (sortField === "role") {
+            const ra = ROLE_PRIORITY[a.role] ?? 99;
+            const rb = ROLE_PRIORITY[b.role] ?? 99;
+            return (ra - rb) * dir;
+          }
+          if (sortField === "lastSeen") {
+            const ta = a.lastSeenAt ? new Date(a.lastSeenAt).getTime() : 0;
+            const tb = b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0;
+            return (ta - tb) * dir;
+          }
+          return 0;
+        }
+
         const onlinePriorityA = a.isOnline ? 0 : 1;
         const onlinePriorityB = b.isOnline ? 0 : 1;
-
-        if (onlinePriorityA !== onlinePriorityB) {
-          return onlinePriorityA - onlinePriorityB;
-        }
+        if (onlinePriorityA !== onlinePriorityB) return onlinePriorityA - onlinePriorityB;
 
         const statusPriorityA = a.status === "ACTIVE" ? 0 : 1;
         const statusPriorityB = b.status === "ACTIVE" ? 0 : 1;
-
-        if (statusPriorityA !== statusPriorityB) {
-          return statusPriorityA - statusPriorityB;
-        }
+        if (statusPriorityA !== statusPriorityB) return statusPriorityA - statusPriorityB;
 
         const rolePriorityA = ROLE_PRIORITY[a.role] ?? 99;
         const rolePriorityB = ROLE_PRIORITY[b.role] ?? 99;
-
-        if (rolePriorityA !== rolePriorityB) {
-          return rolePriorityA - rolePriorityB;
-        }
+        if (rolePriorityA !== rolePriorityB) return rolePriorityA - rolePriorityB;
 
         const labelA = (a.user.username || a.user.email).toLowerCase();
         const labelB = (b.user.username || b.user.email).toLowerCase();
-
         return labelA.localeCompare(labelB);
       });
-  }, [users, roleFilter, query]);
+  }, [users, roleFilter, query, sortField, sortDir]);
 
   const visibleIds = filteredUsers.map((u) => u.id);
   const allVisibleSelected =
@@ -388,7 +426,7 @@ export default function UserPage() {
         />
 
         <div className="min-w-0 max-w-500 overflow-x-auto [-webkit-overflow-scrolling:touch]">
-          <div className="min-w-[1350px] w-full">
+          <div className="min-w-375 w-full">
             <div className="shadow-xs flex flex-wrap gap-2 pb-2">
               <div className="whitespace-nowrap">
                 <select
@@ -463,8 +501,11 @@ export default function UserPage() {
                     />
                   </th>
 
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    Username
+                  <th
+                    className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium cursor-pointer select-none hover:bg-black/5"
+                    onClick={() => handleSort("name")}
+                  >
+                    Username {sortField === "name" ? (sortDir === "asc" ? "↑" : "↓") : <span className="opacity-30">↕</span>}
                   </th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
                     Email
@@ -478,14 +519,23 @@ export default function UserPage() {
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
                     Online
                   </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    Role
+                  <th
+                    className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium cursor-pointer select-none hover:bg-black/5"
+                    onClick={() => handleSort("role")}
+                  >
+                    Role {sortField === "role" ? (sortDir === "asc" ? "↑" : "↓") : <span className="opacity-30">↕</span>}
                   </th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
                     Price List
                   </th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
                     Access
+                  </th>
+                  <th
+                    className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium cursor-pointer select-none hover:bg-black/5"
+                    onClick={() => handleSort("lastSeen")}
+                  >
+                    Last seen {sortField === "lastSeen" ? (sortDir === "asc" ? "↑" : "↓") : <span className="opacity-30">↕</span>}
                   </th>
                   <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
                     Created
@@ -567,6 +617,11 @@ export default function UserPage() {
                         u.role,
                         u.permissions?.map((p) => p.permission) ?? [],
                       ) || "-"}
+                    </td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      <span className={u.isOnline ? "text-green-700" : ""}>
+                        {formatLastSeen(u.lastSeenAt, !!u.isOnline)}
+                      </span>
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {new Date(u.createdAt).toLocaleDateString()}

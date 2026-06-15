@@ -97,12 +97,28 @@ export async function GET(req: Request) {
 
   const onlineUserIds = new Set(onlineSessions.map((item) => item.userId));
 
+  const lastSeenData =
+    memberships.length === 0
+      ? []
+      : await prisma.session.groupBy({
+          by: ["userId"],
+          where: {
+            userId: { in: memberships.map((m) => m.user.id) },
+          },
+          _max: { lastSeenAt: true },
+        });
+
+  const lastSeenMap = new Map(
+    lastSeenData.map((d) => [d.userId, d._max.lastSeenAt]),
+  );
+
   return NextResponse.json(
     {
       ok: true,
       memberships: memberships.map((membership) => ({
         ...membership,
         isOnline: onlineUserIds.has(membership.user.id),
+        lastSeenAt: lastSeenMap.get(membership.user.id) ?? null,
       })),
     },
     { status: 200 }

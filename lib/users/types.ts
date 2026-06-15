@@ -31,6 +31,7 @@ export type Membership = {
   status: MembershipStatus;
   createdAt: string;
   isOnline?: boolean;
+  lastSeenAt?: string | null;
   user: MembershipUser;
   priceListId: string | null;
   warehouseEmail: string | null;
