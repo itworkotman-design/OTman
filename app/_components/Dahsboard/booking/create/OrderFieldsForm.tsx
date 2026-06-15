@@ -18,7 +18,7 @@ const CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
   const minutes = index % 2 === 0 ? "00" : "30";
   return `${hours}:${minutes}`;
-});
+}).filter((time) => time >= "10:00" && time <= "21:00");
 
 const MIN_CUSTOM_TIME_GAP_MINUTES = 120;
 
