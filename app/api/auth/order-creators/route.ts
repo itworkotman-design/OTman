@@ -32,6 +32,9 @@ export async function GET(req: Request) {
     );
   }
 
+  const url = new URL(req.url);
+  const hasOrdersOnly = url.searchParams.get("hasOrders") === "true";
+
   const memberships = await prisma.membership.findMany({
     where: {
       companyId: session.activeCompanyId,
@@ -39,6 +42,7 @@ export async function GET(req: Request) {
       user: {
         status: "ACTIVE",
       },
+      ...(hasOrdersOnly ? { createdOrders: { some: {} } } : {}),
     },
     select: {
       id: true,

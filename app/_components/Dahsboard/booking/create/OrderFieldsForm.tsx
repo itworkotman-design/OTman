@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useState } from "react";
 import { OrderFields, shown, type HiddenMask } from "@/app/_components/Dahsboard/booking/create/orderFields";
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { UserOption } from "@/lib/users/types";
@@ -53,6 +53,25 @@ function FieldErrorMessage({ message }: { message: string | null }) {
   }
 
   return <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{message}</div>;
+}
+
+const DAY_NAMES_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_NAMES_NB = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"];
+
+function DeliveryDayLabel({ dateStr, locale }: { dateStr: string; locale?: BookingUiLocale }) {
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const dayIndex = new Date(Number(year), Number(month) - 1, Number(day)).getDay();
+  const isSunday = dayIndex === 0;
+  const isSaturday = dayIndex === 6;
+  const names = locale === "nb" ? DAY_NAMES_NB : DAY_NAMES_EN;
+  const colorClass = isSunday ? "text-red-600" : isSaturday ? "text-textColorThird" : "text-textColorThird";
+  return (
+    <span className={`mt-1 block text-sm font-medium ${colorClass}`}>
+      {names[dayIndex]}
+    </span>
+  );
 }
 
 type Props = {
@@ -313,6 +332,8 @@ export default function OrderFieldsForm({
   isOrderCreator = false,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
+  const [sundayBlocked, setSundayBlocked] = useState(false);
+  const sundayBlockedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showLiftField = shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
   const customTimeFromMinutes = parseCustomTimeToMinutes(customTimeFrom);
   const customTimeToMinutes = parseCustomTimeToMinutes(customTimeTo);
@@ -370,11 +391,31 @@ export default function OrderFieldsForm({
           <input
             id="order-delivery-date"
             type="date"
+            lang={locale === "nb" ? "nb" : "en-GB"}
             value={deliveryDate}
             min={allowPastDeliveryDates ? undefined : new Date().toISOString().slice(0, 10)}
-            onChange={(e) => setDeliveryDate(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (isOrderCreator && val) {
+                const [y, m, d] = val.split("-").map(Number);
+                if (new Date(y, m - 1, d).getDay() === 0) {
+                  if (sundayBlockedTimerRef.current) clearTimeout(sundayBlockedTimerRef.current);
+                  setSundayBlocked(true);
+                  sundayBlockedTimerRef.current = setTimeout(() => setSundayBlocked(false), 10000);
+                  return;
+                }
+              }
+              setSundayBlocked(false);
+              setDeliveryDate(val);
+            }}
             className="customInput w-full"
           />
+          {deliveryDate ? <DeliveryDayLabel dateStr={deliveryDate} locale={locale} /> : null}
+          {sundayBlocked ? (
+            <span className="mt-1 block text-sm font-medium text-red-600">
+              {locale === "nb" ? "Søndager er ikke tilgjengelige." : "Sundays are not available."}
+            </span>
+          ) : null}
           <FieldErrorMessage message={deliveryDateError} />
           <FieldErrorMessage message={deliveryDateWarning} />
         </>

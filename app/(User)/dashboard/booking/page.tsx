@@ -171,7 +171,7 @@ export default function BookingPage() {
           credentials: "include",
           cache: "no-store",
         }),
-        fetch("/api/auth/order-creators", {
+        fetch("/api/auth/order-creators?hasOrders=true", {
           credentials: "include",
           cache: "no-store",
         }),

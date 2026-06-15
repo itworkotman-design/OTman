@@ -70,6 +70,7 @@ export default function LanguageSwitchButton({
       disabled={saving || !currentUser}
       className={`${className} disabled:cursor-not-allowed disabled:opacity-60`}
       aria-label={bookingText(locale, "Switch language")}
+      suppressHydrationWarning
     >
       <span>{bookingText(locale, "Language")}</span>
       <span className="ml-auto rounded bg-logoblue px-2 py-0.5 text-xs font-semibold text-white">
