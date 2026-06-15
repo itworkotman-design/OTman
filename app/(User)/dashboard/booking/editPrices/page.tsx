@@ -1670,9 +1670,9 @@ export default function EditPricesPage() {
                                   type="button"
                                   title="Add option"
                                   onClick={() => addOption(group.productId)}
-                                  className="absolute -left-11 top-1/2 -translate-y-1/2 w-6 h-6 text-sm rounded-full bg-white border-2 border-logoblue font-bold opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:text-white hover:bg-logoblue cursor-pointer"
+                                  className="w-full text-sm rounded-full border border-logoblue py-0.5 hover:text-white hover:bg-logoblue cursor-pointer transition-colors"
                                 >
-                                  +
+                                  + Add option
                                 </button>
                               </div>
                             </td>
