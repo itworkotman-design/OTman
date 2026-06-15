@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ManpowerRentalContent } from "@/lib/content/ManpowerRentalContent";
+import { TjenesterContent } from "@/lib/content/TjenesterContent";
 
 type Locale = "en" | "no";
 
 type PageProps = {
-  content: typeof ManpowerRentalContent;
+  content: typeof TjenesterContent;
   locale: Locale;
 };
 
@@ -22,7 +22,7 @@ type TouchedFields = Partial<Record<keyof FormData, boolean>>;
 
 const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
 
-export default function ManpowerRentalPage({ content, locale }: PageProps) {
+export default function Tjenester({ content, locale }: PageProps) {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     contact: "",

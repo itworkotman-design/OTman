@@ -93,8 +93,8 @@ export const serviceWindowContent = {
     {
       id: "manpower-rental",
       title: {
-        en: "Manpower Rental",
-        no: "Bemanningstjenester",
+        en: "Tjenester",
+        no: "Tjenester",
       },
       svg: "/Service logos-People.svg",
       modalTitle: {

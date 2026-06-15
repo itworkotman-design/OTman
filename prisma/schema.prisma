@@ -575,6 +575,7 @@ model OrderGsmTask {
   lastWebhookAt DateTime?
   lastSyncedAt  DateTime?
   rawPayload    Json?
+  hasNotes      Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)

@@ -7,7 +7,7 @@ const publicRoutes = [
   { path: "", priority: 1 },
   { path: "/om-oss", priority: 0.8 },
   { path: "/kontakt", priority: 0.8 },
-  { path: "/manpower", priority: 0.8 },
+  { path: "/tjenester", priority: 0.8 },
   { path: "/privacy-policy", priority: 0.4 },
   { path: "/terms", priority: 0.4 },
 ] as const;

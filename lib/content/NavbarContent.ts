@@ -21,11 +21,11 @@ export const navbarContent = {
       },
     },
     {
-      id: "manpower",
-      href: "/manpower",
+      id: "tjenester",
+      href: "/tjenester",
       label: {
-        en: "Manpower Rental",
-        no: "Bemanning",
+        en: "Tjenester",
+        no: "Tjenester",
       },
     },
     {

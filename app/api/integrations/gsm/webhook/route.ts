@@ -98,15 +98,6 @@ function getNextStatus(input: {
   return input.currentStatus;
 }
 
-// Blocks auto-complete only if the driver left a written note (body.notes on the
-// task_event). Documents and signatures are expected POD artifacts — not blockers.
-function hasTaskBlockingContent(
-  _task: GsmTaskRecord | null,
-  eventNotes: string | null,
-): boolean {
-  return typeof eventNotes === "string" && eventNotes.trim().length > 0;
-}
-
 // GSM task assignee name — the driver who actually performed the task.
 function getGsmAssigneeName(task: GsmTaskRecord | null): string | null {
   if (!task) return null;
@@ -242,6 +233,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // Driver notes live on the task_event (body.notes), not on the task object itself.
+    const eventNotes = getTrimmedString(body.notes);
+
     if (gsmTaskId) {
       await prisma.orderGsmTask.upsert({
         where: { gsmTaskId },
@@ -249,6 +243,9 @@ export async function POST(req: Request) {
           state: taskState,
           lastWebhookAt: new Date(),
           rawPayload: body as Prisma.InputJsonValue,
+          // Only ever set hasNotes to true — never reset it. Once a task event
+          // has notes it requires manual review regardless of later webhooks.
+          ...(eventNotes ? { hasNotes: true } : {}),
         },
         create: {
           orderId,
@@ -256,6 +253,7 @@ export async function POST(req: Request) {
           state: taskState,
           lastWebhookAt: new Date(),
           rawPayload: body as Prisma.InputJsonValue,
+          hasNotes: !!eventNotes,
         },
       });
     }
@@ -330,14 +328,15 @@ export async function POST(req: Request) {
 
     const tasks = await prisma.orderGsmTask.findMany({
       where: { orderId },
-      select: { state: true },
+      select: { state: true, hasNotes: true },
     });
 
     const allCompleted =
       tasks.length > 0 && tasks.every((task) => task.state === "completed");
 
-    // Driver notes live on the task_event (body.notes), not on the task object itself.
-    const eventNotes = getTrimmedString(body.notes);
+    // If ANY task across this order had driver notes (current or prior events),
+    // auto-complete must be blocked. hasNotes is written at upsert time and never reset.
+    const anyTaskHasNotes = tasks.some((task) => task.hasNotes);
 
     // If the task was previously failed and is now being completed, always require
     // manual review — something went wrong on a prior attempt.
@@ -345,10 +344,9 @@ export async function POST(req: Request) {
     const completedAfterFailure =
       taskState === "completed" && fromState === "failed";
 
-    // Auto-complete is blocked when the driver left a written note, or when the
-    // task was completed after a prior failure.
-    const blockingContent =
-      hasTaskBlockingContent(fullTask, eventNotes) || completedAfterFailure;
+    // Auto-complete is blocked when any task has notes, or when the task was
+    // completed after a prior failure.
+    const blockingContent = anyTaskHasNotes || completedAfterFailure;
 
     const normalizedTaskState = normalizeGsmState(taskState);
     const isCancelledOrFailed =

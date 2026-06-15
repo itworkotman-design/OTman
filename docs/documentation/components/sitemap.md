@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Generates the public XML sitemap for localized marketing and legal pages.
+Generates the public XML sitemap for localized marketing and legal pages, including the `/tjenester` page.
 
 ## Functions
 

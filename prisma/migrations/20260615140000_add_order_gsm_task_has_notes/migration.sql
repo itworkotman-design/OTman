@@ -1,0 +1,1 @@
+ALTER TABLE "OrderGsmTask" ADD COLUMN "hasNotes" BOOLEAN NOT NULL DEFAULT false;

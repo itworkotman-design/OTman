@@ -113,7 +113,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
     mocks.gsmWebhookEventUpdateMock.mockResolvedValue(undefined);
     mocks.orderGsmTaskFindUniqueMock.mockResolvedValue(null);
     mocks.orderGsmTaskUpsertMock.mockResolvedValue(undefined);
-    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "active" }]);
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "active", hasNotes: false }]);
     mocks.orderFindUniqueMock.mockResolvedValue(buildOrderBeforeUpdate());
     mocks.orderUpdateMock.mockResolvedValue({ id: "order-1" });
     mocks.membershipFindManyMock.mockResolvedValue([]);
@@ -182,7 +182,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       state: "fail",
       metafields: {},
     });
-    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "fail" }]);
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "fail", hasNotes: false }]);
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "gsmLastTaskState" }]);
 
     const response = await POST(
@@ -226,7 +226,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       state: "cancelled",
       metafields: {},
     });
-    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "cancelled" }]);
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "cancelled", hasNotes: false }]);
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "gsmLastTaskState" }]);
 
     const response = await POST(
@@ -270,7 +270,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       state: "assigned",
       metafields: {},
     });
-    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "assigned" }]);
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "assigned", hasNotes: false }]);
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "status" }]);
 
     const response = await POST(
@@ -316,7 +316,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       state: "assigned",
       metafields: {},
     });
-    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "assigned" }]);
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "assigned", hasNotes: false }]);
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([
       { field: "status" },
       { field: "rabatt" },
@@ -370,7 +370,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       signatures: [],
       metafields: {},
     });
-    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "completed" }]);
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "completed", hasNotes: true }]);
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "gsmLastTaskState" }]);
 
     // Driver notes come at the task_event level (body.notes), not on the task object
@@ -405,6 +405,54 @@ describe("POST /api/integrations/gsm/webhook", () => {
     );
   });
 
+  it("does not auto-complete when a previously-completed sibling task had notes (current webhook has no notes)", async () => {
+    // Simulates the real-world case: order has 3 tasks, task-1 and task-2 completed
+    // earlier with notes (hasNotes=true stored in DB), now task-3 completes without
+    // notes. Auto-complete must still be blocked because of the prior notes.
+    mocks.fetchGsmTaskMock.mockResolvedValue({
+      id: "task-3",
+      external_id: "order:order-1",
+      state: "completed",
+      metafields: {},
+    });
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([
+      { state: "completed", hasNotes: true },
+      { state: "completed", hasNotes: true },
+      { state: "completed", hasNotes: false },
+    ]);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "gsmLastTaskState" }]);
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({
+          task: { id: "task-3", external_id: "order:order-1", state: "completed" },
+          to_state: "completed",
+          // no notes on this event
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
+      where: { id: "order-1" },
+      data: expect.objectContaining({
+        status: "processing", // not completed — blocked by sibling task notes
+      }),
+    });
+    expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        title: "Auto-complete blocked — manual review required",
+      }),
+    );
+  });
+
   it("auto-completes even when task has documents and signatures (POD artifacts are not blockers)", async () => {
     mocks.fetchGsmTaskMock.mockResolvedValue({
       id: "task-1",
@@ -414,7 +462,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       signatures: ["https://api.gsmtasks.com/signatures/sig-1/"],
       metafields: {},
     });
-    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "completed" }]);
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "completed", hasNotes: false }]);
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "status" }]);
 
     const response = await POST(
@@ -447,7 +495,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       state: "completed",
       metafields: {},
     });
-    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "completed" }]);
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "completed", hasNotes: false }]);
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "status" }]);
 
     const response = await POST(
@@ -481,8 +529,8 @@ describe("POST /api/integrations/gsm/webhook", () => {
       metafields: {},
     });
     mocks.orderGsmTaskFindManyMock.mockResolvedValue([
-      { state: "completed" },
-      { state: "active" },
+      { state: "completed", hasNotes: false },
+      { state: "active", hasNotes: false },
     ]);
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "gsmLastTaskState" }]);
 
@@ -553,7 +601,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       state: "completed",
       metafields: {},
     });
-    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "completed" }]);
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "completed", hasNotes: false }]);
     mocks.syncPodPdfWithRetryMock.mockReturnValue(
       new Promise<never>(() => undefined),
     );

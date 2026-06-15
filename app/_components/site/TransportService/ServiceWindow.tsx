@@ -22,7 +22,7 @@ const COMING_SOON = {
 };
 
 const NAV_MAP: Record<string, string> = {
-  "manpower-rental": "manpower",
+  "manpower-rental": "tjenester",
   "car-rental-services": "bil-utleie",
 };
 

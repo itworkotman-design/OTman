@@ -156,7 +156,6 @@ Each documentation file should include:
 - [Component: contact page](./components/contact-page.md)
 - [Component: home page](./components/home-page.md)
 - [Component: legal page](./components/legal-page.md)
-- [Component: manpower rental page](./components/manpower-rental-page.md)
 - [Component: partners display](./components/partners-display.md)
 - [Component: service modal](./components/service-modal.md)
 - [Component: service window](./components/service-window.md)
@@ -166,6 +165,8 @@ Each documentation file should include:
 - [Component: site language switcher](./components/site-language-switcher.md)
 - [Component: site navbar](./components/site-navbar.md)
 - [Component: stats display](./components/stats-display.md)
+- [Component: tjenester](./components/tjenester.md)
+- [Component: tjenester route](./components/tjenester-route.md)
 - [Component: vehicle card](./components/vehicle-card.md)
 - [Component: vehicle gallery](./components/vehicle-gallery.md)
 
@@ -225,11 +226,11 @@ Each documentation file should include:
 - [Lib: footer content](./lib/footer-content.md)
 - [Lib: home page content](./lib/home-page-content.md)
 - [Lib: legal content](./lib/legal-content.md)
-- [Lib: manpower rental content](./lib/manpower-rental-content.md)
 - [Lib: navbar content](./lib/navbar-content.md)
 - [Lib: partners content](./lib/partners-content.md)
 - [Lib: service window content](./lib/service-window-content.md)
 - [Lib: stats content](./lib/stats-content.md)
+- [Lib: tjenester content](./lib/tjenester-content.md)
 - [Lib: transport request config](./lib/transport-request-config.md)
 
 ### Lib — Email

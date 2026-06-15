@@ -1,4 +1,4 @@
-export const ManpowerRentalContent = {
+export const TjenesterContent = {
   heroTitle: {
     en: "Flexible manpower for transport, moving, and logistics",
     no: "Fleksibel bemanning for transport, flytting og logistikk",
