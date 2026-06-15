@@ -640,7 +640,11 @@ export function buildProductBreakdowns(
 
     return [
       {
-        productName: product.productType === "LABOR" ? `${product.label} (${getHoursInput(card, product)} h)` : product.label,
+        productName: (() => {
+          if (product.productType !== "LABOR") return product.label;
+          const hoursApply = card.selectedInstallOptionIds.length > 0 || !product.allowInstallOptions;
+          return hoursApply ? `${product.label} (${getHoursInput(card, product)} h)` : product.label;
+        })(),
         productModelNumber: product.allowModelNumber && card.modelNumber.trim() ? card.modelNumber.trim() : null,
         items: buildItemsForCard(
           card,

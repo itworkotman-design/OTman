@@ -530,6 +530,11 @@ export default function BookingArchiveTable({
                     {t("Order no.")}
                   </th>
                 ) : null}
+                {isColumnVisible("description") ? (
+                  <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
+                    {t("Description")}
+                  </th>
+                ) : null}
                 {isColumnVisible("customerName") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
                     {t("Customer name")}
@@ -807,6 +812,11 @@ export default function BookingArchiveTable({
                   {isColumnVisible("orderNumber") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
                       <Cell>{formatCell(order.orderNumber)}</Cell>
+                    </td>
+                  ) : null}
+                  {isColumnVisible("description") ? (
+                    <td className="max-w-[180] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <Cell>{formatCell(order.description)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("customerName") ? (

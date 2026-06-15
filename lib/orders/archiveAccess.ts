@@ -48,7 +48,7 @@ export function getBookingArchiveAccess(
       viewMode: "ORDER_CREATOR",
       canCreate: true,
       canFilterCreatedBy: false,
-      canFilterSubcontractor: true,
+      canFilterSubcontractor: false,
       lockedCreatedById: id,
     };
   }

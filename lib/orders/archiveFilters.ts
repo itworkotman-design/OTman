@@ -57,3 +57,14 @@ export function getThisMonthRange() {
     toDate: toIsoDate(lastDay),
   };
 }
+
+export function getLastMonthRange() {
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+
+  return {
+    fromDate: toIsoDate(firstDay),
+    toDate: toIsoDate(lastDay),
+  };
+}

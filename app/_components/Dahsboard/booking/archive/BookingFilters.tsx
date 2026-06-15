@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { BookingArchiveFilters, BookingArchiveOption } from "./types";
 import {
   DEFAULT_BOOKING_ARCHIVE_FILTERS,
+  getLastMonthRange,
   getThisMonthRange,
   getThisWeekRange,
   getTodayRange,
@@ -300,6 +301,12 @@ export default function BookingFilters({
     applyRange(range.fromDate, range.toDate);
   };
 
+  const setLastMonth = () => {
+    const range = getLastMonthRange();
+    setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
+    applyRange(range.fromDate, range.toDate);
+  };
+
   const clearDateRange = () => {
     setFromDate("");
     setToDate("");
@@ -484,6 +491,13 @@ export default function BookingFilters({
               className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
             >
               {t("This month")}
+            </button>
+            <button
+              type="button"
+              onClick={setLastMonth}
+              className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
+            >
+              {locale === "nb" ? "Forrige måned" : "Last month"}
             </button>
           </div>
         </div>
