@@ -43,7 +43,7 @@ type CalendarDay = {
   inCurrentMonth: boolean;
 };
 
-const MAX_ARCHIVE_ROWS_PER_PAGE = 1000;
+const MAX_ARCHIVE_ROWS_PER_PAGE = 10000;
 
 const WEEKDAY_LABELS: Record<BookingUiLocale, string[]> = {
   en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
