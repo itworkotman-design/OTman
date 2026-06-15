@@ -1,14 +1,14 @@
 export const TjenesterContent = {
   heroTitle: {
-    en: "Flexible manpower for transport, moving, and logistics",
-    no: "Fleksibel bemanning for transport, flytting og logistikk",
+    en: "Flexible services for transport, moving, and logistics",
+    no: "Fleksible tjenester for transport, flytting og logistikk",
   },
 
   heroText: {
-    en: "We provide reliable manpower for practical jobs where extra hands are needed. Suitable for both private and business customers.",
-    no: "Vi tilbyr pålitelig bemanning til praktiske oppgaver hvor det trengs ekstra hender. Passer både for private og bedrifter.",
+    en: "We provide reliable services for transport, moving, logistics, and other tasks where extra hands are needed.",
+    no: "Vi tilbyr pålitelige tjenester innen transport, flytting, logistikk og andre oppgaver der det trengs ekstra hender.",
   },
-
+  
   featureCards: [
     {
       label: {
@@ -16,8 +16,8 @@ export const TjenesterContent = {
         no: "Passer for",
       },
       title: {
-        en: "Moving jobs",
-        no: "Flytteoppdrag",
+        en: "Moving Services",
+        no: "Flyttetjenester",
       },
     },
     {
@@ -26,28 +26,28 @@ export const TjenesterContent = {
         no: "Brukes også til",
       },
       title: {
-        en: "Warehouse support",
-        no: "Lagerarbeid",
+        en: "Transport Services",
+        no: "Transporttjenester",
       },
     },
     {
       label: {
-        en: "Booking",
-        no: "Bestilling",
+        en: "Simple booking",
+        no: "Enkelt bestilling",
       },
       title: {
-        en: "Flexible and fast",
-        no: "Fleksibelt og raskt",
+        en: "Installation Services",
+        no: "Monteringstjenester",
       },
     },
     {
       label: {
-        en: "Focus",
-        no: "Fokus",
+        en: "We take care of",
+        no: "Vi tar hånd om",
       },
       title: {
-        en: "Reliable extra help",
-        no: "Pålitelig ekstra hjelp",
+        en: "Outsourcing Services",
+        no: "Outsourcingtjenester",
       },
     },
   ],
