@@ -181,3 +181,36 @@ export async function resolveOutdatedCapacityNotifications(
 
   return result.count;
 }
+
+export async function resolveAllOrderNotifications(
+  prisma: PrismaLike,
+  input: {
+    orderId: string;
+    companyId: string;
+    resolvedByMembershipId?: string | null;
+  },
+) {
+  const result = await prisma.orderNotification.updateMany({
+    where: {
+      orderId: input.orderId,
+      companyId: input.companyId,
+      resolvedAt: null,
+    },
+    data: {
+      resolvedAt: new Date(),
+      resolvedByMembershipId: input.resolvedByMembershipId ?? null,
+    },
+  });
+
+  if (result.count > 0) {
+    await prisma.order.update({
+      where: { id: input.orderId },
+      data: {
+        needsNotificationAttention: false,
+        unreadNotificationCount: 0,
+      },
+    });
+  }
+
+  return result.count;
+}

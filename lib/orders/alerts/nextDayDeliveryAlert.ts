@@ -3,45 +3,40 @@ import { createOrderNotification } from "@/lib/orders/orderNotifications";
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
-function toDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function parseTimeWindowStartHour(timeWindow: string | null | undefined): number {
+  if (!timeWindow) return 0;
+  const match = timeWindow.match(/^(\d{1,2})/);
+  return match ? Number(match[1]) : 0;
 }
 
-function addDays(date: Date, count: number) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + count);
-}
-
-function isCreatedTodayForTomorrowDelivery(input: {
-  createdAt: Date;
-  deliveryDate: string;
-}) {
-  const createdDateKey = toDateKey(input.createdAt);
-  const todayDateKey = toDateKey(new Date());
-  const tomorrowDateKey = toDateKey(addDays(new Date(), 1));
-
-  return (
-    createdDateKey === todayDateKey && input.deliveryDate === tomorrowDateKey
+function isDeliveryWithin24Hours(deliveryDate: string, timeWindow?: string | null): boolean {
+  const parts = deliveryDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!parts) return false;
+  const startHour = parseTimeWindowStartHour(timeWindow);
+  const deliveryStart = new Date(
+    Number(parts[1]),
+    Number(parts[2]) - 1,
+    Number(parts[3]),
+    startHour,
+    0, 0, 0,
   );
+  const diffMs = deliveryStart.getTime() - Date.now();
+  return diffMs >= 0 && diffMs < 24 * 60 * 60 * 1000;
 }
 
 export function buildNextDayDeliveryAlert(input: {
-  createdAt: Date;
   deliveryDate: string;
+  timeWindow?: string | null;
 }) {
   return {
     title: "Next-day delivery warning",
     message: [
-      "Order was created today with delivery scheduled for tomorrow.",
-      `Created: ${toDateKey(input.createdAt)}`,
-      `Delivery date: ${input.deliveryDate}`,
+      "Delivery is scheduled within 24 hours.",
+      `Delivery date: ${input.deliveryDate}${input.timeWindow ? ` (${input.timeWindow})` : ""}`,
       "Review timing and capacity before confirming.",
     ].join("\n"),
     payload: {
       kind: "NEXT_DAY_DELIVERY" as const,
-      createdDate: toDateKey(input.createdAt),
       deliveryDate: input.deliveryDate,
     },
   };
@@ -94,11 +89,11 @@ export async function createNextDayDeliveryAlert(
   input: {
     orderId: string;
     companyId: string;
-    createdAt: Date;
     deliveryDate: string;
+    timeWindow?: string | null;
   },
 ) {
-  if (!isCreatedTodayForTomorrowDelivery(input)) return null;
+  if (!isDeliveryWithin24Hours(input.deliveryDate, input.timeWindow)) return null;
 
   const alreadyExists = await hasOpenNextDayDeliveryAlert(prisma, input);
   if (alreadyExists) return null;

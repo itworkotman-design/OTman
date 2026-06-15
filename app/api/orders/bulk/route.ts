@@ -9,6 +9,7 @@ import {
   createOrderUpdatedEvent,
   diffOrderEventSnapshots,
 } from "@/lib/orders/orderEvents";
+import { resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 
 function shouldClearCancelledDiscount(
@@ -344,6 +345,15 @@ export async function PATCH(req: Request) {
     });
 
     const changes = diffOrderEventSnapshots(previousSnapshot, nextSnapshot);
+
+    const statusChanging = changes.some((c) => c.field === "status");
+    if (statusChanging) {
+      await resolveAllOrderNotifications(prisma, {
+        orderId: order.id,
+        companyId: order.companyId,
+        resolvedByMembershipId: membership.id,
+      });
+    }
 
     if (changes.length === 1 && changes[0]?.field === "status") {
       statusOnlyEvents.push({

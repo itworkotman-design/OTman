@@ -24,7 +24,7 @@ import {
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
-import { resolveOutdatedCapacityNotifications } from "@/lib/orders/orderNotifications";
+import { resolveOutdatedCapacityNotifications, resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
 import type { AppPermission } from "@/lib/users/types";
 import { ORDER_SLOT_LIMIT, countOrdersInDeliverySlot, isDeliverySlotOverCapacity } from "@/lib/orders/capacity";
 import {
@@ -938,6 +938,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     console.error("Failed to send order update notification email", error);
   }
 
+  if (nextStatus !== existingOrder.status) {
+    await resolveAllOrderNotifications(prisma, {
+      orderId,
+      companyId: existingOrder.companyId,
+      resolvedByMembershipId: membership.id,
+    });
+  }
+
   if (extraPickupContactsChanged) {
     await createExtraPickupAlert(prisma, {
       orderId,
@@ -967,8 +975,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   await createNextDayDeliveryAlert(prisma, {
     orderId,
     companyId: existingOrder.companyId,
-    createdAt: existingOrder.createdAt,
     deliveryDate: nextDeliveryDate ?? "",
+    timeWindow: nextTimeWindow,
   });
 
   await createContactCustomerAlert(prisma, {

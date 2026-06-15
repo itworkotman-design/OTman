@@ -925,8 +925,8 @@ export async function POST(req: Request) {
   await createNextDayDeliveryAlert(prisma, {
     orderId: order.id,
     companyId: order.companyId,
-    createdAt: order.createdAt,
     deliveryDate: deliveryDate ?? "",
+    timeWindow: order.timeWindow,
   });
 
   await createContactCustomerAlert(prisma, {
