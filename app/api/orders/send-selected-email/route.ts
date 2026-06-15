@@ -71,6 +71,7 @@ function buildFailedEmailLogBody(message: string, reason: string) {
 }
 
 function formatOrderBlockHtml(order: {
+  displayId?: number | null;
   orderNumber?: string | null;
   deliveryDate?: string | null;
   timeWindow?: string | null;
@@ -104,7 +105,7 @@ function formatOrderBlockHtml(order: {
       style="border-collapse:collapse;margin:0 0 24px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;">
       <tr>
         <td colspan="2" style="padding:12px 14px;background:#273097;color:#ffffff;font-weight:700;font-size:15px;">
-          Bestilling
+          Bestilling${order.displayId ? ` - ID ${order.displayId}` : ""}
         </td>
       </tr>
 
@@ -273,6 +274,7 @@ export async function POST(req: Request) {
     },
     select: {
       id: true,
+      displayId: true,
       orderNumber: true,
       deliveryDate: true,
       timeWindow: true,
