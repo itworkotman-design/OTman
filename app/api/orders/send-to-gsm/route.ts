@@ -115,7 +115,7 @@ export async function POST(req: Request) {
             lastEditedByMembershipId: membership.id,
             gsmOrderId: response.gsmOrderId,
             gsmExternalId: `order:${order.id}`,
-            gsmSyncStatus: force ? "RESENT" : "SENT",
+            gsmSyncStatus: wasAlreadySent ? "RESENT" : "SENT",
             gsmSentAt: syncedAt,
             gsmLastSyncedAt: syncedAt,
           },
