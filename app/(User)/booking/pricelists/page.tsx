@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { bookingText } from "@/lib/booking/bookingUiText";
 import { useUserLanguage } from "@/lib/users/language";
+import { isSubcontractorAccess } from "@/lib/users/access";
 
 type PriceListSummary = {
   id: string;
@@ -19,6 +20,7 @@ type PriceListItem = {
   optionLabel?: string | null;
   description?: string | null;
   effectiveCustomerPrice: string;
+  subcontractorPrice: string;
   type?: string;
 };
 
@@ -44,6 +46,7 @@ function isExtraServiceRow(item: PriceListItem) {
 export default function UserPriceListsPage() {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
+  const isSubcontractor = currentUser ? isSubcontractorAccess(currentUser.permissions) : false;
   const [priceLists, setPriceLists] = useState<PriceListSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [priceList, setPriceList] = useState<PriceListData | null>(null);
@@ -205,7 +208,7 @@ export default function UserPriceListsPage() {
                           <td className="border-r border-logoblue/20 px-4 py-3 text-left text-sm text-textColorSecond group-hover:bg-black/10 group-hover:text-textcolor">
                             {item.description || item.optionLabel || "—"}
                           </td>
-                          <td className="px-4 py-3 text-center font-semibold text-logoblue group-hover:bg-black/10">{item.effectiveCustomerPrice}</td>
+                          <td className="px-4 py-3 text-center font-semibold text-logoblue group-hover:bg-black/10">{isSubcontractor ? item.subcontractorPrice : item.effectiveCustomerPrice}</td>
                         </tr>
                       ))}
                     </tbody>

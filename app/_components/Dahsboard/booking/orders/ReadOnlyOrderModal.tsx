@@ -615,6 +615,7 @@ function AdminStyleReadOnlyCalculator({
       forcedSubcontractorTotal={calculatorState.priceSubcontractor}
       adminView={false}
       hideWordpressImportWarnings={hideWordpressImportWarnings}
+      showSubcontractorPrices={isSubcontractor}
       rabatt={isSubcontractor ? "" : rabatt}
       leggTil={isSubcontractor ? "" : leggTil}
       subcontractorMinus={isSubcontractor && !hideSubcontractorAdjustments ? subcontractorMinus : ""}

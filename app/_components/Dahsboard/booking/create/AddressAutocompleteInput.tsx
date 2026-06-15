@@ -75,7 +75,7 @@ export default function AddressAutocompleteInput({
 
     const trimmed = query.trim();
 
-    if (!hasInteracted || trimmed.length < 3) {
+    if (!hasInteracted || trimmed.length < 6) {
       setResults([]);
       setOpen(false);
       return;
@@ -112,7 +112,7 @@ export default function AddressAutocompleteInput({
       } finally {
         setLoading(false);
       }
-    }, 250);
+    }, 1000);
 
     return () => {
       controller.abort();

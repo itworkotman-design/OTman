@@ -22,7 +22,7 @@ Each documentation file should include:
 ## External APIs
 
 - [GmailAPI] OAuth account: itworkotman@gmail.com — sends as bestilling@otman.no. Env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GMAIL_ACCOUNT_EMAIL`, `GMAIL_SEND_AS_EMAIL`
-- [Mapbox] Address autocomplete + route distance calculation. Env var: `MAPBOX_ACCESS_TOKEN`. Google Cloud project: "Otman" (itworkotman@gmail.com)
+- [Mapbox] Address autocomplete + route distance calculation. Env var: `MAPBOX_ACCESS_TOKEN`. Google Cloud project: "Otman" (itworkotman@gmail.com), 500 free then 3$ for every 1000
 - [Brevo] Outbound transactional email (password resets, bulk order emails). Env vars: `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`
 - [Cloudflare Email Routing] Inbound email — receives customer replies to `reply+<token>@otman.no`, a Worker forwards them as JSON to `/api/integrations/email/inbound`. Env vars: `EMAIL_REPLY_DOMAIN`, `EMAIL_INBOUND_SECRET`. See `docs/cloudflare-email-routing.md`
 - [GSM Tasks] Task/delivery management at api.gsmtasks.com. Env vars: `GSM_API_BASE`, `GSM_USERNAME`, `GSM_PASSWORD`

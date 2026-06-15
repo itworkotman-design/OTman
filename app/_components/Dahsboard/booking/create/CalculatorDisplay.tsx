@@ -41,6 +41,7 @@ type Props = {
   sidebarMode?: boolean;
   locale?: BookingUiLocale;
   hideWordpressImportWarnings?: boolean;
+  showSubcontractorPrices?: boolean;
 };
 
 export function CalculatorDisplayNew({
@@ -58,6 +59,7 @@ export function CalculatorDisplayNew({
   sidebarMode = false,
   locale = "en",
   hideWordpressImportWarnings,
+  showSubcontractorPrices = false,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const adjustments = useMemo(
@@ -141,7 +143,7 @@ useEffect(() => {
                       {line.label}
                     </h1>
 
-                    <p className="font-semibold text-sm whitespace-nowrap">{formatNOK(line.lineTotal)}</p>
+                    <p className="font-semibold text-sm whitespace-nowrap">{formatNOK(showSubcontractorPrices ? (line.subcontractorLineTotal ?? 0) : line.lineTotal)}</p>
                   </div>
                 ))
               )}
