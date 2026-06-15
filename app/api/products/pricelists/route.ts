@@ -169,7 +169,7 @@ export async function GET(req: Request) {
       code: true,
     },
     orderBy: {
-      name: "asc",
+      createdAt: "asc",
     },
   });
 

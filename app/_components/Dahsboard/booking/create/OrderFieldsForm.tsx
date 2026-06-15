@@ -14,11 +14,11 @@ import {
   type BookingUiLocale,
 } from "@/lib/booking/bookingUiText";
 
-const CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+const LIMITED_CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
   const minutes = index % 2 === 0 ? "00" : "30";
   return `${hours}:${minutes}`;
-}).filter((time) => time >= "08:00" && time <= "21:00");
+}).filter((time) => time >= "10:00" && time <= "21:00");
 
 const MIN_CUSTOM_TIME_GAP_MINUTES = 120;
 
@@ -79,6 +79,7 @@ type Props = {
   hidden: HiddenMask;
   hideDontSendEmail: boolean;
   allowPastDeliveryDates: boolean;
+  allowUnrestrictedCustomTime: boolean;
   isInstallationOnly: boolean;
   isReturnOnly: boolean;
   shouldLockPickupAddress: boolean;
@@ -219,6 +220,7 @@ export default function OrderFieldsForm({
   hidden,
   hideDontSendEmail,
   allowPastDeliveryDates,
+  allowUnrestrictedCustomTime,
   shouldLockPickupAddress,
   hideSubmitButton,
   allowIncompleteRequiredFields,
@@ -337,7 +339,7 @@ export default function OrderFieldsForm({
   const showLiftField = shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
   const customTimeFromMinutes = parseCustomTimeToMinutes(customTimeFrom);
   const customTimeToMinutes = parseCustomTimeToMinutes(customTimeTo);
-  const availableCustomTimeFromOptions = CUSTOM_TIME_OPTIONS.filter((option) => {
+  const availableCustomTimeFromOptions = LIMITED_CUSTOM_TIME_OPTIONS.filter((option) => {
     if (customTimeToMinutes === null) {
       return true;
     }
@@ -345,7 +347,7 @@ export default function OrderFieldsForm({
     const optionMinutes = parseCustomTimeToMinutes(option);
     return optionMinutes !== null && optionMinutes <= customTimeToMinutes - MIN_CUSTOM_TIME_GAP_MINUTES;
   });
-  const availableCustomTimeToOptions = CUSTOM_TIME_OPTIONS.filter((option) => {
+  const availableCustomTimeToOptions = LIMITED_CUSTOM_TIME_OPTIONS.filter((option) => {
     if (customTimeFromMinutes === null) {
       return true;
     }
@@ -454,52 +456,70 @@ export default function OrderFieldsForm({
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
                   <h2 className="font-bold py-2">{t("From")}</h2>
-                  <select
-                    value={customTimeFrom}
-                    onChange={(e) => {
-                      const nextFrom = e.target.value;
-                      const nextFromMinutes = parseCustomTimeToMinutes(nextFrom);
+                  {allowUnrestrictedCustomTime ? (
+                    <input
+                      type="time"
+                      value={customTimeFrom}
+                      onChange={(e) => setCustomTimeFrom(e.target.value)}
+                      className="customInput w-full"
+                    />
+                  ) : (
+                    <select
+                      value={customTimeFrom}
+                      onChange={(e) => {
+                        const nextFrom = e.target.value;
+                        const nextFromMinutes = parseCustomTimeToMinutes(nextFrom);
 
-                      setCustomTimeFrom(nextFrom);
+                        setCustomTimeFrom(nextFrom);
 
-                      if (nextFromMinutes !== null && customTimeToMinutes !== null && customTimeToMinutes < nextFromMinutes + MIN_CUSTOM_TIME_GAP_MINUTES) {
-                        setCustomTimeTo("");
-                      }
-                    }}
-                    className="customInput w-full"
-                  >
-                    <option value="">{t("Choose")}</option>
-                    {availableCustomTimeFromOptions.map((time) => (
-                      <option key={`from-${time}`} value={time}>
-                        {time}
-                      </option>
-                    ))}
-                  </select>
+                        if (nextFromMinutes !== null && customTimeToMinutes !== null && customTimeToMinutes < nextFromMinutes + MIN_CUSTOM_TIME_GAP_MINUTES) {
+                          setCustomTimeTo("");
+                        }
+                      }}
+                      className="customInput w-full"
+                    >
+                      <option value="">{t("Choose")}</option>
+                      {availableCustomTimeFromOptions.map((time) => (
+                        <option key={`from-${time}`} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
                   <h2 className="font-bold py-2">{t("To")}</h2>
-                  <select
-                    value={customTimeTo}
-                    onChange={(e) => {
-                      const nextTo = e.target.value;
-                      const nextToMinutes = parseCustomTimeToMinutes(nextTo);
+                  {allowUnrestrictedCustomTime ? (
+                    <input
+                      type="time"
+                      value={customTimeTo}
+                      onChange={(e) => setCustomTimeTo(e.target.value)}
+                      className="customInput w-full"
+                    />
+                  ) : (
+                    <select
+                      value={customTimeTo}
+                      onChange={(e) => {
+                        const nextTo = e.target.value;
+                        const nextToMinutes = parseCustomTimeToMinutes(nextTo);
 
-                      setCustomTimeTo(nextTo);
+                        setCustomTimeTo(nextTo);
 
-                      if (nextToMinutes !== null && customTimeFromMinutes !== null && customTimeFromMinutes > nextToMinutes - MIN_CUSTOM_TIME_GAP_MINUTES) {
-                        setCustomTimeFrom("");
-                      }
-                    }}
-                    className="customInput w-full"
-                  >
-                    <option value="">{t("Choose")}</option>
-                    {availableCustomTimeToOptions.map((time) => (
-                      <option key={`to-${time}`} value={time}>
-                        {time}
-                      </option>
-                    ))}
-                  </select>
+                        if (nextToMinutes !== null && customTimeFromMinutes !== null && customTimeFromMinutes > nextToMinutes - MIN_CUSTOM_TIME_GAP_MINUTES) {
+                          setCustomTimeFrom("");
+                        }
+                      }}
+                      className="customInput w-full"
+                    >
+                      <option value="">{t("Choose")}</option>
+                      {availableCustomTimeToOptions.map((time) => (
+                        <option key={`to-${time}`} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 

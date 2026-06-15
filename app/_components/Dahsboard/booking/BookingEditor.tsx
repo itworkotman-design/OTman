@@ -504,6 +504,7 @@ export default function BookingEditor({
   const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>([]);
   const { effectiveHidden, effectiveHideDontSendEmail } = getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
   const allowPastDeliveryDates = role === "OWNER" || role === "ADMIN";
+  const allowUnrestrictedCustomTime = role === "OWNER" || role === "ADMIN";
   const allowIncompleteRequiredFields = role === "OWNER" || role === "ADMIN";
   const showAdminCalculatorAdjustments = role === "OWNER" || role === "ADMIN";
   const userPriceListCount = currentUser?.priceListIds?.length ?? 0;
@@ -1956,24 +1957,23 @@ export default function BookingEditor({
       }}
     >
       {canSelectPriceList ? (
-        <div className="mb-5 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <label htmlFor="admin-price-list" className="mb-2 block text-sm font-semibold text-gray-800">
-            Price list
-          </label>
-          <select
-            id="admin-price-list"
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-black"
-            value={selectedPriceListId}
-            onChange={(event) => handlePriceListChange(event.target.value)}
-            disabled={priceListsLoading}
-          >
-            {priceListsLoading && <option value="">Loading price lists...</option>}
-            {priceListOptions.map((priceList) => (
-              <option key={priceList.id} value={priceList.id}>
-                {priceList.name}
-              </option>
-            ))}
-          </select>
+        <div className="mb-5">
+          {priceListsLoading ? (
+            <p className="text-sm text-textColorThird">{bookingText(locale, "Loading...")}</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {priceListOptions.map((priceList) => (
+                <button
+                  key={priceList.id}
+                  type="button"
+                  onClick={() => handlePriceListChange(priceList.id)}
+                  className={`customButtonDefault ${selectedPriceListId === priceList.id ? "customButtonEnabled" : "customButtonDefault"}`}
+                >
+                  {priceList.name}
+                </button>
+              ))}
+            </div>
+          )}
           {priceListsError ? <p className="mt-2 text-sm text-red-600">{priceListsError}</p> : null}
         </div>
       ) : null}
@@ -2010,6 +2010,7 @@ export default function BookingEditor({
             hidden={effectiveHidden}
             hideDontSendEmail={effectiveHideDontSendEmail}
             allowPastDeliveryDates={allowPastDeliveryDates}
+            allowUnrestrictedCustomTime={allowUnrestrictedCustomTime}
             isInstallationOnly={isInstallationOnly}
             isReturnOnly={isReturnOnly}
             shouldLockPickupAddress={shouldLockPickupAddress}

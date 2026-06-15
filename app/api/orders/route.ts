@@ -650,9 +650,8 @@ export async function POST(req: Request) {
       ? true
       : optionalBoolean(body.expressDelivery);
 
-  // Important:
-  // For admin-created orders, use the selected customer's pricelist if possible.
-  let effectivePriceListId = membership.membershipPriceLists[0]?.priceListId ?? null;
+  const membershipPriceListIds = membership.membershipPriceLists.map((item) => item.priceListId);
+  let effectivePriceListId = membershipPriceListIds[0] ?? null;
   const requestedPriceListId = optionalString(body.priceListId);
 
   if (isAdminOrOwner && customerMembershipId) {
@@ -671,7 +670,18 @@ export async function POST(req: Request) {
 
     effectivePriceListId =
       selectedCustomerMembership?.membershipPriceLists[0]?.priceListId ??
-      membership.membershipPriceLists[0]?.priceListId ?? null;
+      membershipPriceListIds[0] ?? null;
+  }
+
+  if (!isAdminOrOwner && requestedPriceListId) {
+    if (!membershipPriceListIds.includes(requestedPriceListId)) {
+      return NextResponse.json(
+        { ok: false, reason: "FORBIDDEN" },
+        { status: 403 },
+      );
+    }
+
+    effectivePriceListId = requestedPriceListId;
   }
 
   if (isAdminOrOwner && requestedPriceListId) {

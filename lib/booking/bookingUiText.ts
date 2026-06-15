@@ -176,6 +176,19 @@ const NB_TEXT: Record<string, string> = {
   "failed to create order": "Kunne ikke opprette bestilling",
   "failed to load orders": "Kunne ikke laste bestillinger",
   "log out": "Logg ut",
+  "Price Lists": "Prislister",
+  Product: "Produkt",
+  "No price lists assigned to your account.": "Ingen prislister er tildelt din konto.",
+  "Product Options": "Produktalternativer",
+  "Option Code": "Alternativkode",
+  Label: "Betegnelse",
+  "Price (NOK)": "Pris (NOK)",
+  "Return Options": "Returalternativer",
+  "Automatic XTRA": "Automatisk XTRA",
+  "Utpakking / Demontering": "Utpakking / Demontering",
+  "Something went wrong": "Noe gikk galt",
+  "Failed to load price lists": "Kunne ikke laste prislister",
+  "Failed to load price list": "Kunne ikke laste prisliste",
 };
 
 const NB_STATUS_LABELS: Record<string, string> = {

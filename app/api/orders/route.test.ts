@@ -569,7 +569,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -599,7 +599,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -633,7 +633,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -704,7 +704,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
         id: `${role.toLowerCase()}-membership`,
         role,
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
           username: role.toLowerCase(),
           email: `${role.toLowerCase()}@example.com`,
@@ -740,7 +740,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -781,7 +781,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -821,7 +821,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -860,7 +860,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -902,7 +902,7 @@ describe("routes in /api/orders", () => {
       .mockResolvedValueOnce({
         id: "admin-membership",
         role: "ADMIN",
-        priceListId: "admin-price-list",
+        membershipPriceLists: [{ priceListId: "admin-price-list" }],
         user: {
           username: "admin",
           email: "admin@example.com",
@@ -910,7 +910,7 @@ describe("routes in /api/orders", () => {
         permissions: [],
       })
       .mockResolvedValueOnce({
-        priceListId: "customer-price-list",
+        membershipPriceLists: [{ priceListId: "customer-price-list" }],
       });
     mocks.priceListFindFirstMock.mockResolvedValueOnce({
       id: "selected-price-list",
@@ -950,7 +950,7 @@ describe("routes in /api/orders", () => {
     );
   });
 
-  it("POST ignores requested price lists for non-admin users", async () => {
+  it("POST lets users choose an assigned price list for a new order", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -958,7 +958,10 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [
+        { priceListId: "price-list-1" },
+        { priceListId: "other-price-list" },
+      ],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -979,14 +982,46 @@ describe("routes in /api/orders", () => {
 
     expect(res.status).toBe(200);
     expect(mocks.priceListFindFirstMock).not.toHaveBeenCalled();
-    expect(mocks.getBookingCatalogMock).toHaveBeenCalledWith("price-list-1");
+    expect(mocks.getBookingCatalogMock).toHaveBeenCalledWith("other-price-list");
     expect(mocks.orderCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          priceListId: "price-list-1",
+          priceListId: "other-price-list",
         }),
       }),
     );
+  });
+
+  it("POST rejects unassigned requested price lists for non-admin users", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: {
+        username: "creator",
+        email: "creator@example.com",
+      },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          priceListId: "other-price-list",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    expect(mocks.getBookingCatalogMock).not.toHaveBeenCalled();
+    expect(mocks.orderCreateMock).not.toHaveBeenCalled();
   });
 
   it("POST stores custom-time contact fields when requested", async () => {
@@ -997,7 +1032,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -1037,7 +1072,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "Power Grunerlokka",
         email: "power@example.com",
@@ -1098,7 +1133,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       company: {
         orderEmailsEnabled: false,
       },
@@ -1138,7 +1173,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       company: {
         orderEmailsEnabled: true,
       },
@@ -1202,7 +1237,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",
@@ -1252,7 +1287,7 @@ describe("routes in /api/orders", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
       user: {
         username: "creator",
         email: "creator@example.com",

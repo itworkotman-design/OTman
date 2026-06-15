@@ -19,16 +19,15 @@ type Props = {
 };
 
 // ─── Icon paths ───────────────────────────────────────────────────────────────
+  
 
 const ICONS = {
   booking:
     "M13 7h6l2 4m-8-4v8m0-8V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9h2m8 0H9m4 0h2m4 0h2v-4m0 0h-5m3.5 5.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Zm-10 0a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z",
-  createOrder:
-    "M12 20a16.405 16.405 0 0 1-5.092-5.804A16.694 16.694 0 0 1 5 6.666L12 4l7 2.667a16.695 16.695 0 0 1-1.908 7.529A16.406 16.406 0 0 1 12 20Z",
-  sidebarOpen:
-    "M8.99994 10 7 11.9999l1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
-  sidebarClose:
-    "m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
+  createOrder: "M12 20a16.405 16.405 0 0 1-5.092-5.804A16.694 16.694 0 0 1 5 6.666L12 4l7 2.667a16.695 16.695 0 0 1-1.908 7.529A16.406 16.406 0 0 1 12 20Z",
+  priceList: "M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z",
+  sidebarOpen: "M8.99994 10 7 11.9999l1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
+  sidebarClose: "m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
   hamburger: "M5 7h14M5 12h14M5 17h14",
 };
 
@@ -163,6 +162,20 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
               <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
                 <Icon path={ICONS.createOrder} />
                 {bookingText(locale, "Create Order")}
+              </div>
+            </Link>
+          )}
+
+          {(currentUser?.priceListIds?.length ?? 0) > 0 && (
+            <Link
+              href="/booking/pricelists"
+              className={
+                linkClass("/booking/pricelists") + ` justify-end lg:justify-start`
+              }
+            >
+              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+                <Icon path={ICONS.priceList} />
+                {bookingText(locale, "Price Lists")}
               </div>
             </Link>
           )}
