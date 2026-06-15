@@ -410,19 +410,20 @@ function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode
   win.document.close();
 }
 
-type PodAttachment = {
+type OrderAttachmentItem = {
   id: string;
+  category: string;
   filename: string;
   url: string;
   downloadUrl?: string;
 };
 
-function usePodAttachments(orderId: string | null) {
-  const [podAttachments, setPodAttachments] = useState<PodAttachment[]>([]);
+function useOrderAttachments(orderId: string | null) {
+  const [attachments, setAttachments] = useState<OrderAttachmentItem[]>([]);
 
   useEffect(() => {
     if (!orderId) {
-      setPodAttachments([]);
+      setAttachments([]);
       return;
     }
 
@@ -432,12 +433,10 @@ function usePodAttachments(orderId: string | null) {
       credentials: "include",
       cache: "no-store",
     })
-      .then((res) => res.json() as Promise<{ ok: boolean; attachments?: PodAttachment[] }>)
+      .then((res) => res.json() as Promise<{ ok: boolean; attachments?: OrderAttachmentItem[] }>)
       .then((data) => {
         if (cancelled || !data?.ok) return;
-        setPodAttachments(
-          (data.attachments ?? []).filter((a) => a.filename.startsWith("pod-")),
-        );
+        setAttachments(data.attachments ?? []);
       })
       .catch(() => {});
 
@@ -446,7 +445,7 @@ function usePodAttachments(orderId: string | null) {
     };
   }, [orderId]);
 
-  return podAttachments;
+  return attachments;
 }
 
 function useAdminCalculatorState(order: ReadOnlyOrder | null) {
@@ -628,7 +627,10 @@ function AdminStyleReadOnlyCalculator({
 
 export default function ReadOnlyOrderModal({ open, order, viewMode, locale, onClose }: Props) {
   const { calculatorState, loading: calculatorLoading, error: calculatorError } = useAdminCalculatorState(order);
-  const podAttachments = usePodAttachments(order?.id ?? null);
+  const allAttachments = useOrderAttachments(order?.id ?? null);
+  const podAttachments = allAttachments.filter((a) => a.filename.startsWith("pod-"));
+  const receiptAttachments = allAttachments.filter((a) => a.category === "RECEIPT");
+  const otherAttachments = allAttachments.filter((a) => !a.filename.startsWith("pod-") && a.category !== "RECEIPT");
 
   if (!open || !order) return null;
 
@@ -771,6 +773,42 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, locale, onCl
                     {podAttachments.length > 1 ? `Åpne bekreftelse ${index + 1}` : "Åpne bekreftelse"}
                   </a>
                   <a href={pod.downloadUrl ?? pod.url} download={pod.filename} className="text-textColorThird underline">
+                    Last ned
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {receiptAttachments.length > 0 && (
+          <div className="mt-4 rounded-xl bg-slate-50 p-4">
+            <p className="mb-2 text-sm font-semibold">Kvitteringer</p>
+            <div className="space-y-1">
+              {receiptAttachments.map((item) => (
+                <div key={item.id} className="flex gap-4 text-sm">
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-logoblue underline truncate max-w-65">
+                    {item.filename}
+                  </a>
+                  <a href={item.downloadUrl ?? item.url} download={item.filename} className="text-textColorThird underline shrink-0">
+                    Last ned
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {otherAttachments.length > 0 && (
+          <div className="mt-4 rounded-xl bg-slate-50 p-4">
+            <p className="mb-2 text-sm font-semibold">Vedlegg</p>
+            <div className="space-y-1">
+              {otherAttachments.map((item) => (
+                <div key={item.id} className="flex gap-4 text-sm">
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-logoblue underline truncate max-w-65">
+                    {item.filename}
+                  </a>
+                  <a href={item.downloadUrl ?? item.url} download={item.filename} className="text-textColorThird underline shrink-0">
                     Last ned
                   </a>
                 </div>
