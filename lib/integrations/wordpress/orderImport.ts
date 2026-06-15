@@ -968,7 +968,9 @@ async function resolveMembership(params: {
       },
       select: {
         id: true,
-        priceListId: true,
+        membershipPriceLists: {
+          select: { priceListId: true },
+        },
       },
     });
 
@@ -986,7 +988,9 @@ async function resolveMembership(params: {
     },
     select: {
       id: true,
-      priceListId: true,
+      membershipPriceLists: {
+        select: { priceListId: true },
+      },
     },
   });
 }
@@ -1135,7 +1139,7 @@ async function postToOriginalWordpressSync(payload: WordpressOrderSyncPayload): 
     companyId,
     createdByMembershipId: membership.id,
     customerMembershipId: membership.id,
-    priceListId: membership.priceListId,
+    priceListId: membership.membershipPriceLists[0]?.priceListId ?? null,
     legacyWordpressOrderId,
     legacyWordpressAuthorId: legacyWordpressUserId,
     legacyWordpressRawMeta: buildImportedRawMeta(meta),

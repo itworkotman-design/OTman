@@ -506,7 +506,11 @@ export default function BookingEditor({
   const allowPastDeliveryDates = role === "OWNER" || role === "ADMIN";
   const allowIncompleteRequiredFields = role === "OWNER" || role === "ADMIN";
   const showAdminCalculatorAdjustments = role === "OWNER" || role === "ADMIN";
-  const canSelectPriceList = !initialValues?.id && dataset === "default" && (role === "OWNER" || role === "ADMIN");
+  const userPriceListCount = currentUser?.priceListIds?.length ?? 0;
+  const canSelectPriceList = !initialValues?.id && dataset === "default" && (
+    role === "OWNER" || role === "ADMIN" ||
+    (role === "USER" && userPriceListCount > 1)
+  );
 
   useEffect(() => {
     function handleVisibilityChange() {
@@ -531,7 +535,10 @@ export default function BookingEditor({
         setPriceListsLoading(true);
         setPriceListsError(null);
 
-        const res = await fetch("/api/products/pricelists", {
+        const priceListsUrl = (role === "OWNER" || role === "ADMIN")
+          ? "/api/products/pricelists"
+          : "/api/products/pricelists?mine=true";
+        const res = await fetch(priceListsUrl, {
           credentials: "include",
           cache: "no-store",
         });
@@ -570,6 +577,9 @@ export default function BookingEditor({
           })),
         });
         setPriceListOptions(nextOptions);
+        if (!selectedPriceListId && nextOptions.length > 0) {
+          setSelectedPriceListId(nextOptions[0].id);
+        }
       } catch {
         if (!cancelled) {
           logPriceListDebug("options load failed", {
@@ -590,7 +600,7 @@ export default function BookingEditor({
     return () => {
       cancelled = true;
     };
-  }, [canSelectPriceList, initialValues?.priceListId, selectedPriceListId, catalogRefreshKey]);
+  }, [canSelectPriceList, role, initialValues?.priceListId, selectedPriceListId, catalogRefreshKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1957,7 +1967,7 @@ export default function BookingEditor({
             onChange={(event) => handlePriceListChange(event.target.value)}
             disabled={priceListsLoading}
           >
-            <option value="">{priceListsLoading ? "Loading price lists..." : "Select price list"}</option>
+            {priceListsLoading && <option value="">Loading price lists...</option>}
             {priceListOptions.map((priceList) => (
               <option key={priceList.id} value={priceList.id}>
                 {priceList.name}

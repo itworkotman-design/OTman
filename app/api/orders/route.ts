@@ -493,7 +493,9 @@ export async function POST(req: Request) {
     select: {
       id: true,
       role: true,
-      priceListId: true,
+      membershipPriceLists: {
+        select: { priceListId: true },
+      },
       company: {
         select: {
           orderEmailsEnabled: true,
@@ -650,7 +652,7 @@ export async function POST(req: Request) {
 
   // Important:
   // For admin-created orders, use the selected customer's pricelist if possible.
-  let effectivePriceListId = membership.priceListId ?? null;
+  let effectivePriceListId = membership.membershipPriceLists[0]?.priceListId ?? null;
   const requestedPriceListId = optionalString(body.priceListId);
 
   if (isAdminOrOwner && customerMembershipId) {
@@ -661,12 +663,15 @@ export async function POST(req: Request) {
         status: "ACTIVE",
       },
       select: {
-        priceListId: true,
+        membershipPriceLists: {
+          select: { priceListId: true },
+        },
       },
     });
 
     effectivePriceListId =
-      selectedCustomerMembership?.priceListId ?? membership.priceListId ?? null;
+      selectedCustomerMembership?.membershipPriceLists[0]?.priceListId ??
+      membership.membershipPriceLists[0]?.priceListId ?? null;
   }
 
   if (isAdminOrOwner && requestedPriceListId) {

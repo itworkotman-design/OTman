@@ -7,7 +7,7 @@ export type ActiveMembership = {
   companyId: string;
   role: "OWNER" | "ADMIN" | "USER";
   status: "ACTIVE";
-  priceListId: string | null;
+  priceListIds: string[];
   permissions: AppPermission[];
 };
 
@@ -26,7 +26,11 @@ export async function getActiveMembership(params: {
       companyId: true,
       role: true,
       status: true,
-      priceListId: true,
+      membershipPriceLists: {
+        select: {
+          priceListId: true,
+        },
+      },
       permissions: {
         select: {
           permission: true,
@@ -42,7 +46,7 @@ export async function getActiveMembership(params: {
     companyId: membership.companyId,
     role: membership.role,
     status: "ACTIVE",
-    priceListId: membership.priceListId,
+    priceListIds: membership.membershipPriceLists.map((mpl) => mpl.priceListId),
     permissions: (membership.permissions ?? []).map(
       (p: { permission: AppPermission }) => p.permission,
     ),

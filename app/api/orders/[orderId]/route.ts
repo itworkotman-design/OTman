@@ -495,7 +495,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     select: {
       id: true,
       role: true,
-      priceListId: true,
+      membershipPriceLists: {
+        select: { priceListId: true },
+      },
       company: {
         select: {
           orderEmailsEnabled: true,
@@ -651,7 +653,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const extraPickups = body.extraPickups !== undefined ? normalizeExtraPickups(parsedBodyExtraPickups ?? []) : existingExtraPickups;
   const extraPickupContactsChanged = body.extraPickups !== undefined && JSON.stringify(extraPickups) !== JSON.stringify(existingExtraPickups);
 
-  const catalog = await getBookingCatalog(existingOrder.priceListId ?? membership.priceListId ?? null);
+  const catalog = await getBookingCatalog(existingOrder.priceListId ?? membership.membershipPriceLists[0]?.priceListId ?? null);
   const pricingSource = applyOrderPricingSnapshot({
     catalogProducts: catalog.products,
     catalogSpecialOptions: catalog.specialOptions,

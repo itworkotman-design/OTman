@@ -157,7 +157,7 @@ describe("createUserWithPassword", () => {
       description: "Desc",
       logoPath: "/uploads/user-logos/actor-1/logo.webp",
       usernameDisplayColor: "#112233",
-      priceListId: "price-list-1",
+      priceListIds: ["price-list-1"],
       permissions: ["BOOKING_CREATE"],
     });
 
@@ -201,7 +201,6 @@ describe("createUserWithPassword", () => {
         companyId: "company-1",
         role: "USER",
         status: "ACTIVE",
-        priceListId: "price-list-1",
         warehouseEmail: null,
       },
       select: { id: true },

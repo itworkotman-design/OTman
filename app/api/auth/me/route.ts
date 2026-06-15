@@ -30,6 +30,11 @@ export async function GET(req: Request) {
           permission: true,
         },
       },
+      membershipPriceLists: {
+        select: {
+          priceListId: true,
+        },
+      },
     },
   });
 
@@ -42,6 +47,7 @@ export async function GET(req: Request) {
     permissions: (m.permissions ?? []).map(
       (p: { permission: "BOOKING_VIEW" | "BOOKING_CREATE" }) => p.permission,
     ),
+    priceListIds: m.membershipPriceLists.map((mpl) => mpl.priceListId),
   }));
 
   const activeMembership =
@@ -78,6 +84,7 @@ export async function GET(req: Request) {
             role: activeMembership.role,
             status: activeMembership.status,
             permissions: activeMembership.permissions,
+            priceListIds: activeMembership.priceListIds,
           }
         : null,
       memberships: selectableMemberships,

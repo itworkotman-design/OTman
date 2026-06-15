@@ -283,13 +283,6 @@ export async function PATCH(
       );
     }
 
-    if (existing.code === "DEFAULT" && name !== undefined) {
-      return NextResponse.json(
-        { ok: false, reason: "DEFAULT_NOT_EDITABLE" },
-        { status: 400 },
-      );
-    }
-
     if (name !== undefined && !name) {
       return NextResponse.json(
         { ok: false, reason: "NAME_REQUIRED" },

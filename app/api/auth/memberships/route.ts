@@ -44,8 +44,12 @@ export async function GET(req: Request) {
       role: true,
       status: true,
       createdAt: true,
-      priceListId: true,
       warehouseEmail: true,
+      membershipPriceLists: {
+        select: {
+          priceListId: true,
+        },
+      },
       permissions: {
         select: {
           permission: true,
@@ -115,8 +119,9 @@ export async function GET(req: Request) {
   return NextResponse.json(
     {
       ok: true,
-      memberships: memberships.map((membership) => ({
+      memberships: memberships.map(({ membershipPriceLists, ...membership }) => ({
         ...membership,
+        priceListIds: membershipPriceLists.map((mpl) => mpl.priceListId),
         isOnline: onlineUserIds.has(membership.user.id),
         lastSeenAt: lastSeenMap.get(membership.user.id) ?? null,
       })),

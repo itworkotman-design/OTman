@@ -1972,7 +1972,9 @@ export async function POST(req: NextRequest) {
       },
       select: {
         id: true,
-        priceListId: true,
+        membershipPriceLists: {
+          select: { priceListId: true },
+        },
       },
     });
 
@@ -2062,7 +2064,7 @@ export async function POST(req: NextRequest) {
       select: { id: true },
     });
 
-    const priceListId = membership.priceListId ?? defaultPriceList?.id ?? null;
+    const priceListId = membership.membershipPriceLists[0]?.priceListId ?? defaultPriceList?.id ?? null;
 
     const catalog = await getBookingCatalog(priceListId);
     const rawMappedImport = mapWordpressImportToProductCards({

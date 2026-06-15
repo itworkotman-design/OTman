@@ -33,7 +33,7 @@ export type Membership = {
   isOnline?: boolean;
   lastSeenAt?: string | null;
   user: MembershipUser;
-  priceListId: string | null;
+  priceListIds: string[];
   warehouseEmail: string | null;
   permissions: { permission: AppPermission }[];
 };

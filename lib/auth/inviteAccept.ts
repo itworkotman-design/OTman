@@ -179,13 +179,21 @@ export async function acceptInvite(params: {
         companyId: invite.companyId,
         role: invite.role,
         status: "ACTIVE",
-        priceListId: invite.priceListId,
         warehouseEmail: invite.warehouseEmail?.trim() || null,
       },
       select: {
         id: true,
       },
     });
+
+    if (invite.priceListId) {
+      await tx.membershipPriceList.create({
+        data: {
+          membershipId: membership.id,
+          priceListId: invite.priceListId,
+        },
+      });
+    }
 
     if (invite.permissions.length > 0) {
       await tx.membershipPermission.createMany({

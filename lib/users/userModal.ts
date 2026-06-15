@@ -17,7 +17,7 @@ export interface UserFormData {
   logoPath: string | null;
   logoFile: File | null;
   usernameDisplayColor: string;
-  priceListId: string | null;
+  priceListIds: string[];
   permissions: AppPermission[];
   provisionMode: UserProvisionMode;
   password: string;
@@ -44,7 +44,7 @@ export interface UserModalProps {
   actorRole: Role;
   targetRole: Role;
   priceLists?: { id: string; name: string }[];
-  initialPriceListId?: string | null;
+  initialPriceListIds?: string[];
 }
 
 export type UserFormSource = Pick<
@@ -60,7 +60,7 @@ export type UserFormSource = Pick<
   | "initialValueRole"
   | "initialValueActive"
   | "initialValuePermissions"
-  | "initialPriceListId"
+  | "initialPriceListIds"
 >;
 
 export function buildInitialForm(source: UserFormSource): UserFormData {
@@ -76,7 +76,7 @@ export function buildInitialForm(source: UserFormSource): UserFormData {
     usernameDisplayColor: source.initialValueUsernameDisplayColor ?? "",
     role: source.initialValueRole || "USER",
     active: source.initialValueActive,
-    priceListId: source.initialPriceListId ?? null,
+    priceListIds: source.initialPriceListIds ?? [],
     permissions: source.initialValuePermissions ?? ["BOOKING_VIEW"],
     provisionMode: "DIRECT_PASSWORD",
     password: "",
@@ -132,14 +132,23 @@ export function makeFieldUpdater(
 }
 
 export function makeSelectUpdater(
-  key: "role" | "priceListId" | "provisionMode",
+  key: "role" | "provisionMode",
   setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
 ) {
   return (e: React.ChangeEvent<HTMLSelectElement>) =>
-    setForm((prev) => ({
-      ...prev,
-      [key]: key === "priceListId" ? e.target.value || null : e.target.value,
-    }));
+    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+}
+
+export function togglePriceListId(
+  priceListId: string,
+  setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
+) {
+  setForm((prev) => ({
+    ...prev,
+    priceListIds: prev.priceListIds.includes(priceListId)
+      ? prev.priceListIds.filter((id) => id !== priceListId)
+      : [...prev.priceListIds, priceListId],
+  }));
 }
 
 export type UserAccessType = "SUBCONTRACTOR" | "ORDER_CREATOR";

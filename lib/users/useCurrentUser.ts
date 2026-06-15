@@ -10,6 +10,7 @@ export type CurrentUser = {
   languagePreference: "EN" | "NO" | null;
   role: Role;
   permissions: AppPermission[];
+  priceListIds: string[];
 };
 
 export function useCurrentUser() {
@@ -44,6 +45,7 @@ export function useCurrentUser() {
               : null,
           role: (data.activeTenant?.role ?? "USER") as Role,
           permissions: data.activeTenant?.permissions ?? [],
+          priceListIds: data.activeTenant?.priceListIds ?? [],
         });
       } catch (error) {
         console.error("Failed loading current user", error);

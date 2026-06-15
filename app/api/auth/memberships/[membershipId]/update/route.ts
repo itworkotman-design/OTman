@@ -90,10 +90,9 @@ export async function PATCH(
       ? body.usernameDisplayColor
       : null,
   );
-  const priceListId =
-    typeof body?.priceListId === "string" && body.priceListId.trim()
-      ? body.priceListId.trim()
-      : null;
+  const priceListIds: string[] = Array.isArray(body?.priceListIds)
+    ? body.priceListIds.filter((id: unknown): id is string => typeof id === "string" && id.trim().length > 0).map((id: string) => id.trim())
+    : [];
   const permissions = parsePermissions(body?.permissions);
 
   if (!email) {
@@ -199,10 +198,22 @@ export async function PATCH(
     await prisma.membership.update({
       where: { id: targetMembership.id },
       data: {
-        priceListId,
         warehouseEmail,
       },
     });
+
+    await prisma.membershipPriceList.deleteMany({
+      where: { membershipId: targetMembership.id },
+    });
+
+    if (priceListIds.length > 0) {
+      await prisma.membershipPriceList.createMany({
+        data: priceListIds.map((priceListId) => ({
+          membershipId: targetMembership.id,
+          priceListId,
+        })),
+      });
+    }
     
     await prisma.membershipPermission.deleteMany({
       where: {

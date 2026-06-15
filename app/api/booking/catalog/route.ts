@@ -44,7 +44,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
-  const effectivePriceListId = requestedPriceListId || membership.priceListId;
+  if (requestedPriceListId && membership.role === "USER") {
+    if (!membership.priceListIds.includes(requestedPriceListId)) {
+      return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
+    }
+  }
+
+  const effectivePriceListId =
+    requestedPriceListId ||
+    (membership.priceListIds.length === 1 ? membership.priceListIds[0] : null);
 
   if (!effectivePriceListId) {
     return NextResponse.json({ ok: false, reason: "PRICE_LIST_NOT_ASSIGNED" }, { status: 409 });

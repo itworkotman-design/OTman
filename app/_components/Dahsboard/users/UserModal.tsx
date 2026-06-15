@@ -15,6 +15,7 @@ import {
   getSaveButtonLabel,
   makeFieldUpdater,
   makeSelectUpdater,
+  togglePriceListId,
   getAccessTypeFromPermissions,
   getPermissionsFromAccessType,
   type UserAccessType,
@@ -40,7 +41,7 @@ export default function UserModal({
   initialValueActive,
   initialValuePermissions,
   priceLists,
-  initialPriceListId,
+  initialPriceListIds,
 }: UserModalProps) {
   const isCreateMode = !initialValueEmail;
 
@@ -57,7 +58,7 @@ export default function UserModal({
       initialValueRole,
       initialValueActive,
       initialValuePermissions,
-      initialPriceListId,
+      initialPriceListIds,
     }),
   );
   useEffect(() => {
@@ -76,7 +77,7 @@ export default function UserModal({
         initialValueRole,
         initialValueActive,
         initialValuePermissions,
-        initialPriceListId,
+        initialPriceListIds,
       }),
     );
   }, [isOpen, formResetKey]);
@@ -92,7 +93,7 @@ export default function UserModal({
   const updateAddress = (value: string) => setForm((prev) => ({ ...prev, address: value }));
   const updateUsernameDisplayColor = (value: string) => setForm((prev) => ({ ...prev, usernameDisplayColor: value }));
 
-  const updatePriceList = makeSelectUpdater("priceListId", setForm);
+  const handleTogglePriceList = (id: string) => togglePriceListId(id, setForm);
   const updateProvisionMode = makeSelectUpdater("provisionMode", setForm);
 
   useEffect(() => {
@@ -354,16 +355,24 @@ export default function UserModal({
                 </>
               )}
 
-              <label className="block pl-2 pb-2">Price list</label>
-              <select className="customInput mb-6 w-full" value={form.priceListId || ""} onChange={updatePriceList} name="priceList" disabled={!canEditTarget}>
-                <option value="">No price list</option>
-
-                {priceLists?.map((pl) => (
-                  <option key={pl.id} value={pl.id}>
-                    {pl.name}
-                  </option>
-                ))}
-              </select>
+              <label className="block pl-2 pb-2">Price lists</label>
+              <div className="mb-6 flex flex-col gap-1 pl-2">
+                {priceLists && priceLists.length > 0 ? (
+                  priceLists.map((pl) => (
+                    <label key={pl.id} className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={form.priceListIds.includes(pl.id)}
+                        onChange={() => handleTogglePriceList(pl.id)}
+                        disabled={!canEditTarget}
+                      />
+                      <span>{pl.name}</span>
+                    </label>
+                  ))
+                ) : (
+                  <span className="text-sm text-textColorThird">No price lists available</span>
+                )}
+              </div>
 
               <h2 className="pl-2 pb-2 font-semibold text-logoblue">Security</h2>
 

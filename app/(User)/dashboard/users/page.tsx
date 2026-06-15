@@ -304,7 +304,7 @@ export default function UserPage() {
             ]
           }
           priceLists={priceLists}
-          initialPriceListId={selectedUser?.priceListId ?? null}
+          initialPriceListIds={selectedUser?.priceListIds ?? []}
           onSave={async (data) => {
             let logoPath = data.logoPath;
 
@@ -338,7 +338,7 @@ export default function UserPage() {
                       description: data.description,
                       logoPath,
                       usernameDisplayColor: data.usernameDisplayColor || null,
-                      priceListId: data.priceListId ?? null,
+                      priceListId: data.priceListIds[0] ?? null,
                       permissions: data.permissions,
                     }
                   : {
@@ -351,7 +351,7 @@ export default function UserPage() {
                       description: data.description,
                       logoPath,
                       usernameDisplayColor: data.usernameDisplayColor || null,
-                      priceListId: data.priceListId ?? null,
+                      priceListIds: data.priceListIds,
                       permissions: data.permissions,
                       password: data.password,
                       confirmPassword: data.confirmPassword,
@@ -396,7 +396,7 @@ export default function UserPage() {
                   description: data.description,
                   logoPath,
                   usernameDisplayColor: data.usernameDisplayColor || null,
-                  priceListId: data.priceListId ?? null,
+                  priceListIds: data.priceListIds,
                   permissions: data.permissions,
                 }),
               },
@@ -609,8 +609,12 @@ export default function UserPage() {
                       {u.role}
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {priceLists.find((pl) => pl.id === u.priceListId)?.name ||
-                        "-"}
+                      {u.priceListIds?.length
+                        ? u.priceListIds
+                            .map((id) => priceLists.find((pl) => pl.id === id)?.name)
+                            .filter(Boolean)
+                            .join(", ")
+                        : "-"}
                     </td>
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       {getAccessLabel(

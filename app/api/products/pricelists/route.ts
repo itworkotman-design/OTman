@@ -137,10 +137,32 @@ export async function GET(req: Request) {
     );
   }
 
+  const { searchParams } = new URL(req.url);
+  const mine = searchParams.get("mine") === "true";
+
+  let assignedIds: string[] | null = null;
+
+  if (mine && session.activeCompanyId) {
+    const membership = await prisma.membership.findFirst({
+      where: {
+        userId: session.userId,
+        companyId: session.activeCompanyId,
+        status: "ACTIVE",
+      },
+      select: {
+        membershipPriceLists: {
+          select: { priceListId: true },
+        },
+      },
+    });
+
+    assignedIds = membership?.membershipPriceLists.map((mpl) => mpl.priceListId) ?? [];
+  }
+
   const priceLists = await prisma.priceList.findMany({
-    where: {
-      isActive: true,
-    },
+    where: assignedIds !== null
+      ? { isActive: true, id: { in: assignedIds } }
+      : { isActive: true },
     select: {
       id: true,
       name: true,

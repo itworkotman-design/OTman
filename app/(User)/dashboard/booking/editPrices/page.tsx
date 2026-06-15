@@ -389,8 +389,7 @@ export default function EditPricesPage() {
     return priceLists[0] ?? null;
   }, [priceLists, selectedPriceListId]);
 
-  const canEditActivePriceListName =
-    !!activePriceListSummary && activePriceListSummary.code !== "DEFAULT";
+  const canEditActivePriceListName = !!activePriceListSummary;
   const canEditActivePriceListSettings = !!activePriceListSummary;
 
   useEffect(() => {
@@ -2580,11 +2579,6 @@ export default function EditPricesPage() {
                   />
                 </label>
 
-                {!canEditActivePriceListName && (
-                  <p className="text-sm text-black/60">
-                    Default pricelist name cannot be changed.
-                  </p>
-                )}
               </div>
 
               <div className="space-y-3 rounded-lg border border-black/10 p-4">

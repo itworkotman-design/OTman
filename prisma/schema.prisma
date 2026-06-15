@@ -56,13 +56,12 @@ model Membership {
   status                     MembershipStatus       @default(ACTIVE)
   createdAt                  DateTime               @default(now())
   updatedAt                  DateTime               @updatedAt
-  priceListId                String?
   warehouseEmail             String?
   legacyWordpressUserId      Int?                   @unique
   company                    Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  priceList                  PriceList?             @relation(fields: [priceListId], references: [id])
   user                       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   permissions                MembershipPermission[]
+  membershipPriceLists       MembershipPriceList[]
   createdOrders              Order[]                @relation("OrderCreatedByMembership")
   orders                     Order[]
   ordersLastEdited           Order[]                @relation("OrderLastEditedByMembership")
@@ -73,6 +72,19 @@ model Membership {
   @@unique([userId, companyId])
   @@index([companyId, status])
   @@index([userId, status])
+}
+
+model MembershipPriceList {
+  id           String     @id @default(cuid())
+  membershipId String
+  priceListId  String
+  createdAt    DateTime   @default(now())
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  priceList    PriceList  @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, priceListId])
+  @@index([membershipId])
+  @@index([priceListId])
 }
 
 model MembershipPermission {
@@ -312,17 +324,17 @@ model PriceListItem {
 }
 
 model PriceList {
-  id             String                   @id @default(cuid())
-  name           String
-  code           String                   @unique
-  description    String?
-  isActive       Boolean                  @default(true)
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
-  invites        Invite[]
-  memberships    Membership[]
-  items          PriceListItem[]
-  specialOptions PriceListSpecialOption[]
+  id                   String                   @id @default(cuid())
+  name                 String
+  code                 String                   @unique
+  description          String?
+  isActive             Boolean                  @default(true)
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  invites              Invite[]
+  membershipPriceLists MembershipPriceList[]
+  items                PriceListItem[]
+  specialOptions       PriceListSpecialOption[]
 }
 
 model PriceListSpecialOption {

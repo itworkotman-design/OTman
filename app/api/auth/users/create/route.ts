@@ -59,8 +59,11 @@ export async function POST(req: Request) {
       ? body.usernameDisplayColor
       : null,
   );
-  const priceListId =
-    typeof body?.priceListId === "string" ? body.priceListId : null;
+  const priceListIds: string[] = Array.isArray(body?.priceListIds)
+    ? body.priceListIds.filter((id: unknown): id is string => typeof id === "string" && id.trim().length > 0)
+    : typeof body?.priceListId === "string" && body.priceListId.trim()
+      ? [body.priceListId.trim()]
+      : [];
   const permissions = parsePermissions(body?.permissions);
 
   if (password !== confirmPassword) {
@@ -83,7 +86,7 @@ export async function POST(req: Request) {
     description,
     logoPath,
     usernameDisplayColor,
-    priceListId,
+    priceListIds,
     permissions,
   });
 

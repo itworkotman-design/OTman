@@ -63,7 +63,7 @@ export async function createUserWithPassword(params: {
   description?: string | null;
   logoPath?: string | null;
   usernameDisplayColor?: string | null;
-  priceListId?: string | null;
+  priceListIds?: string[];
   permissions?: AppPermission[];
 }): Promise<CreateUserResult> {
   const email = params.email.trim().toLowerCase();
@@ -80,7 +80,7 @@ export async function createUserWithPassword(params: {
   const usernameDisplayColor = normalizeOptionalString(
     params.usernameDisplayColor,
   );
-  const priceListId = normalizeOptionalString(params.priceListId);
+  const priceListIds = Array.isArray(params.priceListIds) ? params.priceListIds.filter(Boolean) : [];
   const permissions = normalizePermissions(params.permissions);
 
   if (
@@ -106,13 +106,13 @@ export async function createUserWithPassword(params: {
     return { ok: false, reason: "FORBIDDEN" };
   }
 
-  if (priceListId) {
-    const priceList = await prisma.priceList.findUnique({
-      where: { id: priceListId },
+  if (priceListIds.length > 0) {
+    const foundLists = await prisma.priceList.findMany({
+      where: { id: { in: priceListIds } },
       select: { id: true },
     });
 
-    if (!priceList) {
+    if (foundLists.length !== priceListIds.length) {
       return { ok: false, reason: "INVALID_INPUT" };
     }
   }
@@ -176,11 +176,19 @@ export async function createUserWithPassword(params: {
         companyId,
         role: nextRole,
         status: "ACTIVE",
-        priceListId,
         warehouseEmail,
       },
       select: { id: true },
     });
+
+    if (priceListIds.length > 0) {
+      await tx.membershipPriceList.createMany({
+        data: priceListIds.map((priceListId) => ({
+          membershipId: membership.id,
+          priceListId,
+        })),
+      });
+    }
 
     if (permissions.length > 0) {
       await tx.membershipPermission.createMany({
