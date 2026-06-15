@@ -11,6 +11,7 @@ import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
 import {
   getAdjustedCustomerTotal,
   getAdjustedSubcontractorTotal,
+  parseNokAdjustment,
   getPricingSnapshotCustomerTotal,
   getPricingSnapshotSubcontractorTotal,
 } from "@/lib/orders/orderTotals";
@@ -37,6 +38,7 @@ export type BookingArchiveColumnId =
   | "subcontractor"
   | "createdAt"
   | "updatedAt"
+  | "dnbDiscount"
   | "priceExVat"
   | "priceSubcontractor"
   | "statusNotes"
@@ -66,6 +68,10 @@ function formatCell(value: string | number | null | undefined): string {
 
 function formatMoney(value: number | null | undefined): number | null {
   return typeof value === "number" ? value : null;
+}
+
+function formatDnbDiscount(value: number | null): string {
+  return typeof value === "number" && value > 0 ? `20% - NOK ${value}` : "-";
 }
 
 const PROTECTED_CANCELLED_TOTAL_CODES = new Set([
@@ -127,6 +133,28 @@ export function getEffectiveArchiveCustomerTotal(row: Pick<OrderRow, "status" | 
   }
 
   return Math.max(roundedTotal, getProtectedCancelledCustomerTotal(row));
+}
+
+export function getDnbDiscountArchiveAmount(row: Pick<OrderRow, "dnbDiscount" | "priceExVat" | "pricingSnapshot" | "rabatt" | "leggTil">): number | null {
+  if (!row.dnbDiscount) {
+    return null;
+  }
+
+  const snapshot = row.pricingSnapshot && typeof row.pricingSnapshot === "object" && !Array.isArray(row.pricingSnapshot)
+    ? row.pricingSnapshot as { customer?: { totalExVat?: unknown } }
+    : null;
+  const snapshotTotal = snapshot?.customer?.totalExVat;
+
+  if (typeof snapshotTotal === "number" && Number.isFinite(snapshotTotal) && snapshotTotal > 0) {
+    return Math.round(snapshotTotal / 4);
+  }
+
+  const adjustedTotal = getAdjustedCustomerTotal({
+    subtotal: row.priceExVat,
+    rabatt: row.rabatt,
+    leggTil: row.leggTil,
+  });
+  return adjustedTotal > 0 ? Math.round(adjustedTotal / 4) : null;
 }
 
 export function getEffectiveArchiveSubcontractorTotal(
@@ -302,6 +330,13 @@ const adminColumns: BookingArchiveColumn[] = [
       row.lastEditedBy
         ? `${formatDisplayDateTime(row.updatedAt)} (${row.lastEditedBy})`
         : "-",
+  },
+  {
+    id: "dnbDiscount",
+    label: "DNB discount",
+    exportHeader: "DNB discount",
+    exportWidth: 18,
+    getExportValue: (row) => formatDnbDiscount(getDnbDiscountArchiveAmount(row)),
   },
   {
     id: "priceExVat",

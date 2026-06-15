@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Builds normalized order snapshots and change descriptions for order history entries, including order-level fee changes.
+Builds normalized order snapshots and change descriptions for order history entries, including order-level fee and DNB discount changes.
 
 ## Functions
 
@@ -17,7 +17,7 @@ Builds normalized order snapshots and change descriptions for order history entr
 | `normalizeStringArray` | Normalizes array-like string input into trimmed comparable arrays. |
 | `formatBooleanValue` | Formats boolean values into user-facing change text. |
 | `formatValue` | Converts snapshot values into readable event text. |
-| `buildOrderEventSnapshot` | Creates a normalized order snapshot used for history diffs. It now includes the custom-time `Contact customer?` flag, optional contact note, and extra-work fee minutes. |
+| `buildOrderEventSnapshot` | Creates a normalized order snapshot used for history diffs. It now includes the custom-time `Contact customer?` flag, optional contact note, DNB discount flag, and extra-work fee minutes. |
 | `diffOrderEventSnapshots` | Compares two snapshots and returns the changed fields for history events. |
 | `createOrderCreatedEvent` | Writes the initial order-created history entry. |
 | `createOrderUpdatedEvent` | Writes a standard order-updated history entry. |

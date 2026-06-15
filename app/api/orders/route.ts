@@ -134,6 +134,7 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   priceExVat: true,
   priceSubcontractor: true,
   rabatt: true,
+  dnbDiscount: true,
   leggTil: true,
   subcontractorMinus: true,
   subcontractorPlus: true,
@@ -623,6 +624,7 @@ export async function POST(req: Request) {
 
   const isAdminOrOwner =
     membership.role === "OWNER" || membership.role === "ADMIN";
+  const dnbDiscount = isAdminOrOwner && optionalBoolean(body.dnbDiscount);
 
   const customerMembershipId =
     optionalString(body.customerMembershipId) || membership.id;
@@ -805,6 +807,7 @@ export async function POST(req: Request) {
       priceSubcontractor: Math.round(finalSubcontractorTotal),
 
       rabatt: optionalString(body.rabatt),
+      dnbDiscount,
       leggTil: optionalString(body.leggTil),
       subcontractorMinus: optionalString(body.subcontractorMinus),
       subcontractorPlus: optionalString(body.subcontractorPlus),
@@ -916,6 +919,7 @@ export async function POST(req: Request) {
       priceExVat: order.priceExVat,
       priceSubcontractor: order.priceSubcontractor,
       rabatt: order.rabatt,
+      dnbDiscount: order.dnbDiscount,
       leggTil: order.leggTil,
       subcontractorMinus: order.subcontractorMinus,
       subcontractorPlus: order.subcontractorPlus,
@@ -1335,6 +1339,7 @@ export async function GET(req: Request) {
         priceSubcontractor: order.priceSubcontractor,
         pricingSnapshot: order.pricingSnapshot,
         rabatt: order.rabatt ?? "",
+        dnbDiscount: order.dnbDiscount,
         leggTil: order.leggTil ?? "",
         subcontractorMinus: order.subcontractorMinus ?? "",
         subcontractorPlus: order.subcontractorPlus ?? "",

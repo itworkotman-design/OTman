@@ -59,6 +59,7 @@ export type OrderEventSnapshot = {
   priceExVat: number | null;
   priceSubcontractor: number | null;
   rabatt: string | null;
+  dnbDiscount: boolean;
   leggTil: string | null;
   subcontractorMinus: string | null;
   subcontractorPlus: string | null;
@@ -155,6 +156,7 @@ const FIELD_LABELS: Record<keyof OrderEventSnapshot, string> = {
   priceExVat: "Price ex. VAT",
   priceSubcontractor: "Subcontractor price",
   rabatt: "Discount",
+  dnbDiscount: "DNB discount",
   leggTil: "Add-on",
   subcontractorMinus: "Subcontractor minus",
   subcontractorPlus: "Subcontractor plus",
@@ -325,6 +327,7 @@ export function buildOrderEventSnapshot(
     priceExVat: normalizeNumber(source.priceExVat),
     priceSubcontractor: normalizeNumber(source.priceSubcontractor),
     rabatt: normalizeString(source.rabatt),
+    dnbDiscount: normalizeBoolean(source.dnbDiscount),
     leggTil: normalizeString(source.leggTil),
     subcontractorMinus: normalizeString(source.subcontractorMinus),
     subcontractorPlus: normalizeString(source.subcontractorPlus),

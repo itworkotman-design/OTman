@@ -397,6 +397,7 @@ model Order {
   priceExVat                         Int                 @default(0)
   priceSubcontractor                 Int                 @default(0)
   rabatt                             String?
+  dnbDiscount                        Boolean             @default(false)
   leggTil                            String?
   subcontractorMinus                 String?
   subcontractorPlus                  String?

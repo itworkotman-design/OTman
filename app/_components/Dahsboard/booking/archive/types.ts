@@ -77,6 +77,7 @@ export type OrderRow = {
   priceSubcontractor: number;
   pricingSnapshot: unknown;
   rabatt: string;
+  dnbDiscount: boolean;
   leggTil: string;
   subcontractorMinus: string;
   subcontractorPlus: string;

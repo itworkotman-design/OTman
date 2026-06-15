@@ -8,6 +8,7 @@ import type {
 import {
   getBookingArchiveColumns,
   getDefaultVisibleBookingArchiveColumns,
+  getDnbDiscountArchiveAmount,
   getEffectiveArchiveCustomerTotal,
   getEffectiveArchiveSubcontractorTotal,
   sanitizeVisibleBookingArchiveColumns,
@@ -63,6 +64,7 @@ const COLUMN_WIDTHS: Record<BookingArchiveColumnId, number> = {
   subcontractor: 180,
   createdAt: 190,
   updatedAt: 230,
+  dnbDiscount: 170,
   priceExVat: 160,
   priceSubcontractor: 180,
   statusNotes: 220,
@@ -80,6 +82,10 @@ function formatCell(value: string | number | null | undefined) {
 function formatMoney(value: number | null | undefined) {
   if (typeof value !== "number") return "-";
   return `NOK ${value}`;
+}
+
+function formatDnbDiscount(value: number | null) {
+  return typeof value === "number" && value > 0 ? `20% - NOK ${value}` : "-";
 }
 
 function formatStatusCell(
@@ -401,6 +407,11 @@ export default function BookingArchiveTable({
                     {t("Last edited")}
                   </th>
                 ) : null}
+                {isColumnVisible("dnbDiscount") ? (
+                  <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
+                    {t("DNB discount")}
+                  </th>
+                ) : null}
                 {isColumnVisible("priceExVat") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
                     {t("Price ex. VAT")}
@@ -681,6 +692,11 @@ export default function BookingArchiveTable({
                   {isColumnVisible("updatedAt") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
                       <Cell>{order.lastEditedBy ? `${formatDisplayDateTime(order.updatedAt)} (${order.lastEditedBy})` : "-"}</Cell>
+                    </td>
+                  ) : null}
+                  {isColumnVisible("dnbDiscount") ? (
+                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <Cell>{formatDnbDiscount(getDnbDiscountArchiveAmount(order))}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("priceExVat") ? (

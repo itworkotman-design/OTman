@@ -41,6 +41,7 @@ import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attac
 import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { shouldClearWordpressImportReadOnly } from "@/lib/booking/wordpressReadOnlyCleanup";
+import { parseNokAdjustment } from "@/lib/orders/orderTotals";
 
 export type OrderFormPayload = {
   productCards: SavedProductCard[];
@@ -100,6 +101,7 @@ export type OrderFormPayload = {
   priceSubcontractor: number;
 
   rabatt: string;
+  dnbDiscount: boolean;
   leggTil: string;
   subcontractorMinus: string;
   subcontractorPlus: string;
@@ -355,6 +357,33 @@ function formatAutoDiscountAmount(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
+function formatAdjustmentAmount(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "";
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function calculateDnbDiscountAdjustment(params: {
+  subtotalExVat: number;
+  currentRabatt: string;
+  currentLeggTil: string;
+  previousDnbDiscount: number;
+}) {
+  const currentDiscount = parseNokAdjustment(params.currentRabatt);
+  const currentExtra = parseNokAdjustment(params.currentLeggTil);
+  const baseDiscount = Math.max(0, currentDiscount - params.previousDnbDiscount);
+  const remainingTotal = Math.max(0, params.subtotalExVat - baseDiscount + currentExtra);
+  const dnbDiscount = Math.round(remainingTotal * 0.2);
+  const totalDiscount = baseDiscount + dnbDiscount;
+
+  return {
+    dnbDiscount,
+    totalDiscountText: formatAdjustmentAmount(totalDiscount),
+  };
+}
+
 function scrollToPageTop() {
   window.scrollTo({
     top: 0,
@@ -423,6 +452,8 @@ export default function BookingEditor({
   const [priceExVat, setPriceExVat] = useState(0);
   const [priceSubcontractor, setPriceSubcontractor] = useState(0);
   const [rabatt, setRabatt] = useState("");
+  const [manualRabatt, setManualRabatt] = useState("");
+  const [dnbDiscount, setDnbDiscount] = useState(false);
   const [leggTil, setLeggTil] = useState("");
   const [subcontractorMinus, setSubcontractorMinus] = useState("");
   const [subcontractorPlus, setSubcontractorPlus] = useState("");
@@ -506,6 +537,7 @@ export default function BookingEditor({
   const allowPastDeliveryDates = role === "OWNER" || role === "ADMIN";
   const allowUnrestrictedCustomTime = role === "OWNER" || role === "ADMIN";
   const allowIncompleteRequiredFields = role === "OWNER" || role === "ADMIN";
+  const allowDnbDiscount = role === "OWNER" || role === "ADMIN";
   const showAdminCalculatorAdjustments = role === "OWNER" || role === "ADMIN";
   const userPriceListCount = currentUser?.priceListIds?.length ?? 0;
   const canSelectPriceList = !initialValues?.id && dataset === "default" && (
@@ -768,6 +800,8 @@ export default function BookingEditor({
     setPriceExVat(initialValues.priceExVat ?? 0);
     setPriceSubcontractor(initialValues.priceSubcontractor ?? 0);
     setRabatt(initialValues.rabatt ?? "");
+    setManualRabatt(initialValues.rabatt ?? "");
+    setDnbDiscount(initialValues.dnbDiscount ?? false);
     setLeggTil(initialValues.leggTil ?? "");
     setSubcontractorMinus(initialValues.subcontractorMinus ?? "");
     setSubcontractorPlus(initialValues.subcontractorPlus ?? "");
@@ -1030,6 +1064,33 @@ export default function BookingEditor({
   useEffect(() => {
     pricingResultRef.current = storedSnapshotPricingResult;
   }, [storedSnapshotPricingResult]);
+
+  useEffect(() => {
+    if (!allowDnbDiscount) return;
+    if (dnbDiscount) {
+      const { subtotalExVat, subcontractorBase } = storedSnapshotPricingResult.totals;
+      const adjustment = calculateDnbDiscountAdjustment({
+        subtotalExVat,
+        currentRabatt: manualRabatt,
+        currentLeggTil: leggTil,
+        previousDnbDiscount: 0,
+      });
+      setRabatt(adjustment.totalDiscountText);
+      const rabattAmount = parseNokAdjustment(adjustment.totalDiscountText);
+      if (Number.isFinite(rabattAmount) && rabattAmount > 0 && subtotalExVat > 0) {
+        setSubcontractorMinus(String(Math.round(subcontractorBase * rabattAmount / subtotalExVat)));
+      }
+    } else {
+      setRabatt(manualRabatt);
+      const { subtotalExVat, subcontractorBase } = storedSnapshotPricingResult.totals;
+      const manualRabattAmount = parseNokAdjustment(manualRabatt);
+      if (Number.isFinite(manualRabattAmount) && manualRabattAmount > 0 && subtotalExVat > 0) {
+        setSubcontractorMinus(String(Math.round(subcontractorBase * manualRabattAmount / subtotalExVat)));
+      } else {
+        setSubcontractorMinus("");
+      }
+    }
+  }, [allowDnbDiscount, dnbDiscount, manualRabatt, leggTil, storedSnapshotPricingResult.totals.subtotalExVat, storedSnapshotPricingResult.totals.subcontractorBase]);
 
   const isExistingOrder = Boolean(initialValues?.id);
   const storedOrderPricingTotals = useMemo(
@@ -1406,6 +1467,11 @@ export default function BookingEditor({
   });
 
   const handleAdjustmentsChange = useCallback((adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => {
+    if (allowDnbDiscount && dnbDiscount && adj.rabatt !== rabatt) {
+      setDnbDiscount(false);
+    }
+    setManualRabatt(adj.rabatt);
+
     setRabatt((prevRabatt) => {
       const isAutoDiscountOrder = shouldAutoDiscountStatus(statusRef.current);
       if (!isAutoDiscountOrder && adj.rabatt !== prevRabatt) {
@@ -1426,7 +1492,7 @@ export default function BookingEditor({
     });
     setLeggTil(adj.leggTil);
     setSubcontractorPlus(adj.subcontractorPlus);
-  }, []);
+  }, [allowDnbDiscount, dnbDiscount, rabatt]);
 
   const handleUseCurrentPrices = useCallback(() => {
     setProductCards((current) =>
@@ -1852,7 +1918,8 @@ export default function BookingEditor({
       priceExVat,
       priceSubcontractor,
 
-      rabatt,
+      rabatt: manualRabatt,
+      dnbDiscount,
       leggTil,
       subcontractorMinus,
       subcontractorPlus,
@@ -2031,6 +2098,9 @@ export default function BookingEditor({
             orderNumberError={visibleFieldErrors.orderNumber}
             orderNumber={orderNumber}
             setOrderNumber={setOrderNumber}
+            showDnbDiscount={allowDnbDiscount}
+            dnbDiscount={dnbDiscount}
+            setDnbDiscount={setDnbDiscount}
             description={description}
             setDescription={setDescription}
             modelNr={modelNr}

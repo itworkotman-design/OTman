@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   sendExtraPickupNotificationEmailMock: vi.fn(),
   createOrderNotificationMock: vi.fn(),
   resolveOutdatedCapacityNotificationsMock: vi.fn(),
+  resolveAllOrderNotificationsMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   priceListFindUniqueMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
@@ -58,6 +59,7 @@ vi.mock("@/lib/orders/orderNotificationEmail", () => ({
 
 vi.mock("@/lib/orders/orderNotifications", () => ({
   createOrderNotification: mocks.createOrderNotificationMock,
+  resolveAllOrderNotifications: mocks.resolveAllOrderNotificationsMock,
   resolveOutdatedCapacityNotifications:
     mocks.resolveOutdatedCapacityNotificationsMock,
 }));
@@ -104,6 +106,7 @@ describe("routes in /api/orders/[orderId]", () => {
     mocks.diffOrderEventSnapshotsMock.mockReturnValue([]);
     mocks.createOrderStatusChangedEventMock.mockResolvedValue(undefined);
     mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
+    mocks.resolveAllOrderNotificationsMock.mockResolvedValue(undefined);
     mocks.resolveOutdatedCapacityNotificationsMock.mockResolvedValue(undefined);
     mocks.createOrderNotificationMock.mockResolvedValue({
       id: "notification-1",

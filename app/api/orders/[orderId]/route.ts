@@ -344,6 +344,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       priceExVat: true,
       priceSubcontractor: true,
       rabatt: true,
+      dnbDiscount: true,
       leggTil: true,
       subcontractorMinus: true,
       subcontractorPlus: true,
@@ -464,6 +465,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       priceSubcontractor: order.priceSubcontractor,
       pricingSnapshot: order.pricingSnapshot,
       rabatt: order.rabatt ?? "",
+      dnbDiscount: order.dnbDiscount,
       leggTil: order.leggTil ?? "",
       subcontractorMinus: order.subcontractorMinus ?? "",
       subcontractorPlus: order.subcontractorPlus ?? "",
@@ -588,6 +590,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       priceExVat: true,
       priceSubcontractor: true,
       rabatt: true,
+      dnbDiscount: true,
       leggTil: true,
       subcontractorMinus: true,
       subcontractorPlus: true,
@@ -652,6 +655,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const existingExtraPickups = normalizeExtraPickups(parseExtraPickups(existingOrder.extraPickupContacts));
   const extraPickups = body.extraPickups !== undefined ? normalizeExtraPickups(parsedBodyExtraPickups ?? []) : existingExtraPickups;
   const extraPickupContactsChanged = body.extraPickups !== undefined && JSON.stringify(extraPickups) !== JSON.stringify(existingExtraPickups);
+  const isAdminOrOwner = membership.role === "OWNER" || membership.role === "ADMIN";
 
   const catalog = await getBookingCatalog(existingOrder.priceListId ?? membership.membershipPriceLists[0]?.priceListId ?? null);
   const pricingSource = applyOrderPricingSnapshot({
@@ -673,6 +677,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const nextStatus = optionalString(body.status) ?? existingOrder.status;
   const shouldClearCancelledAdjustments = shouldClearCancelledDiscount(existingOrder.status, nextStatus);
   const updatedRabatt = shouldClearCancelledAdjustments ? null : optionalString(body.rabatt);
+  const nextDnbDiscount = isAdminOrOwner
+    ? optionalBoolean(body.dnbDiscount)
+    : existingOrder.dnbDiscount;
   const nextRabatt = shouldClearCancelledAdjustments
     ? null
     : body.rabatt !== undefined
@@ -740,6 +747,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     priceExVat: Math.round(finalCustomerTotalExVat),
     priceSubcontractor: nextPriceSubcontractor,
     rabatt: nextRabatt,
+    dnbDiscount: nextDnbDiscount,
     leggTil: optionalString(body.leggTil) ?? existingOrder.leggTil,
     subcontractorMinus: nextSubcontractorMinus,
     subcontractorPlus: optionalString(body.subcontractorPlus) ?? existingOrder.subcontractorPlus,
@@ -808,6 +816,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         priceSubcontractor: Math.round(nextPriceSubcontractor),
 
         rabatt: updatedRabatt,
+        dnbDiscount: nextDnbDiscount,
         leggTil: optionalString(body.leggTil),
         subcontractorMinus: updatedSubcontractorMinus,
         subcontractorPlus: optionalString(body.subcontractorPlus),

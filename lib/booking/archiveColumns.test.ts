@@ -4,6 +4,7 @@ import {
   getEffectiveArchiveCustomerTotal,
   getEffectiveArchiveSubcontractorTotal,
   getBookingArchiveColumns,
+  getDnbDiscountArchiveAmount,
   sanitizeVisibleBookingArchiveColumns,
 } from "@/lib/booking/archiveColumns";
 
@@ -51,6 +52,7 @@ function buildOrderRow(overrides?: Partial<OrderRow>): OrderRow {
     priceSubcontractor: 567,
     pricingSnapshot: null,
     rabatt: "",
+    dnbDiscount: false,
     leggTil: "",
     subcontractorMinus: "",
     subcontractorPlus: "",
@@ -186,6 +188,37 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
 
     expect(getEffectiveArchiveCustomerTotal(row)).toBe(300);
     expect(getEffectiveArchiveSubcontractorTotal(row)).toBe(900);
+  });
+
+  it("exports DNB discount amount for admin rows", () => {
+    const row = buildOrderRow({
+      dnbDiscount: true,
+      rabatt: "920",
+      pricingSnapshot: {
+        version: 1,
+        customer: {
+          subtotalExVat: 1000,
+          discount: 920,
+          extra: 0,
+          totalExVat: 80,
+          vat: 20,
+          totalIncVat: 100,
+        },
+        subcontractor: {
+          subtotal: 0,
+          minus: 0,
+          plus: 0,
+          total: 0,
+        },
+        lines: [],
+      },
+    });
+    const dnbDiscount = getBookingArchiveColumns("ADMIN").find(
+      (column) => column.id === "dnbDiscount",
+    );
+
+    expect(getDnbDiscountArchiveAmount(row)).toBe(20);
+    expect(dnbDiscount?.getExportValue?.(row)).toBe("20% - NOK 20");
   });
 
   it("derives zero archive customer total for cancelled rows without a stored discount", () => {

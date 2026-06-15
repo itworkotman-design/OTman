@@ -54,7 +54,7 @@ export const AboutContent = {
     {
       id: 3,
       src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Content/About/Profiles/Carlos+image.png",
-      name: "Carlos Eduardo Lazo",
+      name: "Carlos Lazo",
       position: {
         en: "Sales Manager",
         no: "Salgsleder",

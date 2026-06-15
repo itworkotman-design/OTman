@@ -646,6 +646,7 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          dnbDiscount: true,
         }),
       }),
     );
@@ -717,6 +718,7 @@ describe("routes in /api/orders", () => {
         method: "POST",
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
+          dnbDiscount: true,
         }),
       }),
     );
@@ -726,6 +728,7 @@ describe("routes in /api/orders", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           orderNumber: null,
+          dnbDiscount: true,
         }),
       }),
     );
@@ -924,6 +927,7 @@ describe("routes in /api/orders", () => {
           orderNumber: "PO-1",
           customerMembershipId: "customer-membership",
           priceListId: "selected-price-list",
+          dnbDiscount: true,
         }),
       }),
     );
@@ -945,6 +949,7 @@ describe("routes in /api/orders", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           priceListId: "selected-price-list",
+          dnbDiscount: true,
         }),
       }),
     );
@@ -976,6 +981,7 @@ describe("routes in /api/orders", () => {
           productCards: [{ cardId: 1, productId: "product-1" }],
           orderNumber: "PO-1",
           priceListId: "other-price-list",
+          dnbDiscount: true,
         }),
       }),
     );
@@ -987,6 +993,7 @@ describe("routes in /api/orders", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           priceListId: "other-price-list",
+          dnbDiscount: false,
         }),
       }),
     );

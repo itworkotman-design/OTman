@@ -52,6 +52,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     priceExVat: 0,
     priceSubcontractor: 0,
     rabatt: null,
+    dnbDiscount: false,
     leggTil: null,
     subcontractorMinus: null,
     subcontractorPlus: null,
