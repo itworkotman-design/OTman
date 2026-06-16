@@ -597,7 +597,7 @@ export function ProductCardNew({
   }
 
   return (
-    <div className="customContainer relative w-full mb-4">
+    <div className="customContainer relative w-full mb-2 bg-white">
       <button
         type="button"
         onClick={() => onRemove?.(cardId)}

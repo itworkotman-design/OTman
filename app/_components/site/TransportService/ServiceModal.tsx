@@ -3,21 +3,23 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
-import GoogleMap from "@/app/_components/site/GoogleMap";
-import { transportDimensionLimits, transportPackageTypes, transportTimeWindows } from "@/lib/content/TransportRequestConfig";
+import { transportTimeWindows, TRANSPORT_PACKAGE_PRICELIST_ID } from "@/lib/content/TransportRequestConfig";
 import type { Locale, ServiceGroup } from "@/lib/content/ServiceWindowContent";
+import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/ProductCard";
+import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
+import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
+import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
+import {
+  createEmptyProductCard,
+  type SavedProductCard,
+  type CatalogProduct,
+  type CatalogSpecialOption,
+} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
+import { CloseButton } from "../../utils/CloseButton";
 
 type Props = { service: ServiceGroup; locale: Locale; onClose: () => void };
 type BaseForm = { name: string; email: string; phone: string; notes: string };
-type PkgDraft = {
-  packageType: string;
-  length: string;
-  width: string;
-  height: string;
-  weight: string;
-};
-type PkgEntry = PkgDraft & { id: string };
-type PkgField = keyof Omit<PkgDraft, "packageType">;
 type CollectionForm = {
   pickupAddress: string;
   dropoffAddress: string;
@@ -27,6 +29,7 @@ type CollectionForm = {
   dropoffContactName: string;
   dropoffContactPhone: string;
   dropoffContactEmail: string;
+  preferredDate: string;
   timeWindow: string;
   notes: string;
 };
@@ -35,6 +38,15 @@ type TransportForm = BaseForm & {
   deliveryAddress: string;
   preferredDate: string;
   timeWindow: string;
+  squareMeters: string;
+  sizeWm: string;
+  sizeWcm: string;
+  sizeHm: string;
+  sizeHcm: string;
+  sizeLm: string;
+  sizeLcm: string;
+  weight: string;
+  units: string;
 };
 type ManpowerForm = BaseForm & {
   crewSize: string;
@@ -48,13 +60,17 @@ type CarForm = BaseForm & {
   transmission: string;
 };
 
-const pkg0: PkgDraft = {
-  packageType: "",
-  length: "",
-  width: "",
-  height: "",
-  weight: "",
+type CollectionErrors = {
+  pickupContactPhone?: string;
+  pickupContactEmail?: string;
+  dropoffContactPhone?: string;
+  dropoffContactEmail?: string;
 };
+type TransportErrors = {
+  phone?: string;
+  email?: string;
+};
+
 const collection0: CollectionForm = {
   pickupAddress: "",
   dropoffAddress: "",
@@ -64,6 +80,7 @@ const collection0: CollectionForm = {
   dropoffContactName: "",
   dropoffContactPhone: "",
   dropoffContactEmail: "",
+  preferredDate: "",
   timeWindow: "",
   notes: "",
 };
@@ -76,6 +93,15 @@ const transport0: TransportForm = {
   deliveryAddress: "",
   preferredDate: "",
   timeWindow: "",
+  squareMeters: "",
+  sizeWm: "",
+  sizeWcm: "",
+  sizeHm: "",
+  sizeHcm: "",
+  sizeLm: "",
+  sizeLcm: "",
+  weight: "",
+  units: "",
 };
 const manpower0: ManpowerForm = {
   name: "",
@@ -97,8 +123,91 @@ const car0: CarForm = {
   transmission: "",
 };
 
+const METER_OPTIONS = Array.from({ length: 11 }, (_, i) => i);
+const CM_OPTIONS = [0, 20, 40, 60, 80];
+const WEIGHT_OPTIONS = ["Under 10 kg", "Under 30 kg", "Under 50 kg", "Under 100 kg", "Over 100 kg"];
+const M2_OPTIONS = ["Under 20 m²", "Under 40 m²", "Under 60 m²", "Under 100 m²", "Over 100 m²"];
+
+function DimensionSelect({
+  label,
+  meters,
+  cm,
+  onMeters,
+  onCm,
+}: {
+  label: string;
+  meters: string;
+  cm: string;
+  onMeters: (v: string) => void;
+  onCm: (v: string) => void;
+}) {
+  const sel =
+    "w-full rounded-xl border border-black/10 bg-white px-2 py-2 text-sm text-center text-textColor outline-none transition focus:border-logoblue/30 focus:ring-2 focus:ring-logoblue/10";
+  return (
+    <div className="flex w-full items-center gap-4">
+      <span className="w-16 shrink-0 text-sm text-black/55">{label}</span>
+      <div className="flex flex-1 min-w-0 items-center gap-1.5">
+        <select value={meters} onChange={(e) => onMeters(e.target.value)} className={sel}>
+          <option value="">—</option>
+          {METER_OPTIONS.map((m) => (
+            <option key={m} value={String(m)}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs font-medium text-black/40">m</span>
+      </div>
+      <div className="flex flex-1 min-w-0 items-center gap-1.5">
+        <select value={cm} onChange={(e) => onCm(e.target.value)} className={sel}>
+          <option value="">—</option>
+          {CM_OPTIONS.map((c) => (
+            <option key={c} value={String(c)}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs font-medium text-black/40">cm</span>
+      </div>
+    </div>
+  );
+}
+
 const inputCls =
   "w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-textColor outline-none transition placeholder:text-black/30 focus:border-logoblue/30 focus:ring-2 focus:ring-logoblue/10";
+const inputErrCls =
+  "w-full rounded-2xl border border-red-400 bg-white px-4 py-3 text-sm text-textColor outline-none transition placeholder:text-black/30 focus:border-red-400 focus:ring-2 focus:ring-red-100";
+
+const PHONE_RE = /^\+?\d{7,20}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DISALLOWED_RE = /[<>'"`;\\{}[\]]/g;
+
+function sanitizeText(v: string) {
+  return v.replace(DISALLOWED_RE, "");
+}
+
+function sanitizePhone(v: string) {
+  return v.replace(/[^\d+]/g, "");
+}
+
+function sanitizeName(v: string) {
+  return v.replace(/[^\p{L}\s]/gu, "");
+}
+
+function sanitizeInteger(v: string) {
+  return v.replace(/\D/g, "");
+}
+
+function validatePhone(v: string, locale: Locale): string | null {
+  const t = v.trim();
+  if (!t) return null;
+  return PHONE_RE.test(t) ? null : locale === "no" ? "Ugyldig telefonnummer" : "Invalid phone number";
+}
+
+function validateEmail(v: string, locale: Locale): string | null {
+  const t = v.trim();
+  if (!t) return null;
+  return EMAIL_RE.test(t) ? null : locale === "no" ? "Ugyldig e-postadresse" : "Invalid email address";
+}
 
 const firstCategory = (service: ServiceGroup) => service.categories[0] ?? null;
 const categoryIcon = (categoryId?: string | null) => {
@@ -115,15 +224,8 @@ const categoryIcon = (categoryId?: string | null) => {
       return "/Service logos-01.svg";
   }
 };
-const n = (value: string) => {
-  const parsed = Number(value.replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-const money = (value: number) =>
-  `${new Intl.NumberFormat("nb-NO", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)} NOK`;
+
+const toBookingLocale = (l: Locale): BookingUiLocale => (l === "no" ? "nb" : "en");
 
 function HeaderBlock({ title, body }: { title: string; body: string }) {
   return (
@@ -132,6 +234,11 @@ function HeaderBlock({ title, body }: { title: string; body: string }) {
       <p className="mt-2 max-w-lg text-sm leading-6 text-black/55">{body}</p>
     </div>
   );
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="mt-1 text-xs text-red-500">{message}</p>;
 }
 
 export function ServiceModal({ service, locale, onClose }: Props) {
@@ -154,83 +261,88 @@ export function ServiceModal({ service, locale, onClose }: Props) {
 }
 
 function ServiceModalBody({ service, locale, onClose }: Props) {
-  const pkgFieldTimers = useRef<Partial<Record<PkgField, ReturnType<typeof setTimeout>>>>({});
   const initialCategoryId = firstCategory(service)?.id ?? "";
   const [selectedCategoryId, setSelectedCategoryId] = useState(initialCategoryId);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [pkgDraft, setPkgDraft] = useState<PkgDraft>(pkg0);
-  const [invalidPkgFields, setInvalidPkgFields] = useState<Partial<Record<PkgField, boolean>>>({});
-  const [packages, setPackages] = useState<PkgEntry[]>([]);
   const [collection, setCollection] = useState<CollectionForm>(collection0);
   const [transport, setTransport] = useState<TransportForm>(transport0);
   const [manpower, setManpower] = useState<ManpowerForm>(manpower0);
   const [car, setCar] = useState<CarForm>(car0);
+  const [collectionErrors, setCollectionErrors] = useState<CollectionErrors>({});
+  const [transportErrors, setTransportErrors] = useState<TransportErrors>({});
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<CatalogSpecialOption[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [productCards, setProductCards] = useState<SavedProductCard[]>([createEmptyProductCard(0)]);
+  const [expandedCardId, setExpandedCardId] = useState<number | null>(0);
+  const nextCardId = useRef(1);
 
   useEffect(() => {
-    const timers = pkgFieldTimers.current;
-    return () => {
-      Object.values(timers).forEach((timer) => {
-        if (timer) clearTimeout(timer);
-      });
+    if (service.formVariant !== "transport") return;
+    const controller = new AbortController();
+    const load = async () => {
+      setCatalogLoading(true);
+      setCatalogError(null);
+      try {
+        const res = await fetch(`/api/booking/catalog?priceListId=${encodeURIComponent(TRANSPORT_PACKAGE_PRICELIST_ID)}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        setCatalogProducts(data.products ?? []);
+        setCatalogSpecialOptions(data.specialOptions ?? []);
+      } catch (err) {
+        if ((err as { name?: string })?.name !== "AbortError") {
+          setCatalogError("Could not load product catalog");
+        }
+      } finally {
+        setCatalogLoading(false);
+      }
     };
-  }, []);
+    load();
+    return () => controller.abort();
+  }, [service.formVariant]);
+
+  const priceLookup = useMemo(() => buildPriceLookup(catalogProducts, catalogSpecialOptions), [catalogProducts, catalogSpecialOptions]);
+  const productBreakdowns = useMemo(
+    () => buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions),
+    [productCards, catalogProducts, catalogSpecialOptions],
+  );
 
   const category = service.categories.find((item) => item.id === selectedCategoryId) ?? firstCategory(service);
   const collectionPickup = service.formVariant === "transport" && category?.id === "collection-pickup";
   const sidebarCollapsed = !sidebarOpen;
 
   const collapseSidebarForCollectionProgress = () => {
-    if (collectionPickup) {
-      setSidebarOpen(false);
-    }
+    if (collectionPickup) setSidebarOpen(false);
   };
 
-  const flashInvalidPkgField = (field: PkgField) => {
-    const currentTimer = pkgFieldTimers.current[field];
-    if (currentTimer) clearTimeout(currentTimer);
-    setInvalidPkgFields((prev) => ({ ...prev, [field]: true }));
-    pkgFieldTimers.current[field] = setTimeout(() => {
-      setInvalidPkgFields((prev) => ({ ...prev, [field]: false }));
-    }, 10000);
+  const updateProductCard = (cardId: number, next: SavedProductCard) => {
+    setProductCards((prev) => prev.map((c) => (c.cardId === cardId ? next : c)));
+    if (next.productId) collapseSidebarForCollectionProgress();
   };
 
-  const handlePkgFieldChange = (field: PkgField, rawValue: string) => {
-    if (!rawValue.trim()) {
-      setPkgDraft((prev) => ({ ...prev, [field]: "" }));
-      setInvalidPkgFields((prev) => ({ ...prev, [field]: false }));
-      return;
-    }
-
-    const parsed = Number(rawValue.replace(",", "."));
-    if (!Number.isFinite(parsed)) {
-      setPkgDraft((prev) => ({ ...prev, [field]: rawValue }));
-      return;
-    }
-
-    const limits = transportDimensionLimits[field];
-    const clamped = Math.min(limits.max, Math.max(limits.min, parsed));
-    const normalized = field === "weight" ? String(clamped) : String(Math.round(clamped));
-
-    setPkgDraft((prev) => ({ ...prev, [field]: normalized }));
-    if (clamped !== parsed) {
-      flashInvalidPkgField(field);
-      return;
-    }
-    setInvalidPkgFields((prev) => ({ ...prev, [field]: false }));
+  const removeProductCard = (cardId: number) => {
+    setProductCards((prev) => prev.filter((c) => c.cardId !== cardId));
+    setExpandedCardId((curr) => (curr === cardId ? null : curr));
   };
 
-  const canAddPackage =
-    Boolean(pkgDraft.packageType) &&
-    n(pkgDraft.length) >= transportDimensionLimits.length.min &&
-    n(pkgDraft.length) <= transportDimensionLimits.length.max &&
-    n(pkgDraft.width) >= transportDimensionLimits.width.min &&
-    n(pkgDraft.width) <= transportDimensionLimits.width.max &&
-    n(pkgDraft.height) >= transportDimensionLimits.height.min &&
-    n(pkgDraft.height) <= transportDimensionLimits.height.max &&
-    n(pkgDraft.weight) >= transportDimensionLimits.weight.min &&
-    n(pkgDraft.weight) <= transportDimensionLimits.weight.max;
+  const addProductCard = () => {
+    const id = nextCardId.current++;
+    setProductCards((prev) => [...prev, createEmptyProductCard(id)]);
+    setExpandedCardId(id);
+  };
 
-  const showLocation = packages.length > 0;
+  const showLocation = productCards.some((c) => c.productId !== null);
+  const noContactErrors =
+    !collectionErrors.pickupContactPhone &&
+    !collectionErrors.dropoffContactPhone &&
+    !collectionErrors.pickupContactEmail &&
+    !collectionErrors.dropoffContactEmail;
   const showTime =
     showLocation &&
     Boolean(collection.pickupAddress.trim()) &&
@@ -238,298 +350,274 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
     Boolean(collection.pickupContactName.trim()) &&
     Boolean(collection.pickupContactPhone.trim()) &&
     Boolean(collection.dropoffContactName.trim()) &&
-    Boolean(collection.dropoffContactPhone.trim());
-  const canPlaceCollection = showTime && Boolean(collection.timeWindow);
-
-  const totals = useMemo(() => {
-    const subtotal = packages.reduce((sum, item) => {
-      const volume = n(item.length) * n(item.width) * n(item.height) * 0.0004;
-      return sum + 350 + n(item.weight) * 2 + volume;
-    }, 0);
-    const vat = subtotal * 0.25;
-    return { subtotal, vat, total: subtotal + vat };
-  }, [packages]);
+    Boolean(collection.dropoffContactPhone.trim()) &&
+    noContactErrors;
+  const canPlaceCollection = showTime && Boolean(collection.preferredDate) && Boolean(collection.timeWindow);
 
   const resetAndClose = () => {
-    setPkgDraft(pkg0);
-    setPackages([]);
     setCollection(collection0);
     setTransport(transport0);
     setManpower(manpower0);
     setCar(car0);
+    setCollectionErrors({});
+    setTransportErrors({});
+    setSubmitLoading(false);
+    setSubmitError(null);
+    setProductCards([createEmptyProductCard(0)]);
+    setExpandedCardId(0);
+    nextCardId.current = 1;
     onClose();
   };
 
-  const calc = (
-    <div className="space-y-5">
-      <div className="overflow-hidden rounded-[28px] border border-white bg-white shadow-[0_20px_50px_rgba(39,48,151,0.10)]">
-        <div className="border-b border-black/5 px-5 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-logoblue/55">{locale === "no" ? "Kalkulator" : "Calculator"}</p>
-          <h4 className="mt-2 text-lg font-semibold text-logoblue">{locale === "no" ? "Prisoversikt" : "Price overview"}</h4>
-        </div>
-        <div className="space-y-4 px-5 py-5">
-          {packages.length === 0 ? (
-            <p className="text-sm leading-6 text-black/45">
-              {locale === "no"
-                ? "Legg til kolli for a se prisoversikt her. Logikken kan kobles pa senere."
-                : "Add package entries to see the price summary here. Final logic can be connected later."}
-            </p>
-          ) : (
-            packages.map((item) => (
-              <div key={item.id} className="border-b border-black/5 pb-3 last:border-b-0">
-                <p className="font-semibold text-logoblue">{item.packageType}</p>
-                <p className="mt-1 text-sm text-black/55">{`${item.length} x ${item.width} x ${item.height} cm`}</p>
-                <p className="text-sm text-black/55">{`${item.weight} kg`}</p>
-              </div>
-            ))
-          )}
-          <div className="rounded-2xl bg-[#f5f7ff] px-4 py-4 text-sm">
-            <div className="flex justify-between">
-              <span>Total</span>
-              <span className="font-semibold">{money(totals.subtotal)}</span>
-            </div>
-            <div className="mt-2 flex justify-between">
-              <span>MVA (25%)</span>
-              <span className="font-semibold">{money(totals.vat)}</span>
-            </div>
-            <div className="mt-2 flex justify-between text-base font-semibold text-logoblue">
-              <span>{locale === "no" ? "Total inkl. MVA" : "Total incl. VAT"}</span>
-              <span>{money(totals.total)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const handleCollectionSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const errs: CollectionErrors = {};
+    if (!collection.pickupContactPhone.trim()) {
+      errs.pickupContactPhone = locale === "no" ? "Påkrevd" : "Required";
+    } else {
+      const err = validatePhone(collection.pickupContactPhone, locale);
+      if (err) errs.pickupContactPhone = err;
+    }
+    if (!collection.dropoffContactPhone.trim()) {
+      errs.dropoffContactPhone = locale === "no" ? "Påkrevd" : "Required";
+    } else {
+      const err = validatePhone(collection.dropoffContactPhone, locale);
+      if (err) errs.dropoffContactPhone = err;
+    }
+    const peErr = validateEmail(collection.pickupContactEmail, locale);
+    if (peErr) errs.pickupContactEmail = peErr;
+    const deErr = validateEmail(collection.dropoffContactEmail, locale);
+    if (deErr) errs.dropoffContactEmail = deErr;
+    if (Object.keys(errs).length > 0) {
+      setCollectionErrors(errs);
+      return;
+    }
+    setSubmitLoading(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch("/api/site/transport-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formType: "collection", categoryId: category?.id ?? "", ...collection, productCards }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.reason === "RATE_LIMIT_DAILY") {
+          setSubmitError(
+            locale === "no"
+              ? "Vi har registrert et uvanlig høyt antall innkommende bestillinger og har midlertidig stanset ordrebehandlingen. Vennligst ta kontakt med oss direkte."
+              : "We have detected an unusually high volume of incoming orders and have temporarily paused the order form. Please reach out to us directly.",
+          );
+        } else if (data.reason === "RATE_LIMIT_MINUTE") {
+          setSubmitError(locale === "no" ? "Vennligst vent litt før du sender inn igjen." : "Please wait a moment before submitting again.");
+        } else {
+          if (data.errors) setCollectionErrors(data.errors as CollectionErrors);
+          setSubmitError(locale === "no" ? "Noe gikk galt. Prøv igjen." : "Something went wrong. Please try again.");
+        }
+        return;
+      }
+    } catch {
+      setSubmitError(locale === "no" ? "Noe gikk galt. Prøv igjen." : "Something went wrong. Please try again.");
+      return;
+    } finally {
+      setSubmitLoading(false);
+    }
+    resetAndClose();
+  };
+
+  const handleTransportSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const errs: TransportErrors = {};
+    if (!transport.phone.trim()) {
+      errs.phone = locale === "no" ? "Påkrevd" : "Required";
+    } else {
+      const err = validatePhone(transport.phone, locale);
+      if (err) errs.phone = err;
+    }
+    const emailErr = validateEmail(transport.email, locale);
+    if (emailErr) errs.email = emailErr;
+    if (Object.keys(errs).length > 0) {
+      setTransportErrors(errs);
+      return;
+    }
+    setSubmitLoading(true);
+    setSubmitError(null);
+    const fmtDim = (m: string, c: string) => (m || c ? `${m || "0"}m ${c || "0"}cm` : "");
+    try {
+      const res = await fetch("/api/site/transport-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          formType: "transport",
+          categoryId: category?.id ?? "",
+          name: transport.name,
+          email: transport.email,
+          phone: transport.phone,
+          notes: transport.notes,
+          pickupAddress: transport.pickupAddress,
+          deliveryAddress: transport.deliveryAddress,
+          preferredDate: transport.preferredDate,
+          timeWindow: transport.timeWindow,
+          squareMeters: transport.squareMeters,
+          sizeW: fmtDim(transport.sizeWm, transport.sizeWcm),
+          sizeH: fmtDim(transport.sizeHm, transport.sizeHcm),
+          sizeL: fmtDim(transport.sizeLm, transport.sizeLcm),
+          weight: transport.weight,
+          units: transport.units,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.reason === "RATE_LIMIT_DAILY") {
+          setSubmitError(
+            locale === "no"
+              ? "Vi har registrert et uvanlig høyt antall innkommende bestillinger og har midlertidig stanset ordrebehandlingen. Vennligst ta kontakt med oss direkte."
+              : "We have detected an unusually high volume of incoming orders and have temporarily paused the order form. Please reach out to us directly.",
+          );
+        } else if (data.reason === "RATE_LIMIT_MINUTE") {
+          setSubmitError(locale === "no" ? "Vennligst vent litt før du sender inn igjen." : "Please wait a moment before submitting again.");
+        } else {
+          if (data.errors?.phone) setTransportErrors((p) => ({ ...p, phone: String(data.errors.phone) }));
+          if (data.errors?.email) setTransportErrors((p) => ({ ...p, email: String(data.errors.email) }));
+          setSubmitError(locale === "no" ? "Noe gikk galt. Prøv igjen." : "Something went wrong. Please try again.");
+        }
+        return;
+      }
+    } catch {
+      setSubmitError(locale === "no" ? "Noe gikk galt. Prøv igjen." : "Something went wrong. Please try again.");
+      return;
+    } finally {
+      setSubmitLoading(false);
+    }
+    resetAndClose();
+  };
 
   const transportFormUi = collectionPickup ? (
-    <form
-      className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
-      onSubmit={(e) => {
-        e.preventDefault();
-        resetAndClose();
-      }}
-    >
+    <form className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]" onSubmit={handleCollectionSubmit}>
       <div className="grid gap-6">
-        {packages.length > 0 && (
-          <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
-            <h4 className="text-lg font-semibold text-logoblue">{locale === "no" ? "Valgte kolli" : "Added package entries"}</h4>
-            <div className="mt-4 space-y-3">
-              {packages.map((item, index) => (
-                <div key={item.id} className="flex items-center justify-between rounded-2xl border border-black/6 bg-[#f8faff] px-4 py-3">
-                  <div>
-                    <p className="font-semibold text-logoblue">{`${index + 1}. ${item.packageType}`}</p>
-                    <p className="mt-1 text-sm text-black/55">{`${item.length} x ${item.width} x ${item.height} cm, ${item.weight} kg`}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPackages((prev) => prev.filter((entry) => entry.id !== item.id))}
-                    className="text-sm font-semibold text-logoblue/65 transition hover:text-logoblue"
-                  >
-                    {locale === "no" ? "Fjern" : "Remove"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
-          <HeaderBlock
-            title={locale === "no" ? "1. Velg pakketype" : "1. Choose package type"}
-            body={locale === "no" ? "Velg type kolli" : "Choose a package type"}
+        {productCards.map((card, index) => (
+          <ProductCardNew
+            key={card.cardId}
+            cardId={card.cardId}
+            displayIndex={index + 1}
+            value={card}
+            catalogProducts={catalogProducts}
+            catalogSpecialOptions={catalogSpecialOptions}
+            loading={catalogLoading}
+            error={catalogError}
+            onChange={(next) => updateProductCard(card.cardId, next)}
+            onRemove={removeProductCard}
+            disableRemove={productCards.length === 1}
+            isExpanded={expandedCardId === card.cardId}
+            onToggle={() => setExpandedCardId((curr) => (curr === card.cardId ? null : card.cardId))}
+            locale={toBookingLocale(locale)}
           />
-          <div className="grid gap-4">
-            <select className={inputCls} value={pkgDraft.packageType} onChange={(e) => setPkgDraft((p) => ({ ...p, packageType: e.target.value }))}>
-              <option value="">{locale === "no" ? "Pakketype" : "Package type"}</option>
-              {transportPackageTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
-          {pkgDraft.packageType && (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <input
-                className={`${inputCls} ${invalidPkgFields.length ? "border-red-500 ring-2 ring-red-200" : ""}`}
-                type="number"
-                min={transportDimensionLimits.length.min}
-                max={transportDimensionLimits.length.max}
-                placeholder={
-                  locale === "no"
-                    ? `Lengde (${transportDimensionLimits.length.min}-${transportDimensionLimits.length.max} cm)`
-                    : `Length (${transportDimensionLimits.length.min}-${transportDimensionLimits.length.max} cm)`
-                }
-                value={pkgDraft.length}
-                onChange={(e) => handlePkgFieldChange("length", e.target.value)}
-              />
-              <input
-                className={`${inputCls} ${invalidPkgFields.width ? "border-red-500 ring-2 ring-red-200" : ""}`}
-                type="number"
-                min={transportDimensionLimits.width.min}
-                max={transportDimensionLimits.width.max}
-                placeholder={
-                  locale === "no"
-                    ? `Bredde (${transportDimensionLimits.width.min}-${transportDimensionLimits.width.max} cm)`
-                    : `Width (${transportDimensionLimits.width.min}-${transportDimensionLimits.width.max} cm)`
-                }
-                value={pkgDraft.width}
-                onChange={(e) => handlePkgFieldChange("width", e.target.value)}
-              />
-              <input
-                className={`${inputCls} ${invalidPkgFields.height ? "border-red-500 ring-2 ring-red-200" : ""}`}
-                type="number"
-                min={transportDimensionLimits.height.min}
-                max={transportDimensionLimits.height.max}
-                placeholder={
-                  locale === "no"
-                    ? `Hoyde (${transportDimensionLimits.height.min}-${transportDimensionLimits.height.max} cm)`
-                    : `Height (${transportDimensionLimits.height.min}-${transportDimensionLimits.height.max} cm)`
-                }
-                value={pkgDraft.height}
-                onChange={(e) => handlePkgFieldChange("height", e.target.value)}
-              />
-              <input
-                className={`${inputCls} ${invalidPkgFields.weight ? "border-red-500 ring-2 ring-red-200" : ""}`}
-                type="number"
-                step="0.1"
-                min={transportDimensionLimits.weight.min}
-                max={transportDimensionLimits.weight.max}
-                placeholder={
-                  locale === "no"
-                    ? `Vekt (${transportDimensionLimits.weight.min}-${transportDimensionLimits.weight.max} kg)`
-                    : `Weight (${transportDimensionLimits.weight.min}-${transportDimensionLimits.weight.max} kg)`
-                }
-                value={pkgDraft.weight}
-                onChange={(e) => handlePkgFieldChange("weight", e.target.value)}
-              />
-            </div>
-          )}
-          <div className="mt-5 flex items-center justify-between">
-            <p className="text-sm text-black/45">{locale === "no" ? "Du kan legge til flere kolli." : "You can add multiple package entries."}</p>
-            <button
-              type="button"
-              disabled={!canAddPackage}
-              onClick={() => {
-                if (!canAddPackage) return;
-                setPackages((prev) => [...prev, { id: crypto.randomUUID(), ...pkgDraft }]);
-                setPkgDraft(pkg0);
-                collapseSidebarForCollectionProgress();
-              }}
-              className="rounded-full bg-logoblue px-5 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              {locale === "no" ? "Legg til" : "Add"}
-            </button>
-          </div>
-        </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={addProductCard}
+          className="flex items-center gap-2 rounded-full customContainer bg-white px-5 py-2.5 text-sm font-semibold text-logoblue transition hover:bg-logoblue/5"
+        >
+          <span className="text-lg leading-none">+</span>
+          {locale === "no" ? "Legg til produkt" : "Add product"}
+        </button>
 
         {showLocation && (
           <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
-            <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue/70 mb-2">
+            <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue/70 mb-4">
               {locale === "no" ? "2. Lokasjon og kontakt" : "2. Location and contact"}
             </h4>
             <div className="grid gap-4">
               <AddressAutocompleteInput
                 value={collection.pickupAddress}
                 onChange={(value) => {
-                  setCollection((p) => ({ ...p, pickupAddress: value }));
-                  if (value.trim()) {
-                    collapseSidebarForCollectionProgress();
-                  }
+                  setCollection((p) => ({ ...p, pickupAddress: sanitizeText(value) }));
+                  if (value.trim()) collapseSidebarForCollectionProgress();
                 }}
                 placeholder={locale === "no" ? "Henteadresse" : "Pickup address"}
               />
               <div className="grid gap-4 sm:grid-cols-3">
-                <input
-                  className={inputCls}
-                  placeholder={locale === "no" ? "Kontaktperson henting" : "Pickup contact"}
-                  value={collection.pickupContactName}
-                  onChange={(e) =>
-                    setCollection((p) => ({
-                      ...p,
-                      pickupContactName: e.target.value,
-                    }))
-                  }
-                />
-                <input
-                  className={inputCls}
-                  placeholder={locale === "no" ? "Telefon henting" : "Pickup phone"}
-                  value={collection.pickupContactPhone}
-                  onChange={(e) =>
-                    setCollection((p) => ({
-                      ...p,
-                      pickupContactPhone: e.target.value,
-                    }))
-                  }
-                />
-                <input
-                  className={inputCls}
-                  placeholder={locale === "no" ? "E-post henting" : "Pickup email"}
-                  value={collection.pickupContactEmail}
-                  onChange={(e) =>
-                    setCollection((p) => ({
-                      ...p,
-                      pickupContactEmail: e.target.value,
-                    }))
-                  }
-                />
+                <div>
+                  <input
+                    className={inputCls}
+                    placeholder={locale === "no" ? "Kontaktperson henting" : "Pickup contact"}
+                    value={collection.pickupContactName}
+                    onChange={(e) => setCollection((p) => ({ ...p, pickupContactName: sanitizeName(e.target.value) }))}
+                  />
+                </div>
+                <div>
+                  <input
+                    className={collectionErrors.pickupContactPhone ? inputErrCls : inputCls}
+                    placeholder={locale === "no" ? "Telefon henting" : "Pickup phone"}
+                    value={collection.pickupContactPhone}
+                    inputMode="tel"
+                    onChange={(e) => {
+                      const v = sanitizePhone(e.target.value);
+                      setCollection((p) => ({ ...p, pickupContactPhone: v }));
+                      setCollectionErrors((p) => ({ ...p, pickupContactPhone: validatePhone(v, locale) ?? undefined }));
+                    }}
+                  />
+                  <FieldError message={collectionErrors.pickupContactPhone} />
+                </div>
+                <div>
+                  <input
+                    className={collectionErrors.pickupContactEmail ? inputErrCls : inputCls}
+                    placeholder={locale === "no" ? "E-post henting" : "Pickup email"}
+                    value={collection.pickupContactEmail}
+                    onChange={(e) => {
+                      const v = sanitizeText(e.target.value);
+                      setCollection((p) => ({ ...p, pickupContactEmail: v }));
+                      setCollectionErrors((p) => ({ ...p, pickupContactEmail: validateEmail(v, locale) ?? undefined }));
+                    }}
+                  />
+                  <FieldError message={collectionErrors.pickupContactEmail} />
+                </div>
               </div>
               <AddressAutocompleteInput
                 value={collection.dropoffAddress}
                 onChange={(value) => {
-                  setCollection((p) => ({ ...p, dropoffAddress: value }));
-                  if (value.trim()) {
-                    collapseSidebarForCollectionProgress();
-                  }
+                  setCollection((p) => ({ ...p, dropoffAddress: sanitizeText(value) }));
+                  if (value.trim()) collapseSidebarForCollectionProgress();
                 }}
                 placeholder={locale === "no" ? "Leveringsadresse" : "Drop-off address"}
               />
               <div className="grid gap-4 sm:grid-cols-3">
-                <input
-                  className={inputCls}
-                  placeholder={locale === "no" ? "Kontaktperson levering" : "Drop-off contact"}
-                  value={collection.dropoffContactName}
-                  onChange={(e) =>
-                    setCollection((p) => ({
-                      ...p,
-                      dropoffContactName: e.target.value,
-                    }))
-                  }
-                />
-                <input
-                  className={inputCls}
-                  placeholder={locale === "no" ? "Telefon levering" : "Drop-off phone"}
-                  value={collection.dropoffContactPhone}
-                  onChange={(e) =>
-                    setCollection((p) => ({
-                      ...p,
-                      dropoffContactPhone: e.target.value,
-                    }))
-                  }
-                />
-                <input
-                  className={inputCls}
-                  placeholder={locale === "no" ? "E-post levering" : "Drop-off email"}
-                  value={collection.dropoffContactEmail}
-                  onChange={(e) =>
-                    setCollection((p) => ({
-                      ...p,
-                      dropoffContactEmail: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="mt-5 overflow-hidden rounded-[24] border border-black/6 bg-[#f4f6ff]">
-              <div className="border-b border-black/5 px-5 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-logoblue/55">{locale === "no" ? "Rutekart" : "Route map"}</p>
-                <h4 className="mt-2 text-lg font-semibold text-logoblue">
-                  {locale === "no" ? "Viser start- og sluttpunkt for leveringen" : "Showing delivery start and end points"}
-                </h4>
-              </div>
-              <div className="h-[260] w-full bg-[#f4f6ff]">
-                <GoogleMap />
+                <div>
+                  <input
+                    className={inputCls}
+                    placeholder={locale === "no" ? "Kontaktperson levering" : "Drop-off contact"}
+                    value={collection.dropoffContactName}
+                    onChange={(e) => setCollection((p) => ({ ...p, dropoffContactName: sanitizeName(e.target.value) }))}
+                  />
+                </div>
+                <div>
+                  <input
+                    className={collectionErrors.dropoffContactPhone ? inputErrCls : inputCls}
+                    placeholder={locale === "no" ? "Telefon levering" : "Drop-off phone"}
+                    value={collection.dropoffContactPhone}
+                    inputMode="tel"
+                    onChange={(e) => {
+                      const v = sanitizePhone(e.target.value);
+                      setCollection((p) => ({ ...p, dropoffContactPhone: v }));
+                      setCollectionErrors((p) => ({ ...p, dropoffContactPhone: validatePhone(v, locale) ?? undefined }));
+                    }}
+                  />
+                  <FieldError message={collectionErrors.dropoffContactPhone} />
+                </div>
+                <div>
+                  <input
+                    className={collectionErrors.dropoffContactEmail ? inputErrCls : inputCls}
+                    placeholder={locale === "no" ? "E-post levering" : "Drop-off email"}
+                    value={collection.dropoffContactEmail}
+                    onChange={(e) => {
+                      const v = sanitizeText(e.target.value);
+                      setCollection((p) => ({ ...p, dropoffContactEmail: v }));
+                      setCollectionErrors((p) => ({ ...p, dropoffContactEmail: validateEmail(v, locale) ?? undefined }));
+                    }}
+                  />
+                  <FieldError message={collectionErrors.dropoffContactEmail} />
+                </div>
               </div>
             </div>
           </div>
@@ -539,9 +627,20 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
           <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
             <HeaderBlock
               title={locale === "no" ? "3. Tidspunkt" : "3. Timing"}
-              body={locale === "no" ? "Velg tidsvindu og legg ved eventuell beskrivelse." : "Choose the delivery window and add any optional description."}
+              body={
+                locale === "no"
+                  ? "Velg ønsket dato og tidsvindu, og legg ved eventuell beskrivelse."
+                  : "Pick a preferred date and delivery window, then add any optional notes."
+              }
             />
-            <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              type="date"
+              className={inputCls}
+              value={collection.preferredDate}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setCollection((p) => ({ ...p, preferredDate: e.target.value }))}
+            />
+            <div className="grid gap-3 sm:grid-cols-2 mt-4">
               {transportTimeWindows.map((window) => {
                 const active = collection.timeWindow === window;
                 return (
@@ -563,67 +662,206 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
               }
               value={collection.notes}
               onChange={(e) => {
-                setCollection((p) => ({ ...p, notes: e.target.value }));
-                if (e.target.value.trim()) {
-                  collapseSidebarForCollectionProgress();
-                }
+                setCollection((p) => ({ ...p, notes: sanitizeText(e.target.value) }));
+                if (e.target.value.trim()) collapseSidebarForCollectionProgress();
               }}
             />
+            {submitError && <p className="mt-3 text-sm text-red-500">{submitError}</p>}
             {canPlaceCollection && (
               <button
                 type="submit"
-                className="mt-5 inline-flex h-12 items-center justify-center rounded-full bg-logoblue px-7 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+                disabled={submitLoading}
+                className="mt-5 inline-flex h-12 items-center justify-center rounded-full bg-logoblue px-7 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60"
               >
-                {locale === "no" ? "Legg inn ordre" : "Place an order"}
+                {submitLoading ? (locale === "no" ? "Sender..." : "Sending...") : locale === "no" ? "Legg inn ordre" : "Place an order"}
               </button>
             )}
           </div>
         )}
       </div>
-      {calc}
+
+      <div className="space-y-5">
+        <div className="overflow-hidden rounded-[28px] border border-white bg-white shadow-[0_20px_50px_rgba(39,48,151,0.10)]">
+          <CalculatorDisplayNew
+            productBreakdowns={productBreakdowns}
+            priceLookup={priceLookup}
+            adminView={false}
+            sidebarMode
+            locale={toBookingLocale(locale)}
+          />
+        </div>
+      </div>
     </form>
   ) : (
     <form
       className="grid gap-6"
-      onSubmit={(e) => {
-        e.preventDefault();
-        resetAndClose();
-      }}
+      onSubmit={
+        service.formVariant === "transport"
+          ? handleTransportSubmit
+          : (e) => {
+              e.preventDefault();
+              resetAndClose();
+            }
+      }
     >
       {service.formVariant === "transport" ? (
         <>
           <HeaderBlock title={locale === "no" ? "Transportvalg" : "Transport selection"} body={category?.description[locale] ?? ""} />
-          <input
-            className={inputCls}
-            placeholder={locale === "no" ? "Henteadresse" : "Pickup address"}
-            value={transport.pickupAddress}
-            onChange={(e) => setTransport((p) => ({ ...p, pickupAddress: e.target.value }))}
-          />
-          <input
-            className={inputCls}
-            placeholder={locale === "no" ? "Leveringsadresse" : "Delivery address"}
-            value={transport.deliveryAddress}
-            onChange={(e) => setTransport((p) => ({ ...p, deliveryAddress: e.target.value }))}
-          />
-          <div className="grid gap-4 sm:grid-cols-2">
+          <section className="flex flex-col gap-3">
             <input
               className={inputCls}
-              type="date"
-              value={transport.preferredDate}
-              onChange={(e) => setTransport((p) => ({ ...p, preferredDate: e.target.value }))}
+              placeholder={locale === "no" ? "Navn" : "Name"}
+              value={transport.name}
+              onChange={(e) => setTransport((p) => ({ ...p, name: sanitizeName(e.target.value) }))}
             />
-            <input
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <input
+                  className={transportErrors.phone ? inputErrCls : inputCls}
+                  placeholder={locale === "no" ? "Telefon" : "Phone"}
+                  value={transport.phone}
+                  inputMode="tel"
+                  onChange={(e) => {
+                    const v = sanitizePhone(e.target.value);
+                    setTransport((p) => ({ ...p, phone: v }));
+                    setTransportErrors((p) => ({ ...p, phone: validatePhone(v, locale) ?? undefined }));
+                  }}
+                />
+                <FieldError message={transportErrors.phone} />
+              </div>
+              <div>
+                <input
+                  className={transportErrors.email ? inputErrCls : inputCls}
+                  placeholder={locale === "no" ? "E-post" : "Email"}
+                  value={transport.email}
+                  onChange={(e) => {
+                    const v = sanitizeText(e.target.value);
+                    setTransport((p) => ({ ...p, email: v }));
+                    setTransportErrors((p) => ({ ...p, email: validateEmail(v, locale) ?? undefined }));
+                  }}
+                />
+                <FieldError message={transportErrors.email} />
+              </div>
+            </div>
+            <textarea
+              className={`${inputCls} min-h-[100] resize-none`}
+              placeholder={locale === "no" ? "Ekstra informasjon" : "Additional notes"}
+              value={transport.notes}
+              onChange={(e) => setTransport((p) => ({ ...p, notes: sanitizeText(e.target.value) }))}
+            />
+            <div className="flex gap-3">
+              <AddressAutocompleteInput
+                value={transport.pickupAddress}
+                onChange={(value) => setTransport((p) => ({ ...p, pickupAddress: sanitizeText(value) }))}
+                placeholder={locale === "no" ? "Henteadresse" : "Pickup address"}
+              />
+              <AddressAutocompleteInput
+                value={transport.deliveryAddress}
+                onChange={(value) => setTransport((p) => ({ ...p, deliveryAddress: sanitizeText(value) }))}
+                placeholder={locale === "no" ? "Leveringsadresse" : "Delivery address"}
+              />
+            </div>
+          </section>
+
+          {category?.id === "moving-relocation" && (
+            <select
               className={inputCls}
-              placeholder={locale === "no" ? "Tidsvindu" : "Time window"}
-              value={transport.timeWindow}
-              onChange={(e) => setTransport((p) => ({ ...p, timeWindow: e.target.value }))}
-            />
-          </div>
+              value={transport.squareMeters}
+              onChange={(e) => setTransport((p) => ({ ...p, squareMeters: e.target.value }))}
+            >
+              <option value="">{locale === "no" ? "Omtrentlig areal (valgfri)" : "Approximate area (optional)"}</option>
+              {M2_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          )}
+          {category?.id === "custom-transport" && (
+            <>
+              <div>
+                <section className="flex flex-col md:flex-row gap-6 w-full">
+                  <div className="flex flex-col gap-3 w-full">
+                    <p className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-black/40">
+                      {locale === "no" ? "Mål (valgfri)" : "Dimensions (optional)"}
+                    </p>
+                    <DimensionSelect
+                      label={locale === "no" ? "Bredde" : "Width"}
+                      meters={transport.sizeWm}
+                      cm={transport.sizeWcm}
+                      onMeters={(v) => setTransport((p) => ({ ...p, sizeWm: v }))}
+                      onCm={(v) => setTransport((p) => ({ ...p, sizeWcm: v }))}
+                    />
+                    <DimensionSelect
+                      label={locale === "no" ? "Høyde" : "Height"}
+                      meters={transport.sizeHm}
+                      cm={transport.sizeHcm}
+                      onMeters={(v) => setTransport((p) => ({ ...p, sizeHm: v }))}
+                      onCm={(v) => setTransport((p) => ({ ...p, sizeHcm: v }))}
+                    />
+                    <DimensionSelect
+                      label={locale === "no" ? "Lengde" : "Length"}
+                      meters={transport.sizeLm}
+                      cm={transport.sizeLcm}
+                      onMeters={(v) => setTransport((p) => ({ ...p, sizeLm: v }))}
+                      onCm={(v) => setTransport((p) => ({ ...p, sizeLcm: v }))}
+                    />
+                    <div className="flex w-full gap-3 pt-1">
+                      <select
+                        className="flex-1 min-w-0 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-textColor outline-none transition focus:border-logoblue/30 focus:ring-2 focus:ring-logoblue/10"
+                        value={transport.weight}
+                        onChange={(e) => setTransport((p) => ({ ...p, weight: e.target.value }))}
+                      >
+                        <option value="">{locale === "no" ? "Vekt (valgfri)" : "Weight (optional)"}</option>
+                        {WEIGHT_OPTIONS.map((w) => (
+                          <option key={w} value={w}>
+                            {w}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="flex-1 min-w-0 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-textColor outline-none transition placeholder:text-black/30 focus:border-logoblue/30 focus:ring-2 focus:ring-logoblue/10"
+                        inputMode="numeric"
+                        placeholder={locale === "no" ? "Antall enheter (valgfri)" : "Units (optional)"}
+                        value={transport.units}
+                        onChange={(e) => setTransport((p) => ({ ...p, units: sanitizeInteger(e.target.value) }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="w-full flex flex-col gap-4 ">
+                    <p className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-black/40">
+                      {locale === "no" ? "Leveringsdato" : "Delivery Date"}
+                    </p>
+                    <input
+                      className={inputCls}
+                      type="date"
+                      value={transport.preferredDate}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setTransport((p) => ({ ...p, preferredDate: e.target.value }))}
+                    />
+                    {transportTimeWindows.map((window) => {
+                      const active = transport.timeWindow === window;
+                      return (
+                        <button
+                          key={window}
+                          type="button"
+                          onClick={() => setTransport((p) => ({ ...p, timeWindow: window }))}
+                          className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition w-full ${active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-white! text-logoblue"}`}
+                        >
+                          {window}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              </div>
+            </>
+          )}
+          <div className="grid gap-4 sm:grid-cols-[1fr_auto]"></div>
+
+          {submitError && <p className="text-sm text-red-500">{submitError}</p>}
           <button
             type="submit"
-            className="inline-flex h-12 items-center justify-center rounded-full bg-logoblue px-7 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+            disabled={submitLoading}
+            className="inline-flex h-12 items-center justify-center rounded-full bg-logoblue px-7 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60"
           >
-            {locale === "no" ? "Send foresporsel" : "Send request"}
+            {submitLoading ? (locale === "no" ? "Sender..." : "Sending...") : locale === "no" ? "Send forespørsel" : "Send request"}
           </button>
         </>
       ) : service.formVariant === "manpower" ? (
@@ -634,26 +872,26 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
               className={inputCls}
               placeholder={locale === "no" ? "Antall personer" : "Crew size"}
               value={manpower.crewSize}
-              onChange={(e) => setManpower((p) => ({ ...p, crewSize: e.target.value }))}
+              onChange={(e) => setManpower((p) => ({ ...p, crewSize: sanitizeText(e.target.value) }))}
             />
             <input
               className={inputCls}
               placeholder={locale === "no" ? "Timer behov" : "Hours needed"}
               value={manpower.hoursNeeded}
-              onChange={(e) => setManpower((p) => ({ ...p, hoursNeeded: e.target.value }))}
+              onChange={(e) => setManpower((p) => ({ ...p, hoursNeeded: sanitizeText(e.target.value) }))}
             />
           </div>
           <input
             className={inputCls}
             placeholder={locale === "no" ? "Oppdragssted" : "Job location"}
             value={manpower.location}
-            onChange={(e) => setManpower((p) => ({ ...p, location: e.target.value }))}
+            onChange={(e) => setManpower((p) => ({ ...p, location: sanitizeText(e.target.value) }))}
           />
           <button
             type="submit"
             className="inline-flex h-12 items-center justify-center rounded-full bg-logoblue px-7 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg"
           >
-            {locale === "no" ? "Send foresporsel" : "Send request"}
+            {locale === "no" ? "Send forespørsel" : "Send request"}
           </button>
         </>
       ) : (
@@ -664,7 +902,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
               className={inputCls}
               placeholder={locale === "no" ? "Hentested / avdeling" : "Pickup location"}
               value={car.pickupLocation}
-              onChange={(e) => setCar((p) => ({ ...p, pickupLocation: e.target.value }))}
+              onChange={(e) => setCar((p) => ({ ...p, pickupLocation: sanitizeText(e.target.value) }))}
             />
             <input className={inputCls} type="date" value={car.rentalStart} onChange={(e) => setCar((p) => ({ ...p, rentalStart: e.target.value }))} />
           </div>
@@ -681,16 +919,9 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
 
   return (
     <div className="relative max-h-[92vh] w-full max-w-[1500] overflow-hidden rounded-[32] bg-[#f6f8ff] shadow-[0_32px_100px_rgba(9,16,48,0.28)]">
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute customButtonDefault right-5 top-5 z-10 grid h-9 w-9 place-items-center rounded-full bg-logoblue text-white cursor-pointer"
-        aria-label="Close modal"
-      >
-       x
-      </button>
+      <CloseButton onClose={onClose} />
       <div className={`grid max-h-[92vh] overflow-y-auto ${sidebarCollapsed ? "lg:grid-cols-[40px_minmax(0,1fr)]" : "lg:grid-cols-[320px_minmax(0,1fr)]"}`}>
-        <aside className={`relative overflow-hidden bg-logoblue text-white transition-all duration-300 ${sidebarCollapsed ? "w-[40] px-0 py-0" : "px-6 py-8"}`}>
+        <aside className={`relative overflow-hidden bg-logoblue text-white transition-all duration-300 ${sidebarCollapsed ? "lg:w-[40] lg:px-0 lg:py-0 px-5 py-3" : "px-6 py-8"}`}>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.06),transparent)]" />
           {!sidebarCollapsed && (
             <div className="relative">
@@ -724,19 +955,40 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                   );
                 })}
               </div>
+              {/* Mobile-only close button at bottom of open sidebar */}
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden mt-6 w-full rounded-2xl border border-white/20 py-3 text-sm font-semibold text-white"
+              >
+                {locale === "no" ? "Lukk" : "Close"}
+              </button>
             </div>
           )}
           {sidebarCollapsed && (
-            <div className="relative flex h-full w-[40] mt-6 items-start justify-center py-2">
+            <>
+              {/* Mobile: full-width "show categories" row */}
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="grid h-6 w-6 place-items-center text-white transition hover:font-bold cursor-pointer"
-                aria-label={locale === "no" ? "Apne kategorier" : "Open categories"}
+                className="lg:hidden relative flex w-full items-center justify-between text-sm font-semibold text-white"
+                aria-label={locale === "no" ? "Vis kategorier" : "Show categories"}
               >
-                <span className="text-lg leading-none">{">"}</span>
+                <span>{locale === "no" ? "Vis kategorier" : "Show categories"}</span>
+                <span className="text-base leading-none">▾</span>
               </button>
-            </div>
+              {/* Desktop: narrow strip with arrow */}
+              <div className="relative hidden lg:flex h-full w-[40] mt-6 items-start justify-center py-2">
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(true)}
+                  className="grid h-6 w-6 place-items-center text-white transition hover:font-bold cursor-pointer"
+                  aria-label={locale === "no" ? "Apne kategorier" : "Open categories"}
+                >
+                  <span className="text-lg leading-none">{">"}</span>
+                </button>
+              </div>
+            </>
           )}
         </aside>
         <section className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">

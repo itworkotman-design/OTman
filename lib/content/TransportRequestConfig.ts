@@ -1,3 +1,5 @@
+export const TRANSPORT_PACKAGE_PRICELIST_ID = "c02196d7-c74a-43ac-bb7a-10fdbef7fd46";
+
 export const transportPackageTypes = [
   "Pose",
   "Esker",

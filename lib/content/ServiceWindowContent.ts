@@ -39,8 +39,8 @@ export const serviceWindowContent = {
         no: "Planlegg transportoppdrag",
       },
       modalIntro: {
-        en: "Choose the transport type, add addresses, and sketch the route requirements.",
-        no: "Velg transporttype, legg inn adresser og beskriv oppdraget.",
+        en: "Choose the transport type, add addresses and provide necessary details",
+        no: "Velg transporttype, legg til adresser og oppgi nødvendige detaljer",
       },
       formVariant: "transport",
       categories: [
@@ -53,17 +53,6 @@ export const serviceWindowContent = {
           description: {
             en: "Store pickups, supplier collections, and scheduled handovers.",
             no: "Butikkhenting, leverandorhenting og planlagte overleveringer.",
-          },
-        },
-        {
-          id: "package-delivery",
-          title: {
-            en: "Package Delivery",
-            no: "Pakklevering",
-          },
-          description: {
-            en: "Fast, local package runs with direct customer delivery.",
-            no: "Raske lokale leveranser direkte til kunde.",
           },
         },
         {
@@ -212,36 +201,6 @@ export const serviceWindowContent = {
           description: {
             en: "Longer rental periods for recurring routes and operational support.",
             no: "Lengre leieperioder for faste ruter og operativ drift.",
-          },
-        },
-      ],
-    },
-    {
-      id: "it-services",
-      title: {
-        en: "IT Services",
-        no: "IT Tjenester",
-      },
-      svg: "/Service logos-IT.svg",
-      modalTitle: {
-        en: "Request IT Services",
-        no: "Be om IT-tjenester",
-      },
-      modalIntro: {
-        en: "Share what IT services you require and we will contact you!",
-        no: "Beskriv hvilke IT-tjenester du trenger, så kontakter vi deg!",
-      },
-      formVariant: "it-services",
-      categories: [
-        {
-          id: "website-create",
-          title: {
-            en: "New Website",
-            no: "Ny nettside",
-          },
-          description: {
-            en: "Request website creation",
-            no: "Be om utvikling av nettside",
           },
         },
       ],

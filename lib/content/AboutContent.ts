@@ -5,10 +5,12 @@ export const AboutContent = {
   },
 
   introText: {
-    en: `    Otman is a Norwegian service company founded in 2021. We provide transport, installations, manpower, vehicle rental, IT services, and logistics solutions throughout Norway. \n 
-    From appliance deliveries and furniture assembly to heavy transport, staffing, vehicle relocation, and technical services, we help both private customers and businesses complete projects efficiently and professionally. Our focus is simple: reliable service, flexible solutions, and customer satisfaction. Whether you need transportation, skilled manpower, installation services, or support with a specialized project, Otman is ready to help. No matter the challenge, we will find a solution.`,
-    no: `    Otman er et norsk serviceselskap grunnlagt i 2021. Vi tilbyr transport, montering, bemanning, bilutleie, IT-tjenester og logistikk­løsninger over hele Norge. \n
-    Fra levering av hvitevarer og møbler til tungtransport, bemanning, bilflytting og tekniske tjenester – vi hjelper både privatpersoner og bedrifter med å gjennomføre prosjekter effektivt og profesjonelt. Vårt fokus er enkelt: pålitelig service, fleksible løsninger og fornøyde kunder. Enten du trenger transport, kvalifisert arbeidskraft, monteringstjenester eller hjelp med et spesialisert prosjekt, står Otman klar til å hjelpe. Uansett utfordring finner vi en løsning.`,
+    en: `    Otman is a Norwegian service company established in 2021. We provide services within transport, assembly, renovation, and vehicle rental throughout Norway. \n 
+    We help both private customers and businesses with everything from delivery and installation of appliances and furniture to larger logistics and specialized assignments. With a focus on quality, flexibility, and good service, we ensure that assignments are completed efficiently and professionally. \n
+    Our goal is simple: to be a reliable partner that finds solutions when customers need them.`,
+    no: `    Otman er et norsk serviceselskap etablert i 2021. Vi leverer tjenester innen transport, montering, renovering og bilutleie over hele Norge. \n
+    Vi hjelper både privatpersoner og bedrifter med alt fra levering og montering av hvitevarer og møbler til større logistikk- og spesialoppdrag. Med fokus på kvalitet, fleksibilitet og god service sørger vi for at oppdrag blir gjennomført effektivt og profesjonelt. \n
+    Vårt mål er enkelt: å være en pålitelig partner som finner løsninger når kundene trenger det.`,
   },
 
   historyTitle: {
@@ -17,12 +19,10 @@ export const AboutContent = {
   },
 
   historyText: {
-    en: `    Otman was founded as a family business, with every aspect of the company initially managed by family members. As demand for our services grew, so did our team. Today, Otman has developed into a strong and dedicated organization made up of skilled professionals working across Norway. \n
-    Despite our growth, we have remained true to our roots. We believe that our people are the foundation of our success, which is why we take a personal and supportive approach to every team member. We value trust, teamwork, and mutual respect, creating a work environment that feels more like a family than a traditional workplace. \n
-    As Otman continues to expand, we remain committed to preserving the values that shaped the company from the beginning: strong relationships, reliability, and a genuine commitment to both our employees and customers. These principles allow us to grow while still proudly calling ourselves a family-founded company.`,
-    no: `    Otman ble grunnlagt som en familiebedrift, der alle deler av virksomheten i starten ble drevet av familiemedlemmer. Etter hvert som etterspørselen etter våre tjenester økte, vokste også teamet vårt. I dag har Otman utviklet seg til en sterk og dedikert organisasjon bestående av dyktige fagfolk som jobber over hele Norge. \n 
-    Selv om selskapet har vokst, har vi holdt fast ved verdiene våre. Vi mener at menneskene våre er grunnlaget for suksessen vår, og derfor har vi en personlig og inkluderende tilnærming til hver enkelt medarbeider. Tillit, samarbeid og gjensidig respekt står sentralt i kulturen vår, og vi jobber for å skape et arbeidsmiljø som føles mer som en familie enn en tradisjonell arbeidsplass. \n 
-    Mens Otman fortsetter å vokse, er vi opptatt av å bevare verdiene som har preget selskapet siden starten – sterke relasjoner, pålitelighet og et genuint engasjement for både ansatte og kunder. Det er disse prinsippene som gjør at vi fortsatt med stolthet kan kalle oss en familiebedrift.`,
+    en: `    Otman was founded as a family business and has built its operations on trust, quality, and strong relationships since the beginning. As demand for our services has increased, the organization has also grown. Today, Otman consists of a dedicated team of skilled employees who deliver services across half of Norway. \n
+    Even though the company has developed, we still hold on to the values that made us what we are today. We believe in long-term relationships, personal follow-up, and a genuine commitment to both employees and customers. These are the principles that still allow us to proudly call ourselves a family business.`,
+    no: `    Otman ble grunnlagt som en familiebedrift og har siden oppstarten bygget virksomheten på tillit, kvalitet og sterke relasjoner. Etter hvert som etterspørselen etter våre tjenester har økt, har også organisasjonen vokst. I dag består Otman av et dedikert team med dyktige medarbeidere som leverer tjenester over halve Norge. \n 
+    Selv om selskapet har utviklet seg, holder vi fortsatt fast ved verdiene som gjorde oss til det vi er i dag. Vi tror på langsiktige relasjoner, personlig oppfølging og et genuint engasjement for både ansatte og kunder. Det er disse prinsippene som fortsatt gjør at vi med stolthet kan kalle oss en familiebedrift.`,
   },
 
   teamTitle: {

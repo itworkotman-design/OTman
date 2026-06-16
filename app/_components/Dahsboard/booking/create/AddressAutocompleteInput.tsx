@@ -157,7 +157,7 @@ export default function AddressAutocompleteInput({
         }}
         disabled={disabled}
         placeholder={placeholder}
-        className="customInput w-full"
+        className="customInput bg-white w-full"
         autoComplete="off"
       />
 

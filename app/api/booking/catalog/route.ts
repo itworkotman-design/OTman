@@ -22,37 +22,48 @@ function toDateInputValue(value: Date | null) {
 }
 
 export async function GET(req: Request) {
-  const session = await getAuthenticatedSession(req);
-
-  if (!session) {
-    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
-  }
-
-  if (!session.activeCompanyId) {
-    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
-  }
-
   const { searchParams } = new URL(req.url);
   const requestedPriceListId = searchParams.get("priceListId");
 
-  const membership = await getActiveMembership({
-    userId: session.userId,
-    companyId: session.activeCompanyId,
-  });
+  const publicPriceListId = process.env.PUBLIC_CATALOG_PRICELIST_ID;
+  const isPublicRequest =
+    publicPriceListId &&
+    requestedPriceListId === publicPriceListId;
 
-  if (!membership) {
-    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
-  }
+  let effectivePriceListId: string | null = null;
 
-  if (requestedPriceListId && membership.role === "USER") {
-    if (!membership.priceListIds.includes(requestedPriceListId)) {
+  if (isPublicRequest) {
+    effectivePriceListId = requestedPriceListId;
+  } else {
+    const session = await getAuthenticatedSession(req);
+
+    if (!session) {
+      return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
+    }
+
+    if (!session.activeCompanyId) {
+      return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
+    }
+
+    const membership = await getActiveMembership({
+      userId: session.userId,
+      companyId: session.activeCompanyId,
+    });
+
+    if (!membership) {
       return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
     }
-  }
 
-  const effectivePriceListId =
-    requestedPriceListId ||
-    (membership.priceListIds.length === 1 ? membership.priceListIds[0] : null);
+    if (requestedPriceListId && membership.role === "USER") {
+      if (!membership.priceListIds.includes(requestedPriceListId)) {
+        return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
+      }
+    }
+
+    effectivePriceListId =
+      requestedPriceListId ||
+      (membership.priceListIds.length === 1 ? membership.priceListIds[0] : null);
+  }
 
   if (!effectivePriceListId) {
     return NextResponse.json({ ok: false, reason: "PRICE_LIST_NOT_ASSIGNED" }, { status: 409 });
