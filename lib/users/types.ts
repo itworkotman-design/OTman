@@ -38,6 +38,18 @@ export type Membership = {
   permissions: { permission: AppPermission }[];
 };
 
+export type PendingInvite = {
+  id: string;
+  email: string;
+  role: Role;
+  status: "PENDING";
+  createdAt: string;
+  expiresAt: string;
+  username: string | null;
+  phoneNumber: string | null;
+  description: string | null;
+};
+
 export type UserOption = {
   id: string;
   name: string;

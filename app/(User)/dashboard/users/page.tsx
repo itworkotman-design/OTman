@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import UserModal from "@/app/_components/Dahsboard/users/UserModal";
 import { useRouter } from "next/navigation";
-import type { Role, Membership } from "@/lib/users/types";
+import type { Role, Membership, PendingInvite } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { getAccessLabel } from "@/lib/users/access";
 import {
@@ -64,6 +64,8 @@ export default function UserPage() {
   const [priceLists, setPriceLists] = useState<{ id: string; name: string }[]>(
     [],
   );
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -99,19 +101,25 @@ export default function UserPage() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("/api/auth/memberships", {
-        method: "GET",
-        credentials: "include",
-      });
+      const [membershipsRes, invitesRes] = await Promise.all([
+        fetch("/api/auth/memberships", { method: "GET", credentials: "include" }),
+        fetch("/api/auth/invites", { method: "GET", credentials: "include" }),
+      ]);
 
-      const data = await res.json().catch(() => null);
+      const [membershipsData, invitesData] = await Promise.all([
+        membershipsRes.json().catch(() => null),
+        invitesRes.json().catch(() => null),
+      ]);
 
-      if (!res.ok || !data?.ok) {
-        setError(data?.reason || "Failed to load users");
+      if (!membershipsRes.ok || !membershipsData?.ok) {
+        setError(membershipsData?.reason || "Failed to load users");
         return;
       }
 
-      setUsers(data.memberships);
+      setUsers(membershipsData.memberships);
+      if (invitesRes.ok && invitesData?.ok) {
+        setPendingInvites(invitesData.invites);
+      }
     } catch {
       setError("Failed to load users");
     } finally {
@@ -265,6 +273,24 @@ export default function UserPage() {
     router.refresh();
     setOpen(false);
     setSelectedUser(null);
+  }
+
+  async function revokeInvite(inviteId: string) {
+    setRevokingId(inviteId);
+    try {
+      const res = await fetch(`/api/auth/invites/${inviteId}/revoke`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        alert(data?.reason || "Failed to revoke invite");
+        return;
+      }
+      await loadUsers();
+    } finally {
+      setRevokingId(null);
+    }
   }
 
   return (
@@ -471,6 +497,83 @@ export default function UserPage() {
                 </button>
               </div>
             </div>
+
+            {!loading && !error && pendingInvites.length > 0 && (
+              <div className="mb-6">
+                <h2 className="mb-2 text-base font-semibold text-textColorSecond">
+                  Pending Invitations ({pendingInvites.length})
+                </h2>
+                <table className="w-full border-y border-black/10">
+                  <thead>
+                    <tr className="border-y border-black/10 bg-amber-500/10 text-left text-textColorSecond">
+                      <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                        Username
+                      </th>
+                      <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                        Email
+                      </th>
+                      <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                        Number
+                      </th>
+                      <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                        Description
+                      </th>
+                      <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                        Role
+                      </th>
+                      <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                        Invited
+                      </th>
+                      <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
+                        Expires
+                      </th>
+                      <th className="whitespace-nowrap px-4 py-3 font-medium" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingInvites.map((invite) => (
+                      <tr
+                        key={invite.id}
+                        className="border-b border-black/10 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+                      >
+                        <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                          {invite.username || "-"}
+                        </td>
+                        <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                          {invite.email}
+                        </td>
+                        <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                          {invite.phoneNumber || "-"}
+                        </td>
+                        <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                          <div className="max-w-[220] truncate">
+                            {invite.description || "-"}
+                          </div>
+                        </td>
+                        <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                          {invite.role}
+                        </td>
+                        <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                          {new Date(invite.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                          {new Date(invite.expiresAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-2">
+                          <button
+                            className="customButtonDefault text-sm bg-red-600! text-white! hover:bg-red-700!"
+                            disabled={revokingId === invite.id}
+                            onClick={() => revokeInvite(invite.id)}
+                          >
+                            {revokingId === invite.id ? "Revoking..." : "Revoke"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {loading ? (
               <div className="py-6 text-textColorThird">Loading users...</div>
