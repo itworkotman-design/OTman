@@ -321,6 +321,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // Orders that are completed, invoiced, or paid are considered finalised.
+    // GSM webhooks must not alter their status, fields, or events in any way.
+    const normalisedOrderStatus = normalizeOrderStatus(orderBeforeUpdate.status);
+    const isOrderFinalised =
+      normalisedOrderStatus === "completed" ||
+      normalisedOrderStatus === "invoiced" ||
+      normalisedOrderStatus === "paid";
+
+    if (isOrderFinalised) {
+      await prisma.gsmWebhookEvent.update({
+        where: { id: event.id },
+        data: {
+          processed: true,
+          processingError: "ORDER_FINALISED",
+          processedAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({ ok: true });
+    }
+
     // POD is per task — sync whenever a task completes regardless of order status
     if (gsmTaskId && taskState === "completed") {
       syncPodPdfInBackground(orderId, gsmTaskId);
