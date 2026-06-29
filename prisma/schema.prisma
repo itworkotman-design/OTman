@@ -764,3 +764,12 @@ enum SpecialOptionType {
   XTRA
   EXTRA_SERVICE
 }
+
+model ShiftLeader {
+  id        String   @id @default(cuid())
+  companyId String   @unique
+  userId    String
+  username  String
+  date      String
+  setAt     DateTime @default(now())
+}
