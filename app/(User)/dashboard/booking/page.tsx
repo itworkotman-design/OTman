@@ -377,6 +377,11 @@ export default function BookingPage() {
       }
 
       setChangeFlags((prev) => ({ ...prev, hasNewOrders: true }));
+
+      if (selectedOrderIds.length === 1 && data.orderIds?.[0]) {
+        setSelectedOrderId(data.orderIds[0]);
+        setModalOpen(true);
+      }
     } catch {
       setCustomerActionError("Failed to copy selected orders");
     } finally {
