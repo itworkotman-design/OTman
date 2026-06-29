@@ -168,6 +168,15 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
       unitPrice: deviationPrices.customerPrice,
       subcontractorUnitPrice: deviationPrices.subcontractorPrice,
     });
+  } else if (deviation && deviation.trim()) {
+    extraItems.push({
+      kind: "customPrice",
+      code: "CUSTOM_DEVIATION",
+      label: deviation.trim(),
+      qty: 1,
+      unitPrice: 0,
+      subcontractorUnitPrice: 0,
+    });
   }
 
   if (extraWorkFee.blocks > 0) {

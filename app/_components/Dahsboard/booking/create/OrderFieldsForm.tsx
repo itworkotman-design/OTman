@@ -341,6 +341,8 @@ export default function OrderFieldsForm({
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const [sundayBlocked, setSundayBlocked] = useState(false);
+  const isKnownDeviation = (v: string) => !v || DEVIATION_FEE_OPTIONS.some((o) => o.englishLabel === v);
+  const [isCustomDeviation, setIsCustomDeviation] = useState(() => !isKnownDeviation(deviation));
   const sundayBlockedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showLiftField = shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
   const customTimeFromMinutes = parseCustomTimeToMinutes(customTimeFrom);
@@ -833,14 +835,35 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.Deviation) && (
         <>
           <h1 className="font-bold py-2">{locale === "nb" ? "Avvik" : "Deviation"}</h1>
-          <select value={deviation} onChange={(e) => setDeviation(e.target.value)} className="customInput w-full">
+          <select
+            value={isCustomDeviation ? "__custom__" : deviation}
+            onChange={(e) => {
+              if (e.target.value === "__custom__") {
+                setIsCustomDeviation(true);
+                setDeviation("");
+              } else {
+                setIsCustomDeviation(false);
+                setDeviation(e.target.value);
+              }
+            }}
+            className="customInput w-full"
+          >
             <option value="">{t("Choose")}</option>
             {DEVIATION_FEE_OPTIONS.map((option) => (
               <option key={option.code} value={option.englishLabel}>
                 {option.englishLabel}
               </option>
             ))}
+            <option value="__custom__">{locale === "nb" ? "Egendefinert" : "Custom"}</option>
           </select>
+          {isCustomDeviation && (
+            <input
+              className="customInput w-full mt-2"
+              placeholder={locale === "nb" ? "Beskriv avviket..." : "Describe the deviation..."}
+              value={deviation}
+              onChange={(e) => setDeviation(e.target.value)}
+            />
+          )}
         </>
       )}
 
