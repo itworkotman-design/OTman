@@ -25,6 +25,7 @@ import {
   sanitizeVisibleBookingArchiveColumns,
   type BookingArchiveColumnId,
 } from "@/lib/booking/archiveColumns";
+import ShiftLeaderBanner from "@/app/_components/Dahsboard/booking/ShiftLeaderBanner";
 
 type FilterOptionApiItem = {
   id: string;
@@ -551,6 +552,8 @@ export default function BookingPage() {
       <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl text-weird-landscape-large margin-weird-landscape">
         {bookingText(locale, "Booking orders")}
       </h1>
+
+      <ShiftLeaderBanner currentUserId={currentUser?.id} />
 
       <div className="flex flex-col gap-3  padding-weird-landscape">
         <BookingFilters
