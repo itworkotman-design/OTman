@@ -9,6 +9,7 @@ import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/Produ
 import { CalculatorDisplayNew } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
+import { buildCalculatorBreakdownsWithOrderExtras, parseDistanceKm, parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
 import {
   createEmptyProductCard,
   type SavedProductCard,
@@ -17,10 +18,14 @@ import {
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { CloseButton } from "../../utils/CloseButton";
+import { createDefaultPriceListSettings, normalizePriceListSettings, type PriceListSettings } from "@/lib/products/priceListSettings";
 
 type Props = { service: ServiceGroup; locale: Locale; onClose: () => void };
 type BaseForm = { name: string; email: string; phone: string; notes: string };
 type CollectionForm = {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
   pickupAddress: string;
   dropoffAddress: string;
   pickupContactName: string;
@@ -61,10 +66,18 @@ type CarForm = BaseForm & {
 };
 
 type CollectionErrors = {
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  products?: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
   pickupContactPhone?: string;
   pickupContactEmail?: string;
   dropoffContactPhone?: string;
   dropoffContactEmail?: string;
+  preferredDate?: string;
+  timeWindow?: string;
 };
 type TransportErrors = {
   phone?: string;
@@ -72,6 +85,9 @@ type TransportErrors = {
 };
 
 const collection0: CollectionForm = {
+  customerName: "",
+  customerEmail: "",
+  customerPhone: "",
   pickupAddress: "",
   dropoffAddress: "",
   pickupContactName: "",
@@ -242,11 +258,6 @@ function FieldError({ message }: { message?: string }) {
 }
 
 export function ServiceModal({ service, locale, onClose }: Props) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const onOverlay = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === overlayRef.current) onClose();
-  };
-
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -254,22 +265,21 @@ export function ServiceModal({ service, locale, onClose }: Props) {
   }, [onClose]);
 
   return (
-    <div ref={overlayRef} onClick={onOverlay} className="fixed inset-0 z-50 flex items-center justify-center bg-[#091030]/45 px-4 py-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#091030]/45 px-4 py-6 backdrop-blur-sm">
       <ServiceModalBody key={service.id} service={service} locale={locale} onClose={onClose} />
     </div>
   );
 }
 
 function ServiceModalBody({ service, locale, onClose }: Props) {
-  const initialCategoryId = firstCategory(service)?.id ?? "";
-  const [selectedCategoryId, setSelectedCategoryId] = useState(initialCategoryId);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [collection, setCollection] = useState<CollectionForm>(collection0);
   const [transport, setTransport] = useState<TransportForm>(transport0);
   const [manpower, setManpower] = useState<ManpowerForm>(manpower0);
   const [car, setCar] = useState<CarForm>(car0);
   const [collectionErrors, setCollectionErrors] = useState<CollectionErrors>({});
   const [transportErrors, setTransportErrors] = useState<TransportErrors>({});
+  const [sameAsCustomer, setSameAsCustomer] = useState(false);
+  const [sameAsDropoff, setSameAsDropoff] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -277,9 +287,14 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
   const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<CatalogSpecialOption[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [priceListSettings, setPriceListSettings] = useState<PriceListSettings>(createDefaultPriceListSettings());
   const [productCards, setProductCards] = useState<SavedProductCard[]>([createEmptyProductCard(0)]);
   const [expandedCardId, setExpandedCardId] = useState<number | null>(0);
+  const [drivingDistance, setDrivingDistance] = useState("");
+  const [expressDelivery, setExpressDelivery] = useState(false);
+  const [extraPickupAddresses, setExtraPickupAddresses] = useState<string[]>([]);
   const nextCardId = useRef(1);
+  const distanceAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (service.formVariant !== "transport") return;
@@ -295,6 +310,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
         const data = await res.json();
         setCatalogProducts(data.products ?? []);
         setCatalogSpecialOptions(data.specialOptions ?? []);
+        setPriceListSettings(normalizePriceListSettings(data.priceListSettings));
       } catch (err) {
         if ((err as { name?: string })?.name !== "AbortError") {
           setCatalogError("Could not load product catalog");
@@ -307,23 +323,114 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
     return () => controller.abort();
   }, [service.formVariant]);
 
+  useEffect(() => {
+    const date = collection.preferredDate;
+    const timeWindow = collection.timeWindow;
+    if (!date) {
+      setExpressDelivery(false);
+      return;
+    }
+    const startHH = timeWindow === "16:00-21:00" ? 16 : 10;
+    const deliveryStart = new Date(`${date}T${String(startHH).padStart(2, "0")}:00:00`);
+    const diffHours = (deliveryStart.getTime() - Date.now()) / (1000 * 60 * 60);
+    setExpressDelivery(diffHours < 24);
+  }, [collection.preferredDate, collection.timeWindow]);
+
+  useEffect(() => {
+    if (sameAsCustomer) {
+      setCollection((p) => ({
+        ...p,
+        pickupContactName: p.customerName,
+        pickupContactPhone: p.customerPhone,
+        pickupContactEmail: p.customerEmail,
+      }));
+    } else {
+      setCollection((p) => ({ ...p, pickupContactName: "", pickupContactPhone: "", pickupContactEmail: "" }));
+    }
+  }, [sameAsCustomer, collection.customerName, collection.customerPhone, collection.customerEmail]);
+
+  useEffect(() => {
+    if (sameAsDropoff) {
+      setCollection((p) => ({
+        ...p,
+        dropoffContactName: p.customerName,
+        dropoffContactPhone: p.customerPhone,
+        dropoffContactEmail: p.customerEmail,
+      }));
+    } else {
+      setCollection((p) => ({ ...p, dropoffContactName: "", dropoffContactPhone: "", dropoffContactEmail: "" }));
+    }
+  }, [sameAsDropoff, collection.customerName, collection.customerPhone, collection.customerEmail]);
+
+  useEffect(() => {
+    const pickup = collection.pickupAddress.trim();
+    const dropoff = collection.dropoffAddress.trim();
+
+    if (!pickup || !dropoff) {
+      setDrivingDistance("");
+      return;
+    }
+
+    distanceAbortRef.current?.abort();
+    const controller = new AbortController();
+    distanceAbortRef.current = controller;
+
+    const filledExtras = extraPickupAddresses.filter((a) => a.trim().length > 0);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/site/route-distance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pickupAddress: pickup, extraPickupAddresses: filledExtras, deliveryAddress: dropoff }),
+          signal: controller.signal,
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.ok && typeof data.distanceKm === "string") {
+          setDrivingDistance(data.distanceKm);
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
+    }, 700);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [collection.pickupAddress, collection.dropoffAddress, extraPickupAddresses]);
+
   const priceLookup = useMemo(() => buildPriceLookup(catalogProducts, catalogSpecialOptions), [catalogProducts, catalogSpecialOptions]);
   const productBreakdowns = useMemo(
-    () => buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions),
-    [productCards, catalogProducts, catalogSpecialOptions],
+    () =>
+      buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions, {
+        zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistance) > 100,
+        xtraPalletPrice: parsePriceSetting(priceListSettings.xtraPallet.price),
+        xtraPalletSubcontractorPrice: parsePriceSetting(priceListSettings.xtraPallet.subcontractorPrice),
+      }),
+    [productCards, catalogProducts, catalogSpecialOptions, drivingDistance, priceListSettings.xtraPallet.price, priceListSettings.xtraPallet.subcontractorPrice],
+  );
+  const calculatorBreakdowns = useMemo(
+    () =>
+      buildCalculatorBreakdownsWithOrderExtras({
+        productBreakdowns,
+        priceListSettings,
+        deviation: "",
+        drivingDistance,
+        expressDelivery,
+        extraWorkMinutes: 0,
+        feeAddToOrder: false,
+        feeExtraWork: false,
+        extraPickups: extraPickupAddresses.map((address) => ({ address })),
+        shouldUseNativeDistancePricing: true,
+      }),
+    [productBreakdowns, priceListSettings, drivingDistance, expressDelivery, extraPickupAddresses],
   );
 
-  const category = service.categories.find((item) => item.id === selectedCategoryId) ?? firstCategory(service);
+  const category = firstCategory(service);
   const collectionPickup = service.formVariant === "transport" && category?.id === "collection-pickup";
-  const sidebarCollapsed = !sidebarOpen;
-
-  const collapseSidebarForCollectionProgress = () => {
-    if (collectionPickup) setSidebarOpen(false);
-  };
-
   const updateProductCard = (cardId: number, next: SavedProductCard) => {
     setProductCards((prev) => prev.map((c) => (c.cardId === cardId ? next : c)));
-    if (next.productId) collapseSidebarForCollectionProgress();
   };
 
   const removeProductCard = (cardId: number) => {
@@ -337,22 +444,6 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
     setExpandedCardId(id);
   };
 
-  const showLocation = productCards.some((c) => c.productId !== null);
-  const noContactErrors =
-    !collectionErrors.pickupContactPhone &&
-    !collectionErrors.dropoffContactPhone &&
-    !collectionErrors.pickupContactEmail &&
-    !collectionErrors.dropoffContactEmail;
-  const showTime =
-    showLocation &&
-    Boolean(collection.pickupAddress.trim()) &&
-    Boolean(collection.dropoffAddress.trim()) &&
-    Boolean(collection.pickupContactName.trim()) &&
-    Boolean(collection.pickupContactPhone.trim()) &&
-    Boolean(collection.dropoffContactName.trim()) &&
-    Boolean(collection.dropoffContactPhone.trim()) &&
-    noContactErrors;
-  const canPlaceCollection = showTime && Boolean(collection.preferredDate) && Boolean(collection.timeWindow);
 
   const resetAndClose = () => {
     setCollection(collection0);
@@ -361,10 +452,15 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
     setCar(car0);
     setCollectionErrors({});
     setTransportErrors({});
+    setSameAsCustomer(false);
+    setSameAsDropoff(false);
     setSubmitLoading(false);
     setSubmitError(null);
     setProductCards([createEmptyProductCard(0)]);
     setExpandedCardId(0);
+    setDrivingDistance("");
+    setExpressDelivery(false);
+    setExtraPickupAddresses([]);
     nextCardId.current = 1;
     onClose();
   };
@@ -372,14 +468,39 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
   const handleCollectionSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const errs: CollectionErrors = {};
+    const req = () => (locale === "no" ? "Påkrevd" : "Required");
+
+    // 1. Your information — all required
+    if (!collection.customerName.trim()) errs.customerName = req();
+    if (!collection.customerPhone.trim()) {
+      errs.customerPhone = req();
+    } else {
+      const err = validatePhone(collection.customerPhone, locale);
+      if (err) errs.customerPhone = err;
+    }
+    if (!collection.customerEmail.trim()) {
+      errs.customerEmail = req();
+    } else {
+      const err = validateEmail(collection.customerEmail, locale);
+      if (err) errs.customerEmail = err;
+    }
+
+    // At least 1 product selected
+    if (!productCards.some((c) => c.productId !== null)) {
+      errs.products = locale === "no" ? "Velg minst ett produkt" : "Select at least one product";
+    }
+
+    // 2. Location — addresses required, phone required, email optional
+    if (!collection.pickupAddress.trim()) errs.pickupAddress = req();
+    if (!collection.dropoffAddress.trim()) errs.dropoffAddress = req();
     if (!collection.pickupContactPhone.trim()) {
-      errs.pickupContactPhone = locale === "no" ? "Påkrevd" : "Required";
+      errs.pickupContactPhone = req();
     } else {
       const err = validatePhone(collection.pickupContactPhone, locale);
       if (err) errs.pickupContactPhone = err;
     }
     if (!collection.dropoffContactPhone.trim()) {
-      errs.dropoffContactPhone = locale === "no" ? "Påkrevd" : "Required";
+      errs.dropoffContactPhone = req();
     } else {
       const err = validatePhone(collection.dropoffContactPhone, locale);
       if (err) errs.dropoffContactPhone = err;
@@ -388,6 +509,11 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
     if (peErr) errs.pickupContactEmail = peErr;
     const deErr = validateEmail(collection.dropoffContactEmail, locale);
     if (deErr) errs.dropoffContactEmail = deErr;
+
+    // 3. Timing — date and time window required
+    if (!collection.preferredDate) errs.preferredDate = req();
+    if (!collection.timeWindow) errs.timeWindow = locale === "no" ? "Velg et tidsvindu" : "Select a time window";
+
     if (Object.keys(errs).length > 0) {
       setCollectionErrors(errs);
       return;
@@ -398,7 +524,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
       const res = await fetch("/api/site/transport-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ formType: "collection", categoryId: category?.id ?? "", ...collection, productCards }),
+        body: JSON.stringify({ formType: "collection", categoryId: category?.id ?? "", ...collection, extraPickupAddresses, productCards, drivingDistance, expressDelivery }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -495,6 +621,55 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
   const transportFormUi = collectionPickup ? (
     <form className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]" onSubmit={handleCollectionSubmit}>
       <div className="grid gap-6">
+        <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
+          <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue/70 mb-4">
+            {locale === "no" ? "Dine opplysninger" : "Your information"}
+          </h4>
+          <div className="grid gap-3">
+            <div>
+              <input
+                className={collectionErrors.customerName ? inputErrCls : inputCls}
+                placeholder={locale === "no" ? "Fullt navn" : "Full name"}
+                value={collection.customerName}
+                onChange={(e) => {
+                  setCollection((p) => ({ ...p, customerName: sanitizeName(e.target.value) }));
+                  if (e.target.value.trim()) setCollectionErrors((p) => ({ ...p, customerName: undefined }));
+                }}
+              />
+              <FieldError message={collectionErrors.customerName} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <input
+                  className={collectionErrors.customerPhone ? inputErrCls : inputCls}
+                  placeholder={locale === "no" ? "Telefon" : "Phone"}
+                  value={collection.customerPhone}
+                  inputMode="tel"
+                  onChange={(e) => {
+                    const v = sanitizePhone(e.target.value);
+                    setCollection((p) => ({ ...p, customerPhone: v }));
+                    setCollectionErrors((p) => ({ ...p, customerPhone: validatePhone(v, locale) ?? undefined }));
+                  }}
+                />
+                <FieldError message={collectionErrors.customerPhone} />
+              </div>
+              <div>
+                <input
+                  className={collectionErrors.customerEmail ? inputErrCls : inputCls}
+                  placeholder={locale === "no" ? "E-post" : "Email"}
+                  value={collection.customerEmail}
+                  onChange={(e) => {
+                    const v = sanitizeText(e.target.value);
+                    setCollection((p) => ({ ...p, customerEmail: v }));
+                    setCollectionErrors((p) => ({ ...p, customerEmail: validateEmail(v, locale) ?? undefined }));
+                  }}
+                />
+                <FieldError message={collectionErrors.customerEmail} />
+              </div>
+            </div>
+          </div>
+        </div>
+
         {productCards.map((card, index) => (
           <ProductCardNew
             key={card.cardId}
@@ -522,28 +697,63 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
           <span className="text-lg leading-none">+</span>
           {locale === "no" ? "Legg til produkt" : "Add product"}
         </button>
+        <FieldError message={collectionErrors.products} />
 
-        {showLocation && (
-          <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
+        <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
             <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue/70 mb-4">
-              {locale === "no" ? "2. Lokasjon og kontakt" : "2. Location and contact"}
+              {locale === "no" ? "Lokasjon og kontakt" : "Location and contact"}
             </h4>
             <div className="grid gap-4">
-              <AddressAutocompleteInput
-                value={collection.pickupAddress}
-                onChange={(value) => {
-                  setCollection((p) => ({ ...p, pickupAddress: sanitizeText(value) }));
-                  if (value.trim()) collapseSidebarForCollectionProgress();
-                }}
-                placeholder={locale === "no" ? "Henteadresse" : "Pickup address"}
-              />
+              <div className="grid gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-black/40">{locale === "no" ? "Henting" : "Pickup"}</p>
+                <AddressAutocompleteInput
+                  value={collection.pickupAddress}
+                  onChange={(value) => {
+                    setCollection((p) => ({ ...p, pickupAddress: sanitizeText(value) }));
+                  }}
+                  placeholder={locale === "no" ? "Henteadresse" : "Pickup address"}
+                />
+                <FieldError message={collectionErrors.pickupAddress} />
+                {extraPickupAddresses.map((addr, i) => (
+                  <div key={i} className="flex gap-2">
+                    <div className="flex-1">
+                      <AddressAutocompleteInput
+                        value={addr}
+                        onChange={(value) => setExtraPickupAddresses((prev) => prev.map((a, idx) => (idx === i ? sanitizeText(value) : a)))}
+                        placeholder={locale === "no" ? `Ekstra hentested ${i + 2}` : `Extra pickup ${i + 2}`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setExtraPickupAddresses((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="shrink-0 flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-white text-black/40 transition hover:border-red-300 hover:text-red-500"
+                      aria-label={locale === "no" ? "Fjern" : "Remove"}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setExtraPickupAddresses((prev) => [...prev, ""])}
+                  className="self-start flex items-center gap-1.5 text-xs font-semibold text-logoblue/70 transition hover:text-logoblue"
+                >
+                  <span className="text-base leading-none">+</span>
+                  {locale === "no" ? "Legg til hentested" : "Add pickup location"}
+                </button>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2.5 py-1">
+                <input type="checkbox" checked={sameAsCustomer} onChange={(e) => setSameAsCustomer(e.target.checked)} className="h-4 w-4 accent-logoblue" />
+                <span className="text-sm text-black/60">{locale === "no" ? "Fyll ut med mine opplysninger" : "Autofill with my details"}</span>
+              </label>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <input
                     className={inputCls}
                     placeholder={locale === "no" ? "Kontaktperson henting" : "Pickup contact"}
                     value={collection.pickupContactName}
-                    onChange={(e) => setCollection((p) => ({ ...p, pickupContactName: sanitizeName(e.target.value) }))}
+                    readOnly={sameAsCustomer}
+                    onChange={(e) => !sameAsCustomer && setCollection((p) => ({ ...p, pickupContactName: sanitizeName(e.target.value) }))}
                   />
                 </div>
                 <div>
@@ -552,7 +762,9 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                     placeholder={locale === "no" ? "Telefon henting" : "Pickup phone"}
                     value={collection.pickupContactPhone}
                     inputMode="tel"
+                    readOnly={sameAsCustomer}
                     onChange={(e) => {
+                      if (sameAsCustomer) return;
                       const v = sanitizePhone(e.target.value);
                       setCollection((p) => ({ ...p, pickupContactPhone: v }));
                       setCollectionErrors((p) => ({ ...p, pickupContactPhone: validatePhone(v, locale) ?? undefined }));
@@ -565,7 +777,9 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                     className={collectionErrors.pickupContactEmail ? inputErrCls : inputCls}
                     placeholder={locale === "no" ? "E-post henting" : "Pickup email"}
                     value={collection.pickupContactEmail}
+                    readOnly={sameAsCustomer}
                     onChange={(e) => {
+                      if (sameAsCustomer) return;
                       const v = sanitizeText(e.target.value);
                       setCollection((p) => ({ ...p, pickupContactEmail: v }));
                       setCollectionErrors((p) => ({ ...p, pickupContactEmail: validateEmail(v, locale) ?? undefined }));
@@ -574,21 +788,29 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                   <FieldError message={collectionErrors.pickupContactEmail} />
                 </div>
               </div>
-              <AddressAutocompleteInput
-                value={collection.dropoffAddress}
-                onChange={(value) => {
-                  setCollection((p) => ({ ...p, dropoffAddress: sanitizeText(value) }));
-                  if (value.trim()) collapseSidebarForCollectionProgress();
-                }}
-                placeholder={locale === "no" ? "Leveringsadresse" : "Drop-off address"}
-              />
+              <div className="grid gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-black/40">{locale === "no" ? "Levering" : "Drop-off"}</p>
+                <AddressAutocompleteInput
+                  value={collection.dropoffAddress}
+                  onChange={(value) => {
+                    setCollection((p) => ({ ...p, dropoffAddress: sanitizeText(value) }));
+                  }}
+                  placeholder={locale === "no" ? "Leveringsadresse" : "Drop-off address"}
+                />
+                <FieldError message={collectionErrors.dropoffAddress} />
+              </div>
+              <label className="flex cursor-pointer items-center gap-2.5 py-1">
+                <input type="checkbox" checked={sameAsDropoff} onChange={(e) => setSameAsDropoff(e.target.checked)} className="h-4 w-4 accent-logoblue" />
+                <span className="text-sm text-black/60">{locale === "no" ? "Fyll ut med mine opplysninger" : "Autofill with my details"}</span>
+              </label>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <input
                     className={inputCls}
                     placeholder={locale === "no" ? "Kontaktperson levering" : "Drop-off contact"}
                     value={collection.dropoffContactName}
-                    onChange={(e) => setCollection((p) => ({ ...p, dropoffContactName: sanitizeName(e.target.value) }))}
+                    readOnly={sameAsDropoff}
+                    onChange={(e) => !sameAsDropoff && setCollection((p) => ({ ...p, dropoffContactName: sanitizeName(e.target.value) }))}
                   />
                 </div>
                 <div>
@@ -597,7 +819,9 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                     placeholder={locale === "no" ? "Telefon levering" : "Drop-off phone"}
                     value={collection.dropoffContactPhone}
                     inputMode="tel"
+                    readOnly={sameAsDropoff}
                     onChange={(e) => {
+                      if (sameAsDropoff) return;
                       const v = sanitizePhone(e.target.value);
                       setCollection((p) => ({ ...p, dropoffContactPhone: v }));
                       setCollectionErrors((p) => ({ ...p, dropoffContactPhone: validatePhone(v, locale) ?? undefined }));
@@ -610,7 +834,9 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                     className={collectionErrors.dropoffContactEmail ? inputErrCls : inputCls}
                     placeholder={locale === "no" ? "E-post levering" : "Drop-off email"}
                     value={collection.dropoffContactEmail}
+                    readOnly={sameAsDropoff}
                     onChange={(e) => {
+                      if (sameAsDropoff) return;
                       const v = sanitizeText(e.target.value);
                       setCollection((p) => ({ ...p, dropoffContactEmail: v }));
                       setCollectionErrors((p) => ({ ...p, dropoffContactEmail: validateEmail(v, locale) ?? undefined }));
@@ -621,12 +847,10 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
               </div>
             </div>
           </div>
-        )}
 
-        {showTime && (
-          <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
+        <div className="rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
             <HeaderBlock
-              title={locale === "no" ? "3. Tidspunkt" : "3. Timing"}
+              title={locale === "no" ? "Tidspunkt" : "Timing"}
               body={
                 locale === "no"
                   ? "Velg ønsket dato og tidsvindu, og legg ved eventuell beskrivelse."
@@ -635,11 +859,15 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
             />
             <input
               type="date"
-              className={inputCls}
+              className={collectionErrors.preferredDate ? inputErrCls : inputCls}
               value={collection.preferredDate}
               min={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => setCollection((p) => ({ ...p, preferredDate: e.target.value }))}
+              onChange={(e) => {
+                setCollection((p) => ({ ...p, preferredDate: e.target.value }));
+                if (e.target.value) setCollectionErrors((p) => ({ ...p, preferredDate: undefined }));
+              }}
             />
+            <FieldError message={collectionErrors.preferredDate} />
             <div className="grid gap-3 sm:grid-cols-2 mt-4">
               {transportTimeWindows.map((window) => {
                 const active = collection.timeWindow === window;
@@ -647,14 +875,18 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
                   <button
                     key={window}
                     type="button"
-                    onClick={() => setCollection((p) => ({ ...p, timeWindow: window }))}
-                    className={`rounded-2xl border px-4 py-4 text-left transition ${active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-[#f8faff] text-logoblue"}`}
+                    onClick={() => {
+                      setCollection((p) => ({ ...p, timeWindow: window }));
+                      setCollectionErrors((p) => ({ ...p, timeWindow: undefined }));
+                    }}
+                    className={`rounded-2xl border px-4 py-4 text-left transition ${active ? "border-logoblue bg-logoblue text-white" : collectionErrors.timeWindow ? "border-red-400 bg-[#f8faff] text-logoblue" : "border-black/8 bg-[#f8faff] text-logoblue"}`}
                   >
-                    <p className="font-semibold">{window}</p>
+                    <p className="font-semibold">{window.replace(/:00/g, "")}</p>
                   </button>
                 );
               })}
             </div>
+            <FieldError message={collectionErrors.timeWindow} />
             <textarea
               className={`${inputCls} mt-4 min-h-[132] resize-none`}
               placeholder={
@@ -663,27 +895,23 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
               value={collection.notes}
               onChange={(e) => {
                 setCollection((p) => ({ ...p, notes: sanitizeText(e.target.value) }));
-                if (e.target.value.trim()) collapseSidebarForCollectionProgress();
               }}
             />
             {submitError && <p className="mt-3 text-sm text-red-500">{submitError}</p>}
-            {canPlaceCollection && (
-              <button
-                type="submit"
-                disabled={submitLoading}
-                className="mt-5 inline-flex h-12 items-center justify-center rounded-full bg-logoblue px-7 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60"
-              >
-                {submitLoading ? (locale === "no" ? "Sender..." : "Sending...") : locale === "no" ? "Legg inn ordre" : "Place an order"}
-              </button>
-            )}
-          </div>
-        )}
+            <button
+              type="submit"
+              disabled={submitLoading}
+              className="mt-5 inline-flex h-12 items-center justify-center rounded-full bg-logoblue px-7 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60"
+            >
+              {submitLoading ? (locale === "no" ? "Sender..." : "Sending...") : locale === "no" ? "Legg inn ordre" : "Place an order"}
+            </button>
+        </div>
       </div>
 
       <div className="space-y-5">
         <div className="overflow-hidden rounded-[28px] border border-white bg-white shadow-[0_20px_50px_rgba(39,48,151,0.10)]">
           <CalculatorDisplayNew
-            productBreakdowns={productBreakdowns}
+            productBreakdowns={calculatorBreakdowns}
             priceLookup={priceLookup}
             adminView={false}
             sidebarMode
@@ -764,13 +992,13 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
           </section>
 
           {category?.id === "moving-relocation" && (
-            <select
-              className={inputCls}
-              value={transport.squareMeters}
-              onChange={(e) => setTransport((p) => ({ ...p, squareMeters: e.target.value }))}
-            >
+            <select className={inputCls} value={transport.squareMeters} onChange={(e) => setTransport((p) => ({ ...p, squareMeters: e.target.value }))}>
               <option value="">{locale === "no" ? "Omtrentlig areal (valgfri)" : "Approximate area (optional)"}</option>
-              {M2_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              {M2_OPTIONS.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
             </select>
           )}
           {category?.id === "custom-transport" && (
@@ -920,77 +1148,7 @@ function ServiceModalBody({ service, locale, onClose }: Props) {
   return (
     <div className="relative max-h-[92vh] w-full max-w-[1500] overflow-hidden rounded-[32] bg-[#f6f8ff] shadow-[0_32px_100px_rgba(9,16,48,0.28)]">
       <CloseButton onClose={onClose} />
-      <div className={`grid max-h-[92vh] overflow-y-auto ${sidebarCollapsed ? "lg:grid-cols-[40px_minmax(0,1fr)]" : "lg:grid-cols-[320px_minmax(0,1fr)]"}`}>
-        <aside className={`relative overflow-hidden bg-logoblue text-white transition-all duration-300 ${sidebarCollapsed ? "lg:w-[40] lg:px-0 lg:py-0 px-5 py-3" : "px-6 py-8"}`}>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.06),transparent)]" />
-          {!sidebarCollapsed && (
-            <div className="relative">
-              <div className="mb-0 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen(false)}
-                  className="grid h-6 w-6 place-items-center text-white transition hover:font-bold cursor-pointer"
-                  aria-label={locale === "no" ? "Lukk kategorier" : "Close categories"}
-                >
-                  <span className="rotate-180 text-lg leading-none">{">"}</span>
-                </button>
-              </div>
-              <div>
-                <h2 className="mt-4 max-w-[12ch] text-3xl font-semibold leading-tight">{service.modalTitle[locale]}</h2>
-                <p className="mt-4 text-sm leading-6 text-white/76">{service.modalIntro[locale]}</p>
-              </div>
-              <div className="mt-8 space-y-3">
-                {service.categories.map((item) => {
-                  const active = item.id === category?.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setSelectedCategoryId(item.id)}
-                      className={`w-full rounded-[24] border px-4 py-4 text-left transition ${active ? "border-white bg-white text-logoblue shadow-lg" : "border-white/12 bg-white/8 text-white hover:bg-white/12"}`}
-                    >
-                      <p className="text-sm font-semibold">{item.title[locale]}</p>
-                      <p className={`mt-2 text-sm leading-5 ${active ? "text-logoblue/72" : "text-white/68"}`}>{item.description[locale]}</p>
-                    </button>
-                  );
-                })}
-              </div>
-              {/* Mobile-only close button at bottom of open sidebar */}
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                className="lg:hidden mt-6 w-full rounded-2xl border border-white/20 py-3 text-sm font-semibold text-white"
-              >
-                {locale === "no" ? "Lukk" : "Close"}
-              </button>
-            </div>
-          )}
-          {sidebarCollapsed && (
-            <>
-              {/* Mobile: full-width "show categories" row */}
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden relative flex w-full items-center justify-between text-sm font-semibold text-white"
-                aria-label={locale === "no" ? "Vis kategorier" : "Show categories"}
-              >
-                <span>{locale === "no" ? "Vis kategorier" : "Show categories"}</span>
-                <span className="text-base leading-none">▾</span>
-              </button>
-              {/* Desktop: narrow strip with arrow */}
-              <div className="relative hidden lg:flex h-full w-[40] mt-6 items-start justify-center py-2">
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen(true)}
-                  className="grid h-6 w-6 place-items-center text-white transition hover:font-bold cursor-pointer"
-                  aria-label={locale === "no" ? "Apne kategorier" : "Open categories"}
-                >
-                  <span className="text-lg leading-none">{">"}</span>
-                </button>
-              </div>
-            </>
-          )}
-        </aside>
+      <div className="max-h-[92vh] overflow-y-auto">
         <section className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
           <div className="mb-8 flex items-start justify-between gap-5 rounded-[28px] border border-white bg-white px-5 py-5 shadow-[0_18px_50px_rgba(39,48,151,0.08)]">
             <div>

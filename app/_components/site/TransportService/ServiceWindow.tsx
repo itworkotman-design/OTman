@@ -18,8 +18,7 @@ type ServiceWindowProps = {
 };
 
 const NAV_MAP: Record<string, string> = {
-  "manpower-rental": "tjenester",
-  "car-rental-services": "bil-utleie",
+  "all-services": "tjenester",
 };
 
 export function ServiceWindow({

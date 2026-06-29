@@ -13,6 +13,11 @@ import { TRANSPORT_PACKAGE_PRICELIST_ID } from "@/lib/content/TransportRequestCo
 import { sendEmail } from "@/lib/email/sendEmail";
 import { ORDER_NOTIFICATION_EMAIL } from "@/lib/orders/orderNotificationEmail";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
+import { buildCalculatorBreakdownsWithOrderExtras, parseDistanceKm, parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
+import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
+import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
+import { normalizePriceListSettings } from "@/lib/products/priceListSettings";
 
 // Module-level rate limit state — persists across warm invocations
 const _rl = { lastAt: 0, dayStr: "", dayCount: 0 };
@@ -65,15 +70,17 @@ function str(v: unknown): string | null {
   return s || null;
 }
 
-function formatDropoffContact(body: RequestBody): string | null {
+function buildCollectionDescription(body: RequestBody): string | null {
   const parts: string[] = [];
-  const name = str(body.dropoffContactName);
-  const phone = str(body.dropoffContactPhone);
-  const email = str(body.dropoffContactEmail);
-  if (name) parts.push(`Drop-off: ${name}`);
-  if (phone) parts.push(`Phone: ${phone}`);
-  if (email) parts.push(`Email: ${email}`);
-  return parts.length > 0 ? parts.join(" · ") : null;
+  const createdBy = [str(body.customerName), str(body.customerPhone), str(body.customerEmail)].filter(Boolean).join(" / ");
+  if (createdBy) parts.push(`Order created by: ${createdBy}`);
+  const pickupContact = [str(body.pickupContactName), str(body.pickupContactPhone), str(body.pickupContactEmail)].filter(Boolean).join(" / ");
+  if (pickupContact) parts.push(`Pickup contact: ${pickupContact}`);
+  const dropoffContact = [str(body.dropoffContactName), str(body.dropoffContactPhone), str(body.dropoffContactEmail)].filter(Boolean).join(" / ");
+  if (dropoffContact) parts.push(`Dropoff contact: ${dropoffContact}`);
+  const notes = str(body.notes);
+  if (notes) parts.push(notes);
+  return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
 function row(label: string, value: string | null | undefined) {
@@ -102,6 +109,9 @@ function emailHtml(subject: string, tableRows: string): string {
 
 async function sendCollectionEmail(body: RequestBody): Promise<void> {
   const subject = getCategorySubject(str(body.categoryId));
+  const customerName = str(body.customerName) ?? "—";
+  const customerPhone = str(body.customerPhone) ?? "—";
+  const customerEmail = str(body.customerEmail);
   const pickup = str(body.pickupAddress) ?? "—";
   const dropoff = str(body.dropoffAddress) ?? "—";
   const pickupName = str(body.pickupContactName) ?? "—";
@@ -116,6 +126,9 @@ async function sendCollectionEmail(body: RequestBody): Promise<void> {
   const productCount = Array.isArray(body.productCards) ? body.productCards.length : 0;
 
   const tableRows = [
+    row("Order created by", customerName),
+    row("Customer phone", customerPhone),
+    customerEmail ? row("Customer email", customerEmail) : "",
     row("Pickup address", pickup),
     row("Pickup contact", pickupName),
     row("Pickup phone", pickupPhone),
@@ -134,8 +147,8 @@ async function sendCollectionEmail(body: RequestBody): Promise<void> {
     to: { email: ORDER_NOTIFICATION_EMAIL },
     subject,
     html: emailHtml(subject, tableRows),
-    text: `${subject}\n\nPickup: ${pickup}\nPickup contact: ${pickupName} / ${pickupPhone}${pickupEmail ? ` / ${pickupEmail}` : ""}\nDrop-off: ${dropoff}\nDrop-off contact: ${dropoffName} / ${dropoffPhone}${dropoffEmail ? ` / ${dropoffEmail}` : ""}\nDate: ${date}\nTime: ${timeWindow}${productCount > 0 ? `\nProducts: ${productCount}` : ""}${notes ? `\nNotes: ${notes}` : ""}`,
-    ...(pickupEmail ? { replyTo: { email: pickupEmail, name: pickupName } } : {}),
+    text: `${subject}\n\nOrder created by: ${customerName} / ${customerPhone}${customerEmail ? ` / ${customerEmail}` : ""}\n\nPickup: ${pickup}\nPickup contact: ${pickupName} / ${pickupPhone}${pickupEmail ? ` / ${pickupEmail}` : ""}\nDrop-off: ${dropoff}\nDrop-off contact: ${dropoffName} / ${dropoffPhone}${dropoffEmail ? ` / ${dropoffEmail}` : ""}\nDate: ${date}\nTime: ${timeWindow}${productCount > 0 ? `\nProducts: ${productCount}` : ""}${notes ? `\nNotes: ${notes}` : ""}`,
+    ...(customerEmail ? { replyTo: { email: customerEmail, name: customerName } } : {}),
   });
 }
 
@@ -223,12 +236,51 @@ async function createWebsiteOrder(body: RequestBody): Promise<{ orderId: string;
     pricingSource.catalogSpecialOptions,
   );
 
+  const normalizedPriceListSettings = normalizePriceListSettings(catalog.priceListSettings);
+  const priceLookup = buildPriceLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
+
+  const drivingDistanceStr = str(body.drivingDistance) ?? "";
+  const expressDelivery = body.expressDelivery === true;
+  const extraPickupsForPricing = Array.isArray(body.extraPickupAddresses)
+    ? (body.extraPickupAddresses as unknown[])
+        .filter((a): a is string => typeof a === "string" && a.trim().length > 0)
+        .map((address) => ({ address }))
+    : [];
+
+  const productBreakdowns = buildProductBreakdowns(
+    productCards,
+    pricingSource.catalogProducts,
+    pricingSource.catalogSpecialOptions,
+    {
+      zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistanceStr) > 100,
+      xtraPalletPrice: parsePriceSetting(normalizedPriceListSettings.xtraPallet.price),
+      xtraPalletSubcontractorPrice: parsePriceSetting(normalizedPriceListSettings.xtraPallet.subcontractorPrice),
+    },
+  );
+
+  const fullBreakdowns = buildCalculatorBreakdownsWithOrderExtras({
+    productBreakdowns,
+    priceListSettings: normalizedPriceListSettings,
+    deviation: "",
+    drivingDistance: drivingDistanceStr,
+    expressDelivery,
+    extraWorkMinutes: 0,
+    feeAddToOrder: false,
+    feeExtraWork: false,
+    extraPickups: extraPickupsForPricing,
+    shouldUseNativeDistancePricing: true,
+  });
+
+  const pricingResult = calculateBookingPricing({ productBreakdowns: fullBreakdowns, priceLookup });
+
   const pricingSnapshot = buildOrderPricingSnapshot({
     lines: builtItems,
     rabatt: null,
     leggTil: null,
     subcontractorMinus: null,
     subcontractorPlus: null,
+    fallbackCustomerTotalExVat: pricingResult.totals.totalExVat,
+    fallbackSubcontractorTotal: pricingResult.totals.subcontractorTotal,
   });
 
   const displayId = await reserveNextManualOrderNumber(membership.companyId);
@@ -244,15 +296,16 @@ async function createWebsiteOrder(body: RequestBody): Promise<{ orderId: string;
       status: "processing",
       pickupAddress: str(body.pickupAddress),
       deliveryAddress: isCollection ? str(body.dropoffAddress) : str(body.deliveryAddress),
-      customerName: isCollection ? str(body.pickupContactName) : str(body.name),
-      phone: isCollection ? str(body.pickupContactPhone) : str(body.phone),
-      email: isCollection ? str(body.pickupContactEmail) : str(body.email),
-      customerComments: isCollection ? formatDropoffContact(body) : null,
+      customerName: isCollection ? str(body.dropoffContactName) : str(body.name),
+      phone: isCollection ? str(body.dropoffContactPhone) : str(body.phone),
+      email: isCollection ? str(body.dropoffContactEmail) : str(body.email),
       deliveryDate: str(body.preferredDate),
       timeWindow: str(body.timeWindow),
-      description: str(body.notes),
-      priceExVat: Math.round(pricingSnapshot.customer.totalExVat),
-      priceSubcontractor: Math.round(pricingSnapshot.subcontractor.total),
+      drivingDistance: isCollection ? drivingDistanceStr || null : null,
+      extraPickupAddress: isCollection ? extraPickupsForPricing.map((p) => p.address) : [],
+      description: isCollection ? buildCollectionDescription(body) : str(body.notes),
+      priceExVat: Math.round(pricingResult.totals.totalExVat),
+      priceSubcontractor: Math.round(pricingResult.totals.subcontractorTotal),
       productCardsSnapshot: productCards as unknown as Prisma.InputJsonValue,
       pricingSnapshot: pricingSnapshot as unknown as Prisma.InputJsonValue,
       ...summaries,
@@ -332,7 +385,7 @@ export async function POST(req: Request) {
   const s = (v: unknown) => String(v ?? "");
 
   // Phone validation
-  for (const field of ["pickupContactPhone", "dropoffContactPhone", "phone"] as const) {
+  for (const field of ["customerPhone", "pickupContactPhone", "dropoffContactPhone", "phone"] as const) {
     if (field in body) {
       const err = validatePhoneField(s(body[field]));
       if (err) errors[field] = err;
@@ -340,7 +393,7 @@ export async function POST(req: Request) {
   }
 
   // Email validation
-  for (const field of ["pickupContactEmail", "dropoffContactEmail", "email"] as const) {
+  for (const field of ["customerEmail", "pickupContactEmail", "dropoffContactEmail", "email"] as const) {
     if (field in body) {
       const err = validateEmailField(s(body[field]));
       if (err) errors[field] = err;
@@ -350,7 +403,7 @@ export async function POST(req: Request) {
   // Disallowed characters in text fields
   const textFields = [
     "pickupAddress", "dropoffAddress", "deliveryAddress",
-    "pickupContactName", "dropoffContactName",
+    "customerName", "pickupContactName", "dropoffContactName",
     "name", "timeWindow", "notes", "location",
   ];
   for (const field of textFields) {

@@ -18,4 +18,4 @@ export const transportDimensionLimits = {
   weight: { min: 0.1, max: 1500 },
 } as const;
 
-export const transportTimeWindows = ["10-15", "15-21"] as const;
+export const transportTimeWindows = ["10:00-16:00", "16:00-21:00"] as const;
