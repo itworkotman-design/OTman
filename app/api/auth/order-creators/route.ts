@@ -42,7 +42,7 @@ export async function GET(req: Request) {
       user: {
         status: "ACTIVE",
       },
-      ...(hasOrdersOnly ? { orders: { some: {} } } : {}),
+      ...(hasOrdersOnly ? { createdOrders: { some: {} } } : {}),
     },
     select: {
       id: true,
