@@ -302,6 +302,7 @@ async function createWebsiteOrder(body: RequestBody): Promise<{ orderId: string;
       deliveryDate: str(body.preferredDate),
       timeWindow: str(body.timeWindow),
       drivingDistance: isCollection ? drivingDistanceStr || null : null,
+      expressDelivery: isCollection ? expressDelivery : false,
       extraPickupAddress: isCollection ? extraPickupsForPricing.map((p) => p.address) : [],
       description: isCollection ? buildCollectionDescription(body) : str(body.notes),
       priceExVat: Math.round(pricingResult.totals.totalExVat),
