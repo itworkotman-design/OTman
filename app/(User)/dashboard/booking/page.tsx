@@ -288,7 +288,7 @@ export default function BookingPage() {
         return false;
       }
 
-      setSelectedOrderIds([]);
+      setChangeFlags((prev) => ({ ...prev, hasChangedOrders: true }));
       return true;
     } catch {
       setCustomerActionError("Failed to send email");
@@ -335,8 +335,7 @@ export default function BookingPage() {
       const successCount = results.filter((r) => r.ok).length;
 
       if (successCount > 0) {
-        setSelectedOrderIds([]);
-        await loadOrders(appliedFilters);
+        setChangeFlags((prev) => ({ ...prev, hasChangedOrders: true }));
         return true;
       }
 
@@ -377,8 +376,7 @@ export default function BookingPage() {
         return;
       }
 
-      setSelectedOrderIds([]);
-      await loadOrders(appliedFilters);
+      setChangeFlags((prev) => ({ ...prev, hasNewOrders: true }));
     } catch {
       setCustomerActionError("Failed to copy selected orders");
     } finally {
