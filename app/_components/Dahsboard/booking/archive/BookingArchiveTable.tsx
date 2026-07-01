@@ -43,10 +43,10 @@ const ARCHIVE_SCROLLBAR_CLASS =
   "[scrollbar-color:var(--logoblue)_#e5e7eb20] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-logoblue";
 
 const COLUMN_WIDTHS: Record<BookingArchiveColumnId, number> = {
-  displayId: 60,
+  displayId: 80,
   status: 100,
   mail: 60,
-  deliveryDate: 100,
+  deliveryDate: 120,
   timeWindow: 100,
   customerLabel: 120,
   orderNumber: 140,
@@ -57,9 +57,9 @@ const COLUMN_WIDTHS: Record<BookingArchiveColumnId, number> = {
   deliveryAddress: 220,
   orderSummary: 340,
   description: 220,
-  cashierName: 100,
-  cashierPhone: 100,
-  customerComments: 140,
+  cashierName: 120,
+  cashierPhone: 120,
+  customerComments: 160,
   driverInfo: 180,
   subcontractor: 180,
   createdAt: 120,
