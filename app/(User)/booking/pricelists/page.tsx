@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { bookingText } from "@/lib/booking/bookingUiText";
 import { useUserLanguage } from "@/lib/users/language";
-import { isSubcontractorAccess } from "@/lib/users/access";
+import { hasFullAccess, isSubcontractorAccess } from "@/lib/users/access";
 
 type PriceListSummary = {
   id: string;
@@ -151,6 +153,116 @@ export default function UserPriceListsPage() {
     );
   }, [normalRows]);
 
+  function handleDownloadPdf() {
+    if (!priceList) return;
+
+    const t = (text: string) => bookingText(locale, text);
+
+    const rowsHtml = groupedProducts
+      .map((group) =>
+        group.items
+          .map(
+            (item, index) => `
+      <tr>
+        ${index === 0 ? `<td rowspan="${group.items.length}" class="product-cell">${group.productName}</td>` : ""}
+        <td>${item.optionCode ?? "—"}</td>
+        <td>${item.description ?? item.optionLabel ?? "—"}</td>
+        <td class="price-cell">${isSubcontractor ? item.subcontractorPrice : item.effectiveCustomerPrice}</td>
+      </tr>`,
+          )
+          .join(""),
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${priceList.name}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #111; }
+    h1 { color: #1e3a6e; font-size: 20px; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: #1e3a6e; color: #fff; padding: 8px 14px; font-size: 13px; text-align: center; }
+    tbody td { padding: 7px 14px; border: 1px solid #ddd; font-size: 13px; }
+    .product-cell { font-weight: 600; text-align: center; vertical-align: middle; }
+    .price-cell { text-align: center; font-weight: 700; color: #1e3a6e; }
+    tr:nth-child(even) td { background: #f5f8ff; }
+  </style>
+</head>
+<body>
+  <h1>${priceList.name}</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>${t("Product")}</th>
+        <th>${t("Option Code")}</th>
+        <th>${t("Label")}</th>
+        <th>${t("Price (NOK)")}</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+    }, 250);
+  }
+
+  async function handleExportExcel() {
+    if (!priceList) return;
+
+    const t = (text: string) => bookingText(locale, text);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(priceList.name, {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+
+    worksheet.columns = [
+      { header: t("Product"), key: "product", width: 28 },
+      { header: t("Option Code"), key: "optionCode", width: 18 },
+      { header: t("Label"), key: "label", width: 36 },
+      { header: t("Price (NOK)"), key: "price", width: 16 },
+    ];
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A6E" } };
+    headerRow.alignment = { horizontal: "center" };
+
+    for (const group of groupedProducts) {
+      for (const item of group.items) {
+        worksheet.addRow({
+          product: group.productName,
+          optionCode: item.optionCode ?? "—",
+          label: item.description ?? item.optionLabel ?? "—",
+          price: isSubcontractor ? item.subcontractorPrice : item.effectiveCustomerPrice,
+        });
+      }
+    }
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+      row.getCell("price").alignment = { horizontal: "center" };
+      if (rowNumber % 2 === 0) {
+        row.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F8FF" } };
+        });
+      }
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${priceList.name}.xlsx`);
+  }
+
   if (!currentUser) return null;
 
   return (
@@ -181,43 +293,64 @@ export default function UserPriceListsPage() {
       )}
 
       {priceList && (
-        <div className="space-y-10">
-          {groupedProducts.length > 0 && (
-            <section>
-              <h2 className="mb-4 text-xl font-bold text-logoblue">{bookingText(locale, "Product Options")}</h2>
-              <div className="w-full overflow-x-auto">
-                <table className="min-w-full border border-black/10">
-                  <thead>
-                    <tr>
-                      <th className="w-56 border bg-logoblue px-4 py-3 text-center font-semibold text-white">{bookingText(locale, "Product")}</th>
-                      <th className="w-36 border bg-logoblue px-4 py-3 text-center font-semibold text-white">{bookingText(locale, "Option Code")}</th>
-                      <th className="w-72 border bg-logoblue px-4 py-3 text-center font-semibold text-white">{bookingText(locale, "Label")}</th>
-                      <th className="w-36 border bg-logoblue px-4 py-3 text-center font-semibold text-white">{bookingText(locale, "Price (NOK)")}</th>
-                    </tr>
-                  </thead>
-                  {groupedProducts.map((group) => (
-                    <tbody key={group.productId}>
-                      {group.items.map((item, index) => (
-                        <tr key={item.id} className="group align-middle border-b-2 border-logoblue/30">
-                          {index === 0 && (
-                            <td rowSpan={group.items.length} className="border-r border-logoblue/30 px-4 py-3 text-center font-medium">
-                              {group.productName}
+        <>
+          <div className="space-y-10">
+            {groupedProducts.length > 0 && (
+              <section>
+                <h2 className="mb-4 text-xl font-bold text-logoblue">{bookingText(locale, "Product Options")}</h2>
+                <div className="w-full overflow-x-auto">
+                  <table className="min-w-full border border-black/10">
+                    <thead>
+                      <tr>
+                        <th className="w-56 border bg-logoblue px-4 py-3 text-center font-semibold text-white">{bookingText(locale, "Product")}</th>
+                        <th className="w-36 border bg-logoblue px-4 py-3 text-center font-semibold text-white">{bookingText(locale, "Option Code")}</th>
+                        <th className="w-72 border bg-logoblue px-4 py-3 text-center font-semibold text-white">{bookingText(locale, "Label")}</th>
+                        <th className="w-36 border bg-logoblue px-4 py-3 text-center font-semibold text-white">{bookingText(locale, "Price (NOK)")}</th>
+                      </tr>
+                    </thead>
+                    {groupedProducts.map((group) => (
+                      <tbody key={group.productId}>
+                        {group.items.map((item, index) => (
+                          <tr key={item.id} className="group align-middle border-b-2 border-logoblue/30">
+                            {index === 0 && (
+                              <td rowSpan={group.items.length} className="border-r border-logoblue/30 px-4 py-3 text-center font-medium">
+                                {group.productName}
+                              </td>
+                            )}
+                            <td className="border-r border-logoblue/20 px-4 py-3 text-left text-sm font-mono text-textColorSecond group-hover:bg-black/10 group-hover:text-textcolor">{item.optionCode || "—"}</td>
+                            <td className="border-r border-logoblue/20 px-4 py-3 text-left text-sm text-textColorSecond group-hover:bg-black/10 group-hover:text-textcolor">
+                              {item.description || item.optionLabel || "—"}
                             </td>
-                          )}
-                          <td className="border-r border-logoblue/20 px-4 py-3 text-left text-sm font-mono text-textColorSecond group-hover:bg-black/10 group-hover:text-textcolor">{item.optionCode || "—"}</td>
-                          <td className="border-r border-logoblue/20 px-4 py-3 text-left text-sm text-textColorSecond group-hover:bg-black/10 group-hover:text-textcolor">
-                            {item.description || item.optionLabel || "—"}
-                          </td>
-                          <td className="px-4 py-3 text-center font-semibold text-logoblue group-hover:bg-black/10">{isSubcontractor ? item.subcontractorPrice : item.effectiveCustomerPrice}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  ))}
-                </table>
-              </div>
-            </section>
+                            <td className="px-4 py-3 text-center font-semibold text-logoblue group-hover:bg-black/10">{isSubcontractor ? item.subcontractorPrice : item.effectiveCustomerPrice}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    ))}
+                  </table>
+                </div>
+              </section>
+            )}
+          </div>
+
+          {!hasFullAccess(currentUser.role) && (
+            <div className="mt-8 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                className="customButtonDefault customButtonEnabled flex items-center gap-2"
+              >
+                {bookingText(locale, "Download PDF")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleExportExcel()}
+                className="customButtonDefault customButtonEnabled flex items-center gap-2"
+              >
+                {bookingText(locale, "Export to Excel")}
+              </button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
