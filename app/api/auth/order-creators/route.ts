@@ -48,7 +48,14 @@ export async function GET(req: Request) {
       user: {
         status: "ACTIVE",
       },
-      ...(hasOrdersOnly ? { orders: { some: ordersDateFilter } } : {}),
+      ...(hasOrdersOnly
+        ? {
+            OR: [
+              { orders: { some: ordersDateFilter } },
+              { createdOrders: { some: { ...ordersDateFilter, customerMembershipId: null } } },
+            ],
+          }
+        : {}),
     },
     select: {
       id: true,

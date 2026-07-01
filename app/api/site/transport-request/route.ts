@@ -291,6 +291,7 @@ async function createWebsiteOrder(body: RequestBody): Promise<{ orderId: string;
     data: {
       companyId: membership.companyId,
       createdByMembershipId: membership.id,
+      customerMembershipId: membership.id,
       priceListId: TRANSPORT_PACKAGE_PRICELIST_ID,
       displayId,
       status: "processing",
