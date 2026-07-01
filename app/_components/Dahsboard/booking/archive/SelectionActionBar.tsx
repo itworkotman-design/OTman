@@ -50,14 +50,14 @@ export default function SelectionActionBar({
   const t = (text: string) => bookingText(locale, text);
 
   const [creatorId, setCreatorId] = useState(selectedStoreId ?? "");
-  const [emailType, setEmailType] = useState<EmailType>("");
+  const [emailType, setEmailType] = useState<EmailType>("prepare_orders");
   const [customMessage, setCustomMessage] = useState("");
-  const [sendToPrimaryEmail, setSendToPrimaryEmail] = useState(false);
+  const [sendToPrimaryEmail, setSendToPrimaryEmail] = useState(true);
   const [sendToWarehouseEmail, setSendToWarehouseEmail] = useState(false);
 
   useEffect(() => {
     setCreatorId(selectedStoreId ?? "");
-    setSendToPrimaryEmail(false);
+    setSendToPrimaryEmail(true);
     setSendToWarehouseEmail(false);
   }, [selectedStoreId]);
   const [successFlash, setSuccessFlash] = useState(false);
@@ -190,8 +190,8 @@ export default function SelectionActionBar({
               const nextCreator = creators.find((item) => item.id === nextCreatorId);
 
               setCreatorId(nextCreatorId);
-              setSendToPrimaryEmail(false);
-              setSendToWarehouseEmail(!!nextCreator?.warehouseEmail?.trim());
+              setSendToPrimaryEmail(true);
+              setSendToWarehouseEmail(false);
             }}
             className="customInput w-full padding-weird-landscape"
             disabled={loading}
@@ -236,18 +236,17 @@ export default function SelectionActionBar({
                   {primaryEmail ? ` - ${primaryEmail}` : ` - ${t("no email set")}`}
                 </span>
               </label>
-              <label className="flex items-center gap-2 text-sm text-weird-landscape ">
-                <input
-                  type="checkbox"
-                  checked={sendToWarehouseEmail}
-                  disabled={!warehouseEmail || loading}
-                  onChange={(e) => setSendToWarehouseEmail(e.target.checked)}
-                />
-                <span>
-                  {t("Send to")}
-                  {warehouseEmail ? ` - ${warehouseEmail}` : ` - ${t("no warehouse email set")}`}
-                </span>
-              </label>
+              {warehouseEmail ? (
+                <label className="flex items-center gap-2 text-sm text-weird-landscape ">
+                  <input
+                    type="checkbox"
+                    checked={sendToWarehouseEmail}
+                    disabled={loading}
+                    onChange={(e) => setSendToWarehouseEmail(e.target.checked)}
+                  />
+                  <span>{t("Send to")} - {warehouseEmail}</span>
+                </label>
+              ) : null}
             </div>
           </div>
         ) : null}
