@@ -32,6 +32,7 @@ import {
   createContactCustomerAlert,
   createExtraPickupAlert,
   createNextDayDeliveryAlert,
+  createNoSubcontractorAlert,
   createSubcontractorPriceAlert,
 } from "@/lib/orders/alerts";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
@@ -971,6 +972,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     customerPrice: finalCustomerTotalExVat,
     subcontractorPrice: nextPriceSubcontractor,
   });
+
+  if (
+    normalizeOrderStatus(nextStatus) === "completed" &&
+    normalizeOrderStatus(existingOrder.status) !== "completed" &&
+    !nextSnapshot.subcontractor
+  ) {
+    await createNoSubcontractorAlert(prisma, { orderId, companyId: existingOrder.companyId });
+  }
 
   const nextDeliveryDate = optionalString(body.deliveryDate) ?? existingOrder.deliveryDate;
   const nextTimeWindow = optionalString(body.timeWindow) ?? existingOrder.timeWindow;

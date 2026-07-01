@@ -12,6 +12,7 @@ import {
   diffOrderEventSnapshots,
 } from "@/lib/orders/orderEvents";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { createNoSubcontractorAlert } from "@/lib/orders/alerts";
 
 function normalizeGsmState(state?: string | null) {
   const value = state?.trim().toLowerCase() ?? "";
@@ -396,30 +397,44 @@ export async function POST(req: Request) {
       decisionState: taskState,
     });
 
+    const gsmAssigneeName = getGsmAssigneeName(fullTask);
+    const gsmSubName = getGsmSubcontractorName(fullTask);
+
+    // Re-assignment: order already has a driver+subcontractor from a prior GSM run,
+    // and the new webhook supplies both a new driver and a new subcontractor.
+    // In this case we must NOT fall back to the stale values — replace them fully.
+    const hasExistingAssignment = !!(
+      orderBeforeUpdate.driver && orderBeforeUpdate.subcontractor
+    );
+    const isReassignment = hasExistingAssignment && !!(gsmAssigneeName && gsmSubName);
+
     const driverValue = getFirstNonEmptyString(
-      getGsmAssigneeName(fullTask),
+      gsmAssigneeName,
       metafields["app:name"],
       metafields.driver,
-      orderBeforeUpdate.driver,
+      isReassignment ? null : orderBeforeUpdate.driver,
     );
 
     const secondDriverValue = getFirstNonEmptyString(
       metafields["app:driver2"],
       metafields.driver2,
-      orderBeforeUpdate.secondDriver,
+      isReassignment ? null : orderBeforeUpdate.secondDriver,
     );
     const licensePlateValue = getFirstNonEmptyString(
       metafields["app:carnumber"],
       metafields.carnumber,
-      orderBeforeUpdate.licensePlate,
+      isReassignment ? null : orderBeforeUpdate.licensePlate,
     );
 
-    // Subcontractor: fuzzy-match GSM company name against user profiles in this company
-    let nextSubcontractorMembershipId: string | undefined = undefined;
-    let nextSubcontractor: string | undefined = undefined;
+    // Subcontractor: fuzzy-match GSM company name against user profiles in this company.
+    // Always store the GSM name even when no membership match is found.
+    // On re-assignment without a new subcontractor, explicitly null out the old values.
+    let nextSubcontractorMembershipId: string | null | undefined = undefined;
+    let nextSubcontractor: string | null | undefined = undefined;
 
-    const gsmSubName = getGsmSubcontractorName(fullTask);
     if (gsmSubName) {
+      nextSubcontractor = gsmSubName;
+      nextSubcontractorMembershipId = null; // cleared unless a membership matches below
       const memberships = await prisma.membership.findMany({
         where: { companyId: orderBeforeUpdate.companyId, status: "ACTIVE" },
         select: { id: true, user: { select: { username: true } } },
@@ -429,8 +444,11 @@ export async function POST(req: Request) {
       );
       if (matched) {
         nextSubcontractorMembershipId = matched.id;
-        nextSubcontractor = gsmSubName;
       }
+    } else if (isReassignment) {
+      // New task has no subcontractor — clear whatever was there before
+      nextSubcontractor = null;
+      nextSubcontractorMembershipId = null;
     }
 
     const shouldClearRabatt = shouldClearCancelledDiscount(
@@ -445,11 +463,16 @@ export async function POST(req: Request) {
     await prisma.order.update({
       where: { id: orderId },
       data: {
-        driver: driverValue ?? undefined,
-        secondDriver: secondDriverValue ?? undefined,
-        licensePlate: licensePlateValue ?? undefined,
-        subcontractor: nextSubcontractor,
-        subcontractorMembershipId: nextSubcontractorMembershipId,
+        // On re-assignment pass the value directly (null = clear); otherwise skip nulls.
+        driver: isReassignment ? driverValue : (driverValue ?? undefined),
+        secondDriver: isReassignment ? secondDriverValue : (secondDriverValue ?? undefined),
+        licensePlate: isReassignment ? licensePlateValue : (licensePlateValue ?? undefined),
+        // undefined = "don't touch"; null = explicit clear; string = set new value
+        subcontractor: nextSubcontractor !== undefined ? nextSubcontractor : undefined,
+        subcontractorMembershipId:
+          nextSubcontractorMembershipId !== undefined
+            ? nextSubcontractorMembershipId
+            : undefined,
         gsmLastTaskState: taskState ?? undefined,
         gsmLastWebhookAt: new Date(),
         status: nextStatus ?? undefined,
@@ -464,7 +487,10 @@ export async function POST(req: Request) {
       driver: driverValue,
       secondDriver: secondDriverValue,
       licensePlate: licensePlateValue,
-      subcontractor: nextSubcontractor ?? orderBeforeUpdate.subcontractor,
+      subcontractor:
+        nextSubcontractor !== undefined
+          ? nextSubcontractor
+          : orderBeforeUpdate.subcontractor,
       gsmLastTaskState: taskState ?? orderBeforeUpdate.gsmLastTaskState,
       status: nextStatus,
       rabatt: nextRabatt,
@@ -526,6 +552,13 @@ export async function POST(req: Request) {
         details: [
           `Task ${gsmTaskId ?? "unknown"} was marked as ${taskState} in GSM. The order has not been automatically completed and requires manual review.`,
         ],
+      });
+    }
+
+    if (nextStatus === "completed" && !nextSnapshot.subcontractor) {
+      await createNoSubcontractorAlert(prisma, {
+        orderId,
+        companyId: orderBeforeUpdate.companyId,
       });
     }
 
