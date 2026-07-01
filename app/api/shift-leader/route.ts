@@ -42,10 +42,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: "NO_COMPANY" }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { id: true, username: true },
-  });
+  const body = await req.json().catch(() => ({}));
+  const targetUserId: string | undefined = body?.userId;
+
+  let user: { id: string; username: string | null } | null;
+
+  if (targetUserId && targetUserId !== session.userId) {
+    // Verify the target user is a member of the company
+    const membership = await prisma.membership.findUnique({
+      where: { userId_companyId: { userId: targetUserId, companyId } },
+      select: { user: { select: { id: true, username: true } } },
+    });
+    if (!membership) {
+      return NextResponse.json({ ok: false, reason: "USER_NOT_FOUND" }, { status: 404 });
+    }
+    user = membership.user;
+  } else {
+    user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true, username: true },
+    });
+  }
 
   if (!user) {
     return NextResponse.json({ ok: false, reason: "USER_NOT_FOUND" }, { status: 404 });
