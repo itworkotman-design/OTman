@@ -43,30 +43,30 @@ const ARCHIVE_SCROLLBAR_CLASS =
   "[scrollbar-color:var(--logoblue)_#e5e7eb20] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-logoblue";
 
 const COLUMN_WIDTHS: Record<BookingArchiveColumnId, number> = {
-  displayId: 90,
-  status: 130,
+  displayId: 60,
+  status: 100,
   mail: 60,
-  deliveryDate: 140,
-  timeWindow: 140,
-  customerLabel: 180,
+  deliveryDate: 100,
+  timeWindow: 100,
+  customerLabel: 120,
   orderNumber: 140,
   customerName: 180,
-  phone: 160,
+  phone: 120,
   pickupAddress: 220,
   extraPickupAddress: 220,
   deliveryAddress: 220,
   orderSummary: 340,
   description: 220,
-  cashierName: 180,
-  cashierPhone: 180,
-  customerComments: 220,
+  cashierName: 100,
+  cashierPhone: 100,
+  customerComments: 140,
   driverInfo: 180,
   subcontractor: 180,
-  createdAt: 190,
+  createdAt: 120,
   updatedAt: 230,
   dnbDiscount: 170,
-  priceExVat: 160,
-  priceSubcontractor: 180,
+  priceExVat: 100,
+  priceSubcontractor: 120,
   statusNotes: 220,
   driver: 180,
   createdBy: 180,
@@ -147,6 +147,26 @@ function Cell({
     <div className={`max-h-[100] overflow-y-auto wrap-break-word ${className}`}>
       {children}
     </div>
+  );
+}
+
+function CopyButton({ value }: { value: string | number | null | undefined }) {
+  return (
+    <button
+      type="button"
+      data-id-cell="true"
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(String(value ?? ""));
+      }}
+      className="shrink-0 text-logoblue opacity-40 transition-opacity hover:opacity-100"
+      aria-label="Copy ID"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+      </svg>
+    </button>
   );
 }
 
@@ -577,6 +597,7 @@ export default function BookingArchiveTable({
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('[data-selector-cell="true"]')) return;
                 if ((e.target as HTMLElement).closest('[data-alert-cell="true"]')) return;
+                if ((e.target as HTMLElement).closest('[data-id-cell="true"]')) return;
                 onRowClick(order.id);
               }}
             >
@@ -594,8 +615,11 @@ export default function BookingArchiveTable({
               {viewMode === "ADMIN" && (
                 <>
                   {isColumnVisible("displayId") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.displayId)}</Cell>
+                    <td data-id-cell="true" className="cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <span>{formatCell(order.displayId)}</span>
+                        <CopyButton value={order.displayId} />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("status") ? (
@@ -715,8 +739,11 @@ export default function BookingArchiveTable({
               {viewMode === "SUBCONTRACTOR" && (
                 <>
                   {isColumnVisible("displayId") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.displayId)}</Cell>
+                    <td data-id-cell="true" className="cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <span>{formatCell(order.displayId)}</span>
+                        <CopyButton value={order.displayId} />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("status") ? (
@@ -810,8 +837,11 @@ export default function BookingArchiveTable({
               {viewMode === "ORDER_CREATOR" && (
                 <>
                   {isColumnVisible("displayId") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.displayId)}</Cell>
+                    <td data-id-cell="true" className="cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <span>{formatCell(order.displayId)}</span>
+                        <CopyButton value={order.displayId} />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("status") ? (
