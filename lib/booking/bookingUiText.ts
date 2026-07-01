@@ -189,6 +189,27 @@ const NB_TEXT: Record<string, string> = {
   "Something went wrong": "Noe gikk galt",
   "Failed to load price lists": "Kunne ikke laste prislister",
   "Failed to load price list": "Kunne ikke laste prisliste",
+  "Select store...": "Velg butikk...",
+  "Email type": "E-posttype",
+  "Select type...": "Velg type...",
+  "Prepare orders": "Forbered bestillinger",
+  "Confirmed for delivery": "Bekreftet for levering",
+  Recipients: "Mottakere",
+  "Send to": "Send til",
+  "no email set": "ingen e-post satt",
+  "no warehouse email set": "ingen lager-e-post satt",
+  "Custom message": "Egendefinert melding",
+  "Write custom email message...": "Skriv egendefinert e-postmelding...",
+  "Sending...": "Sender...",
+  Sent: "Sendt",
+  "Send email": "Send e-post",
+  "Send to GSM": "Send til GSM",
+  "Sent to GSM": "Sendt til GSM",
+  "Selected orders were sent to GSM.": "Valgte bestillinger ble sendt til GSM.",
+  "Copy selected": "Kopier valgte",
+  "Export Excel": "Eksporter Excel",
+  "The following orders were already sent to GSM and were sent again — GSM will handle any duplicates:":
+    "Følgende bestillinger ble allerede sendt til GSM og ble sendt igjen — GSM håndterer eventuelle duplikater:",
 };
 
 const NB_STATUS_LABELS: Record<string, string> = {

@@ -593,7 +593,9 @@ export default function BookingPage() {
 
           <SelectionActionBar
             creators={creators}
+            selectedStoreId={appliedFilters.createdById || undefined}
             selectedCount={selectedOrderIds.length}
+            locale={locale}
             onSendEmail={handleSendSelectedEmail}
             onSendGsm={() => handleSendSelectedToGsm()}
             onCopySelected={handleCopySelected}
