@@ -34,6 +34,12 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const hasOrdersOnly = url.searchParams.get("hasOrders") === "true";
+  const fromDate = url.searchParams.get("fromDate") || null;
+  const toDate = url.searchParams.get("toDate") || null;
+
+  const ordersDateFilter = fromDate || toDate
+    ? { deliveryDate: { ...(fromDate ? { gte: fromDate } : {}), ...(toDate ? { lte: toDate } : {}) } }
+    : {};
 
   const memberships = await prisma.membership.findMany({
     where: {
@@ -42,7 +48,7 @@ export async function GET(req: Request) {
       user: {
         status: "ACTIVE",
       },
-      ...(hasOrdersOnly ? { createdOrders: { some: {} } } : {}),
+      ...(hasOrdersOnly ? { orders: { some: ordersDateFilter } } : {}),
     },
     select: {
       id: true,

@@ -165,14 +165,18 @@ export default function BookingPage() {
     }
   }
 
-  async function loadFilterOptions() {
+  async function loadFilterOptions(fromDate?: string, toDate?: string) {
     try {
+      const creatorsParams = new URLSearchParams({ hasOrders: "true" });
+      if (fromDate) creatorsParams.set("fromDate", fromDate);
+      if (toDate) creatorsParams.set("toDate", toDate);
+
       const [subsRes, creatorsRes] = await Promise.all([
         fetch("/api/auth/subcontractors", {
           credentials: "include",
           cache: "no-store",
         }),
-        fetch("/api/auth/order-creators?hasOrders=true", {
+        fetch(`/api/auth/order-creators?${creatorsParams.toString()}`, {
           credentials: "include",
           cache: "no-store",
         }),
@@ -482,12 +486,14 @@ export default function BookingPage() {
   function handleApplyFilters(next: BookingArchiveFilters) {
     setAppliedFilters(next);
     void loadOrders(next);
+    void loadFilterOptions(next.fromDate || undefined, next.toDate || undefined);
   }
 
   function handleResetFilters() {
     setAppliedFilters(DEFAULT_BOOKING_ARCHIVE_FILTERS);
     setFilterPanelVersion((prev) => prev + 1);
     void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
+    void loadFilterOptions();
   }
 
   function handleToggleOrder(orderId: string) {

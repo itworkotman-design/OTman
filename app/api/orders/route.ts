@@ -1120,7 +1120,7 @@ export async function GET(req: Request) {
     }
 
     if (createdById) {
-      where.createdByMembershipId = createdById;
+      where.customerMembershipId = createdById;
     }
   } else if (isOrderCreator) {
     where.OR = [
