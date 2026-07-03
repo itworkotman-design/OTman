@@ -71,6 +71,7 @@ describe("GET /api/auth/me", () => {
           name: "Company One",
           slug: "company-one",
         },
+        membershipPriceLists: [{ priceListId: "price-list-1" }],
       },
       {
         companyId: "company-2",
@@ -81,6 +82,7 @@ describe("GET /api/auth/me", () => {
           name: "Company Two",
           slug: "company-two",
         },
+        membershipPriceLists: [],
       },
     ]);
 
@@ -116,6 +118,7 @@ describe("GET /api/auth/me", () => {
         permissions: [],
         role: "ADMIN",
         status: "ACTIVE",
+        priceListIds: ["price-list-1"],
       },
       memberships: [
         {
@@ -125,6 +128,7 @@ describe("GET /api/auth/me", () => {
           role: "ADMIN",
           status: "ACTIVE",
           permissions: [],
+          priceListIds: ["price-list-1"],
         },
         {
           companyId: "company-2",
@@ -133,6 +137,7 @@ describe("GET /api/auth/me", () => {
           role: "USER",
           status: "ACTIVE",
           permissions: [],
+          priceListIds: [],
         },
       ],
     });
@@ -156,6 +161,11 @@ describe("GET /api/auth/me", () => {
         permissions: {
           select: {
             permission: true,
+          },
+        },
+        membershipPriceLists: {
+          select: {
+            priceListId: true,
           },
         },
       },
@@ -189,6 +199,7 @@ describe("GET /api/auth/me", () => {
           name: "Company One",
           slug: "company-one",
         },
+        membershipPriceLists: [],
       },
       {
         companyId: "company-2",
@@ -199,6 +210,7 @@ describe("GET /api/auth/me", () => {
           name: "Company Two",
           slug: "company-two",
         },
+        membershipPriceLists: [],
       },
     ]);
 
@@ -236,6 +248,7 @@ describe("GET /api/auth/me", () => {
           role: "ADMIN",
           status: "ACTIVE",
           permissions: [],
+          priceListIds: [],
         },
         {
           companyId: "company-2",
@@ -244,6 +257,7 @@ describe("GET /api/auth/me", () => {
           role: "USER",
           status: "ACTIVE",
           permissions: [],
+          priceListIds: [],
         },
       ],
     });
@@ -276,6 +290,7 @@ describe("GET /api/auth/me", () => {
           name: "Company One",
           slug: "company-one",
         },
+        membershipPriceLists: [],
       },
     ]);
 
@@ -313,6 +328,7 @@ describe("GET /api/auth/me", () => {
           role: "ADMIN",
           status: "ACTIVE",
           permissions: [],
+          priceListIds: [],
         },
       ],
     });
@@ -345,6 +361,7 @@ describe("GET /api/auth/me", () => {
           name: "Company One",
           slug: "company-one",
         },
+        membershipPriceLists: [],
       },
       {
         companyId: "company-2",
@@ -355,6 +372,7 @@ describe("GET /api/auth/me", () => {
           name: "Company Two",
           slug: "company-two",
         },
+        membershipPriceLists: [],
       },
     ]);
 
@@ -392,6 +410,7 @@ describe("GET /api/auth/me", () => {
           role: "ADMIN",
           status: "ACTIVE",
           permissions: [],
+          priceListIds: [],
         },
         {
           companyId: "company-2",
@@ -400,6 +419,7 @@ describe("GET /api/auth/me", () => {
           role: "USER",
           status: "ACTIVE",
           permissions: [],
+          priceListIds: [],
         },
       ],
     });

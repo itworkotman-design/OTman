@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   membershipFindFirstMock: vi.fn(),
   orderFindManyMock: vi.fn(),
   orderUpdateManyMock: vi.fn(),
+  orderUpdateMock: vi.fn(),
+  orderNotificationUpdateManyMock: vi.fn(),
   buildOrderEventSnapshotMock: vi.fn(),
   createManyOrderStatusChangedEventsMock: vi.fn(),
   createOrderUpdatedEventMock: vi.fn(),
@@ -23,6 +25,10 @@ vi.mock("@/lib/db", () => ({
     order: {
       findMany: mocks.orderFindManyMock,
       updateMany: mocks.orderUpdateManyMock,
+      update: mocks.orderUpdateMock,
+    },
+    orderNotification: {
+      updateMany: mocks.orderNotificationUpdateManyMock,
     },
   },
 }));
@@ -53,6 +59,8 @@ describe("PATCH /api/orders/bulk", () => {
     });
     mocks.createManyOrderStatusChangedEventsMock.mockResolvedValue(undefined);
     mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
+    mocks.orderNotificationUpdateManyMock.mockResolvedValue({ count: 0 });
+    mocks.orderUpdateMock.mockResolvedValue({});
   });
 
   it("returns 400 when no valid order ids are provided", async () => {

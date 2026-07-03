@@ -90,7 +90,7 @@ describe("POST /api/integrations/wordpress/orders", () => {
 
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
-      priceListId: "price-list-1",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
     });
     mocks.membershipFindManyMock.mockResolvedValue([]);
     mocks.priceListFindUniqueMock.mockResolvedValue({

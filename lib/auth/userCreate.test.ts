@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   return {
     getActiveMembershipMock: vi.fn(),
-    priceListFindUniqueMock: vi.fn(),
+    priceListFindManyMock: vi.fn(),
     transactionMock: vi.fn(),
     hashPasswordMock: vi.fn(),
     userFindUniqueMock: vi.fn(),
@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
     membershipFindUniqueMock: vi.fn(),
     membershipCreateMock: vi.fn(),
     inviteUpdateManyMock: vi.fn(),
+    membershipPriceListCreateManyMock: vi.fn(),
     membershipPermissionCreateManyMock: vi.fn(),
   };
 });
@@ -18,7 +19,7 @@ const mocks = vi.hoisted(() => {
 vi.mock("@/lib/db", () => ({
   prisma: {
     priceList: {
-      findUnique: mocks.priceListFindUniqueMock,
+      findMany: mocks.priceListFindManyMock,
     },
     $transaction: mocks.transactionMock,
   },
@@ -45,13 +46,14 @@ describe("createUserWithPassword", () => {
       status: "ACTIVE",
     });
 
-    mocks.priceListFindUniqueMock.mockResolvedValue({ id: "price-list-1" });
+    mocks.priceListFindManyMock.mockResolvedValue([{ id: "price-list-1" }]);
     mocks.hashPasswordMock.mockResolvedValue("hashed-password");
     mocks.userFindUniqueMock.mockResolvedValue(null);
     mocks.userCreateMock.mockResolvedValue({ id: "user-1" });
     mocks.membershipFindUniqueMock.mockResolvedValue(null);
     mocks.membershipCreateMock.mockResolvedValue({ id: "membership-1" });
     mocks.inviteUpdateManyMock.mockResolvedValue({ count: 0 });
+    mocks.membershipPriceListCreateManyMock.mockResolvedValue({ count: 0 });
     mocks.membershipPermissionCreateManyMock.mockResolvedValue({ count: 0 });
 
     mocks.transactionMock.mockImplementation(async (callback) => {
@@ -66,6 +68,9 @@ describe("createUserWithPassword", () => {
         },
         invite: {
           updateMany: mocks.inviteUpdateManyMock,
+        },
+        membershipPriceList: {
+          createMany: mocks.membershipPriceListCreateManyMock,
         },
         membershipPermission: {
           createMany: mocks.membershipPermissionCreateManyMock,
@@ -204,6 +209,20 @@ describe("createUserWithPassword", () => {
         warehouseEmail: null,
       },
       select: { id: true },
+    });
+
+    expect(mocks.priceListFindManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["price-list-1"] } },
+      select: { id: true },
+    });
+
+    expect(mocks.membershipPriceListCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        {
+          membershipId: "membership-1",
+          priceListId: "price-list-1",
+        },
+      ],
     });
 
     expect(mocks.membershipPermissionCreateManyMock).toHaveBeenCalledWith({

@@ -67,7 +67,8 @@ describe("GET /api/booking/catalog", () => {
     });
     mocks.getActiveMembershipMock.mockResolvedValue({
       id: "membership-1",
-      priceListId: null,
+      role: "USER",
+      priceListIds: [],
     });
 
     const res = await GET(new Request("http://localhost/api/booking/catalog"));

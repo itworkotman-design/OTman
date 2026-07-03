@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   orderFindUniqueMock: vi.fn(),
   orderUpdateMock: vi.fn(),
   membershipFindManyMock: vi.fn(),
+  createNoSubcontractorAlertMock: vi.fn(),
 }));
 
 vi.mock("@/lib/integrations/gsm/fetchTask", () => ({
@@ -32,6 +33,10 @@ vi.mock("@/lib/orders/orderEvents", () => ({
   createOrderActionEvent: mocks.createOrderActionEventMock,
   createOrderStatusChangedEvent: mocks.createOrderStatusChangedEventMock,
   createOrderUpdatedEvent: mocks.createOrderUpdatedEventMock,
+}));
+
+vi.mock("@/lib/orders/alerts", () => ({
+  createNoSubcontractorAlert: mocks.createNoSubcontractorAlertMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -125,6 +130,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
     mocks.createOrderStatusChangedEventMock.mockResolvedValue(undefined);
     mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
     mocks.syncPodPdfWithRetryMock.mockResolvedValue(undefined);
+    mocks.createNoSubcontractorAlertMock.mockResolvedValue(null);
   });
 
   it("stores returned drivers and license plate on the order", async () => {

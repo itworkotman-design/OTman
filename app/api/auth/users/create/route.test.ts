@@ -133,6 +133,51 @@ describe("POST /api/auth/users/create", () => {
         description: "Test",
         logoPath: "/uploads/user-logos/actor-1/logo.webp",
         usernameDisplayColor: "#112233",
+        priceListIds: ["price-list-1"],
+        permissions: ["BOOKING_VIEW", "BOOKING_CREATE"],
+      }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(201);
+    await expect(res.json()).resolves.toEqual({ ok: true });
+
+    expect(mocks.createUserWithPasswordMock).toHaveBeenCalledWith({
+      actorUserId: "actor-1",
+      companyId: "company-active",
+      email: "user@example.com",
+      role: "ADMIN",
+      password: "password123",
+      username: "User",
+      phoneNumber: "123",
+      address: "Street 1",
+      description: "Test",
+      logoPath: "/uploads/user-logos/actor-1/logo.webp",
+      usernameDisplayColor: "#112233",
+      priceListIds: ["price-list-1"],
+      permissions: ["BOOKING_VIEW", "BOOKING_CREATE"],
+      warehouseEmail: "",
+    });
+  });
+
+  it("falls back to a single legacy priceListId when priceListIds is not provided", async () => {
+    const req = new Request("http://localhost/api/auth/users/create", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "user@example.com",
+        role: "ADMIN",
+        password: "password123",
+        confirmPassword: "password123",
+        username: "User",
+        phoneNumber: "123",
+        address: "Street 1",
+        description: "Test",
+        logoPath: "/uploads/user-logos/actor-1/logo.webp",
+        usernameDisplayColor: "#112233",
         priceListId: "price-list-1",
         permissions: ["BOOKING_VIEW", "BOOKING_CREATE"],
       }),
@@ -155,7 +200,7 @@ describe("POST /api/auth/users/create", () => {
       description: "Test",
       logoPath: "/uploads/user-logos/actor-1/logo.webp",
       usernameDisplayColor: "#112233",
-      priceListId: "price-list-1",
+      priceListIds: ["price-list-1"],
       permissions: ["BOOKING_VIEW", "BOOKING_CREATE"],
       warehouseEmail: "",
     });

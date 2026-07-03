@@ -76,7 +76,7 @@ describe("POST /api/orders/send-to-gsm", () => {
     });
   });
 
-  it("skips already synced orders unless force is enabled", async () => {
+  it("resends already synced orders and reports wasAlreadySent", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -95,6 +95,10 @@ describe("POST /api/orders/send-to-gsm", () => {
         gsmOrderId: "gsm-1",
       },
     ]);
+    mocks.sendOrderToGsmMock.mockResolvedValue({
+      gsmOrderId: "gsm-1",
+      tasks: [],
+    });
 
     const res = await POST(
       new Request("http://localhost/api/orders/send-to-gsm", {
@@ -109,12 +113,20 @@ describe("POST /api/orders/send-to-gsm", () => {
       results: [
         {
           orderId: "order-1",
-          ok: false,
-          error: "ALREADY_SENT_TO_GSM",
+          ok: true,
+          gsmOrderId: "gsm-1",
+          wasAlreadySent: true,
         },
       ],
     });
-    expect(mocks.sendOrderToGsmMock).not.toHaveBeenCalled();
+    expect(mocks.sendOrderToGsmMock).toHaveBeenCalled();
+    expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        orderId: "order-1",
+        title: "Order sent for GSM resend",
+      }),
+    );
   });
 
   it("updates last edited state and writes an action event when GSM send succeeds", async () => {
@@ -156,6 +168,7 @@ describe("POST /api/orders/send-to-gsm", () => {
           orderId: "order-1",
           ok: true,
           gsmOrderId: "gsm-1",
+          wasAlreadySent: false,
         },
       ],
     });

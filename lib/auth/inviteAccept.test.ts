@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
     userCreateMock: vi.fn(),
     userUpdateMock: vi.fn(),
     membershipCreateMock: vi.fn(),
+    membershipPriceListCreateMock: vi.fn(),
     inviteUpdateMock: vi.fn(),
     hashPasswordMock: vi.fn(),
     createSessionMock: vi.fn(),
@@ -85,6 +86,10 @@ describe("acceptInvite", () => {
       id: "membership-1",
     });
 
+    mocks.membershipPriceListCreateMock.mockResolvedValue({
+      id: "membership-price-list-1",
+    });
+
     mocks.inviteUpdateMock.mockResolvedValue({
       id: "invite-1",
     });
@@ -97,6 +102,9 @@ describe("acceptInvite", () => {
         },
         membership: {
           create: mocks.membershipCreateMock,
+        },
+        membershipPriceList: {
+          create: mocks.membershipPriceListCreateMock,
         },
         invite: {
           update: mocks.inviteUpdateMock,
@@ -290,13 +298,14 @@ describe("acceptInvite", () => {
         companyId: "company-1",
         role: "USER",
         status: "ACTIVE",
-        priceListId: null,
         warehouseEmail: null,
       },
       select: {
         id: true,
       },
     });
+
+    expect(mocks.membershipPriceListCreateMock).not.toHaveBeenCalled();
 
     expect(mocks.inviteUpdateMock).toHaveBeenCalledWith({
       where: {
@@ -329,6 +338,62 @@ describe("acceptInvite", () => {
         inviteId: "invite-1",
         role: "USER",
         priceListId: null,
+        permissions: [],
+      },
+    });
+  });
+
+  it("creates a membershipPriceList row when the invite has a price list", async () => {
+    mocks.findUniqueInviteMock.mockResolvedValue({
+      id: "invite-1",
+      companyId: "company-1",
+      email: "InvitedUser@Example.com",
+      role: "USER",
+      status: "PENDING",
+      expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      username: null,
+      phoneNumber: null,
+      address: null,
+      description: null,
+      logoPath: null,
+      usernameDisplayColor: null,
+      priceListId: "price-list-1",
+      permissions: [],
+    });
+
+    const result = await acceptInvite({
+      token: "plain-invite-token",
+      password: "valid-pass-123",
+      ip: "127.0.0.1",
+      userAgent: "vitest",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      userId: "user-1",
+      companyId: "company-1",
+      sessionToken: "session-token",
+      sessionExpiresAt: new Date("2030-02-01T00:00:00.000Z"),
+    });
+
+    expect(mocks.membershipPriceListCreateMock).toHaveBeenCalledWith({
+      data: {
+        membershipId: "membership-1",
+        priceListId: "price-list-1",
+      },
+    });
+
+    expect(mocks.logAuthEventMock).toHaveBeenCalledWith({
+      type: AuthEventType.INVITE_ACCEPTED,
+      userId: "user-1",
+      companyId: "company-1",
+      email: "inviteduser@example.com",
+      ip: "127.0.0.1",
+      userAgent: "vitest",
+      meta: {
+        inviteId: "invite-1",
+        role: "USER",
+        priceListId: "price-list-1",
         permissions: [],
       },
     });
@@ -379,13 +444,14 @@ describe("acceptInvite", () => {
         companyId: "company-1",
         role: "USER",
         status: "ACTIVE",
-        priceListId: null,
         warehouseEmail: null,
       },
       select: {
         id: true,
       },
     });
+
+    expect(mocks.membershipPriceListCreateMock).not.toHaveBeenCalled();
 
     expect(mocks.createSessionMock).toHaveBeenCalledWith({
       userId: "existing-user-1",

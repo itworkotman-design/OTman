@@ -71,11 +71,11 @@ describe("GET /api/dashboard/home", () => {
       .mockResolvedValueOnce(1);
     mocks.orderFindManyMock.mockResolvedValue([
       {
-        createdAt: new Date("2026-06-01T10:00:00.000Z"),
+        createdAt: new Date("2026-07-01T10:00:00.000Z"),
         priceExVat: 1000,
       },
       {
-        createdAt: new Date("2026-06-03T12:00:00.000Z"),
+        createdAt: new Date("2026-07-03T12:00:00.000Z"),
         priceExVat: 2500,
       },
     ]);
@@ -118,12 +118,12 @@ describe("GET /api/dashboard/home", () => {
       ],
       dailyActivity: expect.arrayContaining([
         {
-          date: "2026-06-01",
+          date: "2026-07-01",
           orders: 1,
           revenue: 1000,
         },
         {
-          date: "2026-06-03",
+          date: "2026-07-03",
           orders: 1,
           revenue: 2500,
         },

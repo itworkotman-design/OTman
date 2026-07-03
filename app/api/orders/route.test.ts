@@ -665,7 +665,13 @@ describe("routes in /api/orders", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           companyId: "company-1",
-          customerMembershipId: "store-membership",
+          OR: [
+            { customerMembershipId: "store-membership" },
+            {
+              customerMembershipId: null,
+              createdByMembershipId: "store-membership",
+            },
+          ],
         }),
       }),
     );

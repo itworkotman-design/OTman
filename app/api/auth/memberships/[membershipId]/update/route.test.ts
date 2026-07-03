@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => {
     membershipPermissionDeleteManyMock: vi.fn(),
     membershipPermissionCreateManyMock: vi.fn(),
     membershipUpdateMock: vi.fn(),
+    membershipPriceListDeleteManyMock: vi.fn(),
+    membershipPriceListCreateManyMock: vi.fn(),
     deleteAttachmentFromS3Mock: vi.fn(),
     isS3StoragePathMock: vi.fn(),
   };
@@ -36,6 +38,10 @@ vi.mock("@/lib/db", () => ({
     membershipPermission: {
       deleteMany: mocks.membershipPermissionDeleteManyMock,
       createMany: mocks.membershipPermissionCreateManyMock,
+    },
+    membershipPriceList: {
+      deleteMany: mocks.membershipPriceListDeleteManyMock,
+      createMany: mocks.membershipPriceListCreateManyMock,
     },
   },
 }));
@@ -69,6 +75,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
     mocks.isS3StoragePathMock.mockReturnValue(false);
     mocks.membershipPermissionDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.membershipPermissionCreateManyMock.mockResolvedValue({ count: 0 });
+    mocks.membershipPriceListDeleteManyMock.mockResolvedValue({ count: 0 });
+    mocks.membershipPriceListCreateManyMock.mockResolvedValue({ count: 0 });
   });
 
   it("returns 401 and UNAUTHORIZED when no session exists", async () => {
@@ -440,10 +448,15 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
     expect(mocks.membershipUpdateMock).toHaveBeenCalledWith({
       where: { id: "m2" },
       data: {
-        priceListId: null,
         warehouseEmail: "warehouse@example.com",
       },
     });
+
+    expect(mocks.membershipPriceListDeleteManyMock).toHaveBeenCalledWith({
+      where: { membershipId: "m2" },
+    });
+
+    expect(mocks.membershipPriceListCreateManyMock).not.toHaveBeenCalled();
 
     expect(mocks.membershipPermissionDeleteManyMock).toHaveBeenCalledWith({
       where: {
@@ -568,9 +581,69 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
     expect(mocks.membershipUpdateMock).toHaveBeenCalledWith({
       where: { id: "m2" },
       data: {
-        priceListId: null,
         warehouseEmail: null,
       },
+    });
+
+    expect(mocks.membershipPriceListDeleteManyMock).toHaveBeenCalledWith({
+      where: { membershipId: "m2" },
+    });
+
+    expect(mocks.membershipPriceListCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("replaces membershipPriceLists when priceListIds are provided", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      sessionId: "session-1",
+      userId: "u1",
+      email: "owner@example.com",
+      userStatus: "ACTIVE",
+      activeCompanyId: "c1",
+      expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+    });
+
+    mocks.getActiveMembershipMock.mockResolvedValue({
+      userId: "u1",
+      companyId: "c1",
+      role: "OWNER",
+      status: "ACTIVE",
+      permissions: [],
+    });
+
+    mocks.findUniqueMock.mockResolvedValue({
+      id: "m2",
+      role: "USER",
+      status: "ACTIVE",
+      companyId: "c1",
+      userId: "u2",
+    });
+
+    const req = new Request("http://localhost/api/auth/memberships/m2/update", {
+      method: "PATCH",
+      body: JSON.stringify({
+        email: "updated@example.com",
+        username: "updateduser",
+        phoneNumber: "12345678",
+        description: "Updated description",
+        priceListIds: ["price-list-1", "price-list-2"],
+      }),
+    });
+
+    const res = await PATCH(req, {
+      params: Promise.resolve({ membershipId: "m2" }),
+    });
+
+    expect(res.status).toBe(200);
+
+    expect(mocks.membershipPriceListDeleteManyMock).toHaveBeenCalledWith({
+      where: { membershipId: "m2" },
+    });
+
+    expect(mocks.membershipPriceListCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        { membershipId: "m2", priceListId: "price-list-1" },
+        { membershipId: "m2", priceListId: "price-list-2" },
+      ],
     });
   });
 });

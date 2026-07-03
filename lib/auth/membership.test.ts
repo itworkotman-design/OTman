@@ -42,12 +42,16 @@ describe("getActiveMembership", () => {
         companyId: true,
         role: true,
         status: true,
+        membershipPriceLists: {
+          select: {
+            priceListId: true,
+          },
+        },
         permissions: {
           select: {
             permission: true,
           },
         },
-        priceListId: true,
       },
     });
   });
@@ -58,6 +62,7 @@ describe("getActiveMembership", () => {
       companyId: "company-1",
       role: "ADMIN",
       status: "ACTIVE",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
     });
 
     const result = await getActiveMembership({
@@ -70,6 +75,7 @@ describe("getActiveMembership", () => {
       companyId: "company-1",
       role: "ADMIN",
       status: "ACTIVE",
+      priceListIds: ["price-list-1"],
       permissions: [],
     });
   });
