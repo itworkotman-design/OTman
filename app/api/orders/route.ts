@@ -266,7 +266,10 @@ function parsePositiveInt(value: string | null, fallback: number) {
   return Math.max(1, Math.floor(n));
 }
 
-function buildArchiveSearchPrefilter(search: string): Prisma.OrderWhereInput {
+function buildArchiveSearchPrefilter(
+  search: string,
+  extraPickupOrderIds: string[] = [],
+): Prisma.OrderWhereInput {
   const trimmedSearch = search.trim();
 
   if (!trimmedSearch) {
@@ -302,9 +305,37 @@ function buildArchiveSearchPrefilter(search: string): Prisma.OrderWhereInput {
     orFilters.push({ displayId });
   }
 
+  if (extraPickupOrderIds.length > 0) {
+    orFilters.push({ id: { in: extraPickupOrderIds } });
+  }
+
   return {
     OR: orFilters,
   };
+}
+
+// extraPickupAddress is a Postgres text[] column, which Prisma's type-safe
+// filters can only match by exact element (`has`/`hasSome`), not substring.
+// Find matching order ids with a raw ILIKE-over-unnest query so the archive
+// search prefilter doesn't drop orders whose only match is an extra pickup.
+async function findExtraPickupAddressOrderIds(companyId: string, search: string) {
+  const trimmedSearch = search.trim();
+
+  if (!trimmedSearch) {
+    return [];
+  }
+
+  const rows = await prisma.$queryRaw<{ id: string }[]>(
+    Prisma.sql`
+      SELECT DISTINCT o."id"
+      FROM "Order" o
+      CROSS JOIN LATERAL unnest(o."extraPickupAddress") AS "address"
+      WHERE o."companyId" = ${companyId}
+        AND "address" ILIKE ${`%${trimmedSearch}%`}
+    `,
+  );
+
+  return rows.map((row) => row.id);
 }
 
 function getMembershipUserLabel(user: {
@@ -1177,9 +1208,14 @@ export async function GET(req: Request) {
   };
 
   if (trimmedSearch) {
+    const extraPickupOrderIds = await findExtraPickupAddressOrderIds(
+      session.activeCompanyId,
+      trimmedSearch,
+    );
+
     where.AND = [
       ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-      buildArchiveSearchPrefilter(trimmedSearch),
+      buildArchiveSearchPrefilter(trimmedSearch, extraPickupOrderIds),
     ];
   }
 
