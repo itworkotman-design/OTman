@@ -526,6 +526,7 @@ model OrderNotification {
   title                  String
   message                String
   payload                Json?
+  scheduledFor           DateTime?
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   resolvedAt             DateTime?
@@ -752,6 +753,7 @@ enum OrderNotificationType {
   MANUAL_REVIEW
   GSM_REVIEW
   CAPACITY_REVIEW
+  CUSTOM
 }
 
 enum AttachmentCategory {

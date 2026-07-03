@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
-import { resolveOrderNotification } from "@/lib/orders/orderNotifications";
+import {
+  deleteCustomOrderNotification,
+  resolveOrderNotification,
+  updateCustomOrderNotification,
+} from "@/lib/orders/orderNotifications";
+import { parseCustomNotificationInput } from "@/lib/orders/customNotificationSchedule";
 
 type OrderNotificationItemRouteParams = {
   params: Promise<{
@@ -94,6 +99,96 @@ export async function PATCH(
   );
 
   if (!resolved) {
+    return NextResponse.json(
+      { ok: false, reason: "NOT_FOUND" },
+      { status: 404 },
+    );
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function PUT(
+  req: Request,
+  { params }: OrderNotificationItemRouteParams,
+) {
+  const auth = await getAdminMembership(req);
+
+  if (auth.response) {
+    return auth.response;
+  }
+
+  if (!auth.companyId || !auth.membershipId) {
+    return NextResponse.json(
+      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+      { status: 409 },
+    );
+  }
+
+  const { orderId, notificationId } = await params;
+
+  const body = (await req.json().catch(() => null)) as {
+    title?: unknown;
+    message?: unknown;
+    date?: unknown;
+    hour?: unknown;
+  } | null;
+
+  const parsed = parseCustomNotificationInput(body);
+
+  if (!parsed.ok) {
+    return NextResponse.json({ ok: false, reason: parsed.reason }, { status: 400 });
+  }
+
+  const updated = await prisma.$transaction((tx) =>
+    updateCustomOrderNotification(tx, {
+      notificationId,
+      orderId,
+      companyId: auth.companyId as string,
+      title: parsed.title,
+      message: parsed.message,
+      scheduledFor: parsed.scheduledFor,
+    }),
+  );
+
+  if (!updated) {
+    return NextResponse.json(
+      { ok: false, reason: "NOT_FOUND" },
+      { status: 404 },
+    );
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: OrderNotificationItemRouteParams,
+) {
+  const auth = await getAdminMembership(req);
+
+  if (auth.response) {
+    return auth.response;
+  }
+
+  if (!auth.companyId || !auth.membershipId) {
+    return NextResponse.json(
+      { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+      { status: 409 },
+    );
+  }
+
+  const { orderId, notificationId } = await params;
+
+  const deleted = await prisma.$transaction((tx) =>
+    deleteCustomOrderNotification(tx, {
+      notificationId,
+      orderId,
+      companyId: auth.companyId as string,
+    }),
+  );
+
+  if (!deleted) {
     return NextResponse.json(
       { ok: false, reason: "NOT_FOUND" },
       { status: 404 },

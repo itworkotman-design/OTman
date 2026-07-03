@@ -101,10 +101,11 @@ type OrderEmailsResponse = {
 
 type NotificationItem = {
   id: string;
-  type: "MANUAL_REVIEW" | "GSM_REVIEW" | "CAPACITY_REVIEW";
+  type: "MANUAL_REVIEW" | "GSM_REVIEW" | "CAPACITY_REVIEW" | "CUSTOM";
   title: string;
   message: string;
   createdAt: string;
+  scheduledFor: string | null;
   resolvedAt: string | null;
   resolvedBy: string;
 };
@@ -114,6 +115,8 @@ type OrderNotificationsResponse = {
   notifications?: NotificationItem[];
   reason?: string;
 };
+
+const NOTIFICATION_HOUR_OPTIONS = Array.from({ length: 17 }, (_, index) => index + 6);
 
 type OrderEmailModalProps = {
   open: boolean;
@@ -481,6 +484,24 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
   const [notificationsError, setNotificationsError] = useState("");
   const [resolvingNotificationIds, setResolvingNotificationIds] = useState<string[]>([]);
 
+  const [showCreateNotification, setShowCreateNotification] = useState(false);
+  const [newNotificationTitle, setNewNotificationTitle] = useState("");
+  const [newNotificationMessage, setNewNotificationMessage] = useState("");
+  const [newNotificationDate, setNewNotificationDate] = useState("");
+  const [newNotificationHour, setNewNotificationHour] = useState(NOTIFICATION_HOUR_OPTIONS[0]);
+  const [createNotificationLoading, setCreateNotificationLoading] = useState(false);
+  const [createNotificationError, setCreateNotificationError] = useState("");
+
+  const [openNotificationMenuId, setOpenNotificationMenuId] = useState<string | null>(null);
+  const [editingNotificationId, setEditingNotificationId] = useState<string | null>(null);
+  const [editNotificationTitle, setEditNotificationTitle] = useState("");
+  const [editNotificationMessage, setEditNotificationMessage] = useState("");
+  const [editNotificationDate, setEditNotificationDate] = useState("");
+  const [editNotificationHour, setEditNotificationHour] = useState(NOTIFICATION_HOUR_OPTIONS[0]);
+  const [editNotificationLoading, setEditNotificationLoading] = useState(false);
+  const [editNotificationError, setEditNotificationError] = useState("");
+  const [deletingNotificationIds, setDeletingNotificationIds] = useState<string[]>([]);
+
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [subject, setSubject] = useState("");
@@ -507,6 +528,15 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
     setSubject(defaultSubject);
     setMessageText("");
     setSendError("");
+    setShowCreateNotification(false);
+    setNewNotificationTitle("");
+    setNewNotificationMessage("");
+    setNewNotificationDate("");
+    setNewNotificationHour(NOTIFICATION_HOUR_OPTIONS[0]);
+    setCreateNotificationError("");
+    setOpenNotificationMenuId(null);
+    setEditingNotificationId(null);
+    setEditNotificationError("");
   }, [open, order]);
 
   useEffect(() => {
@@ -519,6 +549,33 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
 
     setExpandedMessageIds([latestMessageId]);
   }, [conversation?.messages]);
+
+  async function loadNotifications(orderId: string) {
+    try {
+      setNotificationsLoading(true);
+      setNotificationsError("");
+
+      const response = await fetch(`/api/orders/${orderId}/notifications`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data: OrderNotificationsResponse | null = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.ok) {
+        setNotificationsError(data?.reason || "Failed to load notifications");
+        setNotifications([]);
+        return;
+      }
+
+      setNotifications(Array.isArray(data.notifications) ? data.notifications : []);
+    } catch {
+      setNotificationsError("Failed to load notifications");
+      setNotifications([]);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (!open || !order?.id) {
@@ -602,42 +659,7 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
       }
     }
 
-    async function loadNotifications() {
-      try {
-        setNotificationsLoading(true);
-        setNotificationsError("");
-
-        const response = await fetch(`/api/orders/${orderId}/notifications`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        const data: OrderNotificationsResponse | null = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.ok) {
-          if (active) {
-            setNotificationsError(data?.reason || "Failed to load notifications");
-            setNotifications([]);
-          }
-          return;
-        }
-
-        if (active) {
-          setNotifications(Array.isArray(data.notifications) ? data.notifications : []);
-        }
-      } catch {
-        if (active) {
-          setNotificationsError("Failed to load notifications");
-          setNotifications([]);
-        }
-      } finally {
-        if (active) {
-          setNotificationsLoading(false);
-        }
-      }
-    }
-
-    void Promise.all([loadHistory(), loadConversation(), loadNotifications()]);
+    void Promise.all([loadHistory(), loadConversation(), loadNotifications(orderId)]);
 
     return () => {
       active = false;
@@ -656,6 +678,22 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!openNotificationMenuId) {
+      return;
+    }
+
+    function closeMenu() {
+      setOpenNotificationMenuId(null);
+    }
+
+    document.addEventListener("click", closeMenu);
+
+    return () => {
+      document.removeEventListener("click", closeMenu);
+    };
+  }, [openNotificationMenuId]);
 
   async function handleSendEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -815,6 +853,176 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
     }
   }
 
+  async function handleCreateNotification(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!order?.id) {
+      return;
+    }
+
+    if (!newNotificationTitle.trim() || !newNotificationMessage.trim() || !newNotificationDate) {
+      setCreateNotificationError("Title, description and date are required");
+      return;
+    }
+
+    try {
+      setCreateNotificationLoading(true);
+      setCreateNotificationError("");
+
+      const response = await fetch(`/api/orders/${order.id}/notifications`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: newNotificationTitle.trim(),
+          message: newNotificationMessage.trim(),
+          date: newNotificationDate,
+          hour: newNotificationHour,
+        }),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        reason?: string;
+      } | null;
+
+      if (!response.ok || !data?.ok) {
+        setCreateNotificationError(data?.reason || "Failed to create notification");
+        return;
+      }
+
+      setShowCreateNotification(false);
+      setNewNotificationTitle("");
+      setNewNotificationMessage("");
+      setNewNotificationDate("");
+      setNewNotificationHour(NOTIFICATION_HOUR_OPTIONS[0]);
+
+      await loadNotifications(order.id);
+      onAlertsChanged?.();
+    } catch {
+      setCreateNotificationError("Failed to create notification");
+    } finally {
+      setCreateNotificationLoading(false);
+    }
+  }
+
+  function openEditNotification(notification: NotificationItem) {
+    setOpenNotificationMenuId(null);
+    setEditingNotificationId(notification.id);
+    setEditNotificationTitle(notification.title);
+    setEditNotificationMessage(notification.message);
+    setEditNotificationError("");
+
+    const scheduledFor = notification.scheduledFor ? new Date(notification.scheduledFor) : null;
+
+    if (scheduledFor && !Number.isNaN(scheduledFor.getTime())) {
+      const year = scheduledFor.getFullYear();
+      const month = String(scheduledFor.getMonth() + 1).padStart(2, "0");
+      const day = String(scheduledFor.getDate()).padStart(2, "0");
+      setEditNotificationDate(`${year}-${month}-${day}`);
+      setEditNotificationHour(scheduledFor.getHours());
+    } else {
+      setEditNotificationDate("");
+      setEditNotificationHour(NOTIFICATION_HOUR_OPTIONS[0]);
+    }
+  }
+
+  function closeEditNotification() {
+    setEditingNotificationId(null);
+    setEditNotificationError("");
+  }
+
+  async function handleUpdateNotification(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!order?.id || !editingNotificationId) {
+      return;
+    }
+
+    if (!editNotificationTitle.trim() || !editNotificationMessage.trim() || !editNotificationDate) {
+      setEditNotificationError("Title, description and date are required");
+      return;
+    }
+
+    try {
+      setEditNotificationLoading(true);
+      setEditNotificationError("");
+
+      const response = await fetch(`/api/orders/${order.id}/notifications/${editingNotificationId}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: editNotificationTitle.trim(),
+          message: editNotificationMessage.trim(),
+          date: editNotificationDate,
+          hour: editNotificationHour,
+        }),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        reason?: string;
+      } | null;
+
+      if (!response.ok || !data?.ok) {
+        setEditNotificationError(data?.reason || "Failed to update notification");
+        return;
+      }
+
+      setEditingNotificationId(null);
+      await loadNotifications(order.id);
+      onAlertsChanged?.();
+    } catch {
+      setEditNotificationError("Failed to update notification");
+    } finally {
+      setEditNotificationLoading(false);
+    }
+  }
+
+  async function handleDeleteNotification(notificationId: string) {
+    if (!order?.id) {
+      return;
+    }
+
+    if (!confirm("Delete this scheduled notification?")) {
+      return;
+    }
+
+    setOpenNotificationMenuId(null);
+
+    try {
+      setDeletingNotificationIds((current) => [...current, notificationId]);
+      setNotificationsError("");
+
+      const response = await fetch(`/api/orders/${order.id}/notifications/${notificationId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        reason?: string;
+      } | null;
+
+      if (!response.ok || !data?.ok) {
+        setNotificationsError(data?.reason || "Failed to delete notification");
+        return;
+      }
+
+      await loadNotifications(order.id);
+      onAlertsChanged?.();
+    } catch {
+      setNotificationsError("Failed to delete notification");
+    } finally {
+      setDeletingNotificationIds((current) => current.filter((id) => id !== notificationId));
+    }
+  }
+
   function toggleMessageExpansion(messageId: string) {
     setExpandedMessageIds((current) => (current.includes(messageId) ? current.filter((id) => id !== messageId) : [...current, messageId]));
   }
@@ -826,7 +1034,14 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
   const orderLabel = typeof order.displayId === "number" && order.displayId > 0 ? `Order ${order.displayId}` : "Order";
   const conversationStarted = Boolean(conversation?.messages.length);
   const hasMailAttention = (conversation?.needsEmailAttention ?? order.needsEmailAttention) || order.unreadInboundEmailCount > 0;
-  const hasNotificationAttention = notifications.some((notification) => !notification.resolvedAt) || order.needsNotificationAttention;
+
+  const now = Date.now();
+  const isScheduledForLater = (notification: NotificationItem) =>
+    Boolean(notification.scheduledFor) && new Date(notification.scheduledFor as string).getTime() > now;
+  const scheduledNotifications = notifications.filter(isScheduledForLater);
+  const activeNotifications = notifications.filter((notification) => !isScheduledForLater(notification));
+
+  const hasNotificationAttention = activeNotifications.some((notification) => !notification.resolvedAt) || order.needsNotificationAttention;
 
   return createPortal(
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -1001,60 +1216,274 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
                 )}
               </div>
             ) : activeTab === "notifications" ? (
-              notificationsLoading ? (
-                <div className="py-6 text-sm text-textColorThird">Loading notifications...</div>
-              ) : notificationsError ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{notificationsError}</div>
-              ) : notifications.length === 0 ? (
-                <div className="rounded-2xl border border-black/10 bg-white px-4 py-6 text-sm text-textColorThird">No notifications for this order.</div>
-              ) : (
-                <div className="space-y-4">
-                  {notifications.map((notification) => {
-                    const isResolving = resolvingNotificationIds.includes(notification.id);
-                    const isResolved = Boolean(notification.resolvedAt);
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-black/10 bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-base font-semibold text-logoblue">Custom notification</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreateNotificationError("");
+                        setShowCreateNotification((current) => !current);
+                      }}
+                      className="rounded-full bg-logoblue px-4 py-2 text-sm font-semibold text-white transition hover:bg-logoblue/90"
+                    >
+                      {showCreateNotification ? "Cancel" : "Add notification"}
+                    </button>
+                  </div>
 
-                    return (
-                      <div
-                        key={notification.id}
-                        className={`rounded-2xl border p-5 ${isResolved ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <div className="text-base font-semibold text-logoblue">{notification.title}</div>
-                            <div className="mt-1 whitespace-pre-wrap text-sm text-textColorThird">{notification.message}</div>
-                          </div>
+                  {showCreateNotification ? (
+                    <form className="mt-4 space-y-3" onSubmit={handleCreateNotification}>
+                      <label className="block">
+                        <div className="mb-1 text-sm font-medium text-textColorThird">Title</div>
+                        <input
+                          value={newNotificationTitle}
+                          onChange={(event) => setNewNotificationTitle(event.target.value)}
+                          className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                          placeholder="Notification title"
+                        />
+                      </label>
 
-                          <div className="text-right text-sm text-textColorThird">
-                            <div>{formatTimestamp(notification.createdAt)}</div>
-                            <div className="mt-1 text-xs font-semibold uppercase tracking-wide">{notification.type.replaceAll("_", " ")}</div>
-                          </div>
-                        </div>
+                      <label className="block">
+                        <div className="mb-1 text-sm font-medium text-textColorThird">Description</div>
+                        <textarea
+                          value={newNotificationMessage}
+                          onChange={(event) => setNewNotificationMessage(event.target.value)}
+                          className="min-h-[100] w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                          placeholder="Describe what this notification is about"
+                        />
+                      </label>
 
-                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                          <div className="text-sm text-textColorThird">
-                            {isResolved
-                              ? `Fixed${notification.resolvedAt ? ` at ${formatTimestamp(notification.resolvedAt)}` : ""}${
-                                  notification.resolvedBy ? ` by ${notification.resolvedBy}` : ""
-                                }`
-                              : "Needs admin approval"}
-                          </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block">
+                          <div className="mb-1 text-sm font-medium text-textColorThird">Date to appear</div>
+                          <input
+                            type="date"
+                            value={newNotificationDate}
+                            onChange={(event) => setNewNotificationDate(event.target.value)}
+                            className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                          />
+                        </label>
 
-                          {!isResolved ? (
-                            <button
-                              type="button"
-                              onClick={() => handleResolveNotification(notification.id)}
-                              disabled={isResolving}
-                              className="cursor-pointer rounded-full bg-logoblue px-4 py-2 text-sm font-semibold text-white transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {isResolving ? "Updating..." : "Mark as fixed"}
-                            </button>
-                          ) : null}
-                        </div>
+                        <label className="block">
+                          <div className="mb-1 text-sm font-medium text-textColorThird">Time to appear</div>
+                          <select
+                            value={newNotificationHour}
+                            onChange={(event) => setNewNotificationHour(Number(event.target.value))}
+                            className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                          >
+                            {NOTIFICATION_HOUR_OPTIONS.map((hour) => (
+                              <option key={hour} value={hour}>
+                                {`${String(hour).padStart(2, "0")}:00`}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                       </div>
-                    );
-                  })}
+
+                      {createNotificationError ? (
+                        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{createNotificationError}</div>
+                      ) : null}
+
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          type="submit"
+                          disabled={createNotificationLoading}
+                          className="rounded-full bg-logoblue px-5 py-2 text-sm font-semibold text-white transition hover:bg-logoblue/90 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {createNotificationLoading ? "Creating..." : "Create notification"}
+                        </button>
+                      </div>
+                    </form>
+                  ) : null}
                 </div>
-              )
+                {scheduledNotifications.length > 0 ? (
+                  <div className="rounded-2xl border border-black/10 bg-slate-100 p-3 ">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-textColorThird">Scheduled</div>
+                    <div className="space-y-1.5">
+                      {scheduledNotifications.map((notification) => {
+                        const isDeleting = deletingNotificationIds.includes(notification.id);
+                        const isEditing = editingNotificationId === notification.id;
+
+                        if (isEditing) {
+                          return (
+                            <form
+                              key={notification.id}
+                              className="space-y-3 rounded-xl bg-white p-3"
+                              onSubmit={handleUpdateNotification}
+                            >
+                              <label className="block">
+                                <div className="mb-1 text-xs font-medium text-textColorThird">Title</div>
+                                <input
+                                  value={editNotificationTitle}
+                                  onChange={(event) => setEditNotificationTitle(event.target.value)}
+                                  className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                                  placeholder="Notification title"
+                                />
+                              </label>
+
+                              <label className="block">
+                                <div className="mb-1 text-xs font-medium text-textColorThird">Description</div>
+                                <textarea
+                                  value={editNotificationMessage}
+                                  onChange={(event) => setEditNotificationMessage(event.target.value)}
+                                  className="min-h-[80] w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                                  placeholder="Describe what this notification is about"
+                                />
+                              </label>
+
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="block">
+                                  <div className="mb-1 text-xs font-medium text-textColorThird">Date to appear</div>
+                                  <input
+                                    type="date"
+                                    value={editNotificationDate}
+                                    onChange={(event) => setEditNotificationDate(event.target.value)}
+                                    className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                                  />
+                                </label>
+
+                                <label className="block">
+                                  <div className="mb-1 text-xs font-medium text-textColorThird">Time to appear</div>
+                                  <select
+                                    value={editNotificationHour}
+                                    onChange={(event) => setEditNotificationHour(Number(event.target.value))}
+                                    className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+                                  >
+                                    {NOTIFICATION_HOUR_OPTIONS.map((hour) => (
+                                      <option key={hour} value={hour}>
+                                        {`${String(hour).padStart(2, "0")}:00`}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+
+                              {editNotificationError ? (
+                                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{editNotificationError}</div>
+                              ) : null}
+
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={closeEditNotification}
+                                  className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-textColorThird transition hover:bg-slate-200"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="submit"
+                                  disabled={editNotificationLoading}
+                                  className="rounded-full bg-logoblue px-4 py-2 text-xs font-semibold text-white transition hover:bg-logoblue/90 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {editNotificationLoading ? "Saving..." : "Save"}
+                                </button>
+                              </div>
+                            </form>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={notification.id}
+                            className="relative flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/70 px-3 py-2 text-sm text-textColorThird"
+                          >
+                            <span className="truncate font-medium">{notification.title}</span>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="text-xs">Appears {formatTimestamp(notification.scheduledFor)}</span>
+                              <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenNotificationMenuId((current) => (current === notification.id ? null : notification.id));
+                                }}
+                                className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-textColorThird transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                aria-label="Notification settings"
+                              >
+                                ⋮
+                              </button>
+
+                              {openNotificationMenuId === notification.id ? (
+                                <div className="absolute right-0 top-8 z-10 w-32 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditNotification(notification)}
+                                    className="block w-full px-3 py-2 text-left text-xs font-medium text-logoblue transition hover:bg-slate-100"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteNotification(notification.id)}
+                                    className="block w-full px-3 py-2 text-left text-xs font-medium text-red-600 transition hover:bg-slate-100"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+                {notificationsLoading ? (
+                  <div className="py-6 text-sm text-textColorThird">Loading notifications...</div>
+                ) : notificationsError ? (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{notificationsError}</div>
+                ) : activeNotifications.length === 0 ? (
+                  <div className="rounded-2xl border border-black/10 bg-white px-4 py-6 text-sm text-textColorThird">No notifications for this order.</div>
+                ) : (
+                  <div className="space-y-4">
+                    {activeNotifications.map((notification) => {
+                      const isResolving = resolvingNotificationIds.includes(notification.id);
+                      const isResolved = Boolean(notification.resolvedAt);
+
+                      return (
+                        <div
+                          key={notification.id}
+                          className={`rounded-2xl border p-5 ${isResolved ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="text-base font-semibold text-logoblue">{notification.title}</div>
+                              <div className="mt-1 whitespace-pre-wrap text-sm text-textColorThird">{notification.message}</div>
+                            </div>
+
+                            <div className="text-right text-sm text-textColorThird">
+                              <div>{formatTimestamp(notification.createdAt)}</div>
+                              <div className="mt-1 text-xs font-semibold uppercase tracking-wide">{notification.type.replaceAll("_", " ")}</div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                            <div className="text-sm text-textColorThird">
+                              {isResolved
+                                ? `Fixed${notification.resolvedAt ? ` at ${formatTimestamp(notification.resolvedAt)}` : ""}${
+                                    notification.resolvedBy ? ` by ${notification.resolvedBy}` : ""
+                                  }`
+                                : "Needs admin approval"}
+                            </div>
+
+                            {!isResolved ? (
+                              <button
+                                type="button"
+                                onClick={() => handleResolveNotification(notification.id)}
+                                disabled={isResolving}
+                                className="cursor-pointer rounded-full bg-logoblue px-4 py-2 text-sm font-semibold text-white transition hover:bg-logored/90 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isResolving ? "Updating..." : "Mark as fixed"}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             ) : historyLoading ? (
               <div className="py-6 text-sm text-textColorThird">Loading order history...</div>
             ) : historyError ? (

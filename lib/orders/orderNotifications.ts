@@ -5,10 +5,11 @@ type PrismaLike = PrismaClient | Prisma.TransactionClient;
 type CreateOrderNotificationInput = {
   orderId: string;
   companyId: string;
-  type: "MANUAL_REVIEW" | "GSM_REVIEW" | "CAPACITY_REVIEW";
+  type: "MANUAL_REVIEW" | "GSM_REVIEW" | "CAPACITY_REVIEW" | "CUSTOM";
   title: string;
   message: string;
   payload?: Prisma.InputJsonValue;
+  scheduledFor?: Date | null;
 };
 
 type ResolveOrderNotificationInput = {
@@ -17,6 +18,54 @@ type ResolveOrderNotificationInput = {
   companyId: string;
   resolvedByMembershipId: string;
 };
+
+type UpdateCustomOrderNotificationInput = {
+  notificationId: string;
+  orderId: string;
+  companyId: string;
+  title: string;
+  message: string;
+  scheduledFor: Date | null;
+};
+
+type DeleteCustomOrderNotificationInput = {
+  notificationId: string;
+  orderId: string;
+  companyId: string;
+};
+
+function dueUnresolvedNotificationsWhere(
+  orderId: string,
+  companyId: string,
+): Prisma.OrderNotificationWhereInput {
+  return {
+    orderId,
+    companyId,
+    resolvedAt: null,
+    OR: [{ scheduledFor: null }, { scheduledFor: { lte: new Date() } }],
+  };
+}
+
+async function refreshOrderNotificationAttention(
+  prisma: PrismaLike,
+  input: { orderId: string; companyId: string },
+) {
+  const unreadNotificationCount = await prisma.orderNotification.count({
+    where: dueUnresolvedNotificationsWhere(input.orderId, input.companyId),
+  });
+
+  await prisma.order.update({
+    where: {
+      id: input.orderId,
+    },
+    data: {
+      needsNotificationAttention: unreadNotificationCount > 0,
+      unreadNotificationCount,
+    },
+  });
+
+  return unreadNotificationCount;
+}
 
 export async function createOrderNotification(
   prisma: PrismaLike,
@@ -30,16 +79,11 @@ export async function createOrderNotification(
       title: input.title,
       message: input.message,
       payload: input.payload ?? Prisma.JsonNull,
+      scheduledFor: input.scheduledFor ?? null,
     },
   });
 
-  const unreadNotificationCount = await prisma.orderNotification.count({
-    where: {
-      orderId: input.orderId,
-      companyId: input.companyId,
-      resolvedAt: null,
-    },
-  });
+  await refreshOrderNotificationAttention(prisma, input);
 
   await prisma.order.update({
     where: {
@@ -47,8 +91,6 @@ export async function createOrderNotification(
     },
     data: {
       lastNotificationAt: notification.createdAt,
-      needsNotificationAttention: unreadNotificationCount > 0,
-      unreadNotificationCount,
     },
   });
 
@@ -76,23 +118,56 @@ export async function resolveOrderNotification(
     return false;
   }
 
-  const unreadNotificationCount = await prisma.orderNotification.count({
+  await refreshOrderNotificationAttention(prisma, input);
+
+  return true;
+}
+
+export async function updateCustomOrderNotification(
+  prisma: PrismaLike,
+  input: UpdateCustomOrderNotificationInput,
+) {
+  const result = await prisma.orderNotification.updateMany({
     where: {
+      id: input.notificationId,
       orderId: input.orderId,
       companyId: input.companyId,
-      resolvedAt: null,
+      type: "CUSTOM",
+    },
+    data: {
+      title: input.title,
+      message: input.message,
+      scheduledFor: input.scheduledFor,
     },
   });
 
-  await prisma.order.update({
+  if (result.count === 0) {
+    return false;
+  }
+
+  await refreshOrderNotificationAttention(prisma, input);
+
+  return true;
+}
+
+export async function deleteCustomOrderNotification(
+  prisma: PrismaLike,
+  input: DeleteCustomOrderNotificationInput,
+) {
+  const result = await prisma.orderNotification.deleteMany({
     where: {
-      id: input.orderId,
-    },
-    data: {
-      needsNotificationAttention: unreadNotificationCount > 0,
-      unreadNotificationCount,
+      id: input.notificationId,
+      orderId: input.orderId,
+      companyId: input.companyId,
+      type: "CUSTOM",
     },
   });
+
+  if (result.count === 0) {
+    return false;
+  }
+
+  await refreshOrderNotificationAttention(prisma, input);
 
   return true;
 }
@@ -161,23 +236,7 @@ export async function resolveOutdatedCapacityNotifications(
     },
   });
 
-  const unreadNotificationCount = await prisma.orderNotification.count({
-    where: {
-      orderId: input.orderId,
-      companyId: input.companyId,
-      resolvedAt: null,
-    },
-  });
-
-  await prisma.order.update({
-    where: {
-      id: input.orderId,
-    },
-    data: {
-      needsNotificationAttention: unreadNotificationCount > 0,
-      unreadNotificationCount,
-    },
-  });
+  await refreshOrderNotificationAttention(prisma, input);
 
   return result.count;
 }
