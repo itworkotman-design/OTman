@@ -23,13 +23,11 @@ export function buildSubcontractorPriceAlert(input: {
   };
 }
 
-export async function hasOpenSubcontractorPriceAlert(
+export async function hasSubcontractorPriceAlertEverExisted(
   prisma: PrismaLike,
   input: {
     orderId: string;
     companyId: string;
-    customerPrice: number;
-    subcontractorPrice: number;
   },
 ) {
   const existing = await prisma.orderNotification.findMany({
@@ -37,7 +35,6 @@ export async function hasOpenSubcontractorPriceAlert(
       orderId: input.orderId,
       companyId: input.companyId,
       type: "MANUAL_REVIEW",
-      resolvedAt: null,
     },
     select: {
       id: true,
@@ -54,17 +51,9 @@ export async function hasOpenSubcontractorPriceAlert(
       return false;
     }
 
-    const payload = notification.payload as {
-      kind?: unknown;
-      customerPrice?: unknown;
-      subcontractorPrice?: unknown;
-    };
+    const payload = notification.payload as { kind?: unknown };
 
-    return (
-      payload.kind === "SUBCONTRACTOR_PRICE_WARNING" &&
-      payload.customerPrice === input.customerPrice &&
-      payload.subcontractorPrice === input.subcontractorPrice
-    );
+    return payload.kind === "SUBCONTRACTOR_PRICE_WARNING";
   });
 }
 
@@ -86,7 +75,7 @@ export async function createSubcontractorPriceAlert(
 
   if (input.subcontractorPrice <= input.customerPrice) return null;
 
-  const alreadyExists = await hasOpenSubcontractorPriceAlert(prisma, input);
+  const alreadyExists = await hasSubcontractorPriceAlertEverExisted(prisma, input);
   if (alreadyExists) return null;
 
   const alert = buildSubcontractorPriceAlert({

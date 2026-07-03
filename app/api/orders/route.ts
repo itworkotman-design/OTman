@@ -45,8 +45,8 @@ import {
   createCapacityAlert,
   createContactCustomerAlert,
   createExtraPickupAlert,
-  createNextDayDeliveryAlert,
   createSubcontractorPriceAlert,
+  createTodayDeliveryAlert,
 } from "@/lib/orders/alerts";
 import {
   buildLegacyOrderSummaryGroups,
@@ -941,7 +941,7 @@ export async function POST(req: Request) {
     subcontractorPrice: order.priceSubcontractor,
   });
 
-  await createNextDayDeliveryAlert(prisma, {
+  await createTodayDeliveryAlert(prisma, {
     orderId: order.id,
     companyId: order.companyId,
     deliveryDate: deliveryDate ?? "",

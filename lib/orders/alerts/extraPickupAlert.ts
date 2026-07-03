@@ -44,6 +44,40 @@ export function buildExtraPickupAlert(extraPickups: ExtraPickupInput[]): {
   };
 }
 
+async function hasExtraPickupAlertEverExisted(
+  prisma: PrismaLike,
+  input: {
+    orderId: string;
+    companyId: string;
+  },
+) {
+  const existing = await prisma.orderNotification.findMany({
+    where: {
+      orderId: input.orderId,
+      companyId: input.companyId,
+      type: "MANUAL_REVIEW",
+    },
+    select: {
+      id: true,
+      payload: true,
+    },
+  });
+
+  return existing.some((notification) => {
+    if (
+      !notification.payload ||
+      typeof notification.payload !== "object" ||
+      Array.isArray(notification.payload)
+    ) {
+      return false;
+    }
+
+    const payload = notification.payload as { kind?: unknown };
+
+    return payload.kind === "EXTRA_PICKUP";
+  });
+}
+
 export async function createExtraPickupAlert(
   prisma: PrismaLike,
   input: {
@@ -53,6 +87,9 @@ export async function createExtraPickupAlert(
   },
 ) {
   if (input.extraPickups.length === 0) return null;
+
+  const alreadyExists = await hasExtraPickupAlertEverExisted(prisma, input);
+  if (alreadyExists) return null;
 
   const alert = buildExtraPickupAlert(input.extraPickups);
 

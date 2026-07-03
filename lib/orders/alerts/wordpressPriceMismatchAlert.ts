@@ -112,6 +112,20 @@ export async function syncWordpressPriceMismatchAlert(
 
   if (existing) return;
 
+  const everExisted = await tx.orderNotification.findFirst({
+    where: {
+      orderId,
+      companyId,
+      type: "MANUAL_REVIEW",
+      title: "WordPress price mismatch",
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (everExisted) return;
+
   const parsedWordpressRawTotal = parseWordpressRawTotal(wordpressRawTotal);
 
   await createOrderNotification(tx, {

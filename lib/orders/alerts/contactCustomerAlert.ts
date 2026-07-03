@@ -25,7 +25,7 @@ export function buildContactCustomerAlert(input: {
   };
 }
 
-async function hasOpenContactCustomerAlert(
+async function hasContactCustomerAlertEverExisted(
   prisma: PrismaLike,
   input: {
     orderId: string;
@@ -37,7 +37,6 @@ async function hasOpenContactCustomerAlert(
       orderId: input.orderId,
       companyId: input.companyId,
       type: "MANUAL_REVIEW",
-      resolvedAt: null,
     },
     select: {
       id: true,
@@ -73,7 +72,7 @@ export async function createContactCustomerAlert(
 ) {
   if (!input.contactCustomer) return null;
 
-  const alreadyExists = await hasOpenContactCustomerAlert(prisma, input);
+  const alreadyExists = await hasContactCustomerAlertEverExisted(prisma, input);
   if (alreadyExists) return null;
 
   const alert = buildContactCustomerAlert({

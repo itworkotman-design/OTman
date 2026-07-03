@@ -29,13 +29,11 @@ export function buildCapacityAlert(input: {
   };
 }
 
-export async function hasOpenCapacityAlert(
+export async function hasCapacityAlertEverExisted(
   prisma: PrismaLike,
   input: {
     orderId: string;
     companyId: string;
-    deliveryDate: string;
-    timeWindow: string;
   },
 ) {
   const existing = await prisma.orderNotification.findFirst({
@@ -43,7 +41,6 @@ export async function hasOpenCapacityAlert(
       orderId: input.orderId,
       companyId: input.companyId,
       type: "CAPACITY_REVIEW",
-      resolvedAt: null,
     },
     select: {
       id: true,
@@ -55,15 +52,9 @@ export async function hasOpenCapacityAlert(
     return false;
   }
 
-  const payload = existing.payload as {
-    deliveryDate?: unknown;
-    timeWindow?: unknown;
-  };
+  const payload = existing.payload as { kind?: unknown };
 
-  return (
-    payload.deliveryDate === input.deliveryDate &&
-    payload.timeWindow === input.timeWindow
-  );
+  return payload.kind === "CAPACITY_WARNING";
 }
 
 export async function createCapacityAlert(
@@ -80,7 +71,7 @@ export async function createCapacityAlert(
 ) {
   if (!input.overCapacity) return null;
 
-  const alreadyExists = await hasOpenCapacityAlert(prisma, input);
+  const alreadyExists = await hasCapacityAlertEverExisted(prisma, input);
   if (alreadyExists) return null;
 
   const alert = buildCapacityAlert(input);

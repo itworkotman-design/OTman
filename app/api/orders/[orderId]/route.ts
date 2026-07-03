@@ -31,9 +31,9 @@ import {
   createCapacityAlert,
   createContactCustomerAlert,
   createExtraPickupAlert,
-  createNextDayDeliveryAlert,
   createNoSubcontractorAlert,
   createSubcontractorPriceAlert,
+  createTodayDeliveryAlert,
 } from "@/lib/orders/alerts";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildWordpressExtraPickupContacts, getWordpressExtraPickupAddresses, toWordpressMetaRecord } from "@/lib/integrations/wordpress/orderMeta";
@@ -992,7 +992,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     existingOrder.customTimeContactNote ??
     "";
 
-  await createNextDayDeliveryAlert(prisma, {
+  await createTodayDeliveryAlert(prisma, {
     orderId,
     companyId: existingOrder.companyId,
     deliveryDate: nextDeliveryDate ?? "",

@@ -1,7 +1,7 @@
 export {
   buildCapacityAlert,
   createCapacityAlert,
-  hasOpenCapacityAlert,
+  hasCapacityAlertEverExisted,
 } from "./capacityAlert";
 export {
   buildContactCustomerAlert,
@@ -12,13 +12,13 @@ export {
   createExtraPickupAlert,
 } from "./extraPickupAlert";
 export {
-  buildNextDayDeliveryAlert,
-  createNextDayDeliveryAlert,
-} from "./nextDayDeliveryAlert";
+  buildTodayDeliveryAlert,
+  createTodayDeliveryAlert,
+} from "./todayDeliveryAlert";
 export {
   buildSubcontractorPriceAlert,
   createSubcontractorPriceAlert,
-  hasOpenSubcontractorPriceAlert,
+  hasSubcontractorPriceAlertEverExisted,
 } from "./subcontractorPriceAlert";
 export { syncWordpressPriceMismatchAlert } from "./wordpressPriceMismatchAlert";
 export {

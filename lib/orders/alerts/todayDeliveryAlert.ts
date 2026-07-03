@@ -3,51 +3,41 @@ import { createOrderNotification } from "@/lib/orders/orderNotifications";
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
-function parseTimeWindowStartHour(timeWindow: string | null | undefined): number {
-  if (!timeWindow) return 0;
-  const match = timeWindow.match(/^(\d{1,2})/);
-  return match ? Number(match[1]) : 0;
+function formatTodayDateString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function isDeliveryWithin24Hours(deliveryDate: string, timeWindow?: string | null): boolean {
-  const parts = deliveryDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!parts) return false;
-  const startHour = parseTimeWindowStartHour(timeWindow);
-  const deliveryStart = new Date(
-    Number(parts[1]),
-    Number(parts[2]) - 1,
-    Number(parts[3]),
-    startHour,
-    0, 0, 0,
-  );
-  const diffMs = deliveryStart.getTime() - Date.now();
-  return diffMs >= 0 && diffMs < 24 * 60 * 60 * 1000;
+function isDeliveryToday(deliveryDate: string): boolean {
+  return deliveryDate === formatTodayDateString();
 }
 
-export function buildNextDayDeliveryAlert(input: {
+export function buildTodayDeliveryAlert(input: {
   deliveryDate: string;
   timeWindow?: string | null;
 }) {
   return {
-    title: "Next-day delivery warning",
+    title: "Today delivery warning",
     message: [
-      "Delivery is scheduled within 24 hours.",
+      "Delivery is scheduled for today.",
       `Delivery date: ${input.deliveryDate}${input.timeWindow ? ` (${input.timeWindow})` : ""}`,
       "Review timing and capacity before confirming.",
     ].join("\n"),
     payload: {
-      kind: "NEXT_DAY_DELIVERY" as const,
+      kind: "TODAY_DELIVERY" as const,
       deliveryDate: input.deliveryDate,
     },
   };
 }
 
-async function hasOpenNextDayDeliveryAlert(
+async function hasTodayDeliveryAlertEverExisted(
   prisma: PrismaLike,
   input: {
     orderId: string;
     companyId: string;
-    deliveryDate: string;
   },
 ) {
   const existing = await prisma.orderNotification.findMany({
@@ -55,7 +45,6 @@ async function hasOpenNextDayDeliveryAlert(
       orderId: input.orderId,
       companyId: input.companyId,
       type: "MANUAL_REVIEW",
-      resolvedAt: null,
     },
     select: {
       id: true,
@@ -72,19 +61,13 @@ async function hasOpenNextDayDeliveryAlert(
       return false;
     }
 
-    const payload = notification.payload as {
-      kind?: unknown;
-      deliveryDate?: unknown;
-    };
+    const payload = notification.payload as { kind?: unknown };
 
-    return (
-      payload.kind === "NEXT_DAY_DELIVERY" &&
-      payload.deliveryDate === input.deliveryDate
-    );
+    return payload.kind === "TODAY_DELIVERY";
   });
 }
 
-export async function createNextDayDeliveryAlert(
+export async function createTodayDeliveryAlert(
   prisma: PrismaLike,
   input: {
     orderId: string;
@@ -93,12 +76,12 @@ export async function createNextDayDeliveryAlert(
     timeWindow?: string | null;
   },
 ) {
-  if (!isDeliveryWithin24Hours(input.deliveryDate, input.timeWindow)) return null;
+  if (!isDeliveryToday(input.deliveryDate)) return null;
 
-  const alreadyExists = await hasOpenNextDayDeliveryAlert(prisma, input);
+  const alreadyExists = await hasTodayDeliveryAlertEverExisted(prisma, input);
   if (alreadyExists) return null;
 
-  const alert = buildNextDayDeliveryAlert(input);
+  const alert = buildTodayDeliveryAlert(input);
 
   return createOrderNotification(prisma, {
     orderId: input.orderId,
