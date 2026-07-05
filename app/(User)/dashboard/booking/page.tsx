@@ -71,6 +71,7 @@ export default function BookingPage() {
     [],
   );
   const [creators, setCreators] = useState<BookingArchiveOption[]>([]);
+  const [allCreators, setAllCreators] = useState<BookingArchiveOption[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState("");
   const [customerActionLoading, setCustomerActionLoading] = useState(false);
@@ -209,6 +210,30 @@ export default function BookingPage() {
     } catch {
       setSubcontractors([]);
       setCreators([]);
+    }
+  }
+
+  async function loadAllCreators() {
+    try {
+      const res = await fetch("/api/auth/order-creators?hasOrders=true", {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.ok) {
+        setAllCreators(
+          (data.orderCreators ?? []).map((item: FilterOptionApiItem) => ({
+            id: item.id,
+            label: item.name,
+            email: item.email ?? "",
+            warehouseEmail: item.warehouseEmail ?? "",
+          })),
+        );
+      }
+    } catch {
+      setAllCreators([]);
     }
   }
 
@@ -441,6 +466,7 @@ export default function BookingPage() {
   useEffect(() => {
     void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
     void loadFilterOptions();
+    void loadAllCreators();
     return () => {
       orderLoadAbortRef.current?.abort();
     };
@@ -592,7 +618,7 @@ export default function BookingPage() {
           />
 
           <SelectionActionBar
-            creators={creators}
+            creators={allCreators}
             selectedStoreId={appliedFilters.createdById || undefined}
             selectedCount={selectedOrderIds.length}
             locale={locale}
