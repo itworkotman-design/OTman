@@ -519,6 +519,7 @@ export default function BookingEditor({
   const [changeCustomerLoading, setChangeCustomerLoading] = useState(false);
   const distanceRequestAbortRef = useRef<AbortController | null>(null);
   const previousSelectedCustomerIdRef = useRef<string | null>(null);
+  const hasProcessedInitialCustomerSyncRef = useRef(false);
   const hasProcessedInitialReturnSyncRef = useRef(false);
   const lastUnlockedPickupAddressRef = useRef(initialValues?.pickupAddress ?? "");
   const pricingResultRef = useRef<ReturnType<typeof calculateBookingPricing> | null>(null);
@@ -777,7 +778,7 @@ export default function BookingEditor({
     setFeeAddToOrder(initialValues.feeAddToOrder ?? false);
     setStatusNotes(initialValues.statusNotes ?? "");
     setCustomerMembershipId(initialValues.customerMembershipId ?? "");
-    previousSelectedCustomerIdRef.current = initialValues.customerMembershipId ?? null;
+    hasProcessedInitialCustomerSyncRef.current = false;
     setStatus(normalizeInitialStatus(initialValues.status));
     setDontSendEmail(initialValues.dontSendEmail ?? false);
     setContactCustomerForCustomTimeWindow(initialValues.contactCustomerForCustomTimeWindow ?? false);
@@ -1575,8 +1576,20 @@ export default function BookingEditor({
       return;
     }
 
-    if (previousSelectedCustomerId === null && initialValues?.id) {
-      return;
+    // The order-creators list (which selectedCustomerOption resolves
+    // against) loads asynchronously, so this is the first run where
+    // selectedCustomerOption actually resolved to something — for an
+    // existing record that's "finished loading its saved customer", not a
+    // user-driven change, so skip the auto-fill exactly once per reset
+    // (mount, or switching which record is being edited). Any further
+    // change after that is a genuine customer switch and should still
+    // auto-fill.
+    if (!hasProcessedInitialCustomerSyncRef.current) {
+      hasProcessedInitialCustomerSyncRef.current = true;
+
+      if (initialValues?.id) {
+        return;
+      }
     }
 
     setCustomerLabel(selectedCustomerOption.name);

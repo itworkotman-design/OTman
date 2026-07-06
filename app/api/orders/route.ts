@@ -3,7 +3,6 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canCreateOrders } from "@/lib/users/orderAccess";
-import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import {
   optionalBoolean,
   optionalString,
@@ -21,33 +20,11 @@ import {
   normalizeExtraPickups,
   parseExtraPickups,
 } from "@/lib/orders/extraPickups";
-import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
-import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
-import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
-import {
-  sendExtraPickupNotificationEmail,
-  sendOrderNotificationEmail,
-} from "@/lib/orders/orderNotificationEmail";
-import {
-  buildOrderEventSnapshot,
-  createOrderCreatedEvent,
-} from "@/lib/orders/orderEvents";
 import {
   normalizeSavedProductCard,
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import {
-  ORDER_SLOT_LIMIT,
-  countOrdersInDeliverySlot,
-  isDeliverySlotOverCapacity,
-} from "@/lib/orders/capacity";
-import {
-  createCapacityAlert,
-  createContactCustomerAlert,
-  createExtraPickupAlert,
-  createSubcontractorPriceAlert,
-  createTodayDeliveryAlert,
-} from "@/lib/orders/alerts";
+import { createOrder } from "@/lib/orders/createOrder";
 import {
   buildLegacyOrderSummaryGroups,
   buildOrderSummaryGroups,
@@ -62,14 +39,7 @@ import type { AppPermission } from "@/lib/users/types";
 import {
   buildWordpressExtraPickupContacts,
 } from "@/lib/integrations/wordpress/orderMeta";
-import {
-  applyOrderPricingSnapshot,
-  getSavedOrderPricingSnapshot,
-} from "@/lib/booking/pricing/snapshot";
 import { buildArchiveCalculatorItems } from "@/lib/orders/buildArchiveCalculatorItems";
-import {
-  buildOrderPricingSnapshot,
-} from "@/lib/orders/orderTotals";
 
 const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   id: true,
@@ -667,21 +637,6 @@ export async function POST(req: Request) {
 
   const customerName = optionalString(body.customerName);
   const deliveryDate = optionalString(body.deliveryDate);
-  const now = new Date();
-
-  const deliveryDateObj = deliveryDate ? new Date(deliveryDate) : null;
-  if (deliveryDateObj) {
-    deliveryDateObj.setHours(23, 59, 59, 999);
-  }
-
-  const diffDays = deliveryDateObj
-    ? (deliveryDateObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-    : null;
-
-  const effectiveExpressDelivery =
-    typeof diffDays === "number" && diffDays <= 1
-      ? true
-      : optionalBoolean(body.expressDelivery);
 
   const membershipPriceListIds = membership.membershipPriceLists.map((item) => item.priceListId);
   let effectivePriceListId = membershipPriceListIds[0] ?? null;
@@ -738,331 +693,69 @@ export async function POST(req: Request) {
     effectivePriceListId = requestedPriceList.id;
   }
 
-  const catalog = await getBookingCatalog(effectivePriceListId);
-  const pricingSource = applyOrderPricingSnapshot({
-    catalogProducts: catalog.products,
-    catalogSpecialOptions: catalog.specialOptions,
-    priceListSettings: catalog.priceListSettings,
-    pricingSnapshot: getSavedOrderPricingSnapshot(productCards),
-  });
+  const orderEmailsEnabled = membership.company?.orderEmailsEnabled !== false;
 
-  const summaries = buildOrderSummaries(
+  const order = await createOrder({
+    companyId: session.activeCompanyId,
+    membershipId: membership.id,
+    orderNumber: submittedOrderNumber,
     productCards,
-    pricingSource.catalogProducts,
-    pricingSource.catalogSpecialOptions,
-  );
-
-  const builtItems = buildOrderItemsFromCards(
-    productCards,
-    pricingSource.catalogProducts,
-    pricingSource.catalogSpecialOptions,
-  );
-  const pricingSnapshot = buildOrderPricingSnapshot({
-    lines: builtItems,
-    rabatt: optionalString(body.rabatt),
-    leggTil: optionalString(body.leggTil),
-    subcontractorMinus: optionalString(body.subcontractorMinus),
-    subcontractorPlus: optionalString(body.subcontractorPlus),
-    fallbackCustomerTotalExVat: Math.round(safeNumber(body.priceExVat)),
-    fallbackSubcontractorTotal: Math.round(safeNumber(body.priceSubcontractor)),
-  });
-  const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
-  const finalSubcontractorTotal = pricingSnapshot.subcontractor.total;
-
-  const nextOrderNumber = await reserveNextManualOrderNumber(session.activeCompanyId);
-
-  const normalizedStatus = optionalString(body.status) || "processing";
-  const order = await prisma.order.create({
-    data: {
-      companyId: session.activeCompanyId,
-      createdByMembershipId: membership.id,
-      lastEditedByMembershipId: null,
-      priceListId: effectivePriceListId,
-
-      customerMembershipId,
-      customerLabel,
-      customerName,
-
-      legacyWordpressOrderId: null,
-      displayId: nextOrderNumber,
-      orderNumber: submittedOrderNumber,
-
+    priceListId: effectivePriceListId,
+    actor: {
+      name: membership.user.username ?? null,
+      email: membership.user.email,
+      source: "USER",
+    },
+    companyOrderEmailsEnabled: orderEmailsEnabled,
+    linkPendingAttachmentsForSessionId: session.userId,
+    fields: {
       description: optionalString(body.description),
       modelNr: optionalString(body.modelNr),
-
       deliveryDate,
       timeWindow: optionalString(body.timeWindow),
-      expressDelivery: effectiveExpressDelivery,
+      expressDelivery: optionalBoolean(body.expressDelivery),
       contactCustomerForCustomTimeWindow: optionalBoolean(
         body.contactCustomerForCustomTimeWindow,
       ),
       customTimeContactNote: optionalString(body.customTimeContactNote),
-
       pickupAddress: optionalString(body.pickupAddress),
-      extraPickupAddress: extraPickups.map((pickup) => pickup.address),
-      extraPickupContacts: extraPickups as unknown as Prisma.InputJsonValue,
-      deliveryAddress: optionalString(body.deliveryAddress),
+      extraPickups,
       returnAddress: optionalString(body.returnAddress),
+      deliveryAddress: optionalString(body.deliveryAddress),
       drivingDistance: optionalString(body.drivingDistance),
-
+      customerName,
       phone,
       phoneTwo,
       email,
       customerComments: optionalString(body.customerComments),
-
       floorNo: optionalString(body.floorNo),
       lift: optionalString(body.lift),
-
       cashierName: optionalString(body.cashierName),
       cashierPhone,
-
-      subcontractorMembershipId: optionalString(body.subcontractorId),
+      subcontractorId: optionalString(body.subcontractorId),
       subcontractor: optionalString(body.subcontractor),
-
       driver: optionalString(body.driver),
       secondDriver: optionalString(body.secondDriver),
       driverInfo: optionalString(body.driverInfo),
       licensePlate: optionalString(body.licensePlate),
-
       deviation: optionalString(body.deviation),
       feeExtraWork: optionalBoolean(body.feeExtraWork),
-      extraWorkMinutes: optionalBoolean(body.feeExtraWork)
-        ? safeInteger(body.extraWorkMinutes)
-        : 0,
+      extraWorkMinutes: safeInteger(body.extraWorkMinutes),
       feeAddToOrder: optionalBoolean(body.feeAddToOrder),
       statusNotes: optionalString(body.statusNotes),
-      status: normalizedStatus,
+      status: optionalString(body.status),
       dontSendEmail: optionalBoolean(body.dontSendEmail),
-
-      priceExVat: Math.round(finalCustomerTotalExVat),
-      priceSubcontractor: Math.round(finalSubcontractorTotal),
-
       rabatt: optionalString(body.rabatt),
       dnbDiscount,
       leggTil: optionalString(body.leggTil),
       subcontractorMinus: optionalString(body.subcontractorMinus),
       subcontractorPlus: optionalString(body.subcontractorPlus),
-
-      productsSummary: summaries.productsSummary,
-      deliveryTypeSummary: summaries.deliveryTypeSummary,
-      servicesSummary: summaries.servicesSummary,
-
-      productCardsSnapshot: productCards as unknown as Prisma.InputJsonValue,
-      pricingSnapshot: pricingSnapshot as unknown as Prisma.InputJsonValue,
+      customerMembershipId,
+      customerLabel,
+      priceExVat: safeNumber(body.priceExVat),
+      priceSubcontractor: safeNumber(body.priceSubcontractor),
     },
   });
-
-  if (builtItems.length > 0) {
-    const MAX_SAFE_CENTS = 2_147_483_647;
-    const clampCents = (v: number | null) =>
-      v === null || Math.abs(v) > MAX_SAFE_CENTS ? null : v;
-
-    await prisma.orderItem.createMany({
-      data: builtItems.map((item) => ({
-        orderId: order.id,
-        cardId: item.cardId,
-        productId: item.productId,
-        productCode: item.productCode,
-        productName: item.productName,
-        deliveryType: item.deliveryType,
-        itemType: item.itemType,
-        optionId: item.optionId,
-        optionCode: item.optionCode,
-        optionLabel: item.optionLabel,
-        quantity: item.quantity,
-        customerPriceCents: clampCents(item.customerPriceCents),
-        subcontractorPriceCents: clampCents(item.subcontractorPriceCents),
-        rawData: item.rawData
-          ? (item.rawData as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
-      })),
-    });
-  }
-
-  const pending = await prisma.pendingOrderAttachment.findMany({
-    where: { sessionId: session.userId },
-  });
-
-  for (const a of pending) {
-    await prisma.orderAttachment.create({
-      data: {
-        orderId: order.id,
-        category: a.category,
-        filename: a.filename,
-        mimeType: a.mimeType,
-        sizeBytes: a.sizeBytes,
-        storagePath: a.storagePath,
-      },
-    });
-  }
-
-  await prisma.pendingOrderAttachment.deleteMany({
-    where: { sessionId: session.userId },
-  });
-
-  await createOrderCreatedEvent(prisma, {
-    orderId: order.id,
-    companyId: order.companyId,
-    actor: {
-      membershipId: membership.id,
-      name: membership.user.username ?? null,
-      email: membership.user.email,
-      source: "USER",
-    },
-    snapshot: buildOrderEventSnapshot({
-      displayId: order.displayId,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      statusNotes: order.statusNotes,
-      customerLabel: order.customerLabel,
-      customerName: order.customerName,
-      deliveryDate: order.deliveryDate,
-      timeWindow: order.timeWindow,
-      expressDelivery: order.expressDelivery,
-      contactCustomerForCustomTimeWindow:
-        order.contactCustomerForCustomTimeWindow,
-      customTimeContactNote: order.customTimeContactNote,
-      pickupAddress: order.pickupAddress,
-      extraPickupAddress: order.extraPickupAddress,
-      deliveryAddress: order.deliveryAddress,
-      returnAddress: order.returnAddress,
-      drivingDistance: order.drivingDistance,
-      phone: order.phone,
-      phoneTwo: order.phoneTwo,
-      email: order.email,
-      customerComments: order.customerComments,
-      description: order.description,
-      productsSummary: order.productsSummary,
-      deliveryTypeSummary: order.deliveryTypeSummary,
-      servicesSummary: order.servicesSummary,
-      cashierName: order.cashierName,
-      cashierPhone: order.cashierPhone,
-      subcontractor: order.subcontractor,
-      driver: order.driver,
-      secondDriver: order.secondDriver,
-      driverInfo: order.driverInfo,
-      licensePlate: order.licensePlate,
-      deviation: order.deviation,
-      feeExtraWork: order.feeExtraWork,
-      extraWorkMinutes: order.extraWorkMinutes,
-      feeAddToOrder: order.feeAddToOrder,
-      dontSendEmail: order.dontSendEmail,
-      priceExVat: order.priceExVat,
-      priceSubcontractor: order.priceSubcontractor,
-      rabatt: order.rabatt,
-      dnbDiscount: order.dnbDiscount,
-      leggTil: order.leggTil,
-      subcontractorMinus: order.subcontractorMinus,
-      subcontractorPlus: order.subcontractorPlus,
-      gsmLastTaskState: order.gsmLastTaskState,
-    }),
-    createdAt: order.createdAt,
-  });
-
-  await createExtraPickupAlert(prisma, {
-    orderId: order.id,
-    companyId: order.companyId,
-    extraPickups,
-  });
-
-  await createSubcontractorPriceAlert(prisma, {
-    orderId: order.id,
-    companyId: order.companyId,
-    customerPrice: finalCustomerTotalExVat,
-    subcontractorPrice: order.priceSubcontractor,
-  });
-
-  await createTodayDeliveryAlert(prisma, {
-    orderId: order.id,
-    companyId: order.companyId,
-    deliveryDate: deliveryDate ?? "",
-    timeWindow: order.timeWindow,
-  });
-
-  await createContactCustomerAlert(prisma, {
-    orderId: order.id,
-    companyId: order.companyId,
-    contactCustomer: order.contactCustomerForCustomTimeWindow,
-    timeWindow: order.timeWindow ?? "",
-    note: order.customTimeContactNote ?? "",
-  });
-
-  const normalizedTimeWindow = optionalString(body.timeWindow);
-
-  if (deliveryDate && normalizedTimeWindow) {
-    const slotCount = await countOrdersInDeliverySlot(prisma, {
-      companyId: order.companyId,
-      deliveryDate,
-      timeWindow: normalizedTimeWindow,
-    });
-
-    await createCapacityAlert(prisma, {
-      orderId: order.id,
-      companyId: order.companyId,
-      deliveryDate,
-      timeWindow: normalizedTimeWindow,
-      count: slotCount,
-      limit: ORDER_SLOT_LIMIT,
-      overCapacity: isDeliverySlotOverCapacity(slotCount, ORDER_SLOT_LIMIT),
-    });
-  }
-
-  try {
-    const orderEmailsEnabled = membership.company?.orderEmailsEnabled !== false;
-    if (orderEmailsEnabled && !order.dontSendEmail) {
-      const notificationOrder = {
-        id: order.id,
-        displayId: order.displayId,
-        orderNumber: order.orderNumber,
-        customerLabel,
-        customerEmail: membership.user.email,
-        deliveryDate,
-        pickupAddress: optionalString(body.pickupAddress),
-        extraPickupAddress: extraPickups.map((pickup) => pickup.address),
-        deliveryAddress: optionalString(body.deliveryAddress),
-        returnAddress: optionalString(body.returnAddress),
-        drivingDistance: optionalString(body.drivingDistance),
-        timeWindow: optionalString(body.timeWindow),
-        expressDelivery: effectiveExpressDelivery,
-        description: optionalString(body.description),
-        customerName,
-        email,
-        phone,
-        floorNo: optionalString(body.floorNo),
-        lift: optionalString(body.lift),
-        cashierName: optionalString(body.cashierName),
-        cashierPhone,
-        status: optionalString(body.status) || "processing",
-        createdAt: order.createdAt,
-        productsSummary: summaries.productsSummary,
-        priceExVat: finalCustomerTotalExVat,
-      };
-
-      await sendOrderNotificationEmail({
-        kind: "created",
-        order: notificationOrder,
-        items: builtItems,
-      });
-
-      for (const pickup of extraPickups) {
-        if (!pickup.sendEmail) continue;
-
-        const pickupEmail = normalizeOptionalEmail(pickup.email);
-        if (!pickupEmail) continue;
-
-        await sendExtraPickupNotificationEmail({
-          order: notificationOrder,
-          extraPickup: {
-            address: pickup.address,
-            phone: normalizeOptionalPhone(pickup.phone) ?? "",
-            email: pickupEmail,
-          },
-        });
-      }
-    }
-  } catch (error) {
-    console.error("Failed to send order creation notification email", error);
-  }
 
   return NextResponse.json({
     ok: true,

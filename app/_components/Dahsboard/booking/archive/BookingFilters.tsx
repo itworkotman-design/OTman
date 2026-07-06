@@ -16,6 +16,7 @@ import {
   bookingText,
   type BookingUiLocale,
 } from "@/lib/booking/bookingUiText";
+import { parseIsoDate, toIsoDate } from "@/lib/dates/isoDate";
 
 type Props = {
   initialApplied: BookingArchiveFilters;
@@ -49,36 +50,6 @@ const WEEKDAY_LABELS: Record<BookingUiLocale, string[]> = {
   en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   nb: ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"],
 };
-
-function parseIsoDate(value: string): Date | null {
-  if (!value) return null;
-
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const monthIndex = Number(match[2]) - 1;
-  const day = Number(match[3]);
-  const date = new Date(year, monthIndex, day);
-
-  if (
-    Number.isNaN(date.getTime()) ||
-    date.getFullYear() !== year ||
-    date.getMonth() !== monthIndex ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-
-  return date;
-}
-
-function toIsoDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);

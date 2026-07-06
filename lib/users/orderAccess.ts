@@ -14,3 +14,7 @@ export function canCreateOrders(role: Role, permissions: AppPermission[]) {
 export function canEditOrders(role: Role, permissions: AppPermission[]) {
   return canCreateOrders(role, permissions);
 }
+
+export function canManageAutomaticOrders(role: Role) {
+  return role === "OWNER" || role === "ADMIN";
+}

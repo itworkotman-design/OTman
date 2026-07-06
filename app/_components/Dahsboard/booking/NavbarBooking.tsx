@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect } from "react";
+import { useCurrentUser } from "@/lib/users/useCurrentUser";
+import { canManageAutomaticOrders } from "@/lib/users/orderAccess";
 
 export const NavbarBooking = ({
   open,
@@ -57,6 +59,7 @@ function NavLinks({
   isStarts: (p: string) => boolean;
   onNavigate: () => void;
 }) {
+  const currentUser = useCurrentUser();
   const base = "px-3 text-neutral-500 hover:text-textcolor";
   const active = "text-logoblue! font-semibold";
 
@@ -85,6 +88,16 @@ function NavLinks({
       >
         Edit prices
       </Link>
+
+      {currentUser && canManageAutomaticOrders(currentUser.role) ? (
+        <Link
+          href="/dashboard/scheduler-orders"
+          onClick={onNavigate}
+          className={`${base} ${isStarts("/dashboard/scheduler-orders") ? active : ""}`}
+        >
+          Scheduler orders
+        </Link>
+      ) : null}
   </>
   );
 }

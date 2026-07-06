@@ -84,6 +84,8 @@ function buildOrder(overrides?: Partial<Order>): Order {
     completedAt: null,
     gdprAnonymized: false,
     gdprDeletedAt: null,
+    recurringOrderTemplateId: null,
+    recurringOrderOccurrenceDate: null,
     ...overrides,
   };
 }

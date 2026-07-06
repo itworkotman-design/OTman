@@ -8,6 +8,7 @@ const NB_TEXT: Record<string, string> = {
   "All statuses": "Alle statuser",
   "Apply bulk update": "Bruk masseendring",
   "Applying...": "Bruker...",
+  "Scheduler orders": "Planlagte bestillinger",
   "All stores": "Alle butikker",
   "All subcontractors": "Alle underleverandører",
   Alerts: "Varsler",

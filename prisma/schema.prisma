@@ -32,42 +32,44 @@ model User {
 }
 
 model Company {
-  id             String        @id @default(cuid())
-  name           String
-  slug           String?       @unique
-  status         CompanyStatus @default(ACTIVE)
-  orderEmailsEnabled Boolean   @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  authEvents     AuthEvent[]
-  invites        Invite[]
-  memberships    Membership[]
-  orders         Order[]
-  activeSessions Session[]     @relation("SessionActiveCompany")
+  id                      String                   @id @default(cuid())
+  name                    String
+  slug                    String?                  @unique
+  status                  CompanyStatus            @default(ACTIVE)
+  orderEmailsEnabled      Boolean                  @default(true)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  authEvents              AuthEvent[]
+  invites                 Invite[]
+  memberships             Membership[]
+  orders                  Order[]
+  activeSessions          Session[]                @relation("SessionActiveCompany")
+  recurringOrderTemplates RecurringOrderTemplate[]
 
   @@index([status])
 }
 
 model Membership {
-  id                         String                 @id @default(cuid())
-  userId                     String
-  companyId                  String
-  role                       Role
-  status                     MembershipStatus       @default(ACTIVE)
-  createdAt                  DateTime               @default(now())
-  updatedAt                  DateTime               @updatedAt
-  warehouseEmail             String?
-  legacyWordpressUserId      Int?                   @unique
-  company                    Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user                       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  permissions                MembershipPermission[]
-  membershipPriceLists       MembershipPriceList[]
-  createdOrders              Order[]                @relation("OrderCreatedByMembership")
-  orders                     Order[]
-  ordersLastEdited           Order[]                @relation("OrderLastEditedByMembership")
-  sentOrderEmails            OrderEmailMessage[]    @relation("OrderEmailSentByMembership")
-  orderEvents                OrderEvent[]
-  resolvedOrderNotifications OrderNotification[]    @relation("OrderNotificationResolvedByMembership")
+  id                             String                   @id @default(cuid())
+  userId                         String
+  companyId                      String
+  role                           Role
+  status                         MembershipStatus         @default(ACTIVE)
+  createdAt                      DateTime                 @default(now())
+  updatedAt                      DateTime                 @updatedAt
+  warehouseEmail                 String?
+  legacyWordpressUserId          Int?                     @unique
+  company                        Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions                    MembershipPermission[]
+  membershipPriceLists           MembershipPriceList[]
+  createdOrders                  Order[]                  @relation("OrderCreatedByMembership")
+  orders                         Order[]
+  ordersLastEdited               Order[]                  @relation("OrderLastEditedByMembership")
+  sentOrderEmails                OrderEmailMessage[]      @relation("OrderEmailSentByMembership")
+  orderEvents                    OrderEvent[]
+  resolvedOrderNotifications     OrderNotification[]      @relation("OrderNotificationResolvedByMembership")
+  createdRecurringOrderTemplates RecurringOrderTemplate[] @relation("RecurringOrderTemplateCreatedByMembership")
 
   @@unique([userId, companyId])
   @@index([companyId, status])
@@ -360,9 +362,9 @@ model PriceListSpecialOption {
 }
 
 model Order {
-  id                                 String              @id @default(cuid())
-  createdAt                          DateTime            @default(now())
-  updatedAt                          DateTime            @updatedAt
+  id                                 String                    @id @default(cuid())
+  createdAt                          DateTime                  @default(now())
+  updatedAt                          DateTime                  @updatedAt
   companyId                          String
   createdByMembershipId              String
   description                        String?
@@ -388,16 +390,16 @@ model Order {
   driverInfo                         String?
   licensePlate                       String?
   deviation                          String?
-  feeExtraWork                       Boolean             @default(false)
-  extraWorkMinutes                   Int                 @default(0)
-  feeAddToOrder                      Boolean             @default(false)
+  feeExtraWork                       Boolean                   @default(false)
+  extraWorkMinutes                   Int                       @default(0)
+  feeAddToOrder                      Boolean                   @default(false)
   statusNotes                        String?
   status                             String?
-  dontSendEmail                      Boolean             @default(false)
-  priceExVat                         Int                 @default(0)
-  priceSubcontractor                 Int                 @default(0)
+  dontSendEmail                      Boolean                   @default(false)
+  priceExVat                         Int                       @default(0)
+  priceSubcontractor                 Int                       @default(0)
   rabatt                             String?
-  dnbDiscount                        Boolean             @default(false)
+  dnbDiscount                        Boolean                   @default(false)
   leggTil                            String?
   subcontractorMinus                 String?
   subcontractorPlus                  String?
@@ -421,39 +423,43 @@ model Order {
   gsmOrderId                         String?
   gsmSentAt                          DateTime?
   gsmSyncStatus                      String?
-  emailThreadToken                   String?             @unique
+  emailThreadToken                   String?                   @unique
   lastInboundEmailAt                 DateTime?
   lastOutboundEmailAt                DateTime?
   orderCreatorEmailReadAt            DateTime?
-  needsEmailAttention                Boolean             @default(false)
-  unreadInboundEmailCount            Int                 @default(0)
-  expressDelivery                    Boolean             @default(false)
+  needsEmailAttention                Boolean                   @default(false)
+  unreadInboundEmailCount            Int                       @default(0)
+  expressDelivery                    Boolean                   @default(false)
   extraPickupContacts                Json?
-  contactCustomerForCustomTimeWindow Boolean             @default(false)
+  contactCustomerForCustomTimeWindow Boolean                   @default(false)
   customTimeContactNote              String?
   lastNotificationAt                 DateTime?
-  needsNotificationAttention         Boolean             @default(false)
-  unreadNotificationCount            Int                 @default(0)
+  needsNotificationAttention         Boolean                   @default(false)
+  unreadNotificationCount            Int                       @default(0)
+  recurringOrderTemplateId           String?
+  recurringOrderOccurrenceDate       String?
   gsmWebhookEvents                   GsmWebhookEvent[]
-  company                            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdByMembership                Membership          @relation("OrderCreatedByMembership", fields: [createdByMembershipId], references: [id])
-  customerMembership                 Membership?         @relation(fields: [customerMembershipId], references: [id])
-  lastEditedByMembership             Membership?         @relation("OrderLastEditedByMembership", fields: [lastEditedByMembershipId], references: [id])
+  company                            Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByMembership                Membership                @relation("OrderCreatedByMembership", fields: [createdByMembershipId], references: [id])
+  customerMembership                 Membership?               @relation(fields: [customerMembershipId], references: [id])
+  lastEditedByMembership             Membership?               @relation("OrderLastEditedByMembership", fields: [lastEditedByMembershipId], references: [id])
   orderAttachments                   OrderAttachment[]
   emailMessages                      OrderEmailMessage[]
   events                             OrderEvent[]
   gsmTasks                           OrderGsmTask[]
   items                              OrderItem[]
   notifications                      OrderNotification[]
-  legacyWordpressOrderId Int? @unique
-  legacyWordpressAuthorId Int?
-  legacyWordpressRawMeta Json?
+  recurringOrderOccurrence           RecurringOrderOccurrence?
+  legacyWordpressOrderId             Int?                      @unique
+  legacyWordpressAuthorId            Int?
+  legacyWordpressRawMeta             Json?
 
-  completedAt DateTime?
-  gdprAnonymized Boolean @default(false)
-  gdprDeletedAt DateTime?
+  completedAt    DateTime?
+  gdprAnonymized Boolean   @default(false)
+  gdprDeletedAt  DateTime?
 
   @@unique([companyId, displayId])
+  @@unique([recurringOrderTemplateId, recurringOrderOccurrenceDate])
   @@index([companyId, createdAt])
   @@index([status])
   @@index([deliveryDate])
@@ -464,6 +470,7 @@ model Order {
   @@index([gsmSyncStatus])
   @@index([needsEmailAttention, lastInboundEmailAt])
   @@index([needsNotificationAttention, lastNotificationAt])
+  @@index([recurringOrderTemplateId])
 }
 
 model OrderEvent {
@@ -506,9 +513,9 @@ model OrderEmailMessage {
   receivedAt         DateTime?
   order              Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   sentByMembership   Membership?         @relation("OrderEmailSentByMembership", fields: [sentByMembershipId], references: [id])
-  source OrderEmailSource @default(APP)
-  gmailMessageId String?
-  gmailThreadId  String?
+  source             OrderEmailSource    @default(APP)
+  gmailMessageId     String?
+  gmailThreadId      String?
 
   @@index([orderId, createdAt])
   @@index([companyId, createdAt])
@@ -609,22 +616,22 @@ model GsmWebhookEvent {
 }
 
 model OrderAttachment {
-  id                       String                  @id @default(cuid())
+  id                          String                  @id @default(cuid())
   legacyWordpressAttachmentId Int?
-  orderId                  String
-  filename                 String
-  mimeType                 String?
-  sizeBytes                Int?
-  storagePath              String
-  createdAt                DateTime                @default(now())
-  priceListSpecialOptionId String?
-  gsmDocumentId            String?
-  gsmTaskId                String?
-  source                   String?
-  sourceUrl                String?
-  category                 AttachmentCategory      @default(ATTACHMENT)
-  order                    Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  priceListSpecialOption   PriceListSpecialOption? @relation(fields: [priceListSpecialOptionId], references: [id])
+  orderId                     String
+  filename                    String
+  mimeType                    String?
+  sizeBytes                   Int?
+  storagePath                 String
+  createdAt                   DateTime                @default(now())
+  priceListSpecialOptionId    String?
+  gsmDocumentId               String?
+  gsmTaskId                   String?
+  source                      String?
+  sourceUrl                   String?
+  category                    AttachmentCategory      @default(ATTACHMENT)
+  order                       Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  priceListSpecialOption      PriceListSpecialOption? @relation(fields: [priceListSpecialOptionId], references: [id])
 
   @@unique([orderId, legacyWordpressAttachmentId])
   @@index([orderId, createdAt])
@@ -647,6 +654,46 @@ model CompanyOrderCounter {
   companyId  String   @id
   nextNumber Int
   updatedAt  DateTime @updatedAt
+}
+
+model RecurringOrderTemplate {
+  id                    String         @id @default(cuid())
+  companyId             String
+  createdByMembershipId String
+  name                  String
+  isPaused              Boolean        @default(false)
+  recurrenceType        RecurrenceType
+  recurrenceConfig      Json
+  leadTimeDays          Int            @default(3)
+  startDate             String
+  endDate               String?
+  orderDefaults         Json
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  company             Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByMembership Membership                 @relation("RecurringOrderTemplateCreatedByMembership", fields: [createdByMembershipId], references: [id])
+  occurrences         RecurringOrderOccurrence[]
+
+  @@index([companyId, isPaused])
+}
+
+model RecurringOrderOccurrence {
+  id             String                         @id @default(cuid())
+  templateId     String
+  occurrenceDate String
+  status         RecurringOrderOccurrenceStatus @default(PENDING)
+  orderId        String?                        @unique
+  failureReason  String?
+  generatedAt    DateTime?
+  createdAt      DateTime                       @default(now())
+  updatedAt      DateTime                       @updatedAt
+
+  template RecurringOrderTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  order    Order?                 @relation(fields: [orderId], references: [id])
+
+  @@unique([templateId, occurrenceDate])
+  @@index([templateId, status])
 }
 
 model SiteStats {
@@ -765,6 +812,19 @@ enum SpecialOptionType {
   RETURN
   XTRA
   EXTRA_SERVICE
+}
+
+enum RecurrenceType {
+  WEEKLY
+  MONTHLY
+  CUSTOM_DATES
+}
+
+enum RecurringOrderOccurrenceStatus {
+  PENDING
+  CREATED
+  SKIPPED
+  FAILED
 }
 
 model ShiftLeader {
