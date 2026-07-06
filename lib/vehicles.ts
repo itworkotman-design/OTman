@@ -263,22 +263,16 @@ export const vehicles: VehicleProps[] = [
     name: "Renault Master Box",
     imageUrl: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/Renault-master-box.png",
     images: [
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(10).jpeg",
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(2).jpeg",
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(9).jpeg",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(9).png",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(6).png",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(1).png",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(2).png",
 
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(11).jpeg",
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(6).jpeg",
 
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(1).jpeg",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(4).png",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(5).png",
 
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(4).jpeg",
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(5).jpeg",
-
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(7).jpeg",
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(8).jpeg",
-
-      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/renault-master-box-img+(12).jpeg",
+      "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(7).png",
     ],
     extraImages: [],
     description: {
