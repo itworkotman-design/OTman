@@ -234,13 +234,31 @@ export async function PATCH(req: Request) {
       subcontractorMinus: true,
       subcontractorPlus: true,
       gsmLastTaskState: true,
+      paidAt: true,
+      invoicedAt: true,
+      gdprHold: true,
     },
   });
+
+  const normalizedStatus = status ? normalizeOrderStatus(status) : null;
+
+  // Orders on GDPR hold must never be bulk-flipped to Betalt, even when
+  // selected — the hold is what pauses the auto-anonymization countdown, so
+  // silently starting it here would defeat the point of placing a hold.
+  const heldOrderIds =
+    normalizedStatus === "paid"
+      ? ordersBeforeUpdate.filter((order) => order.gdprHold).map((order) => order.id)
+      : [];
+  const heldOrderIdSet = new Set(heldOrderIds);
+  const effectiveOrderIds = orderIds.filter((id: string) => !heldOrderIdSet.has(id));
+  const effectiveOrdersBeforeUpdate = ordersBeforeUpdate.filter(
+    (order) => !heldOrderIdSet.has(order.id),
+  );
 
   const result = await prisma.order.updateMany({
     where: {
       id: {
-        in: orderIds,
+        in: effectiveOrderIds,
       },
       companyId: session.activeCompanyId,
     },
@@ -250,8 +268,36 @@ export async function PATCH(req: Request) {
     },
   });
 
+  // updateMany applies one literal `data` value to every matched row, so a
+  // conditional "only stamp if not already set" (the same set-once rule used
+  // for completedAt on the single-order route) needs its own pass — same
+  // approach the cancelled-discount handling below already uses for
+  // per-row-conditional updates.
+  const needsPaidAtStamp =
+    normalizedStatus === "paid"
+      ? effectiveOrdersBeforeUpdate.filter((order) => !order.paidAt).map((order) => order.id)
+      : [];
+  const needsInvoicedAtStamp =
+    normalizedStatus === "invoiced"
+      ? effectiveOrdersBeforeUpdate.filter((order) => !order.invoicedAt).map((order) => order.id)
+      : [];
+
+  if (needsPaidAtStamp.length > 0) {
+    await prisma.order.updateMany({
+      where: { id: { in: needsPaidAtStamp }, companyId: session.activeCompanyId },
+      data: { paidAt: new Date() },
+    });
+  }
+
+  if (needsInvoicedAtStamp.length > 0) {
+    await prisma.order.updateMany({
+      where: { id: { in: needsInvoicedAtStamp }, companyId: session.activeCompanyId },
+      data: { invoicedAt: new Date() },
+    });
+  }
+
   const cancelledOrdersLeavingCancelled = status
-    ? ordersBeforeUpdate
+    ? effectiveOrdersBeforeUpdate
         .filter((order) => shouldClearCancelledDiscount(order.status, status))
         .map((order) => order.id)
     : [];
@@ -261,7 +307,7 @@ export async function PATCH(req: Request) {
 
   const newlyCancelledOrders =
     status && normalizeOrderStatus(status) === "cancelled"
-      ? ordersBeforeUpdate.filter(
+      ? effectiveOrdersBeforeUpdate.filter(
           (order) =>
             normalizeOrderStatus(order.status) !== "cancelled" &&
             !cancelledOrdersLeavingCancelledSet.has(order.id),
@@ -327,7 +373,7 @@ export async function PATCH(req: Request) {
     note?: string | null;
   }> = [];
 
-  for (const order of ordersBeforeUpdate) {
+  for (const order of effectiveOrdersBeforeUpdate) {
     const previousSnapshot = buildOrderEventSnapshot(order);
     const isLeavingCancelled = cancelledOrdersLeavingCancelledSet.has(order.id);
     const newlyCancelledValues = newlyCancelledMap.get(order.id);
@@ -380,5 +426,6 @@ export async function PATCH(req: Request) {
   return NextResponse.json({
     ok: true,
     updatedCount: result.count,
+    skippedHeldCount: heldOrderIds.length,
   });
 }

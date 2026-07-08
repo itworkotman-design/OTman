@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getOrderStatusLabel, getOrderStatusStyle } from "@/lib/orders/statusPresentation";
 import type { Membership } from "@/lib/users/types";
+import GdprSection from "./GdprSection";
 
 type DashboardStats = {
   totalIncome: number;
@@ -690,6 +691,8 @@ export default function DashboardHome() {
             </div>
           </div>
         </section>
+
+        <GdprSection />
 
         <section className="grid gap-5 lg:grid-cols-2">
           {/* Online members */}

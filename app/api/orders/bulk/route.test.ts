@@ -134,6 +134,7 @@ describe("PATCH /api/orders/bulk", () => {
     await expect(res.json()).resolves.toEqual({
       ok: true,
       updatedCount: 2,
+      skippedHeldCount: 0,
     });
     expect(mocks.orderUpdateManyMock).toHaveBeenCalledWith({
       where: {
@@ -242,6 +243,7 @@ describe("PATCH /api/orders/bulk", () => {
     await expect(res.json()).resolves.toEqual({
       ok: true,
       updatedCount: 2,
+      skippedHeldCount: 0,
     });
     expect(mocks.orderUpdateManyMock).toHaveBeenNthCalledWith(1, {
       where: {
@@ -284,5 +286,130 @@ describe("PATCH /api/orders/bulk", () => {
         }),
       ],
     );
+  });
+
+  it("excludes GDPR-held orders from a bulk update to paid, even when selected", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "OWNER",
+      user: { username: "Owner", email: "owner@example.com" },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        companyId: "company-1",
+        status: "invoiced",
+        statusNotes: "",
+        paidAt: null,
+        invoicedAt: new Date("2026-01-01T00:00:00.000Z"),
+        gdprHold: true,
+      },
+      {
+        id: "order-2",
+        companyId: "company-1",
+        status: "invoiced",
+        statusNotes: "",
+        paidAt: null,
+        invoicedAt: new Date("2026-01-01T00:00:00.000Z"),
+        gdprHold: false,
+      },
+    ]);
+    mocks.orderUpdateManyMock.mockResolvedValue({ count: 1 });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/bulk", {
+        method: "PATCH",
+        body: JSON.stringify({
+          orderIds: ["order-1", "order-2"],
+          status: "paid",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      updatedCount: 1,
+      skippedHeldCount: 1,
+    });
+
+    // The main status update must only target the non-held order.
+    expect(mocks.orderUpdateManyMock).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: { in: ["order-2"] },
+        companyId: "company-1",
+      },
+      data: {
+        status: "paid",
+        lastEditedByMembershipId: "membership-1",
+      },
+    });
+    // No event should be logged for the held, untouched order.
+    expect(mocks.createManyOrderStatusChangedEventsMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      [
+        expect.objectContaining({ orderId: "order-2" }),
+      ],
+    );
+  });
+
+  it("stamps paidAt/invoicedAt once, only for orders that don't already have them", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "OWNER",
+      user: { username: "Owner", email: "owner@example.com" },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        companyId: "company-1",
+        status: "invoiced",
+        statusNotes: "",
+        paidAt: null,
+        invoicedAt: null,
+        gdprHold: false,
+      },
+      {
+        id: "order-2",
+        companyId: "company-1",
+        status: "invoiced",
+        statusNotes: "",
+        paidAt: new Date("2025-12-01T00:00:00.000Z"),
+        invoicedAt: null,
+        gdprHold: false,
+      },
+    ]);
+    mocks.orderUpdateManyMock.mockResolvedValue({ count: 2 });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/bulk", {
+        method: "PATCH",
+        body: JSON.stringify({
+          orderIds: ["order-1", "order-2"],
+          status: "paid",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      updatedCount: 2,
+      skippedHeldCount: 0,
+    });
+
+    // order-2 already had paidAt set, so only order-1 gets stamped.
+    expect(mocks.orderUpdateManyMock).toHaveBeenNthCalledWith(2, {
+      where: { id: { in: ["order-1"] }, companyId: "company-1" },
+      data: { paidAt: expect.any(Date) },
+    });
   });
 });

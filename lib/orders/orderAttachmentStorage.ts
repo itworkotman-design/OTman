@@ -1,4 +1,6 @@
 import { randomUUID } from "crypto";
+import { unlink } from "fs/promises";
+import path from "path";
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -231,6 +233,35 @@ export async function deleteAttachmentFromS3(
       Key: key,
     }),
   );
+}
+
+// Shared by every place that removes an attachment's underlying file
+// (order attachment delete route, GSM POD resync, GDPR retention cleanup) so
+// the S3-vs-local-upload branching and "ignore if already missing" behavior
+// stay in one place.
+export async function deleteAttachmentFile(storagePath: string): Promise<void> {
+  if (isS3StoragePath(storagePath)) {
+    try {
+      await deleteAttachmentFromS3(storagePath);
+    } catch {
+      // file may already be missing, ignore
+    }
+    return;
+  }
+
+  if (storagePath.startsWith("/uploads/")) {
+    const absolutePath = path.join(
+      process.cwd(),
+      "public",
+      storagePath.replace(/^\//, ""),
+    );
+
+    try {
+      await unlink(absolutePath);
+    } catch {
+      // file may already be missing, ignore
+    }
+  }
 }
 
 export async function getSignedAttachmentUrl(params: {

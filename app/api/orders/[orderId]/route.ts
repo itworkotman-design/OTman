@@ -555,6 +555,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       createdAt: true,
       status: true,
       completedAt: true,
+      paidAt: true,
+      invoicedAt: true,
       statusNotes: true,
       customerName: true,
       deliveryDate: true,
@@ -811,6 +813,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         statusNotes: optionalString(body.statusNotes),
         status: optionalString(body.status),
         completedAt: normalizeOrderStatus(optionalString(body.status)) === "completed" && !existingOrder.completedAt ? new Date() : existingOrder.completedAt,
+        paidAt: normalizeOrderStatus(optionalString(body.status)) === "paid" && !existingOrder.paidAt ? new Date() : existingOrder.paidAt,
+        invoicedAt: normalizeOrderStatus(optionalString(body.status)) === "invoiced" && !existingOrder.invoicedAt ? new Date() : existingOrder.invoicedAt,
         dontSendEmail: optionalBoolean(body.dontSendEmail),
 
         priceExVat: Math.round(finalCustomerTotalExVat),

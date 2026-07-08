@@ -457,6 +457,11 @@ model Order {
   completedAt    DateTime?
   gdprAnonymized Boolean   @default(false)
   gdprDeletedAt  DateTime?
+  paidAt         DateTime?
+  invoicedAt     DateTime?
+  gdprHold       Boolean   @default(false)
+  gdprHoldReason String?
+  gdprHoldSetAt  DateTime?
 
   @@unique([companyId, displayId])
   @@unique([recurringOrderTemplateId, recurringOrderOccurrenceDate])
@@ -471,6 +476,8 @@ model Order {
   @@index([needsEmailAttention, lastInboundEmailAt])
   @@index([needsNotificationAttention, lastNotificationAt])
   @@index([recurringOrderTemplateId])
+  @@index([status, paidAt, gdprHold, gdprAnonymized])
+  @@index([status, invoicedAt])
 }
 
 model OrderEvent {
@@ -782,6 +789,10 @@ enum OrderEventType {
   CREATED
   UPDATED
   STATUS_CHANGED
+  GDPR_ANONYMIZED
+  GDPR_POD_DELETED
+  GDPR_HOLD_SET
+  GDPR_HOLD_REMOVED
 }
 
 enum OrderEmailDirection {

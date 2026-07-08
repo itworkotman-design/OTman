@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { runGdprCleanup } from "@/lib/gdpr/runGdprCleanup";
 
-const RETENTION_DAYS = 60;
-
-function getRetentionCutoffDate() {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
-  return cutoff;
-}
-
+// Manual "run now" trigger for the same GDPR retention sweep the daily cron
+// (app/api/cron/gdpr-cleanup/route.ts) runs — scoped to the caller's active
+// company, mirroring the generateDueOccurrences()/generate-now relationship
+// used for scheduler orders. There is only one cleanup code path.
 export async function POST(req: Request) {
-    const session = await getAuthenticatedSession(req);
+  const session = await getAuthenticatedSession(req);
 
-    if (!session) {
-      return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
-    }
+  if (!session) {
+    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
+  }
 
   if (!session.activeCompanyId) {
     return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
@@ -36,50 +33,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
-  const eligibleOrders = await prisma.order.findMany({
-    where: {
-      companyId: session.activeCompanyId,
-      status: "paid",
-      gdprAnonymized: false,
-    },
-    select: {
-      id: true,
-      status: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  const summary = await runGdprCleanup({ companyId: session.activeCompanyId });
 
-  const cutoff = getRetentionCutoffDate();
-
-  const orderIdsToAnonymize = eligibleOrders
-    .filter((order) => {
-      const basisDate = order.updatedAt ?? order.createdAt;
-
-      return basisDate && !Number.isNaN(basisDate.getTime()) && basisDate <= cutoff;
-    })
-    .map((order) => order.id);
-
- const result = await prisma.order.updateMany({
-   where: {
-     id: { in: orderIdsToAnonymize },
-     companyId: session.activeCompanyId,
-   },
-   data: {
-     customerName: null,
-     phone: null,
-     phoneTwo: null,
-     email: null,
-     deliveryAddress: null,
-     customerComments: null,
-     gdprAnonymized: true,
-     gdprDeletedAt: new Date(),
-   },
- });
-
-  return NextResponse.json({
-    ok: true,
-    anonymizedCount: result.count,
-    retentionDays: RETENTION_DAYS,
-  });
+  return NextResponse.json({ ok: true, ...summary });
 }
