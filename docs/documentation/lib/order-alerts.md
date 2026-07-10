@@ -6,6 +6,7 @@
 - `lib/orders/alerts/contactCustomerAlert.ts`
 - `lib/orders/alerts/extraPickupAlert.ts`
 - `lib/orders/alerts/todayDeliveryAlert.ts`
+- `lib/orders/alerts/noDeliveryDateAlert.ts`
 - `lib/orders/alerts/subcontractorPriceAlert.ts`
 - `lib/orders/alerts/wordpressPriceMismatchAlert.ts`
 - `lib/orders/alerts/index.ts`
@@ -27,6 +28,8 @@ Groups alert-center notification rules and templates used by order creation, ord
 | `createExtraPickupAlert` | Creates an extra-pickup manual-review alert once per order, ever. |
 | `buildTodayDeliveryAlert` | Builds the alert for orders whose delivery date is today. |
 | `createTodayDeliveryAlert` | Creates the today-delivery alert once per order, ever, when the delivery date is today (no time-window/hour check). |
+| `buildNoDeliveryDateAlert` | Builds the alert for orders submitted without a delivery date. |
+| `createNoDeliveryDateAlert` | Creates the no-delivery-date alert once per order, ever, when the order has no delivery date. Only reachable in practice via admin/owner submissions, since other roles are required to set a delivery date before submitting. |
 | `buildSubcontractorPriceAlert` | Builds the subcontractor-price warning content. |
 | `hasSubcontractorPriceAlertEverExisted` | Checks whether a subcontractor-price warning has ever been created for the order, regardless of resolved state. |
 | `createSubcontractorPriceAlert` | Creates a warning when both prices are numeric and subcontractor price is higher than customer price, unless one has ever existed for the order. |

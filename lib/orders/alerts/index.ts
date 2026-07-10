@@ -25,3 +25,7 @@ export {
   buildNoSubcontractorAlert,
   createNoSubcontractorAlert,
 } from "./noSubcontractorAlert";
+export {
+  buildNoDeliveryDateAlert,
+  createNoDeliveryDateAlert,
+} from "./noDeliveryDateAlert";

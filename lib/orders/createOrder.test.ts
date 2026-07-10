@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   createExtraPickupAlertMock: vi.fn(),
   createSubcontractorPriceAlertMock: vi.fn(),
   createTodayDeliveryAlertMock: vi.fn(),
+  createNoDeliveryDateAlertMock: vi.fn(),
   createContactCustomerAlertMock: vi.fn(),
   createCapacityAlertMock: vi.fn(),
   countOrdersInDeliverySlotMock: vi.fn(),
@@ -58,6 +59,7 @@ vi.mock("@/lib/orders/alerts", () => ({
   createExtraPickupAlert: mocks.createExtraPickupAlertMock,
   createSubcontractorPriceAlert: mocks.createSubcontractorPriceAlertMock,
   createTodayDeliveryAlert: mocks.createTodayDeliveryAlertMock,
+  createNoDeliveryDateAlert: mocks.createNoDeliveryDateAlertMock,
   createContactCustomerAlert: mocks.createContactCustomerAlertMock,
   createCapacityAlert: mocks.createCapacityAlertMock,
 }));

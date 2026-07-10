@@ -31,6 +31,7 @@ import {
   createCapacityAlert,
   createContactCustomerAlert,
   createExtraPickupAlert,
+  createNoDeliveryDateAlert,
   createNoSubcontractorAlert,
   createSubcontractorPriceAlert,
   createTodayDeliveryAlert,
@@ -1001,6 +1002,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     companyId: existingOrder.companyId,
     deliveryDate: nextDeliveryDate ?? "",
     timeWindow: nextTimeWindow,
+  });
+
+  await createNoDeliveryDateAlert(prisma, {
+    orderId,
+    companyId: existingOrder.companyId,
+    deliveryDate: nextDeliveryDate,
   });
 
   await createContactCustomerAlert(prisma, {

@@ -23,6 +23,7 @@ import {
   createCapacityAlert,
   createContactCustomerAlert,
   createExtraPickupAlert,
+  createNoDeliveryDateAlert,
   createSubcontractorPriceAlert,
   createTodayDeliveryAlert,
 } from "@/lib/orders/alerts";
@@ -394,6 +395,12 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     companyId: order.companyId,
     deliveryDate: fields.deliveryDate ?? "",
     timeWindow: order.timeWindow,
+  });
+
+  await createNoDeliveryDateAlert(prisma, {
+    orderId: order.id,
+    companyId: order.companyId,
+    deliveryDate: fields.deliveryDate,
   });
 
   await createContactCustomerAlert(prisma, {
