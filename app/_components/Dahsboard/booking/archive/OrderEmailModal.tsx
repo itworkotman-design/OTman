@@ -118,6 +118,21 @@ type OrderNotificationsResponse = {
 
 const NOTIFICATION_HOUR_OPTIONS = Array.from({ length: 17 }, (_, index) => index + 6);
 
+function getCurrentDateInputValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getCurrentHourOption() {
+  const currentHour = new Date().getHours();
+  return NOTIFICATION_HOUR_OPTIONS.reduce((closest, hour) =>
+    Math.abs(hour - currentHour) < Math.abs(closest - currentHour) ? hour : closest,
+  );
+}
+
 type OrderEmailModalProps = {
   open: boolean;
   order: OrderRow | null;
@@ -1224,7 +1239,13 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
                       type="button"
                       onClick={() => {
                         setCreateNotificationError("");
-                        setShowCreateNotification((current) => !current);
+                        setShowCreateNotification((current) => {
+                          if (!current) {
+                            setNewNotificationDate(getCurrentDateInputValue());
+                            setNewNotificationHour(getCurrentHourOption());
+                          }
+                          return !current;
+                        });
                       }}
                       className="rounded-full bg-logoblue px-4 py-2 text-sm font-semibold text-white transition hover:bg-logoblue/90"
                     >
