@@ -337,6 +337,7 @@ export async function PATCH(req: Request) {
       data: {
         rabatt: null,
         subcontractorMinus: null,
+        pricingSnapshot: Prisma.DbNull,
       },
     });
   }
