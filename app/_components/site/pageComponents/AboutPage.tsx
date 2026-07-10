@@ -23,7 +23,7 @@ export default function About({ content, locale }: PageTypes) {
           />
 
           {/* Overlay */}
-          <div className="absolute inset-0 backdrop-blur-xs flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center">
             <h1 className="text-4xl lg:text-6xl text-center text-white font-semibold">{content.heroTitle[locale]}</h1>
           </div>
         </div>
