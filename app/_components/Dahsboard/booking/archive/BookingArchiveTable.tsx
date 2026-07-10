@@ -150,17 +150,25 @@ function Cell({
   );
 }
 
-function CopyButton({ value }: { value: string | number | null | undefined }) {
+function CopyButton({
+  value,
+  dataAttribute = "data-id-cell",
+  ariaLabel = "Copy ID",
+}: {
+  value: string | number | null | undefined;
+  dataAttribute?: string;
+  ariaLabel?: string;
+}) {
   return (
     <button
       type="button"
-      data-id-cell="true"
+      {...{ [dataAttribute]: "true" }}
       onClick={(e) => {
         e.stopPropagation();
         navigator.clipboard.writeText(String(value ?? ""));
       }}
       className="shrink-0 text-logoblue opacity-40 transition-opacity hover:opacity-100"
-      aria-label="Copy ID"
+      aria-label={ariaLabel}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
@@ -598,6 +606,7 @@ export default function BookingArchiveTable({
                 if ((e.target as HTMLElement).closest('[data-selector-cell="true"]')) return;
                 if ((e.target as HTMLElement).closest('[data-alert-cell="true"]')) return;
                 if ((e.target as HTMLElement).closest('[data-id-cell="true"]')) return;
+                if ((e.target as HTMLElement).closest('[data-order-number-cell="true"]')) return;
                 onRowClick(order.id);
               }}
             >
@@ -644,8 +653,15 @@ export default function BookingArchiveTable({
                     </td>
                   ) : null}
                   {isColumnVisible("orderNumber") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.orderNumber)}</Cell>
+                    <td data-order-number-cell="true" className="cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <Cell>{formatCell(order.orderNumber)}</Cell>
+                        <CopyButton
+                          value={order.orderNumber}
+                          dataAttribute="data-order-number-cell"
+                          ariaLabel="Copy order number"
+                        />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("customerLabel") ? (
@@ -767,8 +783,15 @@ export default function BookingArchiveTable({
                     </td>
                   ) : null}
                   {isColumnVisible("orderNumber") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.orderNumber)}</Cell>
+                    <td data-order-number-cell="true" className="cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <Cell>{formatCell(order.orderNumber)}</Cell>
+                        <CopyButton
+                          value={order.orderNumber}
+                          dataAttribute="data-order-number-cell"
+                          ariaLabel="Copy order number"
+                        />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("pickupAddress") ? (
@@ -856,8 +879,15 @@ export default function BookingArchiveTable({
                     </td>
                   ) : null}
                   {isColumnVisible("orderNumber") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.orderNumber)}</Cell>
+                    <td data-order-number-cell="true" className="cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <Cell>{formatCell(order.orderNumber)}</Cell>
+                        <CopyButton
+                          value={order.orderNumber}
+                          dataAttribute="data-order-number-cell"
+                          ariaLabel="Copy order number"
+                        />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("description") ? (
