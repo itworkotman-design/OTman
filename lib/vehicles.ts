@@ -75,7 +75,7 @@ export const vehicles: VehicleProps[] = [
     extraKmPrice: 2.5,
     pricePerDay: 1800,
     price: 139000,
-    finnLink: "",
+    finnLink: "https://www.finn.no/mobility/item/466919388?ci=2",
     vegvesenLink: "https://www.vegvesen.no/en/vehicles/buy-and-sell/vehicle-information/check-vehicle-information/?registreringsnummer=AS54813",
   },
   {
@@ -115,7 +115,7 @@ export const vehicles: VehicleProps[] = [
     extraKmPrice: 2.5,
     price: 20000,
     pricePerDay: 500,
-    finnLink: "",
+    finnLink: "https://www.finn.no/mobility/item/466915215?ci=2",
     vegvesenLink: "https://www.vegvesen.no/en/vehicles/buy-and-sell/vehicle-information/check-vehicle-information/?registreringsnummer=DP35573",
   },
   {
@@ -150,7 +150,7 @@ export const vehicles: VehicleProps[] = [
     extraKmPrice: 2.5,
     price: 40000,
     pricePerDay: 800,
-    finnLink: "",
+    finnLink: "https://www.finn.no/mobility/item/466917509?ci=3",
     vegvesenLink: "https://www.vegvesen.no/en/vehicles/buy-and-sell/vehicle-information/check-vehicle-information/?registreringsnummer=UN28325",
   },
   {
@@ -187,7 +187,7 @@ export const vehicles: VehicleProps[] = [
     extraKmPrice: 2.5,
     pricePerDay: 1250,
     price: 399000,
-    finnLink: "",
+    finnLink: "https://www.finn.no/mobility/item/467031067?ci=6",
     vegvesenLink: "https://www.vegvesen.no/en/vehicles/buy-and-sell/vehicle-information/check-vehicle-information/?registreringsnummer=EE37508",
   },
   {
@@ -223,7 +223,7 @@ export const vehicles: VehicleProps[] = [
     extraKmPrice: 2.5,
     pricePerDay: 1500,
     price: 119000,
-    finnLink: "",
+    finnLink: "https://www.finn.no/mobility/item/467039158?ci=1",
     vegvesenLink: "https://www.vegvesen.no/en/vehicles/buy-and-sell/vehicle-information/check-vehicle-information/?registreringsnummer=DP63137",
   },
   {
@@ -255,7 +255,7 @@ export const vehicles: VehicleProps[] = [
     extraKmPrice: 2.5,
     pricePerDay: 1500,
     price: 420000,
-    finnLink: "",
+    finnLink: "https://www.finn.no/mobility/item/467036352?ci=4",
     vegvesenLink: "https://www.vegvesen.no/en/vehicles/buy-and-sell/vehicle-information/check-vehicle-information/?registreringsnummer=EB89241",
   },
   {
@@ -267,7 +267,6 @@ export const vehicles: VehicleProps[] = [
       "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(6).png",
       "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(1).png",
       "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(2).png",
-
 
       "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(4).png",
       "https://public-otman-img.s3.eu-north-1.amazonaws.com/Car-rental/Renault-master-box/SV80246/Renault-Master-Box-img+(5).png",
@@ -294,7 +293,7 @@ export const vehicles: VehicleProps[] = [
     extraKmPrice: 2.5,
     pricePerDay: 1800,
     price: 139000,
-    finnLink: "",
+    finnLink: "https://www.finn.no/mobility/item/467482322?ci=3",
     vegvesenLink: "https://www.vegvesen.no/en/vehicles/buy-and-sell/vehicle-information/check-vehicle-information/?registreringsnummer=SV80246",
   },
   {
@@ -346,7 +345,7 @@ export const vehicles: VehicleProps[] = [
     extraKmPrice: 2.5,
     pricePerDay: 1500,
     price: 120000,
-    finnLink: "",
+    finnLink: "https://www.finn.no/mobility/item/466922684?ci=19",
     vegvesenLink: "https://www.vegvesen.no/en/vehicles/buy-and-sell/vehicle-information/check-vehicle-information/?registreringsnummer=LS91979",
   },
   {
