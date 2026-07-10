@@ -57,6 +57,8 @@ export default function SelectionActionBar({
 
   useEffect(() => {
     setCreatorId(selectedStoreId ?? "");
+    setEmailType("prepare_orders");
+    setCustomMessage("");
     setSendToPrimaryEmail(true);
     setSendToWarehouseEmail(false);
   }, [selectedStoreId]);
