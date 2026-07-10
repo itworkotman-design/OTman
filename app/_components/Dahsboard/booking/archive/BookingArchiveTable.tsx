@@ -48,7 +48,7 @@ const COLUMN_WIDTHS: Record<BookingArchiveColumnId, number> = {
   mail: 60,
   deliveryDate: 120,
   timeWindow: 100,
-  customerLabel: 120,
+  customerLabel: 140,
   orderNumber: 140,
   customerName: 180,
   phone: 120,

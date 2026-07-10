@@ -106,6 +106,8 @@ const NB_TEXT: Record<string, string> = {
   "No return options available.": "Ingen returalternativer tilgjengelig.",
   "No services selected for this product.": "Ingen tjenester valgt for dette produktet.",
   "No shop pickup address": "Ingen henteadresse fra butikk",
+  "No store": "Ingen butikk",
+  "No subcontractor": "Ingen underleverandør",
   "No utpakking / demontering options.": "Ingen alternativer for utpakking / demontering.",
   "Open": "Åpne",
   "Order changed": "Bestilling endret",

@@ -1,5 +1,9 @@
 import type { BookingArchiveFilters } from "@/app/_components/Dahsboard/booking/archive/types";
 
+// Sentinel value for the "Store" / "Subcontractor" filter selects, meaning
+// "orders with no store/subcontractor assigned" rather than a specific id.
+export const NONE_FILTER_VALUE = "__none__";
+
 export const DEFAULT_BOOKING_ARCHIVE_FILTERS: BookingArchiveFilters = {
   status: "",
   createdById: "",

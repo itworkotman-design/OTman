@@ -40,6 +40,7 @@ import {
   buildWordpressExtraPickupContacts,
 } from "@/lib/integrations/wordpress/orderMeta";
 import { buildArchiveCalculatorItems } from "@/lib/orders/buildArchiveCalculatorItems";
+import { NONE_FILTER_VALUE } from "@/lib/orders/archiveFilters";
 
 const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   id: true,
@@ -840,14 +841,19 @@ export async function GET(req: Request) {
 
   if (isAdminOrOwner) {
     if (subcontractorId) {
-      where.subcontractorMembershipId = subcontractorId;
+      where.subcontractorMembershipId =
+        subcontractorId === NONE_FILTER_VALUE ? null : subcontractorId;
     }
 
     if (createdById) {
-      where.OR = [
-        { customerMembershipId: createdById },
-        { customerMembershipId: null, createdByMembershipId: createdById },
-      ];
+      if (createdById === NONE_FILTER_VALUE) {
+        where.customerMembershipId = null;
+      } else {
+        where.OR = [
+          { customerMembershipId: createdById },
+          { customerMembershipId: null, createdByMembershipId: createdById },
+        ];
+      }
     }
   } else if (isOrderCreator) {
     where.OR = [

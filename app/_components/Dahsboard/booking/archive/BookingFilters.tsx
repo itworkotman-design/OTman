@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { BookingArchiveFilters, BookingArchiveOption } from "./types";
 import {
   DEFAULT_BOOKING_ARCHIVE_FILTERS,
+  NONE_FILTER_VALUE,
   getLastMonthRange,
   getThisMonthRange,
   getThisWeekRange,
@@ -328,6 +329,7 @@ export default function BookingFilters({
                 className="customInput padding-weird-landscape text-weird-landscape w-full"
               >
                 <option value="">{t("All stores")}</option>
+                <option value={NONE_FILTER_VALUE}>{t("No store")}</option>
                 {creators.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
@@ -345,6 +347,7 @@ export default function BookingFilters({
                 className="customInput padding-weird-landscape text-weird-landscape w-full"
               >
                 <option value="">{t("All subcontractors")}</option>
+                <option value={NONE_FILTER_VALUE}>{t("No subcontractor")}</option>
                 {subcontractors.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
