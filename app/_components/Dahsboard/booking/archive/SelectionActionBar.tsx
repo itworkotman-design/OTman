@@ -55,13 +55,6 @@ export default function SelectionActionBar({
   const [sendToPrimaryEmail, setSendToPrimaryEmail] = useState(true);
   const [sendToWarehouseEmail, setSendToWarehouseEmail] = useState(false);
 
-  useEffect(() => {
-    setCreatorId(selectedStoreId ?? "");
-    setEmailType("prepare_orders");
-    setCustomMessage("");
-    setSendToPrimaryEmail(true);
-    setSendToWarehouseEmail(false);
-  }, [selectedStoreId]);
   const [successFlash, setSuccessFlash] = useState(false);
   const [gsmSuccessFlash, setGsmSuccessFlash] = useState(false);
 
@@ -121,7 +114,7 @@ export default function SelectionActionBar({
       case "prepare_orders":
         return "Hei,\n\nSe valgte bestillinger nedenfor.";
       case "confirmed_delivery":
-        return "Hei,\n\nFÃ¸lgende bestillinger er bekreftet for levering.";
+        return "Hei,\n\nFølgende bestillinger er bekreftet for levering.";
       case "custom":
         return customMessage.trim();
       default:
@@ -189,7 +182,6 @@ export default function SelectionActionBar({
             value={creatorId}
             onChange={(e) => {
               const nextCreatorId = e.target.value;
-              const nextCreator = creators.find((item) => item.id === nextCreatorId);
 
               setCreatorId(nextCreatorId);
               setSendToPrimaryEmail(true);

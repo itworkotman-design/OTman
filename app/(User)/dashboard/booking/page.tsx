@@ -563,7 +563,6 @@ export default function BookingPage() {
     setVisibleColumnIds(getDefaultVisibleBookingArchiveColumns(access.viewMode));
   }
 
-  const canBulkSelect = access.viewMode === "ADMIN";
   const canSelectOrders =
     access.viewMode === "ADMIN" ||
     access.viewMode === "SUBCONTRACTOR" ||
@@ -618,6 +617,7 @@ export default function BookingPage() {
           />
 
           <SelectionActionBar
+            key={appliedFilters.createdById || "all-stores"}
             creators={allCreators}
             selectedStoreId={appliedFilters.createdById || undefined}
             selectedCount={selectedOrderIds.length}
