@@ -121,7 +121,7 @@ export default function SelectionActionBar({
       case "prepare_orders":
         return "Hei,\n\nSe valgte bestillinger nedenfor.";
       case "confirmed_delivery":
-        return "Hei,\n\nFÃ¸lgende bestillinger er bekreftet for levering.";
+        return "Hei,\n\nFølgende. bestillinger er bekreftet for levering.";
       case "custom":
         return customMessage.trim();
       default:
