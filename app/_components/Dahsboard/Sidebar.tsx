@@ -62,6 +62,7 @@ const ICONS = {
   sidebarClose: "m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
   hamburger: "M5 7h14M5 12h14M5 17h14",
   hours: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 6v6l4 2",
+  edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z",
 };
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
@@ -156,9 +157,9 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             </div>
           </Link>
 
-          <Link href="/" className={linkClass("/dashboard/website") + ` ` + `hidden`}>
+          <Link href="/dashboard/website" className={linkClass("/dashboard/website")}>
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.home} />
+              <Icon path={ICONS.edit} />
               {bookingText(locale, "Edit website")}
             </div>
           </Link>

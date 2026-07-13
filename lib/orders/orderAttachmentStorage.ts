@@ -187,6 +187,32 @@ export async function uploadAttachmentBufferToS3(params: {
   };
 }
 
+export async function uploadPublicAssetToS3(params: {
+  file: File;
+  scope: string;
+}): Promise<StoredAttachment> {
+  const config = getRequiredS3Config();
+  const client = getS3Client(config);
+  const bytes = Buffer.from(await params.file.arrayBuffer());
+  const key = `assets/${params.scope}/${Date.now()}-${randomUUID()}-${sanitizeFilename(
+    params.file.name,
+  )}`;
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+      Body: bytes,
+      ContentType: params.file.type || "application/octet-stream",
+    }),
+  );
+
+  return {
+    key,
+    storagePath: toS3StoragePath(key),
+  };
+}
+
 export async function downloadAttachmentFromS3(
   storagePath: string,
 ): Promise<DownloadedAttachment | null> {
