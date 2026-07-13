@@ -55,22 +55,12 @@ export default function SelectionActionBar({
   const [sendToPrimaryEmail, setSendToPrimaryEmail] = useState(true);
   const [sendToWarehouseEmail, setSendToWarehouseEmail] = useState(false);
 
-  useEffect(() => {
-    setCreatorId(selectedStoreId ?? "");
-    setEmailType("prepare_orders");
-    setCustomMessage("");
-    setSendToPrimaryEmail(true);
-    setSendToWarehouseEmail(false);
-  }, [selectedStoreId]);
   const [successFlash, setSuccessFlash] = useState(false);
   const [gsmSuccessFlash, setGsmSuccessFlash] = useState(false);
 
   const disabled = selectedCount === 0 || loading;
 
-  const selectedCreator = useMemo(
-    () => creators.find((item) => item.id === creatorId),
-    [creators, creatorId],
-  );
+  const selectedCreator = useMemo(() => creators.find((item) => item.id === creatorId), [creators, creatorId]);
   const primaryEmail = selectedCreator?.email?.trim() || "";
   const warehouseEmail = selectedCreator?.warehouseEmail?.trim() || "";
   const selectedRecipients = useMemo(() => {
@@ -83,11 +73,7 @@ export default function SelectionActionBar({
       });
     }
 
-    if (
-      sendToWarehouseEmail &&
-      warehouseEmail &&
-      warehouseEmail !== primaryEmail
-    ) {
+    if (sendToWarehouseEmail && warehouseEmail && warehouseEmail !== primaryEmail) {
       recipients.push({
         email: warehouseEmail,
         name: selectedCreator?.label,
@@ -95,13 +81,7 @@ export default function SelectionActionBar({
     }
 
     return recipients;
-  }, [
-    primaryEmail,
-    selectedCreator?.label,
-    sendToPrimaryEmail,
-    sendToWarehouseEmail,
-    warehouseEmail,
-  ]);
+  }, [primaryEmail, selectedCreator?.label, sendToPrimaryEmail, sendToWarehouseEmail, warehouseEmail]);
 
   const subject = useMemo(() => {
     switch (emailType) {
@@ -121,7 +101,7 @@ export default function SelectionActionBar({
       case "prepare_orders":
         return "Hei,\n\nSe valgte bestillinger nedenfor.";
       case "confirmed_delivery":
-        return "Hei,\n\nFølgende. bestillinger er bekreftet for levering.";
+        return "Hei,\n\nFølgende bestillinger er bekreftet for levering.";
       case "custom":
         return customMessage.trim();
       default:
@@ -129,10 +109,7 @@ export default function SelectionActionBar({
     }
   }, [emailType, customMessage]);
 
-  const canSendEmail =
-    selectedRecipients.length > 0 &&
-    !!emailType &&
-    (emailType !== "custom" || !!customMessage.trim());
+  const canSendEmail = selectedRecipients.length > 0 && !!emailType && (emailType !== "custom" || !!customMessage.trim());
 
   useEffect(() => {
     if (!successFlash) return;
@@ -189,7 +166,6 @@ export default function SelectionActionBar({
             value={creatorId}
             onChange={(e) => {
               const nextCreatorId = e.target.value;
-              const nextCreator = creators.find((item) => item.id === nextCreatorId);
 
               setCreatorId(nextCreatorId);
               setSendToPrimaryEmail(true);
@@ -240,13 +216,10 @@ export default function SelectionActionBar({
               </label>
               {warehouseEmail ? (
                 <label className="flex items-center gap-2 text-sm text-weird-landscape ">
-                  <input
-                    type="checkbox"
-                    checked={sendToWarehouseEmail}
-                    disabled={loading}
-                    onChange={(e) => setSendToWarehouseEmail(e.target.checked)}
-                  />
-                  <span>{t("Send to")} - {warehouseEmail}</span>
+                  <input type="checkbox" checked={sendToWarehouseEmail} disabled={loading} onChange={(e) => setSendToWarehouseEmail(e.target.checked)} />
+                  <span>
+                    {t("Send to")} - {warehouseEmail}
+                  </span>
                 </label>
               ) : null}
             </div>
@@ -315,11 +288,7 @@ export default function SelectionActionBar({
         </div>
       ) : null}
 
-      {error ? (
-        <div className="mt-3 text-sm font-medium text-red-600 text-weird-landscape">
-          {error}
-        </div>
-      ) : null}
+      {error ? <div className="mt-3 text-sm font-medium text-red-600 text-weird-landscape">{error}</div> : null}
 
       {gsmDuplicateWarning.length > 0 ? (
         <div className="mt-3 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 text-weird-landscape">
