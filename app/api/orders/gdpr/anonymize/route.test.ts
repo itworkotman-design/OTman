@@ -18,6 +18,15 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/gdpr/runGdprCleanup", () => ({
   runGdprCleanup: mocks.runGdprCleanupMock,
+  // Real (tiny, pure) implementation rather than importOriginal — the real
+  // module also pulls in @/lib/db, which this test file has no reason to
+  // mock otherwise.
+  parseGdprLimitParam: (searchParams: URLSearchParams) => {
+    const raw = searchParams.get("limit");
+    if (!raw) return undefined;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+  },
 }));
 
 import { POST } from "./route";
@@ -78,6 +87,24 @@ describe("POST /api/orders/gdpr/anonymize", () => {
       podCleaned: 0,
       failed: 0,
     });
-    expect(mocks.runGdprCleanupMock).toHaveBeenCalledWith({ companyId: "company-1" });
+    expect(mocks.runGdprCleanupMock).toHaveBeenCalledWith({
+      companyId: "company-1",
+      limit: undefined,
+    });
+  });
+
+  it("passes a numeric ?limit= query param through to runGdprCleanup", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN" });
+
+    await POST(new Request("http://localhost/api/orders/gdpr/anonymize?limit=50", { method: "POST" }));
+
+    expect(mocks.runGdprCleanupMock).toHaveBeenCalledWith({
+      companyId: "company-1",
+      limit: 50,
+    });
   });
 });

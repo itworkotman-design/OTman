@@ -6,6 +6,15 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/gdpr/runGdprCleanup", () => ({
   runGdprCleanup: mocks.runGdprCleanupMock,
+  // Real (tiny, pure) implementation rather than importOriginal — the real
+  // module also pulls in @/lib/db, which this test file has no reason to
+  // mock otherwise.
+  parseGdprLimitParam: (searchParams: URLSearchParams) => {
+    const raw = searchParams.get("limit");
+    if (!raw) return undefined;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+  },
 }));
 
 import { POST } from "./route";
@@ -72,6 +81,28 @@ describe("POST /api/cron/gdpr-cleanup", () => {
       podCleaned: 1,
       failed: 0,
     });
-    expect(mocks.runGdprCleanupMock).toHaveBeenCalledWith();
+    expect(mocks.runGdprCleanupMock).toHaveBeenCalledWith({ limit: undefined });
+  });
+
+  it("passes a numeric ?limit= query param through to runGdprCleanup", async () => {
+    const req = new Request("http://localhost/api/cron/gdpr-cleanup?limit=200", {
+      method: "POST",
+      headers: { Authorization: "Bearer test-secret" },
+    });
+
+    await POST(req);
+
+    expect(mocks.runGdprCleanupMock).toHaveBeenCalledWith({ limit: 200 });
+  });
+
+  it("ignores an invalid ?limit= value", async () => {
+    const req = new Request("http://localhost/api/cron/gdpr-cleanup?limit=not-a-number", {
+      method: "POST",
+      headers: { Authorization: "Bearer test-secret" },
+    });
+
+    await POST(req);
+
+    expect(mocks.runGdprCleanupMock).toHaveBeenCalledWith({ limit: undefined });
   });
 });
