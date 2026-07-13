@@ -6,15 +6,17 @@ import LocalizedTextFieldGroup from "@/app/_components/Dahsboard/website/Localiz
 import type { ImageSectionData } from "@/lib/blog/blogSectionSchemas";
 
 type Props = {
+  blogPostId: string;
   data: ImageSectionData;
   onChange: (data: ImageSectionData) => void;
 };
 
-export default function ImageSectionEditor({ data, onChange }: Props) {
+export default function ImageSectionEditor({ blogPostId, data, onChange }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <BlogImagePicker
         label="Image"
+        blogPostId={blogPostId}
         storagePath={data.storagePath || null}
         onChange={(storagePath) => onChange({ ...data, storagePath: storagePath ?? "" })}
       />

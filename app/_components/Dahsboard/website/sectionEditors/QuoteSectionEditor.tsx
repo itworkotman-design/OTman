@@ -1,7 +1,7 @@
 // app/_components/Dahsboard/website/sectionEditors/QuoteSectionEditor.tsx
 "use client";
 
-import LocalizedTextFieldGroup from "@/app/_components/Dahsboard/website/LocalizedTextFieldGroup";
+import RichTextLocalizedEditor from "@/app/_components/Dahsboard/website/RichTextLocalizedEditor";
 import type { QuoteSectionData } from "@/lib/blog/blogSectionSchemas";
 
 type Props = {
@@ -12,17 +12,13 @@ type Props = {
 export default function QuoteSectionEditor({ data, onChange }: Props) {
   return (
     <div className="flex flex-col gap-4">
-      <LocalizedTextFieldGroup
+      <RichTextLocalizedEditor
         label="Quote"
-        required
-        multiline
-        maxLength={500}
         value={data.quote}
         onChange={(quote) => onChange({ ...data, quote })}
       />
-      <LocalizedTextFieldGroup
+      <RichTextLocalizedEditor
         label="Attribution"
-        maxLength={200}
         value={data.attribution ?? { en: "", no: "" }}
         onChange={(attribution) => onChange({ ...data, attribution })}
       />

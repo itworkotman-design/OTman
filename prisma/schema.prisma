@@ -907,6 +907,7 @@ enum BlogSectionType {
   IMAGE
   IMAGE_TEXT
   GALLERY
+  CAROUSEL
   QUOTE
   CTA
   DIVIDER

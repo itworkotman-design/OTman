@@ -7,7 +7,13 @@ import { useRouter } from "next/navigation";
 import LocalizedTextFieldGroup from "@/app/_components/Dahsboard/website/LocalizedTextFieldGroup";
 import BlogImagePicker from "@/app/_components/Dahsboard/website/BlogImagePicker";
 import BlogSectionList from "@/app/_components/Dahsboard/website/BlogSectionList";
-import type { LocalizedTextValue } from "@/lib/blog/localizedText";
+import CollapsibleSection from "@/app/_components/Dahsboard/website/CollapsibleSection";
+import type { BlogSectionRow } from "@/app/_components/Dahsboard/website/BlogSectionCard";
+import BlogSectionRenderer from "@/app/_components/blog/BlogSectionRenderer";
+import { getLocalizedText, type LocalizedTextValue } from "@/lib/blog/localizedText";
+import { getPublicBlogImageUrl } from "@/lib/blog/publicImageUrl";
+import { computeReadingTimeMinutes } from "@/lib/blog/readingTime";
+import type { Locale } from "@/lib/content/NavbarContent";
 
 type PostStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
@@ -56,6 +62,9 @@ export default function BlogEditor({ postId }: { postId: string }) {
   const [isPinned, setIsPinned] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [previewSections, setPreviewSections] = useState<BlogSectionRow[]>([]);
+  const [previewLocale, setPreviewLocale] = useState<Locale>("no");
+  const [detailsOpen, setDetailsOpen] = useState(true);
   const isDirty = useRef(false);
 
   const load = useCallback(async () => {
@@ -152,9 +161,16 @@ export default function BlogEditor({ postId }: { postId: string }) {
     error: "Save failed",
   };
 
+  const coverImageUrl = getPublicBlogImageUrl(form.coverImagePath);
+  const previewSectionData = previewSections.map((s) => s.data);
+  const readingTime = computeReadingTimeMinutes(previewSectionData, previewLocale);
+
   return (
-    <div className="p-4 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-linePrimary pb-4">
+    <div className="flex min-h-screen flex-col">
+      <div
+        className="relative z-10 flex flex-wrap items-center justify-between gap-3 bg-white p-4 md:px-6"
+        style={{ boxShadow: "0px 0px 10px 0 rgba(0, 0, 0, 0.1)" }}
+      >
         <div className="flex items-center gap-3">
           <button type="button" className="customButtonDefault" onClick={() => router.push("/dashboard/website/blog")}>
             Back to blog list
@@ -165,7 +181,7 @@ export default function BlogEditor({ postId }: { postId: string }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/dashboard/website/blog/${postId}/preview`} target="_blank" className="customButtonDefault">
-            Preview
+            Full preview
           </Link>
           <button type="button" className="customButtonEnabled" onClick={handleSave} disabled={saveState === "saving"}>
             Save
@@ -191,75 +207,174 @@ export default function BlogEditor({ postId }: { postId: string }) {
         </div>
       </div>
 
-      {publishError ? <p className="mt-3 text-sm text-red-600">{publishError}</p> : null}
+      {publishError ? <p className="px-4 pt-3 text-sm text-red-600 md:px-6">{publishError}</p> : null}
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-[360px_1fr]">
-        <div className="flex flex-col gap-4">
-          <div className="text-xs font-semibold uppercase text-textColorSecond">Status: {status}</div>
-          <LocalizedTextFieldGroup
-            label="Title"
-            required
-            maxLength={200}
-            value={form.title}
-            onChange={(title) => setForm({ ...form, title })}
-          />
-          <label className="flex flex-col gap-1 text-sm">
-            Slug
-            <input
-              className="customInput font-normal"
-              value={form.slug}
-              onChange={(e) => setForm({ ...form, slug: e.target.value })}
-            />
-          </label>
-          <LocalizedTextFieldGroup
-            label="Excerpt"
-            multiline
-            maxLength={500}
-            value={form.excerpt}
-            onChange={(excerpt) => setForm({ ...form, excerpt })}
-          />
-          <BlogImagePicker
-            label="Cover image"
-            storagePath={form.coverImagePath}
-            onChange={(coverImagePath) => setForm({ ...form, coverImagePath })}
-          />
-          <LocalizedTextFieldGroup
-            label="Cover image alt text"
-            maxLength={300}
-            value={form.coverImageAlt}
-            onChange={(coverImageAlt) => setForm({ ...form, coverImageAlt })}
-          />
-          <label className="flex flex-col gap-1 text-sm">
-            Public byline (optional)
-            <input
-              className="customInput font-normal"
-              value={form.authorDisplayName}
-              onChange={(e) => setForm({ ...form, authorDisplayName: e.target.value })}
-              placeholder="e.g. Otman AS"
-            />
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isPinned} onChange={handlePinToggle} />
-            Pinned
-          </label>
-          <LocalizedTextFieldGroup
-            label="SEO title"
-            maxLength={200}
-            value={form.seoTitle}
-            onChange={(seoTitle) => setForm({ ...form, seoTitle })}
-          />
-          <LocalizedTextFieldGroup
-            label="SEO description"
-            multiline
-            maxLength={300}
-            value={form.seoDescription}
-            onChange={(seoDescription) => setForm({ ...form, seoDescription })}
-          />
+      <div className="flex flex-1 flex-col lg:flex-row">
+        {/* Live preview — left half */}
+        <div className="flex flex-1 flex-col bg-linePrimary/20 p-6 md:p-8 lg:w-1/2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-textColorSecond">
+              Live preview
+            </span>
+            <div className="flex gap-1">
+              {(["no", "en"] as const).map((locale) => (
+                <button
+                  key={locale}
+                  type="button"
+                  onClick={() => setPreviewLocale(locale)}
+                  className={`customButtonDefault !px-3 !py-1 text-xs uppercase ${
+                    previewLocale === locale ? "bg-linePrimary" : ""
+                  }`}
+                >
+                  {locale}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mx-auto mt-6 w-full max-w-xl flex-1">
+            {detailsOpen ? (
+              <>
+                <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wide text-textColorSecond">
+                  Blog list card preview
+                </p>
+                <div className="overflow-hidden rounded-lg border border-linePrimary bg-white shadow-sm">
+                  <div className="relative flex aspect-[16/10] items-center justify-center bg-linePrimary/40 text-sm text-textColorSecond">
+                    {coverImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={coverImageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      "Cover image"
+                    )}
+                    {isPinned ? (
+                      <span className="absolute right-3 top-3 rounded-full bg-logoblue px-2 py-1 text-xs font-semibold text-white">
+                        Pinned
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex min-h-64 flex-col p-5">
+                    <span className="text-sm text-textColorSecond">Today</span>
+                    <h2 className="mt-4 text-xl font-bold leading-7 text-textcolor">
+                      {getLocalizedText(form.title, previewLocale) || "Your title will appear here"}
+                    </h2>
+                    <p className="mt-3 flex-1 leading-7 text-textColorSecond">
+                      {getLocalizedText(form.excerpt, previewLocale) || "Your excerpt will appear here."}
+                    </p>
+                    <div className="mt-5 flex items-center justify-between gap-4 border-t border-linePrimary pt-4 text-sm text-textColorSecond">
+                      <span>{form.authorDisplayName}</span>
+                      <span>{readingTime} min read</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="overflow-hidden rounded-lg border border-linePrimary bg-white shadow-sm">
+                <div className="p-6">
+                  <span className="text-xs font-semibold text-textColorSecond">{status}</span>
+                  <h1 className="mt-3 text-3xl font-bold leading-tight text-logoblue">
+                    {getLocalizedText(form.title, previewLocale) || "Your title will appear here"}
+                  </h1>
+                  <div className="mt-4 flex flex-wrap gap-3 border-t border-linePrimary pt-4 text-sm text-textColorSecond">
+                    {form.authorDisplayName ? <span>{form.authorDisplayName}</span> : null}
+                    <span>{readingTime} min read</span>
+                  </div>
+                  {previewSectionData.length > 0 ? (
+                    <div className="mt-6">
+                      <BlogSectionRenderer sections={previewSectionData} locale={previewLocale} />
+                    </div>
+                  ) : (
+                    <p className="mt-6 text-sm text-textColorSecond">
+                      Sections you add below will appear here once saved.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div>
-          <h2 className="mb-3 text-lg font-bold text-textcolor">Content sections</h2>
-          <BlogSectionList postId={postId} />
+        {/* Work area — right half */}
+        <div className="flex flex-1 flex-col gap-6 bg-logoblue p-6 md:p-8 lg:w-1/2">
+          <CollapsibleSection
+            title="Details"
+            description="Title, excerpt, cover image, byline, and SEO"
+            open={detailsOpen}
+            onOpenChange={setDetailsOpen}
+          >
+            <LocalizedTextFieldGroup
+              label="Title"
+              required
+              maxLength={200}
+              value={form.title}
+              onChange={(title) => setForm({ ...form, title })}
+            />
+            <LocalizedTextFieldGroup
+              label="Excerpt"
+              multiline
+              maxLength={500}
+              value={form.excerpt}
+              onChange={(excerpt) => setForm({ ...form, excerpt })}
+            />
+            <BlogImagePicker
+              label="Cover image"
+              blogPostId={postId}
+              storagePath={form.coverImagePath}
+              onChange={(coverImagePath) => setForm({ ...form, coverImagePath })}
+            />
+            <LocalizedTextFieldGroup
+              label="Cover image alt text"
+              maxLength={300}
+              value={form.coverImageAlt}
+              onChange={(coverImageAlt) => setForm({ ...form, coverImageAlt })}
+            />
+            <label className="flex flex-col gap-1 text-sm">
+              Public byline (optional)
+              <input
+                className="customInput font-normal"
+                value={form.authorDisplayName}
+                onChange={(e) => setForm({ ...form, authorDisplayName: e.target.value })}
+                placeholder="e.g. Otman AS"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isPinned} onChange={handlePinToggle} />
+              Pinned
+            </label>
+
+            <div className="mt-2 flex flex-col gap-4 border-t border-linePrimary pt-4">
+              <span className="text-sm font-semibold text-textcolor">SEO</span>
+              <label className="flex flex-col gap-1 text-sm">
+                Slug
+                <input
+                  className="customInput font-normal"
+                  value={form.slug}
+                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                />
+              </label>
+              <LocalizedTextFieldGroup
+                label="SEO title"
+                maxLength={200}
+                value={form.seoTitle}
+                onChange={(seoTitle) => setForm({ ...form, seoTitle })}
+              />
+              <LocalizedTextFieldGroup
+                label="SEO description"
+                multiline
+                maxLength={300}
+                value={form.seoDescription}
+                onChange={(seoDescription) => setForm({ ...form, seoDescription })}
+              />
+            </div>
+          </CollapsibleSection>
+
+          <div>
+            <h2 className="mb-3 text-lg font-bold text-white">Content sections</h2>
+            <BlogSectionList
+              postId={postId}
+              onSectionsChange={setPreviewSections}
+              onFocusSections={() => setDetailsOpen(false)}
+            />
+          </div>
         </div>
       </div>
     </div>

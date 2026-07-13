@@ -4,6 +4,7 @@ import { blogSectionDataSchema, type BlogSectionData } from "@/lib/blog/blogSect
 import { getLocalizedText } from "@/lib/blog/localizedText";
 import { sanitizeBlogHtml } from "@/lib/blog/sanitizeRichText";
 import { getPublicBlogImageUrl } from "@/lib/blog/publicImageUrl";
+import BlogCarousel from "@/app/_components/blog/BlogCarousel";
 
 type Props = {
   sections: BlogSectionData[];
@@ -33,7 +34,7 @@ function RenderedSection({ section, locale }: { section: BlogSectionData; locale
     case "RICH_TEXT":
       return (
         <div
-          className="prose max-w-none"
+          className="rich-text-content prose max-w-none"
           dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(getLocalizedText(section.html, locale)) }}
         />
       );
@@ -63,10 +64,13 @@ function RenderedSection({ section, locale }: { section: BlogSectionData; locale
           ) : null}
           <div className="md:w-1/2">
             {getLocalizedText(section.heading, locale) ? (
-              <h3 className="text-xl font-bold text-textcolor">{getLocalizedText(section.heading, locale)}</h3>
+              <div
+                className="rich-text-content text-xl font-bold text-textcolor [&_p]:m-0"
+                dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(getLocalizedText(section.heading, locale)) }}
+              />
             ) : null}
             <div
-              className="prose mt-2 max-w-none"
+              className="rich-text-content prose mt-2 max-w-none"
               dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(getLocalizedText(section.html, locale)) }}
             />
           </div>
@@ -93,14 +97,20 @@ function RenderedSection({ section, locale }: { section: BlogSectionData; locale
           })}
         </div>
       );
+    case "CAROUSEL":
+      return <BlogCarousel section={section} locale={locale} />;
     case "QUOTE":
       return (
         <blockquote className="border-l-4 border-logoblue pl-4 italic text-textcolor">
-          <p className="text-lg">{getLocalizedText(section.quote, locale)}</p>
+          <div
+            className="rich-text-content text-lg [&_p]:m-0"
+            dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(getLocalizedText(section.quote, locale)) }}
+          />
           {getLocalizedText(section.attribution, locale) ? (
-            <cite className="mt-2 block text-sm not-italic text-textColorSecond">
-              {getLocalizedText(section.attribution, locale)}
-            </cite>
+            <div
+              className="rich-text-content mt-2 text-sm not-italic text-textColorSecond [&_p]:m-0"
+              dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(getLocalizedText(section.attribution, locale)) }}
+            />
           ) : null}
         </blockquote>
       );
@@ -108,10 +118,16 @@ function RenderedSection({ section, locale }: { section: BlogSectionData; locale
       return (
         <div className="rounded-lg border border-linePrimary bg-linePrimary/20 p-6 text-center">
           {getLocalizedText(section.heading, locale) ? (
-            <h3 className="text-xl font-bold text-textcolor">{getLocalizedText(section.heading, locale)}</h3>
+            <div
+              className="rich-text-content text-xl font-bold text-textcolor [&_p]:m-0"
+              dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(getLocalizedText(section.heading, locale)) }}
+            />
           ) : null}
           {getLocalizedText(section.text, locale) ? (
-            <p className="mt-2 text-textColorSecond">{getLocalizedText(section.text, locale)}</p>
+            <div
+              className="rich-text-content mt-2 text-textColorSecond [&_p]:m-0"
+              dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(getLocalizedText(section.text, locale)) }}
+            />
           ) : null}
           <a
             href={section.buttonUrl}
@@ -123,8 +139,18 @@ function RenderedSection({ section, locale }: { section: BlogSectionData; locale
           </a>
         </div>
       );
-    case "DIVIDER":
-      return <hr className={section.style === "dashed" ? "border-dashed" : "border-solid"} />;
+    case "DIVIDER": {
+      const thicknessPx = { thin: 1, medium: 2, thick: 4 }[section.thickness ?? "medium"];
+      return (
+        <hr
+          className={section.style === "dashed" ? "border-dashed" : "border-solid"}
+          style={{
+            borderTopWidth: `${thicknessPx}px`,
+            borderTopColor: section.color ?? "#d1d5db",
+          }}
+        />
+      );
+    }
     case "SPACER":
       return <div className={SPACER_HEIGHT[section.size]} aria-hidden="true" />;
     default:

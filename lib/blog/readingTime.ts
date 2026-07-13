@@ -20,18 +20,21 @@ function sectionWordCount(section: BlogSectionData, locale: Locale): number {
     case "IMAGE_TEXT":
       return countWords(stripHtml(getLocalizedText(section.html, locale)));
     case "QUOTE":
+      // quote/attribution are rich text (HTML), same as RICH_TEXT/IMAGE_TEXT
       return (
-        countWords(getLocalizedText(section.quote, locale)) +
-        countWords(getLocalizedText(section.attribution, locale))
+        countWords(stripHtml(getLocalizedText(section.quote, locale))) +
+        countWords(stripHtml(getLocalizedText(section.attribution, locale)))
       );
     case "CTA":
+      // heading/text are rich text (HTML); buttonLabel is plain and intentionally excluded
       return (
-        countWords(getLocalizedText(section.heading, locale)) +
-        countWords(getLocalizedText(section.text, locale))
+        countWords(stripHtml(getLocalizedText(section.heading, locale))) +
+        countWords(stripHtml(getLocalizedText(section.text, locale)))
       );
     case "IMAGE":
       return countWords(getLocalizedText(section.caption, locale));
     case "GALLERY":
+    case "CAROUSEL":
       return section.images.reduce(
         (sum, image) => sum + countWords(getLocalizedText(image.caption, locale)),
         0,

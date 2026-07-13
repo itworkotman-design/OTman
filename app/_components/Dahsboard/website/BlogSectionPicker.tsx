@@ -3,6 +3,7 @@
 
 import { BLOG_SECTION_TYPES, type BlogSectionTypeValue } from "@/lib/blog/blogSectionSchemas";
 import { SECTION_TYPE_LABELS } from "@/lib/blog/defaultSectionData";
+import SectionTypeIcon from "@/app/_components/Dahsboard/website/SectionTypeIcon";
 
 type Props = {
   onPick: (type: BlogSectionTypeValue) => void;
@@ -30,7 +31,8 @@ export default function BlogSectionPicker({ onPick, onClose }: Props) {
                 onClose();
               }}
             >
-              <span className="font-semibold text-textcolor">{SECTION_TYPE_LABELS[type].name}</span>
+              <SectionTypeIcon type={type} className="h-6 w-6 text-logoblue" />
+              <span className="mt-2 font-semibold text-textcolor">{SECTION_TYPE_LABELS[type].name}</span>
               <span className="mt-1 text-sm text-textColorSecond">{SECTION_TYPE_LABELS[type].description}</span>
             </button>
           ))}

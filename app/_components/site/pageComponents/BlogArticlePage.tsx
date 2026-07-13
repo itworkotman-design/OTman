@@ -1,8 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { PublicBlogPostWithSections } from "@/lib/blog/publicBlogQueries";
 import { getLocalizedText } from "@/lib/blog/localizedText";
-import { getPublicBlogImageUrl } from "@/lib/blog/publicImageUrl";
 import { computeReadingTimeMinutes } from "@/lib/blog/readingTime";
 import BlogSectionRenderer from "@/app/_components/blog/BlogSectionRenderer";
 
@@ -26,7 +24,6 @@ type Props = {
 
 export default function BlogArticlePage({ post, locale }: Props) {
   const dateFormatter = dateFormatterByLocale[locale];
-  const imageUrl = getPublicBlogImageUrl(post.coverImagePath);
   const readingTime = computeReadingTimeMinutes(post.sections, locale);
 
   return (
@@ -36,24 +33,9 @@ export default function BlogArticlePage({ post, locale }: Props) {
           ← {TEXT.backToBlog[locale]}
         </Link>
 
-        {imageUrl ? (
-          <div className="relative mt-6 aspect-[16/9] w-full overflow-hidden rounded-lg">
-            <Image
-              alt={getLocalizedText(post.coverImageAlt, locale)}
-              className="object-cover"
-              fill
-              sizes="100vw"
-              src={imageUrl}
-              unoptimized
-              priority
-            />
-          </div>
-        ) : null}
-
         <h1 className="mt-6 text-3xl font-bold text-logoblue md:text-5xl">
           {getLocalizedText(post.title, locale)}
         </h1>
-        <p className="mt-4 text-lg text-textColorSecond">{getLocalizedText(post.excerpt, locale)}</p>
 
         <div className="mt-4 flex flex-wrap gap-3 text-sm text-textColorSecond">
           {post.publishedAt ? <time dateTime={post.publishedAt.toString()}>{dateFormatter.format(new Date(post.publishedAt))}</time> : null}

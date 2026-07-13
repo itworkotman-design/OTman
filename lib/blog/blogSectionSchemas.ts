@@ -51,6 +51,21 @@ export const gallerySectionDataSchema = z.object({
     .max(12, "A gallery can contain at most 12 images"),
 });
 
+export const carouselSectionDataSchema = z.object({
+  type: z.literal("CAROUSEL"),
+  images: z
+    .array(
+      z.object({
+        storagePath: storagePathSchema,
+        alt: boundedLocalizedText(300),
+        caption: boundedLocalizedText(500).optional(),
+      }),
+    )
+    .max(12, "A carousel can contain at most 12 images"),
+  autoplay: z.boolean().optional(),
+  intervalSeconds: z.number().int().min(2).max(30).optional(),
+});
+
 export const quoteSectionDataSchema = z.object({
   type: z.literal("QUOTE"),
   quote: boundedLocalizedText(500),
@@ -69,6 +84,11 @@ export const ctaSectionDataSchema = z.object({
 export const dividerSectionDataSchema = z.object({
   type: z.literal("DIVIDER"),
   style: z.enum(["solid", "dashed"]),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color")
+    .optional(),
+  thickness: z.enum(["thin", "medium", "thick"]).optional(),
 });
 
 export const spacerSectionDataSchema = z.object({
@@ -81,6 +101,7 @@ export const blogSectionDataSchema = z.discriminatedUnion("type", [
   imageSectionDataSchema,
   imageTextSectionDataSchema,
   gallerySectionDataSchema,
+  carouselSectionDataSchema,
   quoteSectionDataSchema,
   ctaSectionDataSchema,
   dividerSectionDataSchema,
@@ -92,6 +113,7 @@ export type RichTextSectionData = z.infer<typeof richTextSectionDataSchema>;
 export type ImageSectionData = z.infer<typeof imageSectionDataSchema>;
 export type ImageTextSectionData = z.infer<typeof imageTextSectionDataSchema>;
 export type GallerySectionData = z.infer<typeof gallerySectionDataSchema>;
+export type CarouselSectionData = z.infer<typeof carouselSectionDataSchema>;
 export type QuoteSectionData = z.infer<typeof quoteSectionDataSchema>;
 export type CtaSectionData = z.infer<typeof ctaSectionDataSchema>;
 export type DividerSectionData = z.infer<typeof dividerSectionDataSchema>;
@@ -102,6 +124,7 @@ export const BLOG_SECTION_TYPES = [
   "IMAGE",
   "IMAGE_TEXT",
   "GALLERY",
+  "CAROUSEL",
   "QUOTE",
   "CTA",
   "DIVIDER",
@@ -119,6 +142,7 @@ export function isSectionNonEmpty(section: BlogSectionData): boolean {
     case "IMAGE":
       return Boolean(section.storagePath);
     case "GALLERY":
+    case "CAROUSEL":
       return section.images.length > 0;
     case "QUOTE":
       return Boolean(section.quote.en.trim() || section.quote.no.trim());

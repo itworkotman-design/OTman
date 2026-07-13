@@ -8,10 +8,11 @@ import { getPublicBlogImageUrl } from "@/lib/blog/publicImageUrl";
 type Props = {
   storagePath: string | null;
   onChange: (storagePath: string | null) => void;
+  blogPostId: string;
   label?: string;
 };
 
-export default function BlogImagePicker({ storagePath, onChange, label }: Props) {
+export default function BlogImagePicker({ storagePath, onChange, blogPostId, label }: Props) {
   const { upload, isUploading, error } = useBlogImageUpload();
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrl = getPublicBlogImageUrl(storagePath);
@@ -19,7 +20,7 @@ export default function BlogImagePicker({ storagePath, onChange, label }: Props)
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const result = await upload(file);
+    const result = await upload(file, blogPostId);
     if (result) onChange(result.storagePath);
     if (inputRef.current) inputRef.current.value = "";
   }

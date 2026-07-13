@@ -72,6 +72,37 @@ describe("blogSectionDataSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts a CAROUSEL section with no images yet (not uploaded)", () => {
+    const result = blogSectionDataSchema.safeParse({ type: "CAROUSEL", images: [] });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a CAROUSEL section with autoplay and a valid interval", () => {
+    const result = blogSectionDataSchema.safeParse({
+      type: "CAROUSEL",
+      images: [{ storagePath: "s3://x", alt: EMPTY }],
+      autoplay: true,
+      intervalSeconds: 5,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a CAROUSEL section with more than 12 images", () => {
+    const images = Array.from({ length: 13 }, () => ({ storagePath: "s3://x", alt: EMPTY }));
+    const result = blogSectionDataSchema.safeParse({ type: "CAROUSEL", images });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a CAROUSEL section with an out-of-range interval", () => {
+    const result = blogSectionDataSchema.safeParse({
+      type: "CAROUSEL",
+      images: [],
+      autoplay: true,
+      intervalSeconds: 60,
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("isSectionNonEmpty", () => {
@@ -85,6 +116,14 @@ describe("isSectionNonEmpty", () => {
 
   it("treats an empty gallery as empty", () => {
     expect(isSectionNonEmpty({ type: "GALLERY", columns: 2, images: [] })).toBe(false);
+  });
+
+  it("treats an empty carousel as empty", () => {
+    expect(isSectionNonEmpty({ type: "CAROUSEL", images: [] })).toBe(false);
+  });
+
+  it("treats a carousel with at least one image as non-empty", () => {
+    expect(isSectionNonEmpty({ type: "CAROUSEL", images: [{ storagePath: "s3://x", alt: EMPTY }] })).toBe(true);
   });
 
   it("treats a divider as always non-empty", () => {

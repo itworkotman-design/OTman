@@ -7,15 +7,17 @@ import RichTextLocalizedEditor from "@/app/_components/Dahsboard/website/RichTex
 import type { ImageTextSectionData } from "@/lib/blog/blogSectionSchemas";
 
 type Props = {
+  blogPostId: string;
   data: ImageTextSectionData;
   onChange: (data: ImageTextSectionData) => void;
 };
 
-export default function ImageTextSectionEditor({ data, onChange }: Props) {
+export default function ImageTextSectionEditor({ blogPostId, data, onChange }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <BlogImagePicker
         label="Image"
+        blogPostId={blogPostId}
         storagePath={data.storagePath || null}
         onChange={(storagePath) => onChange({ ...data, storagePath: storagePath ?? "" })}
       />
@@ -37,9 +39,8 @@ export default function ImageTextSectionEditor({ data, onChange }: Props) {
           <option value="right">Right</option>
         </select>
       </label>
-      <LocalizedTextFieldGroup
+      <RichTextLocalizedEditor
         label="Heading"
-        maxLength={200}
         value={data.heading ?? { en: "", no: "" }}
         onChange={(heading) => onChange({ ...data, heading })}
       />

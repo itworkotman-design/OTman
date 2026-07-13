@@ -5,6 +5,7 @@ import RichTextSectionEditor from "@/app/_components/Dahsboard/website/sectionEd
 import ImageSectionEditor from "@/app/_components/Dahsboard/website/sectionEditors/ImageSectionEditor";
 import ImageTextSectionEditor from "@/app/_components/Dahsboard/website/sectionEditors/ImageTextSectionEditor";
 import GallerySectionEditor from "@/app/_components/Dahsboard/website/sectionEditors/GallerySectionEditor";
+import CarouselSectionEditor from "@/app/_components/Dahsboard/website/sectionEditors/CarouselSectionEditor";
 import QuoteSectionEditor from "@/app/_components/Dahsboard/website/sectionEditors/QuoteSectionEditor";
 import CtaSectionEditor from "@/app/_components/Dahsboard/website/sectionEditors/CtaSectionEditor";
 import DividerSectionEditor from "@/app/_components/Dahsboard/website/sectionEditors/DividerSectionEditor";
@@ -12,20 +13,23 @@ import SpacerSectionEditor from "@/app/_components/Dahsboard/website/sectionEdit
 import type { BlogSectionData } from "@/lib/blog/blogSectionSchemas";
 
 type Props = {
+  blogPostId: string;
   data: BlogSectionData;
   onChange: (data: BlogSectionData) => void;
 };
 
-export default function BlogSectionEditorSwitch({ data, onChange }: Props) {
+export default function BlogSectionEditorSwitch({ blogPostId, data, onChange }: Props) {
   switch (data.type) {
     case "RICH_TEXT":
       return <RichTextSectionEditor data={data} onChange={onChange} />;
     case "IMAGE":
-      return <ImageSectionEditor data={data} onChange={onChange} />;
+      return <ImageSectionEditor blogPostId={blogPostId} data={data} onChange={onChange} />;
     case "IMAGE_TEXT":
-      return <ImageTextSectionEditor data={data} onChange={onChange} />;
+      return <ImageTextSectionEditor blogPostId={blogPostId} data={data} onChange={onChange} />;
     case "GALLERY":
-      return <GallerySectionEditor data={data} onChange={onChange} />;
+      return <GallerySectionEditor blogPostId={blogPostId} data={data} onChange={onChange} />;
+    case "CAROUSEL":
+      return <CarouselSectionEditor blogPostId={blogPostId} data={data} onChange={onChange} />;
     case "QUOTE":
       return <QuoteSectionEditor data={data} onChange={onChange} />;
     case "CTA":

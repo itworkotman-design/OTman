@@ -8,13 +8,14 @@ export function useBlogImageUpload() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function upload(file: File): Promise<UploadResult | null> {
+  async function upload(file: File, blogPostId: string): Promise<UploadResult | null> {
     setIsUploading(true);
     setError(null);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("blogPostId", blogPostId);
 
       const res = await fetch("/api/dashboard/website/blog/assets", {
         method: "POST",

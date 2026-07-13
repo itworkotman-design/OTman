@@ -2,6 +2,7 @@
 "use client";
 
 import LocalizedTextFieldGroup from "@/app/_components/Dahsboard/website/LocalizedTextFieldGroup";
+import RichTextLocalizedEditor from "@/app/_components/Dahsboard/website/RichTextLocalizedEditor";
 import type { CtaSectionData } from "@/lib/blog/blogSectionSchemas";
 
 type Props = {
@@ -12,16 +13,13 @@ type Props = {
 export default function CtaSectionEditor({ data, onChange }: Props) {
   return (
     <div className="flex flex-col gap-4">
-      <LocalizedTextFieldGroup
+      <RichTextLocalizedEditor
         label="Heading"
-        maxLength={200}
         value={data.heading ?? { en: "", no: "" }}
         onChange={(heading) => onChange({ ...data, heading })}
       />
-      <LocalizedTextFieldGroup
+      <RichTextLocalizedEditor
         label="Text"
-        multiline
-        maxLength={500}
         value={data.text ?? { en: "", no: "" }}
         onChange={(text) => onChange({ ...data, text })}
       />
