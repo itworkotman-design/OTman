@@ -460,6 +460,7 @@ describe("buildOrderPayload", () => {
         pickupAddress: "",
         deliveryAddress: "Delivery 1",
         servicesSummary: "",
+        driverInfo: "Ring kunden før levering",
       }),
       items: [
         buildOrderItem(),
@@ -476,7 +477,12 @@ describe("buildOrderPayload", () => {
       ],
     });
 
-    expect(payload.tasks_data[0]?.description).toContain("Retur til butikk");
+    expect(payload.tasks_data[0]?.description).toContain(
+      "- ❗Retur til butikk❗",
+    );
+    expect(payload.tasks_data[0]?.description).toContain(
+      "Ring kunden før levering\n❗Retur til butikk❗",
+    );
     expect(payload.tasks_data[0]?.description).not.toContain(
       "Wrong saved return label",
     );

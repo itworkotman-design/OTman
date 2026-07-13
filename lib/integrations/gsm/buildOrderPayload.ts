@@ -34,8 +34,10 @@ export type GsmOrderInput = Order & {
 
 const NO_PICKUP_ADDRESS = "no shop pickup address";
 const WORDPRESS_ORDER_PRICES_PRODUCT_NAME = "WordPress order prices";
+const RETURN_TO_STORE_CODE = "RETURNSTORE";
+const RETURN_TO_STORE_NOTICE = "❗Retur til butikk❗";
 const RETURN_LABELS_BY_CODE: Record<string, string> = {
-  RETURNSTORE: "Retur til butikk",
+  [RETURN_TO_STORE_CODE]: RETURN_TO_STORE_NOTICE,
   RETURNREC: "Retur til gjenvinningsstasjon",
 };
 
@@ -168,6 +170,24 @@ function getGsmSummaryItems(items: OrderItem[]) {
   });
 }
 
+function hasReturnToStore(order: GsmOrderInput) {
+  return order.items?.some(
+    (item) => getItemOptionCode(item) === RETURN_TO_STORE_CODE,
+  ) ?? false;
+}
+
+function buildDriverInfo(order: GsmOrderInput) {
+  const driverInfo = order.driverInfo?.trim() ?? "";
+
+  if (!hasReturnToStore(order) || driverInfo.includes(RETURN_TO_STORE_NOTICE)) {
+    return driverInfo;
+  }
+
+  return [driverInfo, RETURN_TO_STORE_NOTICE]
+    .filter((value) => value.length > 0)
+    .join("\n");
+}
+
 function buildDescription(order: GsmOrderInput) {
   const summaryGroups =
     order.items && order.items.length > 0
@@ -181,7 +201,7 @@ function buildDescription(order: GsmOrderInput) {
   const summaryBlock = [formatOrderSummaryText(summaryGroups), ...buildLocationDetails(order)]
     .filter((value): value is string => !!value)
     .join("\n");
-  return [summaryBlock, order.description?.trim(), order.customerComments?.trim(), order.statusNotes?.trim(), order.driverInfo?.trim()]
+  return [summaryBlock, order.description?.trim(), order.customerComments?.trim(), order.statusNotes?.trim(), buildDriverInfo(order)]
     .filter((value): value is string => !!value)
     .join("\n\n");
 }
@@ -240,33 +260,6 @@ function itemMatchesDeliveryType(item: OrderItem, matches: string[]) {
     matchesDeliveryType(item.optionCode, matches) ||
     matchesDeliveryType(getRawDataString(item.rawData, "code"), matches) ||
     matchesDeliveryType(getRawDataString(item.rawData, "mappedOptionCode"), matches)
-  );
-}
-
-function normalizeDeliveryTypeText(value?: string | null) {
-  return (value ?? "").trim().toLowerCase();
-}
-
-function isDropOffDeliveryType(value?: string | null) {
-  const deliveryType = normalizeDeliveryTypeText(value);
-
-  return (
-    deliveryType === "indoor" ||
-    deliveryType === "first_step" ||
-    deliveryType.includes("innb") ||
-    deliveryType.includes("første") ||
-    deliveryType.includes("forste") ||
-    deliveryType.includes("first step")
-  );
-}
-
-function isAssignmentDeliveryType(value?: string | null) {
-  const deliveryType = normalizeDeliveryTypeText(value);
-
-  return (
-    deliveryType === "install_only" ||
-    deliveryType.includes("install") ||
-    deliveryType.includes("montering")
   );
 }
 
