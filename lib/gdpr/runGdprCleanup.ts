@@ -24,6 +24,7 @@ const ANONYMIZED_ORDER_FIELDS = [
 
 const REDACTED_EMAIL_PLACEHOLDER = "gdpr-anonymized@deleted.invalid";
 const REDACTED_MESSAGE_BODY = "[GDPR: message content anonymized]";
+const REDACTED_SUBJECT = "[GDPR: subject anonymized]";
 
 export type GdprCleanupSummary = {
   anonymized: number;
@@ -54,6 +55,17 @@ function toErrorMessage(error: unknown): string {
   return message.slice(0, 500);
 }
 
+// Shared by both the cron route and the manual "run now" route so a caller
+// can bound how many orders a single invocation processes (e.g. to work
+// through a large backlog in controlled batches instead of one huge run).
+export function parseGdprLimitParam(searchParams: URLSearchParams): number | undefined {
+  const raw = searchParams.get("limit");
+  if (!raw) return undefined;
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
+}
+
 async function anonymizeOrder(
   order: OrderCandidate & { legacyWordpressOrderId: number | null },
 ): Promise<void> {
@@ -61,6 +73,7 @@ async function anonymizeOrder(
     prisma.orderEmailMessage.updateMany({
       where: { orderId: order.id },
       data: {
+        subject: REDACTED_SUBJECT,
         bodyText: REDACTED_MESSAGE_BODY,
         bodyHtml: null,
         fromName: null,
@@ -148,8 +161,13 @@ async function cleanupOrderPod(order: OrderCandidate): Promise<void> {
 // pauses both for a given order. Called both by the daily cron
 // (no companyId — every company) and the dashboard "run now" button
 // (companyId scoped to the caller's active company).
+//
+// `limit` caps how many orders each sweep processes per call (oldest
+// paidAt first), so a large backlog (e.g. after a bulk status-correction
+// script) can be worked through in controlled batches instead of one
+// single run trying to touch everything at once.
 export async function runGdprCleanup(
-  options: { companyId?: string } = {},
+  options: { companyId?: string; limit?: number } = {},
 ): Promise<GdprCleanupSummary> {
   const summary: GdprCleanupSummary = { anonymized: 0, podCleaned: 0, failed: 0 };
 
@@ -161,6 +179,8 @@ export async function runGdprCleanup(
       ...(options.companyId ? { companyId: options.companyId } : {}),
     },
     select: { id: true, companyId: true, status: true, legacyWordpressOrderId: true },
+    orderBy: { paidAt: "asc" },
+    ...(options.limit ? { take: options.limit } : {}),
   });
 
   for (const order of anonymizeCandidates) {
@@ -190,6 +210,8 @@ export async function runGdprCleanup(
       ...(options.companyId ? { companyId: options.companyId } : {}),
     },
     select: { id: true, companyId: true, status: true },
+    orderBy: { paidAt: "asc" },
+    ...(options.limit ? { take: options.limit } : {}),
   });
 
   for (const order of podCandidates) {

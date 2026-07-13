@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
-import { runGdprCleanup } from "@/lib/gdpr/runGdprCleanup";
+import { parseGdprLimitParam, runGdprCleanup } from "@/lib/gdpr/runGdprCleanup";
 
 // Manual "run now" trigger for the same GDPR retention sweep the daily cron
 // (app/api/cron/gdpr-cleanup/route.ts) runs — scoped to the caller's active
@@ -33,7 +33,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
-  const summary = await runGdprCleanup({ companyId: session.activeCompanyId });
+  const limit = parseGdprLimitParam(new URL(req.url).searchParams);
+  const summary = await runGdprCleanup({ companyId: session.activeCompanyId, limit });
 
   return NextResponse.json({ ok: true, ...summary });
 }

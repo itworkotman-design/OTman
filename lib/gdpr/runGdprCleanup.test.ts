@@ -99,6 +99,22 @@ describe("runGdprCleanup", () => {
     expect(updateData).not.toHaveProperty("cashierPhone");
     expect(updateData).not.toHaveProperty("customerLabel");
 
+    // Email subject lines are free text and commonly contain the
+    // customer's name (e.g. "RE: Delivery for Kari Nordmann") — must be
+    // redacted along with the body/addresses, not left as-is.
+    expect(mocks.orderEmailMessageUpdateManyMock).toHaveBeenCalledWith({
+      where: { orderId: "order-1" },
+      data: expect.objectContaining({
+        subject: expect.stringMatching(/anonymized/i),
+        bodyText: expect.stringMatching(/anonymized/i),
+        bodyHtml: null,
+        fromName: null,
+        toName: null,
+        fromEmail: expect.stringContaining("@"),
+        toEmail: expect.stringContaining("@"),
+      }),
+    });
+
     expect(mocks.orderEventCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
         orderId: "order-1",
@@ -153,7 +169,7 @@ describe("runGdprCleanup", () => {
     expect(mocks.orderUpdateMock).not.toHaveBeenCalled();
   });
 
-  it("queries with gdprHold/gdprAnonymized false and the 30-day paidAt cutoff", async () => {
+  it("queries with gdprHold/gdprAnonymized false and the 30-day paidAt cutoff, oldest paidAt first", async () => {
     await runGdprCleanup();
 
     expect(mocks.orderFindManyMock).toHaveBeenNthCalledWith(1, {
@@ -163,6 +179,7 @@ describe("runGdprCleanup", () => {
         gdprAnonymized: false,
       }),
       select: expect.any(Object),
+      orderBy: { paidAt: "asc" },
     });
   });
 
@@ -172,11 +189,33 @@ describe("runGdprCleanup", () => {
     expect(mocks.orderFindManyMock).toHaveBeenNthCalledWith(1, {
       where: expect.objectContaining({ companyId: "company-9" }),
       select: expect.any(Object),
+      orderBy: { paidAt: "asc" },
     });
     expect(mocks.orderFindManyMock).toHaveBeenNthCalledWith(2, {
       where: expect.objectContaining({ companyId: "company-9" }),
       select: expect.any(Object),
+      orderBy: { paidAt: "asc" },
     });
+  });
+
+  it("caps both sweeps to `limit` orders per run when provided", async () => {
+    await runGdprCleanup({ limit: 200 });
+
+    expect(mocks.orderFindManyMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ take: 200 }),
+    );
+    expect(mocks.orderFindManyMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ take: 200 }),
+    );
+  });
+
+  it("does not pass take at all when no limit is given", async () => {
+    await runGdprCleanup();
+
+    expect(mocks.orderFindManyMock.mock.calls[0][0]).not.toHaveProperty("take");
+    expect(mocks.orderFindManyMock.mock.calls[1][0]).not.toHaveProperty("take");
   });
 
   it("continues processing remaining orders when one anonymize update fails", async () => {
@@ -245,6 +284,7 @@ describe("runGdprCleanup", () => {
         orderAttachments: { some: { source: "GSM" } },
       }),
       select: expect.any(Object),
+      orderBy: { paidAt: "asc" },
     });
   });
 });
