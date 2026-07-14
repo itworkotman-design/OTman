@@ -92,11 +92,12 @@ export async function getPublishedBlogPosts(params: {
   page?: number;
   pageSize?: number;
   locale: Locale;
-  tagSlug?: string;
+  tagSlugs?: string[];
 }): Promise<{ posts: PublicBlogPostSummary[]; total: number }> {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.max(1, params.pageSize ?? 9);
   const searchQuery = (params.q ?? "").trim();
+  const tagSlugs = (params.tagSlugs ?? []).filter(Boolean);
 
   const where = {
     status: "PUBLISHED" as const,
@@ -109,7 +110,10 @@ export async function getPublishedBlogPosts(params: {
           ],
         }
       : {}),
-    ...(params.tagSlug ? { tags: { some: { blogTag: { slug: params.tagSlug } } } } : {}),
+    // A post matches if it has at least one of the selected tags (OR, not
+    // AND) — narrowing to posts with every selected tag would make picking
+    // more tags shrink the results, which isn't how "browse by tag" reads.
+    ...(tagSlugs.length > 0 ? { tags: { some: { blogTag: { slug: { in: tagSlugs } } } } } : {}),
   };
 
   const [total, posts] = await Promise.all([

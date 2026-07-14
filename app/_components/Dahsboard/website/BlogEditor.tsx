@@ -11,8 +11,8 @@ import CollapsibleSection from "@/app/_components/Dahsboard/website/CollapsibleS
 import TagInput from "@/app/_components/Dahsboard/website/TagInput";
 import type { BlogSectionRow } from "@/app/_components/Dahsboard/website/BlogSectionCard";
 import BlogSectionRenderer from "@/app/_components/blog/BlogSectionRenderer";
+import BlogListCard from "@/app/_components/blog/BlogListCard";
 import { getLocalizedText, type LocalizedTextValue } from "@/lib/blog/localizedText";
-import { getPublicBlogImageUrl } from "@/lib/blog/publicImageUrl";
 import { computeReadingTimeMinutes } from "@/lib/blog/readingTime";
 import type { Locale } from "@/lib/content/NavbarContent";
 
@@ -189,7 +189,6 @@ export default function BlogEditor({ postId }: { postId: string }) {
     error: "Save failed",
   };
 
-  const coverImageUrl = getPublicBlogImageUrl(form.coverImagePath);
   const previewSectionData = previewSections.map((s) => s.data);
   const readingTime = computeReadingTimeMinutes(previewSectionData, previewLocale);
 
@@ -260,43 +259,30 @@ export default function BlogEditor({ postId }: { postId: string }) {
             </div>
           </div>
 
-          <div className="mx-auto mt-6 w-full max-w-xl flex-1">
+          <div className="mt-6 flex-1">
             {detailsOpen ? (
-              <>
+              <div className="mx-auto w-99.25 max-w-full">
                 <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wide text-textColorSecond">
                   Blog list card preview
                 </p>
-                <div className="overflow-hidden rounded-lg border border-linePrimary bg-white shadow-sm">
-                  <div className="relative flex aspect-[16/10] items-center justify-center bg-linePrimary/40 text-sm text-textColorSecond">
-                    {coverImageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={coverImageUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      "Cover image"
-                    )}
-                    {isPinned ? (
-                      <span className="absolute right-3 top-3 rounded-full bg-logoblue px-2 py-1 text-xs font-semibold text-white">
-                        Pinned
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="flex min-h-64 flex-col p-5">
-                    <span className="text-sm text-textColorSecond">Today</span>
-                    <h2 className="mt-4 text-xl font-bold leading-7 text-textcolor">
-                      {getLocalizedText(form.title, previewLocale) || "Your title will appear here"}
-                    </h2>
-                    <p className="mt-3 flex-1 leading-7 text-textColorSecond">
-                      {getLocalizedText(form.excerpt, previewLocale) || "Your excerpt will appear here."}
-                    </p>
-                    <div className="mt-5 flex items-center justify-between gap-4 border-t border-linePrimary pt-4 text-sm text-textColorSecond">
-                      <span>{form.authorDisplayName}</span>
-                      <span>{readingTime} min read</span>
-                    </div>
-                  </div>
-                </div>
-              </>
+                <BlogListCard
+                  locale={previewLocale}
+                  title={form.title}
+                  titlePlaceholder="Your title will appear here"
+                  excerpt={form.excerpt}
+                  excerptPlaceholder="Your excerpt will appear here."
+                  coverImagePath={form.coverImagePath}
+                  isPinned={isPinned}
+                  dateLabel="Today"
+                  authorDisplayName={form.authorDisplayName}
+                  readingTime={readingTime}
+                  readTimeLabel="min read"
+                  pinnedLabel="Pinned"
+                  tags={form.tags.map((name) => ({ name, slug: name }))}
+                />
+              </div>
             ) : (
-              <div className="overflow-hidden rounded-lg border border-linePrimary bg-white shadow-sm">
+              <div className="w-full overflow-hidden rounded-lg border border-linePrimary bg-white shadow-sm">
                 <div className="p-6">
                   <span className="text-xs font-semibold text-textColorSecond">{status}</span>
                   <h1 className="mt-3 text-3xl font-bold leading-tight text-logoblue">

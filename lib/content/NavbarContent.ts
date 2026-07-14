@@ -36,14 +36,14 @@ export const navbarContent = {
         no: "Om oss",
       },
     },
-    // {
-    //   id: "blog",
-    //   href: "/blogg",
-    //   label: {
-    //     en: "Blog",
-    //     no: "Blogg",
-    //   },
-    // },
+    {
+      id: "blog",
+      href: "/blogg",
+      label: {
+        en: "Blog",
+        no: "Blogg",
+      },
+    },
   ],
   contactLabel: {
     en: "Contact",

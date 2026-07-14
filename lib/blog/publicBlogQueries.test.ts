@@ -82,20 +82,20 @@ describe("getPublishedBlogPosts", () => {
     ]);
   });
 
-  it("filters by tagSlug when provided", async () => {
+  it("filters by tagSlugs when provided", async () => {
     mocks.countMock.mockResolvedValue(0);
     mocks.findManyMock.mockResolvedValue([]);
 
-    await getPublishedBlogPosts({ locale: "en", tagSlug: "car" });
+    await getPublishedBlogPosts({ locale: "en", tagSlugs: ["car", "money"] });
 
     expect(mocks.findManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ tags: { some: { blogTag: { slug: "car" } } } }),
+        where: expect.objectContaining({ tags: { some: { blogTag: { slug: { in: ["car", "money"] } } } } }),
       }),
     );
   });
 
-  it("omits the tag filter when tagSlug is not provided", async () => {
+  it("omits the tag filter when tagSlugs is not provided", async () => {
     mocks.countMock.mockResolvedValue(0);
     mocks.findManyMock.mockResolvedValue([]);
 

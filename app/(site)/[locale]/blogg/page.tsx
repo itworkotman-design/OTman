@@ -15,6 +15,11 @@ function getSingleParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
+function getArrayParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return value ? [value] : [];
+}
+
 function getSortDirection(value: string): BlogSortDirection {
   return value === "asc" ? "asc" : "desc";
 }
@@ -50,7 +55,7 @@ export default async function Page({
   const searchQuery = getSingleParam(resolvedSearchParams.q);
   const sortDirection = getSortDirection(getSingleParam(resolvedSearchParams.sort));
   const page = Math.max(1, Number(getSingleParam(resolvedSearchParams.page)) || 1);
-  const tagSlug = getSingleParam(resolvedSearchParams.tag);
+  const tagSlugs = getArrayParam(resolvedSearchParams.tag);
 
   const [{ posts, total }, availableTags] = await Promise.all([
     getPublishedBlogPosts({
@@ -59,7 +64,7 @@ export default async function Page({
       page,
       pageSize: PAGE_SIZE,
       locale,
-      tagSlug: tagSlug || undefined,
+      tagSlugs,
     }),
     getPublishedBlogTags(),
   ]);
@@ -73,7 +78,7 @@ export default async function Page({
       locale={locale}
       searchQuery={searchQuery}
       sortDirection={sortDirection}
-      tagSlug={tagSlug}
+      tagSlugs={tagSlugs}
       availableTags={availableTags}
     />
   );
