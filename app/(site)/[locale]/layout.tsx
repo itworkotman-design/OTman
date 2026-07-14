@@ -32,13 +32,6 @@ export const metadata: Metadata = {
   authors: [{ name: "Otman AS" }],
   creator: "Otman AS",
   publisher: "Otman AS",
-  alternates: {
-    canonical: "/",
-    languages: {
-      en: "/en",
-      no: "/no",
-    },
-  },
   openGraph: {
     type: "website",
     locale: "nb_NO",

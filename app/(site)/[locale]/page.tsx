@@ -1,9 +1,20 @@
+import type { Metadata } from "next";
 import HomePage from "@/app/_components/site/pageComponents/HomePage";
 import { homePageContent } from "@/lib/content/HomePageContent";
 import { statsContent } from "@/lib/content/StatsContent";
 import { getOrRefreshSiteStats, HISTORICAL_BASELINE } from "@/lib/site/siteStats";
+import { buildAlternates } from "@/lib/site/seo";
 
 export const revalidate = 86400;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: "en" | "no" }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return { alternates: buildAlternates(locale) };
+}
 
 export default async function Page({
   params,

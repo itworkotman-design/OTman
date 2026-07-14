@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import BlogPage from "@/app/_components/site/pageComponents/BlogPage";
 import { blogPageContent, type BlogSortDirection } from "@/lib/content/BlogContent";
+import { buildAlternates } from "@/lib/site/seo";
 
 type BlogSearchParams = {
   q?: string | string[];
@@ -12,6 +14,15 @@ function getSingleParam(value: string | string[] | undefined) {
 
 function getSortDirection(value: string): BlogSortDirection {
   return value === "asc" ? "asc" : "desc";
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: "en" | "no" }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return { alternates: buildAlternates(locale, "/blogg") };
 }
 
 export default async function Page({
