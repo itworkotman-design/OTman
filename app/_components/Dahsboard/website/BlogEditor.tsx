@@ -6,7 +6,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import LocalizedTextFieldGroup from "@/app/_components/Dahsboard/website/LocalizedTextFieldGroup";
 import BlogImagePicker from "@/app/_components/Dahsboard/website/BlogImagePicker";
-import BlogSectionList from "@/app/_components/Dahsboard/website/BlogSectionList";
+import BlogSectionList, {
+  type BlogSectionListHandle,
+} from "@/app/_components/Dahsboard/website/BlogSectionList";
 import CollapsibleSection from "@/app/_components/Dahsboard/website/CollapsibleSection";
 import TagInput from "@/app/_components/Dahsboard/website/TagInput";
 import type { BlogSectionRow } from "@/app/_components/Dahsboard/website/BlogSectionCard";
@@ -74,6 +76,7 @@ export default function BlogEditor({ postId }: { postId: string }) {
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const isDirty = useRef(false);
+  const sectionListRef = useRef<BlogSectionListHandle>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/dashboard/website/blog/${postId}`, { credentials: "include" });
@@ -149,6 +152,9 @@ export default function BlogEditor({ postId }: { postId: string }) {
 
   async function handleStatusAction(action: "publish" | "unpublish" | "archive" | "restore") {
     setPublishError(null);
+    if (action === "publish") {
+      await sectionListRef.current?.flushPendingDraftSaves();
+    }
     const res = await fetch(`/api/dashboard/website/blog/${postId}/${action}`, {
       method: "POST",
       credentials: "include",
@@ -398,6 +404,7 @@ export default function BlogEditor({ postId }: { postId: string }) {
           <div>
             <h2 className="mb-3 text-lg font-bold text-white">Content sections</h2>
             <BlogSectionList
+              ref={sectionListRef}
               postId={postId}
               onSectionsChange={setPreviewSections}
               onFocusSections={() => setDetailsOpen(false)}

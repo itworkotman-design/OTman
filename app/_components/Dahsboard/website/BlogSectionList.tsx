@@ -1,7 +1,7 @@
 // app/_components/Dahsboard/website/BlogSectionList.tsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
   DndContext,
   PointerSensor,
@@ -22,9 +22,16 @@ type Props = {
   onFocusSections?: () => void;
 };
 
+export type BlogSectionListHandle = {
+  flushPendingDraftSaves: () => Promise<void>;
+};
+
 const BASE_URL = (postId: string) => `/api/dashboard/website/blog/${postId}/sections`;
 
-export default function BlogSectionList({ postId, onSectionsChange, onFocusSections }: Props) {
+const BlogSectionList = forwardRef<BlogSectionListHandle, Props>(function BlogSectionList(
+  { postId, onSectionsChange, onFocusSections },
+  ref,
+) {
   const [sections, setSections] = useState<BlogSectionRow[]>([]);
   const [draftOverrides, setDraftOverrides] = useState<Record<string, BlogSectionData>>({});
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
@@ -72,6 +79,8 @@ export default function BlogSectionList({ postId, onSectionsChange, onFocusSecti
     });
     await Promise.all(pending.map((s) => handleSaveSection(s.id, draftOverrides[s.id])));
   }
+
+  useImperativeHandle(ref, () => ({ flushPendingDraftSaves }));
 
   async function persistOrder(orderedIds: string[]) {
     await fetch(`${BASE_URL(postId)}/reorder`, {
@@ -204,4 +213,6 @@ export default function BlogSectionList({ postId, onSectionsChange, onFocusSecti
       ) : null}
     </div>
   );
-}
+});
+
+export default BlogSectionList;
