@@ -164,7 +164,12 @@ export default function BlogSectionRenderer({ sections, locale }: Props) {
       {sections.map((section, index) => {
         const parsed = blogSectionDataSchema.safeParse(section);
         if (!parsed.success) return null;
-        return <RenderedSection key={index} section={parsed.data} locale={locale} />;
+        const backgroundColor = parsed.data.backgroundColor;
+        return (
+          <div key={index} style={backgroundColor ? { backgroundColor } : undefined} className={backgroundColor ? "rounded-lg p-6" : undefined}>
+            <RenderedSection section={parsed.data} locale={locale} />
+          </div>
+        );
       })}
     </div>
   );

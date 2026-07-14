@@ -14,9 +14,17 @@ const urlOrPathSchema = z
     "Must be a root-relative path or an absolute URL",
   );
 
+// Shared by every section type so the editor can offer one consistent
+// "background color" control instead of a per-type field.
+const backgroundColorSchema = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color")
+  .optional();
+
 export const richTextSectionDataSchema = z.object({
   type: z.literal("RICH_TEXT"),
   html: boundedLocalizedText(20000),
+  backgroundColor: backgroundColorSchema,
 });
 
 export const imageSectionDataSchema = z.object({
@@ -26,6 +34,7 @@ export const imageSectionDataSchema = z.object({
   caption: boundedLocalizedText(500).optional(),
   alignment: z.enum(["left", "center", "right"]).optional(),
   width: z.enum(["small", "medium", "full"]).optional(),
+  backgroundColor: backgroundColorSchema,
 });
 
 export const imageTextSectionDataSchema = z.object({
@@ -35,6 +44,7 @@ export const imageTextSectionDataSchema = z.object({
   heading: boundedLocalizedText(200).optional(),
   html: boundedLocalizedText(20000),
   imagePosition: z.enum(["left", "right"]),
+  backgroundColor: backgroundColorSchema,
 });
 
 export const gallerySectionDataSchema = z.object({
@@ -49,6 +59,7 @@ export const gallerySectionDataSchema = z.object({
       }),
     )
     .max(12, "A gallery can contain at most 12 images"),
+  backgroundColor: backgroundColorSchema,
 });
 
 export const carouselSectionDataSchema = z.object({
@@ -64,12 +75,14 @@ export const carouselSectionDataSchema = z.object({
     .max(12, "A carousel can contain at most 12 images"),
   autoplay: z.boolean().optional(),
   intervalSeconds: z.number().int().min(2).max(30).optional(),
+  backgroundColor: backgroundColorSchema,
 });
 
 export const quoteSectionDataSchema = z.object({
   type: z.literal("QUOTE"),
   quote: boundedLocalizedText(500),
   attribution: boundedLocalizedText(200).optional(),
+  backgroundColor: backgroundColorSchema,
 });
 
 export const ctaSectionDataSchema = z.object({
@@ -79,6 +92,7 @@ export const ctaSectionDataSchema = z.object({
   buttonLabel: boundedLocalizedText(100),
   buttonUrl: urlOrPathSchema,
   openInNewTab: z.boolean().optional(),
+  backgroundColor: backgroundColorSchema,
 });
 
 export const dividerSectionDataSchema = z.object({
@@ -89,11 +103,13 @@ export const dividerSectionDataSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color")
     .optional(),
   thickness: z.enum(["thin", "medium", "thick"]).optional(),
+  backgroundColor: backgroundColorSchema,
 });
 
 export const spacerSectionDataSchema = z.object({
   type: z.literal("SPACER"),
   size: z.enum(["small", "medium", "large"]),
+  backgroundColor: backgroundColorSchema,
 });
 
 export const blogSectionDataSchema = z.discriminatedUnion("type", [

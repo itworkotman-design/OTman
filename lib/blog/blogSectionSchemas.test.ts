@@ -103,6 +103,29 @@ describe("blogSectionDataSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts a section with a valid backgroundColor", () => {
+    const result = blogSectionDataSchema.safeParse({
+      type: "RICH_TEXT",
+      html: EMPTY,
+      backgroundColor: "#ff00aa",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a section with no backgroundColor set", () => {
+    const result = blogSectionDataSchema.safeParse({ type: "RICH_TEXT", html: EMPTY });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a section with an invalid backgroundColor", () => {
+    const result = blogSectionDataSchema.safeParse({
+      type: "RICH_TEXT",
+      html: EMPTY,
+      backgroundColor: "not-a-color",
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("isSectionNonEmpty", () => {
