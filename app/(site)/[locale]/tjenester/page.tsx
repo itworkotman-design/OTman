@@ -9,7 +9,10 @@ export async function generateMetadata({
   params: Promise<{ locale: "en" | "no" }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  return { alternates: buildAlternates(locale, "/tjenester") };
+  return {
+    title: TjenesterContent.heroTitle[locale],
+    alternates: buildAlternates(locale, "/tjenester"),
+  };
 }
 
 export default async function Page({

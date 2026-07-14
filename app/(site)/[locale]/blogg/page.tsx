@@ -22,7 +22,11 @@ export async function generateMetadata({
   params: Promise<{ locale: "en" | "no" }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  return { alternates: buildAlternates(locale, "/blogg") };
+  const title =
+    locale === "no"
+      ? "Blogg – nyheter, tips og oppdateringer om transport"
+      : "Blog – News, Tips and Updates on Transport and Moving";
+  return { title, alternates: buildAlternates(locale, "/blogg") };
 }
 
 export default async function Page({
