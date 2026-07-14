@@ -100,7 +100,13 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
     <div className="relative left-0 w-full flex flex-col lg:flex-row customContainer gap-4 lg:gap-10">
       <div className="relative w-full min-h-[250] lg:min-h-[400] lg:flex-1  rounded-2xl overflow-hidden">
         <Link href={`/bil-utleie/${id}`} className="absolute inset-0 block">
-          <Image src={imageUrl} fill alt="Vehicle img" className="object-contain scale-100" />
+          <Image
+            src={imageUrl}
+            fill
+            alt="Vehicle img"
+            className="object-contain scale-100"
+            sizes="(min-width: 1024px) 600px, 100vw"
+          />
         </Link>
       </div>
 

@@ -95,6 +95,7 @@ function ImageLightbox({
             fill
             alt={`${name} - image ${activeIndex + 1}`}
             className="object-contain"
+            sizes="(min-width: 1024px) 1024px, 100vw"
             priority
           />
         </div>
@@ -119,7 +120,7 @@ function ImageLightbox({
                 i === activeIndex ? "border-white opacity-100" : "border-transparent opacity-50 hover:opacity-80"
               }`}
             >
-              <Image src={images[i]} fill alt={`${name} ${i + 1}`} className="object-cover" />
+              <Image src={images[i]} fill alt={`${name} ${i + 1}`} className="object-cover" sizes="96px" />
             </button>
           ))}
         </div>
@@ -174,6 +175,7 @@ export default function VehicleGallery({ images, name, extraImages, extraImagesL
             fill
             alt={`${name} - image ${activeIndex + 1}`}
             className="object-contain scale-100"
+            sizes="(min-width: 1280px) 1200px, 100vw"
             priority
           />
           {images.length > 1 && (
@@ -205,7 +207,7 @@ export default function VehicleGallery({ images, name, extraImages, extraImagesL
                     i === activeIndex ? "border-logoblue opacity-100" : "border-transparent opacity-60 hover:opacity-90"
                   }`}
                 >
-                  <Image src={images[i]} fill alt={`${name} ${i + 1}`} className="object-cover" />
+                  <Image src={images[i]} fill alt={`${name} ${i + 1}`} className="object-cover" sizes="96px" />
                 </button>
               ))}
             </div>

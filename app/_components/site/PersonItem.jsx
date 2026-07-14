@@ -4,7 +4,7 @@ export const PersonItem = ({src, name, position, email}) => {
     return (
         <div className="w-full max-w-[360px] mb-6">
             <div className="w-full max-w-[360] aspect-square  relative rounded-2xl overflow-clip">
-                <Image src={src} alt="prof-img" fill className="object-cover"/>
+                <Image src={src} alt="prof-img" fill sizes="(min-width: 360px) 360px, 100vw" className="object-cover"/>
             </div>
             <div className="text-center">
                 <p className="text-logoblue font-semibold text-xl mt-2">{name}</p>

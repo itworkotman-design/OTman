@@ -19,6 +19,7 @@ export default function About({ content, locale }: PageTypes) {
             src="https://public-otman-img.s3.eu-north-1.amazonaws.com/Content/About/Otman+background.png"
             alt="bg-img"
             fill
+            sizes="100vw"
             className="object-cover object-[center_40%]"
           />
 
