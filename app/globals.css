@@ -292,6 +292,39 @@ button{
   cursor: pointer;
 }
 
+.rich-text-list-dashed {
+  list-style: none;
+}
+.rich-text-list-dashed > li {
+  position: relative;
+}
+.rich-text-list-dashed > li::before {
+  content: "\2013";
+  position: absolute;
+  left: -1.25em;
+}
+
+/* text-decoration: none is the link's own baseline so removing the
+   underline mark actually removes the visible underline instead of the
+   browser's native <a> underline showing through regardless. A nested <u>
+   from the Underline mark (toggled via the link panel) still draws its own
+   line independently of this. */
+.rich-text-editor-surface a,
+.rich-text-content a {
+  color: var(--logoblue) !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+/* Color/font-size formatting is stored on the section data and shown in the
+   live preview, but the editor's own typing surface always stays plain so
+   it's easy to read while writing. */
+.rich-text-editor-surface .ProseMirror [style*="color"],
+.rich-text-editor-surface .ProseMirror [style*="font-size"] {
+  color: inherit !important;
+  font-size: inherit !important;
+}
+
 @layer utilities {
   .text-weird-landscape-large {
     @media (orientation: landscape) and (max-height: 800px) and (min-width: 900px) {

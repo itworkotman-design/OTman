@@ -27,6 +27,7 @@ model User {
   memberships           Membership[]
   resetTokens           PasswordResetToken[]
   sessions              Session[]
+  blogPosts             BlogPost[]
 
   @@index([status])
 }
@@ -845,4 +846,92 @@ model ShiftLeader {
   username  String
   date      String
   setAt     DateTime @default(now())
+}
+
+model BlogPost {
+  id                String         @id @default(cuid())
+  slug              String         @unique
+  status            BlogPostStatus @default(DRAFT)
+
+  title             Json
+  excerpt           Json
+  seoTitle          Json?
+  seoDescription    Json?
+  noIndex           Boolean        @default(false)
+
+  coverImagePath    String?
+  coverImageAlt     Json?
+
+  authorId          String?
+  authorDisplayName String?
+
+  isPinned          Boolean        @default(false)
+  pinnedAt          DateTime?
+  publishedAt       DateTime?
+  archivedAt        DateTime?
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  author            User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  sections          BlogSection[]
+  tags              BlogPostTag[]
+
+  @@index([status, isPinned, pinnedAt, createdAt])
+  @@index([status, publishedAt])
+  @@index([authorId])
+}
+
+model BlogTag {
+  id        String        @id @default(cuid())
+  name      String
+  slug      String        @unique
+  createdAt DateTime      @default(now())
+
+  posts     BlogPostTag[]
+}
+
+model BlogPostTag {
+  blogPostId String
+  blogTagId  String
+
+  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  blogTag    BlogTag  @relation(fields: [blogTagId], references: [id], onDelete: Cascade)
+
+  @@id([blogPostId, blogTagId])
+  @@index([blogTagId])
+}
+
+model BlogSection {
+  id         String          @id @default(cuid())
+  blogPostId String
+  type       BlogSectionType
+  position   Int
+  data       Json
+
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  blogPost   BlogPost        @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@unique([blogPostId, position])
+  @@index([blogPostId])
+}
+
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum BlogSectionType {
+  RICH_TEXT
+  IMAGE
+  IMAGE_TEXT
+  GALLERY
+  CAROUSEL
+  QUOTE
+  CTA
+  DIVIDER
+  SPACER
 }

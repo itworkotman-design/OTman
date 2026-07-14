@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
 import BlogPage from "@/app/_components/site/pageComponents/BlogPage";
-import { blogPageContent, type BlogSortDirection } from "@/lib/content/BlogContent";
-import { buildAlternates } from "@/lib/site/seo";
+import { getPublishedBlogPosts, getPublishedBlogTags, type BlogSortDirection } from "@/lib/blog/publicBlogQueries";
+
+const PAGE_SIZE = 9;
 
 type BlogSearchParams = {
   q?: string | string[];
   sort?: string | string[];
+  page?: string | string[];
+  tag?: string | string[];
 };
 
 function getSingleParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function getArrayParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return value ? [value] : [];
 }
 
 function getSortDirection(value: string): BlogSortDirection {
@@ -22,11 +30,17 @@ export async function generateMetadata({
   params: Promise<{ locale: "en" | "no" }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const title =
+  const title = locale === "no" ? "Blogg" : "Blog";
+  const description =
     locale === "no"
-      ? "Blogg – nyheter, tips og oppdateringer om transport"
-      : "Blog – News, Tips and Updates on Transport and Moving";
-  return { title, alternates: buildAlternates(locale, "/blogg") };
+      ? "Praktiske oppdateringer, leveringsråd og innblikk fra Otman AS-teamet."
+      : "Practical updates, delivery guidance, and notes from the Otman AS team.";
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/${locale}/blogg` },
+  };
 }
 
 export default async function Page({
@@ -40,13 +54,32 @@ export default async function Page({
   const resolvedSearchParams = await searchParams;
   const searchQuery = getSingleParam(resolvedSearchParams.q);
   const sortDirection = getSortDirection(getSingleParam(resolvedSearchParams.sort));
+  const page = Math.max(1, Number(getSingleParam(resolvedSearchParams.page)) || 1);
+  const tagSlugs = getArrayParam(resolvedSearchParams.tag);
+
+  const [{ posts, total }, availableTags] = await Promise.all([
+    getPublishedBlogPosts({
+      q: searchQuery,
+      sort: sortDirection,
+      page,
+      pageSize: PAGE_SIZE,
+      locale,
+      tagSlugs,
+    }),
+    getPublishedBlogTags(),
+  ]);
 
   return (
     <BlogPage
-      content={blogPageContent}
+      posts={posts}
+      total={total}
+      page={page}
+      pageSize={PAGE_SIZE}
       locale={locale}
       searchQuery={searchQuery}
       sortDirection={sortDirection}
+      tagSlugs={tagSlugs}
+      availableTags={availableTags}
     />
   );
 }
