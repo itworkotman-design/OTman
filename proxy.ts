@@ -12,7 +12,7 @@ function buildCspHeader(nonce: string) {
     // 'unsafe-eval' is only needed for React/Turbopack's dev-mode debugging tools — never used in production builds.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https:${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: blob: https://public-otman-img.s3.eu-north-1.amazonaws.com https://*.googleapis.com https://*.gstatic.com",
+    "img-src 'self' data: blob: https://*.s3.eu-north-1.amazonaws.com https://*.googleapis.com https://*.gstatic.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https://*.googleapis.com",
     "frame-ancestors 'self'",
