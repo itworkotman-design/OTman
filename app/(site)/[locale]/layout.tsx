@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/app/_components/site/Navbar";
 import { navbarContent } from "@/lib/content/NavbarContent";
@@ -109,10 +110,16 @@ export default async function SiteLayout({
     notFound();
   }
 
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <div className="min-h-screen flex flex-col">
       <script
         type="application/ld+json"
+        nonce={nonce}
+        // Browsers clear the nonce attribute from the DOM after use (so injected scripts can't read and reuse it),
+        // which makes React see a server/client mismatch on this attribute alone — expected, not a real bug.
+        suppressHydrationWarning
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(localBusinessJsonLd),
         }}
