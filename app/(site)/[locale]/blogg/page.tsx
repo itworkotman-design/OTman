@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import BlogPage from "@/app/_components/site/pageComponents/BlogPage";
-import { getPublishedBlogPosts, type BlogSortDirection } from "@/lib/blog/publicBlogQueries";
+import { getPublishedBlogPosts, getPublishedBlogTags, type BlogSortDirection } from "@/lib/blog/publicBlogQueries";
 
 const PAGE_SIZE = 9;
 
@@ -8,6 +8,7 @@ type BlogSearchParams = {
   q?: string | string[];
   sort?: string | string[];
   page?: string | string[];
+  tag?: string | string[];
 };
 
 function getSingleParam(value: string | string[] | undefined) {
@@ -49,14 +50,19 @@ export default async function Page({
   const searchQuery = getSingleParam(resolvedSearchParams.q);
   const sortDirection = getSortDirection(getSingleParam(resolvedSearchParams.sort));
   const page = Math.max(1, Number(getSingleParam(resolvedSearchParams.page)) || 1);
+  const tagSlug = getSingleParam(resolvedSearchParams.tag);
 
-  const { posts, total } = await getPublishedBlogPosts({
-    q: searchQuery,
-    sort: sortDirection,
-    page,
-    pageSize: PAGE_SIZE,
-    locale,
-  });
+  const [{ posts, total }, availableTags] = await Promise.all([
+    getPublishedBlogPosts({
+      q: searchQuery,
+      sort: sortDirection,
+      page,
+      pageSize: PAGE_SIZE,
+      locale,
+      tagSlug: tagSlug || undefined,
+    }),
+    getPublishedBlogTags(),
+  ]);
 
   return (
     <BlogPage
@@ -67,6 +73,8 @@ export default async function Page({
       locale={locale}
       searchQuery={searchQuery}
       sortDirection={sortDirection}
+      tagSlug={tagSlug}
+      availableTags={availableTags}
     />
   );
 }

@@ -1,21 +1,16 @@
 import { randomUUID } from "crypto";
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { deleteAttachmentFile } from "@/lib/orders/orderAttachmentStorage";
+import { BLOG_STORAGE_PREFIX, isBlogStoragePath } from "@/lib/blog/blogImagePublicUrl";
+
+export { isBlogStoragePath, getBlogImagePublicUrl } from "@/lib/blog/blogImagePublicUrl";
 
 type BlogS3Config = {
   bucket: string;
   region: string;
   accessKeyId: string;
   secretAccessKey: string;
-  publicBaseUrl: string;
 };
-
-// Distinct from the "s3://" prefix used by the (private) orders bucket, so a
-// storagePath always says which bucket/access-model it belongs to. Blog
-// images live in their own bucket, one folder per post, served directly from
-// a public-read bucket policy — no presigning needed since this is public
-// content.
-const BLOG_STORAGE_PREFIX = "blogs3://";
 
 let cachedClient: S3Client | null = null;
 let cachedConfigKey: string | null = null;
@@ -30,9 +25,7 @@ function getBlogS3Config(): BlogS3Config | null {
     return null;
   }
 
-  const publicBaseUrl = (process.env.BLOG_S3_PUBLIC_BASE_URL?.trim() || `https://${bucket}.s3.${region}.amazonaws.com`).replace(/\/$/, "");
-
-  return { bucket, region, accessKeyId, secretAccessKey, publicBaseUrl };
+  return { bucket, region, accessKeyId, secretAccessKey };
 }
 
 function getRequiredBlogS3Config(): BlogS3Config {
@@ -64,6 +57,10 @@ function getBlogS3Client(config: BlogS3Config): S3Client {
   return cachedClient;
 }
 
+// All blog images share the "public-otman-img" bucket with other public
+// assets, kept apart from them under this folder.
+const BLOG_S3_KEY_PREFIX = "Blog";
+
 function sanitizeFilename(filename: string): string {
   const trimmedFilename = filename.trim() || "image";
   const lastDotIndex = trimmedFilename.lastIndexOf(".");
@@ -82,22 +79,8 @@ function isValidBlogPostId(blogPostId: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(blogPostId);
 }
 
-export function isBlogStoragePath(storagePath: string): boolean {
-  return storagePath.startsWith(BLOG_STORAGE_PREFIX);
-}
-
 export function isBlogImageStorageConfigured(): boolean {
   return getBlogS3Config() !== null;
-}
-
-export function getBlogImagePublicUrl(storagePath: string | null | undefined): string | null {
-  if (!storagePath || !storagePath.startsWith(BLOG_STORAGE_PREFIX)) return null;
-
-  const config = getBlogS3Config();
-  if (!config) return null;
-
-  const key = storagePath.slice(BLOG_STORAGE_PREFIX.length);
-  return `${config.publicBaseUrl}/${key}`;
 }
 
 export async function uploadBlogImageToS3(params: {
@@ -111,7 +94,7 @@ export async function uploadBlogImageToS3(params: {
   const config = getRequiredBlogS3Config();
   const client = getBlogS3Client(config);
   const bytes = Buffer.from(await params.file.arrayBuffer());
-  const key = `${params.blogPostId}/${Date.now()}-${randomUUID()}-${sanitizeFilename(params.file.name)}`;
+  const key = `${BLOG_S3_KEY_PREFIX}/${params.blogPostId}/${Date.now()}-${randomUUID()}-${sanitizeFilename(params.file.name)}`;
 
   await client.send(
     new PutObjectCommand({

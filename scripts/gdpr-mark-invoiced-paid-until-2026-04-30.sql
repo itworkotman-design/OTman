@@ -78,13 +78,13 @@ WHERE lower(status) IN ('invoiced', 'fakturet', 'fakturert')
 -- ============================================================
 -- STEP 2: APPLY -- only run after reviewing STEP 1's output.
 -- ============================================================
--- UPDATE "Order"
--- SET
---   status = 'paid',
---   "paidAt" = "deliveryDate"::timestamp,
---   "invoicedAt" = COALESCE("invoicedAt", "deliveryDate"::timestamp),
---   "updatedAt" = now()
--- WHERE lower(status) IN ('invoiced', 'fakturet', 'fakturert')
---   AND "deliveryDate" ~ '^\d{4}-\d{2}-\d{2}$'
---   AND "deliveryDate"::date <= '2026-04-30'
---   AND "gdprHold" = false;
+UPDATE "Order"
+SET
+  status = 'paid',
+  "paidAt" = "deliveryDate"::timestamp,
+  "invoicedAt" = COALESCE("invoicedAt", "deliveryDate"::timestamp),
+  "updatedAt" = now()
+WHERE lower(status) IN ('invoiced', 'fakturet', 'fakturert')
+  AND "deliveryDate" ~ '^\d{4}-\d{2}-\d{2}$'
+  AND "deliveryDate"::date <= '2026-04-30'
+  AND "gdprHold" = false;

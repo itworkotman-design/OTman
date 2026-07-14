@@ -1,4 +1,4 @@
-import { getBlogImagePublicUrl } from "@/lib/blog/blogImageStorage";
+import { getBlogImagePublicUrl } from "@/lib/blog/blogImagePublicUrl";
 
 const S3_STORAGE_PREFIX = "s3://";
 

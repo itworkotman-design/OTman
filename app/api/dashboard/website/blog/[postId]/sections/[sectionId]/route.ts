@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireWebsiteEditor } from "@/lib/blog/requireWebsiteEditor";
 import { blogSectionDataSchema } from "@/lib/blog/blogSectionSchemas";
 import { sanitizeBlogHtml } from "@/lib/blog/sanitizeRichText";
-import { deleteAttachmentFile } from "@/lib/orders/orderAttachmentStorage";
+import { deleteBlogImageFile } from "@/lib/blog/blogImageStorage";
 import { applySectionPositions } from "@/lib/blog/sectionPositions";
 
 type RouteParams = { params: Promise<{ postId: string; sectionId: string }> };
@@ -80,7 +80,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       if (image && typeof image.storagePath === "string") imagePaths.push(image.storagePath);
     }
   }
-  await Promise.all(imagePaths.map((path) => deleteAttachmentFile(path).catch(() => {})));
+  await Promise.all(imagePaths.map((path) => deleteBlogImageFile(path).catch(() => {})));
 
   return NextResponse.json({ ok: true });
 }

@@ -857,6 +857,7 @@ model BlogPost {
   excerpt           Json
   seoTitle          Json?
   seoDescription    Json?
+  noIndex           Boolean        @default(false)
 
   coverImagePath    String?
   coverImageAlt     Json?
@@ -874,10 +875,31 @@ model BlogPost {
 
   author            User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
   sections          BlogSection[]
+  tags              BlogPostTag[]
 
   @@index([status, isPinned, pinnedAt, createdAt])
   @@index([status, publishedAt])
   @@index([authorId])
+}
+
+model BlogTag {
+  id        String        @id @default(cuid())
+  name      String
+  slug      String        @unique
+  createdAt DateTime      @default(now())
+
+  posts     BlogPostTag[]
+}
+
+model BlogPostTag {
+  blogPostId String
+  blogTagId  String
+
+  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  blogTag    BlogTag  @relation(fields: [blogTagId], references: [id], onDelete: Cascade)
+
+  @@id([blogPostId, blogTagId])
+  @@index([blogTagId])
 }
 
 model BlogSection {

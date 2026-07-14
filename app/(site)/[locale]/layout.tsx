@@ -38,6 +38,9 @@ export const metadata: Metadata = {
       en: "/en",
       no: "/no",
     },
+    types: {
+      "application/rss+xml": "/feed.xml",
+    },
   },
   openGraph: {
     type: "website",

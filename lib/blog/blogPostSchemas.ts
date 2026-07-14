@@ -28,6 +28,7 @@ export const updateBlogPostMetadataSchema = z.object({
   excerpt: boundedLocalizedText(500).optional(),
   seoTitle: boundedLocalizedText(200).nullable().optional(),
   seoDescription: boundedLocalizedText(300).nullable().optional(),
+  noIndex: z.boolean().optional(),
   coverImagePath: z.string().nullable().optional(),
   coverImageAlt: boundedLocalizedText(300).nullable().optional(),
   authorDisplayName: z.string().max(200).nullable().optional(),

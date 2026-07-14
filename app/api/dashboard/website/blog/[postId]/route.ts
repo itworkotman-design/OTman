@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireWebsiteEditor } from "@/lib/blog/requireWebsiteEditor";
 import { updateBlogPostMetadataSchema } from "@/lib/blog/blogPostSchemas";
-import { deleteAttachmentFile } from "@/lib/orders/orderAttachmentStorage";
+import { deleteBlogImageFile } from "@/lib/blog/blogImageStorage";
 
 type RouteParams = { params: Promise<{ postId: string }> };
 
@@ -18,6 +18,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     include: {
       author: { select: { username: true, email: true } },
       sections: { orderBy: { position: "asc" } },
+      tags: { include: { blogTag: true } },
     },
   });
 
@@ -25,7 +26,12 @@ export async function GET(req: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, post });
+  const { tags, ...postWithoutTags } = post;
+
+  return NextResponse.json({
+    ok: true,
+    post: { ...postWithoutTags, tagNames: tags.map((tag) => tag.blogTag.name) },
+  });
 }
 
 export async function PATCH(req: Request, { params }: RouteParams) {
@@ -65,6 +71,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       ...(value.excerpt !== undefined ? { excerpt: value.excerpt } : {}),
       ...(value.seoTitle !== undefined ? { seoTitle: value.seoTitle ?? Prisma.JsonNull } : {}),
       ...(value.seoDescription !== undefined ? { seoDescription: value.seoDescription ?? Prisma.JsonNull } : {}),
+      ...(value.noIndex !== undefined ? { noIndex: value.noIndex } : {}),
       ...(value.coverImagePath !== undefined ? { coverImagePath: value.coverImagePath } : {}),
       ...(value.coverImageAlt !== undefined ? { coverImageAlt: value.coverImageAlt ?? Prisma.JsonNull } : {}),
       ...(value.authorDisplayName !== undefined ? { authorDisplayName: value.authorDisplayName } : {}),
@@ -103,7 +110,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     }
   }
 
-  await Promise.all(imagePaths.map((path) => deleteAttachmentFile(path).catch(() => {})));
+  await Promise.all(imagePaths.map((path) => deleteBlogImageFile(path).catch(() => {})));
 
   return NextResponse.json({ ok: true });
 }

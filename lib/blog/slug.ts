@@ -33,3 +33,23 @@ export async function generateUniqueBlogSlug(
     candidate = `${base}-${suffix}`;
   }
 }
+
+export async function generateUniqueBlogTagSlug(baseText: string): Promise<string> {
+  const base = slugifyText(baseText) || "tag";
+  let candidate = base;
+  let suffix = 1;
+
+  while (true) {
+    const existing = await prisma.blogTag.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return candidate;
+    }
+
+    suffix += 1;
+    candidate = `${base}-${suffix}`;
+  }
+}

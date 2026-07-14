@@ -8,6 +8,7 @@ import LocalizedTextFieldGroup from "@/app/_components/Dahsboard/website/Localiz
 import BlogImagePicker from "@/app/_components/Dahsboard/website/BlogImagePicker";
 import BlogSectionList from "@/app/_components/Dahsboard/website/BlogSectionList";
 import CollapsibleSection from "@/app/_components/Dahsboard/website/CollapsibleSection";
+import TagInput from "@/app/_components/Dahsboard/website/TagInput";
 import type { BlogSectionRow } from "@/app/_components/Dahsboard/website/BlogSectionCard";
 import BlogSectionRenderer from "@/app/_components/blog/BlogSectionRenderer";
 import { getLocalizedText, type LocalizedTextValue } from "@/lib/blog/localizedText";
@@ -23,6 +24,8 @@ type MetadataForm = {
   excerpt: LocalizedTextValue;
   seoTitle: LocalizedTextValue;
   seoDescription: LocalizedTextValue;
+  noIndex: boolean;
+  tags: string[];
   coverImagePath: string | null;
   coverImageAlt: LocalizedTextValue;
   authorDisplayName: string;
@@ -38,6 +41,8 @@ function toForm(post: {
   excerpt: LocalizedTextValue;
   seoTitle: LocalizedTextValue | null;
   seoDescription: LocalizedTextValue | null;
+  noIndex: boolean;
+  tagNames: string[];
   coverImagePath: string | null;
   coverImageAlt: LocalizedTextValue | null;
   authorDisplayName: string | null;
@@ -48,6 +53,8 @@ function toForm(post: {
     excerpt: post.excerpt,
     seoTitle: post.seoTitle ?? EMPTY_TEXT,
     seoDescription: post.seoDescription ?? EMPTY_TEXT,
+    noIndex: post.noIndex,
+    tags: post.tagNames,
     coverImagePath: post.coverImagePath,
     coverImageAlt: post.coverImageAlt ?? EMPTY_TEXT,
     authorDisplayName: post.authorDisplayName ?? "",
@@ -65,6 +72,7 @@ export default function BlogEditor({ postId }: { postId: string }) {
   const [previewSections, setPreviewSections] = useState<BlogSectionRow[]>([]);
   const [previewLocale, setPreviewLocale] = useState<Locale>("no");
   const [detailsOpen, setDetailsOpen] = useState(true);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const isDirty = useRef(false);
 
   const load = useCallback(async () => {
@@ -79,10 +87,19 @@ export default function BlogEditor({ postId }: { postId: string }) {
     }
   }, [postId]);
 
+  const loadTagSuggestions = useCallback(async () => {
+    const res = await fetch(`/api/dashboard/website/blog/tags`, { credentials: "include" });
+    const body = await res.json().catch(() => null);
+    if (body?.ok) {
+      setTagSuggestions(body.tags.map((tag: { name: string }) => tag.name));
+    }
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount, same pattern used elsewhere pre-dating this rule
     load();
-  }, [load]);
+    loadTagSuggestions();
+  }, [load, loadTagSuggestions]);
 
   const dirty = Boolean(form && savedForm && JSON.stringify(form) !== JSON.stringify(savedForm));
 
@@ -104,19 +121,30 @@ export default function BlogEditor({ postId }: { postId: string }) {
   async function handleSave() {
     if (!form) return;
     setSaveState("saving");
-    const res = await fetch(`/api/dashboard/website/blog/${postId}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const body = await res.json().catch(() => null);
-    if (!res.ok || !body?.ok) {
+    const { tags, ...metadata } = form;
+    const [metadataRes, tagsRes] = await Promise.all([
+      fetch(`/api/dashboard/website/blog/${postId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(metadata),
+      }),
+      fetch(`/api/dashboard/website/blog/${postId}/tags`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tagNames: tags }),
+      }),
+    ]);
+    const metadataBody = await metadataRes.json().catch(() => null);
+    const tagsBody = await tagsRes.json().catch(() => null);
+    if (!metadataRes.ok || !metadataBody?.ok || !tagsRes.ok || !tagsBody?.ok) {
       setSaveState("error");
       return;
     }
     setSavedForm(form);
     setSaveState("saved");
+    loadTagSuggestions();
   }
 
   async function handleStatusAction(action: "publish" | "unpublish" | "archive" | "restore") {
@@ -340,6 +368,12 @@ export default function BlogEditor({ postId }: { postId: string }) {
               <input type="checkbox" checked={isPinned} onChange={handlePinToggle} />
               Pinned
             </label>
+            <TagInput
+              label="Tags"
+              value={form.tags}
+              onChange={(tags) => setForm({ ...form, tags })}
+              suggestions={tagSuggestions}
+            />
 
             <div className="mt-2 flex flex-col gap-4 border-t border-linePrimary pt-4">
               <span className="text-sm font-semibold text-textcolor">SEO</span>
@@ -364,6 +398,14 @@ export default function BlogEditor({ postId }: { postId: string }) {
                 value={form.seoDescription}
                 onChange={(seoDescription) => setForm({ ...form, seoDescription })}
               />
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.noIndex}
+                  onChange={(e) => setForm({ ...form, noIndex: e.target.checked })}
+                />
+                Exclude from search engines (noindex)
+              </label>
             </div>
           </CollapsibleSection>
 

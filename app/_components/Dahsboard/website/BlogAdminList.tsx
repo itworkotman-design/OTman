@@ -26,6 +26,12 @@ type AdminBlogPost = {
 
 const STATUS_FILTERS = ["ALL", "DRAFT", "PUBLISHED", "ARCHIVED", "PINNED"] as const;
 
+const STATUS_CARD_STYLES: Record<AdminBlogPost["status"], { card: string; heading: string; body: string }> = {
+  PUBLISHED: { card: "bg-logoblue", heading: "text-white", body: "text-white/80" },
+  DRAFT: { card: "bg-white", heading: "text-textcolor", body: "text-textColorSecond" },
+  ARCHIVED: { card: "bg-gray-400", heading: "text-textcolor", body: "text-textColorSecond" },
+};
+
 async function postAction(postId: string, action: string) {
   const res = await fetch(`/api/dashboard/website/blog/${postId}/${action}`, {
     method: "POST",
@@ -108,9 +114,14 @@ export default function BlogAdminList() {
     <div className="p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-textcolor">Blog</h1>
-        <Link href="/dashboard/website/blog/new" className="customButtonEnabled">
-          New blog post
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/dashboard/website/blog/tags" className="customButtonDefault">
+            Manage tags
+          </Link>
+          <Link href="/dashboard/website/blog/new" className="customButtonEnabled">
+            New blog post
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -147,6 +158,9 @@ export default function BlogAdminList() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {posts.map((post) => {
             const imageUrl = getPublicBlogImageUrl(post.coverImagePath);
+            const statusStyle = STATUS_CARD_STYLES[post.status];
+            const actionButtonClass =
+              post.status === "PUBLISHED" ? "customButtonDefault !bg-white !text-logoblue" : "customButtonDefault";
             return (
               <div key={post.id} className="flex flex-col overflow-hidden rounded-lg border border-linePrimary shadow-sm">
                 <div className="relative aspect-[16/9] bg-linePrimary/40">
@@ -155,69 +169,77 @@ export default function BlogAdminList() {
                     <img src={imageUrl} alt="" className="h-full w-full object-cover" />
                   ) : null}
                   {post.isPinned ? (
-                    <span className="absolute right-2 top-2 rounded-full bg-logoblue px-2 py-0.5 text-xs font-semibold text-white">
-                      Pinned
+                    <span
+                      className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-logoblue text-white shadow"
+                      title="Pinned"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                      </svg>
+                      <span className="sr-only">Pinned</span>
                     </span>
                   ) : null}
                 </div>
-                <div className="flex flex-1 flex-col gap-2 p-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase text-textColorSecond">
+                <div className={`flex flex-1 flex-col gap-2 p-4 ${statusStyle.card}`}>
+                  <div className={`flex items-center gap-2 text-xs font-semibold uppercase ${statusStyle.body}`}>
                     <span>{post.status}</span>
                   </div>
-                  <h2 className="text-lg font-bold text-textcolor">
+                  <h2 className={`text-lg font-bold ${statusStyle.heading}`}>
                     {getLocalizedText(post.title, "no") || getLocalizedText(post.title, "en") || "(untitled)"}
                   </h2>
-                  <p className="line-clamp-2 flex-1 text-sm text-textColorSecond">
+                  <p className={`line-clamp-2 flex-1 text-sm ${statusStyle.body}`}>
                     {getLocalizedText(post.excerpt, "no") || getLocalizedText(post.excerpt, "en")}
                   </p>
-                  <div className="text-xs text-textColorSecond">
+                  <div className={`text-xs ${statusStyle.body}`}>
                     Created {new Date(post.createdAt).toLocaleDateString()}
                     {post.publishedAt ? ` · Published ${new Date(post.publishedAt).toLocaleDateString()}` : ""}
                   </div>
-                  <div className="text-xs text-textColorSecond">
+                  <div className={`text-xs ${statusStyle.body}`}>
                     {post.authorDisplayName ?? post.author?.username ?? post.author?.email ?? "Unknown author"}
                   </div>
 
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <Link href={`/dashboard/website/blog/${post.id}`} className="customButtonDefault">
+                    <Link href={`/dashboard/website/blog/${post.id}`} className={actionButtonClass}>
                       Edit
                     </Link>
                     {post.status === "PUBLISHED" ? (
-                      <button className="customButtonDefault" onClick={() => handleAction(post.id, "unpublish")}>
+                      <button className={actionButtonClass} onClick={() => handleAction(post.id, "unpublish")}>
                         Unpublish
                       </button>
                     ) : (
-                      <button className="customButtonDefault" onClick={() => handleAction(post.id, "publish")}>
+                      <button className={actionButtonClass} onClick={() => handleAction(post.id, "publish")}>
                         Publish
                       </button>
                     )}
-                    {post.isPinned ? (
-                      <button className="customButtonDefault" onClick={() => handleAction(post.id, "unpin")}>
-                        Unpin
-                      </button>
-                    ) : (
-                      <button className="customButtonDefault" onClick={() => handleAction(post.id, "pin")}>
-                        Pin
-                      </button>
-                    )}
-                    <button className="customButtonDefault" onClick={() => handleAction(post.id, "duplicate")}>
+                    {post.status === "PUBLISHED" ? (
+                      post.isPinned ? (
+                        <button className={actionButtonClass} onClick={() => handleAction(post.id, "unpin")}>
+                          Unpin
+                        </button>
+                      ) : (
+                        <button className={actionButtonClass} onClick={() => handleAction(post.id, "pin")}>
+                          Pin
+                        </button>
+                      )
+                    ) : null}
+                    <button className={actionButtonClass} onClick={() => handleAction(post.id, "duplicate")}>
                       Duplicate
                     </button>
                     {post.status === "ARCHIVED" ? (
-                      <button className="customButtonDefault" onClick={() => handleAction(post.id, "restore")}>
+                      <button className={actionButtonClass} onClick={() => handleAction(post.id, "restore")}>
                         Restore
                       </button>
                     ) : (
-                      <button className="customButtonDefault" onClick={() => handleAction(post.id, "archive")}>
+                      <button className={actionButtonClass} onClick={() => handleAction(post.id, "archive")}>
                         Archive
                       </button>
                     )}
                     {isOwner ? (
                       <button
-                        className="customButtonDefault text-red-600"
+                        className={`customButtonDefault text-red-600 ${post.status === "PUBLISHED" ? "!bg-white !text-logoblue" : ""}`}
                         onClick={() => setPendingDeleteId(post.id)}
                       >
-                        Delete permanently
+                        Delete
                       </button>
                     ) : null}
                   </div>
@@ -253,7 +275,7 @@ export default function BlogAdminList() {
       {pendingDeleteId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-bold text-textcolor">Delete permanently?</h2>
+            <h2 className="text-lg font-bold text-textcolor">Delete?</h2>
             <p className="mt-2 text-sm text-textColorSecond">
               This cannot be undone. The blog post and all of its sections will be permanently deleted.
             </p>
@@ -265,7 +287,7 @@ export default function BlogAdminList() {
                 className="customButtonEnabled bg-red-600"
                 onClick={() => handleDelete(pendingDeleteId)}
               >
-                Delete permanently
+                Delete
               </button>
             </div>
           </div>

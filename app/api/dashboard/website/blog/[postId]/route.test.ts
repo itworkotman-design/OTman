@@ -6,15 +6,15 @@ const mocks = vi.hoisted(() => ({
   blogPostFindUniqueMock: vi.fn(),
   blogPostUpdateMock: vi.fn(),
   blogPostDeleteMock: vi.fn(),
-  deleteAttachmentFileMock: vi.fn(),
+  deleteBlogImageFileMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
   getAuthenticatedSession: mocks.getAuthenticatedSessionMock,
 }));
 
-vi.mock("@/lib/orders/orderAttachmentStorage", () => ({
-  deleteAttachmentFile: mocks.deleteAttachmentFileMock,
+vi.mock("@/lib/blog/blogImageStorage", () => ({
+  deleteBlogImageFile: mocks.deleteBlogImageFileMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -48,7 +48,7 @@ function mockMembership(role: "OWNER" | "ADMIN" | "USER") {
 describe("GET/PATCH/DELETE /api/dashboard/website/blog/[postId]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.deleteAttachmentFileMock.mockResolvedValue(undefined);
+    mocks.deleteBlogImageFileMock.mockResolvedValue(undefined);
   });
 
   it("returns 404 for a missing post on GET", async () => {
@@ -96,7 +96,7 @@ describe("GET/PATCH/DELETE /api/dashboard/website/blog/[postId]", () => {
     });
     expect(res.status).toBe(200);
     expect(mocks.blogPostDeleteMock).toHaveBeenCalledWith({ where: { id: "post-1" } });
-    expect(mocks.deleteAttachmentFileMock).toHaveBeenCalledWith("s3://cover.png");
-    expect(mocks.deleteAttachmentFileMock).toHaveBeenCalledWith("s3://section.png");
+    expect(mocks.deleteBlogImageFileMock).toHaveBeenCalledWith("s3://cover.png");
+    expect(mocks.deleteBlogImageFileMock).toHaveBeenCalledWith("s3://section.png");
   });
 });

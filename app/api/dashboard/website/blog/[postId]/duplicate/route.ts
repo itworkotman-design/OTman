@@ -37,6 +37,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         excerpt: original.excerpt as object,
         seoTitle: original.seoTitle as object | null ?? undefined,
         seoDescription: original.seoDescription as object | null ?? undefined,
+        noIndex: original.noIndex,
         coverImagePath: original.coverImagePath,
         coverImageAlt: original.coverImageAlt as object | null ?? undefined,
         authorDisplayName: original.authorDisplayName,

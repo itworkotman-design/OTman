@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { PublicBlogPostSummary, BlogSortDirection } from "@/lib/blog/publicBlogQueries";
+import type { PublicBlogPostSummary, PublicBlogTag, BlogSortDirection } from "@/lib/blog/publicBlogQueries";
 import { getLocalizedText } from "@/lib/blog/localizedText";
 import { getPublicBlogImageUrl } from "@/lib/blog/publicImageUrl";
 import { computeReadingTimeMinutes } from "@/lib/blog/readingTime";
@@ -26,6 +26,8 @@ const TEXT = {
   pinnedLabel: { en: "Pinned", no: "Fremhevet" },
   previousLabel: { en: "Previous", no: "Forrige" },
   nextLabel: { en: "Next", no: "Neste" },
+  tagsLabel: { en: "Browse by tag", no: "Bla etter tag" },
+  allTagsLabel: { en: "All", no: "Alle" },
 };
 
 const dateFormatterByLocale: Record<Locale, Intl.DateTimeFormat> = {
@@ -41,7 +43,23 @@ type BlogPageProps = {
   locale: Locale;
   searchQuery: string;
   sortDirection: BlogSortDirection;
+  tagSlug: string;
+  availableTags: PublicBlogTag[];
 };
+
+function buildBlogUrl(
+  locale: Locale,
+  params: { q?: string; sort?: BlogSortDirection; page?: number; tag?: string },
+) {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.sort && params.sort !== "desc") query.set("sort", params.sort);
+  if (params.page && params.page > 1) query.set("page", String(params.page));
+  if (params.tag) query.set("tag", params.tag);
+
+  const queryString = query.toString();
+  return `/${locale}/blogg${queryString ? `?${queryString}` : ""}`;
+}
 
 export default function BlogPage({
   posts,
@@ -51,6 +69,8 @@ export default function BlogPage({
   locale,
   searchQuery,
   sortDirection,
+  tagSlug,
+  availableTags,
 }: BlogPageProps) {
   const dateFormatter = dateFormatterByLocale[locale];
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -62,8 +82,42 @@ export default function BlogPage({
         <p className="mt-5 text-lg leading-8 text-textColorSecond">{TEXT.intro[locale]}</p>
       </section>
 
+      {availableTags.length > 0 ? (
+        <section className="mx-auto mt-8 max-w-3xl text-center">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-textColorSecond">
+            {TEXT.tagsLabel[locale]}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Link
+              href={buildBlogUrl(locale, { q: searchQuery, sort: sortDirection })}
+              className={`rounded-full border px-3 py-1 text-sm font-semibold ${
+                !tagSlug
+                  ? "border-logoblue bg-logoblue text-white"
+                  : "border-linePrimary text-textColorSecond hover:border-logoblue hover:text-logoblue"
+              }`}
+            >
+              {TEXT.allTagsLabel[locale]}
+            </Link>
+            {availableTags.map((tag) => (
+              <Link
+                key={tag.slug}
+                href={buildBlogUrl(locale, { q: searchQuery, sort: sortDirection, tag: tag.slug })}
+                className={`rounded-full border px-3 py-1 text-sm font-semibold ${
+                  tagSlug === tag.slug
+                    ? "border-logoblue bg-logoblue text-white"
+                    : "border-linePrimary text-textColorSecond hover:border-logoblue hover:text-logoblue"
+                }`}
+              >
+                {tag.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="mt-12 border-y border-lineSecondary py-6">
         <form className="grid gap-4 md:grid-cols-[1fr_220px_auto_auto]" method="get">
+          <input type="hidden" name="tag" value={tagSlug} />
           <label className="flex flex-col gap-2 text-sm font-semibold text-textcolor">
             {TEXT.searchLabel[locale]}
             <input
@@ -137,6 +191,18 @@ export default function BlogPage({
                     <p className="mt-3 flex-1 leading-7 text-textColorSecond">
                       {getLocalizedText(post.excerpt, locale)}
                     </p>
+                    {post.tags.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {post.tags.map((tag) => (
+                          <span
+                            key={tag.slug}
+                            className="rounded-full bg-linePrimary/30 px-2 py-0.5 text-xs font-semibold text-textColorSecond"
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="mt-5 flex items-center justify-between gap-4 border-t border-linePrimary pt-4 text-sm text-textColorSecond">
                       <span>{post.authorDisplayName ?? ""}</span>
                       <span>
@@ -160,7 +226,7 @@ export default function BlogPage({
             {page > 1 ? (
               <Link
                 className="customButtonDefault"
-                href={`/${locale}/blogg?q=${encodeURIComponent(searchQuery)}&sort=${sortDirection}&page=${page - 1}`}
+                href={buildBlogUrl(locale, { q: searchQuery, sort: sortDirection, page: page - 1, tag: tagSlug })}
               >
                 {TEXT.previousLabel[locale]}
               </Link>
@@ -171,7 +237,7 @@ export default function BlogPage({
             {page < totalPages ? (
               <Link
                 className="customButtonDefault"
-                href={`/${locale}/blogg?q=${encodeURIComponent(searchQuery)}&sort=${sortDirection}&page=${page + 1}`}
+                href={buildBlogUrl(locale, { q: searchQuery, sort: sortDirection, page: page + 1, tag: tagSlug })}
               >
                 {TEXT.nextLabel[locale]}
               </Link>

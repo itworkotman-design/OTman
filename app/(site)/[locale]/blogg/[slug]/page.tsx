@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import BlogArticlePage from "@/app/_components/site/pageComponents/BlogArticlePage";
-import { getPublishedBlogPostBySlug } from "@/lib/blog/publicBlogQueries";
+import { getPublishedBlogPostBySlug, getRelatedBlogPosts } from "@/lib/blog/publicBlogQueries";
 import { getLocalizedText } from "@/lib/blog/localizedText";
 import { getPublicBlogImageUrl } from "@/lib/blog/publicImageUrl";
 
@@ -24,12 +24,28 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   return {
     title,
     description,
-    alternates: { canonical: `/${locale}/blogg/${post.slug}` },
+    ...(post.noIndex ? { robots: { index: false, follow: true } } : {}),
+    alternates: {
+      canonical: `/${locale}/blogg/${post.slug}`,
+      languages: {
+        en: `/en/blogg/${post.slug}`,
+        no: `/no/blogg/${post.slug}`,
+      },
+    },
     openGraph: {
       title,
       description,
       type: "article",
       images: imageUrl ? [{ url: imageUrl }] : undefined,
+      publishedTime: post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined,
+      modifiedTime: new Date(post.updatedAt).toISOString(),
+      authors: post.authorDisplayName ? [post.authorDisplayName] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: imageUrl ? [imageUrl] : undefined,
     },
   };
 }
@@ -40,5 +56,10 @@ export default async function Page({ params }: PageParams) {
 
   if (!post) notFound();
 
-  return <BlogArticlePage post={post} locale={locale} />;
+  const relatedPosts = await getRelatedBlogPosts({
+    excludePostId: post.id,
+    tagSlugs: post.tags.map((tag) => tag.slug),
+  });
+
+  return <BlogArticlePage post={post} locale={locale} relatedPosts={relatedPosts} />;
 }
