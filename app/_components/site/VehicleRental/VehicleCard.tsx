@@ -99,7 +99,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
   return (
     <div className="relative left-0 w-full flex flex-col lg:flex-row customContainer gap-4 lg:gap-10">
       <div className="relative w-full min-h-[250] lg:min-h-[400] lg:flex-1  rounded-2xl overflow-hidden">
-        <Link href={`/bil-utleie/${id}`} className="absolute inset-0 block">
+        <Link href={`/${locale}/bil-utleie/${id}`} className="absolute inset-0 block">
           <Image
             src={imageUrl}
             fill
@@ -219,13 +219,13 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
           )}
         </div>
 
-        <Link href={`/bil-utleie/${id}`} className="customButtonEnabled w-full h-10 hidden lg:flex items-center justify-center">
+        <Link href={`/${locale}/bil-utleie/${id}`} className="customButtonEnabled w-full h-10 hidden lg:flex items-center justify-center">
           {content.order[locale]}
         </Link>
       </div>
 
       <div className="relative lg:hidden ">
-        <Link href={`/bil-utleie/${id}`} className="customButtonEnabled w-full h-10 flex lg:hidden items-center justify-center">
+        <Link href={`/${locale}/bil-utleie/${id}`} className="customButtonEnabled w-full h-10 flex lg:hidden items-center justify-center">
           {content.order[locale]}
         </Link>
       </div>

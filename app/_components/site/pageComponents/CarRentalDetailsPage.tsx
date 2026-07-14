@@ -92,7 +92,7 @@ export default function CarRentalDetailsPage({ params }: Props) {
       <div className="lg:customContainer flex flex-col gap-10 mb-16">
         <div>
           <div className="mb-2">
-            <Link href="/bil-utleie" className="text-center text-sm text-textcolor hover:text-logoblue transition">
+            <Link href={`/${locale}/bil-utleie`} className="text-center text-sm text-textcolor hover:text-logoblue transition">
               {c.backToVehicles[locale]}
             </Link>
           </div>
