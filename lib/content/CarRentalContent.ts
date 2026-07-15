@@ -1,4 +1,8 @@
 export const CarRentalContent = {
+    pageTitle: {
+        en: "Vehicle Rental and Sales – Cars and Vans in Norway",
+        no: "Bilutleie og kjøp av varebiler og biler i Norge"
+    },
     vehiclesFound: {
         en: "Vehicles found:",
         no: "Fant kjøretøy:"

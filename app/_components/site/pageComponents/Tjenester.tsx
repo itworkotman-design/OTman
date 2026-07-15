@@ -189,7 +189,7 @@ export default function Tjenester({ content, locale }: PageProps) {
 
                 {activeCardIndex !== null && (
                   <div className="mt-4 rounded-3xl bg-logoblue p-6 text-white animate-in fade-in slide-in-from-top-2 duration-200">
-                    <h3 className="text-lg font-semibold mb-2">{content.featureCards[activeCardIndex].title[locale]}</h3>
+                    <h2 className="text-lg font-semibold mb-2">{content.featureCards[activeCardIndex].title[locale]}</h2>
                     <p className="text-sm leading-6 text-white/80">{content.featureCards[activeCardIndex].details[locale]}</p>
                   </div>
                 )}

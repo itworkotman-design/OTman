@@ -19,11 +19,11 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
     <>
       <header className="py-16">
         <h1 className="text-logoblue text-[40px] md:text-[48px] font-bold text-center">{content.title[locale]}</h1>
-        <h3 className="text-logoblue text-[18px] md:text-[20px] font-bold text-center">{content.subtitle[locale]}</h3>
+        <p className="text-logoblue text-[18px] md:text-[20px] font-bold text-center">{content.subtitle[locale]}</p>
       </header>
       <ServiceWindow title={serviceWindowContent.title} items={serviceWindowContent.items} locale={locale} />
       <section className="py-10">
-        <h3 className="text-center text-[20px] font-bold pb-2">{content.introHeading[locale]}</h3>
+        <h2 className="text-center text-[20px] font-bold pb-2">{content.introHeading[locale]}</h2>
         <p className="text-center mx-auto w-full max-w-200">{content.introText[locale]}</p>
       </section>
       <StatsDisplay content={resolvedStatsContent} locale={locale} />

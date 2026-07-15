@@ -17,7 +17,11 @@ export async function generateMetadata({
     locale === "no"
       ? "Transport, flytting og bilutleie i hele Norge"
       : "Transport, Moving and Vehicle Rental Across Norway";
-  return { title, alternates: buildAlternates(locale) };
+  const description =
+    locale === "no"
+      ? "Otman AS tilbyr transport, henting, pakkelevering, flytting, spesialtransport og bilutleie i hele Norge. Rask bestilling og pålitelig service."
+      : "Otman AS offers transport, pickup, package delivery, moving, specialized transport and vehicle rental across Norway. Fast booking and reliable service.";
+  return { title, description, alternates: buildAlternates(locale) };
 }
 
 export default async function Page({

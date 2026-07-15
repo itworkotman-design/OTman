@@ -13,7 +13,11 @@ export async function generateMetadata({
     locale === "no"
       ? "Kontakt oss for transport, flytting og bilutleie"
       : "Contact Us for Transport, Moving and Vehicle Rental";
-  return { title, alternates: buildAlternates(locale, "/kontakt") };
+  const description =
+    locale === "no"
+      ? "Ta kontakt med Otman AS for transport, flytting, pakkelevering eller bilutleie. Ring, send e-post eller fyll ut skjemaet, så svarer vi deg raskt."
+      : "Contact Otman AS for transport, moving, package delivery or vehicle rental. Call, email or fill out the form and we'll get back to you quickly.";
+  return { title, description, alternates: buildAlternates(locale, "/kontakt") };
 }
 
 export default async function Page({

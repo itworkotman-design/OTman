@@ -34,13 +34,13 @@ export default function About({ content, locale }: PageTypes) {
       </section>
       <section>
         <div className=" my-20">
-          <h1 className="text-center text-4xl font-semibold text-logoblue mb-8 ">{content.historyTitle[locale]}</h1>
+          <h2 className="text-center text-4xl font-semibold text-logoblue mb-8 ">{content.historyTitle[locale]}</h2>
           <p className="text-xl whitespace-pre-wrap">{content.historyText[locale]}</p>
         </div>
       </section>
       <section>
         <div className="mx-auto px-6 my-20">
-          <h1 className="text-center text-4xl font-semibold text-logoblue mb-8">{content.teamTitle[locale]}</h1>
+          <h2 className="text-center text-4xl font-semibold text-logoblue mb-8">{content.teamTitle[locale]}</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
             {content.teamMembers.map((member) => (

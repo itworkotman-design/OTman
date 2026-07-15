@@ -13,7 +13,11 @@ export async function generateMetadata({
     locale === "no"
       ? "Om Otman AS – en familiedrevet transportbedrift"
       : "About Otman AS – A Family-Run Transport Company";
-  return { title, alternates: buildAlternates(locale, "/om-oss") };
+  const description =
+    locale === "no"
+      ? "Otman AS er et familiedrevet transportselskap etablert i 2021. Les om vår historie, våre verdier og teamet bak transport- og flyttetjenestene våre."
+      : "Otman AS is a family-run transport company founded in 2021. Read about our history, values and the team behind our transport and moving services.";
+  return { title, description, alternates: buildAlternates(locale, "/om-oss") };
 }
 
 export default async function Page({

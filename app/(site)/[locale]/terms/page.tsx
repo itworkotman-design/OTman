@@ -9,8 +9,13 @@ export async function generateMetadata({
   params: Promise<{ locale: "en" | "no" }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const description =
+    locale === "no"
+      ? "Les Otman AS' vilkår og betingelser for bruk av våre tjenester innen transport, flytting og bilutleie."
+      : "Read Otman AS's terms and conditions for using our transport, moving and vehicle rental services.";
   return {
     title: termsContent.title[locale],
+    description,
     alternates: buildAlternates(locale, "/terms"),
   };
 }

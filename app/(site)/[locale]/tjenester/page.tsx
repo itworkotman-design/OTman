@@ -9,8 +9,13 @@ export async function generateMetadata({
   params: Promise<{ locale: "en" | "no" }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const description =
+    locale === "no"
+      ? "Se alle tjenester fra Otman AS: transport, flytting, montering, spesialtransport og bemanning for private og bedrifter. Be om et uforpliktende tilbud."
+      : "Explore all services from Otman AS: transport, moving, assembly, specialized transport and staffing for individuals and businesses. Request a free quote.";
   return {
     title: TjenesterContent.heroTitle[locale],
+    description,
     alternates: buildAlternates(locale, "/tjenester"),
   };
 }

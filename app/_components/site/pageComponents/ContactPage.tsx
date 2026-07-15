@@ -200,7 +200,7 @@ export default function ContactPage({ content, locale }: PageProps) {
                 ref={honeypotRef}
               />
             <div className="bg-logoblue rounded-2xl p-6 max-w-[480] mx-auto">
-              <h1 className="text-center text-white text-2xl pb-2">{content.form.title[locale]}</h1>
+              <h2 className="text-center text-white text-2xl pb-2">{content.form.title[locale]}</h2>
 
               <div className="mb-4">
                 <label className="block pb-1 text-lg text-white font-semibold" htmlFor="contact-name">

@@ -209,6 +209,7 @@ export default function CarRentalPage({ content, locale }: PageTypes) {
 
   return (
     <div className="mt-10">
+      <h1 className="sr-only">{content.pageTitle[locale]}</h1>
       <div className="flex mb-6 items-center gap-4">
         {/* Filters button + panel */}
         <div className="relative" ref={panelRef}>
@@ -300,7 +301,7 @@ export default function CarRentalPage({ content, locale }: PageTypes) {
 
         {/* Sort */}
         <div className="flex items-center gap-2">
-          <h2 className="whitespace-nowrap">{content.sort[locale]}:</h2>
+          <span className="whitespace-nowrap">{content.sort[locale]}:</span>
           <select
             value={filters.sort}
             onChange={(e) => update("sort", e.target.value)}
@@ -312,9 +313,9 @@ export default function CarRentalPage({ content, locale }: PageTypes) {
         </div>
 
         <div className="flex-1 text-right text-lineSecondary">
-          <h2>
+          <p>
             {content.vehiclesFound[locale]} {filtered.length}
-          </h2>
+          </p>
         </div>
       </div>
 

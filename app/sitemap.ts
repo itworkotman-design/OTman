@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getPublishedBlogSlugsForSitemap } from "@/lib/blog/publicBlogQueries";
+import { vehicles } from "@/lib/vehicles";
 
 const baseUrl = "https://otman.no";
 const locales = ["no", "en"] as const;
@@ -9,6 +10,7 @@ const publicRoutes = [
   { path: "/om-oss", priority: 0.8 },
   { path: "/kontakt", priority: 0.8 },
   { path: "/tjenester", priority: 0.8 },
+  { path: "/bil-utleie", priority: 0.8 },
   { path: "/blogg", priority: 0.7 },
   { path: "/privacy-policy", priority: 0.4 },
   { path: "/terms", priority: 0.4 },
@@ -36,5 +38,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   );
 
-  return [...staticEntries, ...blogPostEntries];
+  const vehicleEntries: MetadataRoute.Sitemap = locales.flatMap((locale) =>
+    vehicles.map((vehicle) => ({
+      url: `${baseUrl}/${locale}/bil-utleie/${vehicle.id}`,
+      lastModified,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    }))
+  );
+
+  return [...staticEntries, ...blogPostEntries, ...vehicleEntries];
 }
