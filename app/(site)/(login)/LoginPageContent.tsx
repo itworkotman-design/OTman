@@ -101,6 +101,16 @@ export default function LoginPageContent() {
     <main className="w-full">
       <div className="mx-auto flex justify-center mt-30 px-4">
         <section className="w-full max-w-[420]">
+          <div className="mb-4 flex justify-start">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-logoblue"
+            >
+              <span aria-hidden="true">&larr;</span>
+              Back to website
+            </Link>
+          </div>
+
           <div className="mb-8 flex justify-center sm:mb-10">
             <Image
               src="/LogoSVG.svg"
