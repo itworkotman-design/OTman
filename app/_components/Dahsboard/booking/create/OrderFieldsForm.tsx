@@ -763,7 +763,7 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.Subcontractor) && (
         <>
-          <h1 className="font-bold py-2">{t("Subcontractor")}</h1>
+          <h1 className="font-bold py-2">{t("Partner")}</h1>
           <select value={subcontractorId} onChange={(e) => setSubcontractorId(e.target.value)} className="customInput w-full" disabled={subcontractorLoading}>
             <option value="">{subcontractorLoading ? t("Loading...") : t("Choose")}</option>
 

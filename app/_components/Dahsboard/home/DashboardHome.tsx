@@ -618,7 +618,7 @@ export default function DashboardHome() {
                     Finish month
                   </div>
                   <div className="mt-1 text-sm text-slate-500">
-                    Sends one Excel summary per subcontractor for this month.
+                    Sends one Excel summary per partner for this month.
                   </div>
                 </div>
 

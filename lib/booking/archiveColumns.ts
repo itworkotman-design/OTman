@@ -309,8 +309,8 @@ const adminColumns: BookingArchiveColumn[] = [
   },
   {
     id: "subcontractor",
-    label: "Subcontractor",
-    exportHeader: "Subcontractor",
+    label: "Partner",
+    exportHeader: "Partner",
     exportWidth: 18,
     getExportValue: (row) => formatCell(row.subcontractor),
   },
@@ -347,8 +347,8 @@ const adminColumns: BookingArchiveColumn[] = [
   },
   {
     id: "priceSubcontractor",
-    label: "Subcontractor price",
-    exportHeader: "Subcontractor price",
+    label: "Partner price",
+    exportHeader: "Partner price",
     exportWidth: 18,
     getExportValue: (row) => formatMoney(getEffectiveArchiveSubcontractorTotal(row)),
   },
@@ -477,8 +477,8 @@ const subcontractorColumns: BookingArchiveColumn[] = [
   },
   {
     id: "priceSubcontractor",
-    label: "Subcontractor price",
-    exportHeader: "Subcontractor price",
+    label: "Partner price",
+    exportHeader: "Partner price",
     exportWidth: 18,
     getExportValue: (row) => formatMoney(getEffectiveArchiveSubcontractorTotal(row)),
   },

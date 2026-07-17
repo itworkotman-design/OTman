@@ -349,7 +349,7 @@ export default function UserModal({
                 <>
                   <label className="block pl-2 pb-2">Access</label>
                   <select className="customInput mb-4 w-full" value={accessType} onChange={updateAccessType} disabled={!canEditTarget}>
-                    <option value="SUBCONTRACTOR">Subcontractor</option>
+                    <option value="SUBCONTRACTOR">Partner</option>
                     <option value="ORDER_CREATOR">Order creator</option>
                   </select>
                 </>

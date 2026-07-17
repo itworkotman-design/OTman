@@ -340,14 +340,14 @@ export default function BookingFilters({
           )}
 
           {access.canFilterSubcontractor && (
-            <Field label={t("Subcontractor")}>
+            <Field label={t("Partner")}>
               <select
                 value={subcontractorId}
                 onChange={(e) => setSubcontractorId(e.target.value)}
                 className="customInput padding-weird-landscape text-weird-landscape w-full"
               >
-                <option value="">{t("All subcontractors")}</option>
-                <option value={NONE_FILTER_VALUE}>{t("No subcontractor")}</option>
+                <option value="">{t("All partners")}</option>
+                <option value={NONE_FILTER_VALUE}>{t("No partner")}</option>
                 {subcontractors.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}

@@ -105,7 +105,7 @@ export function BookingFieldEditor({
             disabled={disabled || busy !== null}
             className="customInput w-full disabled:bg-neutral-100"
           >
-            <option value="">Change subcontractor for selected:</option>
+            <option value="">Change partner for selected:</option>
             {subcontractorOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -119,7 +119,7 @@ export function BookingFieldEditor({
             onClick={() => run("subcontractor", () => onUpdateSubcontractor(subcontractor))}
             className="customButtonEnabled h-10 w-full disabled:bg-logoblue/60! disabled:cursor-auto!"
           >
-            {busy === "subcontractor" ? "Updating…" : "Update subcontractor"}
+            {busy === "subcontractor" ? "Updating…" : "Update partner"}
           </button>
         </div>
 

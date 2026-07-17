@@ -103,14 +103,14 @@ export default function BulkUpdateBar({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Subcontractor")}</label>
+          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Partner")}</label>
           <select
             value={subcontractorId}
             onChange={(e) => setSubcontractorId(e.target.value)}
             className="customInput w-full text-weird-landscape padding-weird-landscape height-weird-landscape"
             disabled={loading}
           >
-            <option value="">{t("No subcontractor change")}</option>
+            <option value="">{t("No partner change")}</option>
             {subcontractors.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.label}

@@ -262,7 +262,7 @@ export function SubcontractorCalculatorDisplay({
     <section className="w-full customContainer rounded-2xl px-4 mt-4 bg-amber-50 border border-amber-200">
       <div className="border-b-2 border-amber-200 py-3 flex items-center gap-2">
         <h2 className="font-bold text-amber-800 text-sm uppercase tracking-wide">
-          Subcontractor View
+          Partner View
         </h2>
       </div>
 
@@ -326,7 +326,7 @@ export function SubcontractorCalculatorDisplay({
 
         <div className="mt-8 space-y-4">
           <div className="lg:flex items-center">
-            <h1 className="whitespace-nowrap">Subcontractor minus:</h1>
+            <h1 className="whitespace-nowrap">Partner minus:</h1>
             <input
               type="text"
               value={subcontractorMinus}
@@ -339,7 +339,7 @@ export function SubcontractorCalculatorDisplay({
           </div>
 
           <div className="lg:flex items-center">
-            <h1 className="whitespace-nowrap">Subcontractor plus:</h1>
+            <h1 className="whitespace-nowrap">Partner plus:</h1>
             <input
               type="text"
               value={subcontractorPlus}

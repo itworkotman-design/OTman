@@ -422,7 +422,7 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("subcontractor") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
-                    {t("Subcontractor")}
+                    {t("Partner")}
                   </th>
                 ) : null}
                 {isColumnVisible("createdAt") ? (
@@ -447,7 +447,7 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("priceSubcontractor") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
-                    {t("Subcontractor price")}
+                    {t("Partner price")}
                   </th>
                 ) : null}
               </>
@@ -538,7 +538,7 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("priceSubcontractor") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
-                    {t("Subcontractor price")}
+                    {t("Partner price")}
                   </th>
                 ) : null}
               </>

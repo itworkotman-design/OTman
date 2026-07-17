@@ -173,13 +173,13 @@ export default function TopFilters({
 
           {userView !== "subcontractor" && (
             <ComboField
-              label="Subcontractor"
+              label="Partner"
               value={subcontractor}
               onChange={(val) => setSubcontractor(val || "")}
               query={subQuery}
               setQuery={setSubQuery}
               items={filteredSubs}
-              placeholder="Select subcontractor"
+              placeholder="Select partner"
             />
           )}
         </div>

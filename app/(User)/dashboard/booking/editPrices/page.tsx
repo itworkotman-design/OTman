@@ -1106,7 +1106,7 @@ export default function EditPricesPage() {
     }
 
     if (!row.subcontractorPrice.trim()) {
-      updateRow(itemId, { error: "Subcontractor price is required" });
+      updateRow(itemId, { error: "Partner price is required" });
       return;
     }
 
@@ -1119,7 +1119,7 @@ export default function EditPricesPage() {
     }
 
     if (!Number.isFinite(subcontractorNumber) || subcontractorNumber < 0) {
-      updateRow(itemId, { error: "Invalid subcontractor price" });
+      updateRow(itemId, { error: "Invalid partner price" });
       return;
     }
 
@@ -1607,7 +1607,7 @@ export default function EditPricesPage() {
                       Customer Price
                     </th>
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
-                      Subcontractor Price
+                      Partner Price
                     </th>
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Discount
@@ -1885,7 +1885,7 @@ export default function EditPricesPage() {
                       Customer Price
                     </th>
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
-                      Subcontractor Price
+                      Partner Price
                     </th>
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Discount
@@ -2115,7 +2115,7 @@ export default function EditPricesPage() {
                       Customer Price
                     </th>
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
-                      Subcontractor Price
+                      Partner Price
                     </th>
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Discount
@@ -2357,7 +2357,7 @@ export default function EditPricesPage() {
                       Customer Price
                     </th>
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
-                      Subcontractor Price
+                      Partner Price
                     </th>
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Discount
@@ -2647,7 +2647,7 @@ export default function EditPricesPage() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-black/80">
-                    Subcontractor price
+                    Partner price
                   </span>
                   <input
                     type="number"
@@ -2662,7 +2662,7 @@ export default function EditPricesPage() {
                       )
                     }
                     className="customInput w-full"
-                    placeholder="Subcontractor price"
+                    placeholder="Partner price"
                   />
                 </label>
               </div>
@@ -2733,7 +2733,7 @@ export default function EditPricesPage() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-black/80">
-                    Subcontractor price
+                    Partner price
                   </span>
                   <input
                     type="number"
@@ -2750,7 +2750,7 @@ export default function EditPricesPage() {
                       )
                     }
                     className="customInput w-full"
-                    placeholder="Subcontractor price"
+                    placeholder="Partner price"
                   />
                 </label>
               </div>
@@ -2821,7 +2821,7 @@ export default function EditPricesPage() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-black/80">
-                    Subcontractor price
+                    Partner price
                   </span>
                   <input
                     type="number"
@@ -2836,7 +2836,7 @@ export default function EditPricesPage() {
                       )
                     }
                     className="customInput w-full"
-                    placeholder="Subcontractor price"
+                    placeholder="Partner price"
                   />
                 </label>
               </div>
@@ -2907,7 +2907,7 @@ export default function EditPricesPage() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-black/80">
-                    Subcontractor price
+                    Partner price
                   </span>
                   <input
                     type="number"
@@ -2922,7 +2922,7 @@ export default function EditPricesPage() {
                       )
                     }
                     className="customInput w-full"
-                    placeholder="Subcontractor price per km"
+                    placeholder="Partner price per km"
                   />
                 </label>
               </div>
@@ -2993,7 +2993,7 @@ export default function EditPricesPage() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-black/80">
-                    Subcontractor price
+                    Partner price
                   </span>
                   <input
                     type="number"
@@ -3008,7 +3008,7 @@ export default function EditPricesPage() {
                       )
                     }
                     className="customInput w-full"
-                    placeholder="Subcontractor price per km"
+                    placeholder="Partner price per km"
                   />
                 </label>
               </div>
@@ -3079,7 +3079,7 @@ export default function EditPricesPage() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-black/80">
-                    Subcontractor price per block
+                    Partner price per block
                   </span>
                   <input
                     type="number"
@@ -3094,7 +3094,7 @@ export default function EditPricesPage() {
                       )
                     }
                     className="customInput w-full"
-                    placeholder="Subcontractor price per 20 min block"
+                    placeholder="Partner price per 20 min block"
                   />
                 </label>
               </div>
@@ -3165,7 +3165,7 @@ export default function EditPricesPage() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-black/80">
-                    Subcontractor price
+                    Partner price
                   </span>
                   <input
                     type="number"
@@ -3180,7 +3180,7 @@ export default function EditPricesPage() {
                       )
                     }
                     className="customInput w-full"
-                    placeholder="Subcontractor price"
+                    placeholder="Partner price"
                   />
                 </label>
               </div>
@@ -3234,7 +3234,7 @@ export default function EditPricesPage() {
 
                           <label className="block">
                             <span className="mb-1 block text-sm font-medium text-black/80">
-                              Subcontractor price
+                              Partner price
                             </span>
                             <input
                               type="number"
@@ -3252,7 +3252,7 @@ export default function EditPricesPage() {
                                 )
                               }
                               className="customInput w-full"
-                              placeholder="Subcontractor price"
+                              placeholder="Partner price"
                             />
                           </label>
                         </div>
@@ -3449,7 +3449,7 @@ export default function EditPricesPage() {
                         })
                       }
                       className="customInput w-full"
-                      placeholder="Subcontractor price"
+                      placeholder="Partner price"
                     />
                   </div>
                 </div>
@@ -3527,7 +3527,7 @@ export default function EditPricesPage() {
                                 updateDeliveryType(deliveryType.key, { subcontractorPrice: e.target.value })
                               }
                               className="customInput w-full"
-                              placeholder="Subcontractor price"
+                              placeholder="Partner price"
                             />
                             {supportsXtraPrice(deliveryType.key) && (
                               <>
@@ -3551,7 +3551,7 @@ export default function EditPricesPage() {
                                     updateDeliveryType(deliveryType.key, { xtraSubcontractorPrice: e.target.value })
                                   }
                                   className="customInput w-full"
-                                  placeholder="XTRA subcontractor price"
+                                  placeholder="XTRA partner price"
                                 />
                               </>
                             )}

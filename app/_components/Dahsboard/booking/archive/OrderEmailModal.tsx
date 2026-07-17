@@ -164,7 +164,7 @@ const SNAPSHOT_LABELS: Record<string, string> = {
   servicesSummary: "Services",
   cashierName: "Cashier name",
   cashierPhone: "Cashier phone",
-  subcontractor: "Subcontractor",
+  subcontractor: "Partner",
   driver: "Driver",
   secondDriver: "Second driver",
   driverInfo: "Driver info",
@@ -174,11 +174,11 @@ const SNAPSHOT_LABELS: Record<string, string> = {
   feeAddToOrder: "Add fee to order",
   dontSendEmail: "Do not send email",
   priceExVat: "Price ex. VAT",
-  priceSubcontractor: "Subcontractor price",
+  priceSubcontractor: "Partner price",
   rabatt: "Discount",
   leggTil: "Add-on",
-  subcontractorMinus: "Subcontractor minus",
-  subcontractorPlus: "Subcontractor plus",
+  subcontractorMinus: "Partner minus",
+  subcontractorPlus: "Partner plus",
   gsmLastTaskState: "GSM task state",
 };
 
