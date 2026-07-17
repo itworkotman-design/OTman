@@ -49,16 +49,6 @@ function getFirstNonEmptyString(...values: unknown[]): string | null {
   return null;
 }
 
-function shouldClearCancelledDiscount(
-  previousStatus: string | null | undefined,
-  nextStatus: string | null | undefined,
-) {
-  return (
-    normalizeOrderStatus(previousStatus) === "cancelled" &&
-    normalizeOrderStatus(nextStatus) !== "cancelled"
-  );
-}
-
 function getMetafields(task: GsmTaskRecord | null): Record<string, unknown> {
   const metafields = getRecord(task?.metafields);
   return metafields ?? {};
@@ -451,15 +441,6 @@ export async function POST(req: Request) {
       nextSubcontractorMembershipId = null;
     }
 
-    const shouldClearRabatt = shouldClearCancelledDiscount(
-      orderBeforeUpdate.status,
-      nextStatus,
-    );
-    const nextRabatt = shouldClearRabatt ? null : orderBeforeUpdate.rabatt;
-    const nextSubcontractorMinus = shouldClearRabatt
-      ? null
-      : orderBeforeUpdate.subcontractorMinus;
-
     await prisma.order.update({
       where: { id: orderId },
       data: {
@@ -476,8 +457,6 @@ export async function POST(req: Request) {
         gsmLastTaskState: taskState ?? undefined,
         gsmLastWebhookAt: new Date(),
         status: nextStatus ?? undefined,
-        rabatt: shouldClearRabatt ? nextRabatt : undefined,
-        subcontractorMinus: shouldClearRabatt ? nextSubcontractorMinus : undefined,
       },
     });
 
@@ -493,8 +472,6 @@ export async function POST(req: Request) {
           : orderBeforeUpdate.subcontractor,
       gsmLastTaskState: taskState ?? orderBeforeUpdate.gsmLastTaskState,
       status: nextStatus,
-      rabatt: nextRabatt,
-      subcontractorMinus: nextSubcontractorMinus,
     });
     const changes = diffOrderEventSnapshots(previousSnapshot, nextSnapshot);
 

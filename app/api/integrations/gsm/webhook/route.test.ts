@@ -309,7 +309,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
     expect(mocks.createOrderActionEventMock).not.toHaveBeenCalled();
   });
 
-  it("clears discount when GSM moves a cancelled order back to active", async () => {
+  it("does not touch discount fields when GSM moves a cancelled order back to active", async () => {
     mocks.orderFindUniqueMock.mockResolvedValue({
       ...buildOrderBeforeUpdate(),
       status: "cancelled",
@@ -323,11 +323,7 @@ describe("POST /api/integrations/gsm/webhook", () => {
       metafields: {},
     });
     mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "assigned", hasNotes: false }]);
-    mocks.diffOrderEventSnapshotsMock.mockReturnValue([
-      { field: "status" },
-      { field: "rabatt" },
-      { field: "subcontractorMinus" },
-    ]);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([{ field: "status" }]);
 
     const response = await POST(
       new Request("http://localhost/api/integrations/gsm/webhook", {
@@ -354,15 +350,16 @@ describe("POST /api/integrations/gsm/webhook", () => {
       data: expect.objectContaining({
         gsmLastTaskState: "assigned",
         status: "active",
-        rabatt: null,
-        subcontractorMinus: null,
       }),
     });
+    const updateCallData = mocks.orderUpdateMock.mock.calls[0][0].data;
+    expect(updateCallData).not.toHaveProperty("rabatt");
+    expect(updateCallData).not.toHaveProperty("subcontractorMinus");
     expect(mocks.buildOrderEventSnapshotMock).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "active",
-        rabatt: null,
-        subcontractorMinus: null,
+        rabatt: "500",
+        subcontractorMinus: "300",
       }),
     );
   });

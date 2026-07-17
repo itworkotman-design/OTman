@@ -14,8 +14,6 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "import:wordpress-orders": "tsx scripts/import-wordpress-orders.ts",
-    "import:historical-orders-full": "tsx scripts/import-historical-orders-full.ts",
     "backfill:wordpress-attachments": "tsx scripts/backfill-wordpress-attachments.ts",
     "backfill:wordpress-extra-pickups": "tsx scripts/backfill-wordpress-extra-pickups.ts",
     "backfill:gsm-pod-attachments": "tsx scripts/backfill-gsm-pod-attachments-to-s3.ts",

@@ -171,7 +171,7 @@ describe("PATCH /api/orders/bulk", () => {
     expect(mocks.createOrderUpdatedEventMock).not.toHaveBeenCalled();
   });
 
-  it("clears discount only for cancelled orders changed to another status", async () => {
+  it("does not touch discount fields when status changes away from cancelled", async () => {
     mocks.buildOrderEventSnapshotMock.mockImplementation((order) => ({
       status: order.status ?? null,
       statusNotes: order.statusNotes ?? null,
@@ -225,9 +225,7 @@ describe("PATCH /api/orders/bulk", () => {
         subcontractorMinus: "100",
       },
     ]);
-    mocks.orderUpdateManyMock
-      .mockResolvedValueOnce({ count: 2 })
-      .mockResolvedValueOnce({ count: 1 });
+    mocks.orderUpdateManyMock.mockResolvedValue({ count: 2 });
 
     const res = await PATCH(
       new Request("http://localhost/api/orders/bulk", {
@@ -245,7 +243,8 @@ describe("PATCH /api/orders/bulk", () => {
       updatedCount: 2,
       skippedHeldCount: 0,
     });
-    expect(mocks.orderUpdateManyMock).toHaveBeenNthCalledWith(1, {
+    expect(mocks.orderUpdateManyMock).toHaveBeenCalledTimes(1);
+    expect(mocks.orderUpdateManyMock).toHaveBeenCalledWith({
       where: {
         id: { in: ["order-1", "order-2"] },
         companyId: "company-1",
@@ -255,30 +254,15 @@ describe("PATCH /api/orders/bulk", () => {
         lastEditedByMembershipId: "membership-1",
       },
     });
-    expect(mocks.orderUpdateManyMock).toHaveBeenNthCalledWith(2, {
-      where: {
-        id: { in: ["order-1"] },
-        companyId: "company-1",
-      },
-      data: {
-        rabatt: null,
-        subcontractorMinus: null,
-      },
-    });
-    expect(mocks.createOrderUpdatedEventMock).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({
-        orderId: "order-1",
-        changes: expect.arrayContaining([
-          expect.objectContaining({ field: "status" }),
-          expect.objectContaining({ field: "rabatt" }),
-          expect.objectContaining({ field: "subcontractorMinus" }),
-        ]),
-      }),
-    );
+    expect(mocks.createOrderUpdatedEventMock).not.toHaveBeenCalled();
     expect(mocks.createManyOrderStatusChangedEventsMock).toHaveBeenCalledWith(
       expect.any(Object),
       [
+        expect.objectContaining({
+          orderId: "order-1",
+          fromStatus: "cancelled",
+          toStatus: "active",
+        }),
         expect.objectContaining({
           orderId: "order-2",
           fromStatus: "new",

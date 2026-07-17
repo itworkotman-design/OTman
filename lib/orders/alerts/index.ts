@@ -20,7 +20,6 @@ export {
   createSubcontractorPriceAlert,
   hasSubcontractorPriceAlertEverExisted,
 } from "./subcontractorPriceAlert";
-export { syncWordpressPriceMismatchAlert } from "./wordpressPriceMismatchAlert";
 export {
   buildNoSubcontractorAlert,
   createNoSubcontractorAlert,

@@ -268,16 +268,6 @@ function diffProductCards(
   return productChanges;
 }
 
-function shouldClearCancelledDiscount(
-  previousStatus: string | null | undefined,
-  nextStatus: string | null | undefined,
-) {
-  return (
-    normalizeOrderStatus(previousStatus) === "cancelled" &&
-    normalizeOrderStatus(nextStatus) !== "cancelled"
-  );
-}
-
 export async function GET(req: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await getAuthenticatedSession(req);
 
@@ -679,22 +669,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     : [];
   const productChanges = diffProductCards(previousProductCards, productCards, optionLookup, productLookup);
   const nextStatus = optionalString(body.status) ?? existingOrder.status;
-  const shouldClearCancelledAdjustments = shouldClearCancelledDiscount(existingOrder.status, nextStatus);
-  const updatedRabatt = shouldClearCancelledAdjustments ? null : optionalString(body.rabatt);
+  const updatedRabatt = optionalString(body.rabatt);
   const nextDnbDiscount = isAdminOrOwner
     ? optionalBoolean(body.dnbDiscount)
     : existingOrder.dnbDiscount;
-  const nextRabatt = shouldClearCancelledAdjustments
-    ? null
-    : body.rabatt !== undefined
-      ? optionalString(body.rabatt)
-      : existingOrder.rabatt;
-  const updatedSubcontractorMinus = shouldClearCancelledAdjustments ? null : optionalString(body.subcontractorMinus);
-  const nextSubcontractorMinus = shouldClearCancelledAdjustments
-    ? null
-    : body.subcontractorMinus !== undefined
-      ? optionalString(body.subcontractorMinus)
-      : existingOrder.subcontractorMinus;
+  const nextRabatt = body.rabatt !== undefined
+    ? optionalString(body.rabatt)
+    : existingOrder.rabatt;
+  const updatedSubcontractorMinus = optionalString(body.subcontractorMinus);
+  const nextSubcontractorMinus = body.subcontractorMinus !== undefined
+    ? optionalString(body.subcontractorMinus)
+    : existingOrder.subcontractorMinus;
   const pricingSnapshot = buildOrderPricingSnapshot({
     lines: builtItems,
     rabatt: nextRabatt,

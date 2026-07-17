@@ -10,11 +10,7 @@ import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/Produ
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
-import {
-  ADD_TO_ORDER_FEE_CODE,
-  EXTRA_WORK_FEE_CODE,
-} from "@/lib/booking/pricing/hardcodedFees";
-import { DEVIATION_FEE_OPTIONS, normalizeDeviationLabel } from "@/lib/booking/pricing/deviationFees";
+import { normalizeDeviationLabel } from "@/lib/booking/pricing/deviationFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import type { CalculatedLine, ProductBreakdown } from "@/lib/booking/pricing/types";
 import {
@@ -333,30 +329,6 @@ function normalizeInitialStatus(value: string | null | undefined) {
   }
 }
 
-const PROTECTED_AUTO_DISCOUNT_CODES = new Set([EXTRA_WORK_FEE_CODE, ADD_TO_ORDER_FEE_CODE, ...DEVIATION_FEE_OPTIONS.map((option) => option.code)]);
-
-function shouldAutoDiscountStatus(status: string): boolean {
-  const normalized = normalizeInitialStatus(status);
-  return normalized === "cancelled";
-}
-
-function removeProtectedAutoDiscountItems(breakdowns: ProductBreakdown[]): ProductBreakdown[] {
-  return breakdowns
-    .map((breakdown) => ({
-      ...breakdown,
-      items: breakdown.items.filter((item) => item.kind !== "customPrice" || !PROTECTED_AUTO_DISCOUNT_CODES.has(item.code)),
-    }))
-    .filter((breakdown) => breakdown.items.length > 0);
-}
-
-function formatAutoDiscountAmount(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) {
-    return "";
-  }
-
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
-}
-
 function formatAdjustmentAmount(value: number): string {
   if (!Number.isFinite(value) || value <= 0) {
     return "";
@@ -487,11 +459,7 @@ export default function BookingEditor({
   const [statusNotes, setStatusNotes] = useState(initialValues?.statusNotes ?? "");
   const [customerMembershipId, setCustomerMembershipId] = useState(initialValues?.customerMembershipId ?? "");
   const [status, setStatus] = useState(normalizeInitialStatus(initialValues?.status));
-  const previousStatusRef = useRef(status);
-  const lastAutomaticStatusDiscountRef = useRef<string | null>(null);
-  const lastAutomaticSubcontractorMinusRef = useRef<string | null>(null);
   const priceListSettingsRef = useRef(priceListSettings);
-  const statusRef = useRef(status);
   const [dontSendEmail, setDontSendEmail] = useState(initialValues?.dontSendEmail ?? false);
   const [contactCustomerForCustomTimeWindow, setContactCustomerForCustomTimeWindow] = useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
   const [customTimeContactNote, setCustomTimeContactNote] = useState(initialValues?.customTimeContactNote ?? "");
@@ -1226,46 +1194,6 @@ export default function BookingEditor({
     shouldUseNativeDistancePricing,
   ]);
 
-  const automaticStatusDiscount = useMemo(() => {
-    if (!shouldAutoDiscountStatus(status)) {
-      return "";
-    }
-
-    const discountableBreakdowns = removeProtectedAutoDiscountItems(calculatorBreakdowns);
-    const result = calculateBookingPricing({
-      productBreakdowns: discountableBreakdowns,
-      priceLookup,
-      adjustments: {
-        rabatt: "",
-        leggTil,
-        subcontractorMinus: "",
-        subcontractorPlus: "",
-      },
-    });
-
-    return formatAutoDiscountAmount(result.totals.totalExVat);
-  }, [calculatorBreakdowns, leggTil, priceLookup, status]);
-
-  const automaticSubcontractorMinus = useMemo(() => {
-    if (!shouldAutoDiscountStatus(status)) {
-      return "";
-    }
-
-    const discountableBreakdowns = removeProtectedAutoDiscountItems(calculatorBreakdowns);
-    const result = calculateBookingPricing({
-      productBreakdowns: discountableBreakdowns,
-      priceLookup,
-      adjustments: {
-        rabatt: "",
-        leggTil: "",
-        subcontractorMinus: "",
-        subcontractorPlus,
-      },
-    });
-
-    return formatAutoDiscountAmount(result.totals.subcontractorTotal);
-  }, [calculatorBreakdowns, priceLookup, status, subcontractorPlus]);
-
   const isInstallationOnly = useMemo(
     () => productCards.length > 0 && productCards.every((card) => card.deliveryType === DELIVERY_TYPES.INSTALL_ONLY),
     [productCards],
@@ -1464,7 +1392,6 @@ export default function BookingEditor({
 
   useEffect(() => {
     priceListSettingsRef.current = priceListSettings;
-    statusRef.current = status;
   });
 
   const handleAdjustmentsChange = useCallback((adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => {
@@ -1474,8 +1401,7 @@ export default function BookingEditor({
     setManualRabatt(adj.rabatt);
 
     setRabatt((prevRabatt) => {
-      const isAutoDiscountOrder = shouldAutoDiscountStatus(statusRef.current);
-      if (!isAutoDiscountOrder && adj.rabatt !== prevRabatt) {
+      if (adj.rabatt !== prevRabatt) {
         const rabattAmount = Number(adj.rabatt.replace(/[^\d.,-]/g, "").replace(",", "."));
         const { subtotalExVat, subcontractorBase } = pricingResultRef.current?.totals ?? { subtotalExVat: 0, subcontractorBase: 0 };
         const autoMinus =
@@ -1484,12 +1410,9 @@ export default function BookingEditor({
             : 0;
         setSubcontractorMinus(String(autoMinus));
       } else {
-        // On cancelled orders, normalise "" → "0" so the cancelled-status effect
-        // doesn't treat it as "not yet set" and re-apply the auto-discount on next load.
-        const nextMinus = isAutoDiscountOrder && adj.subcontractorMinus === "" ? "0" : adj.subcontractorMinus;
-        setSubcontractorMinus(nextMinus);
+        setSubcontractorMinus(adj.subcontractorMinus);
       }
-      return isAutoDiscountOrder && adj.rabatt === "" ? "0" : adj.rabatt;
+      return adj.rabatt;
     });
     setLeggTil(adj.leggTil);
     setSubcontractorPlus(adj.subcontractorPlus);
@@ -1505,52 +1428,6 @@ export default function BookingEditor({
     setPriceExVat(currentCatalogTotalExVat);
     setPriceSubcontractor(currentCatalogSubcontractorTotal);
   }, [currentCatalogSubcontractorTotal, currentCatalogTotalExVat, currentPricingSnapshot]);
-
-  useEffect(() => {
-    const previousStatus = previousStatusRef.current;
-    previousStatusRef.current = status;
-
-    const isAutoDiscountStatus = shouldAutoDiscountStatus(status);
-    if (!isAutoDiscountStatus) {
-      if (shouldAutoDiscountStatus(previousStatus)) {
-        setRabatt("");
-        setSubcontractorMinus("");
-      }
-      lastAutomaticStatusDiscountRef.current = null;
-      lastAutomaticSubcontractorMinusRef.current = null;
-      return;
-    }
-
-    const enteredAutoDiscountStatus = !shouldAutoDiscountStatus(previousStatus);
-
-    setRabatt((current) => {
-      const shouldApplyAutomaticDiscount =
-        enteredAutoDiscountStatus ||
-        current.trim() === "" ||
-        current === lastAutomaticStatusDiscountRef.current;
-
-      if (!shouldApplyAutomaticDiscount) {
-        return current;
-      }
-
-      lastAutomaticStatusDiscountRef.current = automaticStatusDiscount;
-      return automaticStatusDiscount;
-    });
-
-    setSubcontractorMinus((current) => {
-      const shouldApplyAutomaticSubcontractorMinus =
-        enteredAutoDiscountStatus ||
-        current.trim() === "" ||
-        current === lastAutomaticSubcontractorMinusRef.current;
-
-      if (!shouldApplyAutomaticSubcontractorMinus) {
-        return current;
-      }
-
-      lastAutomaticSubcontractorMinusRef.current = automaticSubcontractorMinus;
-      return automaticSubcontractorMinus;
-    });
-  }, [automaticStatusDiscount, automaticSubcontractorMinus, status]);
 
   useEffect(() => {
     if (!shouldShowReturnAddress && returnAddress && hasProcessedInitialReturnSyncRef.current) {

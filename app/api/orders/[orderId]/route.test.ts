@@ -966,7 +966,7 @@ describe("routes in /api/orders/[orderId]", () => {
     );
   });
 
-  it("PATCH clears cancelled adjustments when status changes from cancelled to another status", async () => {
+  it("PATCH keeps manual discount fields when status changes from cancelled to another status", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -1055,8 +1055,8 @@ describe("routes in /api/orders/[orderId]", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           status: "active",
-          rabatt: null,
-          subcontractorMinus: null,
+          rabatt: "999",
+          subcontractorMinus: "500",
           priceSubcontractor: 500,
         }),
       }),
@@ -1064,8 +1064,8 @@ describe("routes in /api/orders/[orderId]", () => {
     expect(mocks.buildOrderEventSnapshotMock).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "active",
-        rabatt: null,
-        subcontractorMinus: null,
+        rabatt: "999",
+        subcontractorMinus: "500",
         priceSubcontractor: 500,
       }),
     );
