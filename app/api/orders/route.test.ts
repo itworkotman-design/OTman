@@ -1374,6 +1374,7 @@ describe("routes in /api/orders", () => {
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
           orderNumber: "PO-1",
+          deliveryDate: "2026-08-01",
           extraPickups: [
             {
               address: "Store 2",

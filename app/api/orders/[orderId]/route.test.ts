@@ -712,7 +712,7 @@ describe("routes in /api/orders/[orderId]", () => {
       status: "processing",
       statusNotes: "",
       customerName: "",
-      deliveryDate: "",
+      deliveryDate: "2026-08-01",
       timeWindow: "",
       expressDelivery: false,
       contactCustomerForCustomTimeWindow: false,
