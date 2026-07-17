@@ -24,6 +24,7 @@ import {
   isExtraCheckboxOption,
   normalizedUpper,
 } from "@/lib/booking/pricing/rules";
+import { computeLineKey } from "@/lib/booking/pricing/lineKey";
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
@@ -678,7 +679,44 @@ export function buildOrderItemsFromCards(
 
   }
 
-  return items;
+  const nulledLineKeysByCardId = new Map(
+    productCards
+      .filter((card) => !card.wordpressImportReadOnly)
+      .map((card) => [
+        card.cardId,
+        {
+          customer: card.nulledLineKeysForCustomer ?? [],
+          subcontractor: card.nulledLineKeysForSubcontractor ?? [],
+        },
+      ]),
+  );
+
+  return items.map((item) => {
+    const nulledKeys = nulledLineKeysByCardId.get(item.cardId);
+    if (!nulledKeys) return item;
+
+    const lineKey = computeLineKey({
+      optionId: item.optionId,
+      code: item.optionCode,
+    });
+    if (lineKey === null) return item;
+
+    const nulledForCustomer = nulledKeys.customer.includes(lineKey);
+    const nulledForSubcontractor = nulledKeys.subcontractor.includes(lineKey);
+
+    return {
+      ...item,
+      customerPriceCents:
+        nulledForCustomer && typeof item.customerPriceCents === "number"
+          ? 0
+          : item.customerPriceCents,
+      subcontractorPriceCents:
+        nulledForSubcontractor &&
+        typeof item.subcontractorPriceCents === "number"
+          ? 0
+          : item.subcontractorPriceCents,
+    };
+  });
 }
 
 export function hasDeliveryPriceLines(items: BuiltOrderItem[]): boolean {

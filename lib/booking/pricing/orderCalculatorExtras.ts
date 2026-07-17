@@ -55,6 +55,8 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
   feeExtraWork: boolean;
   extraPickups: ExtraPickupInput[];
   shouldUseNativeDistancePricing: boolean;
+  nulledOrderExtraKeysForCustomer?: string[];
+  nulledOrderExtraKeysForSubcontractor?: string[];
 }) {
   const {
     productBreakdowns,
@@ -67,6 +69,8 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
     feeExtraWork,
     extraPickups,
     shouldUseNativeDistancePricing,
+    nulledOrderExtraKeysForCustomer = [],
+    nulledOrderExtraKeysForSubcontractor = [],
   } = params;
   const nextBreakdowns = [...productBreakdowns];
   const extraItems: ProductBreakdown["items"] = [];
@@ -209,6 +213,9 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
     nextBreakdowns.push({
       productName: "Order extras",
       items: extraItems,
+      isOrderExtras: true,
+      nulledLineKeysForCustomer: nulledOrderExtraKeysForCustomer,
+      nulledLineKeysForSubcontractor: nulledOrderExtraKeysForSubcontractor,
     });
   }
 

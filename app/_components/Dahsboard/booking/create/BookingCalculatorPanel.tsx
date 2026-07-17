@@ -23,6 +23,10 @@ type Props = {
   subcontractorMinus?: string;
   subcontractorPlus?: string;
   onAdjustmentsChange: (adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => void;
+  onToggleCustomerNulled?: (cardId: number, lineKey: string, nulled: boolean) => void;
+  onToggleSubcontractorNulled?: (cardId: number, lineKey: string, nulled: boolean) => void;
+  onToggleCustomerOrderExtraNulled?: (lineKey: string, nulled: boolean) => void;
+  onToggleSubcontractorOrderExtraNulled?: (lineKey: string, nulled: boolean) => void;
   priceUpdateAvailable?: boolean;
   priceUpdateStoredTotalExVat?: number;
   priceUpdateCurrentTotalExVat?: number;
@@ -45,6 +49,10 @@ export default function BookingCalculatorPanel({
   subcontractorMinus,
   subcontractorPlus,
   onAdjustmentsChange,
+  onToggleCustomerNulled,
+  onToggleSubcontractorNulled,
+  onToggleCustomerOrderExtraNulled,
+  onToggleSubcontractorOrderExtraNulled,
   priceUpdateAvailable = false,
   priceUpdateStoredTotalExVat,
   priceUpdateCurrentTotalExVat,
@@ -122,6 +130,8 @@ export default function BookingCalculatorPanel({
                 subcontractorMinus={subcontractorMinus}
                 subcontractorPlus={subcontractorPlus}
                 onAdjustmentsChange={onAdjustmentsChange}
+                onToggleLineNulled={onToggleCustomerNulled}
+                onToggleOrderExtraLineNulled={onToggleCustomerOrderExtraNulled}
                 sidebarMode={false}
                 locale={locale}
               />
@@ -129,9 +139,12 @@ export default function BookingCalculatorPanel({
                 <SubcontractorCalculatorDisplay
                   productBreakdowns={productBreakdowns}
                   priceLookup={priceLookup}
+                  rabatt={rabatt}
                   subcontractorMinus={subcontractorMinus}
                   subcontractorPlus={subcontractorPlus}
                   onSubcontractorAdjustmentsChange={handleSubcontractorAdjustmentsChange}
+                  onToggleLineNulled={onToggleSubcontractorNulled}
+                  onToggleOrderExtraLineNulled={onToggleSubcontractorOrderExtraNulled}
                 />
               )}
             </div>
@@ -153,6 +166,8 @@ export default function BookingCalculatorPanel({
           subcontractorMinus={subcontractorMinus}
           subcontractorPlus={subcontractorPlus}
           onAdjustmentsChange={onAdjustmentsChange}
+          onToggleLineNulled={onToggleCustomerNulled}
+          onToggleOrderExtraLineNulled={onToggleCustomerOrderExtraNulled}
           sidebarMode={sidebarMode}
           locale={locale}
         />
@@ -160,9 +175,12 @@ export default function BookingCalculatorPanel({
           <SubcontractorCalculatorDisplay
             productBreakdowns={productBreakdowns}
             priceLookup={priceLookup}
+            rabatt={rabatt}
             subcontractorMinus={subcontractorMinus}
             subcontractorPlus={subcontractorPlus}
             onSubcontractorAdjustmentsChange={handleSubcontractorAdjustmentsChange}
+            onToggleLineNulled={onToggleSubcontractorNulled}
+            onToggleOrderExtraLineNulled={onToggleSubcontractorOrderExtraNulled}
           />
         )}
       </div>

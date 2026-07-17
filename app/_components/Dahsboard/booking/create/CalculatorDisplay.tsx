@@ -26,6 +26,11 @@ function formatQty(qty: number) {
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
 }
 
+function hasAdjustmentValue(value: string) {
+  const n = Number(value.replace(/[^\d.,-]/g, "").replace(",", "."));
+  return Number.isFinite(n) && n !== 0;
+}
+
 type Props = {
   productBreakdowns: ProductBreakdown[];
   priceLookup: PriceLookup;
@@ -42,6 +47,8 @@ type Props = {
   locale?: BookingUiLocale;
   hideWordpressImportWarnings?: boolean;
   showSubcontractorPrices?: boolean;
+  onToggleLineNulled?: (cardId: number, lineKey: string, nulled: boolean) => void;
+  onToggleOrderExtraLineNulled?: (lineKey: string, nulled: boolean) => void;
 };
 
 export function CalculatorDisplayNew({
@@ -60,6 +67,8 @@ export function CalculatorDisplayNew({
   locale = "en",
   hideWordpressImportWarnings,
   showSubcontractorPrices = false,
+  onToggleLineNulled,
+  onToggleOrderExtraLineNulled,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const adjustments = useMemo(
@@ -81,6 +90,17 @@ export function CalculatorDisplayNew({
       }),
     [productBreakdowns, priceLookup, adjustments],
   );
+
+  const hasAnyNulledLines = useMemo(
+    () =>
+      result.breakdowns.some((product) =>
+        product.lines.some((line) => line.nulledForCustomer || line.nulledForSubcontractor),
+      ),
+    [result.breakdowns],
+  );
+
+  const hasAnyDiscountValue = hasAdjustmentValue(rabatt) || hasAdjustmentValue(subcontractorMinus);
+
 const displayTotals = useMemo(() => {
   if (forcedTotalExVat == null && forcedSubcontractorTotal == null) return result.totals;
 
@@ -133,19 +153,40 @@ useEffect(() => {
               {product.lines.length === 0 ? (
                 <p className="text-sm opacity-30 ml-2">{t("No services selected for this product.")}</p>
               ) : (
-                product.lines.map((line, idx) => (
-                  <div key={idx} className="priceRow ml-2">
-                    <h1 className="text-sm">
-                      {line.qty > 1 && <span className="opacity-70 mr-1">x{formatQty(line.qty)}</span>}
+                product.lines.map((line, idx) => {
+                  const isLineNulled = showSubcontractorPrices ? line.nulledForSubcontractor : line.nulledForCustomer;
 
-                      {line.code && <span className="text-logoblue mr-1">({line.code})</span>}
+                  return (
+                    <div key={idx} className="priceRow ml-2">
+                      <h1 className="text-sm flex items-center gap-x-2">
+                        {adminView && !hasAnyDiscountValue && (product.cardId != null || product.isOrderExtras) && line.lineKey != null && (
+                          <input
+                            type="checkbox"
+                            title={t("Set to 0")}
+                            aria-label={t("Set to 0")}
+                            checked={line.nulledForCustomer ?? false}
+                            onChange={(e) =>
+                              product.isOrderExtras
+                                ? onToggleOrderExtraLineNulled?.(line.lineKey as string, e.target.checked)
+                                : onToggleLineNulled?.(product.cardId as number, line.lineKey as string, e.target.checked)
+                            }
+                          />
+                        )}
+                        <span className={isLineNulled ? "line-through opacity-60" : ""}>
+                          {line.qty > 1 && <span className="opacity-70 mr-1">x{formatQty(line.qty)}</span>}
 
-                      {line.label}
-                    </h1>
+                          {line.code && <span className="text-logoblue mr-1">({line.code})</span>}
 
-                    <p className="font-semibold text-sm whitespace-nowrap">{formatNOK(showSubcontractorPrices ? (line.subcontractorLineTotal ?? 0) : line.lineTotal)}</p>
-                  </div>
-                ))
+                          {line.label}
+                        </span>
+                      </h1>
+
+                      <p className={["font-semibold text-sm whitespace-nowrap", isLineNulled ? "line-through opacity-60" : ""].join(" ")}>
+                        {formatNOK(showSubcontractorPrices ? (line.subcontractorLineTotal ?? 0) : line.lineTotal)}
+                      </p>
+                    </div>
+                  );
+                })
               )}
             </div>
           ))
@@ -153,10 +194,10 @@ useEffect(() => {
       </div>
 
       <div className="pb-4">
-        {result.totals.discount !== 0 && (
+        {(result.totals.discount !== 0 || result.totals.checkboxDiscount !== 0) && (
           <div className="priceRow">
             <h1 className="text-md">{t("Discount")}</h1>
-            <p className="font-semibold">-{formatSumNOK(result.totals.discount)} NOK</p>
+            <p className="font-semibold">-{formatSumNOK(result.totals.discount + result.totals.checkboxDiscount)} NOK</p>
           </div>
         )}
 
@@ -187,21 +228,23 @@ useEffect(() => {
 
         {adminView && (
           <div className="mt-8 space-y-4">
-            <div className="lg:flex items-center">
-              <h1 className="whitespace-nowrap">{t("Discount (ex VAT)")}:</h1>
-              <input
-                type="text"
-                value={rabatt}
-                onChange={(e) =>
-                  onAdjustmentsChange?.({
-                    ...adjustments,
-                    rabatt: e.target.value,
-                  })
-                }
-                className="customInput w-full ml-2 h-8"
-                placeholder="e.g. 500"
-              />
-            </div>
+            {!hasAnyNulledLines && (
+              <div className="lg:flex items-center">
+                <h1 className="whitespace-nowrap">{t("Discount (ex VAT)")}:</h1>
+                <input
+                  type="text"
+                  value={rabatt}
+                  onChange={(e) =>
+                    onAdjustmentsChange?.({
+                      ...adjustments,
+                      rabatt: e.target.value,
+                    })
+                  }
+                  className="customInput w-full ml-2 h-8"
+                  placeholder="e.g. 500"
+                />
+              </div>
+            )}
 
             <div className="lg:flex items-center">
               <h1 className="whitespace-nowrap">{t("Extra (ex VAT)")}:</h1>
@@ -228,20 +271,26 @@ useEffect(() => {
 type SubcontractorProps = {
   productBreakdowns: ProductBreakdown[];
   priceLookup: PriceLookup;
+  rabatt?: string;
   subcontractorMinus?: string;
   subcontractorPlus?: string;
   onSubcontractorAdjustmentsChange?: (
     subcontractorMinus: string,
     subcontractorPlus: string,
   ) => void;
+  onToggleLineNulled?: (cardId: number, lineKey: string, nulled: boolean) => void;
+  onToggleOrderExtraLineNulled?: (lineKey: string, nulled: boolean) => void;
 };
 
 export function SubcontractorCalculatorDisplay({
   productBreakdowns,
   priceLookup,
+  rabatt = "",
   subcontractorMinus = "",
   subcontractorPlus = "",
   onSubcontractorAdjustmentsChange,
+  onToggleLineNulled,
+  onToggleOrderExtraLineNulled,
 }: SubcontractorProps) {
   const result = useMemo(
     () =>
@@ -257,6 +306,16 @@ export function SubcontractorCalculatorDisplay({
       }),
     [productBreakdowns, priceLookup, subcontractorMinus, subcontractorPlus],
   );
+
+  const hasAnyNulledLines = useMemo(
+    () =>
+      result.breakdowns.some((product) =>
+        product.lines.some((line) => line.nulledForCustomer || line.nulledForSubcontractor),
+      ),
+    [result.breakdowns],
+  );
+
+  const hasAnyDiscountValue = hasAdjustmentValue(subcontractorMinus) || hasAdjustmentValue(rabatt);
 
   return (
     <section className="w-full customContainer rounded-2xl px-4 mt-4 bg-amber-50 border border-amber-200">
@@ -278,16 +337,31 @@ export function SubcontractorCalculatorDisplay({
               ) : (
                 product.lines.map((line, idx) => (
                   <div key={idx} className="priceRow ml-2">
-                    <h1 className="text-sm">
-                      {line.qty > 1 && (
-                        <span className="opacity-70 mr-1">x{formatQty(line.qty)}</span>
+                    <h1 className="text-sm flex items-center gap-x-2">
+                      {!hasAnyDiscountValue && (product.cardId != null || product.isOrderExtras) && line.lineKey != null && (
+                        <input
+                          type="checkbox"
+                          title="Set to 0"
+                          aria-label="Set to 0"
+                          checked={line.nulledForSubcontractor ?? false}
+                          onChange={(e) =>
+                            product.isOrderExtras
+                              ? onToggleOrderExtraLineNulled?.(line.lineKey as string, e.target.checked)
+                              : onToggleLineNulled?.(product.cardId as number, line.lineKey as string, e.target.checked)
+                          }
+                        />
                       )}
-                      {line.code && (
-                        <span className="text-amber-700 mr-1">({line.code})</span>
-                      )}
-                      {line.label}
+                      <span className={line.nulledForSubcontractor ? "line-through opacity-60" : ""}>
+                        {line.qty > 1 && (
+                          <span className="opacity-70 mr-1">x{formatQty(line.qty)}</span>
+                        )}
+                        {line.code && (
+                          <span className="text-amber-700 mr-1">({line.code})</span>
+                        )}
+                        {line.label}
+                      </span>
                     </h1>
-                    <p className="font-semibold text-sm whitespace-nowrap">
+                    <p className={["font-semibold text-sm whitespace-nowrap", line.nulledForSubcontractor ? "line-through opacity-60" : ""].join(" ")}>
                       {formatNOK(line.subcontractorLineTotal ?? 0)}
                     </p>
                   </div>
@@ -299,11 +373,11 @@ export function SubcontractorCalculatorDisplay({
       </div>
 
       <div className="pb-4">
-        {result.totals.subcontractorMinus !== 0 && (
+        {(result.totals.subcontractorMinus !== 0 || result.totals.subcontractorCheckboxDiscount !== 0) && (
           <div className="priceRow">
             <h1 className="text-md">Minus</h1>
             <p className="font-semibold">
-              -{formatSumNOK(result.totals.subcontractorMinus)} NOK
+              -{formatSumNOK(result.totals.subcontractorMinus + result.totals.subcontractorCheckboxDiscount)} NOK
             </p>
           </div>
         )}
@@ -325,18 +399,20 @@ export function SubcontractorCalculatorDisplay({
         </div>
 
         <div className="mt-8 space-y-4">
-          <div className="lg:flex items-center">
-            <h1 className="whitespace-nowrap">Partner minus:</h1>
-            <input
-              type="text"
-              value={subcontractorMinus}
-              onChange={(e) =>
-                onSubcontractorAdjustmentsChange?.(e.target.value, subcontractorPlus)
-              }
-              className="customInput w-full ml-2 h-8"
-              placeholder="e.g. 200"
-            />
-          </div>
+          {!hasAnyNulledLines && (
+            <div className="lg:flex items-center">
+              <h1 className="whitespace-nowrap">Partner minus:</h1>
+              <input
+                type="text"
+                value={subcontractorMinus}
+                onChange={(e) =>
+                  onSubcontractorAdjustmentsChange?.(e.target.value, subcontractorPlus)
+                }
+                className="customInput w-full ml-2 h-8"
+                placeholder="e.g. 200"
+              />
+            </div>
+          )}
 
           <div className="lg:flex items-center">
             <h1 className="whitespace-nowrap">Partner plus:</h1>

@@ -409,6 +409,8 @@ export default function BookingEditor({
   const [productCards, setProductCards] = useState<SavedProductCard[]>(
     initialValues?.productCards?.length ? initialValues.productCards.map((card, index) => normalizeSavedProductCard(card, index)) : [createEmptyProductCard(0)],
   );
+  const [nulledOrderExtraKeysForCustomer, setNulledOrderExtraKeysForCustomer] = useState<string[]>([]);
+  const [nulledOrderExtraKeysForSubcontractor, setNulledOrderExtraKeysForSubcontractor] = useState<string[]>([]);
   const [customerLabel, setCustomerLabel] = useState(initialValues?.customerLabel ?? "");
   const [expandedCardId, setExpandedCardId] = useState<number | null>(0);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
@@ -812,6 +814,77 @@ export default function BookingEditor({
     setProductCards((current) => current.map((card) => (card.cardId === cardId ? nextValue : card)));
   }, []);
 
+  const clearBothDiscountFields = useCallback(() => {
+    setRabatt("");
+    setManualRabatt("");
+    setSubcontractorMinus("");
+    if (allowDnbDiscount && dnbDiscount) {
+      setDnbDiscount(false);
+    }
+  }, [allowDnbDiscount, dnbDiscount]);
+
+  const toggleLineNulledForCustomer = useCallback((cardId: number, lineKey: string, nulled: boolean) => {
+    if (nulled) {
+      clearBothDiscountFields();
+    }
+    setProductCards((current) =>
+      current.map((card) => {
+        if (card.cardId !== cardId) return card;
+        const existing = card.nulledLineKeysForCustomer ?? [];
+        const nextKeys = nulled
+          ? existing.includes(lineKey)
+            ? existing
+            : [...existing, lineKey]
+          : existing.filter((key) => key !== lineKey);
+        return { ...card, nulledLineKeysForCustomer: nextKeys };
+      }),
+    );
+  }, [clearBothDiscountFields]);
+
+  const toggleLineNulledForSubcontractor = useCallback((cardId: number, lineKey: string, nulled: boolean) => {
+    if (nulled) {
+      clearBothDiscountFields();
+    }
+    setProductCards((current) =>
+      current.map((card) => {
+        if (card.cardId !== cardId) return card;
+        const existing = card.nulledLineKeysForSubcontractor ?? [];
+        const nextKeys = nulled
+          ? existing.includes(lineKey)
+            ? existing
+            : [...existing, lineKey]
+          : existing.filter((key) => key !== lineKey);
+        return { ...card, nulledLineKeysForSubcontractor: nextKeys };
+      }),
+    );
+  }, [clearBothDiscountFields]);
+
+  const toggleOrderExtraLineNulledForCustomer = useCallback((lineKey: string, nulled: boolean) => {
+    if (nulled) {
+      clearBothDiscountFields();
+    }
+    setNulledOrderExtraKeysForCustomer((current) =>
+      nulled
+        ? current.includes(lineKey)
+          ? current
+          : [...current, lineKey]
+        : current.filter((key) => key !== lineKey),
+    );
+  }, [clearBothDiscountFields]);
+
+  const toggleOrderExtraLineNulledForSubcontractor = useCallback((lineKey: string, nulled: boolean) => {
+    if (nulled) {
+      clearBothDiscountFields();
+    }
+    setNulledOrderExtraKeysForSubcontractor((current) =>
+      nulled
+        ? current.includes(lineKey)
+          ? current
+          : [...current, lineKey]
+        : current.filter((key) => key !== lineKey),
+    );
+  }, [clearBothDiscountFields]);
+
   const addProductCard = useCallback(() => {
     setProductCards((current) => {
       const nextCardId = current.length > 0 ? Math.max(...current.map((c) => c.cardId)) + 1 : 0;
@@ -929,6 +1002,8 @@ export default function BookingEditor({
         feeExtraWork,
         extraPickups,
         shouldUseNativeDistancePricing,
+        nulledOrderExtraKeysForCustomer,
+        nulledOrderExtraKeysForSubcontractor,
       }),
     [
     deviation,
@@ -941,6 +1016,8 @@ export default function BookingEditor({
     productBreakdowns,
     extraPickups,
     shouldUseNativeDistancePricing,
+    nulledOrderExtraKeysForCustomer,
+    nulledOrderExtraKeysForSubcontractor,
     ],
   );
 
@@ -980,6 +1057,8 @@ export default function BookingEditor({
         feeExtraWork,
         extraPickups,
         shouldUseNativeDistancePricing,
+        nulledOrderExtraKeysForCustomer,
+        nulledOrderExtraKeysForSubcontractor,
       }),
     [
       currentCatalogProductBreakdowns,
@@ -992,6 +1071,8 @@ export default function BookingEditor({
       feeExtraWork,
       extraPickups,
       shouldUseNativeDistancePricing,
+      nulledOrderExtraKeysForCustomer,
+      nulledOrderExtraKeysForSubcontractor,
     ],
   );
 
@@ -1400,6 +1481,8 @@ export default function BookingEditor({
     }
     setManualRabatt(adj.rabatt);
 
+    let finalSubcontractorMinus = adj.subcontractorMinus;
+
     setRabatt((prevRabatt) => {
       if (adj.rabatt !== prevRabatt) {
         const rabattAmount = Number(adj.rabatt.replace(/[^\d.,-]/g, "").replace(",", "."));
@@ -1408,7 +1491,8 @@ export default function BookingEditor({
           Number.isFinite(rabattAmount) && rabattAmount > 0 && subtotalExVat > 0
             ? Math.round(subcontractorBase * rabattAmount / subtotalExVat)
             : 0;
-        setSubcontractorMinus(String(autoMinus));
+        finalSubcontractorMinus = String(autoMinus);
+        setSubcontractorMinus(finalSubcontractorMinus);
       } else {
         setSubcontractorMinus(adj.subcontractorMinus);
       }
@@ -1416,6 +1500,18 @@ export default function BookingEditor({
     });
     setLeggTil(adj.leggTil);
     setSubcontractorPlus(adj.subcontractorPlus);
+
+    if (parseNokAdjustment(adj.rabatt) !== 0 || parseNokAdjustment(finalSubcontractorMinus) !== 0) {
+      setProductCards((current) =>
+        current.map((card) =>
+          (card.nulledLineKeysForCustomer?.length ?? 0) > 0 || (card.nulledLineKeysForSubcontractor?.length ?? 0) > 0
+            ? { ...card, nulledLineKeysForCustomer: [], nulledLineKeysForSubcontractor: [] }
+            : card,
+        ),
+      );
+      setNulledOrderExtraKeysForCustomer((current) => (current.length > 0 ? [] : current));
+      setNulledOrderExtraKeysForSubcontractor((current) => (current.length > 0 ? [] : current));
+    }
   }, [allowDnbDiscount, dnbDiscount, rabatt]);
 
   const handleUseCurrentPrices = useCallback(() => {
@@ -2099,6 +2195,10 @@ export default function BookingEditor({
               subcontractorMinus={subcontractorMinus}
               subcontractorPlus={subcontractorPlus}
               onAdjustmentsChange={handleAdjustmentsChange}
+              onToggleCustomerNulled={toggleLineNulledForCustomer}
+              onToggleSubcontractorNulled={toggleLineNulledForSubcontractor}
+              onToggleCustomerOrderExtraNulled={toggleOrderExtraLineNulledForCustomer}
+              onToggleSubcontractorOrderExtraNulled={toggleOrderExtraLineNulledForSubcontractor}
               priceUpdateAvailable={hasCurrentPriceUpdates}
               priceUpdateStoredTotalExVat={priceExVat}
               priceUpdateCurrentTotalExVat={currentCatalogTotalExVat}
@@ -2124,6 +2224,10 @@ export default function BookingEditor({
             subcontractorMinus={subcontractorMinus}
             subcontractorPlus={subcontractorPlus}
             onAdjustmentsChange={handleAdjustmentsChange}
+            onToggleCustomerNulled={toggleLineNulledForCustomer}
+            onToggleSubcontractorNulled={toggleLineNulledForSubcontractor}
+            onToggleCustomerOrderExtraNulled={toggleOrderExtraLineNulledForCustomer}
+            onToggleSubcontractorOrderExtraNulled={toggleOrderExtraLineNulledForSubcontractor}
             priceUpdateAvailable={hasCurrentPriceUpdates}
             priceUpdateStoredTotalExVat={priceExVat}
             priceUpdateCurrentTotalExVat={currentCatalogTotalExVat}

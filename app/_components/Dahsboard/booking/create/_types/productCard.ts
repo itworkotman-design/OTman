@@ -56,6 +56,8 @@ export type SavedProductCard = {
   customSectionSelections: ProductCardCustomSectionSelection[];
   pricingSnapshot?: OrderPricingSnapshot | null;
   wordpressImportReadOnly?: WordpressImportReadOnlySnapshot | null;
+  nulledLineKeysForCustomer?: string[];
+  nulledLineKeysForSubcontractor?: string[];
 };
 
 export type CatalogOption = {
@@ -132,6 +134,8 @@ export function createEmptyProductCard(cardId: number): SavedProductCard {
     customSectionSelections: [],
     pricingSnapshot: null,
     wordpressImportReadOnly: null,
+    nulledLineKeysForCustomer: [],
+    nulledLineKeysForSubcontractor: [],
   };
 }
 
@@ -231,5 +235,17 @@ export function normalizeSavedProductCard(
     pricingSnapshot: value?.pricingSnapshot ?? base.pricingSnapshot,
     wordpressImportReadOnly:
       value?.wordpressImportReadOnly ?? base.wordpressImportReadOnly,
+    nulledLineKeysForCustomer: Array.isArray(value?.nulledLineKeysForCustomer)
+      ? value.nulledLineKeysForCustomer.filter(
+          (key): key is string => typeof key === "string",
+        )
+      : base.nulledLineKeysForCustomer,
+    nulledLineKeysForSubcontractor: Array.isArray(
+      value?.nulledLineKeysForSubcontractor,
+    )
+      ? value.nulledLineKeysForSubcontractor.filter(
+          (key): key is string => typeof key === "string",
+        )
+      : base.nulledLineKeysForSubcontractor,
   };
 }

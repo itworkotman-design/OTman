@@ -354,4 +354,75 @@ describe("buildOrderItemsFromCards", () => {
       ]),
     );
   });
+
+  it("zeroes customerPriceCents for a line whose key is in nulledLineKeysForCustomer, leaving subcontractorPriceCents untouched", () => {
+    const items = buildOrderItemsFromCards(
+      [
+        {
+          ...buildCard(),
+          nulledLineKeysForCustomer: ["opt:install-1"],
+        },
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          itemType: "INSTALL_OPTION",
+          optionId: "install-1",
+          customerPriceCents: 0,
+          subcontractorPriceCents: 20000,
+        }),
+      ]),
+    );
+  });
+
+  it("zeroes subcontractorPriceCents for a line whose key is in nulledLineKeysForSubcontractor, leaving customerPriceCents untouched", () => {
+    const items = buildOrderItemsFromCards(
+      [
+        {
+          ...buildCard(),
+          nulledLineKeysForSubcontractor: ["opt:install-1"],
+        },
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          itemType: "INSTALL_OPTION",
+          optionId: "install-1",
+          customerPriceCents: 35000,
+          subcontractorPriceCents: 0,
+        }),
+      ]),
+    );
+  });
+
+  it("keeps the PRODUCT_CARD header line's customerPriceCents as null (not 0) even when the card is nulled", () => {
+    const items = buildOrderItemsFromCards(
+      [
+        {
+          ...buildCard(),
+          nulledLineKeysForCustomer: ["opt:install-1"],
+        },
+      ],
+      [buildProduct()],
+      [],
+    );
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          itemType: "PRODUCT_CARD",
+          customerPriceCents: null,
+          subcontractorPriceCents: null,
+        }),
+      ]),
+    );
+  });
 });

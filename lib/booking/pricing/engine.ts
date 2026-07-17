@@ -6,6 +6,7 @@ import type {
   CalculatedLine,
   CalculatedBreakdown,
 } from "./types";
+import { computeLineKey } from "./lineKey";
 
 function parseNOK(input: string) {
   const s = input.replace(/[^\d.,-]/g, "").replace(",", ".");
@@ -37,9 +38,61 @@ export function calculateBookingPricing(params: {
 
   let subtotalExVat = 0;
   let subcontractorBase = 0;
+  let checkboxDiscount = 0;
+  let subcontractorCheckboxDiscount = 0;
 
   for (const product of productBreakdowns) {
     const lines: CalculatedLine[] = [];
+    const nulledForCustomerKeys = product.nulledLineKeysForCustomer ?? [];
+    const nulledForSubcontractorKeys =
+      product.nulledLineKeysForSubcontractor ?? [];
+
+    const pushLine = (line: {
+      label: string;
+      code?: string;
+      qty: number;
+      unitPrice: number;
+      rawLineTotal: number;
+      rawSubcontractorLineTotal: number;
+      lineKey: string | null;
+    }) => {
+      const nulledForCustomer =
+        line.lineKey != null && nulledForCustomerKeys.includes(line.lineKey);
+      const nulledForSubcontractor =
+        line.lineKey != null &&
+        nulledForSubcontractorKeys.includes(line.lineKey);
+
+      const lineTotal = nulledForCustomer ? 0 : line.rawLineTotal;
+      const subcontractorLineTotal = nulledForSubcontractor
+        ? 0
+        : line.rawSubcontractorLineTotal;
+
+      if (nulledForCustomer) {
+        checkboxDiscount = roundPriceRule(checkboxDiscount + line.rawLineTotal);
+      }
+      if (nulledForSubcontractor) {
+        subcontractorCheckboxDiscount = roundPriceRule(
+          subcontractorCheckboxDiscount + line.rawSubcontractorLineTotal,
+        );
+      }
+
+      subtotalExVat = roundPriceRule(subtotalExVat + lineTotal);
+      subcontractorBase = roundPriceRule(
+        subcontractorBase + subcontractorLineTotal,
+      );
+
+      lines.push({
+        label: line.label,
+        code: line.code,
+        qty: line.qty,
+        unitPrice: line.unitPrice,
+        lineTotal,
+        subcontractorLineTotal,
+        lineKey: line.lineKey,
+        nulledForCustomer,
+        nulledForSubcontractor,
+      });
+    };
 
     for (const item of product.items) {
       if (item.kind === "deliveryType") {
@@ -47,23 +100,17 @@ export function calculateBookingPricing(params: {
         const subcontractorUnitPrice = roundPriceRule(
           item.subcontractorUnitPrice,
         );
-        const lineTotal = roundPriceRule(unitPrice * item.qty);
-        const subcontractorLineTotal = roundPriceRule(
-          subcontractorUnitPrice * item.qty,
-        );
 
-        subtotalExVat = roundPriceRule(subtotalExVat + lineTotal);
-        subcontractorBase = roundPriceRule(
-          subcontractorBase + subcontractorLineTotal,
-        );
-
-        lines.push({
+        pushLine({
           label: item.label,
           code: item.code,
           qty: item.qty,
           unitPrice,
-          lineTotal,
-          subcontractorLineTotal,
+          rawLineTotal: roundPriceRule(unitPrice * item.qty),
+          rawSubcontractorLineTotal: roundPriceRule(
+            subcontractorUnitPrice * item.qty,
+          ),
+          lineKey: computeLineKey({ code: item.code }),
         });
 
         continue;
@@ -76,6 +123,9 @@ export function calculateBookingPricing(params: {
           unitPrice: 0,
           lineTotal: 0,
           subcontractorLineTotal: 0,
+          lineKey: null,
+          nulledForCustomer: false,
+          nulledForSubcontractor: false,
         });
 
         continue;
@@ -86,23 +136,17 @@ export function calculateBookingPricing(params: {
         const subcontractorUnitPrice = roundPriceRule(
           item.subcontractorUnitPrice ?? 0,
         );
-        const lineTotal = roundPriceRule(unitPrice * item.qty);
-        const subcontractorLineTotal = roundPriceRule(
-          subcontractorUnitPrice * item.qty,
-        );
 
-        subtotalExVat = roundPriceRule(subtotalExVat + lineTotal);
-        subcontractorBase = roundPriceRule(
-          subcontractorBase + subcontractorLineTotal,
-        );
-
-        lines.push({
+        pushLine({
           label: item.label,
           code: item.code,
           qty: item.qty,
           unitPrice,
-          lineTotal,
-          subcontractorLineTotal,
+          rawLineTotal: roundPriceRule(unitPrice * item.qty),
+          rawSubcontractorLineTotal: roundPriceRule(
+            subcontractorUnitPrice * item.qty,
+          ),
+          lineKey: computeLineKey({ code: item.code }),
         });
 
         continue;
@@ -122,23 +166,17 @@ export function calculateBookingPricing(params: {
           ? item.subcontractorPriceOverride
           : lookup.subcontractorPrice,
       );
-      const lineTotal = roundPriceRule(unitPrice * item.qty);
-      const subcontractorLineTotal = roundPriceRule(
-        subcontractorUnitPrice * item.qty,
-      );
 
-      subtotalExVat = roundPriceRule(subtotalExVat + lineTotal);
-      subcontractorBase = roundPriceRule(
-        subcontractorBase + subcontractorLineTotal,
-      );
-
-      lines.push({
+      pushLine({
         label: lookup.label,
         code: lookup.code,
         qty: item.qty,
         unitPrice,
-        lineTotal,
-        subcontractorLineTotal,
+        rawLineTotal: roundPriceRule(unitPrice * item.qty),
+        rawSubcontractorLineTotal: roundPriceRule(
+          subcontractorUnitPrice * item.qty,
+        ),
+        lineKey: computeLineKey({ optionId: item.productOptionId }),
       });
     }
 
@@ -148,6 +186,8 @@ export function calculateBookingPricing(params: {
       readOnly: product.readOnly,
       comment: product.comment ?? null,
       lines,
+      cardId: product.cardId,
+      isOrderExtras: product.isOrderExtras,
     });
   }
 
@@ -164,12 +204,14 @@ export function calculateBookingPricing(params: {
       subtotalExVat: roundPriceRule(subtotalExVat),
       discount: rabatt,
       extra: leggTil,
+      checkboxDiscount,
       totalExVat,
       vat,
       totalIncVat,
       subcontractorBase: roundPriceRule(subcontractorBase),
       subcontractorMinus,
       subcontractorPlus,
+      subcontractorCheckboxDiscount,
       subcontractorTotal,
     },
   };

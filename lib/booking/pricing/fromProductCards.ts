@@ -646,6 +646,9 @@ export function buildProductBreakdowns(
           return hoursApply ? `${product.label} (${getHoursInput(card, product)} h)` : product.label;
         })(),
         productModelNumber: product.allowModelNumber && card.modelNumber.trim() ? card.modelNumber.trim() : null,
+        cardId: card.cardId,
+        nulledLineKeysForCustomer: card.nulledLineKeysForCustomer ?? [],
+        nulledLineKeysForSubcontractor: card.nulledLineKeysForSubcontractor ?? [],
         items: buildItemsForCard(
           card,
           product,

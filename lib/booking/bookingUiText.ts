@@ -164,6 +164,7 @@ const NB_TEXT: Record<string, string> = {
   selected: "valgt",
   Status: "Status",
   "Status notes": "Statusnotater",
+  "Set to 0": "Sett til 0",
   Store: "Butikk",
   Partner: "Partner",
   "Partner minus": "Partner minus",

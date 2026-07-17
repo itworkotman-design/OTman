@@ -41,6 +41,10 @@ export type ProductBreakdown = {
   readOnly?: boolean;
   comment?: string | null;
   items: ProductCardLineItem[];
+  cardId?: number;
+  isOrderExtras?: boolean;
+  nulledLineKeysForCustomer?: string[];
+  nulledLineKeysForSubcontractor?: string[];
 };
 
 export type PriceLookup = Record<
@@ -64,12 +68,14 @@ export type CalculatorTotals = {
   subtotalExVat: number;
   discount: number;
   extra: number;
+  checkboxDiscount: number;
   totalExVat: number;
   vat: number;
   totalIncVat: number;
   subcontractorBase: number;
   subcontractorMinus: number;
   subcontractorPlus: number;
+  subcontractorCheckboxDiscount: number;
   subcontractorTotal: number;
 };
 
@@ -80,6 +86,9 @@ export type CalculatedLine = {
   unitPrice: number;
   lineTotal: number;
   subcontractorLineTotal?: number;
+  lineKey?: string | null;
+  nulledForCustomer?: boolean;
+  nulledForSubcontractor?: boolean;
 };
 
 export type CalculatedBreakdown = {
@@ -88,6 +97,8 @@ export type CalculatedBreakdown = {
   readOnly?: boolean;
   comment?: string | null;
   lines: CalculatedLine[];
+  cardId?: number;
+  isOrderExtras?: boolean;
 };
 
 export type CalculatorResult = {
