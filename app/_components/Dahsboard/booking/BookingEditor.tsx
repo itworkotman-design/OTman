@@ -101,6 +101,8 @@ export type OrderFormPayload = {
   leggTil: string;
   subcontractorMinus: string;
   subcontractorPlus: string;
+  nulledOrderExtraKeysForCustomer: string[];
+  nulledOrderExtraKeysForSubcontractor: string[];
 };
 
 type ExtraPickupDraft = {
@@ -409,8 +411,12 @@ export default function BookingEditor({
   const [productCards, setProductCards] = useState<SavedProductCard[]>(
     initialValues?.productCards?.length ? initialValues.productCards.map((card, index) => normalizeSavedProductCard(card, index)) : [createEmptyProductCard(0)],
   );
-  const [nulledOrderExtraKeysForCustomer, setNulledOrderExtraKeysForCustomer] = useState<string[]>([]);
-  const [nulledOrderExtraKeysForSubcontractor, setNulledOrderExtraKeysForSubcontractor] = useState<string[]>([]);
+  const [nulledOrderExtraKeysForCustomer, setNulledOrderExtraKeysForCustomer] = useState<string[]>(
+    initialValues?.nulledOrderExtraKeysForCustomer ?? [],
+  );
+  const [nulledOrderExtraKeysForSubcontractor, setNulledOrderExtraKeysForSubcontractor] = useState<string[]>(
+    initialValues?.nulledOrderExtraKeysForSubcontractor ?? [],
+  );
   const [customerLabel, setCustomerLabel] = useState(initialValues?.customerLabel ?? "");
   const [expandedCardId, setExpandedCardId] = useState<number | null>(0);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
@@ -776,6 +782,8 @@ export default function BookingEditor({
     setLeggTil(initialValues.leggTil ?? "");
     setSubcontractorMinus(initialValues.subcontractorMinus ?? "");
     setSubcontractorPlus(initialValues.subcontractorPlus ?? "");
+    setNulledOrderExtraKeysForCustomer(initialValues.nulledOrderExtraKeysForCustomer ?? []);
+    setNulledOrderExtraKeysForSubcontractor(initialValues.nulledOrderExtraKeysForSubcontractor ?? []);
     setSubmitError("");
     setDidAttemptSubmit(false);
   }, [initialValues]);
@@ -1909,6 +1917,8 @@ export default function BookingEditor({
       leggTil,
       subcontractorMinus,
       subcontractorPlus,
+      nulledOrderExtraKeysForCustomer,
+      nulledOrderExtraKeysForSubcontractor,
     };
 
     try {

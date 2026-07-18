@@ -6,6 +6,7 @@ import { canCreateOrders } from "@/lib/users/orderAccess";
 import {
   optionalBoolean,
   optionalString,
+  optionalStringArray,
   safeInteger,
   safeNumber,
 } from "@/lib/orders/normalizeOrderInput";
@@ -751,6 +752,8 @@ export async function POST(req: Request) {
       leggTil: optionalString(body.leggTil),
       subcontractorMinus: optionalString(body.subcontractorMinus),
       subcontractorPlus: optionalString(body.subcontractorPlus),
+      nulledOrderExtraKeysForCustomer: optionalStringArray(body.nulledOrderExtraKeysForCustomer),
+      nulledOrderExtraKeysForSubcontractor: optionalStringArray(body.nulledOrderExtraKeysForSubcontractor),
       customerMembershipId,
       customerLabel,
       priceExVat: safeNumber(body.priceExVat),

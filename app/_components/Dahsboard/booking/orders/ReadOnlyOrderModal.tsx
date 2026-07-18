@@ -98,6 +98,8 @@ type FullOrderResponse = {
     feeAddToOrder: boolean;
     priceExVat: number;
     priceSubcontractor: number;
+    nulledOrderExtraKeysForCustomer?: string[];
+    nulledOrderExtraKeysForSubcontractor?: string[];
   };
   reason?: string;
 };
@@ -203,7 +205,7 @@ function getPdfDetailRows(order: ReadOnlyOrder): PdfDetailRow[] {
 }
 
 
-function renderAdminCalculatorHtml(state: AdminCalculatorState) {
+function renderAdminCalculatorHtml(state: AdminCalculatorState, isSubcontractor: boolean) {
   const result = calculateBookingPricing({
     productBreakdowns: state.productBreakdowns,
     priceLookup: state.priceLookup,
@@ -220,16 +222,19 @@ function renderAdminCalculatorHtml(state: AdminCalculatorState) {
       ? result.breakdowns
           .map((product) => {
             const linesHtml = product.lines
-              .map(
-                (line) => `
-                  <div class="priceRow">
+              .map((line) => {
+                const isNulled = isSubcontractor ? line.nulledForSubcontractor : line.nulledForCustomer;
+                const lineTotal = isSubcontractor ? (line.subcontractorLineTotal ?? 0) : line.lineTotal;
+
+                return `
+                  <div class="priceRow"${isNulled ? ' style="text-decoration: line-through; opacity: 0.6;"' : ""}>
                     <div>${line.qty > 1 ? `x${escapeHtml(formatQty(line.qty))} ` : ""}${
                       line.code ? `<span class="line-code">(${escapeHtml(line.code)})</span> ` : ""
                     }${escapeHtml(line.label)}</div>
-                    <strong>${escapeHtml(formatMoney(line.lineTotal))}</strong>
+                    <strong>${escapeHtml(formatMoney(lineTotal))}</strong>
                   </div>
-                `,
-              )
+                `;
+              })
               .join("");
 
             return `
@@ -242,7 +247,7 @@ function renderAdminCalculatorHtml(state: AdminCalculatorState) {
           .join("")
       : `<p class="empty-calculator">Ingen varelinjer lagret.</p>`;
 
-  const totalExVat = roundMoney(state.priceExVat);
+  const totalExVat = roundMoney(isSubcontractor ? state.priceSubcontractor : state.priceExVat);
   const vat = roundMoney(totalExVat * 0.25);
   const totalIncVat = roundMoney(totalExVat + vat);
 
@@ -261,6 +266,7 @@ function renderAdminCalculatorHtml(state: AdminCalculatorState) {
 
 
 function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode | undefined, calculatorState: AdminCalculatorState | null) {
+  const isSubcontractor = viewMode === "SUBCONTRACTOR";
   const totalExVat = getVisibleOrderPrice(order, viewMode);
   const vat = totalExVat * 0.25;
   const totalIncVat = totalExVat + vat;
@@ -339,7 +345,7 @@ function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode
         <h1>Ordredetaljer</h1>
         <div class="pdf-layout">
           <table><tbody>${detailRowsHtml}</tbody></table>
-          ${calculatorState ? renderAdminCalculatorHtml(calculatorState) : `<p>Calculator missing data.</p>`}
+          ${calculatorState ? renderAdminCalculatorHtml(calculatorState, isSubcontractor) : `<p>Calculator missing data.</p>`}
         </div>
         <script>window.onload = function() { window.print(); }</script>
       </body>
@@ -564,6 +570,8 @@ function useAdminCalculatorState(order: ReadOnlyOrder | null) {
         feeExtraWork: fullOrder.feeExtraWork,
         extraPickups: fullOrder.extraPickups,
         shouldUseNativeDistancePricing,
+        nulledOrderExtraKeysForCustomer: fullOrder.nulledOrderExtraKeysForCustomer,
+        nulledOrderExtraKeysForSubcontractor: fullOrder.nulledOrderExtraKeysForSubcontractor,
       }),
       priceLookup: buildPriceLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions),
       priceExVat: fullOrder.priceExVat,

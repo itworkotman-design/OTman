@@ -13,6 +13,8 @@ type PricedOrderLine = {
 
 export type OrderPricingSnapshot = {
   version: 1;
+  nulledOrderExtraKeysForCustomer: string[];
+  nulledOrderExtraKeysForSubcontractor: string[];
   customer: {
     subtotalExVat: number;
     discount: number;
@@ -132,6 +134,21 @@ export function getPricingSnapshotSubcontractorTotal(snapshot: unknown): number 
   return getSnapshotNumber(subcontractor?.total);
 }
 
+function getSnapshotStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+export function getPricingSnapshotNulledOrderExtraKeysForCustomer(snapshot: unknown): string[] {
+  const root = getSnapshotRecord(snapshot);
+  return getSnapshotStringArray(root?.nulledOrderExtraKeysForCustomer);
+}
+
+export function getPricingSnapshotNulledOrderExtraKeysForSubcontractor(snapshot: unknown): string[] {
+  const root = getSnapshotRecord(snapshot);
+  return getSnapshotStringArray(root?.nulledOrderExtraKeysForSubcontractor);
+}
+
 export function buildOrderPricingSnapshot(params: {
   lines: PricedOrderLine[];
   rabatt: string | null | undefined;
@@ -140,6 +157,8 @@ export function buildOrderPricingSnapshot(params: {
   subcontractorPlus: string | null | undefined;
   fallbackCustomerTotalExVat?: number;
   fallbackSubcontractorTotal?: number;
+  nulledOrderExtraKeysForCustomer?: string[];
+  nulledOrderExtraKeysForSubcontractor?: string[];
 }): OrderPricingSnapshot {
   const totals = getOrderLinePriceTotals(params.lines);
   const discount = roundNok(parseNokAdjustment(params.rabatt));
@@ -174,6 +193,8 @@ export function buildOrderPricingSnapshot(params: {
 
   return {
     version: 1,
+    nulledOrderExtraKeysForCustomer: params.nulledOrderExtraKeysForCustomer ?? [],
+    nulledOrderExtraKeysForSubcontractor: params.nulledOrderExtraKeysForSubcontractor ?? [],
     customer: {
       subtotalExVat: customerSubtotal,
       discount,

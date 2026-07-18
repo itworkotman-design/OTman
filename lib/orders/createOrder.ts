@@ -76,6 +76,8 @@ export type CreateOrderFields = {
   leggTil: string | null;
   subcontractorMinus: string | null;
   subcontractorPlus: string | null;
+  nulledOrderExtraKeysForCustomer?: string[];
+  nulledOrderExtraKeysForSubcontractor?: string[];
   customerMembershipId: string;
   customerLabel: string;
   // Fallback totals used only when the caller has a real client-submitted
@@ -172,6 +174,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     fallbackSubcontractorTotal: hasSubmittedTotal
       ? Math.round(fields.priceSubcontractor as number)
       : Math.round(computedFullTotal!.subcontractorTotal),
+    nulledOrderExtraKeysForCustomer: fields.nulledOrderExtraKeysForCustomer,
+    nulledOrderExtraKeysForSubcontractor: fields.nulledOrderExtraKeysForSubcontractor,
   });
   const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
   const finalSubcontractorTotal = pricingSnapshot.subcontractor.total;
