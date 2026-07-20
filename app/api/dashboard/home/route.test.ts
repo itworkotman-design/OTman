@@ -69,16 +69,22 @@ describe("GET /api/dashboard/home", () => {
       .mockResolvedValueOnce(3)
       .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(1);
-    mocks.orderFindManyMock.mockResolvedValue([
-      {
-        createdAt: new Date("2026-07-01T10:00:00.000Z"),
-        priceExVat: 1000,
-      },
-      {
-        createdAt: new Date("2026-07-03T12:00:00.000Z"),
-        priceExVat: 2500,
-      },
-    ]);
+    mocks.orderFindManyMock
+      .mockResolvedValueOnce([
+        {
+          createdAt: new Date("2026-07-01T10:00:00.000Z"),
+          priceExVat: 1000,
+        },
+        {
+          createdAt: new Date("2026-07-03T12:00:00.000Z"),
+          priceExVat: 2500,
+        },
+      ])
+      .mockResolvedValueOnce([
+        { createdAt: new Date("2026-07-01T10:00:00.000Z") },
+        { createdAt: new Date("2026-07-03T12:00:00.000Z") },
+        { createdAt: new Date("2025-07-05T10:00:00.000Z") },
+      ]);
     mocks.orderGroupByMock.mockResolvedValue([
       {
         status: "processing",
@@ -128,6 +134,16 @@ describe("GET /api/dashboard/home", () => {
           revenue: 2500,
         },
       ]),
+      monthlyComparison: expect.arrayContaining([
+        {
+          month: 7,
+          monthLabel: "Jul",
+          currentYearOrders: 2,
+          lastYearOrders: 1,
+        },
+      ]),
+      currentYear: 2026,
+      lastYear: 2025,
     });
 
     expect(mocks.membershipFindFirstMock).toHaveBeenCalledWith({

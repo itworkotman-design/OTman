@@ -26,6 +26,9 @@ type DashboardResponse = {
   orderEmailsEnabled: boolean;
   statusBreakdown: StatusItem[];
   dailyActivity: DailyActivityItem[];
+  monthlyComparison: MonthlyComparisonItem[];
+  currentYear: number;
+  lastYear: number;
   reason?: string;
 };
 
@@ -33,6 +36,13 @@ type DailyActivityItem = {
   date: string;
   orders: number;
   revenue: number;
+};
+
+type MonthlyComparisonItem = {
+  month: number;
+  monthLabel: string;
+  currentYearOrders: number;
+  lastYearOrders: number;
 };
 
 type MembershipsResponse = {
@@ -292,6 +302,266 @@ function DailySeriesChart({
   );
 }
 
+function niceCeil(value: number) {
+  if (value <= 0) {
+    return 1;
+  }
+
+  const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+  const normalized = value / magnitude;
+
+  let niceNormalized;
+  if (normalized <= 1) {
+    niceNormalized = 1;
+  } else if (normalized <= 2) {
+    niceNormalized = 2;
+  } else if (normalized <= 5) {
+    niceNormalized = 5;
+  } else {
+    niceNormalized = 10;
+  }
+
+  return niceNormalized * magnitude;
+}
+
+function MonthlyOrdersComparisonChart({
+  items,
+  currentYear,
+  lastYear,
+}: {
+  items: MonthlyComparisonItem[];
+  currentYear: number;
+  lastYear: number;
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const chartWidth = 720;
+  const chartHeight = 220;
+  const leftPadding = 34;
+  const topPadding = 20;
+  const bottomPadding = 28;
+  const plotHeight = chartHeight - topPadding - bottomPadding;
+  const barColor = "#3B82F6";
+  const lineColor = "#64748B";
+
+  const rawMax = items.reduce(
+    (max, item) =>
+      Math.max(max, item.currentYearOrders, item.lastYearOrders),
+    0,
+  );
+  const niceMax = niceCeil(rawMax);
+  const bandWidth = (chartWidth - leftPadding) / Math.max(items.length, 1);
+  const barWidth = Math.min(24, bandWidth * 0.45);
+
+  const valueToY = (value: number) =>
+    chartHeight - bottomPadding - (value / niceMax) * plotHeight;
+
+  const linePoints = items.map((item, index) => ({
+    x: leftPadding + bandWidth * index + bandWidth / 2,
+    y: valueToY(item.lastYearOrders),
+  }));
+  const polylinePoints = linePoints
+    .map((point) => `${point.x},${point.y}`)
+    .join(" ");
+
+  const totalCurrentYear = items.reduce(
+    (sum, item) => sum + item.currentYearOrders,
+    0,
+  );
+  const totalLastYear = items.reduce(
+    (sum, item) => sum + item.lastYearOrders,
+    0,
+  );
+  const delta = totalCurrentYear - totalLastYear;
+  const deltaPercent =
+    totalLastYear > 0 ? (delta / totalLastYear) * 100 : null;
+  const yTicks = [0, niceMax / 2, niceMax];
+
+  return (
+    <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+      <div className=" bg-linear-to-r from-logoblue to-blue-500 px-6 py-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-white">
+              Orders: {currentYear} vs {lastYear}
+            </h2>
+            <p className="mt-1 text-sm text-white/75">
+              Monthly order volume compared to the same month last year
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-300" />
+              {totalCurrentYear} orders in {currentYear}
+            </span>
+            {deltaPercent !== null ? (
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold backdrop-blur ${
+                  delta >= 0
+                    ? "bg-emerald-400/20 text-emerald-100"
+                    : "bg-red-400/20 text-red-100"
+                }`}
+              >
+                {delta >= 0 ? "+" : ""}
+                {deltaPercent.toFixed(0)}% vs {lastYear}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <div className="mb-4 flex flex-wrap items-center gap-5 text-xs font-medium text-slate-500">
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="h-3 w-3 rounded-sm"
+              style={{ backgroundColor: barColor }}
+            />
+            {currentYear} orders
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="h-0.5 w-4 rounded-full"
+              style={{ backgroundColor: lineColor }}
+            />
+            {lastYear} orders
+          </span>
+        </div>
+
+        <div
+          className="relative overflow-hidden rounded-2xl bg-slate-50 p-3"
+          onMouseLeave={() => setHoveredIndex(null)}
+        >
+          <svg
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            className="h-56 w-full"
+            preserveAspectRatio="none"
+            aria-label="Monthly orders this year compared to last year"
+          >
+            {yTicks.map((tick) => (
+              <g key={`tick-${tick}`}>
+                <line
+                  x1={leftPadding}
+                  y1={valueToY(tick)}
+                  x2={chartWidth}
+                  y2={valueToY(tick)}
+                  stroke="#E1E0D9"
+                  strokeWidth="1"
+                />
+                <text
+                  x={leftPadding - 6}
+                  y={valueToY(tick)}
+                  dy={tick === 0 ? -2 : 4}
+                  textAnchor="end"
+                  className="fill-slate-400 text-[10px]"
+                >
+                  {Math.round(tick)}
+                </text>
+              </g>
+            ))}
+
+            {items.map((item, index) => {
+              const barHeight = (item.currentYearOrders / niceMax) * plotHeight;
+              const x =
+                leftPadding + bandWidth * index + (bandWidth - barWidth) / 2;
+              const y = chartHeight - bottomPadding - barHeight;
+              const isHovered = hoveredIndex === index;
+
+              return (
+                <g key={`bar-${item.month}`}>
+                  <rect
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={Math.max(barHeight, 0)}
+                    rx={4}
+                    fill={barColor}
+                    opacity={isHovered ? 1 : 0.85}
+                  />
+                  {barHeight > 8 ? (
+                    <rect
+                      x={x}
+                      y={y + Math.max(barHeight - 4, 0)}
+                      width={barWidth}
+                      height={4}
+                      fill={barColor}
+                      opacity={isHovered ? 1 : 0.85}
+                    />
+                  ) : null}
+                  <rect
+                    x={leftPadding + bandWidth * index}
+                    y={topPadding}
+                    width={bandWidth}
+                    height={plotHeight}
+                    fill="transparent"
+                    onMouseEnter={() => setHoveredIndex(index)}
+                  />
+                </g>
+              );
+            })}
+
+            <polyline
+              fill="none"
+              stroke={lineColor}
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              points={polylinePoints}
+            />
+
+            {linePoints.map((point, index) => (
+              <circle
+                key={`dot-${items[index]?.month ?? index}`}
+                cx={point.x}
+                cy={point.y}
+                r={hoveredIndex === index ? 5 : 4}
+                fill={lineColor}
+                stroke="#F8FAFC"
+                strokeWidth="2"
+              />
+            ))}
+
+            {items.map((item, index) => (
+              <text
+                key={`label-${item.month}`}
+                x={leftPadding + bandWidth * index + bandWidth / 2}
+                y={chartHeight - 8}
+                textAnchor="middle"
+                className="fill-slate-400 text-[12px]"
+              >
+                {item.monthLabel}
+              </text>
+            ))}
+          </svg>
+
+          {hoveredIndex !== null && items[hoveredIndex] ? (
+            <div className="pointer-events-none absolute left-4 top-4 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-lg backdrop-blur">
+              <div className="font-semibold">
+                {items[hoveredIndex].monthLabel}
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-sm"
+                  style={{ backgroundColor: barColor }}
+                />
+                {currentYear}: {items[hoveredIndex].currentYearOrders} orders
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: lineColor }}
+                />
+                {lastYear}: {items[hoveredIndex].lastYearOrders} orders
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DailyActivityChart({ items }: { items: DailyActivityItem[] }) {
   const chartWidth = 720;
   const chartHeight = 180;
@@ -301,15 +571,7 @@ function DailyActivityChart({ items }: { items: DailyActivityItem[] }) {
     (item) => item.orders > 0 || item.revenue > 0,
   );
   const chartItems = nonZeroItems.length > 0 ? items : items.slice(-7);
-  const ordersValues = chartItems.map((item) => item.orders);
   const revenueValues = chartItems.map((item) => item.revenue);
-  const ordersPlotPoints = buildSeriesPoints({
-    values: ordersValues,
-    width: chartWidth,
-    height: chartHeight,
-    topPadding,
-    bottomPadding,
-  });
   const revenuePlotPoints = buildSeriesPoints({
     values: revenueValues,
     width: chartWidth,
@@ -317,7 +579,6 @@ function DailyActivityChart({ items }: { items: DailyActivityItem[] }) {
     topPadding,
     bottomPadding,
   });
-  const totalOrders = chartItems.reduce((sum, item) => sum + item.orders, 0);
   const totalRevenue = chartItems.reduce((sum, item) => sum + item.revenue, 0);
 
   return (
@@ -326,18 +587,14 @@ function DailyActivityChart({ items }: { items: DailyActivityItem[] }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-white">
-              Daily Activity This Month
+              Daily Revenue This Month
             </h2>
             <p className="mt-1 text-sm text-white/75">
-              Orders and revenue grouped by day for the active company
+              Revenue grouped by day for the active company
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
-              <span className="h-2.5 w-2.5 rounded-full bg-blue-300" />
-              {totalOrders} orders
-            </span>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
               {formatNOK(totalRevenue)}
@@ -346,29 +603,7 @@ function DailyActivityChart({ items }: { items: DailyActivityItem[] }) {
         </div>
       </div>
 
-      <div className="grid gap-6 p-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-800">
-              Orders per day
-            </div>
-            <div className="text-xs uppercase tracking-wide text-slate-500">
-              Blue line
-            </div>
-          </div>
-          <DailySeriesChart
-            ariaLabel="Orders per day chart"
-            lineColor="#3B82F6"
-            guideColor="#DBEAFE"
-            items={chartItems}
-            points={ordersPlotPoints}
-            bottomPadding={bottomPadding}
-            chartWidth={chartWidth}
-            chartHeight={chartHeight}
-            formatValue={(value) => `${value} orders`}
-          />
-        </div>
-
+      <div className="p-6">
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="mb-4 flex items-center justify-between">
             <div className="text-sm font-semibold text-slate-800">
@@ -516,6 +751,7 @@ export default function DashboardHome() {
   const bookingEmailCount = stats.bookingEmailCount;
   const statusBreakdown = data.statusBreakdown;
   const dailyActivity = data.dailyActivity;
+  const monthlyComparison = data.monthlyComparison;
 
   async function handleFinishMonth() {
     try {
@@ -592,6 +828,12 @@ export default function DashboardHome() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
       <div className="mx-auto max-w-7xl">
+        <MonthlyOrdersComparisonChart
+          items={monthlyComparison}
+          currentYear={data.currentYear}
+          lastYear={data.lastYear}
+        />
+
         <DailyActivityChart items={dailyActivity} />
 
         <StatusBreakdownChart items={statusBreakdown} />

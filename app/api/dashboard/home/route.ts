@@ -12,6 +12,52 @@ function formatDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+function buildMonthlyComparison(
+  currentYear: number,
+  lastYear: number,
+  yearOrders: { createdAt: Date }[],
+) {
+  const monthly = MONTH_LABELS.map((monthLabel, index) => ({
+    month: index + 1,
+    monthLabel,
+    currentYearOrders: 0,
+    lastYearOrders: 0,
+  }));
+
+  yearOrders.forEach((order) => {
+    const orderYear = order.createdAt.getFullYear();
+    const orderMonth = order.createdAt.getMonth();
+    const bucket = monthly[orderMonth];
+
+    if (!bucket) {
+      return;
+    }
+
+    if (orderYear === currentYear) {
+      bucket.currentYearOrders += 1;
+    } else if (orderYear === lastYear) {
+      bucket.lastYearOrders += 1;
+    }
+  });
+
+  return monthly;
+}
+
 function buildDailyActivity(
   start: Date,
   end: Date,
@@ -76,6 +122,10 @@ export async function GET(req: Request) {
 
   try {
     const { start, end } = getMonthRange();
+    const currentYear = new Date().getFullYear();
+    const lastYear = currentYear - 1;
+    const yearRangeStart = new Date(lastYear, 0, 1);
+    const yearRangeEnd = new Date(currentYear + 1, 0, 1);
     const membership = await prisma.membership.findFirst({
       where: {
         userId: session.userId,
@@ -109,6 +159,7 @@ export async function GET(req: Request) {
       pendingOrders,
       cancelledOrders,
       monthlyOrders,
+      yearOrders,
       allStatuses,
       unreadInboundEmailAggregate,
     ] = await Promise.all([
@@ -158,6 +209,16 @@ export async function GET(req: Request) {
         },
       }),
 
+      prisma.order.findMany({
+        where: {
+          companyId: session.activeCompanyId,
+          createdAt: { gte: yearRangeStart, lt: yearRangeEnd },
+        },
+        select: {
+          createdAt: true,
+        },
+      }),
+
       prisma.order.groupBy({
         where: {
           companyId: session.activeCompanyId,
@@ -188,6 +249,11 @@ export async function GET(req: Request) {
     const bookingEmailCount =
       unreadInboundEmailAggregate._sum.unreadInboundEmailCount ?? 0;
     const dailyActivity = buildDailyActivity(start, end, monthlyOrders);
+    const monthlyComparison = buildMonthlyComparison(
+      currentYear,
+      lastYear,
+      yearOrders,
+    );
 
     return NextResponse.json({
       ok: true,
@@ -206,6 +272,9 @@ export async function GET(req: Request) {
         count: item._count.status,
       })),
       dailyActivity,
+      monthlyComparison,
+      currentYear,
+      lastYear,
     });
   } catch (error) {
     console.error("Dashboard home error:", error);
