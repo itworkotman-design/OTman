@@ -331,10 +331,7 @@ export default function GdprSection() {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 px-6 py-4">
-        <h2 className="text-base font-semibold text-slate-900">GDPR</h2>
-        <p className="mt-0.5 text-sm text-slate-500">
-          Invoiced orders awaiting payment, orders on hold, and the anonymization/POD/hold audit log
-        </p>
+        <h2 className="text-base font-semibold text-logoblue">GDPR</h2>
       </div>
 
       <div className="p-6">
@@ -417,7 +414,7 @@ export default function GdprSection() {
                   disabled={submitting || selectedIds.size === 0}
                   className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  Update selected to Betalt
+                  Update selected to Paid
                 </button>
                 <button
                   type="button"
@@ -460,7 +457,7 @@ export default function GdprSection() {
         ) : heldOrders.length > 0 ? (
           <div className="mt-6 rounded-2xl border border-slate-300 bg-slate-50 p-4">
             <div className="mb-3 text-sm font-semibold text-slate-700">
-              Orders on GDPR hold — automatic anonymization/POD cleanup is paused
+              On hold — automatic anonymization/POD cleanup is paused
             </div>
 
             <div className="overflow-x-auto">

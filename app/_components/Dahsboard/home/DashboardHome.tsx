@@ -673,8 +673,7 @@ export default function DashboardHome() {
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
               <div>
-                <h2 className="text-base font-semibold text-slate-900">People Online</h2>
-                <p className="mt-0.5 text-sm text-slate-500">Members currently active in the dashboard</p>
+                <h2 className="text-base font-semibold text-logoblue">People Online</h2>
               </div>
 
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
@@ -729,8 +728,7 @@ export default function DashboardHome() {
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
               <div>
-                <h2 className="text-base font-semibold text-slate-900">Booking Emails</h2>
-                <p className="mt-0.5 text-sm text-slate-500">New emails related to booking orders</p>
+                <h2 className="text-base font-semibold text-logoblue">Booking Emails</h2>
               </div>
 
               <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700">
@@ -760,8 +758,7 @@ export default function DashboardHome() {
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-6 py-4">
-            <h2 className="text-base font-semibold text-slate-900">Quick Tasks</h2>
-            <p className="mt-0.5 text-sm text-slate-500">Shortcuts for manual dashboard jobs</p>
+            <h2 className="text-base font-semibold text-logoblue">Quick Tasks</h2>
           </div>
 
           <div className="p-6">
@@ -802,8 +799,7 @@ export default function DashboardHome() {
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <div className="text-base font-semibold text-slate-800">Order emails</div>
-                  <div className="mt-1 text-sm text-slate-500">Disable outbound order emails while import and pricing work is in progress.</div>
+                  <div className="text-base font-semibold text-slate-800">Email</div>
                   <div className="mt-2 text-sm font-medium text-slate-700">Current status: {orderEmailsEnabled ? "Enabled" : "Disabled"}</div>
                 </div>
 
