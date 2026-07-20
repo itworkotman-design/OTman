@@ -91,7 +91,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}
-                  className="block px-3 py-6 md:py-0 text-lg md:text-sm transition-colors duration-140 text-pink-600"
+                  className="block px-3 py-6 md:py-0 text-lg md:text-sm transition-colors duration-140 text-logoblue"
                 >
                   {content.dashboardLabel[locale]}
                 </Link>
