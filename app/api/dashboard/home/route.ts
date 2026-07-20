@@ -54,6 +54,54 @@ function buildMonthlyComparison(
   return monthly;
 }
 
+type LeaderboardEntry = {
+  membershipId: string;
+  username: string;
+  orderCount: number;
+  profit: number;
+};
+
+function buildLeaderboard(
+  currentYear: number,
+  yearOrders: {
+    createdAt: Date;
+    priceExVat: number | null;
+    priceSubcontractor: number | null;
+    customerMembershipId: string | null;
+    subcontractorMembershipId: string | null;
+  }[],
+  membershipIdField: "customerMembershipId" | "subcontractorMembershipId",
+  membershipLabels: Map<string, string>,
+  limit = 5,
+): LeaderboardEntry[] {
+  const stats = new Map<string, { orderCount: number; profit: number }>();
+
+  yearOrders.forEach((order) => {
+    const membershipId = order[membershipIdField];
+    if (!membershipId || order.createdAt.getFullYear() !== currentYear) {
+      return;
+    }
+
+    const priceExVat = Number(order.priceExVat ?? 0);
+    const priceSubcontractor = Number(order.priceSubcontractor ?? 0);
+    const profit = priceExVat - priceSubcontractor;
+
+    const entry = stats.get(membershipId) ?? { orderCount: 0, profit: 0 };
+    entry.orderCount += 1;
+    entry.profit += profit;
+    stats.set(membershipId, entry);
+  });
+
+  return Array.from(stats.entries())
+    .map(([membershipId, entry]) => ({
+      membershipId,
+      username: membershipLabels.get(membershipId) ?? "Unknown",
+      ...entry,
+    }))
+    .sort((a, b) => b.orderCount - a.orderCount)
+    .slice(0, limit);
+}
+
 function buildMonthlyRevenue(
   currentYear: number,
   lastYear: number,
@@ -155,7 +203,6 @@ export async function GET(req: Request) {
       monthlyOrders,
       yearOrders,
       allStatuses,
-      unreadInboundEmailAggregate,
     ] = await Promise.all([
       prisma.order.count({
         where: {
@@ -220,6 +267,8 @@ export async function GET(req: Request) {
           createdAt: true,
           priceExVat: true,
           priceSubcontractor: true,
+          customerMembershipId: true,
+          subcontractorMembershipId: true,
         },
       }),
 
@@ -232,27 +281,62 @@ export async function GET(req: Request) {
           status: true,
         },
       }),
+    ]);
 
-      prisma.order.aggregate({
-        where: {
-          companyId: session.activeCompanyId,
-          unreadInboundEmailCount: {
-            gt: 0,
+    const leaderboardMembershipIds = Array.from(
+      new Set(
+        yearOrders
+          .filter((order) => order.createdAt.getFullYear() === currentYear)
+          .flatMap((order) => [
+            order.customerMembershipId,
+            order.subcontractorMembershipId,
+          ])
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+
+    const leaderboardMemberships = await prisma.membership.findMany({
+      where: {
+        id: { in: leaderboardMembershipIds },
+        companyId: session.activeCompanyId,
+      },
+      select: {
+        id: true,
+        user: {
+          select: {
+            email: true,
+            username: true,
           },
         },
-        _sum: {
-          unreadInboundEmailCount: true,
-        },
-      }),
-    ]);
+      },
+    });
+
+    const membershipLabels = new Map(
+      leaderboardMemberships.map((leaderboardMembership) => [
+        leaderboardMembership.id,
+        leaderboardMembership.user.username?.trim() ||
+          leaderboardMembership.user.email,
+      ]),
+    );
+
+    const storeLeaderboard = buildLeaderboard(
+      currentYear,
+      yearOrders,
+      "customerMembershipId",
+      membershipLabels,
+    );
+    const subcontractorLeaderboard = buildLeaderboard(
+      currentYear,
+      yearOrders,
+      "subcontractorMembershipId",
+      membershipLabels,
+    );
 
     const totalIncome = monthlyOrders.reduce(
       (sum, order) =>
         sum + Number(order.priceExVat ?? 0) - Number(order.priceSubcontractor ?? 0),
       0,
     );
-    const bookingEmailCount =
-      unreadInboundEmailAggregate._sum.unreadInboundEmailCount ?? 0;
     const monthlyRevenue = buildMonthlyRevenue(currentYear, lastYear, yearOrders);
     const monthlyComparison = buildMonthlyComparison(
       currentYear,
@@ -270,7 +354,6 @@ export async function GET(req: Request) {
         pendingOrders,
         confirmedOrders,
         cancelledOrders,
-        bookingEmailCount,
       },
       orderEmailsEnabled: membership.company?.orderEmailsEnabled !== false,
       statusBreakdown: allStatuses.map((item) => ({
@@ -279,6 +362,8 @@ export async function GET(req: Request) {
       })),
       monthlyRevenue,
       monthlyComparison,
+      storeLeaderboard,
+      subcontractorLeaderboard,
       currentYear,
       lastYear,
     });

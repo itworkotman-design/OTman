@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Loads dashboard metrics, shows online members and booking-email stats, and exposes manual quick tasks from the dashboard home screen, including the month-end summary action and the company-level outbound order-email toggle.
+Loads dashboard metrics, shows online members and per-year store/subcontractor order leaderboards, and exposes manual quick tasks from the dashboard home screen, including the month-end summary action and the company-level outbound order-email toggle.
 
 ## Functions
 
@@ -18,6 +18,7 @@ Loads dashboard metrics, shows online members and booking-email stats, and expos
 | `buildSeriesPoints` | Converts daily numeric values into SVG chart coordinates. |
 | `DailySeriesChart` | Renders one interactive daily line chart with hover details. |
 | `DailyActivityChart` | Renders the dual daily orders and revenue charts for the current month. |
-| `DashboardHome` | Main dashboard home component. It fetches dashboard metrics and online members, renders the `Quick Tasks` card, and manages both the finish-month action and the `orderEmailsEnabled` toggle for outbound order emails. |
+| `LeaderboardCard` | Renders a ranked list of store/subcontractor `LeaderboardEntry` items (username, order count, and optionally profit) for the current year. |
+| `DashboardHome` | Main dashboard home component. It fetches dashboard metrics and online members, renders the store and subcontractor leaderboards, the `Quick Tasks` card, and manages both the finish-month action and the `orderEmailsEnabled` toggle for outbound order emails. |
 | `handleFinishMonth` | Calls the month-end summary route and shows inline success or error feedback. |
 | `handleToggleOrderEmails` | Calls the dashboard home `PATCH` route to enable or disable outbound order emails for the active company and reflects the result inline. |

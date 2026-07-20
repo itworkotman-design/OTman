@@ -12,7 +12,13 @@ type DashboardStats = {
   pendingOrders: number;
   confirmedOrders: number;
   cancelledOrders: number;
-  bookingEmailCount: number;
+};
+
+type LeaderboardEntry = {
+  membershipId: string;
+  username: string;
+  orderCount: number;
+  profit: number;
 };
 
 type DashboardResponse = {
@@ -21,6 +27,8 @@ type DashboardResponse = {
   orderEmailsEnabled: boolean;
   monthlyRevenue: MonthlyRevenueItem[];
   monthlyComparison: MonthlyComparisonItem[];
+  storeLeaderboard: LeaderboardEntry[];
+  subcontractorLeaderboard: LeaderboardEntry[];
   currentYear: number;
   lastYear: number;
   reason?: string;
@@ -167,7 +175,7 @@ function MonthlyOrdersComparisonChart({ items, currentYear, lastYear }: { items:
         <div className="relative overflow-hidden rounded-2xl bg-slate-50 p-3" onMouseLeave={() => setHoveredIndex(null)}>
           <svg
             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-            className="h-56 w-full"
+            className="h-64 w-full"
             preserveAspectRatio="none"
             aria-label="Monthly orders this year compared to last year"
           >
@@ -214,7 +222,7 @@ function MonthlyOrdersComparisonChart({ items, currentYear, lastYear }: { items:
                 r={hoveredIndex === index ? 5 : 4}
                 fill={lineColor}
                 stroke="#F8FAFC"
-                strokeWidth="2"
+                strokeWidth="3"
               />
             ))}
 
@@ -396,7 +404,7 @@ function MonthlyRevenueChart({ items, currentYear, lastYear }: { items: MonthlyR
                 r={hoveredIndex === index ? 5 : 4}
                 fill={lineColor}
                 stroke="#F8FAFC"
-                strokeWidth="2"
+                strokeWidth="3"
               />
             ))}
 
@@ -433,6 +441,61 @@ function MonthlyRevenueChart({ items, currentYear, lastYear }: { items: MonthlyR
             </div>
           ) : null}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function LeaderboardCard({
+  title,
+  emptyLabel,
+  entries,
+  showProfit,
+}: {
+  title: string;
+  emptyLabel: string;
+  entries: LeaderboardEntry[];
+  showProfit: boolean;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-6 py-4">
+        <h2 className="text-base font-semibold text-logoblue">{title}</h2>
+      </div>
+
+      <div className="p-6">
+        {entries.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">{emptyLabel}</div>
+        ) : (
+          <div className="grid gap-3">
+            {entries.map((entry, index) => (
+              <div
+                key={entry.membershipId}
+                className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+              >
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-logoblue text-sm font-bold text-white">
+                    {index + 1}
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-semibold text-slate-800">{entry.username}</div>
+                    {showProfit ? (
+                      <div className={`text-sm font-medium ${entry.profit >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        {formatNOK(entry.profit)} profit
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <div className="text-2xl font-bold text-slate-900">{entry.orderCount.toLocaleString("nb-NO")}</div>
+                  <div className="text-sm text-slate-500">orders</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -548,9 +611,10 @@ export default function DashboardHome() {
   }
 
   const { stats } = data;
-  const bookingEmailCount = stats.bookingEmailCount;
   const monthlyRevenue = data.monthlyRevenue;
   const monthlyComparison = data.monthlyComparison;
+  const storeLeaderboard = data.storeLeaderboard;
+  const subcontractorLeaderboard = data.subcontractorLeaderboard;
 
   async function handleFinishMonth() {
     try {
@@ -668,7 +732,7 @@ export default function DashboardHome() {
 
           <MonthlyRevenueChart items={monthlyRevenue} currentYear={data.currentYear} lastYear={data.lastYear} />
         </section>
-        <section className="grid gap-4 lg:grid-cols-2">
+        <section className="grid gap-4 lg:grid-cols-3">
           {/* Online members */}
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
@@ -725,33 +789,19 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
-              <div>
-                <h2 className="text-base font-semibold text-logoblue">Booking Emails</h2>
-              </div>
+          <LeaderboardCard
+            title="Top Stores"
+            emptyLabel="No store orders yet this year."
+            entries={storeLeaderboard}
+            showProfit
+          />
 
-              <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700">
-                <span className="h-2 w-2 rounded-full bg-sky-500" />
-                {bookingEmailCount} new
-              </div>
-            </div>
-
-            <div className="p-6">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="text-base font-semibold text-slate-800">Unread booking emails</div>
-                    <div className="mt-1 text-sm text-slate-500">Customer replies waiting for admin follow-up</div>
-                  </div>
-
-                  <div className="inline-flex min-w-[120] items-center justify-center rounded-2xl bg-white px-6 py-4 text-3xl font-bold text-slate-900 shadow-sm">
-                    {bookingEmailCount}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <LeaderboardCard
+            title="Top Subcontractors"
+            emptyLabel="No subcontractor orders yet this year."
+            entries={subcontractorLeaderboard}
+            showProfit={false}
+          />
         </section>
 
         <GdprSection />

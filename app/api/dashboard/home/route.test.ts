@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
+  membershipFindManyMock: vi.fn(),
   companyUpdateMock: vi.fn(),
   orderCountMock: vi.fn(),
   orderFindManyMock: vi.fn(),
   orderGroupByMock: vi.fn(),
-  orderAggregateMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     membership: {
       findFirst: mocks.membershipFindFirstMock,
+      findMany: mocks.membershipFindManyMock,
     },
     company: {
       update: mocks.companyUpdateMock,
@@ -26,7 +27,6 @@ vi.mock("@/lib/db", () => ({
       count: mocks.orderCountMock,
       findMany: mocks.orderFindManyMock,
       groupBy: mocks.orderGroupByMock,
-      aggregate: mocks.orderAggregateMock,
     },
   },
 }));
@@ -52,7 +52,7 @@ describe("GET /api/dashboard/home", () => {
     });
   });
 
-  it("returns company-scoped stats including unread inbound email count", async () => {
+  it("returns company-scoped stats including store and subcontractor leaderboards", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
@@ -88,16 +88,22 @@ describe("GET /api/dashboard/home", () => {
           createdAt: new Date("2026-07-01T10:00:00.000Z"),
           priceExVat: 1000,
           priceSubcontractor: 400,
+          customerMembershipId: "cust-1",
+          subcontractorMembershipId: "sub-1",
         },
         {
           createdAt: new Date("2026-07-03T12:00:00.000Z"),
           priceExVat: 2500,
           priceSubcontractor: 3000,
+          customerMembershipId: "cust-1",
+          subcontractorMembershipId: "sub-2",
         },
         {
           createdAt: new Date("2025-07-05T10:00:00.000Z"),
           priceExVat: 800,
           priceSubcontractor: 200,
+          customerMembershipId: "cust-2",
+          subcontractorMembershipId: "sub-1",
         },
       ]);
     mocks.orderGroupByMock.mockResolvedValue([
@@ -108,11 +114,11 @@ describe("GET /api/dashboard/home", () => {
         },
       },
     ]);
-    mocks.orderAggregateMock.mockResolvedValue({
-      _sum: {
-        unreadInboundEmailCount: 5,
-      },
-    });
+    mocks.membershipFindManyMock.mockResolvedValue([
+      { id: "cust-1", user: { email: "cust1@example.com", username: "StoreOne" } },
+      { id: "sub-1", user: { email: "sub1@example.com", username: "SubOne" } },
+      { id: "sub-2", user: { email: "sub2@example.com", username: null } },
+    ]);
 
     const response = await GET(
       new Request("http://localhost/api/dashboard/home"),
@@ -129,7 +135,6 @@ describe("GET /api/dashboard/home", () => {
         pendingOrders: 2,
         confirmedOrders: 5,
         cancelledOrders: 1,
-        bookingEmailCount: 5,
       },
       orderEmailsEnabled: true,
       statusBreakdown: [
@@ -156,6 +161,28 @@ describe("GET /api/dashboard/home", () => {
           lastYearOrders: 1,
         },
       ]),
+      storeLeaderboard: [
+        {
+          membershipId: "cust-1",
+          username: "StoreOne",
+          orderCount: 2,
+          profit: 100,
+        },
+      ],
+      subcontractorLeaderboard: [
+        {
+          membershipId: "sub-1",
+          username: "SubOne",
+          orderCount: 1,
+          profit: 600,
+        },
+        {
+          membershipId: "sub-2",
+          username: "sub2@example.com",
+          orderCount: 1,
+          profit: -500,
+        },
+      ],
       currentYear: 2026,
       lastYear: 2025,
     });
@@ -176,15 +203,19 @@ describe("GET /api/dashboard/home", () => {
       },
     });
 
-    expect(mocks.orderAggregateMock).toHaveBeenCalledWith({
+    expect(mocks.membershipFindManyMock).toHaveBeenCalledWith({
       where: {
+        id: { in: ["cust-1", "sub-1", "sub-2"] },
         companyId: "company-1",
-        unreadInboundEmailCount: {
-          gt: 0,
-        },
       },
-      _sum: {
-        unreadInboundEmailCount: true,
+      select: {
+        id: true,
+        user: {
+          select: {
+            email: true,
+            username: true,
+          },
+        },
       },
     });
   });
