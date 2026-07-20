@@ -11,6 +11,7 @@ type DashboardStats = {
   completedOrders: number;
   activeOrders: number;
   pendingOrders: number;
+  confirmedOrders: number;
   cancelledOrders: number;
   bookingEmailCount: number;
 };
@@ -25,17 +26,20 @@ type DashboardResponse = {
   stats: DashboardStats;
   orderEmailsEnabled: boolean;
   statusBreakdown: StatusItem[];
-  dailyActivity: DailyActivityItem[];
+  monthlyRevenue: MonthlyRevenueItem[];
   monthlyComparison: MonthlyComparisonItem[];
   currentYear: number;
   lastYear: number;
   reason?: string;
 };
 
-type DailyActivityItem = {
-  date: string;
-  orders: number;
-  revenue: number;
+type MonthlyRevenueItem = {
+  month: number;
+  monthLabel: string;
+  subcontractor: number;
+  profit: number;
+  lastYearSubcontractor: number;
+  lastYearProfit: number;
 };
 
 type MonthlyComparisonItem = {
@@ -88,22 +92,20 @@ function StatusBreakdownChart({ items }: { items: StatusItem[] }) {
   const totalCount = items.reduce((sum, item) => sum + item.count, 0);
 
   return (
-    <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-      <div className=" bg-linear-to-r from-logoblue to-blue-500 px-6 py-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-white">
-              Order Status Breakdown
-            </h2>
-            <p className="mt-1 text-sm text-white/75">
-              Current distribution of booking order statuses
-            </p>
-          </div>
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Order Status Breakdown
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Current distribution of booking order statuses
+          </p>
+        </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
-            <span className="h-2.5 w-2.5 rounded-full bg-cyan-300" />
-            {totalCount} orders
-          </div>
+        <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
+          <span className="h-2 w-2 rounded-full bg-logoblue" />
+          {totalCount} orders
         </div>
       </div>
 
@@ -143,161 +145,6 @@ function StatusBreakdownChart({ items }: { items: StatusItem[] }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-type SeriesPoint = {
-  x: number;
-  y: number;
-  value: number;
-};
-
-function buildSeriesPoints(input: {
-  values: number[];
-  width: number;
-  height: number;
-  topPadding: number;
-  bottomPadding: number;
-}): SeriesPoint[] {
-  const { values, width, height, topPadding, bottomPadding } = input;
-
-  if (values.length === 0) {
-    return [];
-  }
-
-  const maxValue = values.reduce(
-    (currentMax, value) => Math.max(currentMax, value),
-    0,
-  );
-  const chartHeight = height - topPadding - bottomPadding;
-  const denominator = Math.max(maxValue, 1);
-
-  return values.map((value, index) => {
-    const x =
-      values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
-    const y =
-      height - bottomPadding - (value / denominator) * Math.max(chartHeight, 1);
-
-    return {
-      x,
-      y,
-      value,
-    };
-  });
-}
-
-function DailySeriesChart({
-  ariaLabel,
-  lineColor,
-  guideColor,
-  items,
-  points,
-  bottomPadding,
-  chartWidth,
-  chartHeight,
-  formatValue,
-}: {
-  ariaLabel: string;
-  lineColor: string;
-  guideColor: string;
-  items: DailyActivityItem[];
-  points: SeriesPoint[];
-  bottomPadding: number;
-  chartWidth: number;
-  chartHeight: number;
-  formatValue: (value: number) => string;
-}) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const polylinePoints = points
-    .map((point) => `${point.x},${point.y}`)
-    .join(" ");
-  const labelIndexes = items
-    .map((_, index) => index)
-    .filter((index) => {
-      if (items.length <= 6) {
-        return true;
-      }
-
-      return (
-        index === 0 ||
-        index === items.length - 1 ||
-        index % Math.ceil(items.length / 6) === 0
-      );
-    });
-
-  return (
-    <div
-      className="relative overflow-hidden rounded-2xl bg-white p-3 shadow-sm"
-      onMouseLeave={() => setHoveredIndex(null)}
-    >
-      <svg
-        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-        className="h-44 w-full"
-        preserveAspectRatio="none"
-        aria-label={ariaLabel}
-      >
-        {points.map((point, index) => (
-          <line
-            key={`guide-${items[index]?.date ?? index}`}
-            x1={point.x}
-            y1={point.y}
-            x2={point.x}
-            y2={chartHeight - bottomPadding}
-            stroke={guideColor}
-            strokeWidth="2"
-          />
-        ))}
-        <polyline
-          fill="none"
-          stroke={lineColor}
-          strokeWidth="4"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          points={polylinePoints}
-        />
-        {points.map((point, index) => (
-          <g key={`point-${items[index]?.date ?? index}`}>
-            <circle
-              cx={point.x}
-              cy={point.y}
-              r="14"
-              fill="transparent"
-              onMouseEnter={() => setHoveredIndex(index)}
-            />
-          </g>
-        ))}
-        {labelIndexes.map((index) => {
-          const item = items[index];
-          if (!item) {
-            return null;
-          }
-
-          const x =
-            items.length === 1
-              ? chartWidth / 2
-              : (index / (items.length - 1)) * chartWidth;
-
-          return (
-            <text
-              key={`label-${item.date}`}
-              x={x}
-              y={chartHeight - 4}
-              textAnchor="middle"
-              className="fill-slate-400 text-[12px]"
-            >
-              {item.date.slice(8, 10)}
-            </text>
-          );
-        })}
-      </svg>
-
-      {hoveredIndex !== null && items[hoveredIndex] ? (
-        <div className="pointer-events-none absolute left-4 top-4 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-lg backdrop-blur">
-          <div className="font-semibold">{items[hoveredIndex].date}</div>
-          <div>{formatValue(points[hoveredIndex]?.value ?? 0)}</div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -378,36 +225,34 @@ function MonthlyOrdersComparisonChart({
   const yTicks = [0, niceMax / 2, niceMax];
 
   return (
-    <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-      <div className=" bg-linear-to-r from-logoblue to-blue-500 px-6 py-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-white">
-              Orders: {currentYear} vs {lastYear}
-            </h2>
-            <p className="mt-1 text-sm text-white/75">
-              Monthly order volume compared to the same month last year
-            </p>
-          </div>
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Orders: {currentYear} vs {lastYear}
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Monthly order volume compared to the same month last year
+          </p>
+        </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
-              <span className="h-2.5 w-2.5 rounded-full bg-blue-300" />
-              {totalCurrentYear} orders in {currentYear}
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
+            <span className="h-2 w-2 rounded-full bg-blue-500" />
+            {totalCurrentYear} orders in {currentYear}
+          </span>
+          {deltaPercent !== null ? (
+            <span
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${
+                delta >= 0
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-red-50 text-red-700"
+              }`}
+            >
+              {delta >= 0 ? "+" : ""}
+              {deltaPercent.toFixed(0)}% vs {lastYear}
             </span>
-            {deltaPercent !== null ? (
-              <span
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold backdrop-blur ${
-                  delta >= 0
-                    ? "bg-emerald-400/20 text-emerald-100"
-                    : "bg-red-400/20 text-red-100"
-                }`}
-              >
-                {delta >= 0 ? "+" : ""}
-                {deltaPercent.toFixed(0)}% vs {lastYear}
-              </span>
-            ) : null}
-          </div>
+          ) : null}
         </div>
       </div>
 
@@ -562,68 +407,275 @@ function MonthlyOrdersComparisonChart({
   );
 }
 
-function DailyActivityChart({ items }: { items: DailyActivityItem[] }) {
+function MonthlyRevenueChart({
+  items,
+  currentYear,
+  lastYear,
+}: {
+  items: MonthlyRevenueItem[];
+  currentYear: number;
+  lastYear: number;
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
   const chartWidth = 720;
-  const chartHeight = 180;
-  const topPadding = 16;
-  const bottomPadding = 26;
-  const nonZeroItems = items.filter(
-    (item) => item.orders > 0 || item.revenue > 0,
+  const chartHeight = 240;
+  const leftPadding = 46;
+  const topPadding = 20;
+  const bottomPadding = 28;
+  const plotHeight = chartHeight - topPadding - bottomPadding;
+  const profitColor = "#10B981";
+  const subcontractorColor = "#EF4444";
+  const lineColor = "#64748B";
+  const segmentGap = 2;
+
+  const totals = items.map(
+    (item) => Math.max(item.subcontractor, 0) + Math.max(item.profit, 0),
   );
-  const chartItems = nonZeroItems.length > 0 ? items : items.slice(-7);
-  const revenueValues = chartItems.map((item) => item.revenue);
-  const revenuePlotPoints = buildSeriesPoints({
-    values: revenueValues,
-    width: chartWidth,
-    height: chartHeight,
-    topPadding,
-    bottomPadding,
-  });
-  const totalRevenue = chartItems.reduce((sum, item) => sum + item.revenue, 0);
+  const lastYearTotals = items.map(
+    (item) =>
+      Math.max(item.lastYearSubcontractor, 0) +
+      Math.max(item.lastYearProfit, 0),
+  );
+  const rawMax = [...totals, ...lastYearTotals].reduce(
+    (max, value) => Math.max(max, value),
+    0,
+  );
+  const niceMax = niceCeil(rawMax);
+  const bandWidth = (chartWidth - leftPadding) / Math.max(items.length, 1);
+  const barWidth = Math.min(28, bandWidth * 0.5);
+
+  const valueToHeight = (value: number) => (value / niceMax) * plotHeight;
+  const valueToY = (value: number) =>
+    chartHeight - bottomPadding - valueToHeight(value);
+
+  const linePoints = items.map((item, index) => ({
+    x: leftPadding + bandWidth * index + bandWidth / 2,
+    y: valueToY(lastYearTotals[index]),
+  }));
+  const polylinePoints = linePoints
+    .map((point) => `${point.x},${point.y}`)
+    .join(" ");
+
+  const totalProfit = items.reduce((sum, item) => sum + item.profit, 0);
+  const totalLastYearProfit = items.reduce(
+    (sum, item) => sum + item.lastYearProfit,
+    0,
+  );
+  const delta = totalProfit - totalLastYearProfit;
+  const deltaPercent =
+    totalLastYearProfit > 0 ? (delta / totalLastYearProfit) * 100 : null;
+  const yTicks = [0, niceMax / 2, niceMax];
 
   return (
-    <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-      <div className=" bg-linear-to-r from-logoblue to-blue-500 px-6 py-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-white">
-              Daily Revenue This Month
-            </h2>
-            <p className="mt-1 text-sm text-white/75">
-              Revenue grouped by day for the active company
-            </p>
-          </div>
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Revenue: {currentYear} vs {lastYear}
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Profit and subcontractor cost per month
+          </p>
+        </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-              {formatNOK(totalRevenue)}
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: profitColor }}
+            />
+            {formatNOK(totalProfit)} profit
+          </span>
+          {deltaPercent !== null ? (
+            <span
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${
+                delta >= 0
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-red-50 text-red-700"
+              }`}
+            >
+              {delta >= 0 ? "+" : ""}
+              {deltaPercent.toFixed(0)}% vs last year
             </span>
-          </div>
+          ) : null}
         </div>
       </div>
 
       <div className="p-6">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-800">
-              Revenue per day
+        <div className="mb-4 flex flex-wrap items-center gap-5 text-xs font-medium text-slate-500">
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="h-3 w-3 rounded-sm"
+              style={{ backgroundColor: profitColor }}
+            />
+            Profit
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="h-3 w-3 rounded-sm"
+              style={{ backgroundColor: subcontractorColor }}
+            />
+            Subcontractor
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="h-0.5 w-4 rounded-full"
+              style={{ backgroundColor: lineColor }}
+            />
+            {lastYear} revenue
+          </span>
+        </div>
+
+        <div
+          className="relative overflow-hidden rounded-2xl bg-slate-50 p-3"
+          onMouseLeave={() => setHoveredIndex(null)}
+        >
+          <svg
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            className="h-64 w-full"
+            preserveAspectRatio="none"
+            aria-label="Monthly revenue breakdown compared to last year"
+          >
+            {yTicks.map((tick) => (
+              <g key={`tick-${tick}`}>
+                <line
+                  x1={leftPadding}
+                  y1={valueToY(tick)}
+                  x2={chartWidth}
+                  y2={valueToY(tick)}
+                  stroke="#E1E0D9"
+                  strokeWidth="1"
+                />
+                <text
+                  x={leftPadding - 6}
+                  y={valueToY(tick)}
+                  dy={tick === 0 ? -2 : 4}
+                  textAnchor="end"
+                  className="fill-slate-400 text-[10px]"
+                >
+                  {formatNOK(Math.round(tick))}
+                </text>
+              </g>
+            ))}
+
+            {items.map((item, index) => {
+              const x =
+                leftPadding + bandWidth * index + (bandWidth - barWidth) / 2;
+              const isHovered = hoveredIndex === index;
+
+              const subcontractorValue = Math.max(item.subcontractor, 0);
+              const profitValue = Math.max(item.profit, 0);
+
+              const subcontractorHeight = valueToHeight(subcontractorValue);
+              const profitHeight = valueToHeight(profitValue);
+
+              const baseY = chartHeight - bottomPadding;
+              const subcontractorY = baseY - subcontractorHeight;
+              const profitY = subcontractorY - profitHeight;
+
+              return (
+                <g key={`bar-${item.month}`}>
+                  {subcontractorHeight > 0 ? (
+                    <rect
+                      x={x}
+                      y={subcontractorY}
+                      width={barWidth}
+                      height={Math.max(
+                        subcontractorHeight - (profitHeight > 0 ? segmentGap : 0),
+                        0,
+                      )}
+                      rx={3}
+                      fill={subcontractorColor}
+                      opacity={isHovered ? 1 : 0.9}
+                    />
+                  ) : null}
+                  {profitHeight > 0 ? (
+                    <rect
+                      x={x}
+                      y={profitY}
+                      width={barWidth}
+                      height={profitHeight}
+                      rx={3}
+                      fill={profitColor}
+                      opacity={isHovered ? 1 : 0.9}
+                    />
+                  ) : null}
+
+                  <rect
+                    x={leftPadding + bandWidth * index}
+                    y={topPadding}
+                    width={bandWidth}
+                    height={plotHeight}
+                    fill="transparent"
+                    onMouseEnter={() => setHoveredIndex(index)}
+                  />
+                </g>
+              );
+            })}
+
+            <polyline
+              fill="none"
+              stroke={lineColor}
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              points={polylinePoints}
+            />
+
+            {linePoints.map((point, index) => (
+              <circle
+                key={`dot-${items[index]?.month ?? index}`}
+                cx={point.x}
+                cy={point.y}
+                r={hoveredIndex === index ? 5 : 4}
+                fill={lineColor}
+                stroke="#F8FAFC"
+                strokeWidth="2"
+              />
+            ))}
+
+            {items.map((item, index) => (
+              <text
+                key={`label-${item.month}`}
+                x={leftPadding + bandWidth * index + bandWidth / 2}
+                y={chartHeight - 8}
+                textAnchor="middle"
+                className="fill-slate-400 text-[12px]"
+              >
+                {item.monthLabel}
+              </text>
+            ))}
+          </svg>
+
+          {hoveredIndex !== null && items[hoveredIndex] ? (
+            <div className="pointer-events-none absolute left-4 top-4 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-lg backdrop-blur">
+              <div className="font-semibold">
+                {items[hoveredIndex].monthLabel} {currentYear}
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-sm"
+                  style={{ backgroundColor: profitColor }}
+                />
+                Profit: {formatNOK(items[hoveredIndex].profit)}
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-sm"
+                  style={{ backgroundColor: subcontractorColor }}
+                />
+                Subcontractor: {formatNOK(items[hoveredIndex].subcontractor)}
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: lineColor }}
+                />
+                {lastYear}: {formatNOK(lastYearTotals[hoveredIndex])}
+              </div>
             </div>
-            <div className="text-xs uppercase tracking-wide text-slate-500">
-              Green line
-            </div>
-          </div>
-          <DailySeriesChart
-            ariaLabel="Revenue per day chart"
-            lineColor="#10B981"
-            guideColor="#D1FAE5"
-            items={chartItems}
-            points={revenuePlotPoints}
-            bottomPadding={bottomPadding}
-            chartWidth={chartWidth}
-            chartHeight={chartHeight}
-            formatValue={(value) => formatNOK(Math.round(value))}
-          />
+          ) : null}
         </div>
       </div>
     </div>
@@ -750,7 +802,7 @@ export default function DashboardHome() {
   const { stats } = data;
   const bookingEmailCount = stats.bookingEmailCount;
   const statusBreakdown = data.statusBreakdown;
-  const dailyActivity = data.dailyActivity;
+  const monthlyRevenue = data.monthlyRevenue;
   const monthlyComparison = data.monthlyComparison;
 
   async function handleFinishMonth() {
@@ -825,31 +877,85 @@ export default function DashboardHome() {
     }
   }
 
+  const statTiles: Array<{
+    label: string;
+    value: string;
+    dotClassName: string;
+  }> = [
+    {
+      label: "Orders this month",
+      value: stats.ordersThisMonth.toLocaleString("nb-NO"),
+      dotClassName: "bg-blue-500",
+    },
+    {
+      label: "Pending",
+      value: stats.pendingOrders.toLocaleString("nb-NO"),
+      dotClassName: "bg-amber-500",
+    },
+    {
+      label: "Confirmed",
+      value: stats.confirmedOrders.toLocaleString("nb-NO"),
+      dotClassName: "bg-cyan-500",
+    },
+    {
+      label: "Completed",
+      value: stats.completedOrders.toLocaleString("nb-NO"),
+      dotClassName: "bg-emerald-500",
+    },
+    {
+      label: "Cancelled",
+      value: stats.cancelledOrders.toLocaleString("nb-NO"),
+      dotClassName: "bg-orange-500",
+    },
+    {
+      label: "Active",
+      value: stats.activeOrders.toLocaleString("nb-NO"),
+      dotClassName: "bg-purple-500",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {statTiles.map((tile) => (
+            <div
+              key={tile.label}
+              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <span className={`h-2 w-2 rounded-full ${tile.dotClassName}`} />
+                {tile.label}
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-slate-900">
+                {tile.value}
+              </div>
+            </div>
+          ))}
+        </section>
+
         <MonthlyOrdersComparisonChart
           items={monthlyComparison}
           currentYear={data.currentYear}
           lastYear={data.lastYear}
         />
 
-        <DailyActivityChart items={dailyActivity} />
+        <MonthlyRevenueChart
+          items={monthlyRevenue}
+          currentYear={data.currentYear}
+          lastYear={data.lastYear}
+        />
 
         <StatusBreakdownChart items={statusBreakdown} />
 
-        <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-          <div className="bg-linear-to-r from-logoblue to-blue-500 px-6 py-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-white">
-                  Quick Tasks
-                </h2>
-                <p className="mt-1 text-sm text-white/75">
-                  Shortcuts for manual dashboard jobs
-                </p>
-              </div>
-            </div>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-6 py-4">
+            <h2 className="text-base font-semibold text-slate-900">
+              Quick Tasks
+            </h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Shortcuts for manual dashboard jobs
+            </p>
           </div>
 
           <div className="p-6">
@@ -938,22 +1044,20 @@ export default function DashboardHome() {
 
         <section className="grid gap-5 lg:grid-cols-2">
           {/* Online members */}
-          <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-            <div className="bg-linear-to-r from-logoblue to-blue-500 px-6 py-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold text-white">
-                    People Online
-                  </h2>
-                  <p className="mt-1 text-sm text-white/75">
-                    Members currently active in the dashboard
-                  </p>
-                </div>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">
+                  People Online
+                </h2>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  Members currently active in the dashboard
+                </p>
+              </div>
 
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
-                  {onlineMembers.length} online
-                </div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                {onlineMembers.length} online
               </div>
             </div>
 
@@ -1013,22 +1117,20 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-            <div className="bg-linear-to-r from-logoblue to-blue-500 px-6 py-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold text-white">
-                    Booking Emails
-                  </h2>
-                  <p className="mt-1 text-sm text-white/75">
-                    New emails related to booking orders
-                  </p>
-                </div>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">
+                  Booking Emails
+                </h2>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  New emails related to booking orders
+                </p>
+              </div>
 
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
-                  <span className="h-2.5 w-2.5 rounded-full bg-sky-300" />
-                  {bookingEmailCount} new
-                </div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700">
+                <span className="h-2 w-2 rounded-full bg-sky-500" />
+                {bookingEmailCount} new
               </div>
             </div>
 

@@ -8,10 +8,6 @@ function getMonthRange(date = new Date()) {
   return { start, end };
 }
 
-function formatDateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
 const MONTH_LABELS = [
   "Jan",
   "Feb",
@@ -58,49 +54,46 @@ function buildMonthlyComparison(
   return monthly;
 }
 
-function buildDailyActivity(
-  start: Date,
-  end: Date,
-  monthlyOrders: {
+function buildMonthlyRevenue(
+  currentYear: number,
+  lastYear: number,
+  yearOrders: {
     createdAt: Date;
     priceExVat: number | null;
+    priceSubcontractor: number | null;
   }[],
 ) {
-  const dailyMap = new Map<
-    string,
-    {
-      date: string;
-      orders: number;
-      revenue: number;
-    }
-  >();
+  const monthly = MONTH_LABELS.map((monthLabel, index) => ({
+    month: index + 1,
+    monthLabel,
+    subcontractor: 0,
+    profit: 0,
+    lastYearSubcontractor: 0,
+    lastYearProfit: 0,
+  }));
 
-  for (
-    const current = new Date(start);
-    current < end;
-    current.setDate(current.getDate() + 1)
-  ) {
-    const dateKey = formatDateKey(current);
-    dailyMap.set(dateKey, {
-      date: dateKey,
-      orders: 0,
-      revenue: 0,
-    });
-  }
+  yearOrders.forEach((order) => {
+    const orderYear = order.createdAt.getFullYear();
+    const bucket = monthly[order.createdAt.getMonth()];
 
-  monthlyOrders.forEach((order) => {
-    const dateKey = formatDateKey(order.createdAt);
-    const current = dailyMap.get(dateKey);
-
-    if (!current) {
+    if (!bucket) {
       return;
     }
 
-    current.orders += 1;
-    current.revenue += Number(order.priceExVat ?? 0);
+    const priceExVat = Number(order.priceExVat ?? 0);
+    const subcontractor = Number(order.priceSubcontractor ?? 0);
+    const profit = priceExVat - subcontractor;
+
+    if (orderYear === currentYear) {
+      bucket.subcontractor += subcontractor;
+      bucket.profit += profit;
+    } else if (orderYear === lastYear) {
+      bucket.lastYearSubcontractor += subcontractor;
+      bucket.lastYearProfit += profit;
+    }
   });
 
-  return Array.from(dailyMap.values());
+  return monthly;
 }
 
 export async function GET(req: Request) {
@@ -157,6 +150,7 @@ export async function GET(req: Request) {
       completedOrders,
       activeOrders,
       pendingOrders,
+      confirmedOrders,
       cancelledOrders,
       monthlyOrders,
       yearOrders,
@@ -194,6 +188,13 @@ export async function GET(req: Request) {
       prisma.order.count({
         where: {
           companyId: session.activeCompanyId,
+          status: "confirmed",
+        },
+      }),
+
+      prisma.order.count({
+        where: {
+          companyId: session.activeCompanyId,
           status: "cancelled",
         },
       }),
@@ -206,6 +207,7 @@ export async function GET(req: Request) {
         select: {
           createdAt: true,
           priceExVat: true,
+          priceSubcontractor: true,
         },
       }),
 
@@ -216,6 +218,8 @@ export async function GET(req: Request) {
         },
         select: {
           createdAt: true,
+          priceExVat: true,
+          priceSubcontractor: true,
         },
       }),
 
@@ -243,12 +247,13 @@ export async function GET(req: Request) {
     ]);
 
     const totalIncome = monthlyOrders.reduce(
-      (sum, order) => sum + Number(order.priceExVat ?? 0),
+      (sum, order) =>
+        sum + Number(order.priceExVat ?? 0) - Number(order.priceSubcontractor ?? 0),
       0,
     );
     const bookingEmailCount =
       unreadInboundEmailAggregate._sum.unreadInboundEmailCount ?? 0;
-    const dailyActivity = buildDailyActivity(start, end, monthlyOrders);
+    const monthlyRevenue = buildMonthlyRevenue(currentYear, lastYear, yearOrders);
     const monthlyComparison = buildMonthlyComparison(
       currentYear,
       lastYear,
@@ -263,6 +268,7 @@ export async function GET(req: Request) {
         completedOrders,
         activeOrders,
         pendingOrders,
+        confirmedOrders,
         cancelledOrders,
         bookingEmailCount,
       },
@@ -271,7 +277,7 @@ export async function GET(req: Request) {
         status: item.status ?? "unknown",
         count: item._count.status,
       })),
-      dailyActivity,
+      monthlyRevenue,
       monthlyComparison,
       currentYear,
       lastYear,

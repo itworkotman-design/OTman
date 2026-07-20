@@ -68,22 +68,37 @@ describe("GET /api/dashboard/home", () => {
       .mockResolvedValueOnce(4)
       .mockResolvedValueOnce(3)
       .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(5)
       .mockResolvedValueOnce(1);
     mocks.orderFindManyMock
       .mockResolvedValueOnce([
         {
           createdAt: new Date("2026-07-01T10:00:00.000Z"),
           priceExVat: 1000,
+          priceSubcontractor: 400,
         },
         {
           createdAt: new Date("2026-07-03T12:00:00.000Z"),
           priceExVat: 2500,
+          priceSubcontractor: 3000,
         },
       ])
       .mockResolvedValueOnce([
-        { createdAt: new Date("2026-07-01T10:00:00.000Z") },
-        { createdAt: new Date("2026-07-03T12:00:00.000Z") },
-        { createdAt: new Date("2025-07-05T10:00:00.000Z") },
+        {
+          createdAt: new Date("2026-07-01T10:00:00.000Z"),
+          priceExVat: 1000,
+          priceSubcontractor: 400,
+        },
+        {
+          createdAt: new Date("2026-07-03T12:00:00.000Z"),
+          priceExVat: 2500,
+          priceSubcontractor: 3000,
+        },
+        {
+          createdAt: new Date("2025-07-05T10:00:00.000Z"),
+          priceExVat: 800,
+          priceSubcontractor: 200,
+        },
       ]);
     mocks.orderGroupByMock.mockResolvedValue([
       {
@@ -107,11 +122,12 @@ describe("GET /api/dashboard/home", () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       stats: {
-        totalIncome: 3500,
+        totalIncome: 100,
         ordersThisMonth: 12,
         completedOrders: 4,
         activeOrders: 3,
         pendingOrders: 2,
+        confirmedOrders: 5,
         cancelledOrders: 1,
         bookingEmailCount: 5,
       },
@@ -122,16 +138,14 @@ describe("GET /api/dashboard/home", () => {
           count: 2,
         },
       ],
-      dailyActivity: expect.arrayContaining([
+      monthlyRevenue: expect.arrayContaining([
         {
-          date: "2026-07-01",
-          orders: 1,
-          revenue: 1000,
-        },
-        {
-          date: "2026-07-03",
-          orders: 1,
-          revenue: 2500,
+          month: 7,
+          monthLabel: "Jul",
+          subcontractor: 3400,
+          profit: 100,
+          lastYearSubcontractor: 200,
+          lastYearProfit: 600,
         },
       ]),
       monthlyComparison: expect.arrayContaining([

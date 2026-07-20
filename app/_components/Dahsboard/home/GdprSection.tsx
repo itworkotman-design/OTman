@@ -329,10 +329,10 @@ export default function GdprSection() {
   const heldIds = heldOrders.map((order) => order.id);
 
   return (
-    <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-      <div className="bg-linear-to-r from-logoblue to-blue-500 px-6 py-5">
-        <h2 className="text-xl font-semibold text-white">GDPR</h2>
-        <p className="mt-1 text-sm text-white/75">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-6 py-4">
+        <h2 className="text-base font-semibold text-slate-900">GDPR</h2>
+        <p className="mt-0.5 text-sm text-slate-500">
           Invoiced orders awaiting payment, orders on hold, and the anonymization/POD/hold audit log
         </p>
       </div>
