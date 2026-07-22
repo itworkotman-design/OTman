@@ -55,6 +55,7 @@ export function proxy(req: NextRequest) {
     pathname.startsWith("/accept-invite") ||
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/select-company") ||
+    pathname.startsWith("/reviews") ||
     pathname.includes(".")
   ) {
     return nextWithCsp(req);

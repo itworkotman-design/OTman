@@ -13,6 +13,7 @@ export default function robots(): MetadataRoute.Robots {
         "/login/",
         "/reset-password/",
         "/accept-invite/",
+        "/reviews/",
       ],
     },
     sitemap: "https://otman.no/sitemap.xml",

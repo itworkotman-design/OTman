@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Membership } from "@/lib/users/types";
 import GdprSection from "./GdprSection";
+import ReviewsSection from "./ReviewsSection";
 
 type DashboardStats = {
   totalIncome: number;
@@ -803,6 +804,8 @@ export default function DashboardHome() {
             showProfit={false}
           />
         </section>
+
+        <ReviewsSection />
 
         <GdprSection />
 
