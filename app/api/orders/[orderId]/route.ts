@@ -673,17 +673,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     : [];
   const productChanges = diffProductCards(previousProductCards, productCards, optionLookup, productLookup);
   const nextStatus = optionalString(body.status) ?? existingOrder.status;
-  const updatedRabatt = optionalString(body.rabatt);
   const nextDnbDiscount = isAdminOrOwner
     ? optionalBoolean(body.dnbDiscount)
     : existingOrder.dnbDiscount;
   const nextRabatt = body.rabatt !== undefined
     ? optionalString(body.rabatt)
     : existingOrder.rabatt;
-  const updatedSubcontractorMinus = optionalString(body.subcontractorMinus);
   const nextSubcontractorMinus = body.subcontractorMinus !== undefined
     ? optionalString(body.subcontractorMinus)
     : existingOrder.subcontractorMinus;
+  const nextLeggTil = body.leggTil !== undefined
+    ? optionalString(body.leggTil)
+    : existingOrder.leggTil;
+  const nextSubcontractorPlus = body.subcontractorPlus !== undefined
+    ? optionalString(body.subcontractorPlus)
+    : existingOrder.subcontractorPlus;
   const nextNulledOrderExtraKeysForCustomer =
     optionalStringArray(body.nulledOrderExtraKeysForCustomer) ??
     getPricingSnapshotNulledOrderExtraKeysForCustomer(existingOrder.pricingSnapshot);
@@ -693,9 +697,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const pricingSnapshot = buildOrderPricingSnapshot({
     lines: builtItems,
     rabatt: nextRabatt,
-    leggTil: optionalString(body.leggTil),
+    leggTil: nextLeggTil,
     subcontractorMinus: nextSubcontractorMinus,
-    subcontractorPlus: optionalString(body.subcontractorPlus),
+    subcontractorPlus: nextSubcontractorPlus,
     fallbackCustomerTotalExVat: Math.round(safeNumber(body.priceExVat)),
     fallbackSubcontractorTotal: Math.round(safeNumber(body.priceSubcontractor)),
     nulledOrderExtraKeysForCustomer: nextNulledOrderExtraKeysForCustomer,
@@ -749,9 +753,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     priceSubcontractor: nextPriceSubcontractor,
     rabatt: nextRabatt,
     dnbDiscount: nextDnbDiscount,
-    leggTil: optionalString(body.leggTil) ?? existingOrder.leggTil,
+    leggTil: nextLeggTil,
     subcontractorMinus: nextSubcontractorMinus,
-    subcontractorPlus: optionalString(body.subcontractorPlus) ?? existingOrder.subcontractorPlus,
+    subcontractorPlus: nextSubcontractorPlus,
     gsmLastTaskState: existingOrder.gsmLastTaskState,
   });
 
@@ -818,11 +822,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         priceExVat: Math.round(finalCustomerTotalExVat),
         priceSubcontractor: Math.round(nextPriceSubcontractor),
 
-        rabatt: updatedRabatt,
+        rabatt: nextRabatt,
         dnbDiscount: nextDnbDiscount,
-        leggTil: optionalString(body.leggTil),
-        subcontractorMinus: updatedSubcontractorMinus,
-        subcontractorPlus: optionalString(body.subcontractorPlus),
+        leggTil: nextLeggTil,
+        subcontractorMinus: nextSubcontractorMinus,
+        subcontractorPlus: nextSubcontractorPlus,
 
         productsSummary: summaries.productsSummary,
         deliveryTypeSummary: summaries.deliveryTypeSummary,
