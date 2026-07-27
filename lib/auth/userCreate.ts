@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { getActiveMembership } from "@/lib/auth/membership";
 import { hashPassword } from "@/lib/auth/password";
 
-type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 
 type CreateUserResult =
   | {
@@ -40,7 +40,9 @@ function normalizePermissions(
 
   const filtered = list.filter(
     (permission): permission is AppPermission =>
-      permission === "BOOKING_VIEW" || permission === "BOOKING_CREATE",
+      permission === "BOOKING_VIEW" ||
+      permission === "BOOKING_CREATE" ||
+      permission === "ARCHIVE_VIEW",
   );
 
   const withDependencies = filtered.includes("BOOKING_CREATE")

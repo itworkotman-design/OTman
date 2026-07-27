@@ -16,9 +16,11 @@ import {
   makeFieldUpdater,
   makeSelectUpdater,
   togglePriceListId,
+  toggleArchivePermission,
   getAccessTypeFromPermissions,
   getPermissionsFromAccessType,
   type UserAccessType,
+  type AppPermission,
 } from "@/lib/users/userModal";
 
 export default function UserModal({
@@ -94,6 +96,7 @@ export default function UserModal({
   const updateUsernameDisplayColor = (value: string) => setForm((prev) => ({ ...prev, usernameDisplayColor: value }));
 
   const handleTogglePriceList = (id: string) => togglePriceListId(id, setForm);
+  const handleToggleArchiveAccess = () => toggleArchivePermission(setForm);
   const updateProvisionMode = makeSelectUpdater("provisionMode", setForm);
 
   useEffect(() => {
@@ -115,16 +118,22 @@ export default function UserModal({
   const updateRole = (e: ChangeEvent<HTMLSelectElement>) => {
     const nextRole = e.target.value;
 
-    setForm((prev) => ({
-      ...prev,
-      role: nextRole,
-      permissions:
+    setForm((prev) => {
+      const bookingPermissions: AppPermission[] =
         nextRole === "ADMIN" || nextRole === "OWNER"
           ? ["BOOKING_VIEW", "BOOKING_CREATE"]
           : prev.permissions.includes("BOOKING_CREATE")
             ? ["BOOKING_VIEW", "BOOKING_CREATE"]
-            : ["BOOKING_VIEW"],
-    }));
+            : ["BOOKING_VIEW"];
+
+      return {
+        ...prev,
+        role: nextRole,
+        permissions: prev.permissions.includes("ARCHIVE_VIEW")
+          ? [...bookingPermissions, "ARCHIVE_VIEW"]
+          : bookingPermissions,
+      };
+    });
   };
 
   const accessType = getAccessTypeFromPermissions(form.permissions);
@@ -135,10 +144,16 @@ export default function UserModal({
   const updateAccessType = (e: ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value as UserAccessType;
 
-    setForm((prev) => ({
-      ...prev,
-      permissions: getPermissionsFromAccessType(value),
-    }));
+    setForm((prev) => {
+      const bookingPermissions = getPermissionsFromAccessType(value);
+
+      return {
+        ...prev,
+        permissions: prev.permissions.includes("ARCHIVE_VIEW")
+          ? [...bookingPermissions, "ARCHIVE_VIEW"]
+          : bookingPermissions,
+      };
+    });
   };
 
   const shouldShowAccessSelector = form.role === "USER";
@@ -354,6 +369,16 @@ export default function UserModal({
                   </select>
                 </>
               )}
+
+              <label className="mb-4 flex cursor-pointer items-center gap-2 pl-2">
+                <input
+                  type="checkbox"
+                  checked={form.permissions.includes("ARCHIVE_VIEW")}
+                  onChange={handleToggleArchiveAccess}
+                  disabled={!canEditTarget}
+                />
+                <span>Archive access</span>
+              </label>
 
               <label className="block pl-2 pb-2">Price lists</label>
               <div className="mb-6 flex flex-col gap-1 pl-2">

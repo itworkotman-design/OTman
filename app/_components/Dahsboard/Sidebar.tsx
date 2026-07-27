@@ -63,6 +63,7 @@ const ICONS = {
   hamburger: "M5 7h14M5 12h14M5 17h14",
   hours: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 6v6l4 2",
   edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z",
+  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.5 0 4-4 4-9s-1.5-9-4-9-4 4-4 9 1.5 9 4 9ZM3 12h18",
 };
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
@@ -150,6 +151,13 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             </div>
           </Link>
 
+          <Link href="/dashboard/website-orders" className={linkClass("/dashboard/website-orders")}>
+            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+              <Icon path={ICONS.globe} />
+              {locale === "nb" ? "Nettsidebestillinger" : "Website orders"}
+            </div>
+          </Link>
+
           <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.users} />
@@ -164,9 +172,9 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             </div>
           </Link>
 
-          <Link href="/" className={linkClass("/dashboard/archive") + ` ` + `hidden`}>
+          <Link href="/dashboard/archive" className={linkClass("/dashboard/archive")}>
             <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.home} />
+              <Icon path={ICONS.edit} />
               {bookingText(locale, "Archive")}
             </div>
           </Link>

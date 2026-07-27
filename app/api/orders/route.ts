@@ -887,6 +887,10 @@ export async function GET(req: Request) {
     where.customerMembershipId = customerMembershipId;
   }
 
+  if (isAdminOrOwner && searchParams.get("isWebsiteOrder") === "true") {
+    where.isWebsiteOrder = true;
+  }
+
   if (fromDate || toDate) {
     where.deliveryDate = {};
 

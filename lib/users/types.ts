@@ -3,7 +3,7 @@ import type { ActiveMembership } from "@/lib/auth/membership";
 // ─── Re-exported from auth — single source of truth ──────────────────────────
 
 export type Role = ActiveMembership["role"];
-export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 
 // ─── Status enums ─────────────────────────────────────────────────────────────
 

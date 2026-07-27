@@ -151,6 +151,17 @@ export function togglePriceListId(
   }));
 }
 
+export function toggleArchivePermission(
+  setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
+) {
+  setForm((prev) => ({
+    ...prev,
+    permissions: prev.permissions.includes("ARCHIVE_VIEW")
+      ? prev.permissions.filter((p) => p !== "ARCHIVE_VIEW")
+      : [...prev.permissions, "ARCHIVE_VIEW"],
+  }));
+}
+
 export type UserAccessType = "SUBCONTRACTOR" | "ORDER_CREATOR";
 
 export function getAccessTypeFromPermissions(

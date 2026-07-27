@@ -23,6 +23,11 @@ export function canViewOrders(role: Role, permissions: AppPermission[]) {
   return hasPermission(permissions, "BOOKING_VIEW");
 }
 
+export function canAccessArchive(role: Role, permissions: AppPermission[]) {
+  if (hasFullAccess(role)) return true;
+  return hasPermission(permissions, "ARCHIVE_VIEW");
+}
+
 export function isSubcontractorAccess(permissions: AppPermission[]) {
   return (
     hasPermission(permissions, "BOOKING_VIEW") &&

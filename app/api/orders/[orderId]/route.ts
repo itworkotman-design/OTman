@@ -37,6 +37,7 @@ import {
   createTodayDeliveryAlert,
 } from "@/lib/orders/alerts";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 import { buildWordpressExtraPickupContacts, getWordpressExtraPickupAddresses, toWordpressMetaRecord } from "@/lib/integrations/wordpress/orderMeta";
 import { applyOrderPricingSnapshot, getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
 import {
@@ -559,6 +560,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       completedAt: true,
       paidAt: true,
       invoicedAt: true,
+      isWebsiteOrder: true,
+      approvedAt: true,
+      rejectedAt: true,
+      actionToken: true,
       statusNotes: true,
       customerName: true,
       deliveryDate: true,
@@ -680,6 +685,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     : [];
   const productChanges = diffProductCards(previousProductCards, productCards, optionLookup, productLookup);
   const nextStatus = optionalString(body.status) ?? existingOrder.status;
+  const normalizedNextStatus = normalizeOrderStatus(nextStatus);
+  const normalizedExistingStatus = normalizeOrderStatus(existingOrder.status);
+  const nextStatusNotes = optionalString(body.statusNotes) ?? existingOrder.statusNotes;
+
+  if (
+    (normalizedNextStatus === "approved" || normalizedNextStatus === "rejected") &&
+    !existingOrder.isWebsiteOrder
+  ) {
+    return NextResponse.json({ ok: false, reason: "NOT_A_WEBSITE_ORDER" }, { status: 400 });
+  }
+
+  if (normalizedNextStatus === "rejected" && !nextStatusNotes) {
+    return NextResponse.json({ ok: false, reason: "REJECTION_COMMENT_REQUIRED" }, { status: 400 });
+  }
+
   const nextDnbDiscount = isAdminOrOwner
     ? optionalBoolean(body.dnbDiscount)
     : existingOrder.dnbDiscount;
@@ -839,6 +859,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         completedAt: normalizeOrderStatus(optionalString(body.status)) === "completed" && !existingOrder.completedAt ? new Date() : existingOrder.completedAt,
         paidAt: normalizeOrderStatus(optionalString(body.status)) === "paid" && !existingOrder.paidAt ? new Date() : existingOrder.paidAt,
         invoicedAt: normalizeOrderStatus(optionalString(body.status)) === "invoiced" && !existingOrder.invoicedAt ? new Date() : existingOrder.invoicedAt,
+        approvedAt: normalizedNextStatus === "approved" && normalizedExistingStatus !== "approved" ? new Date() : existingOrder.approvedAt,
+        rejectedAt: normalizedNextStatus === "rejected" && normalizedExistingStatus !== "rejected" ? new Date() : existingOrder.rejectedAt,
+        actionToken:
+          (normalizedNextStatus === "approved" || normalizedNextStatus === "rejected") && !existingOrder.actionToken
+            ? createOrderActionToken()
+            : existingOrder.actionToken,
         dontSendEmail: optionalBoolean(body.dontSendEmail),
 
         priceExVat: clampOrderPrice(finalCustomerTotalExVat),

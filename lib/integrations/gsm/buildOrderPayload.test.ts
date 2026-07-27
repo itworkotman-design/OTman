@@ -91,6 +91,15 @@ function buildOrder(overrides?: Partial<Order>): Order {
     gdprHoldSetAt: null,
     recurringOrderTemplateId: null,
     recurringOrderOccurrenceDate: null,
+    isWebsiteOrder: false,
+    approvedAt: null,
+    rejectedAt: null,
+    actionToken: null,
+    stripeCheckoutSessionId: null,
+    stripePaymentIntentId: null,
+    stripeAmountChargedCents: null,
+    paymentRequestSentAt: null,
+    paymentReminderSentAt: null,
     ...overrides,
   };
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bookingText, bookingStatusText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
+import { ORDER_STATUS_OPTIONS } from "@/lib/orders/statusPresentation";
 import type { BookingArchiveOption } from "./types";
 
 type Props = {
@@ -17,16 +18,7 @@ type Props = {
   locale?: BookingUiLocale;
 };
 
-const STATUS_OPTIONS = [
-  "processing",
-  "confirmed",
-  "active",
-  "cancelled",
-  "failed",
-  "completed",
-  "invoiced",
-  "paid",
-] as const;
+const STATUS_OPTIONS = ORDER_STATUS_OPTIONS;
 
 export default function BulkUpdateBar({
   selectedCount,

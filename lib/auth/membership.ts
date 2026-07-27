@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 
-export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 
 export type ActiveMembership = {
   userId: string;

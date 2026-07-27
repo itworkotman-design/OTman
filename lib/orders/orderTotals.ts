@@ -48,7 +48,7 @@ export type OrderPricingSnapshot = {
   }>;
 };
 
-function roundNok(value: number): number {
+export function roundNok(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
@@ -150,6 +150,37 @@ export function getPricingSnapshotSubcontractorTotal(snapshot: unknown): number 
 
 function getSnapshotString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+export function getPricingSnapshotCustomerTotalIncVat(snapshot: unknown): number | null {
+  const root = getSnapshotRecord(snapshot);
+  const customer = getSnapshotRecord(root?.customer);
+  return getSnapshotNumber(customer?.totalIncVat);
+}
+
+// Amount to actually charge the customer through Stripe: the stored ex-VAT
+// customer total (with rabatt/leggTil discounts already applied) plus 25%
+// Norwegian VAT. Prefers the order's own pricingSnapshot (computed once at
+// order creation/edit time) and only recomputes from the raw fields as a
+// fallback for orders that predate the snapshot.
+export function getOrderChargeAmountIncVatNok(order: {
+  priceExVat: number;
+  rabatt: string | null | undefined;
+  leggTil: string | null | undefined;
+  pricingSnapshot: unknown;
+}): number {
+  const snapshotTotal = getPricingSnapshotCustomerTotalIncVat(order.pricingSnapshot);
+  if (snapshotTotal !== null) {
+    return snapshotTotal;
+  }
+
+  const totalExVat = getAdjustedCustomerTotal({
+    subtotal: order.priceExVat,
+    rabatt: order.rabatt,
+    leggTil: order.leggTil,
+  });
+
+  return roundNok(totalExVat * 1.25);
 }
 
 function getSnapshotStringArray(value: unknown): string[] {

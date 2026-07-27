@@ -1,3 +1,16 @@
+export const ORDER_STATUS_OPTIONS = [
+  "processing",
+  "approved",
+  "rejected",
+  "confirmed",
+  "active",
+  "cancelled",
+  "failed",
+  "completed",
+  "invoiced",
+  "paid",
+] as const;
+
 export function normalizeOrderStatus(status: string | null | undefined) {
   const key = (status ?? "").toString().trim().toLowerCase();
 
@@ -5,6 +18,10 @@ export function normalizeOrderStatus(status: string | null | undefined) {
     case "behandles":
     case "behandling":
       return "processing";
+    case "godkjent":
+      return "approved";
+    case "avvist":
+      return "rejected";
     case "bekreftet":
       return "confirmed";
     case "aktiv":
@@ -33,6 +50,12 @@ export function getOrderStatusStyle(status: string | null | undefined) {
   switch (key) {
     case "processing":
       return { color: "#b45309", backgroundColor: "#fef3c7" };
+    case "godkjent":
+    case "approved":
+      return { color: "#1d4ed8", backgroundColor: "#dbeafe" };
+    case "avvist":
+    case "rejected":
+      return { color: "#b91c1c", backgroundColor: "#fee2e2" };
     case "bekreftet":
     case "confirmed":
       return { color: "#0f766e", backgroundColor: "#cffafe" };

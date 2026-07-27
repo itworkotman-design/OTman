@@ -10,6 +10,7 @@ import {
 } from "@/lib/orders/orderEvents";
 import { resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 
 export async function PATCH(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -75,6 +76,7 @@ export async function PATCH(req: Request) {
   const status = optionalString(body?.status);
   const subcontractorId = optionalString(body?.subcontractorId);
   const customerMembershipId = optionalString(body?.customerMembershipId);
+  const statusNotes = optionalString(body?.statusNotes);
 
   if (orderIds.length === 0) {
     return NextResponse.json(
@@ -86,6 +88,15 @@ export async function PATCH(req: Request) {
   if (!status && !subcontractorId && !customerMembershipId) {
     return NextResponse.json(
       { ok: false, reason: "NO_UPDATES_PROVIDED" },
+      { status: 400 },
+    );
+  }
+
+  const normalizedBulkStatus = status ? normalizeOrderStatus(status) : null;
+
+  if (normalizedBulkStatus === "rejected" && !statusNotes) {
+    return NextResponse.json(
+      { ok: false, reason: "REJECTION_COMMENT_REQUIRED" },
       { status: 400 },
     );
   }
@@ -153,6 +164,7 @@ export async function PATCH(req: Request) {
 
   const data: {
     status?: string;
+    statusNotes?: string;
     subcontractorMembershipId?: string;
     subcontractor?: string;
     customerMembershipId?: string;
@@ -161,6 +173,10 @@ export async function PATCH(req: Request) {
 
   if (status) {
     data.status = status;
+  }
+
+  if (statusNotes) {
+    data.statusNotes = statusNotes;
   }
 
   if (subcontractorId) {
@@ -226,10 +242,24 @@ export async function PATCH(req: Request) {
       paidAt: true,
       invoicedAt: true,
       gdprHold: true,
+      isWebsiteOrder: true,
+      approvedAt: true,
+      rejectedAt: true,
+      actionToken: true,
     },
   });
 
-  const normalizedStatus = status ? normalizeOrderStatus(status) : null;
+  const normalizedStatus = normalizedBulkStatus;
+
+  if (
+    (normalizedStatus === "approved" || normalizedStatus === "rejected") &&
+    ordersBeforeUpdate.some((order) => !order.isWebsiteOrder)
+  ) {
+    return NextResponse.json(
+      { ok: false, reason: "NOT_A_WEBSITE_ORDER" },
+      { status: 400 },
+    );
+  }
 
   // Orders on GDPR hold must never be bulk-flipped to Betalt, even when
   // selected — the hold is what pauses the auto-anonymization countdown, so
@@ -285,6 +315,44 @@ export async function PATCH(req: Request) {
     });
   }
 
+  const needsApprovedAtStamp =
+    normalizedStatus === "approved"
+      ? effectiveOrdersBeforeUpdate.filter((order) => normalizeOrderStatus(order.status) !== "approved").map((order) => order.id)
+      : [];
+  const needsRejectedAtStamp =
+    normalizedStatus === "rejected"
+      ? effectiveOrdersBeforeUpdate.filter((order) => normalizeOrderStatus(order.status) !== "rejected").map((order) => order.id)
+      : [];
+
+  if (needsApprovedAtStamp.length > 0) {
+    await prisma.order.updateMany({
+      where: { id: { in: needsApprovedAtStamp }, companyId: session.activeCompanyId },
+      data: { approvedAt: new Date() },
+    });
+  }
+
+  if (needsRejectedAtStamp.length > 0) {
+    await prisma.order.updateMany({
+      where: { id: { in: needsRejectedAtStamp }, companyId: session.activeCompanyId },
+      data: { rejectedAt: new Date() },
+    });
+  }
+
+  // actionToken must be unique per row, so it can't go through updateMany —
+  // only touch rows that don't have one yet, one at a time.
+  if (normalizedStatus === "approved" || normalizedStatus === "rejected") {
+    const needsActionToken = effectiveOrdersBeforeUpdate.filter((order) => !order.actionToken);
+
+    await Promise.all(
+      needsActionToken.map((order) =>
+        prisma.order.update({
+          where: { id: order.id },
+          data: { actionToken: createOrderActionToken() },
+        }),
+      ),
+    );
+  }
+
   const actor = {
     membershipId: membership.id,
     name: membership.user.username ?? null,
@@ -306,6 +374,7 @@ export async function PATCH(req: Request) {
     const nextSnapshot = buildOrderEventSnapshot({
       ...order,
       status: status ?? order.status,
+      statusNotes: statusNotes ?? order.statusNotes,
       subcontractor: subcontractorName ?? order.subcontractor,
       customerName: customerName ?? order.customerName,
     });

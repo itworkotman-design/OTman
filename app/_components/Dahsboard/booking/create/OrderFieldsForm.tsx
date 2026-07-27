@@ -14,6 +14,7 @@ import {
   type BookingUiLocale,
 } from "@/lib/booking/bookingUiText";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
+import { ORDER_STATUS_OPTIONS } from "@/lib/orders/statusPresentation";
 
 const LIMITED_CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
@@ -993,14 +994,11 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">{t("Status")}</h1>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput w-full">
             <option value="">{t("Choose")}</option>
-            <option value="processing">{bookingStatusText(locale, "processing")}</option>
-            <option value="confirmed">{bookingStatusText(locale, "confirmed")}</option>
-            <option value="active">{bookingStatusText(locale, "active")}</option>
-            <option value="cancelled">{bookingStatusText(locale, "cancelled")}</option>
-            <option value="failed">{bookingStatusText(locale, "failed")}</option>
-            <option value="completed">{bookingStatusText(locale, "completed")}</option>
-            <option value="invoiced">{bookingStatusText(locale, "invoiced")}</option>
-            <option value="paid">{bookingStatusText(locale, "paid")}</option>
+            {ORDER_STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {bookingStatusText(locale, s)}
+              </option>
+            ))}
           </select>
         </>
       )}

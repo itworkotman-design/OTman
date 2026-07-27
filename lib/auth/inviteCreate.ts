@@ -8,7 +8,7 @@ import { deliverInvite } from "@/lib/auth/inviteDelivery";
 
 const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 
 type CreateInviteResult =
   | { ok: true }
@@ -31,7 +31,9 @@ function normalizePermissions(
 
   const filtered: AppPermission[] = list.filter(
     (permission): permission is AppPermission =>
-      permission === "BOOKING_VIEW" || permission === "BOOKING_CREATE",
+      permission === "BOOKING_VIEW" ||
+      permission === "BOOKING_CREATE" ||
+      permission === "ARCHIVE_VIEW",
   );
 
   const withDependencies: AppPermission[] = filtered.includes("BOOKING_CREATE")

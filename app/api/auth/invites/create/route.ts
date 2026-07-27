@@ -8,7 +8,7 @@ import {
   normalizeUsernameDisplayColor,
 } from "@/lib/users/profileAppearance";
 
-type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE";
+type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 
 function getClientIp(req: Request): string | null {
   const xff = req.headers.get("x-forwarded-for");
@@ -24,7 +24,9 @@ function parsePermissions(value: unknown): AppPermission[] {
 
   return value.filter(
     (permission: unknown): permission is AppPermission =>
-      permission === "BOOKING_VIEW" || permission === "BOOKING_CREATE",
+      permission === "BOOKING_VIEW" ||
+      permission === "BOOKING_CREATE" ||
+      permission === "ARCHIVE_VIEW",
   );
 }
 

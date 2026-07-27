@@ -240,6 +240,7 @@ const NB_TEXT: Record<string, string> = {
 
 const NB_STATUS_LABELS: Record<string, string> = {
   active: "Aktiv",
+  approved: "Godkjent",
   cancelled: "Kansellert",
   completed: "Fullført",
   confirmed: "Bekreftet",
@@ -247,6 +248,7 @@ const NB_STATUS_LABELS: Record<string, string> = {
   invoiced: "Fakturert",
   paid: "Betalt",
   processing: "Behandles",
+  rejected: "Avvist",
 };
 
 export function bookingText(locale: BookingUiLocale | undefined, text: string) {

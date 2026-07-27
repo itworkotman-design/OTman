@@ -473,6 +473,16 @@ model Order {
   gdprHoldReason String?
   gdprHoldSetAt  DateTime?
 
+  isWebsiteOrder           Boolean   @default(false)
+  approvedAt               DateTime?
+  rejectedAt               DateTime?
+  actionToken              String?   @unique
+  stripeCheckoutSessionId  String?
+  stripePaymentIntentId    String?
+  stripeAmountChargedCents Int?
+  paymentRequestSentAt     DateTime?
+  paymentReminderSentAt    DateTime?
+
   @@unique([companyId, displayId])
   @@unique([recurringOrderTemplateId, recurringOrderOccurrenceDate])
   @@index([companyId, createdAt])
@@ -488,6 +498,10 @@ model Order {
   @@index([recurringOrderTemplateId])
   @@index([status, paidAt, gdprHold, gdprAnonymized])
   @@index([status, invoicedAt])
+  @@index([isWebsiteOrder, status])
+  @@index([status, approvedAt])
+  @@index([status, paymentRequestSentAt])
+  @@index([status, paymentReminderSentAt])
 }
 
 model OrderEvent {
@@ -758,6 +772,7 @@ enum InviteStatus {
 enum Permission {
   BOOKING_VIEW
   BOOKING_CREATE
+  ARCHIVE_VIEW
 }
 
 enum AuthEventType {

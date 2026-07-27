@@ -295,6 +295,7 @@ async function createWebsiteOrder(body: RequestBody): Promise<{ orderId: string;
       priceListId: TRANSPORT_PACKAGE_PRICELIST_ID,
       displayId,
       status: "processing",
+      isWebsiteOrder: true,
       pickupAddress: str(body.pickupAddress),
       deliveryAddress: isCollection ? str(body.dropoffAddress) : str(body.deliveryAddress),
       customerName: isCollection ? str(body.dropoffContactName) : str(body.name),

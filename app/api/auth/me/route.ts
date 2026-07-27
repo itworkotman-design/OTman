@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import type { AppPermission } from "@/lib/users/types";
 
 export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -45,7 +46,7 @@ export async function GET(req: Request) {
     role: m.role,
     status: m.status,
     permissions: (m.permissions ?? []).map(
-      (p: { permission: "BOOKING_VIEW" | "BOOKING_CREATE" }) => p.permission,
+      (p: { permission: AppPermission }) => p.permission,
     ),
     priceListIds: m.membershipPriceLists.map((mpl) => mpl.priceListId),
   }));
