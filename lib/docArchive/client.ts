@@ -27,11 +27,16 @@ const pool = new Pool({
 const driverAdapter = new PrismaPg(pool, { schema: "archive" });
 const archivePrisma = createArchivePrismaClient({ adapter: driverAdapter });
 
+// Archive's uploadFile takes the whole file as an in-memory Uint8Array (no
+// chunked/streaming upload in the package), so this is also the ceiling on
+// how much a single upload request buffers in the Node process.
+export const ARCHIVE_MAX_UPLOAD_SIZE_BYTES = 500 * 1024 * 1024;
+
 export const archive: ArchiveHostAdapter =
   globalForArchive.archiveHostAdapter ??
   createArchiveHostAdapter(archivePrisma, {
     fileStorageProvider: archiveS3StorageProvider,
-    fileContentPolicy: { maxUploadSizeBytes: 10 * 1024 * 1024 },
+    fileContentPolicy: { maxUploadSizeBytes: ARCHIVE_MAX_UPLOAD_SIZE_BYTES },
     conditionThresholds: {
       dueSoonMs: 72 * 60 * 60 * 1000,
       expiringSoonMs: 72 * 60 * 60 * 1000,

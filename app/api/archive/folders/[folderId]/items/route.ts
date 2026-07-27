@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
-import {
-  buildArchiveContext,
-  ensureNamespaceBootstrapped,
-  grantFolderCreatorCapabilities,
-} from "@/lib/docArchive/context";
+import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 
-export async function GET(req: Request) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ folderId: string }> },
+) {
   const result = await requireArchiveMembership(req);
   if ("error" in result) return result.error;
 
+  const { folderId } = await params;
   const ctx = buildArchiveContext(result.session, result.membership);
-  const listResult = await archive.listRootFolders(ctx);
+  const listResult = await archive.listItemsInFolder(ctx, folderId);
 
   if (!listResult.ok) {
     return NextResponse.json(
@@ -21,14 +21,18 @@ export async function GET(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, folders: listResult.value });
+  return NextResponse.json({ ok: true, items: listResult.value });
 }
 
-export async function POST(req: Request) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ folderId: string }> },
+) {
   const result = await requireArchiveMembership(req);
   if ("error" in result) return result.error;
 
   const { session, membership } = result;
+  const { folderId } = await params;
 
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
@@ -44,10 +48,7 @@ export async function POST(req: Request) {
     typeof body?.description === "string" ? body.description.trim() || null : null;
 
   const ctx = buildArchiveContext(session, membership);
-
-  await ensureNamespaceBootstrapped(ctx, membership.role);
-
-  const createResult = await archive.createFolder(ctx, { name, description });
+  const createResult = await archive.createItem(ctx, { folderId, name, description });
 
   if (!createResult.ok) {
     return NextResponse.json(
@@ -56,7 +57,5 @@ export async function POST(req: Request) {
     );
   }
 
-  await grantFolderCreatorCapabilities(ctx, createResult.value.id);
-
-  return NextResponse.json({ ok: true, folder: createResult.value }, { status: 201 });
+  return NextResponse.json({ ok: true, item: createResult.value }, { status: 201 });
 }

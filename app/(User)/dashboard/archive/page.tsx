@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { canAccessArchive } from "@/lib/users/access";
@@ -192,7 +193,11 @@ export default function ArchivePage() {
         ) : (
           <div className="customContainer divide-y divide-lineSecondary">
             {folders.map((folder) => (
-              <div key={folder.id} className="flex items-center justify-between gap-4 py-3 px-2">
+              <Link
+                key={folder.id}
+                href={`/dashboard/archive/${folder.id}`}
+                className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary"
+              >
                 <div>
                   <div className="font-medium text-textcolor">{folder.name}</div>
                   {folder.description && (
@@ -200,7 +205,7 @@ export default function ArchivePage() {
                   )}
                 </div>
                 <div className="text-sm text-textColorThird">{folder.status}</div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
