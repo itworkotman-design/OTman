@@ -44,6 +44,43 @@ type ArchiveFolderPathEntry =
   | { hidden: false; folderId: string; name: string | null }
   | { hidden: true };
 
+type ArchivePermissionAction =
+  | "view"
+  | "create"
+  | "upload"
+  | "edit"
+  | "delete"
+  | "restore"
+  | "move"
+  | "manage_metadata"
+  | "manage_status"
+  | "manage_permissions";
+
+type ArchivePermissionRule = {
+  subjectId: string;
+  action: ArchivePermissionAction;
+};
+
+type ArchiveCoworker = {
+  userId: string;
+  email: string;
+  username: string | null;
+};
+
+const CONTRIBUTOR_ACTIONS: ArchivePermissionAction[] = [
+  "view",
+  "create",
+  "upload",
+  "edit",
+  "delete",
+  "restore",
+  "move",
+  "manage_metadata",
+  "manage_status",
+];
+
+const VIEWER_ACTIONS: ArchivePermissionAction[] = ["view"];
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -91,6 +128,16 @@ export default function ArchiveFolderPage() {
   const [deletedFilesByItemId, setDeletedFilesByItemId] = useState<Record<string, ArchiveRecoverableFileRow[]>>({});
   const [deletedFilesLoading, setDeletedFilesLoading] = useState(false);
   const [restoringFileId, setRestoringFileId] = useState<string | null>(null);
+
+  const [canManageSharing, setCanManageSharing] = useState(false);
+  const [permissionRules, setPermissionRules] = useState<ArchivePermissionRule[]>([]);
+  const [coworkers, setCoworkers] = useState<ArchiveCoworker[]>([]);
+  const [shareUserId, setShareUserId] = useState("");
+  const [sharePreset, setSharePreset] = useState<"viewer" | "contributor">("viewer");
+  const [shareAlsoManage, setShareAlsoManage] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState("");
+  const [revokingUserId, setRevokingUserId] = useState<string | null>(null);
 
   async function loadFolderAndItems() {
     try {
@@ -144,6 +191,111 @@ export default function ArchiveFolderPage() {
     void loadFolderAndItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, hasAccess, folderId]);
+
+  async function loadSharing() {
+    try {
+      const [rulesRes, coworkersRes] = await Promise.all([
+        fetch(`/api/archive/folders/${folderId}/permissions`, { credentials: "include", cache: "no-store" }),
+        fetch("/api/archive/coworkers", { credentials: "include", cache: "no-store" }),
+      ]);
+
+      const rulesData = await rulesRes.json().catch(() => null);
+
+      if (!rulesRes.ok || !rulesData?.ok) {
+        // Listing rules requires manage_permissions on this folder — if the
+        // caller doesn't have it, hide the sharing section rather than error.
+        setCanManageSharing(false);
+        return;
+      }
+
+      setCanManageSharing(true);
+      setPermissionRules(
+        (rulesData.rules ?? []).filter(
+          (rule: { subjectType: string }) => rule.subjectType === "user",
+        ),
+      );
+
+      const coworkersData = await coworkersRes.json().catch(() => null);
+      if (coworkersRes.ok && coworkersData?.ok) {
+        setCoworkers(coworkersData.coworkers ?? []);
+      }
+    } catch {
+      setCanManageSharing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!hasAccess) return;
+    if (!folderId) return;
+    void loadSharing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, hasAccess, folderId]);
+
+  async function handleGrantShare() {
+    if (!shareUserId) return;
+
+    try {
+      setSharing(true);
+      setShareError("");
+
+      const actions = [
+        ...(sharePreset === "contributor" ? CONTRIBUTOR_ACTIONS : VIEWER_ACTIONS),
+        ...(shareAlsoManage ? (["manage_permissions"] as ArchivePermissionAction[]) : []),
+      ];
+
+      const res = await fetch(`/api/archive/folders/${folderId}/permissions`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: shareUserId, actions }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setShareError(data?.reason || "Failed to share folder");
+        return;
+      }
+
+      setShareUserId("");
+      setShareAlsoManage(false);
+      await loadSharing();
+    } catch {
+      setShareError("Failed to share folder");
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function handleRevokeShare(userId: string, actions: ArchivePermissionAction[]) {
+    if (!confirm(locale === "nb" ? "Fjerne denne personens tilgang?" : "Remove this person's access?")) return;
+
+    try {
+      setRevokingUserId(userId);
+      setShareError("");
+
+      const res = await fetch(`/api/archive/folders/${folderId}/permissions`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, actions }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setShareError(data?.reason || "Failed to remove access");
+        return;
+      }
+
+      await loadSharing();
+    } catch {
+      setShareError("Failed to remove access");
+    } finally {
+      setRevokingUserId(null);
+    }
+  }
 
   async function handleCreateItem() {
     const name = newItemName.trim();
@@ -418,6 +570,16 @@ export default function ArchiveFolderPage() {
     );
   }
 
+  const sharedUserActions = new Map<string, ArchivePermissionAction[]>();
+  for (const rule of permissionRules) {
+    if (rule.subjectId === currentUser?.id) continue;
+    const existing = sharedUserActions.get(rule.subjectId) ?? [];
+    existing.push(rule.action);
+    sharedUserActions.set(rule.subjectId, existing);
+  }
+  const coworkerById = new Map(coworkers.map((c) => [c.userId, c]));
+  const shareableCoworkers = coworkers.filter((c) => !sharedUserActions.has(c.userId));
+
   return (
     <div className="w-full">
       <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-textColorThird">
@@ -460,6 +622,93 @@ export default function ArchiveFolderPage() {
       {rowActionError && (
         <div className="customContainer mb-6 border-red-200! bg-red-50 py-4 px-4 text-sm font-medium text-red-600">
           {rowActionError}
+        </div>
+      )}
+
+      {canManageSharing && (
+        <div className="customContainer mb-6 p-4">
+          <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Deling" : "Sharing"}</h2>
+
+          {sharedUserActions.size > 0 && (
+            <div className="mb-4 flex flex-col gap-2">
+              {Array.from(sharedUserActions.entries()).map(([userId, actions]) => {
+                const coworker = coworkerById.get(userId);
+                return (
+                  <div key={userId} className="flex items-center justify-between gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-textcolor">
+                        {coworker?.username || coworker?.email || userId}
+                      </span>
+                      <span className="ml-2 text-textColorThird">{actions.join(", ")}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-red-600 hover:underline"
+                      onClick={() => void handleRevokeShare(userId, actions)}
+                      disabled={revokingUserId === userId}
+                    >
+                      {locale === "nb" ? "Fjern" : "Remove"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[200] flex-1">
+              <label className="block pb-2 text-sm">{locale === "nb" ? "Kollega" : "Coworker"}</label>
+              <select
+                className="customInput w-full"
+                value={shareUserId}
+                onChange={(e) => setShareUserId(e.target.value)}
+                disabled={sharing}
+              >
+                <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
+                {shareableCoworkers.map((coworker) => (
+                  <option key={coworker.userId} value={coworker.userId}>
+                    {coworker.username || coworker.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="min-w-[160]">
+              <label className="block pb-2 text-sm">{locale === "nb" ? "Tilgangsnivå" : "Access level"}</label>
+              <select
+                className="customInput w-full"
+                value={sharePreset}
+                onChange={(e) => setSharePreset(e.target.value as "viewer" | "contributor")}
+                disabled={sharing}
+              >
+                <option value="viewer">{locale === "nb" ? "Kan se" : "Viewer"}</option>
+                <option value="contributor">{locale === "nb" ? "Kan redigere" : "Contributor"}</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              className="customButtonEnabled h-10 px-6"
+              onClick={() => void handleGrantShare()}
+              disabled={sharing || !shareUserId}
+            >
+              {sharing ? (locale === "nb" ? "Deler..." : "Sharing...") : locale === "nb" ? "Del" : "Share"}
+            </button>
+          </div>
+
+          <label className="mt-3 flex items-center gap-2 text-sm text-textColorThird">
+            <input
+              type="checkbox"
+              checked={shareAlsoManage}
+              onChange={(e) => setShareAlsoManage(e.target.checked)}
+              disabled={sharing}
+            />
+            {locale === "nb"
+              ? "La denne personen også administrere deling av mappen"
+              : "Also let this person manage folder sharing"}
+          </label>
+
+          {shareError && <p className="mt-3 text-sm font-medium text-red-600">{shareError}</p>}
         </div>
       )}
 
