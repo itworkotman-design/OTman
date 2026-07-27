@@ -27,6 +27,23 @@ type ArchiveFileRow = {
   sizeBytes: number;
 };
 
+type ArchiveRecoverableFileRow = {
+  id: string;
+  originalFileName: string;
+  sizeBytes: number;
+};
+
+type ArchiveChildFolderRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+};
+
+type ArchiveFolderPathEntry =
+  | { hidden: false; folderId: string; name: string | null }
+  | { hidden: true };
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -44,6 +61,8 @@ export default function ArchiveFolderPage() {
 
   const [folder, setFolder] = useState<ArchiveFolderDetail | null>(null);
   const [items, setItems] = useState<ArchiveItemRow[]>([]);
+  const [childFolders, setChildFolders] = useState<ArchiveChildFolderRow[]>([]);
+  const [folderPath, setFolderPath] = useState<ArchiveFolderPathEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -52,24 +71,43 @@ export default function ArchiveFolderPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
+  const [newSubfolderName, setNewSubfolderName] = useState("");
+  const [newSubfolderDescription, setNewSubfolderDescription] = useState("");
+  const [creatingSubfolder, setCreatingSubfolder] = useState(false);
+  const [createSubfolderError, setCreateSubfolderError] = useState("");
+  const [deletingChildFolderId, setDeletingChildFolderId] = useState<string | null>(null);
+
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [filesByItemId, setFilesByItemId] = useState<Record<string, ArchiveFileRow[]>>({});
   const [filesLoading, setFilesLoading] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState("");
 
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+  const [rowActionError, setRowActionError] = useState("");
+
+  const [expandedDeletedFilesItemId, setExpandedDeletedFilesItemId] = useState<string | null>(null);
+  const [deletedFilesByItemId, setDeletedFilesByItemId] = useState<Record<string, ArchiveRecoverableFileRow[]>>({});
+  const [deletedFilesLoading, setDeletedFilesLoading] = useState(false);
+  const [restoringFileId, setRestoringFileId] = useState<string | null>(null);
+
   async function loadFolderAndItems() {
     try {
       setLoading(true);
       setError("");
 
-      const [folderRes, itemsRes] = await Promise.all([
+      const [folderRes, itemsRes, childrenRes, pathRes] = await Promise.all([
         fetch(`/api/archive/folders/${folderId}`, { credentials: "include", cache: "no-store" }),
         fetch(`/api/archive/folders/${folderId}/items`, { credentials: "include", cache: "no-store" }),
+        fetch(`/api/archive/folders/${folderId}/children`, { credentials: "include", cache: "no-store" }),
+        fetch(`/api/archive/folders/${folderId}/path`, { credentials: "include", cache: "no-store" }),
       ]);
 
       const folderData = await folderRes.json().catch(() => null);
       const itemsData = await itemsRes.json().catch(() => null);
+      const childrenData = await childrenRes.json().catch(() => null);
+      const pathData = await pathRes.json().catch(() => null);
 
       if (!folderRes.ok || !folderData?.ok) {
         setError(folderData?.reason || "Failed to load folder");
@@ -84,6 +122,14 @@ export default function ArchiveFolderPage() {
       }
 
       setItems(itemsData.items ?? []);
+
+      if (childrenRes.ok && childrenData?.ok) {
+        setChildFolders(childrenData.folders ?? []);
+      }
+
+      if (pathRes.ok && pathData?.ok) {
+        setFolderPath(pathData.path ?? []);
+      }
     } catch {
       setError("Failed to load folder");
     } finally {
@@ -128,6 +174,69 @@ export default function ArchiveFolderPage() {
       setCreateError("Failed to create item");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleCreateSubfolder() {
+    const name = newSubfolderName.trim();
+    if (!name) return;
+
+    try {
+      setCreatingSubfolder(true);
+      setCreateSubfolderError("");
+
+      const res = await fetch("/api/archive/folders", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          description: newSubfolderDescription.trim() || null,
+          parentFolderId: folderId,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setCreateSubfolderError(data?.reason || "Failed to create subfolder");
+        return;
+      }
+
+      setNewSubfolderName("");
+      setNewSubfolderDescription("");
+      await loadFolderAndItems();
+    } catch {
+      setCreateSubfolderError("Failed to create subfolder");
+    } finally {
+      setCreatingSubfolder(false);
+    }
+  }
+
+  async function handleDeleteChildFolder(childFolderId: string) {
+    if (!confirm(locale === "nb" ? "Slette denne mappen?" : "Delete this folder?")) return;
+
+    try {
+      setDeletingChildFolderId(childFolderId);
+      setRowActionError("");
+
+      const res = await fetch(`/api/archive/folders/${childFolderId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setRowActionError(data?.reason || "Failed to delete folder");
+        return;
+      }
+
+      setChildFolders((prev) => prev.filter((f) => f.id !== childFolderId));
+    } catch {
+      setRowActionError("Failed to delete folder");
+    } finally {
+      setDeletingChildFolderId(null);
     }
   }
 
@@ -188,6 +297,117 @@ export default function ArchiveFolderPage() {
     }
   }
 
+  async function handleDeleteItem(itemId: string) {
+    if (!confirm(locale === "nb" ? "Slette dette elementet?" : "Delete this item?")) return;
+
+    try {
+      setDeletingItemId(itemId);
+      setRowActionError("");
+
+      const res = await fetch(`/api/archive/items/${itemId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setRowActionError(data?.reason || "Failed to delete item");
+        return;
+      }
+
+      setItems((prev) => prev.filter((i) => i.id !== itemId));
+      if (expandedItemId === itemId) setExpandedItemId(null);
+    } catch {
+      setRowActionError("Failed to delete item");
+    } finally {
+      setDeletingItemId(null);
+    }
+  }
+
+  async function handleDeleteFile(itemId: string, fileId: string) {
+    if (!confirm(locale === "nb" ? "Slette denne filen?" : "Delete this file?")) return;
+
+    try {
+      setDeletingFileId(fileId);
+      setRowActionError("");
+
+      const res = await fetch(`/api/archive/files/${fileId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setRowActionError(data?.reason || "Failed to delete file");
+        return;
+      }
+
+      setFilesByItemId((prev) => ({
+        ...prev,
+        [itemId]: (prev[itemId] ?? []).filter((f) => f.id !== fileId),
+      }));
+    } catch {
+      setRowActionError("Failed to delete file");
+    } finally {
+      setDeletingFileId(null);
+    }
+  }
+
+  async function loadDeletedFiles(itemId: string) {
+    try {
+      setDeletedFilesLoading(true);
+
+      const res = await fetch(`/api/archive/items/${itemId}/files/recoverable`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) return;
+
+      setDeletedFilesByItemId((prev) => ({ ...prev, [itemId]: data.files ?? [] }));
+    } finally {
+      setDeletedFilesLoading(false);
+    }
+  }
+
+  function handleToggleDeletedFiles(itemId: string) {
+    const next = expandedDeletedFilesItemId === itemId ? null : itemId;
+    setExpandedDeletedFilesItemId(next);
+
+    if (next && !deletedFilesByItemId[next]) {
+      void loadDeletedFiles(next);
+    }
+  }
+
+  async function handleRestoreFile(itemId: string, fileId: string) {
+    try {
+      setRestoringFileId(fileId);
+      setRowActionError("");
+
+      const res = await fetch(`/api/archive/files/${fileId}/restore`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setRowActionError(data?.reason || "Failed to restore file");
+        return;
+      }
+
+      await Promise.all([loadDeletedFiles(itemId), loadFiles(itemId)]);
+    } catch {
+      setRowActionError("Failed to restore file");
+    } finally {
+      setRestoringFileId(null);
+    }
+  }
+
   if (currentUser && !hasAccess) {
     return (
       <div className="w-full">
@@ -200,9 +420,29 @@ export default function ArchiveFolderPage() {
 
   return (
     <div className="w-full">
-      <Link href="/dashboard/archive" className="mb-4 inline-block text-sm text-textColorThird hover:underline">
-        {locale === "nb" ? "← Tilbake til arkivet" : "← Back to archive"}
-      </Link>
+      <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-textColorThird">
+        <Link href="/dashboard/archive" className="hover:underline">
+          {locale === "nb" ? "Arkiv" : "Archive"}
+        </Link>
+        {folderPath
+          .filter((entry) => entry.hidden || entry.folderId !== folderId)
+          .map((entry, index) => (
+            <span key={index} className="flex items-center gap-1">
+              <span>/</span>
+              {entry.hidden ? (
+                <span>…</span>
+              ) : (
+                <Link href={`/dashboard/archive/${entry.folderId}`} className="hover:underline">
+                  {entry.name ?? "…"}
+                </Link>
+              )}
+            </span>
+          ))}
+        <span>/</span>
+        <span className="font-medium text-textcolor">
+          {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
+        </span>
+      </nav>
 
       <div className="mb-8">
         <h1 className="whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
@@ -216,6 +456,85 @@ export default function ArchiveFolderPage() {
           {error}
         </div>
       )}
+
+      {rowActionError && (
+        <div className="customContainer mb-6 border-red-200! bg-red-50 py-4 px-4 text-sm font-medium text-red-600">
+          {rowActionError}
+        </div>
+      )}
+
+      <div className="customContainer mb-6 p-4">
+        <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Ny undermappe" : "New subfolder"}</h2>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[200] flex-1">
+            <label className="block pb-2 text-sm">{locale === "nb" ? "Navn" : "Name"}</label>
+            <input
+              className="customInput w-full"
+              value={newSubfolderName}
+              onChange={(e) => setNewSubfolderName(e.target.value)}
+              type="text"
+              disabled={creatingSubfolder}
+            />
+          </div>
+
+          <div className="min-w-[240] flex-1">
+            <label className="block pb-2 text-sm">{locale === "nb" ? "Beskrivelse" : "Description"}</label>
+            <input
+              className="customInput w-full"
+              value={newSubfolderDescription}
+              onChange={(e) => setNewSubfolderDescription(e.target.value)}
+              type="text"
+              disabled={creatingSubfolder}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="customButtonEnabled h-10 px-6"
+            onClick={() => void handleCreateSubfolder()}
+            disabled={creatingSubfolder || !newSubfolderName.trim()}
+          >
+            {creatingSubfolder
+              ? locale === "nb"
+                ? "Oppretter..."
+                : "Creating..."
+              : locale === "nb"
+                ? "Opprett"
+                : "Create"}
+          </button>
+        </div>
+
+        {createSubfolderError && <p className="mt-3 text-sm font-medium text-red-600">{createSubfolderError}</p>}
+      </div>
+
+      <div className="min-w-0 w-full overflow-x-auto">
+        {childFolders.length > 0 && (
+          <>
+            <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Undermapper" : "Subfolders"}</h2>
+            <div className="customContainer mb-6 divide-y divide-lineSecondary">
+              {childFolders.map((childFolder) => (
+                <div key={childFolder.id} className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary">
+                  <Link href={`/dashboard/archive/${childFolder.id}`} className="min-w-0 flex-1">
+                    <div className="font-medium text-textcolor">{childFolder.name}</div>
+                    {childFolder.description && (
+                      <div className="text-sm text-textColorThird">{childFolder.description}</div>
+                    )}
+                  </Link>
+                  <button
+                    type="button"
+                    className="customButtonDefault shrink-0"
+                    onClick={() => void handleDeleteChildFolder(childFolder.id)}
+                    disabled={deletingChildFolderId === childFolder.id}
+                  >
+                    {locale === "nb" ? "Slett" : "Delete"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="customContainer mb-6 p-4">
         <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Nytt element" : "New item"}</h2>
@@ -273,17 +592,27 @@ export default function ArchiveFolderPage() {
 
               return (
                 <div key={item.id} className="py-3 px-2">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-4 text-left"
-                    onClick={() => handleToggleItem(item.id)}
-                  >
-                    <div>
-                      <div className="font-medium text-textcolor">{item.name}</div>
-                      {item.description && <div className="text-sm text-textColorThird">{item.description}</div>}
-                    </div>
-                    <div className="text-sm text-textColorThird">{isExpanded ? "▲" : "▼"}</div>
-                  </button>
+                  <div className="flex w-full items-center justify-between gap-4">
+                    <button
+                      type="button"
+                      className="flex flex-1 items-center justify-between gap-4 text-left"
+                      onClick={() => handleToggleItem(item.id)}
+                    >
+                      <div>
+                        <div className="font-medium text-textcolor">{item.name}</div>
+                        {item.description && <div className="text-sm text-textColorThird">{item.description}</div>}
+                      </div>
+                      <div className="text-sm text-textColorThird">{isExpanded ? "▲" : "▼"}</div>
+                    </button>
+                    <button
+                      type="button"
+                      className="customButtonDefault shrink-0"
+                      onClick={() => void handleDeleteItem(item.id)}
+                      disabled={deletingItemId === item.id}
+                    >
+                      {locale === "nb" ? "Slett" : "Delete"}
+                    </button>
+                  </div>
 
                   {isExpanded && (
                     <div className="mt-3 pl-2">
@@ -307,7 +636,17 @@ export default function ArchiveFolderPage() {
                               >
                                 {file.originalFileName}
                               </a>
-                              <span className="text-textColorThird">{formatBytes(file.sizeBytes)}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-textColorThird">{formatBytes(file.sizeBytes)}</span>
+                                <button
+                                  type="button"
+                                  className="text-red-600 hover:underline"
+                                  onClick={() => void handleDeleteFile(item.id, file.id)}
+                                  disabled={deletingFileId === file.id}
+                                >
+                                  {locale === "nb" ? "Slett" : "Delete"}
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -334,6 +673,48 @@ export default function ArchiveFolderPage() {
                       </label>
 
                       {uploadError && <p className="mt-2 text-sm font-medium text-red-600">{uploadError}</p>}
+
+                      <button
+                        type="button"
+                        className="mt-3 block text-sm text-textColorThird hover:underline"
+                        onClick={() => handleToggleDeletedFiles(item.id)}
+                      >
+                        {expandedDeletedFilesItemId === item.id
+                          ? locale === "nb"
+                            ? "Skjul slettede filer"
+                            : "Hide deleted files"
+                          : locale === "nb"
+                            ? "Vis slettede filer"
+                            : "Show deleted files"}
+                      </button>
+
+                      {expandedDeletedFilesItemId === item.id && (
+                        <div className="mt-2 flex flex-col gap-1">
+                          {deletedFilesLoading && !deletedFilesByItemId[item.id] ? (
+                            <div className="text-sm text-textColorThird">
+                              {locale === "nb" ? "Laster..." : "Loading..."}
+                            </div>
+                          ) : (deletedFilesByItemId[item.id] ?? []).length === 0 ? (
+                            <div className="text-sm text-textColorThird">
+                              {locale === "nb" ? "Ingen slettede filer" : "No deleted files"}
+                            </div>
+                          ) : (
+                            (deletedFilesByItemId[item.id] ?? []).map((file) => (
+                              <div key={file.id} className="flex items-center justify-between gap-3 text-sm">
+                                <span className="text-textColorThird">{file.originalFileName}</span>
+                                <button
+                                  type="button"
+                                  className="text-logoblue hover:underline"
+                                  onClick={() => void handleRestoreFile(item.id, file.id)}
+                                  disabled={restoringFileId === file.id}
+                                >
+                                  {locale === "nb" ? "Gjenopprett" : "Restore"}
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

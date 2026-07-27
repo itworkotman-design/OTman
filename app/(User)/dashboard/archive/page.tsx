@@ -35,6 +35,9 @@ export default function ArchivePage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
+  const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+
   async function loadFolders() {
     try {
       setLoading(true);
@@ -105,6 +108,33 @@ export default function ArchivePage() {
     }
   }
 
+  async function handleDeleteFolder(folderId: string) {
+    if (!confirm(locale === "nb" ? "Slette denne mappen?" : "Delete this folder?")) return;
+
+    try {
+      setDeletingFolderId(folderId);
+      setDeleteError("");
+
+      const res = await fetch(`/api/archive/folders/${folderId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setDeleteError(data?.reason || "Failed to delete folder");
+        return;
+      }
+
+      setFolders((prev) => prev.filter((f) => f.id !== folderId));
+    } catch {
+      setDeleteError("Failed to delete folder");
+    } finally {
+      setDeletingFolderId(null);
+    }
+  }
+
   if (currentUser && !hasAccess) {
     return (
       <div className="w-full">
@@ -129,12 +159,27 @@ export default function ArchivePage() {
           </p>
         </div>
 
-        {!loading && !error && (
-          <div className="customInput px-4 py-2 text-sm font-medium text-textColorThird">
-            {folders.length} {locale === "nb" ? "mapper" : folders.length === 1 ? "folder" : "folders"}
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/archive/search" className="text-sm text-textColorThird hover:underline">
+            {locale === "nb" ? "Søk" : "Search"}
+          </Link>
+          <Link href="/dashboard/archive/recoverable" className="text-sm text-textColorThird hover:underline">
+            {locale === "nb" ? "Vis slettede" : "View deleted"}
+          </Link>
+
+          {!loading && !error && (
+            <div className="customInput px-4 py-2 text-sm font-medium text-textColorThird">
+              {folders.length} {locale === "nb" ? "mapper" : folders.length === 1 ? "folder" : "folders"}
+            </div>
+          )}
+        </div>
       </div>
+
+      {deleteError && (
+        <div className="customContainer mb-6 border-red-200! bg-red-50 py-3 px-4 text-sm font-medium text-red-600">
+          {deleteError}
+        </div>
+      )}
 
       <div className="customContainer mb-6 p-4">
         <h2 className="mb-3 font-semibold text-logoblue">
@@ -193,19 +238,23 @@ export default function ArchivePage() {
         ) : (
           <div className="customContainer divide-y divide-lineSecondary">
             {folders.map((folder) => (
-              <Link
-                key={folder.id}
-                href={`/dashboard/archive/${folder.id}`}
-                className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary"
-              >
-                <div>
+              <div key={folder.id} className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary">
+                <Link href={`/dashboard/archive/${folder.id}`} className="min-w-0 flex-1">
                   <div className="font-medium text-textcolor">{folder.name}</div>
                   {folder.description && (
                     <div className="text-sm text-textColorThird">{folder.description}</div>
                   )}
-                </div>
+                </Link>
                 <div className="text-sm text-textColorThird">{folder.status}</div>
-              </Link>
+                <button
+                  type="button"
+                  className="customButtonDefault shrink-0"
+                  onClick={() => void handleDeleteFolder(folder.id)}
+                  disabled={deletingFolderId === folder.id}
+                >
+                  {locale === "nb" ? "Slett" : "Delete"}
+                </button>
+              </div>
             ))}
           </div>
         )}

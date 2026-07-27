@@ -5,14 +5,14 @@ import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/r
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ folderId: string }> },
+  { params }: { params: Promise<{ itemId: string }> },
 ) {
   const result = await requireArchiveMembership(req);
   if ("error" in result) return result.error;
 
-  const { folderId } = await params;
+  const { itemId } = await params;
   const ctx = buildArchiveContext(result.session, result.membership);
-  const readResult = await archive.readFolder(ctx, folderId);
+  const readResult = await archive.readItem(ctx, itemId);
 
   if (!readResult.ok) {
     return NextResponse.json(
@@ -21,19 +21,19 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ ok: true, folder: readResult.value });
+  return NextResponse.json({ ok: true, item: readResult.value });
 }
 
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ folderId: string }> },
+  { params }: { params: Promise<{ itemId: string }> },
 ) {
   const result = await requireArchiveMembership(req);
   if ("error" in result) return result.error;
 
-  const { folderId } = await params;
+  const { itemId } = await params;
   const ctx = buildArchiveContext(result.session, result.membership);
-  const deleteResult = await archive.softDeleteFolder(ctx, folderId);
+  const deleteResult = await archive.softDeleteItem(ctx, itemId);
 
   if (!deleteResult.ok) {
     return NextResponse.json(
@@ -42,5 +42,5 @@ export async function DELETE(
     );
   }
 
-  return NextResponse.json({ ok: true, folder: deleteResult.value });
+  return NextResponse.json({ ok: true, item: deleteResult.value });
 }

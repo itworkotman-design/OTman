@@ -42,12 +42,16 @@ export async function POST(req: Request) {
 
   const description =
     typeof body?.description === "string" ? body.description.trim() || null : null;
+  const parentFolderId =
+    typeof body?.parentFolderId === "string" ? body.parentFolderId.trim() || null : null;
 
   const ctx = buildArchiveContext(session, membership);
 
-  await ensureNamespaceBootstrapped(ctx, membership.role);
+  if (!parentFolderId) {
+    await ensureNamespaceBootstrapped(ctx, membership.role);
+  }
 
-  const createResult = await archive.createFolder(ctx, { name, description });
+  const createResult = await archive.createFolder(ctx, { name, description, parentFolderId });
 
   if (!createResult.ok) {
     return NextResponse.json(
