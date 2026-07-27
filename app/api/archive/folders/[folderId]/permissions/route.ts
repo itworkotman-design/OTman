@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { ArchivePermissionAction } from "@customprojects/custom-archive";
+import type { ArchivePermissionAction, ArchivePermissionSubjectType } from "@customprojects/custom-archive";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
@@ -17,11 +17,21 @@ const VALID_ACTIONS: ArchivePermissionAction[] = [
   "manage_permissions",
 ];
 
+const VALID_SUBJECT_TYPES: ArchivePermissionSubjectType[] = ["user", "role"];
+
 function parseActions(body: unknown): ArchivePermissionAction[] | null {
   const raw = (body as { actions?: unknown } | null)?.actions;
   if (!Array.isArray(raw) || raw.length === 0) return null;
   if (!raw.every((a): a is ArchivePermissionAction => VALID_ACTIONS.includes(a))) return null;
   return raw;
+}
+
+function parseSubjectType(body: unknown): ArchivePermissionSubjectType {
+  const raw = (body as { subjectType?: unknown } | null)?.subjectType;
+  if (typeof raw === "string" && VALID_SUBJECT_TYPES.includes(raw as ArchivePermissionSubjectType)) {
+    return raw as ArchivePermissionSubjectType;
+  }
+  return "user";
 }
 
 export async function GET(
@@ -57,10 +67,11 @@ export async function POST(
 
   const { folderId } = await params;
   const body = await req.json().catch(() => null);
-  const userId = typeof body?.userId === "string" ? body.userId.trim() : "";
+  const subjectId = typeof body?.subjectId === "string" ? body.subjectId.trim() : "";
+  const subjectType = parseSubjectType(body);
   const actions = parseActions(body);
 
-  if (!userId || !actions) {
+  if (!subjectId || !actions) {
     return NextResponse.json({ ok: false, reason: "INVALID_INPUT" }, { status: 400 });
   }
 
@@ -70,8 +81,8 @@ export async function POST(
     const setResult = await archive.setPermissionRule(ctx, {
       targetType: "folder",
       targetId: folderId,
-      subjectType: "user",
-      subjectId: userId,
+      subjectType,
+      subjectId,
       action,
       effect: "allow",
     });
@@ -96,10 +107,11 @@ export async function DELETE(
 
   const { folderId } = await params;
   const body = await req.json().catch(() => null);
-  const userId = typeof body?.userId === "string" ? body.userId.trim() : "";
+  const subjectId = typeof body?.subjectId === "string" ? body.subjectId.trim() : "";
+  const subjectType = parseSubjectType(body);
   const actions = parseActions(body);
 
-  if (!userId || !actions) {
+  if (!subjectId || !actions) {
     return NextResponse.json({ ok: false, reason: "INVALID_INPUT" }, { status: 400 });
   }
 
@@ -109,8 +121,8 @@ export async function DELETE(
     const revokeResult = await archive.revokePermissionRule(ctx, {
       targetType: "folder",
       targetId: folderId,
-      subjectType: "user",
-      subjectId: userId,
+      subjectType,
+      subjectId,
       action,
     });
 

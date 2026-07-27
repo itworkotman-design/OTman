@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { canAccessArchive } from "@/lib/users/access";
+import { canAccessArchive, hasFullAccess } from "@/lib/users/access";
 import { bookingText } from "@/lib/booking/bookingUiText";
 
 type ArchiveFolderRow = {
@@ -25,6 +25,7 @@ export default function ArchivePage() {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
   const hasAccess = currentUser ? canAccessArchive(currentUser.role, currentUser.permissions) : true;
+  const isFullAccess = currentUser ? hasFullAccess(currentUser.role) : false;
 
   const [folders, setFolders] = useState<ArchiveFolderRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,8 +164,16 @@ export default function ArchivePage() {
           <Link href="/dashboard/archive/search" className="text-sm text-textColorThird hover:underline">
             {locale === "nb" ? "Søk" : "Search"}
           </Link>
+          {isFullAccess && (
+            <Link href="/dashboard/archive/roles" className="text-sm text-textColorThird hover:underline">
+              {locale === "nb" ? "Roller" : "Roles"}
+            </Link>
+          )}
           <Link href="/dashboard/archive/recoverable" className="text-sm text-textColorThird hover:underline">
             {locale === "nb" ? "Vis slettede" : "View deleted"}
+          </Link>
+          <Link href="/dashboard/archive/ui-lab" className="text-sm text-textColorThird hover:underline">
+            UI lab
           </Link>
 
           {!loading && !error && (

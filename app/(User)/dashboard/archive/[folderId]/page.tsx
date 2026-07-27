@@ -56,7 +56,10 @@ type ArchivePermissionAction =
   | "manage_status"
   | "manage_permissions";
 
+type ArchivePermissionSubjectType = "user" | "role";
+
 type ArchivePermissionRule = {
+  subjectType: ArchivePermissionSubjectType;
   subjectId: string;
   action: ArchivePermissionAction;
 };
@@ -65,6 +68,11 @@ type ArchiveCoworker = {
   userId: string;
   email: string;
   username: string | null;
+};
+
+type ArchiveRoleOption = {
+  id: string;
+  name: string;
 };
 
 const CONTRIBUTOR_ACTIONS: ArchivePermissionAction[] = [
@@ -132,12 +140,16 @@ export default function ArchiveFolderPage() {
   const [canManageSharing, setCanManageSharing] = useState(false);
   const [permissionRules, setPermissionRules] = useState<ArchivePermissionRule[]>([]);
   const [coworkers, setCoworkers] = useState<ArchiveCoworker[]>([]);
+  const [roles, setRoles] = useState<ArchiveRoleOption[]>([]);
+  const [canShareWithRoles, setCanShareWithRoles] = useState(false);
+  const [shareTargetType, setShareTargetType] = useState<ArchivePermissionSubjectType>("user");
   const [shareUserId, setShareUserId] = useState("");
+  const [shareRoleId, setShareRoleId] = useState("");
   const [sharePreset, setSharePreset] = useState<"viewer" | "contributor">("viewer");
   const [shareAlsoManage, setShareAlsoManage] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState("");
-  const [revokingUserId, setRevokingUserId] = useState<string | null>(null);
+  const [revokingSubject, setRevokingSubject] = useState<string | null>(null);
 
   async function loadFolderAndItems() {
     try {
@@ -194,9 +206,10 @@ export default function ArchiveFolderPage() {
 
   async function loadSharing() {
     try {
-      const [rulesRes, coworkersRes] = await Promise.all([
+      const [rulesRes, coworkersRes, rolesRes] = await Promise.all([
         fetch(`/api/archive/folders/${folderId}/permissions`, { credentials: "include", cache: "no-store" }),
         fetch("/api/archive/coworkers", { credentials: "include", cache: "no-store" }),
+        fetch("/api/archive/roles", { credentials: "include", cache: "no-store" }),
       ]);
 
       const rulesData = await rulesRes.json().catch(() => null);
@@ -209,15 +222,23 @@ export default function ArchiveFolderPage() {
       }
 
       setCanManageSharing(true);
-      setPermissionRules(
-        (rulesData.rules ?? []).filter(
-          (rule: { subjectType: string }) => rule.subjectType === "user",
-        ),
-      );
+      setPermissionRules(rulesData.rules ?? []);
 
       const coworkersData = await coworkersRes.json().catch(() => null);
       if (coworkersRes.ok && coworkersData?.ok) {
         setCoworkers(coworkersData.coworkers ?? []);
+      }
+
+      // listArchiveRoles requires manage_permissions on the *namespace*, a
+      // stricter grant than folder-level manage_permissions — a folder
+      // co-manager who isn't also a namespace manager won't have it, so
+      // treat a failure here as "no role-sharing option," not an error.
+      const rolesData = await rolesRes.json().catch(() => null);
+      if (rolesRes.ok && rolesData?.ok) {
+        setCanShareWithRoles(true);
+        setRoles(rolesData.roles ?? []);
+      } else {
+        setCanShareWithRoles(false);
       }
     } catch {
       setCanManageSharing(false);
@@ -233,7 +254,8 @@ export default function ArchiveFolderPage() {
   }, [currentUser, hasAccess, folderId]);
 
   async function handleGrantShare() {
-    if (!shareUserId) return;
+    const subjectId = shareTargetType === "role" ? shareRoleId : shareUserId;
+    if (!subjectId) return;
 
     try {
       setSharing(true);
@@ -248,7 +270,7 @@ export default function ArchiveFolderPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: shareUserId, actions }),
+        body: JSON.stringify({ subjectType: shareTargetType, subjectId, actions }),
       });
 
       const data = await res.json().catch(() => null);
@@ -259,6 +281,7 @@ export default function ArchiveFolderPage() {
       }
 
       setShareUserId("");
+      setShareRoleId("");
       setShareAlsoManage(false);
       await loadSharing();
     } catch {
@@ -268,18 +291,22 @@ export default function ArchiveFolderPage() {
     }
   }
 
-  async function handleRevokeShare(userId: string, actions: ArchivePermissionAction[]) {
-    if (!confirm(locale === "nb" ? "Fjerne denne personens tilgang?" : "Remove this person's access?")) return;
+  async function handleRevokeShare(
+    subjectType: ArchivePermissionSubjectType,
+    subjectId: string,
+    actions: ArchivePermissionAction[],
+  ) {
+    if (!confirm(locale === "nb" ? "Fjerne denne tilgangen?" : "Remove this access?")) return;
 
     try {
-      setRevokingUserId(userId);
+      setRevokingSubject(subjectId);
       setShareError("");
 
       const res = await fetch(`/api/archive/folders/${folderId}/permissions`, {
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, actions }),
+        body: JSON.stringify({ subjectType, subjectId, actions }),
       });
 
       const data = await res.json().catch(() => null);
@@ -293,7 +320,7 @@ export default function ArchiveFolderPage() {
     } catch {
       setShareError("Failed to remove access");
     } finally {
-      setRevokingUserId(null);
+      setRevokingSubject(null);
     }
   }
 
@@ -570,15 +597,28 @@ export default function ArchiveFolderPage() {
     );
   }
 
-  const sharedUserActions = new Map<string, ArchivePermissionAction[]>();
+  type SharedSubject = { subjectType: ArchivePermissionSubjectType; subjectId: string; actions: ArchivePermissionAction[] };
+  const sharedSubjects = new Map<string, SharedSubject>();
   for (const rule of permissionRules) {
-    if (rule.subjectId === currentUser?.id) continue;
-    const existing = sharedUserActions.get(rule.subjectId) ?? [];
-    existing.push(rule.action);
-    sharedUserActions.set(rule.subjectId, existing);
+    if (rule.subjectType === "user" && rule.subjectId === currentUser?.id) continue;
+    const key = `${rule.subjectType}:${rule.subjectId}`;
+    const existing = sharedSubjects.get(key);
+    if (existing) {
+      existing.actions.push(rule.action);
+    } else {
+      sharedSubjects.set(key, { subjectType: rule.subjectType, subjectId: rule.subjectId, actions: [rule.action] });
+    }
   }
   const coworkerById = new Map(coworkers.map((c) => [c.userId, c]));
-  const shareableCoworkers = coworkers.filter((c) => !sharedUserActions.has(c.userId));
+  const roleById = new Map(roles.map((r) => [r.id, r]));
+  const sharedUserIds = new Set(
+    Array.from(sharedSubjects.values()).filter((s) => s.subjectType === "user").map((s) => s.subjectId),
+  );
+  const sharedRoleIds = new Set(
+    Array.from(sharedSubjects.values()).filter((s) => s.subjectType === "role").map((s) => s.subjectId),
+  );
+  const shareableCoworkers = coworkers.filter((c) => !sharedUserIds.has(c.userId));
+  const shareableRoles = roles.filter((r) => !sharedRoleIds.has(r.id));
 
   return (
     <div className="w-full">
@@ -629,23 +669,26 @@ export default function ArchiveFolderPage() {
         <div className="customContainer mb-6 p-4">
           <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Deling" : "Sharing"}</h2>
 
-          {sharedUserActions.size > 0 && (
+          {sharedSubjects.size > 0 && (
             <div className="mb-4 flex flex-col gap-2">
-              {Array.from(sharedUserActions.entries()).map(([userId, actions]) => {
-                const coworker = coworkerById.get(userId);
+              {Array.from(sharedSubjects.values()).map((subject) => {
+                const label =
+                  subject.subjectType === "role"
+                    ? `${locale === "nb" ? "Rolle" : "Role"}: ${roleById.get(subject.subjectId)?.name ?? subject.subjectId}`
+                    : coworkerById.get(subject.subjectId)?.username ||
+                      coworkerById.get(subject.subjectId)?.email ||
+                      subject.subjectId;
                 return (
-                  <div key={userId} className="flex items-center justify-between gap-4 text-sm">
+                  <div key={`${subject.subjectType}:${subject.subjectId}`} className="flex items-center justify-between gap-4 text-sm">
                     <div>
-                      <span className="font-medium text-textcolor">
-                        {coworker?.username || coworker?.email || userId}
-                      </span>
-                      <span className="ml-2 text-textColorThird">{actions.join(", ")}</span>
+                      <span className="font-medium text-textcolor">{label}</span>
+                      <span className="ml-2 text-textColorThird">{subject.actions.join(", ")}</span>
                     </div>
                     <button
                       type="button"
                       className="text-red-600 hover:underline"
-                      onClick={() => void handleRevokeShare(userId, actions)}
-                      disabled={revokingUserId === userId}
+                      onClick={() => void handleRevokeShare(subject.subjectType, subject.subjectId, subject.actions)}
+                      disabled={revokingSubject === subject.subjectId}
                     >
                       {locale === "nb" ? "Fjern" : "Remove"}
                     </button>
@@ -655,23 +698,65 @@ export default function ArchiveFolderPage() {
             </div>
           )}
 
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[200] flex-1">
-              <label className="block pb-2 text-sm">{locale === "nb" ? "Kollega" : "Coworker"}</label>
-              <select
-                className="customInput w-full"
-                value={shareUserId}
-                onChange={(e) => setShareUserId(e.target.value)}
-                disabled={sharing}
-              >
-                <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
-                {shareableCoworkers.map((coworker) => (
-                  <option key={coworker.userId} value={coworker.userId}>
-                    {coworker.username || coworker.email}
-                  </option>
-                ))}
-              </select>
+          {canShareWithRoles && (
+            <div className="mb-3 flex gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={shareTargetType === "user"}
+                  onChange={() => setShareTargetType("user")}
+                  disabled={sharing}
+                />
+                {locale === "nb" ? "Kollega" : "Coworker"}
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={shareTargetType === "role"}
+                  onChange={() => setShareTargetType("role")}
+                  disabled={sharing}
+                />
+                {locale === "nb" ? "Rolle" : "Role"}
+              </label>
             </div>
+          )}
+
+          <div className="flex flex-wrap items-end gap-3">
+            {shareTargetType === "role" ? (
+              <div className="min-w-[200] flex-1">
+                <label className="block pb-2 text-sm">{locale === "nb" ? "Rolle" : "Role"}</label>
+                <select
+                  className="customInput w-full"
+                  value={shareRoleId}
+                  onChange={(e) => setShareRoleId(e.target.value)}
+                  disabled={sharing}
+                >
+                  <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
+                  {shareableRoles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="min-w-[200] flex-1">
+                <label className="block pb-2 text-sm">{locale === "nb" ? "Kollega" : "Coworker"}</label>
+                <select
+                  className="customInput w-full"
+                  value={shareUserId}
+                  onChange={(e) => setShareUserId(e.target.value)}
+                  disabled={sharing}
+                >
+                  <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
+                  {shareableCoworkers.map((coworker) => (
+                    <option key={coworker.userId} value={coworker.userId}>
+                      {coworker.username || coworker.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="min-w-[160]">
               <label className="block pb-2 text-sm">{locale === "nb" ? "Tilgangsnivå" : "Access level"}</label>
@@ -690,7 +775,7 @@ export default function ArchiveFolderPage() {
               type="button"
               className="customButtonEnabled h-10 px-6"
               onClick={() => void handleGrantShare()}
-              disabled={sharing || !shareUserId}
+              disabled={sharing || (shareTargetType === "role" ? !shareRoleId : !shareUserId)}
             >
               {sharing ? (locale === "nb" ? "Deler..." : "Sharing...") : locale === "nb" ? "Del" : "Share"}
             </button>
