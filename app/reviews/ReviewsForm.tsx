@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { COMMENT_MAX_LENGTH, stripUnsafeChars } from "@/lib/reviews";
 
-// TODO: replace with the real Google review / "write a review" link for Otman AS
-const GOOGLE_REVIEW_URL = "https://g.page/r/REPLACE_ME/review";
+const GOOGLE_REVIEW_URL = "https://g.page/r/CUMa00bp_GvyEBM/review";
 
 const REDIRECT_DELAY_MS = 3000;
 
