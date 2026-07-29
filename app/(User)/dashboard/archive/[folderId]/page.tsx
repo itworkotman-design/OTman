@@ -6,96 +6,30 @@ import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { canAccessArchive } from "@/lib/users/access";
+import { ExpandablePanelList } from "@/app/_components/Dahsboard/archive/ExpandablePanelList";
+import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
+import { ItemPill } from "@/app/_components/Dahsboard/archive/ItemPill";
+import { STATUS_ORDER } from "@/app/_components/Dahsboard/archive/types";
+import type { ArchiveBusinessStatus, ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
-type ArchiveFolderDetail = {
-  id: string;
-  name: string;
-  description: string | null;
-};
-
-type ArchiveItemRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  status: string;
-};
-
-type ArchiveFileRow = {
-  id: string;
-  originalFileName: string;
-  mimeType: string;
-  sizeBytes: number;
-};
-
-type ArchiveRecoverableFileRow = {
-  id: string;
-  originalFileName: string;
-  sizeBytes: number;
-};
-
-type ArchiveChildFolderRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  status: string;
-};
+type ArchiveFolderDetail = ArchiveFolderSummary;
+type ArchiveItemRow = ArchiveItemSummary;
+type ArchiveChildFolderRow = ArchiveFolderSummary;
 
 type ArchiveFolderPathEntry =
   | { hidden: false; folderId: string; name: string | null }
   | { hidden: true };
 
-type ArchivePermissionAction =
-  | "view"
-  | "create"
-  | "upload"
-  | "edit"
-  | "delete"
-  | "restore"
-  | "move"
-  | "manage_metadata"
-  | "manage_status"
-  | "manage_permissions";
-
-type ArchivePermissionSubjectType = "user" | "role";
-
-type ArchivePermissionRule = {
-  subjectType: ArchivePermissionSubjectType;
-  subjectId: string;
-  action: ArchivePermissionAction;
+const itemStatusLabel: Record<ArchiveBusinessStatus, { en: string; nb: string }> = {
+  active: { en: "Active", nb: "Aktiv" },
+  draft: { en: "Draft", nb: "Utkast" },
+  inactive: { en: "Inactive", nb: "Inaktiv" },
+  archived: { en: "Archived", nb: "Arkivert" },
 };
 
-type ArchiveCoworker = {
-  userId: string;
-  email: string;
-  username: string | null;
-};
-
-type ArchiveRoleOption = {
-  id: string;
-  name: string;
-};
-
-const CONTRIBUTOR_ACTIONS: ArchivePermissionAction[] = [
-  "view",
-  "create",
-  "upload",
-  "edit",
-  "delete",
-  "restore",
-  "move",
-  "manage_metadata",
-  "manage_status",
-];
-
-const VIEWER_ACTIONS: ArchivePermissionAction[] = ["view"];
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
+// Pure browsing view: no create/upload/delete/permissions controls here —
+// every mutation lives on this folder's settings page or on an item's own
+// settings page, matching the otman-archive prototype's view/settings split.
 export default function ArchiveFolderPage() {
   const params = useParams<{ folderId: string }>();
   const folderId = params.folderId;
@@ -110,46 +44,6 @@ export default function ArchiveFolderPage() {
   const [folderPath, setFolderPath] = useState<ArchiveFolderPathEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const [newItemName, setNewItemName] = useState("");
-  const [newItemDescription, setNewItemDescription] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState("");
-
-  const [newSubfolderName, setNewSubfolderName] = useState("");
-  const [newSubfolderDescription, setNewSubfolderDescription] = useState("");
-  const [creatingSubfolder, setCreatingSubfolder] = useState(false);
-  const [createSubfolderError, setCreateSubfolderError] = useState("");
-  const [deletingChildFolderId, setDeletingChildFolderId] = useState<string | null>(null);
-
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
-  const [filesByItemId, setFilesByItemId] = useState<Record<string, ArchiveFileRow[]>>({});
-  const [filesLoading, setFilesLoading] = useState(false);
-  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState("");
-
-  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
-  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
-  const [rowActionError, setRowActionError] = useState("");
-
-  const [expandedDeletedFilesItemId, setExpandedDeletedFilesItemId] = useState<string | null>(null);
-  const [deletedFilesByItemId, setDeletedFilesByItemId] = useState<Record<string, ArchiveRecoverableFileRow[]>>({});
-  const [deletedFilesLoading, setDeletedFilesLoading] = useState(false);
-  const [restoringFileId, setRestoringFileId] = useState<string | null>(null);
-
-  const [canManageSharing, setCanManageSharing] = useState(false);
-  const [permissionRules, setPermissionRules] = useState<ArchivePermissionRule[]>([]);
-  const [coworkers, setCoworkers] = useState<ArchiveCoworker[]>([]);
-  const [roles, setRoles] = useState<ArchiveRoleOption[]>([]);
-  const [canShareWithRoles, setCanShareWithRoles] = useState(false);
-  const [shareTargetType, setShareTargetType] = useState<ArchivePermissionSubjectType>("user");
-  const [shareUserId, setShareUserId] = useState("");
-  const [shareRoleId, setShareRoleId] = useState("");
-  const [sharePreset, setSharePreset] = useState<"viewer" | "contributor">("viewer");
-  const [shareAlsoManage, setShareAlsoManage] = useState(false);
-  const [sharing, setSharing] = useState(false);
-  const [shareError, setShareError] = useState("");
-  const [revokingSubject, setRevokingSubject] = useState<string | null>(null);
 
   async function loadFolderAndItems() {
     try {
@@ -204,389 +98,6 @@ export default function ArchiveFolderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, hasAccess, folderId]);
 
-  async function loadSharing() {
-    try {
-      const [rulesRes, coworkersRes, rolesRes] = await Promise.all([
-        fetch(`/api/archive/folders/${folderId}/permissions`, { credentials: "include", cache: "no-store" }),
-        fetch("/api/archive/coworkers", { credentials: "include", cache: "no-store" }),
-        fetch("/api/archive/roles", { credentials: "include", cache: "no-store" }),
-      ]);
-
-      const rulesData = await rulesRes.json().catch(() => null);
-
-      if (!rulesRes.ok || !rulesData?.ok) {
-        // Listing rules requires manage_permissions on this folder — if the
-        // caller doesn't have it, hide the sharing section rather than error.
-        setCanManageSharing(false);
-        return;
-      }
-
-      setCanManageSharing(true);
-      setPermissionRules(rulesData.rules ?? []);
-
-      const coworkersData = await coworkersRes.json().catch(() => null);
-      if (coworkersRes.ok && coworkersData?.ok) {
-        setCoworkers(coworkersData.coworkers ?? []);
-      }
-
-      // listArchiveRoles requires manage_permissions on the *namespace*, a
-      // stricter grant than folder-level manage_permissions — a folder
-      // co-manager who isn't also a namespace manager won't have it, so
-      // treat a failure here as "no role-sharing option," not an error.
-      const rolesData = await rolesRes.json().catch(() => null);
-      if (rolesRes.ok && rolesData?.ok) {
-        setCanShareWithRoles(true);
-        setRoles(rolesData.roles ?? []);
-      } else {
-        setCanShareWithRoles(false);
-      }
-    } catch {
-      setCanManageSharing(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!currentUser) return;
-    if (!hasAccess) return;
-    if (!folderId) return;
-    void loadSharing();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, hasAccess, folderId]);
-
-  async function handleGrantShare() {
-    const subjectId = shareTargetType === "role" ? shareRoleId : shareUserId;
-    if (!subjectId) return;
-
-    try {
-      setSharing(true);
-      setShareError("");
-
-      const actions = [
-        ...(sharePreset === "contributor" ? CONTRIBUTOR_ACTIONS : VIEWER_ACTIONS),
-        ...(shareAlsoManage ? (["manage_permissions"] as ArchivePermissionAction[]) : []),
-      ];
-
-      const res = await fetch(`/api/archive/folders/${folderId}/permissions`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subjectType: shareTargetType, subjectId, actions }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setShareError(data?.reason || "Failed to share folder");
-        return;
-      }
-
-      setShareUserId("");
-      setShareRoleId("");
-      setShareAlsoManage(false);
-      await loadSharing();
-    } catch {
-      setShareError("Failed to share folder");
-    } finally {
-      setSharing(false);
-    }
-  }
-
-  async function handleRevokeShare(
-    subjectType: ArchivePermissionSubjectType,
-    subjectId: string,
-    actions: ArchivePermissionAction[],
-  ) {
-    if (!confirm(locale === "nb" ? "Fjerne denne tilgangen?" : "Remove this access?")) return;
-
-    try {
-      setRevokingSubject(subjectId);
-      setShareError("");
-
-      const res = await fetch(`/api/archive/folders/${folderId}/permissions`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subjectType, subjectId, actions }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setShareError(data?.reason || "Failed to remove access");
-        return;
-      }
-
-      await loadSharing();
-    } catch {
-      setShareError("Failed to remove access");
-    } finally {
-      setRevokingSubject(null);
-    }
-  }
-
-  async function handleCreateItem() {
-    const name = newItemName.trim();
-    if (!name) return;
-
-    try {
-      setCreating(true);
-      setCreateError("");
-
-      const res = await fetch(`/api/archive/folders/${folderId}/items`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description: newItemDescription.trim() || null }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setCreateError(data?.reason || "Failed to create item");
-        return;
-      }
-
-      setNewItemName("");
-      setNewItemDescription("");
-      await loadFolderAndItems();
-    } catch {
-      setCreateError("Failed to create item");
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function handleCreateSubfolder() {
-    const name = newSubfolderName.trim();
-    if (!name) return;
-
-    try {
-      setCreatingSubfolder(true);
-      setCreateSubfolderError("");
-
-      const res = await fetch("/api/archive/folders", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description: newSubfolderDescription.trim() || null,
-          parentFolderId: folderId,
-        }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setCreateSubfolderError(data?.reason || "Failed to create subfolder");
-        return;
-      }
-
-      setNewSubfolderName("");
-      setNewSubfolderDescription("");
-      await loadFolderAndItems();
-    } catch {
-      setCreateSubfolderError("Failed to create subfolder");
-    } finally {
-      setCreatingSubfolder(false);
-    }
-  }
-
-  async function handleDeleteChildFolder(childFolderId: string) {
-    if (!confirm(locale === "nb" ? "Slette denne mappen?" : "Delete this folder?")) return;
-
-    try {
-      setDeletingChildFolderId(childFolderId);
-      setRowActionError("");
-
-      const res = await fetch(`/api/archive/folders/${childFolderId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setRowActionError(data?.reason || "Failed to delete folder");
-        return;
-      }
-
-      setChildFolders((prev) => prev.filter((f) => f.id !== childFolderId));
-    } catch {
-      setRowActionError("Failed to delete folder");
-    } finally {
-      setDeletingChildFolderId(null);
-    }
-  }
-
-  async function loadFiles(itemId: string) {
-    try {
-      setFilesLoading(true);
-
-      const res = await fetch(`/api/archive/items/${itemId}/files`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) return;
-
-      setFilesByItemId((prev) => ({ ...prev, [itemId]: data.files ?? [] }));
-    } finally {
-      setFilesLoading(false);
-    }
-  }
-
-  function handleToggleItem(itemId: string) {
-    const next = expandedItemId === itemId ? null : itemId;
-    setExpandedItemId(next);
-
-    if (next && !filesByItemId[next]) {
-      void loadFiles(next);
-    }
-  }
-
-  async function handleUploadFile(itemId: string, file: File) {
-    try {
-      setUploadingItemId(itemId);
-      setUploadError("");
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch(`/api/archive/items/${itemId}/files`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setUploadError(data?.reason || "Upload failed");
-        return;
-      }
-
-      await loadFiles(itemId);
-    } catch {
-      setUploadError("Upload failed");
-    } finally {
-      setUploadingItemId(null);
-    }
-  }
-
-  async function handleDeleteItem(itemId: string) {
-    if (!confirm(locale === "nb" ? "Slette dette elementet?" : "Delete this item?")) return;
-
-    try {
-      setDeletingItemId(itemId);
-      setRowActionError("");
-
-      const res = await fetch(`/api/archive/items/${itemId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setRowActionError(data?.reason || "Failed to delete item");
-        return;
-      }
-
-      setItems((prev) => prev.filter((i) => i.id !== itemId));
-      if (expandedItemId === itemId) setExpandedItemId(null);
-    } catch {
-      setRowActionError("Failed to delete item");
-    } finally {
-      setDeletingItemId(null);
-    }
-  }
-
-  async function handleDeleteFile(itemId: string, fileId: string) {
-    if (!confirm(locale === "nb" ? "Slette denne filen?" : "Delete this file?")) return;
-
-    try {
-      setDeletingFileId(fileId);
-      setRowActionError("");
-
-      const res = await fetch(`/api/archive/files/${fileId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setRowActionError(data?.reason || "Failed to delete file");
-        return;
-      }
-
-      setFilesByItemId((prev) => ({
-        ...prev,
-        [itemId]: (prev[itemId] ?? []).filter((f) => f.id !== fileId),
-      }));
-    } catch {
-      setRowActionError("Failed to delete file");
-    } finally {
-      setDeletingFileId(null);
-    }
-  }
-
-  async function loadDeletedFiles(itemId: string) {
-    try {
-      setDeletedFilesLoading(true);
-
-      const res = await fetch(`/api/archive/items/${itemId}/files/recoverable`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) return;
-
-      setDeletedFilesByItemId((prev) => ({ ...prev, [itemId]: data.files ?? [] }));
-    } finally {
-      setDeletedFilesLoading(false);
-    }
-  }
-
-  function handleToggleDeletedFiles(itemId: string) {
-    const next = expandedDeletedFilesItemId === itemId ? null : itemId;
-    setExpandedDeletedFilesItemId(next);
-
-    if (next && !deletedFilesByItemId[next]) {
-      void loadDeletedFiles(next);
-    }
-  }
-
-  async function handleRestoreFile(itemId: string, fileId: string) {
-    try {
-      setRestoringFileId(fileId);
-      setRowActionError("");
-
-      const res = await fetch(`/api/archive/files/${fileId}/restore`, {
-        method: "POST",
-        credentials: "include",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setRowActionError(data?.reason || "Failed to restore file");
-        return;
-      }
-
-      await Promise.all([loadDeletedFiles(itemId), loadFiles(itemId)]);
-    } catch {
-      setRowActionError("Failed to restore file");
-    } finally {
-      setRestoringFileId(null);
-    }
-  }
-
   if (currentUser && !hasAccess) {
     return (
       <div className="w-full">
@@ -597,28 +108,30 @@ export default function ArchiveFolderPage() {
     );
   }
 
-  type SharedSubject = { subjectType: ArchivePermissionSubjectType; subjectId: string; actions: ArchivePermissionAction[] };
-  const sharedSubjects = new Map<string, SharedSubject>();
-  for (const rule of permissionRules) {
-    if (rule.subjectType === "user" && rule.subjectId === currentUser?.id) continue;
-    const key = `${rule.subjectType}:${rule.subjectId}`;
-    const existing = sharedSubjects.get(key);
-    if (existing) {
-      existing.actions.push(rule.action);
-    } else {
-      sharedSubjects.set(key, { subjectType: rule.subjectType, subjectId: rule.subjectId, actions: [rule.action] });
-    }
-  }
-  const coworkerById = new Map(coworkers.map((c) => [c.userId, c]));
-  const roleById = new Map(roles.map((r) => [r.id, r]));
-  const sharedUserIds = new Set(
-    Array.from(sharedSubjects.values()).filter((s) => s.subjectType === "user").map((s) => s.subjectId),
+  const itemGroups = STATUS_ORDER.map((status) => items.filter((item) => item.status === status)).filter(
+    (group) => group.length > 0,
   );
-  const sharedRoleIds = new Set(
-    Array.from(sharedSubjects.values()).filter((s) => s.subjectType === "role").map((s) => s.subjectId),
-  );
-  const shareableCoworkers = coworkers.filter((c) => !sharedUserIds.has(c.userId));
-  const shareableRoles = roles.filter((r) => !sharedRoleIds.has(r.id));
+
+  const itemAccordionItems = itemGroups.map((group) => {
+    const status = group[0].status;
+    const urgentCount = group.filter((item) => item.isOverdue || item.isExpired).length;
+
+    return {
+      id: status,
+      title: itemStatusLabel[status][locale === "nb" ? "nb" : "en"],
+      columns: [
+        `${group.length} ${group.length === 1 ? (locale === "nb" ? "element" : "item") : locale === "nb" ? "elementer" : "items"}`,
+        ...(urgentCount > 0 ? [locale === "nb" ? `${urgentCount} forfalt` : `${urgentCount} overdue`] : []),
+      ],
+      content: (
+        <div className="grid gap-3">
+          {group.map((item) => (
+            <ItemPill key={item.id} item={item} href={`/dashboard/archive/${folderId}/items/${item.id}`} locale={locale} />
+          ))}
+        </div>
+      ),
+    };
+  });
 
   return (
     <div className="w-full">
@@ -646,11 +159,17 @@ export default function ArchiveFolderPage() {
         </span>
       </nav>
 
-      <div className="mb-8">
-        <h1 className="whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-          {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
-        </h1>
-        {folder?.description && <p className="mt-2 max-w-xl text-sm text-textColorThird">{folder.description}</p>}
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
+            {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
+          </h1>
+          {folder?.description && <p className="mt-2 max-w-xl text-sm text-textColorThird">{folder.description}</p>}
+        </div>
+
+        <Link href={`/dashboard/archive/${folderId}/settings`} className="customButtonDefault">
+          {locale === "nb" ? "Innstillinger" : "Settings"}
+        </Link>
       </div>
 
       {error && (
@@ -659,257 +178,30 @@ export default function ArchiveFolderPage() {
         </div>
       )}
 
-      {rowActionError && (
-        <div className="customContainer mb-6 border-red-200! bg-red-50 py-4 px-4 text-sm font-medium text-red-600">
-          {rowActionError}
+      {childFolders.length > 0 && (
+        <div className="mb-6 min-w-0 w-full overflow-x-auto">
+          <div className="mb-3 flex items-end gap-4 font-semibold text-textColorThird">
+            <h2 className="grow text-logoblue">{locale === "nb" ? "Undermapper" : "Subfolders"}</h2>
+            <div className="w-full max-w-[100] text-center">
+              <p>{locale === "nb" ? "Elementer" : "Entries"}</p>
+            </div>
+            <div className="w-full max-w-[100] text-center">
+              <p>{locale === "nb" ? "Brukere" : "Users"}</p>
+            </div>
+            <div className="w-full max-w-[100] text-center">
+              <p>{locale === "nb" ? "Sist endret" : "Last modified"}</p>
+            </div>
+          </div>
+          <div className="grid gap-3">
+            {childFolders.map((childFolder) => (
+              <FolderPill key={childFolder.id} folder={childFolder} href={`/dashboard/archive/${childFolder.id}`} />
+            ))}
+          </div>
         </div>
       )}
 
-      {canManageSharing && (
-        <div className="customContainer mb-6 p-4">
-          <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Deling" : "Sharing"}</h2>
-
-          {sharedSubjects.size > 0 && (
-            <div className="mb-4 flex flex-col gap-2">
-              {Array.from(sharedSubjects.values()).map((subject) => {
-                const label =
-                  subject.subjectType === "role"
-                    ? `${locale === "nb" ? "Rolle" : "Role"}: ${roleById.get(subject.subjectId)?.name ?? subject.subjectId}`
-                    : coworkerById.get(subject.subjectId)?.username ||
-                      coworkerById.get(subject.subjectId)?.email ||
-                      subject.subjectId;
-                return (
-                  <div key={`${subject.subjectType}:${subject.subjectId}`} className="flex items-center justify-between gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-textcolor">{label}</span>
-                      <span className="ml-2 text-textColorThird">{subject.actions.join(", ")}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="text-red-600 hover:underline"
-                      onClick={() => void handleRevokeShare(subject.subjectType, subject.subjectId, subject.actions)}
-                      disabled={revokingSubject === subject.subjectId}
-                    >
-                      {locale === "nb" ? "Fjern" : "Remove"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {canShareWithRoles && (
-            <div className="mb-3 flex gap-4 text-sm">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={shareTargetType === "user"}
-                  onChange={() => setShareTargetType("user")}
-                  disabled={sharing}
-                />
-                {locale === "nb" ? "Kollega" : "Coworker"}
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={shareTargetType === "role"}
-                  onChange={() => setShareTargetType("role")}
-                  disabled={sharing}
-                />
-                {locale === "nb" ? "Rolle" : "Role"}
-              </label>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-end gap-3">
-            {shareTargetType === "role" ? (
-              <div className="min-w-[200] flex-1">
-                <label className="block pb-2 text-sm">{locale === "nb" ? "Rolle" : "Role"}</label>
-                <select
-                  className="customInput w-full"
-                  value={shareRoleId}
-                  onChange={(e) => setShareRoleId(e.target.value)}
-                  disabled={sharing}
-                >
-                  <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
-                  {shareableRoles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="min-w-[200] flex-1">
-                <label className="block pb-2 text-sm">{locale === "nb" ? "Kollega" : "Coworker"}</label>
-                <select
-                  className="customInput w-full"
-                  value={shareUserId}
-                  onChange={(e) => setShareUserId(e.target.value)}
-                  disabled={sharing}
-                >
-                  <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
-                  {shareableCoworkers.map((coworker) => (
-                    <option key={coworker.userId} value={coworker.userId}>
-                      {coworker.username || coworker.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="min-w-[160]">
-              <label className="block pb-2 text-sm">{locale === "nb" ? "Tilgangsnivå" : "Access level"}</label>
-              <select
-                className="customInput w-full"
-                value={sharePreset}
-                onChange={(e) => setSharePreset(e.target.value as "viewer" | "contributor")}
-                disabled={sharing}
-              >
-                <option value="viewer">{locale === "nb" ? "Kan se" : "Viewer"}</option>
-                <option value="contributor">{locale === "nb" ? "Kan redigere" : "Contributor"}</option>
-              </select>
-            </div>
-
-            <button
-              type="button"
-              className="customButtonEnabled h-10 px-6"
-              onClick={() => void handleGrantShare()}
-              disabled={sharing || (shareTargetType === "role" ? !shareRoleId : !shareUserId)}
-            >
-              {sharing ? (locale === "nb" ? "Deler..." : "Sharing...") : locale === "nb" ? "Del" : "Share"}
-            </button>
-          </div>
-
-          <label className="mt-3 flex items-center gap-2 text-sm text-textColorThird">
-            <input
-              type="checkbox"
-              checked={shareAlsoManage}
-              onChange={(e) => setShareAlsoManage(e.target.checked)}
-              disabled={sharing}
-            />
-            {locale === "nb"
-              ? "La denne personen også administrere deling av mappen"
-              : "Also let this person manage folder sharing"}
-          </label>
-
-          {shareError && <p className="mt-3 text-sm font-medium text-red-600">{shareError}</p>}
-        </div>
-      )}
-
-      <div className="customContainer mb-6 p-4">
-        <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Ny undermappe" : "New subfolder"}</h2>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[200] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Navn" : "Name"}</label>
-            <input
-              className="customInput w-full"
-              value={newSubfolderName}
-              onChange={(e) => setNewSubfolderName(e.target.value)}
-              type="text"
-              disabled={creatingSubfolder}
-            />
-          </div>
-
-          <div className="min-w-[240] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Beskrivelse" : "Description"}</label>
-            <input
-              className="customInput w-full"
-              value={newSubfolderDescription}
-              onChange={(e) => setNewSubfolderDescription(e.target.value)}
-              type="text"
-              disabled={creatingSubfolder}
-            />
-          </div>
-
-          <button
-            type="button"
-            className="customButtonEnabled h-10 px-6"
-            onClick={() => void handleCreateSubfolder()}
-            disabled={creatingSubfolder || !newSubfolderName.trim()}
-          >
-            {creatingSubfolder
-              ? locale === "nb"
-                ? "Oppretter..."
-                : "Creating..."
-              : locale === "nb"
-                ? "Opprett"
-                : "Create"}
-          </button>
-        </div>
-
-        {createSubfolderError && <p className="mt-3 text-sm font-medium text-red-600">{createSubfolderError}</p>}
-      </div>
-
       <div className="min-w-0 w-full overflow-x-auto">
-        {childFolders.length > 0 && (
-          <>
-            <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Undermapper" : "Subfolders"}</h2>
-            <div className="customContainer mb-6 divide-y divide-lineSecondary">
-              {childFolders.map((childFolder) => (
-                <div key={childFolder.id} className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary">
-                  <Link href={`/dashboard/archive/${childFolder.id}`} className="min-w-0 flex-1">
-                    <div className="font-medium text-textcolor">{childFolder.name}</div>
-                    {childFolder.description && (
-                      <div className="text-sm text-textColorThird">{childFolder.description}</div>
-                    )}
-                  </Link>
-                  <button
-                    type="button"
-                    className="customButtonDefault shrink-0"
-                    onClick={() => void handleDeleteChildFolder(childFolder.id)}
-                    disabled={deletingChildFolderId === childFolder.id}
-                  >
-                    {locale === "nb" ? "Slett" : "Delete"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="customContainer mb-6 p-4">
-        <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Nytt element" : "New item"}</h2>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[200] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Navn" : "Name"}</label>
-            <input
-              className="customInput w-full"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              type="text"
-              disabled={creating}
-            />
-          </div>
-
-          <div className="min-w-[240] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Beskrivelse" : "Description"}</label>
-            <input
-              className="customInput w-full"
-              value={newItemDescription}
-              onChange={(e) => setNewItemDescription(e.target.value)}
-              type="text"
-              disabled={creating}
-            />
-          </div>
-
-          <button
-            type="button"
-            className="customButtonEnabled h-10 px-6"
-            onClick={() => void handleCreateItem()}
-            disabled={creating || !newItemName.trim()}
-          >
-            {creating ? (locale === "nb" ? "Oppretter..." : "Creating...") : locale === "nb" ? "Opprett" : "Create"}
-          </button>
-        </div>
-
-        {createError && <p className="mt-3 text-sm font-medium text-red-600">{createError}</p>}
-      </div>
-
-      <div className="min-w-0 w-full overflow-x-auto">
+        <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Elementer" : "Items"}</h2>
         {loading ? (
           <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
             {locale === "nb" ? "Laster elementer..." : "Loading items..."}
@@ -919,142 +211,7 @@ export default function ArchiveFolderPage() {
             {locale === "nb" ? "Ingen elementer funnet" : "No items found"}
           </div>
         ) : (
-          <div className="customContainer divide-y divide-lineSecondary">
-            {items.map((item) => {
-              const isExpanded = expandedItemId === item.id;
-              const files = filesByItemId[item.id] ?? [];
-
-              return (
-                <div key={item.id} className="py-3 px-2">
-                  <div className="flex w-full items-center justify-between gap-4">
-                    <button
-                      type="button"
-                      className="flex flex-1 items-center justify-between gap-4 text-left"
-                      onClick={() => handleToggleItem(item.id)}
-                    >
-                      <div>
-                        <div className="font-medium text-textcolor">{item.name}</div>
-                        {item.description && <div className="text-sm text-textColorThird">{item.description}</div>}
-                      </div>
-                      <div className="text-sm text-textColorThird">{isExpanded ? "▲" : "▼"}</div>
-                    </button>
-                    <button
-                      type="button"
-                      className="customButtonDefault shrink-0"
-                      onClick={() => void handleDeleteItem(item.id)}
-                      disabled={deletingItemId === item.id}
-                    >
-                      {locale === "nb" ? "Slett" : "Delete"}
-                    </button>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="mt-3 pl-2">
-                      {filesLoading && !filesByItemId[item.id] ? (
-                        <div className="text-sm text-textColorThird">
-                          {locale === "nb" ? "Laster filer..." : "Loading files..."}
-                        </div>
-                      ) : files.length === 0 ? (
-                        <div className="text-sm text-textColorThird">
-                          {locale === "nb" ? "Ingen filer" : "No files"}
-                        </div>
-                      ) : (
-                        <div className="mb-3 flex flex-col gap-1">
-                          {files.map((file) => (
-                            <div key={file.id} className="flex items-center justify-between gap-3 text-sm">
-                              <a
-                                href={`/api/archive/files/${file.id}/download`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-logoblue hover:underline"
-                              >
-                                {file.originalFileName}
-                              </a>
-                              <div className="flex items-center gap-3">
-                                <span className="text-textColorThird">{formatBytes(file.sizeBytes)}</span>
-                                <button
-                                  type="button"
-                                  className="text-red-600 hover:underline"
-                                  onClick={() => void handleDeleteFile(item.id, file.id)}
-                                  disabled={deletingFileId === file.id}
-                                >
-                                  {locale === "nb" ? "Slett" : "Delete"}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <label className="customButtonDefault inline-block cursor-pointer">
-                        {uploadingItemId === item.id
-                          ? locale === "nb"
-                            ? "Laster opp..."
-                            : "Uploading..."
-                          : locale === "nb"
-                            ? "Last opp fil"
-                            : "Upload file"}
-                        <input
-                          type="file"
-                          className="hidden"
-                          disabled={uploadingItemId === item.id}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            e.target.value = "";
-                            if (file) void handleUploadFile(item.id, file);
-                          }}
-                        />
-                      </label>
-
-                      {uploadError && <p className="mt-2 text-sm font-medium text-red-600">{uploadError}</p>}
-
-                      <button
-                        type="button"
-                        className="mt-3 block text-sm text-textColorThird hover:underline"
-                        onClick={() => handleToggleDeletedFiles(item.id)}
-                      >
-                        {expandedDeletedFilesItemId === item.id
-                          ? locale === "nb"
-                            ? "Skjul slettede filer"
-                            : "Hide deleted files"
-                          : locale === "nb"
-                            ? "Vis slettede filer"
-                            : "Show deleted files"}
-                      </button>
-
-                      {expandedDeletedFilesItemId === item.id && (
-                        <div className="mt-2 flex flex-col gap-1">
-                          {deletedFilesLoading && !deletedFilesByItemId[item.id] ? (
-                            <div className="text-sm text-textColorThird">
-                              {locale === "nb" ? "Laster..." : "Loading..."}
-                            </div>
-                          ) : (deletedFilesByItemId[item.id] ?? []).length === 0 ? (
-                            <div className="text-sm text-textColorThird">
-                              {locale === "nb" ? "Ingen slettede filer" : "No deleted files"}
-                            </div>
-                          ) : (
-                            (deletedFilesByItemId[item.id] ?? []).map((file) => (
-                              <div key={file.id} className="flex items-center justify-between gap-3 text-sm">
-                                <span className="text-textColorThird">{file.originalFileName}</span>
-                                <button
-                                  type="button"
-                                  className="text-logoblue hover:underline"
-                                  onClick={() => void handleRestoreFile(item.id, file.id)}
-                                  disabled={restoringFileId === file.id}
-                                >
-                                  {locale === "nb" ? "Gjenopprett" : "Restore"}
-                                </button>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <ExpandablePanelList items={itemAccordionItems} variant="logoblue" />
         )}
       </div>
     </div>

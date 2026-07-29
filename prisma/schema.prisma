@@ -959,3 +959,60 @@ enum BlogSectionType {
   DIVIDER
   SPACER
 }
+
+// Stable, creation-order display codes for Archive folders/items (e.g.
+// "1.2F" for the 2nd subfolder of root folder 1, "1.2F.3" for the 3rd item
+// in it) — ported from the otman-archive prototype's SectionItem.code
+// scheme. Lives in OTman's own schema, not the @customprojects/custom-archive
+// package's, because that package's ArchiveFolder/ArchiveItem tables have no
+// room for a host-defined field and we don't own that migration history.
+// folderId/itemId are opaque references to rows in the archive package's own
+// database (cross-database, not a Prisma relation) — see
+// lib/docArchive/folderCodes.ts for the assignment/lookup logic.
+//
+// Each row's localSeq is assigned once, atomically, via
+// ArchiveSequenceCounter, and never reassigned — deleting a sibling never
+// renumbers the ones around it, since nothing here is derived from current
+// list position.
+model ArchiveFolderCode {
+  id        String   @id @default(cuid())
+  companyId String
+  tenantId  String
+  folderId  String   @unique
+  localSeq  Int
+  createdAt DateTime @default(now())
+
+  @@index([companyId, tenantId])
+}
+
+model ArchiveItemCode {
+  id        String   @id @default(cuid())
+  companyId String
+  tenantId  String
+  itemId    String   @unique
+  localSeq  Int
+  createdAt DateTime @default(now())
+
+  @@index([companyId, tenantId])
+}
+
+enum ArchiveSequenceScope {
+  FOLDER
+  ITEM
+}
+
+// One row per (parent scope, FOLDER-or-ITEM counter); parentFolderId is the
+// sentinel below for the tenant root scope (root folders have no parent, but
+// a NULL column wouldn't enforce the one-row-per-scope @@unique below, since
+// Postgres treats every NULL as distinct).
+model ArchiveSequenceCounter {
+  id             String               @id @default(cuid())
+  companyId      String
+  tenantId       String
+  parentFolderId String
+  scope          ArchiveSequenceScope
+  nextSeq        Int                  @default(1)
+  updatedAt      DateTime             @updatedAt
+
+  @@unique([companyId, tenantId, parentFolderId, scope])
+}

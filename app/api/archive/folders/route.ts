@@ -6,6 +6,8 @@ import {
   grantFolderCreatorCapabilities,
 } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { withFolderStats } from "@/lib/docArchive/withFolderStats";
+import { assignFolderCode } from "@/lib/docArchive/folderCodes";
 
 export async function GET(req: Request) {
   const result = await requireArchiveMembership(req);
@@ -21,7 +23,9 @@ export async function GET(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, folders: listResult.value });
+  const folders = await withFolderStats(ctx.companyId, ctx.tenantId, listResult.value);
+
+  return NextResponse.json({ ok: true, folders });
 }
 
 export async function POST(req: Request) {
@@ -61,6 +65,7 @@ export async function POST(req: Request) {
   }
 
   await grantFolderCreatorCapabilities(ctx, createResult.value.id);
+  await assignFolderCode(ctx.companyId, ctx.tenantId, createResult.value.id, parentFolderId);
 
   return NextResponse.json({ ok: true, folder: createResult.value }, { status: 201 });
 }

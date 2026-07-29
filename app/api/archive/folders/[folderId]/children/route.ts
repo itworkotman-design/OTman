@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { withFolderStats } from "@/lib/docArchive/withFolderStats";
 
 export async function GET(
   req: Request,
@@ -21,5 +22,7 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ ok: true, folders: listResult.value });
+  const folders = await withFolderStats(ctx.companyId, ctx.tenantId, listResult.value);
+
+  return NextResponse.json({ ok: true, folders });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { assignItemCode, getItemCodes } from "@/lib/docArchive/folderCodes";
 
 export async function GET(
   req: Request,
@@ -21,7 +22,15 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ ok: true, items: listResult.value });
+  const codes = await getItemCodes(
+    ctx.companyId,
+    ctx.tenantId,
+    listResult.value.map((item) => ({ id: item.id, folderId: item.folderId })),
+  );
+
+  const items = listResult.value.map((item) => ({ ...item, code: codes.get(item.id) ?? "?" }));
+
+  return NextResponse.json({ ok: true, items });
 }
 
 export async function POST(
@@ -56,6 +65,8 @@ export async function POST(
       { status: archiveErrorStatus(createResult.error.category) },
     );
   }
+
+  await assignItemCode(ctx.companyId, ctx.tenantId, createResult.value.id, folderId);
 
   return NextResponse.json({ ok: true, item: createResult.value }, { status: 201 });
 }

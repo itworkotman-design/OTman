@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { canAccessArchive, hasFullAccess } from "@/lib/users/access";
-import { bookingText } from "@/lib/booking/bookingUiText";
+import { canAccessArchive } from "@/lib/users/access";
+import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
+import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
+import { RemindersPanel } from "@/app/_components/Dahsboard/archive/RemindersPanel";
+import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
+import type { ArchiveFolderSummary } from "@/app/_components/Dahsboard/archive/types";
 
-type ArchiveFolderRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  status: string;
+type ArchiveFolderRow = ArchiveFolderSummary & {
   createdAt: string;
 };
 
@@ -21,23 +20,20 @@ type FoldersApiResponse = {
   reason?: string;
 };
 
+// Matches the otman-archive prototype's root page (app/page.tsx) layout:
+// centered title + Settings button, pinned section, then a two-column
+// name-filter/folder-list + reminders layout. No Search/Roles/View
+// deleted/UI lab links here — those pages still exist, just unlinked from
+// this page per explicit instruction.
 export default function ArchivePage() {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
   const hasAccess = currentUser ? canAccessArchive(currentUser.role, currentUser.permissions) : true;
-  const isFullAccess = currentUser ? hasFullAccess(currentUser.role) : false;
 
   const [folders, setFolders] = useState<ArchiveFolderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const [newFolderName, setNewFolderName] = useState("");
-  const [newFolderDescription, setNewFolderDescription] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState("");
-
-  const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
 
   async function loadFolders() {
     try {
@@ -74,67 +70,42 @@ export default function ArchivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, hasAccess]);
 
-  async function handleCreateFolder() {
-    const name = newFolderName.trim();
-    if (!name) return;
+  async function handleCreateFolder(name: string, description: string | null) {
+    const res = await fetch("/api/archive/folders", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description }),
+    });
 
-    try {
-      setCreating(true);
-      setCreateError("");
+    const data = await res.json().catch(() => null);
 
-      const res = await fetch("/api/archive/folders", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description: newFolderDescription.trim() || null,
-        }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setCreateError(data?.reason || "Failed to create folder");
-        return;
-      }
-
-      setNewFolderName("");
-      setNewFolderDescription("");
-      await loadFolders();
-    } catch {
-      setCreateError("Failed to create folder");
-    } finally {
-      setCreating(false);
+    if (!res.ok || !data?.ok) {
+      return { ok: false, reason: data?.reason || "Failed to create folder" };
     }
+
+    await loadFolders();
+    return { ok: true };
   }
 
   async function handleDeleteFolder(folderId: string) {
-    if (!confirm(locale === "nb" ? "Slette denne mappen?" : "Delete this folder?")) return;
+    const res = await fetch(`/api/archive/folders/${folderId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
 
-    try {
-      setDeletingFolderId(folderId);
-      setDeleteError("");
+    const data = await res.json().catch(() => null);
 
-      const res = await fetch(`/api/archive/folders/${folderId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setDeleteError(data?.reason || "Failed to delete folder");
-        return;
-      }
-
+    if (res.ok && data?.ok) {
       setFolders((prev) => prev.filter((f) => f.id !== folderId));
-    } catch {
-      setDeleteError("Failed to delete folder");
-    } finally {
-      setDeletingFolderId(null);
     }
   }
+
+  const visibleFolders = useMemo(() => {
+    const query = nameFilter.trim().toLowerCase();
+    if (!query) return folders;
+    return folders.filter((folder) => folder.name.toLowerCase().includes(query));
+  }, [folders, nameFilter]);
 
   if (currentUser && !hasAccess) {
     return (
@@ -148,126 +119,71 @@ export default function ArchivePage() {
 
   return (
     <div className="w-full">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-            {bookingText(locale, "Archive")}
-          </h1>
-          <p className="mt-2 max-w-xl text-sm text-textColorThird">
-            {locale === "nb"
-              ? "Opprett og bla gjennom mapper i arkivet."
-              : "Create and browse root folders in the archive."}
-          </p>
-        </div>
+      <section className="mb-2 flex w-full flex-col items-center gap-3">
+        <h1 className="text-[2.5rem] font-bold text-logoblue">{locale === "nb" ? "Arkiv" : "Archive"}</h1>
+        <ArchiveRootSettingsModal
+          folders={folders}
+          locale={locale}
+          onCreateFolder={handleCreateFolder}
+          onDeleteFolder={handleDeleteFolder}
+        />
+      </section>
 
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard/archive/search" className="text-sm text-textColorThird hover:underline">
-            {locale === "nb" ? "Søk" : "Search"}
-          </Link>
-          {isFullAccess && (
-            <Link href="/dashboard/archive/roles" className="text-sm text-textColorThird hover:underline">
-              {locale === "nb" ? "Roller" : "Roles"}
-            </Link>
-          )}
-          <Link href="/dashboard/archive/recoverable" className="text-sm text-textColorThird hover:underline">
-            {locale === "nb" ? "Vis slettede" : "View deleted"}
-          </Link>
-          <Link href="/dashboard/archive/ui-lab" className="text-sm text-textColorThird hover:underline">
-            UI lab
-          </Link>
+      <PinnedFoldersSection locale={locale} />
 
-          {!loading && !error && (
-            <div className="customInput px-4 py-2 text-sm font-medium text-textColorThird">
-              {folders.length} {locale === "nb" ? "mapper" : folders.length === 1 ? "folder" : "folders"}
+      <section className="mt-4 grid gap-6 lg:grid-cols-2">
+        <div className="min-w-0">
+          <div className="mb-4 flex h-10 grow items-end gap-4 font-semibold text-textColorThird">
+            <div className="grow">
+              <input
+                type="text"
+                className="customInput w-full max-w-[400]"
+                placeholder={locale === "nb" ? "Filtrer etter navn" : "Filter by name"}
+                value={nameFilter}
+                onChange={(e) => setNameFilter(e.target.value)}
+              />
             </div>
-          )}
-        </div>
-      </div>
-
-      {deleteError && (
-        <div className="customContainer mb-6 border-red-200! bg-red-50 py-3 px-4 text-sm font-medium text-red-600">
-          {deleteError}
-        </div>
-      )}
-
-      <div className="customContainer mb-6 p-4">
-        <h2 className="mb-3 font-semibold text-logoblue">
-          {locale === "nb" ? "Ny mappe" : "New folder"}
-        </h2>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[200] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Navn" : "Name"}</label>
-            <input
-              className="customInput w-full"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              type="text"
-              disabled={creating}
-            />
+            <div className="w-full max-w-[140] text-center">
+              <p>{locale === "nb" ? "Elementer" : "Entries"}</p>
+            </div>
+            <div className="w-full max-w-[140] text-center">
+              <p>{locale === "nb" ? "Brukere" : "Users"}</p>
+            </div>
+            <div className="w-full max-w-[140] text-center">
+              <p>{locale === "nb" ? "Sist endret" : "Last modified"}</p>
+            </div>
           </div>
 
-          <div className="min-w-[240] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Beskrivelse" : "Description"}</label>
-            <input
-              className="customInput w-full"
-              value={newFolderDescription}
-              onChange={(e) => setNewFolderDescription(e.target.value)}
-              type="text"
-              disabled={creating}
-            />
-          </div>
-
-          <button
-            type="button"
-            className="customButtonEnabled h-10 px-6"
-            onClick={() => void handleCreateFolder()}
-            disabled={creating || !newFolderName.trim()}
-          >
-            {creating ? (locale === "nb" ? "Oppretter..." : "Creating...") : locale === "nb" ? "Opprett" : "Create"}
-          </button>
-        </div>
-
-        {createError && <p className="mt-3 text-sm font-medium text-red-600">{createError}</p>}
-      </div>
-
-      <div className="min-w-0 w-full overflow-x-auto">
-        {loading ? (
-          <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
-            {locale === "nb" ? "Laster mapper..." : "Loading folders..."}
-          </div>
-        ) : error ? (
-          <div className="customContainer flex items-center justify-center border-red-200! bg-red-50 py-10 text-sm font-medium text-red-600">
-            {error}
-          </div>
-        ) : folders.length === 0 ? (
-          <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
-            {locale === "nb" ? "Ingen mapper funnet" : "No folders found"}
-          </div>
-        ) : (
-          <div className="customContainer divide-y divide-lineSecondary">
-            {folders.map((folder) => (
-              <div key={folder.id} className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary">
-                <Link href={`/dashboard/archive/${folder.id}`} className="min-w-0 flex-1">
-                  <div className="font-medium text-textcolor">{folder.name}</div>
-                  {folder.description && (
-                    <div className="text-sm text-textColorThird">{folder.description}</div>
-                  )}
-                </Link>
-                <div className="text-sm text-textColorThird">{folder.status}</div>
-                <button
-                  type="button"
-                  className="customButtonDefault shrink-0"
-                  onClick={() => void handleDeleteFolder(folder.id)}
-                  disabled={deletingFolderId === folder.id}
-                >
-                  {locale === "nb" ? "Slett" : "Delete"}
-                </button>
+          <div className="min-w-0 w-full overflow-x-auto">
+            {loading ? (
+              <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
+                {locale === "nb" ? "Laster mapper..." : "Loading folders..."}
               </div>
-            ))}
+            ) : error ? (
+              <div className="customContainer flex items-center justify-center border-red-200! bg-red-50 py-10 text-sm font-medium text-red-600">
+                {error}
+              </div>
+            ) : visibleFolders.length === 0 ? (
+              <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
+                {locale === "nb" ? "Ingen mapper funnet" : "No folders found"}
+              </div>
+            ) : (
+              <div className="grid gap-6">
+                {visibleFolders.map((folder) => (
+                  <FolderPill key={folder.id} folder={folder} href={`/dashboard/archive/${folder.id}`} />
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+
+        <div className="min-w-0">
+          <div className="mb-4 flex h-10 items-end text-textColorThird font-semibold">
+            <p className="w-full text-center">{locale === "nb" ? "Påminnelser" : "Reminders"}</p>
+          </div>
+          <RemindersPanel locale={locale} />
+        </div>
+      </section>
     </div>
   );
 }
