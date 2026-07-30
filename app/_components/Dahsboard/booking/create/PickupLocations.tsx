@@ -112,7 +112,7 @@ export function PickupLocations({
                 >
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <span className="text-md pl-1 font-semibold">
-                      {t("Pickup")} {idx + 1}
+                      {idx === 0 ? t("Extra pickup") : `${t("Extra pickup")} ${idx + 1}`}
                       {required ? <span className="text-red-600">*</span> : null}
                     </span>
 
