@@ -190,19 +190,6 @@ export default function SelectionActionBar({
           </select>
         </div>
 
-        {selectedCreator ? (
-          <div>
-            <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Recipients")}</label>
-            <div className="flex min-h-10 flex-col justify-center gap-1 text-sm text-weird-landscape">
-              {selectedRecipients.length > 0 ? (
-                selectedRecipients.map((recipient) => <span key={recipient.email}>{recipient.email}</span>)
-              ) : (
-                <span>{t("no email set")}</span>
-              )}
-            </div>
-          </div>
-        ) : null}
-
         {emailType === "custom" && (
           <div>
             <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Custom message")}</label>
