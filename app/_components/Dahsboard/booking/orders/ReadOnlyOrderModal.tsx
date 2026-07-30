@@ -29,6 +29,7 @@ import type { PriceLookup } from "@/lib/booking/pricing/types";
 
 type ReadOnlyOrder = {
   id: string;
+  displayId: number;
   status: string;
   statusNotes: string;
   deliveryDate: string;
@@ -185,6 +186,7 @@ function formatLift(value: string | null | undefined) {
 
 function getPdfDetailRows(order: ReadOnlyOrder): PdfDetailRow[] {
   return [
+    { label: "Ordre-ID", value: formatCell(String(order.displayId)) },
     { label: "Bestiller", value: formatCell(order.createdBy) },
     { label: "Leveringsdato", value: formatDisplayDate(order.deliveryDate) },
     { label: "Henteadresse", value: formatCell(order.pickupAddress) },
@@ -369,6 +371,7 @@ function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode
       <body>
         <h1>Ordredetaljer</h1>
 
+        <div class="row"><span class="label">Ordre-ID:</span> ${escapeHtml(order.displayId)}</div>
         <div class="row"><span class="label">Butikk:</span> ${escapeHtml(order.createdBy || "-")}</div>
         <div class="row"><span class="label">Kundenavn:</span> ${escapeHtml(order.customerName || "-")}</div>
         <div class="row"><span class="label">Bilagsnummer:</span> ${escapeHtml(order.orderNumber || "-")}</div>
@@ -687,6 +690,9 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, locale, onCl
         ) : (
           <>
             <div className="space-y-2 text-sm text-slate-800">
+              <p>
+                <span className="font-semibold">Ordre-ID:</span> {order.displayId}
+              </p>
               <p>
                 <span className="font-semibold">Butikk:</span> {formatCell(order.createdBy)}
               </p>
