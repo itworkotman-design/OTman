@@ -23,7 +23,6 @@ import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import type { AppPermission, UserOption } from "@/lib/users/types";
 import {
-  DEFAULT_PHONE_PREFIX,
   getOptionalEmailError,
   getOptionalPhoneError,
   normalizeOptionalEmail,
@@ -447,14 +446,14 @@ export default function BookingEditor({
   const [deliveryAddress, setDeliveryAddress] = useState(initialValues?.deliveryAddress ?? "");
   const [drivingDistance, setDrivingDistance] = useState(initialValues?.drivingDistance ?? "");
   const [customerName, setCustomerName] = useState(initialValues?.customerName ?? "");
-  const [phone, setPhone] = useState(initialValues ? (initialValues.phone ?? "") : DEFAULT_PHONE_PREFIX);
-  const [phoneTwo, setPhoneTwo] = useState(initialValues ? (initialValues.phoneTwo ?? "") : DEFAULT_PHONE_PREFIX);
+  const [phone, setPhone] = useState(initialValues?.phone ?? "");
+  const [phoneTwo, setPhoneTwo] = useState(initialValues?.phoneTwo ?? "");
   const [email, setEmail] = useState(initialValues?.email ?? "");
   const [customerComments, setCustomerComments] = useState(initialValues?.customerComments ?? "");
   const [floorNo, setFloorNo] = useState(initialValues?.floorNo ?? "");
   const [lift, setLift] = useState<"yes" | "no" | "">(normalizeInitialLift(initialValues?.lift));
   const [cashierName, setCashierName] = useState(initialValues?.cashierName ?? "");
-  const [cashierPhone, setCashierPhone] = useState(initialValues ? (initialValues.cashierPhone ?? "") : DEFAULT_PHONE_PREFIX);
+  const [cashierPhone, setCashierPhone] = useState(initialValues?.cashierPhone ?? "");
   const [subcontractorId, setSubcontractorId] = useState(initialValues?.subcontractorId ?? "");
   const [driver, setDriver] = useState(initialValues?.driver ?? "");
   const [secondDriver, setSecondDriver] = useState(initialValues?.secondDriver ?? "");
@@ -477,7 +476,7 @@ export default function BookingEditor({
       ? initialValues.extraPickups.map((pickup, index) => ({
           id: `initial-${index}`,
           address: pickup.address ?? "",
-          phone: pickup.phone?.trim() || DEFAULT_PHONE_PREFIX,
+          phone: pickup.phone?.trim() ?? "",
           email: pickup.email ?? "",
           sendEmail: pickup.sendEmail ?? true,
         }))
@@ -764,7 +763,7 @@ export default function BookingEditor({
       (initialValues.extraPickups ?? []).map((pickup, index) => ({
         id: `initial-${index}`,
         address: pickup.address ?? "",
-        phone: pickup.phone?.trim() || DEFAULT_PHONE_PREFIX,
+        phone: pickup.phone?.trim() ?? "",
         email: pickup.email ?? "",
         sendEmail: pickup.sendEmail ?? true,
       })),
