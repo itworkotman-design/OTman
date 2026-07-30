@@ -375,7 +375,7 @@ export default function OrderFieldsForm({
             checked={dnbDiscount}
             onChange={(event) => setDnbDiscount(event.target.checked)}
           />
-          USE DNB DISCOUNT
+          Add 20% discount
         </label>
       ) : null}
 
