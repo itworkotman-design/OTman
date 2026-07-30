@@ -837,13 +837,27 @@ export default function BookingEditor({
     setProductCards((current) =>
       current.map((card) => {
         if (card.cardId !== cardId) return card;
-        const existing = card.nulledLineKeysForCustomer ?? [];
-        const nextKeys = nulled
-          ? existing.includes(lineKey)
-            ? existing
-            : [...existing, lineKey]
-          : existing.filter((key) => key !== lineKey);
-        return { ...card, nulledLineKeysForCustomer: nextKeys };
+        const existingCustomer = card.nulledLineKeysForCustomer ?? [];
+        const nextCustomerKeys = nulled
+          ? existingCustomer.includes(lineKey)
+            ? existingCustomer
+            : [...existingCustomer, lineKey]
+          : existingCustomer.filter((key) => key !== lineKey);
+
+        // Store checkbox drives the partner checkbox for the same line;
+        // partner stays independent when toggled on its own.
+        const existingSubcontractor = card.nulledLineKeysForSubcontractor ?? [];
+        const nextSubcontractorKeys = nulled
+          ? existingSubcontractor.includes(lineKey)
+            ? existingSubcontractor
+            : [...existingSubcontractor, lineKey]
+          : existingSubcontractor.filter((key) => key !== lineKey);
+
+        return {
+          ...card,
+          nulledLineKeysForCustomer: nextCustomerKeys,
+          nulledLineKeysForSubcontractor: nextSubcontractorKeys,
+        };
       }),
     );
   }, [clearBothDiscountFields]);
@@ -871,6 +885,15 @@ export default function BookingEditor({
       clearBothDiscountFields();
     }
     setNulledOrderExtraKeysForCustomer((current) =>
+      nulled
+        ? current.includes(lineKey)
+          ? current
+          : [...current, lineKey]
+        : current.filter((key) => key !== lineKey),
+    );
+    // Store checkbox drives the partner checkbox for the same line;
+    // partner stays independent when toggled on its own.
+    setNulledOrderExtraKeysForSubcontractor((current) =>
       nulled
         ? current.includes(lineKey)
           ? current
