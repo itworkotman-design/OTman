@@ -36,6 +36,8 @@ export function computeFullOrderTotal(params: {
   leggTil: string | null;
   subcontractorMinus: string | null;
   subcontractorPlus: string | null;
+  customDeviationPrice?: number | null;
+  customDeviationSubcontractorPrice?: number | null;
 }): { totalExVat: number; subcontractorTotal: number } {
   // No legacy WordPress import context applies to scheduler orders, so
   // native (non-legacy) distance pricing always applies — matching what
@@ -67,6 +69,8 @@ export function computeFullOrderTotal(params: {
     feeExtraWork: params.feeExtraWork,
     extraPickups: params.extraPickups,
     shouldUseNativeDistancePricing,
+    customDeviationPrice: params.customDeviationPrice,
+    customDeviationSubcontractorPrice: params.customDeviationSubcontractorPrice,
   });
 
   const priceLookup = buildPriceLookup(params.catalogProducts, params.catalogSpecialOptions);

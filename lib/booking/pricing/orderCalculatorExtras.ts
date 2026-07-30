@@ -1,6 +1,7 @@
 import { getStartedChargeableKilometers } from "@/lib/booking/pricing/distanceCharges";
 import { calculateExtraWorkFee } from "@/lib/booking/pricing/hardcodedFees";
 import {
+  CUSTOM_DEVIATION_CODE,
   getDeviationFeeOption,
   type DeviationFeeOption,
 } from "@/lib/booking/pricing/deviationFees";
@@ -57,6 +58,9 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
   shouldUseNativeDistancePricing: boolean;
   nulledOrderExtraKeysForCustomer?: string[];
   nulledOrderExtraKeysForSubcontractor?: string[];
+  customDeviationPrice?: number | null;
+  customDeviationSubcontractorPrice?: number | null;
+  customDeviationDescription?: string | null;
 }) {
   const {
     productBreakdowns,
@@ -71,6 +75,9 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
     shouldUseNativeDistancePricing,
     nulledOrderExtraKeysForCustomer = [],
     nulledOrderExtraKeysForSubcontractor = [],
+    customDeviationPrice,
+    customDeviationSubcontractorPrice,
+    customDeviationDescription,
   } = params;
   const nextBreakdowns = [...productBreakdowns];
   const extraItems: ProductBreakdown["items"] = [];
@@ -163,14 +170,26 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
       priceListSettings,
       deviationFee,
     );
+    const isCustomDeviationFee = deviationFee.code === CUSTOM_DEVIATION_CODE;
+    const customerPrice =
+      isCustomDeviationFee && customDeviationPrice != null
+        ? customDeviationPrice
+        : deviationPrices.customerPrice;
+    const subcontractorPrice =
+      isCustomDeviationFee && customDeviationSubcontractorPrice != null
+        ? customDeviationSubcontractorPrice
+        : deviationPrices.subcontractorPrice;
+    const trimmedCustomDeviationDescription =
+      isCustomDeviationFee ? customDeviationDescription?.trim() : undefined;
+    const label = trimmedCustomDeviationDescription || deviationFee.englishLabel;
 
     extraItems.push({
       kind: "customPrice",
       code: deviationFee.code,
-      label: deviationFee.englishLabel,
+      label,
       qty: 1,
-      unitPrice: deviationPrices.customerPrice,
-      subcontractorUnitPrice: deviationPrices.subcontractorPrice,
+      unitPrice: customerPrice,
+      subcontractorUnitPrice: subcontractorPrice,
     });
   } else if (deviation && deviation.trim()) {
     extraItems.push({

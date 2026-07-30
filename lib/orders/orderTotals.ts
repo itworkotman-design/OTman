@@ -15,6 +15,9 @@ export type OrderPricingSnapshot = {
   version: 1;
   nulledOrderExtraKeysForCustomer: string[];
   nulledOrderExtraKeysForSubcontractor: string[];
+  customDeviationPrice: number | null;
+  customDeviationSubcontractorPrice: number | null;
+  customDeviationDescription: string | null;
   customer: {
     subtotalExVat: number;
     discount: number;
@@ -47,6 +50,17 @@ export type OrderPricingSnapshot = {
 
 function roundNok(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+// Order.priceExVat / Order.priceSubcontractor are 32-bit Postgres integers.
+// A bad manual price entry (e.g. an unbounded custom-price input) can produce
+// a total outside that range, which Postgres rejects outright — clamp so a
+// bad number degrades to a capped value instead of failing the whole save.
+const MAX_ORDER_PRICE = 2_147_483_647;
+
+export function clampOrderPrice(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(-MAX_ORDER_PRICE, Math.min(MAX_ORDER_PRICE, Math.round(value)));
 }
 
 export function parseNokAdjustment(value: string | null | undefined): number {
@@ -134,6 +148,10 @@ export function getPricingSnapshotSubcontractorTotal(snapshot: unknown): number 
   return getSnapshotNumber(subcontractor?.total);
 }
 
+function getSnapshotString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 function getSnapshotStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
@@ -149,6 +167,21 @@ export function getPricingSnapshotNulledOrderExtraKeysForSubcontractor(snapshot:
   return getSnapshotStringArray(root?.nulledOrderExtraKeysForSubcontractor);
 }
 
+export function getPricingSnapshotCustomDeviationPrice(snapshot: unknown): number | null {
+  const root = getSnapshotRecord(snapshot);
+  return getSnapshotNumber(root?.customDeviationPrice);
+}
+
+export function getPricingSnapshotCustomDeviationSubcontractorPrice(snapshot: unknown): number | null {
+  const root = getSnapshotRecord(snapshot);
+  return getSnapshotNumber(root?.customDeviationSubcontractorPrice);
+}
+
+export function getPricingSnapshotCustomDeviationDescription(snapshot: unknown): string | null {
+  const root = getSnapshotRecord(snapshot);
+  return getSnapshotString(root?.customDeviationDescription);
+}
+
 export function buildOrderPricingSnapshot(params: {
   lines: PricedOrderLine[];
   rabatt: string | null | undefined;
@@ -159,6 +192,9 @@ export function buildOrderPricingSnapshot(params: {
   fallbackSubcontractorTotal?: number;
   nulledOrderExtraKeysForCustomer?: string[];
   nulledOrderExtraKeysForSubcontractor?: string[];
+  customDeviationPrice?: number | null;
+  customDeviationSubcontractorPrice?: number | null;
+  customDeviationDescription?: string | null;
 }): OrderPricingSnapshot {
   const totals = getOrderLinePriceTotals(params.lines);
   const discount = roundNok(parseNokAdjustment(params.rabatt));
@@ -195,6 +231,9 @@ export function buildOrderPricingSnapshot(params: {
     version: 1,
     nulledOrderExtraKeysForCustomer: params.nulledOrderExtraKeysForCustomer ?? [],
     nulledOrderExtraKeysForSubcontractor: params.nulledOrderExtraKeysForSubcontractor ?? [],
+    customDeviationPrice: params.customDeviationPrice ?? null,
+    customDeviationSubcontractorPrice: params.customDeviationSubcontractorPrice ?? null,
+    customDeviationDescription: params.customDeviationDescription ?? null,
     customer: {
       subtotalExVat: customerSubtotal,
       discount,

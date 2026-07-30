@@ -33,7 +33,7 @@ import {
   applyOrderPricingSnapshot,
   getSavedOrderPricingSnapshot,
 } from "@/lib/booking/pricing/snapshot";
-import { buildOrderPricingSnapshot } from "@/lib/orders/orderTotals";
+import { buildOrderPricingSnapshot, clampOrderPrice } from "@/lib/orders/orderTotals";
 import { computeFullOrderTotal } from "@/lib/booking/pricing/computeOrderTotal";
 
 export type CreateOrderFields = {
@@ -78,6 +78,9 @@ export type CreateOrderFields = {
   subcontractorPlus: string | null;
   nulledOrderExtraKeysForCustomer?: string[];
   nulledOrderExtraKeysForSubcontractor?: string[];
+  customDeviationPrice?: number | null;
+  customDeviationSubcontractorPrice?: number | null;
+  customDeviationDescription?: string | null;
   customerMembershipId: string;
   customerLabel: string;
   // Fallback totals used only when the caller has a real client-submitted
@@ -160,6 +163,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
         leggTil: fields.leggTil,
         subcontractorMinus: fields.subcontractorMinus,
         subcontractorPlus: fields.subcontractorPlus,
+        customDeviationPrice: fields.customDeviationPrice,
+        customDeviationSubcontractorPrice: fields.customDeviationSubcontractorPrice,
       });
 
   const pricingSnapshot = buildOrderPricingSnapshot({
@@ -176,6 +181,9 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       : Math.round(computedFullTotal!.subcontractorTotal),
     nulledOrderExtraKeysForCustomer: fields.nulledOrderExtraKeysForCustomer,
     nulledOrderExtraKeysForSubcontractor: fields.nulledOrderExtraKeysForSubcontractor,
+    customDeviationPrice: fields.customDeviationPrice,
+    customDeviationSubcontractorPrice: fields.customDeviationSubcontractorPrice,
+    customDeviationDescription: fields.customDeviationDescription,
   });
   const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
   const finalSubcontractorTotal = pricingSnapshot.subcontractor.total;
@@ -252,8 +260,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       status: normalizedStatus,
       dontSendEmail: fields.dontSendEmail,
 
-      priceExVat: Math.round(finalCustomerTotalExVat),
-      priceSubcontractor: Math.round(finalSubcontractorTotal),
+      priceExVat: clampOrderPrice(Math.round(finalCustomerTotalExVat)),
+      priceSubcontractor: clampOrderPrice(Math.round(finalSubcontractorTotal)),
 
       rabatt: fields.rabatt,
       dnbDiscount: fields.dnbDiscount,

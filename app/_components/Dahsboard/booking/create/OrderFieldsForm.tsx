@@ -7,7 +7,7 @@ import { UserOption } from "@/lib/users/types";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import OrderAttachmentsSection from "@/app/_components/Dahsboard/booking/create/OrderAttachmentsSection";
 import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
-import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
+import { CUSTOM_DEVIATION_CODE, DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import {
   bookingStatusText,
   bookingText,
@@ -190,6 +190,14 @@ type Props = {
 
   deviation: string;
   setDeviation: React.Dispatch<React.SetStateAction<string>>;
+  customDeviationPrice: number | null;
+  setCustomDeviationPrice: React.Dispatch<React.SetStateAction<number | null>>;
+  customDeviationSubcontractorPrice: number | null;
+  setCustomDeviationSubcontractorPrice: React.Dispatch<React.SetStateAction<number | null>>;
+  customDeviationDescription: string;
+  setCustomDeviationDescription: React.Dispatch<React.SetStateAction<string>>;
+  customDeviationDefaultPrice: number;
+  customDeviationDefaultSubcontractorPrice: number;
   feeExtraWork: boolean;
   setFeeExtraWork: React.Dispatch<React.SetStateAction<boolean>>;
   extraWorkMinutes: number;
@@ -312,6 +320,14 @@ export default function OrderFieldsForm({
 
   deviation,
   setDeviation,
+  customDeviationPrice,
+  setCustomDeviationPrice,
+  customDeviationSubcontractorPrice,
+  setCustomDeviationSubcontractorPrice,
+  customDeviationDescription,
+  setCustomDeviationDescription,
+  customDeviationDefaultPrice,
+  customDeviationDefaultSubcontractorPrice,
   feeExtraWork,
   setFeeExtraWork,
   extraWorkMinutes,
@@ -341,8 +357,8 @@ export default function OrderFieldsForm({
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const [sundayBlocked, setSundayBlocked] = useState(false);
-  const isKnownDeviation = (v: string) => !v || DEVIATION_FEE_OPTIONS.some((o) => o.englishLabel === v);
-  const [isCustomDeviation, setIsCustomDeviation] = useState(() => !isKnownDeviation(deviation));
+  const customDeviationOption = DEVIATION_FEE_OPTIONS.find((o) => o.code === CUSTOM_DEVIATION_CODE);
+  const isCustomDeviationSelected = Boolean(customDeviationOption) && deviation === customDeviationOption?.englishLabel;
   const sundayBlockedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showLiftField = shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
   const customTimeFromMinutes = parseCustomTimeToMinutes(customTimeFrom);
@@ -836,14 +852,14 @@ export default function OrderFieldsForm({
         <>
           <h1 className="font-bold py-2">{locale === "nb" ? "Avvik" : "Deviation"}</h1>
           <select
-            value={isCustomDeviation ? "__custom__" : deviation}
+            value={deviation}
             onChange={(e) => {
-              if (e.target.value === "__custom__") {
-                setIsCustomDeviation(true);
-                setDeviation("");
-              } else {
-                setIsCustomDeviation(false);
-                setDeviation(e.target.value);
+              const value = e.target.value;
+              setDeviation(value);
+
+              if (customDeviationOption && value === customDeviationOption.englishLabel) {
+                if (customDeviationPrice === null) setCustomDeviationPrice(customDeviationDefaultPrice);
+                if (customDeviationSubcontractorPrice === null) setCustomDeviationSubcontractorPrice(customDeviationDefaultSubcontractorPrice);
               }
             }}
             className="customInput w-full"
@@ -854,15 +870,46 @@ export default function OrderFieldsForm({
                 {option.englishLabel}
               </option>
             ))}
-            <option value="__custom__">{locale === "nb" ? "Egendefinert" : "Custom"}</option>
           </select>
-          {isCustomDeviation && (
-            <input
-              className="customInput w-full mt-2"
-              placeholder={locale === "nb" ? "Beskriv avviket..." : "Describe the deviation..."}
-              value={deviation}
-              onChange={(e) => setDeviation(e.target.value)}
-            />
+          {isCustomDeviationSelected && (
+            <>
+              <input
+                className="customInput w-full mt-2"
+                placeholder={locale === "nb" ? "Beskriv avviket..." : "Describe the deviation..."}
+                value={customDeviationDescription}
+                onChange={(e) => setCustomDeviationDescription(e.target.value)}
+              />
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-textColorSecond">
+                  {locale === "nb" ? "Pris (butikk)" : "Price (store)"}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100000}
+                  step="0.1"
+                  className="customInput w-full"
+                  value={customDeviationPrice ?? ""}
+                  onChange={(e) => setCustomDeviationPrice(e.target.value === "" ? null : Number(e.target.value))}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-textColorSecond">
+                  {locale === "nb" ? "Pris (partner)" : "Price (partner)"}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100000}
+                  step="0.1"
+                  className="customInput w-full"
+                  value={customDeviationSubcontractorPrice ?? ""}
+                  onChange={(e) => setCustomDeviationSubcontractorPrice(e.target.value === "" ? null : Number(e.target.value))}
+                />
+              </label>
+              </div>
+            </>
           )}
         </>
       )}

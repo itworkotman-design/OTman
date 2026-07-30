@@ -6,6 +6,8 @@ export type DeviationFeeOption = {
   subcontractorPrice: number;
 };
 
+export const CUSTOM_DEVIATION_CODE = "CUSTOM";
+
 export const DEVIATION_FEE_OPTIONS: DeviationFeeOption[] = [
   {
     code: "NOTHOME",
@@ -61,6 +63,13 @@ export const DEVIATION_FEE_OPTIONS: DeviationFeeOption[] = [
     englishLabel: "Avvik, bomtur; Avlyst dagen før",
     norwegianLabel: "Avvik, bomtur; Avlyst dagen før",
     price: 290,
+    subcontractorPrice: 0,
+  },
+  {
+    code: CUSTOM_DEVIATION_CODE,
+    englishLabel: "Custom",
+    norwegianLabel: "Egendefinert",
+    price: 0,
     subcontractorPrice: 0,
   },
 ];

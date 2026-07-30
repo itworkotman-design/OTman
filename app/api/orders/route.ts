@@ -5,6 +5,7 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canCreateOrders } from "@/lib/users/orderAccess";
 import {
   optionalBoolean,
+  optionalPriceNumber,
   optionalString,
   optionalStringArray,
   safeInteger,
@@ -754,6 +755,9 @@ export async function POST(req: Request) {
       subcontractorPlus: optionalString(body.subcontractorPlus),
       nulledOrderExtraKeysForCustomer: optionalStringArray(body.nulledOrderExtraKeysForCustomer),
       nulledOrderExtraKeysForSubcontractor: optionalStringArray(body.nulledOrderExtraKeysForSubcontractor),
+      customDeviationPrice: optionalPriceNumber(body.customDeviationPrice),
+      customDeviationSubcontractorPrice: optionalPriceNumber(body.customDeviationSubcontractorPrice),
+      customDeviationDescription: optionalString(body.customDeviationDescription),
       customerMembershipId,
       customerLabel,
       priceExVat: safeNumber(body.priceExVat),

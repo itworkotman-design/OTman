@@ -10,7 +10,7 @@ import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/Produ
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
-import { normalizeDeviationLabel } from "@/lib/booking/pricing/deviationFees";
+import { CUSTOM_DEVIATION_CODE, normalizeDeviationLabel } from "@/lib/booking/pricing/deviationFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import type { CalculatedLine, ProductBreakdown } from "@/lib/booking/pricing/types";
 import {
@@ -102,6 +102,9 @@ export type OrderFormPayload = {
   subcontractorPlus: string;
   nulledOrderExtraKeysForCustomer: string[];
   nulledOrderExtraKeysForSubcontractor: string[];
+  customDeviationPrice: number | null;
+  customDeviationSubcontractorPrice: number | null;
+  customDeviationDescription: string;
 };
 
 type ExtraPickupDraft = {
@@ -460,6 +463,15 @@ export default function BookingEditor({
   const [driverInfo, setDriverInfo] = useState(initialValues?.driverInfo ?? "");
   const [licensePlate, setLicensePlate] = useState(initialValues?.licensePlate ?? "");
   const [deviation, setDeviation] = useState(normalizeDeviationLabel(initialValues?.deviation) ?? initialValues?.deviation ?? "");
+  const [customDeviationPrice, setCustomDeviationPrice] = useState<number | null>(
+    initialValues?.customDeviationPrice ?? null,
+  );
+  const [customDeviationSubcontractorPrice, setCustomDeviationSubcontractorPrice] = useState<number | null>(
+    initialValues?.customDeviationSubcontractorPrice ?? null,
+  );
+  const [customDeviationDescription, setCustomDeviationDescription] = useState(
+    initialValues?.customDeviationDescription ?? "",
+  );
   const [feeExtraWork, setFeeExtraWork] = useState(initialValues?.feeExtraWork ?? false);
   const [extraWorkMinutes, setExtraWorkMinutes] = useState(initialValues?.extraWorkMinutes ?? 0);
   const [feeAddToOrder, setFeeAddToOrder] = useState(initialValues?.feeAddToOrder ?? false);
@@ -748,6 +760,9 @@ export default function BookingEditor({
     setDriverInfo(initialValues.driverInfo ?? "");
     setLicensePlate(initialValues.licensePlate ?? "");
     setDeviation(normalizeDeviationLabel(initialValues.deviation) ?? initialValues.deviation ?? "");
+    setCustomDeviationPrice(initialValues.customDeviationPrice ?? null);
+    setCustomDeviationSubcontractorPrice(initialValues.customDeviationSubcontractorPrice ?? null);
+    setCustomDeviationDescription(initialValues.customDeviationDescription ?? "");
     setFeeExtraWork(initialValues.feeExtraWork ?? false);
     setExtraWorkMinutes(initialValues.extraWorkMinutes ?? 0);
     setFeeAddToOrder(initialValues.feeAddToOrder ?? false);
@@ -1034,6 +1049,9 @@ export default function BookingEditor({
         shouldUseNativeDistancePricing,
         nulledOrderExtraKeysForCustomer,
         nulledOrderExtraKeysForSubcontractor,
+        customDeviationPrice,
+        customDeviationSubcontractorPrice,
+        customDeviationDescription,
       }),
     [
     deviation,
@@ -1048,6 +1066,9 @@ export default function BookingEditor({
     shouldUseNativeDistancePricing,
     nulledOrderExtraKeysForCustomer,
     nulledOrderExtraKeysForSubcontractor,
+    customDeviationPrice,
+    customDeviationSubcontractorPrice,
+    customDeviationDescription,
     ],
   );
 
@@ -1089,6 +1110,9 @@ export default function BookingEditor({
         shouldUseNativeDistancePricing,
         nulledOrderExtraKeysForCustomer,
         nulledOrderExtraKeysForSubcontractor,
+        customDeviationPrice,
+        customDeviationSubcontractorPrice,
+        customDeviationDescription,
       }),
     [
       currentCatalogProductBreakdowns,
@@ -1103,6 +1127,9 @@ export default function BookingEditor({
       shouldUseNativeDistancePricing,
       nulledOrderExtraKeysForCustomer,
       nulledOrderExtraKeysForSubcontractor,
+      customDeviationPrice,
+      customDeviationSubcontractorPrice,
+      customDeviationDescription,
     ],
   );
 
@@ -1921,6 +1948,9 @@ export default function BookingEditor({
       licensePlate,
 
       deviation,
+      customDeviationPrice,
+      customDeviationSubcontractorPrice,
+      customDeviationDescription,
       feeExtraWork,
       extraWorkMinutes: feeExtraWork ? extraWorkMinutes : 0,
       feeAddToOrder,
@@ -2030,6 +2060,13 @@ export default function BookingEditor({
 
     setPickupAddress((current) => (current === "No shop pickup address" ? lastUnlockedPickupAddressRef.current || selectedCustomerAddress : current));
   }, [selectedCustomerAddress, shouldLockPickupAddress]);
+
+  const customDeviationDefaultPrice = parsePriceSetting(
+    priceListSettings.deviations[CUSTOM_DEVIATION_CODE]?.price ?? "0",
+  );
+  const customDeviationDefaultSubcontractorPrice = parsePriceSetting(
+    priceListSettings.deviations[CUSTOM_DEVIATION_CODE]?.subcontractorPrice ?? "0",
+  );
 
   return (
     <form
@@ -2184,6 +2221,14 @@ export default function BookingEditor({
             setLicensePlate={setLicensePlate}
             deviation={deviation}
             setDeviation={setDeviation}
+            customDeviationPrice={customDeviationPrice}
+            setCustomDeviationPrice={setCustomDeviationPrice}
+            customDeviationSubcontractorPrice={customDeviationSubcontractorPrice}
+            setCustomDeviationSubcontractorPrice={setCustomDeviationSubcontractorPrice}
+            customDeviationDescription={customDeviationDescription}
+            setCustomDeviationDescription={setCustomDeviationDescription}
+            customDeviationDefaultPrice={customDeviationDefaultPrice}
+            customDeviationDefaultSubcontractorPrice={customDeviationDefaultSubcontractorPrice}
             feeExtraWork={feeExtraWork}
             setFeeExtraWork={setFeeExtraWork}
             extraWorkMinutes={extraWorkMinutes}

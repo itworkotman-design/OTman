@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
-import { optionalBoolean, optionalString, optionalStringArray, safeInteger, safeNumber } from "@/lib/orders/normalizeOrderInput";
+import { optionalBoolean, optionalPriceNumber, optionalString, optionalStringArray, safeInteger, safeNumber } from "@/lib/orders/normalizeOrderInput";
 import { getOptionalEmailError, getOptionalPhoneError, normalizeOptionalEmail, normalizeOptionalPhone } from "@/lib/orders/contactValidation";
 import { getExtraPickupApiError, normalizeExtraPickups, parseExtraPickups } from "@/lib/orders/extraPickups";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
@@ -41,6 +41,10 @@ import { buildWordpressExtraPickupContacts, getWordpressExtraPickupAddresses, to
 import { applyOrderPricingSnapshot, getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
 import {
   buildOrderPricingSnapshot,
+  clampOrderPrice,
+  getPricingSnapshotCustomDeviationDescription,
+  getPricingSnapshotCustomDeviationPrice,
+  getPricingSnapshotCustomDeviationSubcontractorPrice,
   getPricingSnapshotNulledOrderExtraKeysForCustomer,
   getPricingSnapshotNulledOrderExtraKeysForSubcontractor,
 } from "@/lib/orders/orderTotals";
@@ -465,6 +469,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       subcontractorPlus: order.subcontractorPlus ?? "",
       nulledOrderExtraKeysForCustomer: getPricingSnapshotNulledOrderExtraKeysForCustomer(order.pricingSnapshot),
       nulledOrderExtraKeysForSubcontractor: getPricingSnapshotNulledOrderExtraKeysForSubcontractor(order.pricingSnapshot),
+      customDeviationPrice: getPricingSnapshotCustomDeviationPrice(order.pricingSnapshot),
+      customDeviationSubcontractorPrice: getPricingSnapshotCustomDeviationSubcontractorPrice(order.pricingSnapshot),
+      customDeviationDescription: getPricingSnapshotCustomDeviationDescription(order.pricingSnapshot) ?? "",
       createdBy: order.createdByMembership?.user.username || order.createdByMembership?.user.email || "",
       createdByEmail: order.createdByMembership?.user.email ?? "",
       createdByName: order.createdByMembership?.user.username || order.createdByMembership?.user.email || "",
@@ -694,6 +701,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const nextNulledOrderExtraKeysForSubcontractor =
     optionalStringArray(body.nulledOrderExtraKeysForSubcontractor) ??
     getPricingSnapshotNulledOrderExtraKeysForSubcontractor(existingOrder.pricingSnapshot);
+  const nextCustomDeviationPrice =
+    body.customDeviationPrice !== undefined
+      ? optionalPriceNumber(body.customDeviationPrice)
+      : getPricingSnapshotCustomDeviationPrice(existingOrder.pricingSnapshot);
+  const nextCustomDeviationSubcontractorPrice =
+    body.customDeviationSubcontractorPrice !== undefined
+      ? optionalPriceNumber(body.customDeviationSubcontractorPrice)
+      : getPricingSnapshotCustomDeviationSubcontractorPrice(existingOrder.pricingSnapshot);
+  const nextCustomDeviationDescription =
+    body.customDeviationDescription !== undefined
+      ? optionalString(body.customDeviationDescription)
+      : getPricingSnapshotCustomDeviationDescription(existingOrder.pricingSnapshot);
   const pricingSnapshot = buildOrderPricingSnapshot({
     lines: builtItems,
     rabatt: nextRabatt,
@@ -704,6 +723,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     fallbackSubcontractorTotal: Math.round(safeNumber(body.priceSubcontractor)),
     nulledOrderExtraKeysForCustomer: nextNulledOrderExtraKeysForCustomer,
     nulledOrderExtraKeysForSubcontractor: nextNulledOrderExtraKeysForSubcontractor,
+    customDeviationPrice: nextCustomDeviationPrice,
+    customDeviationSubcontractorPrice: nextCustomDeviationSubcontractorPrice,
+    customDeviationDescription: nextCustomDeviationDescription,
   });
   const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
   const nextPriceSubcontractor = pricingSnapshot.subcontractor.total;
@@ -819,8 +841,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         invoicedAt: normalizeOrderStatus(optionalString(body.status)) === "invoiced" && !existingOrder.invoicedAt ? new Date() : existingOrder.invoicedAt,
         dontSendEmail: optionalBoolean(body.dontSendEmail),
 
-        priceExVat: Math.round(finalCustomerTotalExVat),
-        priceSubcontractor: Math.round(nextPriceSubcontractor),
+        priceExVat: clampOrderPrice(finalCustomerTotalExVat),
+        priceSubcontractor: clampOrderPrice(nextPriceSubcontractor),
 
         rabatt: nextRabatt,
         dnbDiscount: nextDnbDiscount,

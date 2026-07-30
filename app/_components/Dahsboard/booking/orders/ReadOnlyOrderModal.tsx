@@ -101,6 +101,9 @@ type FullOrderResponse = {
     priceSubcontractor: number;
     nulledOrderExtraKeysForCustomer?: string[];
     nulledOrderExtraKeysForSubcontractor?: string[];
+    customDeviationPrice?: number | null;
+    customDeviationSubcontractorPrice?: number | null;
+    customDeviationDescription?: string;
   };
   reason?: string;
 };
@@ -575,6 +578,9 @@ function useAdminCalculatorState(order: ReadOnlyOrder | null) {
         shouldUseNativeDistancePricing,
         nulledOrderExtraKeysForCustomer: fullOrder.nulledOrderExtraKeysForCustomer,
         nulledOrderExtraKeysForSubcontractor: fullOrder.nulledOrderExtraKeysForSubcontractor,
+        customDeviationPrice: fullOrder.customDeviationPrice,
+        customDeviationSubcontractorPrice: fullOrder.customDeviationSubcontractorPrice,
+        customDeviationDescription: fullOrder.customDeviationDescription,
       }),
       priceLookup: buildPriceLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions),
       priceExVat: fullOrder.priceExVat,
