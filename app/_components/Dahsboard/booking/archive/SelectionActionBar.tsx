@@ -52,8 +52,6 @@ export default function SelectionActionBar({
   const [creatorId, setCreatorId] = useState(selectedStoreId ?? "");
   const [emailType, setEmailType] = useState<EmailType>("prepare_orders");
   const [customMessage, setCustomMessage] = useState("");
-  const [sendToPrimaryEmail, setSendToPrimaryEmail] = useState(true);
-  const [sendToWarehouseEmail, setSendToWarehouseEmail] = useState(false);
 
   const [successFlash, setSuccessFlash] = useState(false);
   const [gsmSuccessFlash, setGsmSuccessFlash] = useState(false);
@@ -66,14 +64,14 @@ export default function SelectionActionBar({
   const selectedRecipients = useMemo(() => {
     const recipients: Array<{ email: string; name?: string }> = [];
 
-    if (sendToPrimaryEmail && primaryEmail) {
+    if (primaryEmail) {
       recipients.push({
         email: primaryEmail,
         name: selectedCreator?.label,
       });
     }
 
-    if (sendToWarehouseEmail && warehouseEmail && warehouseEmail !== primaryEmail) {
+    if (warehouseEmail && warehouseEmail !== primaryEmail) {
       recipients.push({
         email: warehouseEmail,
         name: selectedCreator?.label,
@@ -81,7 +79,7 @@ export default function SelectionActionBar({
     }
 
     return recipients;
-  }, [primaryEmail, selectedCreator?.label, sendToPrimaryEmail, sendToWarehouseEmail, warehouseEmail]);
+  }, [primaryEmail, selectedCreator?.label, warehouseEmail]);
 
   const subject = useMemo(() => {
     switch (emailType) {
@@ -164,13 +162,7 @@ export default function SelectionActionBar({
           <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Store")}</label>
           <select
             value={creatorId}
-            onChange={(e) => {
-              const nextCreatorId = e.target.value;
-
-              setCreatorId(nextCreatorId);
-              setSendToPrimaryEmail(true);
-              setSendToWarehouseEmail(false);
-            }}
+            onChange={(e) => setCreatorId(e.target.value)}
             className="customInput w-full padding-weird-landscape"
             disabled={loading}
           >
@@ -201,27 +193,12 @@ export default function SelectionActionBar({
         {selectedCreator ? (
           <div>
             <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Recipients")}</label>
-            <div className="flex min-h-10 flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm text-weird-landscape">
-                <input
-                  type="checkbox"
-                  checked={sendToPrimaryEmail}
-                  disabled={!primaryEmail || loading}
-                  onChange={(e) => setSendToPrimaryEmail(e.target.checked)}
-                />
-                <span>
-                  {t("Send to")}
-                  {primaryEmail ? ` - ${primaryEmail}` : ` - ${t("no email set")}`}
-                </span>
-              </label>
-              {warehouseEmail ? (
-                <label className="flex items-center gap-2 text-sm text-weird-landscape ">
-                  <input type="checkbox" checked={sendToWarehouseEmail} disabled={loading} onChange={(e) => setSendToWarehouseEmail(e.target.checked)} />
-                  <span>
-                    {t("Send to")} - {warehouseEmail}
-                  </span>
-                </label>
-              ) : null}
+            <div className="flex min-h-10 flex-col justify-center gap-1 text-sm text-weird-landscape">
+              {selectedRecipients.length > 0 ? (
+                selectedRecipients.map((recipient) => <span key={recipient.email}>{recipient.email}</span>)
+              ) : (
+                <span>{t("no email set")}</span>
+              )}
             </div>
           </div>
         ) : null}
