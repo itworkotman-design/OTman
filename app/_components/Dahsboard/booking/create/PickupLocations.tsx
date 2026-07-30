@@ -11,6 +11,7 @@ import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type Pickup = {
   id: string;
+  addressSelected: boolean;
 } & ExtraPickupInput;
 
 export function PickupLocations({
@@ -28,7 +29,7 @@ export function PickupLocations({
   overrideValue?: string;
   mainAddress: string;
   mainAddressError?: string | null;
-  onMainAddressChange: (value: string) => void;
+  onMainAddressChange: (value: string, wasSelected?: boolean) => void;
   pickups: Pickup[];
   onPickupsChange: (pickups: Pickup[]) => void;
   locale?: BookingUiLocale;
@@ -47,6 +48,7 @@ export function PickupLocations({
       ...pickups,
       {
         id: crypto.randomUUID(),
+        addressSelected: false,
         ...createEmptyExtraPickup(),
       },
     ]);
@@ -60,8 +62,8 @@ export function PickupLocations({
     onPickupsChange(pickups.filter((p) => p.id !== id));
   };
 
-  const handleMainChange = (value: string) => {
-    onMainAddressChange(value);
+  const handleMainChange = (value: string, wasSelected?: boolean) => {
+    onMainAddressChange(value, wasSelected);
 
     if (value.trim().length === 0) {
       onPickupsChange([]);
@@ -78,8 +80,8 @@ export function PickupLocations({
         <AddressAutocompleteInput
           inputId="order-pickup-address"
           value={disabled ? (overrideValue ?? "") : mainAddress}
-          onChange={(value) => {
-            if (!disabled) handleMainChange(value);
+          onChange={(value, wasSelected) => {
+            if (!disabled) handleMainChange(value, wasSelected);
           }}
           disabled={disabled}
           placeholder={t("Enter a location")}
@@ -130,8 +132,8 @@ export function PickupLocations({
                     <AddressAutocompleteInput
                       inputId={`extra-pickup-${pickup.id}-address`}
                       value={pickup.address}
-                      onChange={(value) =>
-                        updatePickup(pickup.id, { address: value })
+                      onChange={(value, wasSelected) =>
+                        updatePickup(pickup.id, { address: value, addressSelected: Boolean(wasSelected) })
                       }
                       placeholder={t("Enter a location")}
                     />

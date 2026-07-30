@@ -12,7 +12,7 @@ type AddressSuggestion = {
 
 type Props = {
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, wasSelected?: boolean) => void;
   placeholder?: string;
   disabled?: boolean;
   inputId?: string;
@@ -57,7 +57,7 @@ export default function AddressAutocompleteInput({
   };
 
   const selectSuggestion = (suggestion: AddressSuggestion) => {
-    onChange(suggestion.label);
+    onChange(suggestion.label, true);
     setQuery(suggestion.label);
     setResults([]);
     setOpen(false);
@@ -142,7 +142,7 @@ export default function AddressAutocompleteInput({
           const next = e.target.value;
           setHasInteracted(true);
           setQuery(next);
-          onChange(next);
+          onChange(next, false);
         }}
         onKeyDown={(event) => {
           if (event.key === "Enter" && open && results.length > 0) {

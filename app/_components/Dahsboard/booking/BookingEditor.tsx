@@ -109,6 +109,9 @@ export type OrderFormPayload = {
 
 type ExtraPickupDraft = {
   id: string;
+  // Client-only: true once the address was picked from the autocomplete
+  // dropdown (not just typed). Stripped before the order payload is built.
+  addressSelected: boolean;
 } & OrderFormPayload["extraPickups"][number];
 
 type FieldErrorMap = {
@@ -447,6 +450,10 @@ export default function BookingEditor({
   const [timeWindow, setTimeWindow] = useState(initialTimeWindowState.selectedTimeWindow);
   const [expressDelivery, setExpressDelivery] = useState(initialValues?.expressDelivery ?? false);
   const [deliveryAddress, setDeliveryAddress] = useState(initialValues?.deliveryAddress ?? "");
+  // Addresses loaded from a saved order are already trustworthy; only
+  // addresses typed fresh need to be picked from the dropdown before they
+  // count toward the route-distance calculation.
+  const [deliveryAddressSelected, setDeliveryAddressSelected] = useState(Boolean(initialValues?.deliveryAddress));
   const [drivingDistance, setDrivingDistance] = useState(initialValues?.drivingDistance ?? "");
   const [customerName, setCustomerName] = useState(initialValues?.customerName ?? "");
   const [phone, setPhone] = useState(initialValues?.phone ?? "");
@@ -483,6 +490,7 @@ export default function BookingEditor({
   const [contactCustomerForCustomTimeWindow, setContactCustomerForCustomTimeWindow] = useState(initialValues?.contactCustomerForCustomTimeWindow ?? false);
   const [customTimeContactNote, setCustomTimeContactNote] = useState(initialValues?.customTimeContactNote ?? "");
   const [pickupAddress, setPickupAddress] = useState(initialValues?.pickupAddress ?? "");
+  const [pickupAddressSelected, setPickupAddressSelected] = useState(Boolean(initialValues?.pickupAddress));
   const [extraPickups, setExtraPickups] = useState<ExtraPickupDraft[]>(
     initialValues?.extraPickups?.length
       ? initialValues.extraPickups.map((pickup, index) => ({
@@ -491,10 +499,12 @@ export default function BookingEditor({
           phone: pickup.phone?.trim() ?? "",
           email: pickup.email ?? "",
           sendEmail: pickup.sendEmail ?? true,
+          addressSelected: true,
         }))
       : [],
   );
   const [returnAddress, setReturnAddress] = useState(initialValues?.returnAddress ?? "");
+  const [returnAddressSelected, setReturnAddressSelected] = useState(Boolean(initialValues?.returnAddress));
   const [customTimeFrom, setCustomTimeFrom] = useState(initialTimeWindowState.customTimeFrom);
 
   const [customTimeTo, setCustomTimeTo] = useState(initialTimeWindowState.customTimeTo);
@@ -508,6 +518,8 @@ export default function BookingEditor({
   const previousSelectedCustomerIdRef = useRef<string | null>(null);
   const hasProcessedInitialCustomerSyncRef = useRef(false);
   const hasProcessedInitialReturnSyncRef = useRef(false);
+  const hasUserEditedPickupAddressRef = useRef(false);
+  const hasUserEditedReturnAddressRef = useRef(false);
   const lastUnlockedPickupAddressRef = useRef(initialValues?.pickupAddress ?? "");
   const pricingResultRef = useRef<ReturnType<typeof calculateBookingPricing> | null>(null);
   const [capacityWarning, setCapacityWarning] = useState<CapacityWarningState>(null);
@@ -744,6 +756,7 @@ export default function BookingEditor({
     setTimeWindow(nextTimeWindowState.selectedTimeWindow);
     setExpressDelivery(initialValues.expressDelivery ?? false);
     setDeliveryAddress(initialValues.deliveryAddress ?? "");
+    setDeliveryAddressSelected(Boolean(initialValues.deliveryAddress));
     setDrivingDistance(initialValues.drivingDistance ?? "");
     setCustomerName(initialValues.customerName ?? "");
     setPhone(initialValues.phone ?? "");
@@ -774,6 +787,7 @@ export default function BookingEditor({
     setContactCustomerForCustomTimeWindow(initialValues.contactCustomerForCustomTimeWindow ?? false);
     setCustomTimeContactNote(initialValues.customTimeContactNote ?? "");
     setPickupAddress(initialValues.pickupAddress ?? "");
+    setPickupAddressSelected(Boolean(initialValues.pickupAddress));
     setExtraPickups(
       (initialValues.extraPickups ?? []).map((pickup, index) => ({
         id: `initial-${index}`,
@@ -781,9 +795,11 @@ export default function BookingEditor({
         phone: pickup.phone?.trim() ?? "",
         email: pickup.email ?? "",
         sendEmail: pickup.sendEmail ?? true,
+        addressSelected: true,
       })),
     );
     setReturnAddress(initialValues.returnAddress ?? "");
+    setReturnAddressSelected(Boolean(initialValues.returnAddress));
     setCustomTimeFrom(nextTimeWindowState.customTimeFrom);
     setCustomTimeTo(nextTimeWindowState.customTimeTo);
     hasProcessedInitialReturnSyncRef.current = false;
@@ -834,6 +850,29 @@ export default function BookingEditor({
 
   const updateProductCard = useCallback((cardId: number, nextValue: SavedProductCard) => {
     setProductCards((current) => current.map((card) => (card.cardId === cardId ? nextValue : card)));
+  }, []);
+
+  // Distinguishes the user typing/selecting an address from the
+  // programmatic auto-fill below, so the async customer-address sync
+  // doesn't clobber an address the user already entered. `wasSelected`
+  // (true only when picked from the autocomplete dropdown) also gates
+  // whether the address counts toward the route-distance calculation —
+  // free-typed text shouldn't silently produce a km estimate.
+  const handlePickupAddressChange = useCallback((value: string, wasSelected?: boolean) => {
+    hasUserEditedPickupAddressRef.current = true;
+    setPickupAddress(value);
+    setPickupAddressSelected(Boolean(wasSelected));
+  }, []);
+
+  const handleDeliveryAddressChange = useCallback((value: string, wasSelected?: boolean) => {
+    setDeliveryAddress(value);
+    setDeliveryAddressSelected(Boolean(wasSelected));
+  }, []);
+
+  const handleReturnAddressChange = useCallback((value: string, wasSelected?: boolean) => {
+    hasUserEditedReturnAddressRef.current = true;
+    setReturnAddress(value);
+    setReturnAddressSelected(Boolean(wasSelected));
   }, []);
 
   const clearBothDiscountFields = useCallback(() => {
@@ -1614,7 +1653,8 @@ export default function BookingEditor({
     // (mount, or switching which record is being edited). Any further
     // change after that is a genuine customer switch and should still
     // auto-fill.
-    if (!hasProcessedInitialCustomerSyncRef.current) {
+    const isInitialSync = !hasProcessedInitialCustomerSyncRef.current;
+    if (isInitialSync) {
       hasProcessedInitialCustomerSyncRef.current = true;
 
       if (initialValues?.id) {
@@ -1623,10 +1663,19 @@ export default function BookingEditor({
     }
 
     setCustomerLabel(selectedCustomerOption.name);
-    setPickupAddress(selectedCustomerAddress);
 
-    if (shouldShowReturnAddress) {
+    // On the initial sync the user may have already typed/selected an
+    // address in the field while this fetch was still in flight — don't
+    // clobber it. Explicit customer switches (isInitialSync === false)
+    // are a deliberate user action and should still overwrite.
+    if (!isInitialSync || !hasUserEditedPickupAddressRef.current) {
+      setPickupAddress(selectedCustomerAddress);
+      setPickupAddressSelected(true);
+    }
+
+    if (shouldShowReturnAddress && (!isInitialSync || !hasUserEditedReturnAddressRef.current)) {
       setReturnAddress(selectedCustomerAddress);
+      setReturnAddressSelected(true);
     }
   }, [initialValues?.id, selectedCustomerAddress, selectedCustomerOption, shouldShowReturnAddress]);
 
@@ -1642,11 +1691,12 @@ export default function BookingEditor({
       }
     }
 
-    if (!shouldShowReturnAddress || hadVisibleReturnAddress) {
+    if (!shouldShowReturnAddress || hadVisibleReturnAddress || hasUserEditedReturnAddressRef.current) {
       return;
     }
 
     setReturnAddress(selectedCustomerAddress);
+    setReturnAddressSelected(true);
   }, [initialValues?.id, selectedCustomerAddress, shouldShowReturnAddress]);
 
   useEffect(() => {
@@ -1660,12 +1710,19 @@ export default function BookingEditor({
       return;
     }
 
-    const extraPickupAddresses = extraPickups.map((pickup) => pickup.address).filter((address) => address.trim().length > 0);
+    // Only addresses actually picked from the autocomplete dropdown count
+    // toward the distance/km calculation — free-typed text that was never
+    // selected shouldn't silently produce a route estimate (and shouldn't
+    // feed into distance-based pricing).
+    const extraPickupAddresses = extraPickups
+      .filter((pickup) => pickup.addressSelected)
+      .map((pickup) => pickup.address)
+      .filter((address) => address.trim().length > 0);
     const routeRequest = {
-      pickupAddress,
+      pickupAddress: pickupAddressSelected ? pickupAddress : "",
       extraPickupAddresses,
-      deliveryAddress,
-      returnAddress: shouldShowReturnAddress ? returnAddress : "",
+      deliveryAddress: deliveryAddressSelected ? deliveryAddress : "",
+      returnAddress: shouldShowReturnAddress && returnAddressSelected ? returnAddress : "",
     };
 
     distanceRequestAbortRef.current?.abort();
@@ -1723,10 +1780,13 @@ export default function BookingEditor({
     };
   }, [
     deliveryAddress,
+    deliveryAddressSelected,
     extraPickups,
     importedWordpressRouteChanged,
     pickupAddress,
+    pickupAddressSelected,
     returnAddress,
+    returnAddressSelected,
     shouldShowReturnAddress,
   ]);
 
@@ -2167,11 +2227,11 @@ export default function BookingEditor({
             expressDelivery={expressDelivery}
             setExpressDelivery={setExpressDelivery}
             pickupAddress={pickupAddress}
-            setPickupAddress={setPickupAddress}
+            setPickupAddress={handlePickupAddressChange}
             extraPickups={extraPickups}
             setExtraPickups={setExtraPickups}
             returnAddress={returnAddress}
-            setReturnAddress={setReturnAddress}
+            setReturnAddress={handleReturnAddressChange}
             customTimeFrom={customTimeFrom}
             setCustomTimeFrom={setCustomTimeFrom}
             customTimeTo={customTimeTo}
@@ -2181,7 +2241,7 @@ export default function BookingEditor({
             customTimeContactNote={customTimeContactNote}
             setCustomTimeContactNote={setCustomTimeContactNote}
             deliveryAddress={deliveryAddress}
-            setDeliveryAddress={setDeliveryAddress}
+            setDeliveryAddress={handleDeliveryAddressChange}
             shouldShowReturnAddress={shouldShowReturnAddress}
             drivingDistance={drivingDistance}
             setDrivingDistance={setDrivingDistance}

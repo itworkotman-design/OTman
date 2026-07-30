@@ -123,17 +123,18 @@ type Props = {
   customTimeContactNote: string;
   setCustomTimeContactNote: React.Dispatch<React.SetStateAction<string>>;
   deliveryAddress: string;
-  setDeliveryAddress: React.Dispatch<React.SetStateAction<string>>;
+  setDeliveryAddress: (value: string, wasSelected?: boolean) => void;
   drivingDistance: string;
   setDrivingDistance: React.Dispatch<React.SetStateAction<string>>;
   pickupAddress: string;
-  setPickupAddress: React.Dispatch<React.SetStateAction<string>>;
+  setPickupAddress: (value: string, wasSelected?: boolean) => void;
   extraPickups: {
     id: string;
     address: string;
     phone: string;
     email: string;
     sendEmail: boolean;
+    addressSelected: boolean;
   }[];
   setExtraPickups: React.Dispatch<
     React.SetStateAction<
@@ -143,11 +144,12 @@ type Props = {
         phone: string;
         email: string;
         sendEmail: boolean;
+        addressSelected: boolean;
       }[]
     >
   >;
   returnAddress: string;
-  setReturnAddress: React.Dispatch<React.SetStateAction<string>>;
+  setReturnAddress: (value: string, wasSelected?: boolean) => void;
   shouldShowReturnAddress: boolean;
 
   customerLabel: string;
