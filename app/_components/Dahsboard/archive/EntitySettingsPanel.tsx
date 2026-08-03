@@ -9,31 +9,23 @@ type EntitySettingsPanelProps = {
   name: string;
   description: string | null;
   status: ArchiveBusinessStatus;
-  dueAt: string | null;
-  expiresAt: string | null;
   locale: string;
-  onSaved: (updated: { status: ArchiveBusinessStatus; dueAt: string | null; expiresAt: string | null }) => void;
+  onSaved: () => void;
 };
 
 const STATUS_OPTIONS: ArchiveBusinessStatus[] = ["active", "draft", "inactive", "archived"];
 
-function toDateInputValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
-}
-
 // The backend has no rename/edit capability for name/description (a known,
 // previously-documented gap in @customprojects/custom-archive — no such
-// method exists) — those fields are shown read-only. Status and due/expiry
-// dates are real, previously-unused capabilities (setItemStatus/setItemDates/
-// setFolderStatus/setFolderDates existed in the package all along but were
-// only reachable through the UI-lab RPC dispatcher until now).
-export function EntitySettingsPanel({ kind, id, name, description, status, dueAt, expiresAt, locale, onSaved }: EntitySettingsPanelProps) {
+// method exists) — those fields are shown read-only.
+//
+// Due date and expiry date both live in the "Reminders" section
+// (ReminderSettingsPanel) now, as its two tabs — per explicit user
+// feedback, having either date live here next to Status was confusing since
+// neither is a "status" concept and both are really reminder concepts (a
+// recurring due-date reminder vs. a one-time expiry reminder).
+export function EntitySettingsPanel({ kind, id, name, description, status, locale, onSaved }: EntitySettingsPanelProps) {
   const [nextStatus, setNextStatus] = useState<ArchiveBusinessStatus>(status);
-  const [nextDueAt, setNextDueAt] = useState(toDateInputValue(dueAt));
-  const [nextExpiresAt, setNextExpiresAt] = useState(toDateInputValue(expiresAt));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,45 +36,19 @@ export function EntitySettingsPanel({ kind, id, name, description, status, dueAt
       setSaving(true);
       setError("");
 
-      const statusChanged = nextStatus !== status;
-      const datesChanged = nextDueAt !== toDateInputValue(dueAt) || nextExpiresAt !== toDateInputValue(expiresAt);
-
-      if (statusChanged) {
-        const res = await fetch(`${basePath}/status`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: nextStatus }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !data?.ok) {
-          setError(data?.reason || "Failed to update status");
-          return;
-        }
-      }
-
-      if (datesChanged) {
-        const res = await fetch(`${basePath}/dates`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            dueAt: nextDueAt || null,
-            expiresAt: nextExpiresAt || null,
-          }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !data?.ok) {
-          setError(data?.reason || "Failed to update dates");
-          return;
-        }
-      }
-
-      onSaved({
-        status: nextStatus,
-        dueAt: nextDueAt ? new Date(nextDueAt).toISOString() : null,
-        expiresAt: nextExpiresAt ? new Date(nextExpiresAt).toISOString() : null,
+      const res = await fetch(`${basePath}/status`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
       });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        setError(data?.reason || "Failed to update status");
+        return;
+      }
+
+      onSaved();
     } catch {
       setError("Failed to save changes");
     } finally {
@@ -104,45 +70,23 @@ export function EntitySettingsPanel({ kind, id, name, description, status, dueAt
         </div>
       )}
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-[160]">
-          <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Status" : "Status"}</label>
-          <select
-            className="customInput w-full"
-            value={nextStatus}
-            onChange={(e) => setNextStatus(e.target.value as ArchiveBusinessStatus)}
-            disabled={saving}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="min-w-[160]">
+        <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Status" : "Status"}</label>
+        <select
+          className="customInput w-full max-w-[240]"
+          value={nextStatus}
+          onChange={(e) => setNextStatus(e.target.value as ArchiveBusinessStatus)}
+          disabled={saving}
+        >
+          {STATUS_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
 
-        <div className="min-w-[160]">
-          <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Forfallsdato" : "Due date"}</label>
-          <input
-            type="date"
-            className="customInput w-full"
-            value={nextDueAt}
-            onChange={(e) => setNextDueAt(e.target.value)}
-            disabled={saving}
-          />
-        </div>
-
-        <div className="min-w-[160]">
-          <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Utløpsdato" : "Expiry date"}</label>
-          <input
-            type="date"
-            className="customInput w-full"
-            value={nextExpiresAt}
-            onChange={(e) => setNextExpiresAt(e.target.value)}
-            disabled={saving}
-          />
-        </div>
-
+      <div>
         <button type="button" className="customButtonEnabled h-10 px-6" onClick={() => void handleSave()} disabled={saving}>
           {saving ? (locale === "nb" ? "Lagrer..." : "Saving...") : locale === "nb" ? "Lagre" : "Save"}
         </button>

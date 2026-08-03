@@ -7,7 +7,7 @@ import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
-import { RemindersPanel } from "@/app/_components/Dahsboard/archive/RemindersPanel";
+import { ArchiveNotificationsPanel } from "@/app/_components/Dahsboard/archive/ArchiveNotificationsPanel";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
 import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary } from "@/app/_components/Dahsboard/archive/types";
@@ -201,10 +201,8 @@ export default function ArchivePage() {
         </div>
 
         <div className="min-w-0">
-          <div className="mb-4 flex h-10 items-end text-textColorThird font-semibold">
-            <p className="w-full text-center">{locale === "nb" ? "Påminnelser" : "Reminders"}</p>
-          </div>
-          <RemindersPanel locale={locale} />
+          <div className="mb-4 h-10" />
+          <ArchiveNotificationsPanel locale={locale} canRunNow={isArchiveAdmin} />
         </div>
       </section>
     </div>

@@ -1,15 +1,21 @@
 import { useEffect, useState } from "react";
+import type { RecurrenceType } from "@prisma/client";
 import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { ExpandablePanelList } from "@/app/_components/Dahsboard/archive/ExpandablePanelList";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
+import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
 import { EditableEntityRow } from "@/app/_components/Dahsboard/archive/EditableEntityRow";
-import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
+import { codeToUrlPath, formatReminderSubtitle } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
-type ArchiveFolderDetail = ArchiveFolderSummary;
+type ArchiveFolderDetail = ArchiveFolderSummary & {
+  reminderDescription: string | null;
+  reminderRecurrenceType: RecurrenceType | null;
+  reminderRecurrenceConfig: unknown | null;
+};
 type ArchiveItemRow = ArchiveItemSummary;
 type ArchiveChildFolderRow = ArchiveFolderSummary;
 
@@ -597,8 +603,24 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
                 name={folder.name}
                 description={folder.description}
                 status={folder.status}
+                locale={locale}
+                onSaved={() => void handleFolderSettingsSaved()}
+              />
+            ),
+          },
+          {
+            id: "reminders",
+            title: locale === "nb" ? "Påminnelser" : "Reminders",
+            subtitle: formatReminderSubtitle(folder.dueAt, folder.reminderRecurrenceType, folder.expiresAt, locale),
+            content: (
+              <ReminderSettingsPanel
+                kind="folder"
+                id={folderId}
                 dueAt={folder.dueAt}
                 expiresAt={folder.expiresAt}
+                reminderDescription={folder.reminderDescription}
+                reminderRecurrenceType={folder.reminderRecurrenceType}
+                reminderRecurrenceConfig={folder.reminderRecurrenceConfig}
                 locale={locale}
                 onSaved={() => void handleFolderSettingsSaved()}
               />

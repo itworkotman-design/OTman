@@ -45,6 +45,25 @@ export function codeToUrlPath(code: string): string {
 // format (dot-separated, 2-digit year, e.g. "29.07.26") rather than a
 // locale-dependent Intl format — this is a fixed display convention, not a
 // translated string.
+// Shared by FolderSettingsView/ItemSettingsView's "Reminders" accordion row
+// subtitle, so reminder/expiry status is visible without opening the
+// dropdown at all. Whether the reminder half is "on" is driven by dueAt, not
+// recurrenceType — "Once" (no repeat) always has recurrenceType === null but
+// is still a real, active reminder as long as a due date is set; checking
+// recurrenceType here would make a one-time reminder show no subtitle at
+// all, same bug as ReminderSettingsPanel's status dot.
+export function formatReminderSubtitle(
+  dueAt: string | null,
+  recurrenceType: string | null,
+  expiresAt: string | null,
+  locale: string,
+): string | undefined {
+  const parts: string[] = [];
+  if (dueAt) parts.push(recurrenceType ? (locale === "nb" ? "Gjentar" : "Repeats") : (locale === "nb" ? "Forfaller" : "Due"));
+  if (expiresAt) parts.push(locale === "nb" ? "Utløper" : "Expires");
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
 export function formatLastModified(iso: string): string {
   const date = new Date(iso);
   const day = String(date.getDate()).padStart(2, "0");

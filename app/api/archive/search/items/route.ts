@@ -4,6 +4,7 @@ import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 import { getItemCodes } from "@/lib/docArchive/folderCodes";
+import { getItemReminderSettingsBatch } from "@/lib/docArchive/reminderNotes";
 
 const VALID_STATUSES: ArchiveBusinessStatus[] = ["active", "inactive", "draft", "archived"];
 
@@ -45,12 +46,22 @@ export async function GET(req: Request) {
     );
   }
 
-  const codes = await getItemCodes(
-    ctx.companyId,
-    ctx.tenantId,
-    searchResult.value.items.map((item) => ({ id: item.id, folderId: item.folderId })),
-  );
-  const items = searchResult.value.items.map((item) => ({ ...item, code: codes.get(item.id) ?? "?" }));
+  const itemIds = searchResult.value.items.map((item) => item.id);
+  const [codes, reminderSettings] = await Promise.all([
+    getItemCodes(
+      ctx.companyId,
+      ctx.tenantId,
+      searchResult.value.items.map((item) => ({ id: item.id, folderId: item.folderId })),
+    ),
+    getItemReminderSettingsBatch(itemIds),
+  ]);
+  const items = searchResult.value.items.map((item) => ({
+    ...item,
+    code: codes.get(item.id) ?? "?",
+    reminderDescription: reminderSettings.get(item.id)?.description ?? null,
+    reminderRecurrenceType: reminderSettings.get(item.id)?.recurrenceType ?? null,
+    reminderRecurrenceConfig: reminderSettings.get(item.id)?.recurrenceConfig ?? null,
+  }));
 
   return NextResponse.json({ ok: true, items, nextCursor: searchResult.value.nextCursor });
 }

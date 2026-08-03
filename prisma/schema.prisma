@@ -1045,6 +1045,41 @@ enum ArchiveSequenceScope {
   ITEM
 }
 
+// Reminder-specific description, separate from the folder/item's own
+// `description` field (which lives in the archive package's own schema). A
+// row only exists when a reminder description has been explicitly set;
+// clearing it deletes the row rather than storing an empty string.
+// recurrenceType/recurrenceConfig mirror RecurringOrderTemplate's own fields
+// (same RecurrenceType enum, same config shapes per
+// lib/orders/recurringOrders/occurrenceDates.ts) — both nullable here since,
+// unlike a scheduler order template, a reminder is allowed to have no
+// recurrence at all (a plain one-off due date).
+model ArchiveFolderReminderNote {
+  id               String          @id @default(cuid())
+  companyId        String
+  tenantId         String
+  folderId         String          @unique
+  description      String
+  recurrenceType   RecurrenceType?
+  recurrenceConfig Json?
+  updatedAt        DateTime        @updatedAt
+
+  @@index([companyId, tenantId])
+}
+
+model ArchiveItemReminderNote {
+  id               String          @id @default(cuid())
+  companyId        String
+  tenantId         String
+  itemId           String          @unique
+  description      String
+  recurrenceType   RecurrenceType?
+  recurrenceConfig Json?
+  updatedAt        DateTime        @updatedAt
+
+  @@index([companyId, tenantId])
+}
+
 // One row per (parent scope, FOLDER-or-ITEM counter); parentFolderId is the
 // sentinel below for the tenant root scope (root folders have no parent, but
 // a NULL column wouldn't enforce the one-row-per-scope @@unique below, since

@@ -1,14 +1,22 @@
 import { useEffect, useState } from "react";
+import type { RecurrenceType } from "@prisma/client";
 import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
+import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
+import { ExpandablePanelList } from "@/app/_components/Dahsboard/archive/ExpandablePanelList";
 import { ExcelPlaceholder } from "@/app/_components/Dahsboard/archive/ExcelPlaceholder";
 import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePreviewGrid";
+import { formatReminderSubtitle } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
-type ArchiveItemDetail = ArchiveItemSummary;
+type ArchiveItemDetail = ArchiveItemSummary & {
+  reminderDescription: string | null;
+  reminderRecurrenceType: RecurrenceType | null;
+  reminderRecurrenceConfig: unknown | null;
+};
 
 type ArchiveFileRow = {
   id: string;
@@ -279,12 +287,33 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
               name={item.name}
               description={item.description}
               status={item.status}
-              dueAt={item.dueAt}
-              expiresAt={item.expiresAt}
               locale={locale}
               onSaved={() => void handleItemSettingsSaved()}
             />
           </div>
+
+          <ExpandablePanelList
+            items={[
+              {
+                id: "reminders",
+                title: locale === "nb" ? "Påminnelser" : "Reminders",
+                subtitle: formatReminderSubtitle(item.dueAt, item.reminderRecurrenceType, item.expiresAt, locale),
+                content: (
+                  <ReminderSettingsPanel
+                    kind="item"
+                    id={itemId}
+                    dueAt={item.dueAt}
+                    expiresAt={item.expiresAt}
+                    reminderDescription={item.reminderDescription}
+                    reminderRecurrenceType={item.reminderRecurrenceType}
+                    reminderRecurrenceConfig={item.reminderRecurrenceConfig}
+                    locale={locale}
+                    onSaved={() => void handleItemSettingsSaved()}
+                  />
+                ),
+              },
+            ]}
+          />
 
           <div className="customContainer p-4">
             <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Bilder" : "Images"}</h2>

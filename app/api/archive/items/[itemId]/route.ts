@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { getItemReminderSettings } from "@/lib/docArchive/reminderNotes";
 
 export async function GET(
   req: Request,
@@ -21,7 +22,17 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ ok: true, item: readResult.value });
+  const reminderSettings = await getItemReminderSettings(itemId);
+
+  return NextResponse.json({
+    ok: true,
+    item: {
+      ...readResult.value,
+      reminderDescription: reminderSettings.description,
+      reminderRecurrenceType: reminderSettings.recurrenceType,
+      reminderRecurrenceConfig: reminderSettings.recurrenceConfig,
+    },
+  });
 }
 
 export async function DELETE(
