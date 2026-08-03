@@ -54,6 +54,98 @@ export type ArchiveSectionSummary = {
 // space as actual sections.
 export const UNGROUPED_SECTION_ID = "__ungrouped__";
 
+export type ArchiveSectionGroup<T> = { id: string; name: string | null; entries: T[] };
+
+// Shared by the read-only browsing views (FolderView, the archive root
+// page) to group subfolders/items under their section's name — title only,
+// no description there (the description is settings-page detail, not
+// something a viewer browsing the tree needs). Section order follows the
+// `sections` list itself; anything with no section (legacy content, or a
+// scope that hasn't used sections yet) lands in one final "Ungrouped"
+// group, or renders unlabeled if there are no real sections at all in this
+// scope (so a company that never adopts sections sees the old flat list).
+export function groupBySection<T extends { sectionId: string | null }>(
+  entries: T[],
+  sections: ArchiveSectionSummary[],
+  locale: string,
+): ArchiveSectionGroup<T>[] {
+  const bySection = new Map<string, T[]>();
+  for (const entry of entries) {
+    const key = entry.sectionId ?? UNGROUPED_SECTION_ID;
+    const list = bySection.get(key) ?? [];
+    list.push(entry);
+    bySection.set(key, list);
+  }
+
+  const groups: ArchiveSectionGroup<T>[] = [];
+  for (const section of sections) {
+    const sectionEntries = bySection.get(section.id) ?? [];
+    if (sectionEntries.length > 0) groups.push({ id: section.id, name: section.name, entries: sectionEntries });
+  }
+
+  const ungrouped = bySection.get(UNGROUPED_SECTION_ID) ?? [];
+  if (ungrouped.length > 0) {
+    groups.push({
+      id: UNGROUPED_SECTION_ID,
+      name: sections.length > 0 ? (locale === "nb" ? "Ugruppert" : "Ungrouped") : null,
+      entries: ungrouped,
+    });
+  }
+
+  return groups;
+}
+
+export type ArchiveMixedSectionGroup<F, I> = { id: string; name: string | null; folders: F[]; items: I[] };
+
+// Folder-view variant of groupBySection: a folder's own view page shows both
+// its subfolders and its items under one shared per-section heading (a
+// section can contain either, or both), rather than two independently
+// section-grouped lists — so this groups both arrays together in one pass,
+// keyed by the same section, with one combined "Ungrouped" group at the end
+// instead of a separate ungrouped bucket per entity type.
+export function groupMixedBySection<
+  F extends { sectionId: string | null },
+  I extends { sectionId: string | null },
+>(folders: F[], items: I[], sections: ArchiveSectionSummary[], locale: string): ArchiveMixedSectionGroup<F, I>[] {
+  const foldersBySection = new Map<string, F[]>();
+  for (const folder of folders) {
+    const key = folder.sectionId ?? UNGROUPED_SECTION_ID;
+    const list = foldersBySection.get(key) ?? [];
+    list.push(folder);
+    foldersBySection.set(key, list);
+  }
+
+  const itemsBySection = new Map<string, I[]>();
+  for (const item of items) {
+    const key = item.sectionId ?? UNGROUPED_SECTION_ID;
+    const list = itemsBySection.get(key) ?? [];
+    list.push(item);
+    itemsBySection.set(key, list);
+  }
+
+  const groups: ArchiveMixedSectionGroup<F, I>[] = [];
+  for (const section of sections) {
+    const sectionFolders = foldersBySection.get(section.id) ?? [];
+    const sectionItems = itemsBySection.get(section.id) ?? [];
+    if (sectionFolders.length > 0 || sectionItems.length > 0) {
+      groups.push({ id: section.id, name: section.name, folders: sectionFolders, items: sectionItems });
+    }
+  }
+
+  const ungroupedFolders = foldersBySection.get(UNGROUPED_SECTION_ID) ?? [];
+  const ungroupedItems = itemsBySection.get(UNGROUPED_SECTION_ID) ?? [];
+  if (ungroupedFolders.length > 0 || ungroupedItems.length > 0) {
+    groups.push({
+      id: UNGROUPED_SECTION_ID,
+      name: sections.length > 0 ? (locale === "nb" ? "Ugruppert" : "Ungrouped") : null,
+      folders: ungroupedFolders,
+      items: ungroupedItems,
+    });
+  }
+
+  return groups;
+}
+
 export const STATUS_ORDER: ArchiveBusinessStatus[] = ["active", "draft", "inactive", "archived"];
 
 // Archive URLs are the entity's own display code with dots turned into

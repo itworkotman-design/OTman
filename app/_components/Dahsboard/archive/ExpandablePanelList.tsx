@@ -10,10 +10,19 @@ type PanelItem = {
   content?: ReactNode;
 };
 
+// "white" is this component's original look (white row, blue text/arrow) —
+// used by the "Archive controls" accordion. "logoblue" matches the
+// otman-archive prototype's ArchiveControlAccordion `variant="logoblue"`
+// (solid blue row, white text/arrow, subtle white-tint hover) — used for the
+// "Sections" accordion so sections read as a distinct, blue-headed
+// drop-down rather than looking like another control row.
+type PanelVariant = "white" | "logoblue";
+
 type ExpandablePanelListProps = {
   items: PanelItem[];
   emptyMessage?: string;
   onToggle?: (id: string, expanded: boolean) => void;
+  variant?: PanelVariant;
 };
 
 type ExpandedState = Record<string, boolean>;
@@ -23,8 +32,14 @@ function expandedReducer(state: ExpandedState, action: ExpandedAction): Expanded
   return { ...state, [action.id]: !state[action.id] };
 }
 
-export function ExpandablePanelList({ items, emptyMessage, onToggle }: ExpandablePanelListProps) {
+const variantClasses: Record<PanelVariant, { row: string; title: string; subtitle: string }> = {
+  white: { row: "bg-white", title: "text-logoblue", subtitle: "text-textColorThird" },
+  logoblue: { row: "bg-logoblue", title: "text-white", subtitle: "text-white" },
+};
+
+export function ExpandablePanelList({ items, emptyMessage, onToggle, variant = "white" }: ExpandablePanelListProps) {
   const [expandedRows, dispatch] = useReducer(expandedReducer, {});
+  const classes = variantClasses[variant];
 
   if (items.length === 0) {
     return emptyMessage ? (
@@ -45,11 +60,11 @@ export function ExpandablePanelList({ items, emptyMessage, onToggle }: Expandabl
                 dispatch({ type: "toggle", id: item.id });
                 onToggle?.(item.id, !expanded);
               }}
-              className="flex w-full cursor-pointer items-center justify-between border-none bg-white px-6 py-4 text-left"
+              className={`flex w-full cursor-pointer items-center justify-between border-none px-6 py-4 text-left ${classes.row}`}
               aria-expanded={expanded}
             >
-              <span className="text-[18px] font-bold text-logoblue">{item.title}</span>
-              <span className="flex items-center gap-1 text-[13px] font-semibold text-textColorThird">
+              <span className={`text-[18px] font-bold ${classes.title}`}>{item.title}</span>
+              <span className={`flex items-center gap-1 text-[13px] font-semibold ${classes.subtitle}`}>
                 {item.subtitle}
                 <span className={`inline-block transition-transform ${expanded ? "rotate-180" : ""}`}>⌄</span>
               </span>

@@ -6,8 +6,8 @@ import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { ItemPill } from "@/app/_components/Dahsboard/archive/ItemPill";
-import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
-import type { ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
+import { codeToUrlPath, groupMixedBySection } from "@/app/_components/Dahsboard/archive/types";
+import type { ArchiveFolderSummary, ArchiveItemSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderDetail = ArchiveFolderSummary;
 type ArchiveItemRow = ArchiveItemSummary;
@@ -31,6 +31,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
   const [folder, setFolder] = useState<ArchiveFolderDetail | null>(null);
   const [items, setItems] = useState<ArchiveItemRow[]>([]);
   const [childFolders, setChildFolders] = useState<ArchiveChildFolderRow[]>([]);
+  const [sections, setSections] = useState<ArchiveSectionSummary[]>([]);
   const [folderPath, setFolderPath] = useState<ArchiveFolderPathEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -40,17 +41,19 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
       setLoading(true);
       setError("");
 
-      const [folderRes, itemsRes, childrenRes, pathRes] = await Promise.all([
+      const [folderRes, itemsRes, childrenRes, pathRes, sectionsRes] = await Promise.all([
         fetch(`/api/archive/folders/${folderId}`, { credentials: "include", cache: "no-store" }),
         fetch(`/api/archive/folders/${folderId}/items`, { credentials: "include", cache: "no-store" }),
         fetch(`/api/archive/folders/${folderId}/children`, { credentials: "include", cache: "no-store" }),
         fetch(`/api/archive/folders/${folderId}/path`, { credentials: "include", cache: "no-store" }),
+        fetch(`/api/archive/folders/${folderId}/sections`, { credentials: "include", cache: "no-store" }),
       ]);
 
       const folderData = await folderRes.json().catch(() => null);
       const itemsData = await itemsRes.json().catch(() => null);
       const childrenData = await childrenRes.json().catch(() => null);
       const pathData = await pathRes.json().catch(() => null);
+      const sectionsData = await sectionsRes.json().catch(() => null);
 
       if (!folderRes.ok || !folderData?.ok) {
         setError(folderData?.reason || "Failed to load folder");
@@ -72,6 +75,10 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
 
       if (pathRes.ok && pathData?.ok) {
         setFolderPath(pathData.path ?? []);
+      }
+
+      if (sectionsRes.ok && sectionsData?.ok) {
+        setSections(sectionsData.sections ?? []);
       }
     } catch {
       setError("Failed to load folder");
@@ -103,6 +110,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
   // the folder's settings page.
   const activeChildFolders = childFolders.filter((childFolder) => childFolder.status === "active");
   const activeItems = items.filter((item) => item.status === "active");
+  const sectionGroups = groupMixedBySection(activeChildFolders, activeItems, sections, locale);
 
   const settingsHref = `/dashboard/archive/${codePath.join("/")}/settings`;
 
@@ -159,60 +167,41 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
         </div>
       )}
 
-      {activeChildFolders.length > 0 && (
-        <div className="mb-6 min-w-0 w-full overflow-x-auto">
-          <div className="mb-3 flex items-end gap-4 font-semibold text-textColorThird">
-            <h2 className="grow text-logoblue">{locale === "nb" ? "Undermapper" : "Subfolders"}</h2>
-            <div className="w-full max-w-[100] text-center">
-              <p>{locale === "nb" ? "Elementer" : "Entries"}</p>
+      {loading ? (
+        <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
+          {locale === "nb" ? "Laster..." : "Loading..."}
+        </div>
+      ) : sectionGroups.length === 0 ? (
+        <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
+          {locale === "nb" ? "Ingen mapper eller elementer funnet" : "No folders or items found"}
+        </div>
+      ) : (
+        <div className="grid gap-8">
+          {sectionGroups.map((group) => (
+            <div key={group.id} className="min-w-0 w-full overflow-x-auto">
+              {group.name && <h2 className="mb-3 font-semibold text-logoblue">{group.name}</h2>}
+              <div className="grid gap-3">
+                {group.folders.map((childFolder) => (
+                  <FolderPill
+                    key={childFolder.id}
+                    folder={childFolder}
+                    href={`/dashboard/archive/${codeToUrlPath(childFolder.code)}`}
+                    showStats={false}
+                  />
+                ))}
+                {group.items.map((item) => (
+                  <ItemPill
+                    key={item.id}
+                    item={item}
+                    href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
+                    locale={locale}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="w-full max-w-[100] text-center">
-              <p>{locale === "nb" ? "Brukere" : "Users"}</p>
-            </div>
-            <div className="w-full max-w-[100] text-center">
-              <p>{locale === "nb" ? "Sist endret" : "Updated"}</p>
-            </div>
-          </div>
-          <div className="grid gap-3">
-            {activeChildFolders.map((childFolder) => (
-              <FolderPill
-                key={childFolder.id}
-                folder={childFolder}
-                href={`/dashboard/archive/${codeToUrlPath(childFolder.code)}`}
-              />
-            ))}
-          </div>
+          ))}
         </div>
       )}
-
-      <div className="min-w-0 w-full overflow-x-auto">
-        <div className="mb-3 flex items-end gap-4 font-semibold text-textColorThird">
-          <h2 className="grow text-logoblue">{locale === "nb" ? "Elementer" : "Items"}</h2>
-          <div className="w-full max-w-[100] text-center">
-            <p>{locale === "nb" ? "Sist endret" : "Updated"}</p>
-          </div>
-        </div>
-        {loading ? (
-          <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
-            {locale === "nb" ? "Laster elementer..." : "Loading items..."}
-          </div>
-        ) : activeItems.length === 0 ? (
-          <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
-            {locale === "nb" ? "Ingen elementer funnet" : "No items found"}
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            {activeItems.map((item) => (
-              <ItemPill
-                key={item.id}
-                item={item}
-                href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
-                locale={locale}
-              />
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

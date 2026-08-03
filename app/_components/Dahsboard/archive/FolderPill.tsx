@@ -6,6 +6,11 @@ type FolderPillProps = {
   folder: ArchiveFolderSummary;
   href: string;
   showDescription?: boolean;
+  // The archive root page shows entries/viewer-count columns (a tenant-wide
+  // overview); inside a folder's own view (per-section subfolder/item
+  // lists) those columns are dropped and only the last-modified date shows,
+  // to match the plainer per-section pill layout there.
+  showStats?: boolean;
 };
 
 // Ported from the otman-archive prototype's ArchiveSectionItem/SectionPill —
@@ -21,7 +26,7 @@ type FolderPillProps = {
 // to the folder (direct rule, role membership, or inherited from an
 // ancestor folder). Status/due-date editing still lives on the folder's
 // settings page — dropped from this row to match the prototype's layout.
-export function FolderPill({ folder, href, showDescription = true }: FolderPillProps) {
+export function FolderPill({ folder, href, showDescription = true, showStats = true }: FolderPillProps) {
   return (
     <Link
       href={href}
@@ -38,13 +43,17 @@ export function FolderPill({ folder, href, showDescription = true }: FolderPillP
         )}
       </div>
 
-      <div className="flex w-full max-w-[100] shrink-0 items-center justify-center border-r border-logoblue py-3 text-center text-sm text-textColorThird">
-        {folder.entryCount}
-      </div>
+      {showStats && (
+        <>
+          <div className="flex w-full max-w-[100] shrink-0 items-center justify-center border-r border-logoblue py-3 text-center text-sm text-textColorThird">
+            {folder.entryCount}
+          </div>
 
-      <div className="flex w-full max-w-[100] shrink-0 items-center justify-center border-r border-logoblue py-3 text-center text-sm text-textColorThird">
-        {folder.viewerCount}
-      </div>
+          <div className="flex w-full max-w-[100] shrink-0 items-center justify-center border-r border-logoblue py-3 text-center text-sm text-textColorThird">
+            {folder.viewerCount}
+          </div>
+        </>
+      )}
 
       <div className="flex w-full max-w-[100] shrink-0 items-center justify-center py-3 text-center text-sm text-textColorThird">
         {formatLastModified(folder.updatedAt)}

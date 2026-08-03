@@ -9,8 +9,8 @@ import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
 import { ArchiveNotificationsPanel } from "@/app/_components/Dahsboard/archive/ArchiveNotificationsPanel";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
-import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
-import type { ArchiveFolderSummary } from "@/app/_components/Dahsboard/archive/types";
+import { codeToUrlPath, groupBySection } from "@/app/_components/Dahsboard/archive/types";
+import type { ArchiveFolderSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderRow = ArchiveFolderSummary & {
   createdAt: string;
@@ -35,6 +35,7 @@ export default function ArchivePage() {
   const isArchiveAdmin = archiveAccess.level === "ADMIN";
 
   const [folders, setFolders] = useState<ArchiveFolderRow[]>([]);
+  const [sections, setSections] = useState<ArchiveSectionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -43,11 +44,10 @@ export default function ArchivePage() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("/api/archive/folders", {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      });
+      const [res, sectionsRes] = await Promise.all([
+        fetch("/api/archive/folders", { method: "GET", credentials: "include", cache: "no-store" }),
+        fetch("/api/archive/sections", { method: "GET", credentials: "include", cache: "no-store" }),
+      ]);
 
       const data = (await res.json().catch(() => null)) as FoldersApiResponse | null;
 
@@ -58,6 +58,11 @@ export default function ArchivePage() {
       }
 
       setFolders(data.folders ?? []);
+
+      const sectionsData = await sectionsRes.json().catch(() => null);
+      if (sectionsRes.ok && sectionsData?.ok) {
+        setSections(sectionsData.sections ?? []);
+      }
     } catch {
       setError("Failed to load folders");
       setFolders([]);
@@ -123,6 +128,7 @@ export default function ArchivePage() {
   }
 
   const visibleFolders = useMemo(() => folders.filter((folder) => folder.status === "active"), [folders]);
+  const folderGroups = useMemo(() => groupBySection(visibleFolders, sections, locale), [visibleFolders, sections, locale]);
 
   if (currentUser && !hasAccess) {
     return (
@@ -188,13 +194,18 @@ export default function ArchivePage() {
               </div>
             ) : (
               <div className="grid gap-6">
-                {visibleFolders.map((folder) => (
-                  <FolderPill
-                    key={folder.id}
-                    folder={folder}
-                    href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
-                    showDescription={false}
-                  />
+                {folderGroups.map((group) => (
+                  <div key={group.id} className="grid gap-3">
+                    {group.name && <h3 className="font-semibold text-textColorThird">{group.name}</h3>}
+                    {group.entries.map((folder) => (
+                      <FolderPill
+                        key={folder.id}
+                        folder={folder}
+                        href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
+                        showDescription={false}
+                      />
+                    ))}
+                  </div>
                 ))}
               </div>
             )}

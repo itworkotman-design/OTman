@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { ExpandablePanelList } from "./ExpandablePanelList";
 import { UNGROUPED_SECTION_ID } from "./types";
 import type { ArchiveFolderSummary, ArchiveItemSummary, ArchiveSectionSummary } from "./types";
 
@@ -280,6 +281,8 @@ export function SectionedEntityManager({
         : "Created before sections existed. Move to a section:",
     moveTo: locale === "nb" ? "Velg seksjon..." : "Choose a section...",
     noSections: locale === "nb" ? "Ingen seksjoner ennå" : "No sections yet",
+    folderCount: (n: number) => `${n} ${locale === "nb" ? "mapper" : n === 1 ? "folder" : "folders"}`,
+    itemCount: (n: number) => `${n} ${locale === "nb" ? "elementer" : n === 1 ? "item" : "items"}`,
   };
 
   const foldersBySection = new Map<string, ArchiveFolderSummary[]>();
@@ -300,6 +303,133 @@ export function SectionedEntityManager({
 
   const ungroupedFolders = foldersBySection.get(UNGROUPED_SECTION_ID) ?? [];
   const ungroupedItems = itemsBySection.get(UNGROUPED_SECTION_ID) ?? [];
+
+  const panelItems = sections.map((section) => {
+    const sectionFolders = foldersBySection.get(section.id) ?? [];
+    const sectionItems = itemsBySection.get(section.id) ?? [];
+    const isEmpty = section.folderCount === 0 && section.itemCount === 0;
+
+    const subtitleParts: string[] = [];
+    if (section.folderCount > 0) subtitleParts.push(t.folderCount(section.folderCount));
+    if (section.itemCount > 0) subtitleParts.push(t.itemCount(section.itemCount));
+
+    return {
+      id: section.id,
+      title: section.name,
+      subtitle: subtitleParts.join(" · "),
+      content: (
+        <div className="grid gap-3">
+          {section.description && <p className="text-sm text-textColorThird">{section.description}</p>}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="text-sm text-red-600 hover:underline disabled:opacity-40"
+              onClick={() => void handleDeleteSection(section.id)}
+              disabled={!isEmpty || deletingSectionId === section.id}
+              title={isEmpty ? undefined : locale === "nb" ? "Seksjonen er ikke tom" : "Section is not empty"}
+            >
+              {t.delete}
+            </button>
+          </div>
+
+          {sectionFolders.length > 0 && <div className="grid gap-2">{sectionFolders.map((folder) => renderFolderRow(folder))}</div>}
+
+          {openFolderFormFor === section.id ? (
+            <div className="rounded-xl border border-lineSecondary p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[160] flex-1">
+                  <input
+                    className="customInput w-full"
+                    placeholder={t.name}
+                    value={folderFormName}
+                    onChange={(e) => setFolderFormName(e.target.value)}
+                    disabled={creatingFolder}
+                  />
+                </div>
+                <div className="min-w-[200] flex-1">
+                  <input
+                    className="customInput w-full"
+                    placeholder={t.description}
+                    value={folderFormDescription}
+                    onChange={(e) => setFolderFormDescription(e.target.value)}
+                    disabled={creatingFolder}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="customButtonEnabled h-10 px-4"
+                  onClick={() => void handleCreateFolderIn(section.id)}
+                  disabled={creatingFolder || !folderFormName.trim()}
+                >
+                  {creatingFolder ? t.creating : t.create}
+                </button>
+                <button type="button" className="customButtonDefault h-10 px-4" onClick={() => toggleFolderForm(section.id)}>
+                  {t.cancel}
+                </button>
+              </div>
+              {folderFormError && <p className="mt-2 text-sm font-medium text-red-600">{folderFormError}</p>}
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="w-fit text-sm text-logoblue hover:underline"
+              onClick={() => toggleFolderForm(section.id)}
+            >
+              {t.addSubfolder}
+            </button>
+          )}
+
+          {items && (
+            <>
+              {sectionItems.length > 0 && <div className="grid gap-2">{sectionItems.map((item) => renderItemRow?.(item))}</div>}
+
+              {openItemFormFor === section.id ? (
+                <div className="rounded-xl border border-lineSecondary p-3">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-[160] flex-1">
+                      <input
+                        className="customInput w-full"
+                        placeholder={t.name}
+                        value={itemFormName}
+                        onChange={(e) => setItemFormName(e.target.value)}
+                        disabled={creatingItem}
+                      />
+                    </div>
+                    <div className="min-w-[200] flex-1">
+                      <input
+                        className="customInput w-full"
+                        placeholder={t.description}
+                        value={itemFormDescription}
+                        onChange={(e) => setItemFormDescription(e.target.value)}
+                        disabled={creatingItem}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="customButtonEnabled h-10 px-4"
+                      onClick={() => void handleCreateItemIn(section.id)}
+                      disabled={creatingItem || !itemFormName.trim()}
+                    >
+                      {creatingItem ? t.creating : t.create}
+                    </button>
+                    <button type="button" className="customButtonDefault h-10 px-4" onClick={() => toggleItemForm(section.id)}>
+                      {t.cancel}
+                    </button>
+                  </div>
+                  {itemFormError && <p className="mt-2 text-sm font-medium text-red-600">{itemFormError}</p>}
+                </div>
+              ) : (
+                <button type="button" className="w-fit text-sm text-logoblue hover:underline" onClick={() => toggleItemForm(section.id)}>
+                  {t.addItem}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      ),
+    };
+  });
 
   return (
     <div className="mb-6">
@@ -348,125 +478,7 @@ export function SectionedEntityManager({
       )}
 
       <div className="grid gap-4">
-        {sections.map((section) => {
-          const sectionFolders = foldersBySection.get(section.id) ?? [];
-          const sectionItems = itemsBySection.get(section.id) ?? [];
-          const isEmpty = section.folderCount === 0 && section.itemCount === 0;
-
-          return (
-            <div key={section.id} className="customContainer p-4">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-logoblue">{section.name}</h3>
-                  {section.description && <p className="text-sm text-textColorThird">{section.description}</p>}
-                </div>
-                <button
-                  type="button"
-                  className="shrink-0 text-sm text-red-600 hover:underline disabled:opacity-40"
-                  onClick={() => void handleDeleteSection(section.id)}
-                  disabled={!isEmpty || deletingSectionId === section.id}
-                  title={isEmpty ? undefined : locale === "nb" ? "Seksjonen er ikke tom" : "Section is not empty"}
-                >
-                  {t.delete}
-                </button>
-              </div>
-
-              {sectionFolders.length > 0 && (
-                <div className="mb-3 grid gap-2">{sectionFolders.map((folder) => renderFolderRow(folder))}</div>
-              )}
-
-              {openFolderFormFor === section.id ? (
-                <div className="mb-3 rounded-xl border border-lineSecondary p-3">
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="min-w-[160] flex-1">
-                      <input
-                        className="customInput w-full"
-                        placeholder={t.name}
-                        value={folderFormName}
-                        onChange={(e) => setFolderFormName(e.target.value)}
-                        disabled={creatingFolder}
-                      />
-                    </div>
-                    <div className="min-w-[200] flex-1">
-                      <input
-                        className="customInput w-full"
-                        placeholder={t.description}
-                        value={folderFormDescription}
-                        onChange={(e) => setFolderFormDescription(e.target.value)}
-                        disabled={creatingFolder}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className="customButtonEnabled h-10 px-4"
-                      onClick={() => void handleCreateFolderIn(section.id)}
-                      disabled={creatingFolder || !folderFormName.trim()}
-                    >
-                      {creatingFolder ? t.creating : t.create}
-                    </button>
-                    <button type="button" className="customButtonDefault h-10 px-4" onClick={() => toggleFolderForm(section.id)}>
-                      {t.cancel}
-                    </button>
-                  </div>
-                  {folderFormError && <p className="mt-2 text-sm font-medium text-red-600">{folderFormError}</p>}
-                </div>
-              ) : (
-                <button type="button" className="mb-3 text-sm text-logoblue hover:underline" onClick={() => toggleFolderForm(section.id)}>
-                  {t.addSubfolder}
-                </button>
-              )}
-
-              {items && (
-                <>
-                  {sectionItems.length > 0 && (
-                    <div className="mb-3 grid gap-2">{sectionItems.map((item) => renderItemRow?.(item))}</div>
-                  )}
-
-                  {openItemFormFor === section.id ? (
-                    <div className="rounded-xl border border-lineSecondary p-3">
-                      <div className="flex flex-wrap items-end gap-3">
-                        <div className="min-w-[160] flex-1">
-                          <input
-                            className="customInput w-full"
-                            placeholder={t.name}
-                            value={itemFormName}
-                            onChange={(e) => setItemFormName(e.target.value)}
-                            disabled={creatingItem}
-                          />
-                        </div>
-                        <div className="min-w-[200] flex-1">
-                          <input
-                            className="customInput w-full"
-                            placeholder={t.description}
-                            value={itemFormDescription}
-                            onChange={(e) => setItemFormDescription(e.target.value)}
-                            disabled={creatingItem}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          className="customButtonEnabled h-10 px-4"
-                          onClick={() => void handleCreateItemIn(section.id)}
-                          disabled={creatingItem || !itemFormName.trim()}
-                        >
-                          {creatingItem ? t.creating : t.create}
-                        </button>
-                        <button type="button" className="customButtonDefault h-10 px-4" onClick={() => toggleItemForm(section.id)}>
-                          {t.cancel}
-                        </button>
-                      </div>
-                      {itemFormError && <p className="mt-2 text-sm font-medium text-red-600">{itemFormError}</p>}
-                    </div>
-                  ) : (
-                    <button type="button" className="text-sm text-logoblue hover:underline" onClick={() => toggleItemForm(section.id)}>
-                      {t.addItem}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })}
+        {panelItems.length > 0 && <ExpandablePanelList items={panelItems} variant="logoblue" />}
 
         {(ungroupedFolders.length > 0 || ungroupedItems.length > 0) && (
           <div className="customContainer border-dashed p-4">
