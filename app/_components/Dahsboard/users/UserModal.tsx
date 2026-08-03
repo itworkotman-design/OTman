@@ -487,22 +487,18 @@ export default function UserModal({
                 const color = MODULE_COLORS[row.module];
 
                 return (
-                  <div
-                    key={row.module}
-                    className="self-start overflow-hidden rounded-2xl border"
-                    style={{ borderColor: row.enabled ? `${color}4d` : "rgba(0,0,0,.08)" }}
-                  >
-                    <div className="flex items-center gap-3.5 p-4">
+                  <div key={row.module} className="self-start overflow-hidden rounded-2xl border border-lineSecondary">
+                    <div className={`flex items-center gap-3.5 p-4 ${row.enabled ? "" : "opacity-50"}`}>
                       <span
                         className="grid h-9.5 w-9.5 shrink-0 place-items-center rounded-[11px] text-sm font-extrabold text-white"
-                        style={{ backgroundColor: color }}
+                        style={{ backgroundColor: row.enabled ? color : "#a3a3a3" }}
                       >
                         {MODULE_LABELS[row.module].charAt(0)}
                       </span>
 
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-bold text-textcolor">{MODULE_LABELS[row.module]}</div>
-                        <div className="text-[11.5px] font-semibold" style={{ color: row.enabled ? color : "#a3a3a3" }}>
+                        <div className={`text-[11.5px] font-semibold ${row.enabled ? "text-textColorSecond" : "text-textColorThird"}`}>
                           {row.enabled ? "Enabled" : "Not enabled"}
                         </div>
                       </div>
@@ -517,8 +513,7 @@ export default function UserModal({
                     {row.enabled && (
                       <div className="px-4 pb-4">
                         <select
-                          className="w-full rounded-lg border bg-white px-2.5 py-1.5 text-[12.5px] font-bold"
-                          style={{ borderColor: `${color}4d`, color }}
+                          className="w-full rounded-lg border border-lineSecondary bg-white px-2.5 py-1.5 text-[12.5px] font-bold text-textcolor"
                           value={row.level}
                           onChange={(e) =>
                             updateAppAccessModule(row.module, { level: e.target.value as "VIEWER" | "ADMIN" }, setForm)
