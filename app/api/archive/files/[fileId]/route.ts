@@ -7,7 +7,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ fileId: string }> },
 ) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { fileId } = await params;

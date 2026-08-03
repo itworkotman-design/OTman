@@ -63,6 +63,7 @@ model Membership {
   company                        Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user                           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   permissions                    MembershipPermission[]
+  appAccess                      MembershipAppAccess[]
   membershipPriceLists           MembershipPriceList[]
   createdOrders                  Order[]                  @relation("OrderCreatedByMembership")
   orders                         Order[]
@@ -101,6 +102,20 @@ model MembershipPermission {
   @@index([permission])
 }
 
+model MembershipAppAccess {
+  id           String         @id @default(cuid())
+  membershipId String
+  module       AppModule
+  enabled      Boolean        @default(false)
+  level        AppAccessLevel @default(VIEWER)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  membership   Membership     @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, module])
+  @@index([module, enabled])
+}
+
 model Invite {
   id                   String             @id @default(cuid())
   companyId            String
@@ -126,6 +141,7 @@ model Invite {
   createdByUser        User?              @relation("InviteCreatedBy", fields: [createdByUserId], references: [id])
   priceList            PriceList?         @relation(fields: [priceListId], references: [id])
   permissions          InvitePermission[]
+  appAccess            InviteAppAccess[]
 
   @@index([companyId, status])
   @@index([email, status])
@@ -141,6 +157,20 @@ model InvitePermission {
 
   @@unique([inviteId, permission])
   @@index([permission])
+}
+
+model InviteAppAccess {
+  id        String         @id @default(cuid())
+  inviteId  String
+  module    AppModule
+  enabled   Boolean        @default(false)
+  level     AppAccessLevel @default(VIEWER)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  invite    Invite         @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+
+  @@unique([inviteId, module])
+  @@index([module, enabled])
 }
 
 model Session {
@@ -775,6 +805,20 @@ enum Permission {
   ARCHIVE_VIEW
 }
 
+enum AppModule {
+  ARCHIVE
+  BOOKING
+  WEBSITE_EDITOR
+  WEBSITE_ORDERS
+  SCHEDULER
+  USER_MANAGEMENT
+}
+
+enum AppAccessLevel {
+  VIEWER
+  ADMIN
+}
+
 enum AuthEventType {
   LOGIN_SUCCESS
   LOGIN_FAIL
@@ -873,33 +917,33 @@ model ShiftLeader {
 }
 
 model BlogPost {
-  id                String         @id @default(cuid())
-  slug              String         @unique
-  status            BlogPostStatus @default(DRAFT)
+  id     String         @id @default(cuid())
+  slug   String         @unique
+  status BlogPostStatus @default(DRAFT)
 
-  title             Json
-  excerpt           Json
-  seoTitle          Json?
-  seoDescription    Json?
-  noIndex           Boolean        @default(false)
+  title          Json
+  excerpt        Json
+  seoTitle       Json?
+  seoDescription Json?
+  noIndex        Boolean @default(false)
 
-  coverImagePath    String?
-  coverImageAlt     Json?
+  coverImagePath String?
+  coverImageAlt  Json?
 
   authorId          String?
   authorDisplayName String?
 
-  isPinned          Boolean        @default(false)
-  pinnedAt          DateTime?
-  publishedAt       DateTime?
-  archivedAt        DateTime?
+  isPinned    Boolean   @default(false)
+  pinnedAt    DateTime?
+  publishedAt DateTime?
+  archivedAt  DateTime?
 
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  author            User?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  sections          BlogSection[]
-  tags              BlogPostTag[]
+  author   User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  sections BlogSection[]
+  tags     BlogPostTag[]
 
   @@index([status, isPinned, pinnedAt, createdAt])
   @@index([status, publishedAt])
@@ -907,20 +951,20 @@ model BlogPost {
 }
 
 model BlogTag {
-  id        String        @id @default(cuid())
+  id        String   @id @default(cuid())
   name      String
-  slug      String        @unique
-  createdAt DateTime      @default(now())
+  slug      String   @unique
+  createdAt DateTime @default(now())
 
-  posts     BlogPostTag[]
+  posts BlogPostTag[]
 }
 
 model BlogPostTag {
   blogPostId String
   blogTagId  String
 
-  blogPost   BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
-  blogTag    BlogTag  @relation(fields: [blogTagId], references: [id], onDelete: Cascade)
+  blogPost BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  blogTag  BlogTag  @relation(fields: [blogTagId], references: [id], onDelete: Cascade)
 
   @@id([blogPostId, blogTagId])
   @@index([blogTagId])
@@ -933,10 +977,10 @@ model BlogSection {
   position   Int
   data       Json
 
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  blogPost   BlogPost        @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  blogPost BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
 
   @@unique([blogPostId, position])
   @@index([blogPostId])

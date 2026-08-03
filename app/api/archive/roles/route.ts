@@ -4,7 +4,7 @@ import { buildArchiveContext, ensureNamespaceBootstrapped } from "@/lib/docArchi
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 
 export async function GET(req: Request) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const ctx = buildArchiveContext(result.session, result.membership);
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { session, membership } = result;

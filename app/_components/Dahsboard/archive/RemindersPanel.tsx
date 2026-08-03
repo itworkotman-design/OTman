@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDisplayDate } from "@/lib/dateDisplay";
+import { codeToUrlPath } from "./types";
 
 type ReminderRow = {
   key: string;
@@ -16,12 +17,19 @@ type ReminderRow = {
 
 type FolderSearchApiResult = {
   ok?: boolean;
-  items?: Array<{ id: string; name: string; description: string | null; dueAt?: string | null }>;
+  items?: Array<{ id: string; name: string; description: string | null; dueAt?: string | null; code: string }>;
 };
 
 type ItemSearchApiResult = {
   ok?: boolean;
-  items?: Array<{ id: string; folderId: string; name: string; description: string | null; dueAt?: string | null }>;
+  items?: Array<{
+    id: string;
+    folderId: string;
+    name: string;
+    description: string | null;
+    dueAt?: string | null;
+    code: string;
+  }>;
 };
 
 const MAX_ROWS = 10;
@@ -62,7 +70,7 @@ export function RemindersPanel({ locale }: { locale: string }) {
             name: item.name,
             description: item.description,
             dueAt: item.dueAt ?? null,
-            href: `/dashboard/archive/${item.folderId}`,
+            href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
             urgent: true,
           })),
           ...(dueSoonItems?.items ?? []).map((item) => ({
@@ -71,7 +79,7 @@ export function RemindersPanel({ locale }: { locale: string }) {
             name: item.name,
             description: item.description,
             dueAt: item.dueAt ?? null,
-            href: `/dashboard/archive/${item.folderId}`,
+            href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
             urgent: false,
           })),
           ...(overdueFolders?.items ?? []).map((folder) => ({
@@ -80,7 +88,7 @@ export function RemindersPanel({ locale }: { locale: string }) {
             name: folder.name,
             description: folder.description,
             dueAt: folder.dueAt ?? null,
-            href: `/dashboard/archive/${folder.id}`,
+            href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
             urgent: true,
           })),
           ...(dueSoonFolders?.items ?? []).map((folder) => ({
@@ -89,7 +97,7 @@ export function RemindersPanel({ locale }: { locale: string }) {
             name: folder.name,
             description: folder.description,
             dueAt: folder.dueAt ?? null,
-            href: `/dashboard/archive/${folder.id}`,
+            href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
             urgent: false,
           })),
         ].sort((a, b) => {

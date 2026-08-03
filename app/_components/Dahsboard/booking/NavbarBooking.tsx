@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
-import { canManageAutomaticOrders } from "@/lib/users/orderAccess";
+import { getModuleAccess } from "@/lib/users/access";
 
 export const NavbarBooking = ({
   open,
@@ -89,7 +89,7 @@ function NavLinks({
         Edit prices
       </Link>
 
-      {currentUser && canManageAutomaticOrders(currentUser.role) ? (
+      {currentUser && getModuleAccess(currentUser, "SCHEDULER").enabled ? (
         <Link
           href="/dashboard/scheduler-orders"
           onClick={onNavigate}

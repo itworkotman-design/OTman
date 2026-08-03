@@ -207,6 +207,7 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
       companyId: "c1",
       role: "USER",
       status: "ACTIVE",
+    appAccess: [],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/m2/role", {
@@ -251,6 +252,7 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
       companyId: "c1",
       role: "OWNER",
       status: "ACTIVE",
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/m2/role", {
@@ -295,6 +297,7 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
       companyId: "c1",
       role: "ADMIN",
       status: "ACTIVE",
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/m2/role", {
@@ -339,6 +342,7 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
       companyId: "c1",
       role: "ADMIN",
       status: "ACTIVE",
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/m2/role", {
@@ -383,6 +387,7 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
       companyId: "c1",
       role: "OWNER",
       status: "ACTIVE",
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.countMock.mockResolvedValueOnce(1);
@@ -437,6 +442,7 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
       companyId: "c1",
       role: "OWNER",
       status: "ACTIVE",
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/m2/role", {
@@ -498,6 +504,7 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
       companyId: "c1",
       role: "ADMIN",
       status: "ACTIVE",
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/m2/role", {

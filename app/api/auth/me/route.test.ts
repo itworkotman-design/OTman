@@ -119,6 +119,7 @@ describe("GET /api/auth/me", () => {
         role: "ADMIN",
         status: "ACTIVE",
         priceListIds: ["price-list-1"],
+        appAccess: [],
       },
       memberships: [
         {
@@ -129,6 +130,7 @@ describe("GET /api/auth/me", () => {
           status: "ACTIVE",
           permissions: [],
           priceListIds: ["price-list-1"],
+          appAccess: [],
         },
         {
           companyId: "company-2",
@@ -138,6 +140,7 @@ describe("GET /api/auth/me", () => {
           status: "ACTIVE",
           permissions: [],
           priceListIds: [],
+          appAccess: [],
         },
       ],
     });
@@ -166,6 +169,13 @@ describe("GET /api/auth/me", () => {
         membershipPriceLists: {
           select: {
             priceListId: true,
+          },
+        },
+        appAccess: {
+          select: {
+            module: true,
+            enabled: true,
+            level: true,
           },
         },
       },
@@ -249,6 +259,7 @@ describe("GET /api/auth/me", () => {
           status: "ACTIVE",
           permissions: [],
           priceListIds: [],
+          appAccess: [],
         },
         {
           companyId: "company-2",
@@ -258,6 +269,7 @@ describe("GET /api/auth/me", () => {
           status: "ACTIVE",
           permissions: [],
           priceListIds: [],
+          appAccess: [],
         },
       ],
     });
@@ -329,6 +341,7 @@ describe("GET /api/auth/me", () => {
           status: "ACTIVE",
           permissions: [],
           priceListIds: [],
+          appAccess: [],
         },
       ],
     });
@@ -411,6 +424,7 @@ describe("GET /api/auth/me", () => {
           status: "ACTIVE",
           permissions: [],
           priceListIds: [],
+          appAccess: [],
         },
         {
           companyId: "company-2",
@@ -420,6 +434,7 @@ describe("GET /api/auth/me", () => {
           status: "ACTIVE",
           permissions: [],
           priceListIds: [],
+          appAccess: [],
         },
       ],
     });

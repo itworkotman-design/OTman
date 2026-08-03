@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ConditionBadge } from "./ConditionBadge";
+import { formatLastModified } from "./types";
 import type { ArchiveItemSummary } from "./types";
 
 type ItemPillProps = {
@@ -8,16 +9,13 @@ type ItemPillProps = {
   locale: string;
 };
 
-const statusLabel: Record<ArchiveItemSummary["status"], { en: string; nb: string }> = {
-  active: { en: "Active", nb: "Aktiv" },
-  inactive: { en: "Inactive", nb: "Inaktiv" },
-  draft: { en: "Draft", nb: "Utkast" },
-  archived: { en: "Archived", nb: "Arkivert" },
-};
-
 // Read-only row for item view pages — no settings icon, no delete, matching
-// FolderPill's visual style. Editing/deleting an item happens on the
-// containing folder's settings page (EditableEntityRow), not here.
+// FolderPill's visual style (same rounded-4xl bordered pill, leading code
+// badge, name column) rather than the old rounded-full mini pill inside a
+// collapsible per-status panel. Editing/deleting an item happens on the
+// containing folder's settings page (EditableEntityRow), not here. Status
+// itself isn't shown here either — this view only ever renders active items
+// (see the folder page's filtering), and status is changed via settings.
 // `item.code` is a real, stable display code (see lib/docArchive/folderCodes.ts),
 // e.g. "1.2F.3" — the containing folder's own code plus this item's local
 // sequence number, assigned once at creation and never recomputed from list
@@ -27,20 +25,25 @@ export function ItemPill({ item, href, locale }: ItemPillProps) {
   return (
     <Link
       href={href}
-      className="flex w-full items-center gap-4 overflow-hidden rounded-full border border-lineSecondary px-4 py-2 font-semibold shadow-sm transition-colors hover:bg-logoblue/5"
+      className="flex w-full items-stretch overflow-hidden rounded-4xl border border-logoblue font-semibold transition-colors hover:bg-logoblue/5"
     >
-      <span className="shrink-0 rounded-full bg-logoblue px-3 py-1 text-xs text-white">{item.code}</span>
-
-      <div className="min-w-0 grow px-2 text-logoblue">
-        <div className="truncate text-[1.1rem]">{item.name}</div>
-        {item.description && <div className="truncate text-sm font-normal text-textColorThird">{item.description}</div>}
+      <div className="flex min-w-12 shrink-0 items-center justify-center bg-logoblue px-2 py-3 text-base text-white">
+        {item.code}
       </div>
 
-      <span className="shrink-0 rounded-full bg-logoblue px-3 py-1 text-xs text-white">
-        {statusLabel[item.status][locale === "nb" ? "nb" : "en"]}
-      </span>
+      <div className="flex min-w-0 grow items-center gap-3 border-r border-logoblue px-4 py-3 text-logoblue">
+        <span className="shrink-0 wrap-break-word text-[1.25rem] leading-tight">{item.name}</span>
+        {item.description && (
+          <span className="min-w-0 truncate text-sm font-normal text-textColorThird">{item.description}</span>
+        )}
+        <span className="ml-auto shrink-0">
+          <ConditionBadge flags={item} locale={locale} />
+        </span>
+      </div>
 
-      <ConditionBadge flags={item} locale={locale} />
+      <div className="flex w-full max-w-[100] shrink-0 items-center justify-center py-3 text-center text-sm text-textColorThird">
+        {formatLastModified(item.updatedAt)}
+      </div>
     </Link>
   );
 }

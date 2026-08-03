@@ -1,11 +1,8 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { canAccessArchive } from "@/lib/users/access";
+import { getModuleAccess } from "@/lib/users/access";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
 import { ExcelPlaceholder } from "@/app/_components/Dahsboard/archive/ExcelPlaceholder";
 import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePreviewGrid";
@@ -35,14 +32,13 @@ function formatBytes(bytes: number): string {
 
 // Every mutation for this item lives here — status/dates, upload, delete,
 // restore — matching the otman-archive prototype's EntrySettingsFields. The
-// item view page (`../page.tsx`) is pure browsing.
-export default function ArchiveItemSettingsPage() {
-  const params = useParams<{ folderId: string; itemId: string }>();
-  const { folderId, itemId } = params;
-
+// item view (`ItemView`) is pure browsing. `codePath` is this item's own
+// code split on "." — used for the back link.
+export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePath: string[] }) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const hasAccess = currentUser ? canAccessArchive(currentUser.role, currentUser.permissions) : true;
+  const archiveAccess = currentUser ? getModuleAccess(currentUser, "ARCHIVE") : { enabled: true, level: "ADMIN" as const };
+  const hasAccess = archiveAccess.enabled && archiveAccess.level === "ADMIN";
 
   const [item, setItem] = useState<ArchiveItemDetail | null>(null);
   const [files, setFiles] = useState<ArchiveFileRow[]>([]);
@@ -250,13 +246,15 @@ export default function ArchiveItemSettingsPage() {
   return (
     <div className="w-full">
       <div className="mb-6">
-        <Link href={`/dashboard/archive/${folderId}/items/${itemId}`} className="text-sm text-textColorThird hover:underline">
+        <Link href={`/dashboard/archive/${codePath.join("/")}`} className="text-sm text-textColorThird hover:underline">
           ← {loading ? "..." : item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")}
         </Link>
       </div>
 
-      <h1 className="mb-8 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-        {locale === "nb" ? "Innstillinger for element" : "Item settings"}
+      <h1 className="mb-8 text-center text-2xl font-semibold text-logoblue lg:text-4xl">
+        {loading
+          ? "..."
+          : `${item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")} ${locale === "nb" ? "innstillinger" : "Settings"}`}
       </h1>
 
       {error && (

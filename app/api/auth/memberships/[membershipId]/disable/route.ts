@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AuthEventType } from "@prisma/client";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
+import { getModuleAccess } from "@/lib/users/access";
 import { logAuthEvent } from "@/lib/auth/authEvent";
 import { prisma } from "@/lib/db";
 
@@ -62,10 +63,7 @@ export async function POST(
     companyId: targetMembership.companyId,
   });
 
-  if (
-    !actorMembership ||
-    (actorMembership.role !== "OWNER" && actorMembership.role !== "ADMIN")
-  ) {
+  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
     return NextResponse.json(
       { ok: false, reason: "FORBIDDEN" },
       { status: 403 }

@@ -245,6 +245,7 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
       companyId: "company-1",
       role: "USER",
       status: "ACTIVE",
+      appAccess: [],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/membership-2/enable", {
@@ -290,6 +291,7 @@ describe("POST /api/auth/memberships/[membershipId]/enable", () => {
       companyId: "company-1",
       role: "ADMIN",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/membership-2/enable", {

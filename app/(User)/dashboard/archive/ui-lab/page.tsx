@@ -12,7 +12,8 @@ import { ArchivePermissionsScreen } from "@/lib/archiveUi/vendor/permissions-scr
 import { ArchiveRecoveryScreen } from "@/lib/archiveUi/vendor/recovery-screen";
 import { ArchiveHistoryScreen } from "@/lib/archiveUi/vendor/history-screen";
 import { createArchiveUiHostBridge } from "@/lib/archiveUi/hostBridge";
-import { canAccessArchive } from "@/lib/users/access";
+import { getModuleAccess } from "@/lib/users/access";
+import type { AppModuleAccess } from "@/lib/users/types";
 
 type ArchiveUiLabTab = "root" | "folder" | "item" | "search" | "permissions" | "recovery" | "history";
 
@@ -35,6 +36,7 @@ export default function ArchiveUiLabPage() {
     companyId: string;
     role: string;
     permissions: string[];
+    appAccess: AppModuleAccess[];
     displayName: string;
     email: string;
   } | null>(null);
@@ -72,6 +74,7 @@ export default function ArchiveUiLabPage() {
           companyId: data.activeTenant.companyId,
           role: data.activeTenant.role,
           permissions: data.activeTenant.permissions ?? [],
+          appAccess: data.activeTenant.appAccess ?? [],
           displayName: data.user.username || "",
           email: data.user.email || "",
         });
@@ -82,7 +85,8 @@ export default function ArchiveUiLabPage() {
     void loadMe();
   }, []);
 
-  const hasAccess = me ? canAccessArchive(me.role as never, me.permissions as never) : true;
+  const meArchiveAccess = me ? getModuleAccess(me, "ARCHIVE") : { enabled: true, level: "ADMIN" as const };
+  const hasAccess = meArchiveAccess.enabled && meArchiveAccess.level === "ADMIN";
 
   function handleNavigate(intent: ArchiveUiNavigationIntent) {
     switch (intent.screen) {

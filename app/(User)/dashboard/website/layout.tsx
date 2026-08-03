@@ -1,43 +1,53 @@
-"use client";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { getAuthenticatedSession } from "@/lib/auth/session";
+import { getActiveMembership } from "@/lib/auth/membership";
+import { getModuleAccess } from "@/lib/users/access";
+import WebsiteEditorShell from "@/app/_components/Dahsboard/website/WebsiteEditorShell";
 
-import type { ReactNode } from "react";
-import { useState } from "react";
-import Sidebar from "@/app/_components/Dahsboard/Sidebar";
+export default async function WebsiteEditorLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const requestHeaders = await headers();
 
-const SIDEBAR_OPEN = 300;
-const SIDEBAR_CLOSED = 50;
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+  const host = requestHeaders.get("host");
 
-export default function WebsiteEditorLayout({ children }: { children: ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sidebarOpenPhone, setSidebarOpenPhone] = useState(false);
+  if (!host) {
+    redirect("/login");
+  }
 
-  const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
+  const req = new Request(`${protocol}://${host}/dashboard/website`, {
+    headers: requestHeaders,
+  });
 
-  return (
-    <>
-      {/* PC */}
-      <div className="hidden min-h-screen overflow-x-clip lg:flex">
-        <aside>
-          <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW} />
-        </aside>
-        <main className="flex w-full">
-          <div className="w-full">{children}</div>
-        </main>
-      </div>
+  const session = await getAuthenticatedSession(req);
 
-      {/* Phone */}
-      <div className="lg:hidden">
-        <div className="fixed z-10 w-full">
-          <div className="w-full bg-white shadow-md">
-            <div className={sidebarOpenPhone ? "h-full pb-10" : "ml-auto w-11"}>
-              <Sidebar open={sidebarOpenPhone} onOpenChange={setSidebarOpenPhone} width={""} />
-            </div>
-          </div>
-        </div>
-        <main className="overflow-x-clip">
-          <div className="w-full pt-[60]">{children}</div>
-        </main>
-      </div>
-    </>
-  );
+  if (!session) {
+    redirect("/login");
+  }
+
+  if (!session.activeCompanyId) {
+    redirect("/booking");
+  }
+
+  const membership = await getActiveMembership({
+    userId: session.userId,
+    companyId: session.activeCompanyId,
+  });
+
+  if (!membership) {
+    redirect("/login");
+  }
+
+  // This section had no gate at all before — it relied entirely on the
+  // dashboard shell's old blanket "USER role always redirected" rule, which
+  // no longer exists now that app access is a per-person grant.
+  if (!getModuleAccess(membership, "WEBSITE_EDITOR").enabled) {
+    redirect("/dashboard");
+  }
+
+  return <WebsiteEditorShell>{children}</WebsiteEditorShell>;
 }

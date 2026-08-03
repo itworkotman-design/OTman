@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
+import { getModuleAccess } from "@/lib/users/access";
 import { bookingText } from "@/lib/booking/bookingUiText";
 import { getDefaultVisibleBookingArchiveColumns, type BookingArchiveColumnId } from "@/lib/booking/archiveColumns";
 
@@ -27,7 +27,7 @@ type OrdersApiResponse = {
 export default function WebsiteOrdersPage() {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const access = getBookingArchiveAccess(currentUser);
+  const hasWebsiteOrdersAccess = currentUser ? getModuleAccess(currentUser, "WEBSITE_ORDERS").enabled : false;
 
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,7 +215,7 @@ export default function WebsiteOrdersPage() {
     });
   }
 
-  if (access.viewMode !== "ADMIN") {
+  if (!hasWebsiteOrdersAccess) {
     return (
       <div className="w-full">
         <p className="text-textColorThird">{bookingText(locale, "You do not have access to create orders.")}</p>

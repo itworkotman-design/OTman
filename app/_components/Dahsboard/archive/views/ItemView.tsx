@@ -1,11 +1,8 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { canAccessArchive } from "@/lib/users/access";
+import { getModuleAccess } from "@/lib/users/access";
 import { ConditionBadge } from "@/app/_components/Dahsboard/archive/ConditionBadge";
 import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePreviewGrid";
 import type { ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
@@ -32,13 +29,21 @@ function formatBytes(bytes: number): string {
 
 // Pure browsing view of a single item — read-only. Upload/delete/restore/
 // status-and-date editing all live on this item's settings page instead.
-export default function ArchiveItemPage() {
-  const params = useParams<{ folderId: string; itemId: string }>();
-  const { folderId, itemId } = params;
-
+// `codePath` is this item's own code (e.g. "1.2F.3F.5") split on "." — its
+// last segment is the item's own number, every segment before that is its
+// containing folder's path, one-to-one with `folderPath`'s entries.
+export function ItemView({
+  folderId,
+  itemId,
+  codePath,
+}: {
+  folderId: string;
+  itemId: string;
+  codePath: string[];
+}) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const hasAccess = currentUser ? canAccessArchive(currentUser.role, currentUser.permissions) : true;
+  const hasAccess = !currentUser || getModuleAccess(currentUser, "ARCHIVE").enabled;
 
   const [item, setItem] = useState<ArchiveItemDetail | null>(null);
   const [files, setFiles] = useState<ArchiveFileRow[]>([]);
@@ -102,6 +107,7 @@ export default function ArchiveItemPage() {
 
   const imageFiles = files.filter((f) => f.mimeType.startsWith("image/"));
   const otherFiles = files.filter((f) => !f.mimeType.startsWith("image/"));
+  const settingsHref = `/dashboard/archive/${codePath.join("/")}/settings`;
 
   return (
     <div className="w-full">
@@ -109,35 +115,36 @@ export default function ArchiveItemPage() {
         <Link href="/dashboard/archive" className="hover:underline">
           {locale === "nb" ? "Arkiv" : "Archive"}
         </Link>
-        {folderPath.map((entry, index) => (
-          <span key={index} className="flex items-center gap-1">
-            <span>/</span>
-            {entry.hidden ? (
-              <span>…</span>
-            ) : (
-              <Link href={`/dashboard/archive/${entry.folderId}`} className="hover:underline">
-                {entry.name ?? "…"}
-              </Link>
-            )}
-          </span>
-        ))}
+        {folderPath.map((entry, index) => {
+          const href = `/dashboard/archive/${codePath.slice(0, index + 1).join("/")}`;
+          return (
+            <span key={index} className="flex items-center gap-1">
+              <span>/</span>
+              {entry.hidden ? (
+                <span>…</span>
+              ) : (
+                <Link href={href} className="hover:underline">
+                  {entry.name ?? "…"}
+                </Link>
+              )}
+            </span>
+          );
+        })}
         <span>/</span>
         <span className="font-medium text-textcolor">
           {loading ? "..." : item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")}
         </span>
       </nav>
 
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="flex items-center gap-3 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-            {loading ? "..." : item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")}
-            {item && <ConditionBadge flags={item} locale={locale} />}
-          </h1>
-          {item?.description && <p className="mt-2 max-w-xl text-sm text-textColorThird">{item.description}</p>}
-          {item && <p className="mt-1 text-sm text-textColorThird">{item.status}</p>}
-        </div>
+      <div className="mb-8 flex w-full flex-col items-center gap-3 text-center">
+        <h1 className="flex items-center gap-3 text-2xl font-semibold text-logoblue lg:text-4xl">
+          {loading ? "..." : item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")}
+          {item && <ConditionBadge flags={item} locale={locale} />}
+        </h1>
+        {item?.description && <p className="max-w-xl text-sm text-textColorThird">{item.description}</p>}
+        {item && <p className="text-sm text-textColorThird">{item.status}</p>}
 
-        <Link href={`/dashboard/archive/${folderId}/items/${itemId}/settings`} className="customButtonDefault">
+        <Link href={settingsHref} className="customButtonDefault">
           {locale === "nb" ? "Innstillinger" : "Settings"}
         </Link>
       </div>

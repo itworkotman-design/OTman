@@ -72,6 +72,7 @@ export async function POST(req: Request) {
   const priceListId =
     typeof body?.priceListId === "string" ? body.priceListId : null;
   const permissions = parsePermissions(body?.permissions);
+  const appAccess = body?.appAccess;
 
   const userAgent = req.headers.get("user-agent");
   const ip = getClientIp(req);
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
     usernameDisplayColor,
     priceListId,
     permissions,
+    appAccess,
     ip,
     userAgent,
   });

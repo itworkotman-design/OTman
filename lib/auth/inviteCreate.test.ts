@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
     transactionMock: vi.fn(),
     updateManyMock: vi.fn(),
     createMock: vi.fn(),
+    inviteAppAccessCreateManyMock: vi.fn(),
     generateInviteTokenMock: vi.fn(),
     hashInviteTokenMock: vi.fn(),
     deliverInviteMock: vi.fn(),
@@ -48,6 +49,7 @@ describe("createInvite", () => {
       companyId: "company-1",
       role: "OWNER",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.generateInviteTokenMock.mockReturnValue("plain-invite-token");
@@ -55,13 +57,17 @@ describe("createInvite", () => {
     mocks.deliverInviteMock.mockResolvedValue(undefined);
     mocks.logAuthEventMock.mockResolvedValue(undefined);
     mocks.updateManyMock.mockResolvedValue({ count: 0 });
-    mocks.createMock.mockResolvedValue(undefined);
+    mocks.createMock.mockResolvedValue({ id: "invite-1" });
+    mocks.inviteAppAccessCreateManyMock.mockResolvedValue({ count: 0 });
 
     mocks.transactionMock.mockImplementation(async (callback) => {
       return callback({
         invite: {
           updateMany: mocks.updateManyMock,
           create: mocks.createMock,
+        },
+        inviteAppAccess: {
+          createMany: mocks.inviteAppAccessCreateManyMock,
         },
       });
     });
@@ -147,6 +153,7 @@ describe("createInvite", () => {
       companyId: "company-1",
       role: "USER",
       status: "ACTIVE",
+      appAccess: [],
     });
 
     const result = await createInvite({
@@ -168,6 +175,7 @@ describe("createInvite", () => {
       companyId: "company-1",
       role: "ADMIN",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const result = await createInvite({
@@ -233,6 +241,17 @@ describe("createInvite", () => {
       select: {
         id: true,
       },
+    });
+
+    expect(mocks.inviteAppAccessCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        { inviteId: "invite-1", module: "ARCHIVE", enabled: true, level: "ADMIN" },
+        { inviteId: "invite-1", module: "BOOKING", enabled: true, level: "ADMIN" },
+        { inviteId: "invite-1", module: "WEBSITE_EDITOR", enabled: true, level: "ADMIN" },
+        { inviteId: "invite-1", module: "WEBSITE_ORDERS", enabled: true, level: "ADMIN" },
+        { inviteId: "invite-1", module: "SCHEDULER", enabled: true, level: "ADMIN" },
+        { inviteId: "invite-1", module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" },
+      ],
     });
 
     expect(mocks.deliverInviteMock).toHaveBeenCalledWith({

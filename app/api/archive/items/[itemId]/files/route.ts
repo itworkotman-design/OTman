@@ -38,7 +38,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ itemId: string }> },
 ) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { session, membership } = result;

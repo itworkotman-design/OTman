@@ -193,6 +193,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       role: "USER",
       status: "ACTIVE",
       permissions: [],
+    appAccess: [],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/m2/update", {
@@ -235,6 +236,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       role: "OWNER",
       status: "ACTIVE",
       permissions: [],
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.findUniqueMock.mockResolvedValue(null);
@@ -278,6 +280,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       role: "OWNER",
       status: "ACTIVE",
       permissions: [],
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -327,6 +330,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       role: "ADMIN",
       status: "ACTIVE",
       permissions: [],
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -376,6 +380,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       role: "OWNER",
       status: "ACTIVE",
       permissions: [],
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -397,7 +402,6 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         logoPath: "/uploads/user-logos/u2/logo.webp",
         usernameDisplayColor: "#112233",
         warehouseEmail: "warehouse@example.com",
-        permissions: ["BOOKING_VIEW"],
       }),
     });
 
@@ -458,20 +462,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
 
     expect(mocks.membershipPriceListCreateManyMock).not.toHaveBeenCalled();
 
-    expect(mocks.membershipPermissionDeleteManyMock).toHaveBeenCalledWith({
-      where: {
-        membershipId: "m2",
-      },
-    });
-
-    expect(mocks.membershipPermissionCreateManyMock).toHaveBeenCalledWith({
-      data: [
-        {
-          membershipId: "m2",
-          permission: "BOOKING_VIEW",
-        },
-      ],
-    });
+    expect(mocks.membershipPermissionDeleteManyMock).not.toHaveBeenCalled();
+    expect(mocks.membershipPermissionCreateManyMock).not.toHaveBeenCalled();
   });
 
   it("returns 200 and updates the related user for ADMIN editing USER", async () => {
@@ -490,6 +482,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       role: "ADMIN",
       status: "ACTIVE",
       permissions: [],
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.findUniqueMock.mockResolvedValue({
@@ -511,7 +504,6 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
         logoPath: "/uploads/user-logos/u2/logo.webp",
         usernameDisplayColor: "#112233",
         warehouseEmail: "",
-        permissions: ["BOOKING_VIEW", "BOOKING_CREATE"],
       }),
     });
 
@@ -559,24 +551,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       },
     });
 
-    expect(mocks.membershipPermissionDeleteManyMock).toHaveBeenCalledWith({
-      where: {
-        membershipId: "m2",
-      },
-    });
-
-    expect(mocks.membershipPermissionCreateManyMock).toHaveBeenCalledWith({
-      data: [
-        {
-          membershipId: "m2",
-          permission: "BOOKING_VIEW",
-        },
-        {
-          membershipId: "m2",
-          permission: "BOOKING_CREATE",
-        },
-      ],
-    });
+    expect(mocks.membershipPermissionDeleteManyMock).not.toHaveBeenCalled();
+    expect(mocks.membershipPermissionCreateManyMock).not.toHaveBeenCalled();
 
     expect(mocks.membershipUpdateMock).toHaveBeenCalledWith({
       where: { id: "m2" },
@@ -608,6 +584,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       role: "OWNER",
       status: "ACTIVE",
       permissions: [],
+    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.findUniqueMock.mockResolvedValue({

@@ -38,7 +38,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ folderId: string }> },
 ) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { folderId } = await params;
@@ -62,7 +62,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ folderId: string }> },
 ) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { folderId } = await params;
@@ -102,7 +102,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ folderId: string }> },
 ) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { folderId } = await params;

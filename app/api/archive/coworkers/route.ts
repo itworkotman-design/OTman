@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { canAccessArchive } from "@/lib/users/access";
+import { getModuleAccess } from "@/lib/users/access";
 import { requireArchiveMembership } from "@/lib/docArchive/route";
 
 export async function GET(req: Request) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { session, membership } = result;
@@ -16,14 +16,14 @@ export async function GET(req: Request) {
     },
     select: {
       role: true,
-      permissions: { select: { permission: true } },
+      appAccess: { select: { module: true, enabled: true, level: true } },
       user: { select: { id: true, email: true, username: true } },
     },
   });
 
   const coworkers = memberships
     .filter((m) => m.user.id !== session.userId)
-    .filter((m) => canAccessArchive(m.role, m.permissions.map((p) => p.permission)))
+    .filter((m) => getModuleAccess(m, "ARCHIVE").enabled)
     .map((m) => ({
       userId: m.user.id,
       email: m.user.email,

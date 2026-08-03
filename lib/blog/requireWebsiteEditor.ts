@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession, type AuthenticatedSession } from "@/lib/auth/session";
 import type { ActiveMembership } from "@/lib/auth/membership";
+import { getModuleAccess } from "@/lib/users/access";
 
 type RequireWebsiteEditorResult =
   | { error: NextResponse }
@@ -35,10 +36,11 @@ export async function requireWebsiteEditor(
       role: true,
       membershipPriceLists: { select: { priceListId: true } },
       permissions: { select: { permission: true } },
+      appAccess: { select: { module: true, enabled: true, level: true } },
     },
   });
 
-  if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+  if (!membership || !getModuleAccess(membership, "WEBSITE_EDITOR").enabled) {
     return { error: NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 }) };
   }
 
@@ -55,6 +57,7 @@ export async function requireWebsiteEditor(
       status: "ACTIVE",
       priceListIds: membership.membershipPriceLists.map((mpl) => mpl.priceListId),
       permissions: membership.permissions.map((p) => p.permission),
+      appAccess: membership.appAccess,
     },
   };
 }

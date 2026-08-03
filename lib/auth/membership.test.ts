@@ -52,6 +52,13 @@ describe("getActiveMembership", () => {
             permission: true,
           },
         },
+        appAccess: {
+          select: {
+            module: true,
+            enabled: true,
+            level: true,
+          },
+        },
       },
     });
   });
@@ -63,6 +70,7 @@ describe("getActiveMembership", () => {
       role: "ADMIN",
       status: "ACTIVE",
       membershipPriceLists: [{ priceListId: "price-list-1" }],
+      appAccess: [{ module: "ARCHIVE", enabled: true, level: "ADMIN" }],
     });
 
     const result = await getActiveMembership({
@@ -77,6 +85,7 @@ describe("getActiveMembership", () => {
       status: "ACTIVE",
       priceListIds: ["price-list-1"],
       permissions: [],
+      appAccess: [{ module: "ARCHIVE", enabled: true, level: "ADMIN" }],
     });
   });
 });

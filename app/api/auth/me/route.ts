@@ -36,6 +36,13 @@ export async function GET(req: Request) {
           priceListId: true,
         },
       },
+      appAccess: {
+        select: {
+          module: true,
+          enabled: true,
+          level: true,
+        },
+      },
     },
   });
 
@@ -49,6 +56,7 @@ export async function GET(req: Request) {
       (p: { permission: AppPermission }) => p.permission,
     ),
     priceListIds: m.membershipPriceLists.map((mpl) => mpl.priceListId),
+    appAccess: m.appAccess ?? [],
   }));
 
   const activeMembership =
@@ -86,6 +94,7 @@ export async function GET(req: Request) {
             status: activeMembership.status,
             permissions: activeMembership.permissions,
             priceListIds: activeMembership.priceListIds,
+            appAccess: activeMembership.appAccess,
           }
         : null,
       memberships: selectableMemberships,

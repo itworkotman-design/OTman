@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
-import { canManageAutomaticOrders } from "@/lib/users/orderAccess";
+import { getModuleAccess } from "@/lib/users/access";
 import { generateDueOccurrences } from "@/lib/orders/recurringOrders/generateDueOccurrences";
 
 export async function POST(req: Request) {
@@ -21,10 +21,10 @@ export async function POST(req: Request) {
       companyId: session.activeCompanyId,
       status: "ACTIVE",
     },
-    select: { role: true },
+    select: { role: true, appAccess: { select: { module: true, enabled: true, level: true } } },
   });
 
-  if (!membership || !canManageAutomaticOrders(membership.role)) {
+  if (!membership || !getModuleAccess(membership, "SCHEDULER").enabled) {
     return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 

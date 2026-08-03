@@ -53,6 +53,7 @@ describe("GET/POST /api/dashboard/website/blog", () => {
       role: "USER",
       membershipPriceLists: [],
       permissions: [],
+      appAccess: [],
     });
 
     const res = await GET(makeRequest("http://localhost/api/dashboard/website/blog"));
@@ -67,6 +68,7 @@ describe("GET/POST /api/dashboard/website/blog", () => {
       role: "ADMIN",
       membershipPriceLists: [],
       permissions: [],
+      appAccess: [{ module: "WEBSITE_EDITOR", enabled: true, level: "ADMIN" }],
     });
     mocks.blogPostCountMock.mockResolvedValue(0);
     mocks.blogPostFindManyMock.mockResolvedValue([]);
@@ -86,6 +88,7 @@ describe("GET/POST /api/dashboard/website/blog", () => {
       role: "ADMIN",
       membershipPriceLists: [],
       permissions: [],
+      appAccess: [{ module: "WEBSITE_EDITOR", enabled: true, level: "ADMIN" }],
     });
 
     const res = await POST(
@@ -105,6 +108,7 @@ describe("GET/POST /api/dashboard/website/blog", () => {
       role: "ADMIN",
       membershipPriceLists: [],
       permissions: [],
+      appAccess: [{ module: "WEBSITE_EDITOR", enabled: true, level: "ADMIN" }],
     });
     mocks.blogPostFindUniqueMock.mockResolvedValue({ id: "existing-post" });
 
@@ -125,6 +129,7 @@ describe("GET/POST /api/dashboard/website/blog", () => {
       role: "OWNER",
       membershipPriceLists: [],
       permissions: [],
+      appAccess: [{ module: "WEBSITE_EDITOR", enabled: true, level: "ADMIN" }],
     });
     mocks.blogPostFindUniqueMock.mockResolvedValue(null);
     mocks.blogPostCreateMock.mockResolvedValue({ id: "new-post", status: "DRAFT" });

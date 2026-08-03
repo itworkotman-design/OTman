@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
-import { canManageAutomaticOrders } from "@/lib/users/orderAccess";
+import { getModuleAccess } from "@/lib/users/access";
 import { getOsloDateKey } from "@/lib/dates/isoDate";
 import { computeUpcomingOccurrenceDates } from "@/lib/orders/recurringOrders/occurrenceDates";
 import { computeTemplateHealth } from "@/lib/orders/recurringOrders/templateHealth";
@@ -32,10 +32,11 @@ async function requireCompanyMembership(req: Request) {
       id: true,
       role: true,
       user: { select: { username: true, email: true } },
+      appAccess: { select: { module: true, enabled: true, level: true } },
     },
   });
 
-  if (!membership || !canManageAutomaticOrders(membership.role)) {
+  if (!membership || !getModuleAccess(membership, "SCHEDULER").enabled) {
     return { error: NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 }) } as const;
   }
 

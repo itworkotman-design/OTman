@@ -3,6 +3,7 @@ import type { ArchiveBusinessStatus, ArchiveItemSearchQuery } from "@customproje
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { getItemCodes } from "@/lib/docArchive/folderCodes";
 
 const VALID_STATUSES: ArchiveBusinessStatus[] = ["active", "inactive", "draft", "archived"];
 
@@ -44,5 +45,12 @@ export async function GET(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, ...searchResult.value });
+  const codes = await getItemCodes(
+    ctx.companyId,
+    ctx.tenantId,
+    searchResult.value.items.map((item) => ({ id: item.id, folderId: item.folderId })),
+  );
+  const items = searchResult.value.items.map((item) => ({ ...item, code: codes.get(item.id) ?? "?" }));
+
+  return NextResponse.json({ ok: true, items, nextCursor: searchResult.value.nextCursor });
 }

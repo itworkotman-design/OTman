@@ -1,14 +1,12 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { canAccessArchive } from "@/lib/users/access";
+import { getModuleAccess } from "@/lib/users/access";
 import { ExpandablePanelList } from "@/app/_components/Dahsboard/archive/ExpandablePanelList";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
 import { EditableEntityRow } from "@/app/_components/Dahsboard/archive/EditableEntityRow";
+import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderDetail = ArchiveFolderSummary;
@@ -46,31 +44,17 @@ type ArchiveRoleOption = {
   name: string;
 };
 
-const CONTRIBUTOR_ACTIONS: ArchivePermissionAction[] = [
-  "view",
-  "create",
-  "upload",
-  "edit",
-  "delete",
-  "restore",
-  "move",
-  "manage_metadata",
-  "manage_status",
-];
-
-const VIEWER_ACTIONS: ArchivePermissionAction[] = ["view"];
-
 // Every mutation for this folder lives here — permissions, folder
 // status/dates, creating/deleting subfolders and items — matching the
-// otman-archive prototype's ArchiveSettingsView. The folder view page
-// (`../page.tsx`) is pure browsing.
-export default function ArchiveFolderSettingsPage() {
-  const params = useParams<{ folderId: string }>();
-  const folderId = params.folderId;
-
+// otman-archive prototype's ArchiveSettingsView. The folder view
+// (`FolderView`) is pure browsing. `codePath` is this folder's own code
+// split on "." — used to build the back link and this folder's own
+// settings-relative links.
+export function FolderSettingsView({ folderId, codePath }: { folderId: string; codePath: string[] }) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const hasAccess = currentUser ? canAccessArchive(currentUser.role, currentUser.permissions) : true;
+  const archiveAccess = currentUser ? getModuleAccess(currentUser, "ARCHIVE") : { enabled: true, level: "ADMIN" as const };
+  const hasAccess = archiveAccess.enabled && archiveAccess.level === "ADMIN";
 
   const [folder, setFolder] = useState<ArchiveFolderDetail | null>(null);
   const [items, setItems] = useState<ArchiveItemRow[]>([]);
@@ -88,7 +72,9 @@ export default function ArchiveFolderSettingsPage() {
   const [newSubfolderDescription, setNewSubfolderDescription] = useState("");
   const [creatingSubfolder, setCreatingSubfolder] = useState(false);
   const [createSubfolderError, setCreateSubfolderError] = useState("");
+  const [archivingChildFolderId, setArchivingChildFolderId] = useState<string | null>(null);
   const [deletingChildFolderId, setDeletingChildFolderId] = useState<string | null>(null);
+  const [archivingItemId, setArchivingItemId] = useState<string | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
   const [canManageSharing, setCanManageSharing] = useState(false);
@@ -99,8 +85,6 @@ export default function ArchiveFolderSettingsPage() {
   const [shareTargetType, setShareTargetType] = useState<ArchivePermissionSubjectType>("user");
   const [shareUserId, setShareUserId] = useState("");
   const [shareRoleId, setShareRoleId] = useState("");
-  const [sharePreset, setSharePreset] = useState<"viewer" | "contributor">("viewer");
-  const [shareAlsoManage, setShareAlsoManage] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState("");
   const [revokingSubject, setRevokingSubject] = useState<string | null>(null);
@@ -203,16 +187,15 @@ export default function ArchiveFolderSettingsPage() {
       setSharing(true);
       setShareError("");
 
-      const actions = [
-        ...(sharePreset === "contributor" ? CONTRIBUTOR_ACTIONS : VIEWER_ACTIONS),
-        ...(shareAlsoManage ? (["manage_permissions"] as ArchivePermissionAction[]) : []),
-      ];
-
+      // Access-level (viewer/contributor/manage) is not chosen here — that
+      // belongs on the user/role's profile in user management once that
+      // exists. For now, sharing just grants "view" so the folder shows up
+      // for them at all.
       const res = await fetch(`/api/archive/folders/${folderId}/permissions`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subjectType: shareTargetType, subjectId, actions }),
+        body: JSON.stringify({ subjectType: shareTargetType, subjectId, actions: ["view"] }),
       });
 
       const data = await res.json().catch(() => null);
@@ -224,7 +207,6 @@ export default function ArchiveFolderSettingsPage() {
 
       setShareUserId("");
       setShareRoleId("");
-      setShareAlsoManage(false);
       await loadSharing();
     } catch {
       setShareError("Failed to share folder");
@@ -334,6 +316,36 @@ export default function ArchiveFolderSettingsPage() {
     }
   }
 
+  async function handleArchiveChildFolder(childFolderId: string) {
+    const current = childFolders.find((f) => f.id === childFolderId);
+    const nextStatus = current?.status === "archived" ? "active" : "archived";
+
+    try {
+      setArchivingChildFolderId(childFolderId);
+      setRowActionError("");
+
+      const res = await fetch(`/api/archive/folders/${childFolderId}/status`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setRowActionError(data?.reason || "Failed to archive folder");
+        return;
+      }
+
+      setChildFolders((prev) => prev.map((f) => (f.id === childFolderId ? { ...f, status: nextStatus } : f)));
+    } catch {
+      setRowActionError("Failed to archive folder");
+    } finally {
+      setArchivingChildFolderId(null);
+    }
+  }
+
   async function handleDeleteChildFolder(childFolderId: string) {
     if (!confirm(locale === "nb" ? "Slette denne mappen?" : "Delete this folder?")) return;
 
@@ -358,6 +370,36 @@ export default function ArchiveFolderSettingsPage() {
       setRowActionError("Failed to delete folder");
     } finally {
       setDeletingChildFolderId(null);
+    }
+  }
+
+  async function handleArchiveItem(itemId: string) {
+    const current = items.find((i) => i.id === itemId);
+    const nextStatus = current?.status === "archived" ? "active" : "archived";
+
+    try {
+      setArchivingItemId(itemId);
+      setRowActionError("");
+
+      const res = await fetch(`/api/archive/items/${itemId}/status`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setRowActionError(data?.reason || "Failed to archive item");
+        return;
+      }
+
+      setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, status: nextStatus } : i)));
+    } catch {
+      setRowActionError("Failed to archive item");
+    } finally {
+      setArchivingItemId(null);
     }
   }
 
@@ -517,19 +559,6 @@ export default function ArchiveFolderSettingsPage() {
           </div>
         )}
 
-        <div className="min-w-[160]">
-          <label className="block pb-2 text-sm">{locale === "nb" ? "Tilgangsnivå" : "Access level"}</label>
-          <select
-            className="customInput w-full"
-            value={sharePreset}
-            onChange={(e) => setSharePreset(e.target.value as "viewer" | "contributor")}
-            disabled={sharing}
-          >
-            <option value="viewer">{locale === "nb" ? "Kan se" : "Viewer"}</option>
-            <option value="contributor">{locale === "nb" ? "Kan redigere" : "Contributor"}</option>
-          </select>
-        </div>
-
         <button
           type="button"
           className="customButtonEnabled h-10 px-6"
@@ -539,18 +568,6 @@ export default function ArchiveFolderSettingsPage() {
           {sharing ? (locale === "nb" ? "Deler..." : "Sharing...") : locale === "nb" ? "Del" : "Share"}
         </button>
       </div>
-
-      <label className="mt-3 flex items-center gap-2 text-sm text-textColorThird">
-        <input
-          type="checkbox"
-          checked={shareAlsoManage}
-          onChange={(e) => setShareAlsoManage(e.target.checked)}
-          disabled={sharing}
-        />
-        {locale === "nb"
-          ? "La denne personen også administrere deling av mappen"
-          : "Also let this person manage folder sharing"}
-      </label>
 
       {shareError && <p className="mt-3 text-sm font-medium text-red-600">{shareError}</p>}
     </div>
@@ -562,7 +579,7 @@ export default function ArchiveFolderSettingsPage() {
           {
             id: "permissions",
             title: locale === "nb" ? "Deling" : "Permissions",
-            columns: [],
+            subtitle: locale === "nb" ? "Brukertilgang" : "User access rules",
             content: sharingContent,
           },
         ]
@@ -572,7 +589,7 @@ export default function ArchiveFolderSettingsPage() {
           {
             id: "folder-settings",
             title: locale === "nb" ? "Mappeinnstillinger" : "Folder settings",
-            columns: [folder.status],
+            subtitle: folder.status,
             content: (
               <EntitySettingsPanel
                 kind="folder"
@@ -594,13 +611,15 @@ export default function ArchiveFolderSettingsPage() {
   return (
     <div className="w-full">
       <div className="mb-6">
-        <Link href={`/dashboard/archive/${folderId}`} className="text-sm text-textColorThird hover:underline">
+        <Link href={`/dashboard/archive/${codePath.join("/")}`} className="text-sm text-textColorThird hover:underline">
           ← {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
         </Link>
       </div>
 
-      <h1 className="mb-8 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-        {locale === "nb" ? "Mappeinnstillinger" : "Folder settings"}
+      <h1 className="mb-8 text-center text-2xl font-semibold text-logoblue lg:text-4xl">
+        {loading
+          ? "..."
+          : `${folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")} ${locale === "nb" ? "innstillinger" : "Settings"}`}
       </h1>
 
       {error && (
@@ -620,7 +639,7 @@ export default function ArchiveFolderSettingsPage() {
           <h2 className="mb-3 text-[1.5rem] font-bold text-logoblue">
             {locale === "nb" ? "Arkivkontroller" : "Archive controls"}
           </h2>
-          <ExpandablePanelList items={controlItems} variant="white" />
+          <ExpandablePanelList items={controlItems} />
         </section>
       )}
 
@@ -680,7 +699,9 @@ export default function ArchiveFolderSettingsPage() {
                 description={childFolder.description}
                 status={childFolder.status}
                 flags={childFolder}
-                settingsHref={`/dashboard/archive/${childFolder.id}/settings`}
+                settingsHref={`/dashboard/archive/${codeToUrlPath(childFolder.code)}/settings`}
+                onArchive={() => void handleArchiveChildFolder(childFolder.id)}
+                archiving={archivingChildFolderId === childFolder.id}
                 onDelete={() => void handleDeleteChildFolder(childFolder.id)}
                 deleting={deletingChildFolderId === childFolder.id}
                 locale={locale}
@@ -748,7 +769,9 @@ export default function ArchiveFolderSettingsPage() {
                 description={item.description}
                 status={item.status}
                 flags={item}
-                settingsHref={`/dashboard/archive/${folderId}/items/${item.id}/settings`}
+                settingsHref={`/dashboard/archive/${codeToUrlPath(item.code)}/settings`}
+                onArchive={() => void handleArchiveItem(item.id)}
+                archiving={archivingItemId === item.id}
                 onDelete={() => void handleDeleteItem(item.id)}
                 deleting={deletingItemId === item.id}
                 locale={locale}

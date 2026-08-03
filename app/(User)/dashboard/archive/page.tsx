@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { canAccessArchive } from "@/lib/users/access";
+import { getModuleAccess } from "@/lib/users/access";
+import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
 import { RemindersPanel } from "@/app/_components/Dahsboard/archive/RemindersPanel";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
+import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderRow = ArchiveFolderSummary & {
@@ -28,12 +30,13 @@ type FoldersApiResponse = {
 export default function ArchivePage() {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const hasAccess = currentUser ? canAccessArchive(currentUser.role, currentUser.permissions) : true;
+  const archiveAccess = currentUser ? getModuleAccess(currentUser, "ARCHIVE") : { enabled: true, level: "ADMIN" as const };
+  const hasAccess = archiveAccess.enabled;
+  const isArchiveAdmin = archiveAccess.level === "ADMIN";
 
   const [folders, setFolders] = useState<ArchiveFolderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [nameFilter, setNameFilter] = useState("");
 
   async function loadFolders() {
     try {
@@ -88,6 +91,24 @@ export default function ArchivePage() {
     return { ok: true };
   }
 
+  async function handleArchiveFolder(folderId: string) {
+    const current = folders.find((f) => f.id === folderId);
+    const nextStatus = current?.status === "archived" ? "active" : "archived";
+
+    const res = await fetch(`/api/archive/folders/${folderId}/status`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (res.ok && data?.ok) {
+      setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, status: nextStatus } : f)));
+    }
+  }
+
   async function handleDeleteFolder(folderId: string) {
     const res = await fetch(`/api/archive/folders/${folderId}`, {
       method: "DELETE",
@@ -101,11 +122,7 @@ export default function ArchivePage() {
     }
   }
 
-  const visibleFolders = useMemo(() => {
-    const query = nameFilter.trim().toLowerCase();
-    if (!query) return folders;
-    return folders.filter((folder) => folder.name.toLowerCase().includes(query));
-  }, [folders, nameFilter]);
+  const visibleFolders = useMemo(() => folders.filter((folder) => folder.status === "active"), [folders]);
 
   if (currentUser && !hasAccess) {
     return (
@@ -121,28 +138,29 @@ export default function ArchivePage() {
     <div className="w-full">
       <section className="mb-2 flex w-full flex-col items-center gap-3">
         <h1 className="text-[2.5rem] font-bold text-logoblue">{locale === "nb" ? "Arkiv" : "Archive"}</h1>
-        <ArchiveRootSettingsModal
-          folders={folders}
-          locale={locale}
-          onCreateFolder={handleCreateFolder}
-          onDeleteFolder={handleDeleteFolder}
-        />
+        {isArchiveAdmin && (
+          <ArchiveRootSettingsModal
+            folders={folders}
+            locale={locale}
+            onCreateFolder={handleCreateFolder}
+            onArchiveFolder={handleArchiveFolder}
+            onDeleteFolder={handleDeleteFolder}
+          />
+        )}
+        <div className="w-full max-w-[400]">
+          <ArchiveSearchBar
+            scopeFolderId={null}
+            locale={locale}
+            placeholder={locale === "nb" ? "Søk i arkivet" : "Search in this archive"}
+          />
+        </div>
       </section>
 
       <PinnedFoldersSection locale={locale} />
 
       <section className="mt-4 grid gap-6 lg:grid-cols-2">
         <div className="min-w-0">
-          <div className="mb-4 flex h-10 grow items-end gap-4 font-semibold text-textColorThird">
-            <div className="grow">
-              <input
-                type="text"
-                className="customInput w-full max-w-[400]"
-                placeholder={locale === "nb" ? "Filtrer etter navn" : "Filter by name"}
-                value={nameFilter}
-                onChange={(e) => setNameFilter(e.target.value)}
-              />
-            </div>
+          <div className="mb-4 flex h-10 grow items-end justify-end gap-4 font-semibold text-textColorThird">
             <div className="w-full max-w-[140] text-center">
               <p>{locale === "nb" ? "Elementer" : "Entries"}</p>
             </div>
@@ -150,7 +168,7 @@ export default function ArchivePage() {
               <p>{locale === "nb" ? "Brukere" : "Users"}</p>
             </div>
             <div className="w-full max-w-[140] text-center">
-              <p>{locale === "nb" ? "Sist endret" : "Last modified"}</p>
+              <p>{locale === "nb" ? "Sist endret" : "Updated"}</p>
             </div>
           </div>
 
@@ -170,7 +188,12 @@ export default function ArchivePage() {
             ) : (
               <div className="grid gap-6">
                 {visibleFolders.map((folder) => (
-                  <FolderPill key={folder.id} folder={folder} href={`/dashboard/archive/${folder.id}`} />
+                  <FolderPill
+                    key={folder.id}
+                    folder={folder}
+                    href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
+                    showDescription={false}
+                  />
                 ))}
               </div>
             )}

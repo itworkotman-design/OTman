@@ -38,6 +38,7 @@ beforeEach(() => {
     role: "ADMIN",
     membershipPriceLists: [],
     permissions: [],
+    appAccess: [{ module: "WEBSITE_EDITOR", enabled: true, level: "ADMIN" }],
   });
   mocks.transactionMock.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) =>
     callback({ blogSection: { update: mocks.blogSectionUpdateMock } }),

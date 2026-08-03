@@ -4,6 +4,8 @@ import type { ActiveMembership } from "@/lib/auth/membership";
 
 export type Role = ActiveMembership["role"];
 export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
+export type AppModuleAccess = ActiveMembership["appAccess"][number];
+export type AppModule = AppModuleAccess["module"];
 
 // ─── Status enums ─────────────────────────────────────────────────────────────
 
@@ -36,6 +38,7 @@ export type Membership = {
   priceListIds: string[];
   warehouseEmail: string | null;
   permissions: { permission: AppPermission }[];
+  appAccess: AppModuleAccess[];
 };
 
 export type PendingInvite = {

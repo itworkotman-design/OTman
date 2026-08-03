@@ -2,6 +2,8 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getActiveMembership } from "@/lib/auth/membership";
 import { hashPassword } from "@/lib/auth/password";
+import { defaultAppAccessRows, normalizeAppAccessInput, derivePermissionsFromAppAccess } from "@/lib/users/appAccessDefaults";
+import { getModuleAccess } from "@/lib/users/access";
 
 type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 
@@ -67,6 +69,7 @@ export async function createUserWithPassword(params: {
   usernameDisplayColor?: string | null;
   priceListIds?: string[];
   permissions?: AppPermission[];
+  appAccess?: unknown;
 }): Promise<CreateUserResult> {
   const email = params.email.trim().toLowerCase();
   const companyId = params.companyId.trim();
@@ -83,7 +86,16 @@ export async function createUserWithPassword(params: {
     params.usernameDisplayColor,
   );
   const priceListIds = Array.isArray(params.priceListIds) ? params.priceListIds.filter(Boolean) : [];
-  const permissions = normalizePermissions(params.permissions);
+
+  // The Edit/Add User modal submits the full per-module access matrix
+  // directly — when present, it's the source of truth and legacy
+  // permissions are derived from it. Callers that don't pass it (older
+  // integrations, tests) fall back to the previous role/permission-derived
+  // defaults.
+  const explicitAppAccess = normalizeAppAccessInput(params.appAccess);
+  const permissions = explicitAppAccess
+    ? derivePermissionsFromAppAccess(explicitAppAccess)
+    : normalizePermissions(params.permissions);
 
   if (
     !params.actorUserId ||
@@ -100,7 +112,7 @@ export async function createUserWithPassword(params: {
     companyId,
   });
 
-  if (!actorMembership || actorMembership.role === "USER") {
+  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
     return { ok: false, reason: "FORBIDDEN" };
   }
 
@@ -200,6 +212,13 @@ export async function createUserWithPassword(params: {
         })),
       });
     }
+
+    await tx.membershipAppAccess.createMany({
+      data: (explicitAppAccess ?? defaultAppAccessRows(nextRole, permissions)).map((row) => ({
+        membershipId: membership.id,
+        ...row,
+      })),
+    });
 
     return {
       ok: true as const,

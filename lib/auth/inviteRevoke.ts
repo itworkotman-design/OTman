@@ -1,6 +1,7 @@
 import { AuthEventType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getActiveMembership } from "@/lib/auth/membership";
+import { getModuleAccess } from "@/lib/users/access";
 import { logAuthEvent } from "@/lib/auth/authEvent";
 
 type RevokeInviteResult =
@@ -41,7 +42,7 @@ export async function revokeInvite(params: {
     companyId: targetInvite.companyId,
   });
 
-  if (!actorMembership || actorMembership.role === "USER") {
+  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
     return { ok: false, reason: "FORBIDDEN" };
   }
 

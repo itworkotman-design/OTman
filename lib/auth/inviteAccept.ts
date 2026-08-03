@@ -5,6 +5,7 @@ import { hashInviteToken } from "@/lib/auth/inviteToken";
 import { hashPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/createSession";
 import { logAuthEvent } from "@/lib/auth/authEvent";
+import { defaultAppAccessRows } from "@/lib/users/appAccessDefaults";
 
 type AcceptInviteResult =
   | {
@@ -70,6 +71,13 @@ export async function acceptInvite(params: {
       permissions: {
         select: {
           permission: true,
+        },
+      },
+      appAccess: {
+        select: {
+          module: true,
+          enabled: true,
+          level: true,
         },
       },
     },
@@ -203,6 +211,25 @@ export async function acceptInvite(params: {
         })),
       });
     }
+
+    const appAccessRows =
+      invite.appAccess.length > 0
+        ? invite.appAccess.map((item) => ({
+            module: item.module,
+            enabled: item.enabled,
+            level: item.level,
+          }))
+        : defaultAppAccessRows(
+            invite.role,
+            invite.permissions.map((item) => item.permission),
+          );
+
+    await tx.membershipAppAccess.createMany({
+      data: appAccessRows.map((row) => ({
+        membershipId: membership.id,
+        ...row,
+      })),
+    });
 
     await tx.invite.update({
       where: {

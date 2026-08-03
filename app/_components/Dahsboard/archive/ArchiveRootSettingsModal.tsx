@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { EditableEntityRow } from "./EditableEntityRow";
+import { codeToUrlPath } from "./types";
 import type { ArchiveFolderSummary } from "./types";
 
 type ArchiveRootSettingsModalProps = {
   folders: ArchiveFolderSummary[];
   locale: string;
   onCreateFolder: (name: string, description: string | null) => Promise<{ ok: boolean; reason?: string }>;
+  onArchiveFolder: (folderId: string) => Promise<void>;
   onDeleteFolder: (folderId: string) => Promise<void>;
 };
 
@@ -15,12 +17,13 @@ type ArchiveRootSettingsModalProps = {
 // (SettingsButton/SettingsModal), unlike folder/item settings which are full
 // pages — replicated here rather than a route, since there's nothing else
 // at the root level to navigate away from.
-export function ArchiveRootSettingsModal({ folders, locale, onCreateFolder, onDeleteFolder }: ArchiveRootSettingsModalProps) {
+export function ArchiveRootSettingsModal({ folders, locale, onCreateFolder, onArchiveFolder, onDeleteFolder }: ArchiveRootSettingsModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [archivingId, setArchivingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function handleCreate() {
@@ -40,6 +43,12 @@ export function ArchiveRootSettingsModal({ folders, locale, onCreateFolder, onDe
     }
 
     setCreating(false);
+  }
+
+  async function handleArchive(folderId: string) {
+    setArchivingId(folderId);
+    await onArchiveFolder(folderId);
+    setArchivingId(null);
   }
 
   async function handleDelete(folderId: string) {
@@ -118,7 +127,9 @@ export function ArchiveRootSettingsModal({ folders, locale, onCreateFolder, onDe
                     description={folder.description}
                     status={folder.status}
                     flags={folder}
-                    settingsHref={`/dashboard/archive/${folder.id}/settings`}
+                    settingsHref={`/dashboard/archive/${codeToUrlPath(folder.code)}/settings`}
+                    onArchive={() => void handleArchive(folder.id)}
+                    archiving={archivingId === folder.id}
                     onDelete={() => void handleDelete(folder.id)}
                     deleting={deletingId === folder.id}
                     locale={locale}

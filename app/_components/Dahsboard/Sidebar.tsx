@@ -10,6 +10,7 @@ import { bookingText } from "@/lib/booking/bookingUiText";
 import { useUserLanguage } from "@/lib/users/language";
 import LanguageSwitchButton from "@/app/_components/Users/LanguageSwitchButton";
 import { getUserLogoDisplayPath } from "@/lib/users/profileAppearance";
+import { getModuleAccess } from "@/lib/users/access";
 
 type Props = {
   open: boolean;
@@ -81,6 +82,16 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
     ? { color: currentUser.usernameDisplayColor }
     : undefined;
 
+  // Fail open while currentUser is still loading (matches the pattern used
+  // by the dashboard pages themselves) — the destination page/API still
+  // enforces the real check, this only avoids a flash of a link disappearing
+  // right after it renders.
+  const showBooking = !currentUser || getModuleAccess(currentUser, "BOOKING").enabled;
+  const showWebsiteOrders = !currentUser || getModuleAccess(currentUser, "WEBSITE_ORDERS").enabled;
+  const showUserManagement = !currentUser || getModuleAccess(currentUser, "USER_MANAGEMENT").enabled;
+  const showWebsiteEditor = !currentUser || getModuleAccess(currentUser, "WEBSITE_EDITOR").enabled;
+  const showArchive = !currentUser || getModuleAccess(currentUser, "ARCHIVE").enabled;
+
   const isActive = (href: string) =>
     href === "/dashboard"
       ? pathname === "/dashboard"
@@ -144,40 +155,50 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             </div>
           </Link>
 
-          <Link href="/dashboard/booking" className={linkClass("/dashboard/booking")}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.booking} />
-              {bookingText(locale, "Booking system")}
-            </div>
-          </Link>
+          {showBooking && (
+            <Link href="/dashboard/booking" className={linkClass("/dashboard/booking")}>
+              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+                <Icon path={ICONS.booking} />
+                {bookingText(locale, "Booking system")}
+              </div>
+            </Link>
+          )}
 
-          <Link href="/dashboard/website-orders" className={linkClass("/dashboard/website-orders")}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.globe} />
-              {locale === "nb" ? "Nettsidebestillinger" : "Website orders"}
-            </div>
-          </Link>
+          {showWebsiteOrders && (
+            <Link href="/dashboard/website-orders" className={linkClass("/dashboard/website-orders")}>
+              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+                <Icon path={ICONS.globe} />
+                {locale === "nb" ? "Nettsidebestillinger" : "Website orders"}
+              </div>
+            </Link>
+          )}
 
-          <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.users} />
-              {bookingText(locale, "User management")}
-            </div>
-          </Link>
+          {showUserManagement && (
+            <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
+              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+                <Icon path={ICONS.users} />
+                {bookingText(locale, "User management")}
+              </div>
+            </Link>
+          )}
 
-          <Link href="/dashboard/website" className={linkClass("/dashboard/website")}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.edit} />
-              {bookingText(locale, "Edit website")}
-            </div>
-          </Link>
+          {showWebsiteEditor && (
+            <Link href="/dashboard/website" className={linkClass("/dashboard/website")}>
+              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+                <Icon path={ICONS.edit} />
+                {bookingText(locale, "Edit website")}
+              </div>
+            </Link>
+          )}
 
-          <Link href="/dashboard/archive" className={linkClass("/dashboard/archive")}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.edit} />
-              {bookingText(locale, "Archive")}
-            </div>
-          </Link>
+          {showArchive && (
+            <Link href="/dashboard/archive" className={linkClass("/dashboard/archive")}>
+              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+                <Icon path={ICONS.edit} />
+                {bookingText(locale, "Archive")}
+              </div>
+            </Link>
+          )}
 
           <Link
             href="https://beta.cphours.no/"

@@ -3,10 +3,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import UserModal from "@/app/_components/Dahsboard/users/UserModal";
+import { AppsRolesTab } from "@/app/_components/Dahsboard/users/AppsRolesTab";
 import { useRouter } from "next/navigation";
-import type { Role, Membership, PendingInvite } from "@/lib/users/types";
+import type { AppModule, Role, Membership, PendingInvite } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
-import { getAccessLabel } from "@/lib/users/access";
+import { ALL_MODULES, MODULE_LABELS } from "@/lib/users/appAccessDefaults";
+import { getUserLogoDisplayPath } from "@/lib/users/profileAppearance";
 import {
   normalizedIncludes,
   normalizeSearchText,
@@ -18,8 +20,83 @@ const ROLE_PRIORITY: Record<Role, number> = {
   USER: 2,
 };
 
-type SortField = "name" | "role" | "lastSeen";
-type SortDir = "asc" | "desc";
+const MODULE_BADGE_LABELS: Record<AppModule, string> = {
+  ARCHIVE: "AR",
+  BOOKING: "BK",
+  WEBSITE_EDITOR: "WE",
+  WEBSITE_ORDERS: "WO",
+  SCHEDULER: "SC",
+  USER_MANAGEMENT: "UM",
+};
+
+const APP_ICON_STACK_LIMIT = 3;
+
+function getInitial(u: Membership): string {
+  const label = u.user.username || u.user.email || "?";
+  return label.trim().charAt(0).toUpperCase() || "?";
+}
+
+function MemberAvatar({ membership }: { membership: Membership }) {
+  const logoDisplayPath = getUserLogoDisplayPath(membership.user.logoPath);
+  const bgColor = membership.user.usernameDisplayColor || "#273097";
+
+  if (logoDisplayPath) {
+    return (
+      <div className="grid h-9.5 w-9.5 shrink-0 place-items-center overflow-hidden rounded-full bg-black/5 p-1">
+        <img src={logoDisplayPath} alt="" className="h-full w-full object-contain" />
+      </div>
+    );
+  }
+
+  return (
+    <span
+      className="grid h-9.5 w-9.5 shrink-0 place-items-center rounded-full text-[13px] font-bold text-white"
+      style={{ backgroundColor: bgColor }}
+    >
+      {getInitial(membership)}
+    </span>
+  );
+}
+
+function AppAccessBadges({ appAccess }: { appAccess: Membership["appAccess"] }) {
+  const enabledModules = appAccess.filter((row) => row.enabled);
+  const stack = enabledModules.slice(0, APP_ICON_STACK_LIMIT);
+  const overflow = enabledModules.length - stack.length;
+  const tooltip = enabledModules
+    .map((row) => `${MODULE_LABELS[row.module]}: ${row.level === "ADMIN" ? "Admin" : "Viewer"}`)
+    .join(", ");
+  const countLabel =
+    enabledModules.length === 0
+      ? "No apps"
+      : `${enabledModules.length} app${enabledModules.length === 1 ? "" : "s"}`;
+
+  return (
+    <div className="flex items-center gap-2.5" title={tooltip || undefined}>
+      <div className="flex">
+        {stack.map((row) => (
+          <span
+            key={row.module}
+            className="ml-[-8px] grid h-[26px] w-[26px] place-items-center rounded-full border-2 border-white bg-logoblue text-[10.5px] font-bold text-white first:ml-0"
+          >
+            {MODULE_BADGE_LABELS[row.module]}
+          </span>
+        ))}
+        {overflow > 0 && (
+          <span className="ml-[-8px] grid h-[26px] w-[26px] place-items-center rounded-full border-2 border-white bg-black/10 text-[10.5px] font-bold text-textColorThird">
+            +{overflow}
+          </span>
+        )}
+      </div>
+      <span className="text-[12.5px] text-textColorThird">{countLabel}</span>
+    </div>
+  );
+}
+
+function getMemberStatus(u: Membership): { color: string; label: string } {
+  if (u.status !== "ACTIVE") return { color: "#c0392b", label: "Disabled" };
+  if (u.isOnline) return { color: "#2e9e6b", label: "Online" };
+  return { color: "#a3a3a3", label: "Offline" };
+}
 
 function formatLastSeen(lastSeenAt: string | null | undefined, isOnline: boolean): string {
   if (isOnline) return "Online";
@@ -35,30 +112,18 @@ function formatLastSeen(lastSeenAt: string | null | undefined, isOnline: boolean
   return new Date(lastSeenAt).toLocaleDateString();
 }
 
-function getRoleRowClass(role: Role) {
-  switch (role) {
-    case "OWNER":
-      return "bg-red-500/30 hover:bg-red-500/40";
-    case "ADMIN":
-      return "bg-amber-500/30 hover:bg-amber-500/40";
-    case "USER":
-    default:
-      return "bg-blue-500/30 hover:bg-blue-500/40";
-  }
-}
+type PageTab = "USERS" | "APPS_ROLES";
 
 export default function UserPage() {
   const currentUser = useCurrentUser();
   const currentUserRole = currentUser?.role ?? "USER";
+  const [activeTab, setActiveTab] = useState<PageTab>("USERS");
   const [modalKey, setModalKey] = useState(0);
   const [users, setUsers] = useState<Membership[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Membership | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [roleFilter, setRoleFilter] = useState<string>("");
+  const [appFilter, setAppFilter] = useState<AppModule | "">("");
   const [query, setQuery] = useState<string>("");
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [priceLists, setPriceLists] = useState<{ id: string; name: string }[]>(
@@ -66,6 +131,7 @@ export default function UserPage() {
   );
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -149,21 +215,12 @@ export default function UserPage() {
     };
   }, [loadUsers, open]);
 
-  function handleSort(field: SortField) {
-    if (sortField === field) {
-      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDir(field === "lastSeen" ? "desc" : "asc");
-    }
-  }
-
   const filteredUsers = useMemo(() => {
     const normalizedQuery = normalizeSearchText(query);
 
     return users
       .filter((u) => {
-        const roleOk = !roleFilter || u.role === roleFilter;
+        const appOk = !appFilter || u.appAccess?.some((a) => a.module === appFilter && a.enabled);
         const queryOk =
           !normalizedQuery ||
           normalizedIncludes(u.user.username, normalizedQuery) ||
@@ -174,29 +231,9 @@ export default function UserPage() {
           normalizedIncludes(u.role, normalizedQuery) ||
           normalizedIncludes(u.id, normalizedQuery);
 
-        return roleOk && queryOk;
+        return appOk && queryOk;
       })
       .toSorted((a, b) => {
-        if (sortField) {
-          const dir = sortDir === "asc" ? 1 : -1;
-          if (sortField === "name") {
-            const labelA = (a.user.username || a.user.email).toLowerCase();
-            const labelB = (b.user.username || b.user.email).toLowerCase();
-            return labelA.localeCompare(labelB) * dir;
-          }
-          if (sortField === "role") {
-            const ra = ROLE_PRIORITY[a.role] ?? 99;
-            const rb = ROLE_PRIORITY[b.role] ?? 99;
-            return (ra - rb) * dir;
-          }
-          if (sortField === "lastSeen") {
-            const ta = a.lastSeenAt ? new Date(a.lastSeenAt).getTime() : 0;
-            const tb = b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0;
-            return (ta - tb) * dir;
-          }
-          return 0;
-        }
-
         const onlinePriorityA = a.isOnline ? 0 : 1;
         const onlinePriorityB = b.isOnline ? 0 : 1;
         if (onlinePriorityA !== onlinePriorityB) return onlinePriorityA - onlinePriorityB;
@@ -213,11 +250,7 @@ export default function UserPage() {
         const labelB = (b.user.username || b.user.email).toLowerCase();
         return labelA.localeCompare(labelB);
       });
-  }, [users, roleFilter, query, sortField, sortDir]);
-
-  const visibleIds = filteredUsers.map((u) => u.id);
-  const allVisibleSelected =
-    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+  }, [users, appFilter, query]);
 
   async function toggleMembership(target: Membership) {
     const route =
@@ -295,10 +328,35 @@ export default function UserPage() {
 
   return (
     <div className="min-w-0 max-w-1800">
-      <h1 className="mb-20 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
+      <h1 className="mb-8 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
         User management
       </h1>
 
+      <div className="mb-12 flex gap-2 border-b border-lineSecondary">
+        {(
+          [
+            { id: "USERS" as const, label: "Users" },
+            { id: "APPS_ROLES" as const, label: "Apps & roles" },
+          ]
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab.id
+                ? "border-logoblue text-logoblue"
+                : "border-transparent text-textColorThird hover:text-textColorSecond"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "APPS_ROLES" && <AppsRolesTab memberships={users} />}
+
+    {activeTab === "USERS" && (
     <div className="mx-auto min-w-0 w-full max-w-1800">
         <UserModal
           key={`${selectedUser?.id ?? "new"}-${modalKey}`}
@@ -324,11 +382,7 @@ export default function UserPage() {
           initialValueActive={
             selectedUser ? selectedUser.status === "ACTIVE" : true
           }
-          initialValuePermissions={
-            selectedUser?.permissions?.map((p) => p.permission) ?? [
-              "BOOKING_VIEW",
-            ]
-          }
+          initialValueAppAccess={selectedUser?.appAccess}
           priceLists={priceLists}
           initialPriceListIds={selectedUser?.priceListIds ?? []}
           onSave={async (data) => {
@@ -365,7 +419,7 @@ export default function UserPage() {
                       logoPath,
                       usernameDisplayColor: data.usernameDisplayColor || null,
                       priceListId: data.priceListIds[0] ?? null,
-                      permissions: data.permissions,
+                      appAccess: data.appAccess,
                     }
                   : {
                       email: data.email,
@@ -378,7 +432,7 @@ export default function UserPage() {
                       logoPath,
                       usernameDisplayColor: data.usernameDisplayColor || null,
                       priceListIds: data.priceListIds,
-                      permissions: data.permissions,
+                      appAccess: data.appAccess,
                       password: data.password,
                       confirmPassword: data.confirmPassword,
                     };
@@ -423,7 +477,6 @@ export default function UserPage() {
                   logoPath,
                   usernameDisplayColor: data.usernameDisplayColor || null,
                   priceListIds: data.priceListIds,
-                  permissions: data.permissions,
                 }),
               },
             );
@@ -432,6 +485,23 @@ export default function UserPage() {
 
             if (!profileRes.ok || !profileResult?.ok) {
               alert(profileResult?.reason || "Failed to update user");
+              return;
+            }
+
+            const appAccessRes = await fetch(
+              `/api/auth/memberships/${selectedUser.id}/app-access`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ appAccess: data.appAccess }),
+              },
+            );
+
+            const appAccessResult = await appAccessRes.json().catch(() => null);
+
+            if (!appAccessRes.ok || !appAccessResult?.ok) {
+              alert(appAccessResult?.reason || "Failed to update access");
               return;
             }
 
@@ -451,61 +521,64 @@ export default function UserPage() {
           }}
         />
 
-        <div className="min-w-0 max-w-500 overflow-x-auto [-webkit-overflow-scrolling:touch]">
-          <div className="min-w-375 w-full">
-            <div className="shadow-xs flex flex-wrap gap-2 pb-2">
-              <div className="whitespace-nowrap">
-                <select
-                  className="customInput mr-2 cursor-pointer duration-200 hover:bg-black/3"
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                >
-                  <option value="">Role</option>
-                  <option value="OWNER">Owner</option>
-                  <option value="ADMIN">Admin</option>
-                  <option value="USER">User</option>
-                </select>
+        <div className="min-w-0 w-full">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <select
+              className="min-w-[170] cursor-pointer rounded-full border border-black/10 px-4 py-2 text-[13.5px] font-semibold text-textcolor"
+              value={appFilter}
+              onChange={(e) => setAppFilter(e.target.value as AppModule | "")}
+            >
+              <option value="">All apps</option>
+              {ALL_MODULES.map((module) => (
+                <option key={module} value={module}>
+                  {MODULE_LABELS[module]}
+                </option>
+              ))}
+            </select>
 
-                <input
-                  className="customInput w-60"
-                  placeholder="Search email, role, id"
-                  type="search"
-                  name="membership-search"
-                  autoComplete="off"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </div>
+            <input
+              className="min-w-[220] max-w-90 flex-1 rounded-full border border-black/10 px-4 py-2 text-[13.5px]"
+              placeholder="Search name, email, id"
+              type="search"
+              name="membership-search"
+              autoComplete="off"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
 
-              <div className="ml-auto flex gap-2">
-                <button
-                  className="customButtonDefault"
-                  onClick={() => {
-                    setSelectedUser(null);
-                    setModalKey((prev) => prev + 1);
-                    setOpen(true);
-                  }}
-                >
-                  Add User
-                </button>
+            <div className="flex-1" />
 
-                <button
-                  className="customButtonDefault hidden hover:bg-black/3! lg:block"
-                  disabled
-                >
-                  Export
-                </button>
-              </div>
-            </div>
+            <button
+              type="button"
+              className="rounded-full border border-black/10 bg-white px-4.5 py-2 text-[13px] font-semibold text-textColorSecond hover:bg-black/3"
+              disabled
+            >
+              Export
+            </button>
 
+            <button
+              type="button"
+              className="rounded-full bg-logoblue px-5.5 py-2.5 text-sm font-bold text-white shadow-[0_2px_8px_rgba(39,48,151,.25)] hover:opacity-90"
+              onClick={() => {
+                setSelectedUser(null);
+                setModalKey((prev) => prev + 1);
+                setOpen(true);
+              }}
+            >
+              + Add user
+            </button>
+          </div>
+
+          <div className="min-w-0 w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
+            <div className="min-w-375 w-full">
             {!loading && !error && pendingInvites.length > 0 && (
-              <div className="mb-6">
-                <h2 className="mb-2 text-base font-semibold text-textColorSecond">
+              <div className="mb-6 overflow-hidden rounded-[20px] border border-black/8">
+                <h2 className="border-b border-black/8 bg-amber-500/10 px-5 py-3 text-sm font-bold text-textColorSecond">
                   Pending Invitations ({pendingInvites.length})
                 </h2>
-                <table className="w-full border-y border-black/10">
+                <table className="w-full">
                   <thead>
-                    <tr className="border-y border-black/10 bg-amber-500/10 text-left text-textColorSecond">
+                    <tr className="border-b border-black/8 bg-amber-500/10 text-left text-textColorSecond">
                       <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
                         Username
                       </th>
@@ -580,174 +653,130 @@ export default function UserPage() {
             ) : error ? (
               <div className="py-6 text-red-600">{error}</div>
             ) : (
-              <table className="w-full border-y border-black/10">
-              <thead>
-                <tr className="border-y border-black/10 bg-black/3 text-left text-textColorSecond">
-                  <th className="table-cell whitespace-nowrap border-r border-black/3 px-1 py-3 text-center font-medium">
-                    <input
-                      checked={allVisibleSelected}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedIds((prev) =>
-                            Array.from(new Set([...prev, ...visibleIds])),
-                          );
-                        } else {
-                          setSelectedIds((prev) =>
-                            prev.filter((id) => !visibleIds.includes(id)),
-                          );
-                        }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      type="checkbox"
-                      className="h-4 w-4"
-                      aria-label="Select all"
-                    />
-                  </th>
+              <div className="overflow-hidden rounded-[20px] border border-black/8">
+                <div className="grid grid-cols-[1.8fr_1.6fr_1fr_1fr_auto] gap-3 bg-logoblue/4 px-5 py-3.5 text-xs font-bold tracking-wide text-logoblue uppercase">
+                  <div>User</div>
+                  <div>Apps</div>
+                  <div>Last seen</div>
+                  <div>Status</div>
+                  <div />
+                </div>
 
-                  <th
-                    className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium cursor-pointer select-none hover:bg-black/5"
-                    onClick={() => handleSort("name")}
-                  >
-                    Username {sortField === "name" ? (sortDir === "asc" ? "↑" : "↓") : <span className="opacity-30">↕</span>}
-                  </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    Email
-                  </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    Number
-                  </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    Description
-                  </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    Online
-                  </th>
-                  <th
-                    className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium cursor-pointer select-none hover:bg-black/5"
-                    onClick={() => handleSort("role")}
-                  >
-                    Role {sortField === "role" ? (sortDir === "asc" ? "↑" : "↓") : <span className="opacity-30">↕</span>}
-                  </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    Price List
-                  </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    Access
-                  </th>
-                  <th
-                    className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium cursor-pointer select-none hover:bg-black/5"
-                    onClick={() => handleSort("lastSeen")}
-                  >
-                    Last seen {sortField === "lastSeen" ? (sortDir === "asc" ? "↑" : "↓") : <span className="opacity-30">↕</span>}
-                  </th>
-                  <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">
-                    Created
-                  </th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium">
-                    Active
-                  </th>
-                </tr>
-              </thead>
+                {filteredUsers.map((u) => {
+                  const status = getMemberStatus(u);
 
-              <tbody>
-                {filteredUsers.map((u) => (
-                  <tr
-                    key={u.id}
-                    className={`cursor-pointer border-b border-black/10 transition-colors ${getRoleRowClass(
-                      u.role,
-                    )} ${u.status !== "ACTIVE" ? "opacity-50" : ""}`}
-                    onClick={() => {
-                      setSelectedUser(u);
-                      setOpen(true);
-                    }}
-                  >
-                    <td className="text-center">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4"
-                        onChange={(e) => {
-                          setSelectedIds((prev) =>
-                            e.target.checked
-                              ? [...prev, u.id]
-                              : prev.filter((id) => id !== u.id),
-                          );
-                        }}
-                        checked={selectedIds.includes(u.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={`Select user ${u.id}`}
-                      />
-                    </td>
-
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {u.user.username || "-"}
-                    </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {u.user.email}
-                    </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {u.user.phoneNumber || "-"}
-                    </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      <div className="max-w-[220] truncate">
-                        {u.user.description || "-"}
-                      </div>
-                    </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-block h-2.5 w-2.5 rounded-full ${
-                            u.isOnline ? "bg-green-500" : "bg-gray-400"
-                          }`}
-                        />
-                        <span
-                          className={
-                            u.isOnline ? "text-green-700" : "text-gray-500"
-                          }
-                        >
-                          {u.isOnline ? "Online" : "Offline"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {u.role}
-                    </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {u.priceListIds?.length
-                        ? u.priceListIds
-                            .map((id) => priceLists.find((pl) => pl.id === id)?.name)
-                            .filter(Boolean)
-                            .join(", ")
-                        : "-"}
-                    </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {getAccessLabel(
-                        u.role,
-                        u.permissions?.map((p) => p.permission) ?? [],
-                      ) || "-"}
-                    </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      <span className={u.isOnline ? "text-green-700" : ""}>
-                        {formatLastSeen(u.lastSeenAt, !!u.isOnline)}
-                      </span>
-                    </td>
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
-                      {new Date(u.createdAt).toLocaleDateString()}
-                    </td>
-                    <td
-                      className={`px-4 py-2 font-semibold text-textColorThird ${
-                        u.status !== "ACTIVE" ? "text-red-600" : ""
-                      }`}
+                  return (
+                    <div
+                      key={u.id}
+                      className="grid grid-cols-[1.8fr_1.6fr_1fr_1fr_auto] items-center gap-3 border-t border-black/6 px-5 py-4"
                     >
-                      {u.status === "ACTIVE" ? "Active" : "Disabled"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              </table>
+                      <button
+                        type="button"
+                        className="flex min-w-0 cursor-pointer items-center gap-3 text-left"
+                        onClick={() => {
+                          setSelectedUser(u);
+                          setOpen(true);
+                        }}
+                      >
+                        <MemberAvatar membership={u} />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-bold text-textcolor">{u.user.username || "-"}</div>
+                          <div className="truncate text-[12.5px] text-textColorThird">{u.user.email}</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="flex cursor-pointer items-center text-left"
+                        onClick={() => {
+                          setSelectedUser(u);
+                          setOpen(true);
+                        }}
+                      >
+                        <AppAccessBadges appAccess={u.appAccess ?? []} />
+                      </button>
+
+                      <div className="text-[13px] text-textColorSecond">
+                        {formatLastSeen(u.lastSeenAt, !!u.isOnline)}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: status.color }}>
+                        <span className="h-1.75 w-1.75 rounded-full" style={{ backgroundColor: status.color }} />
+                        {status.label}
+                      </div>
+
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="grid h-8 w-8 place-items-center rounded-full text-lg leading-none text-textColorThird hover:bg-black/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId((prev) => (prev === u.id ? null : u.id));
+                          }}
+                          aria-label={`Actions for ${u.user.username || u.user.email}`}
+                        >
+                          ⋮
+                        </button>
+
+                        {openMenuId === u.id && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(null);
+                              }}
+                            />
+                            <div
+                              className="absolute right-0 top-9 z-20 w-47.5 rounded-xl border border-black/10 bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,.14)]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                className="block w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-textcolor hover:bg-black/5"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setSelectedUser(u);
+                                  setOpen(true);
+                                }}
+                              >
+                                Edit user
+                              </button>
+                              <button
+                                type="button"
+                                className="block w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-textcolor hover:bg-black/5"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  if (
+                                    !confirm(
+                                      u.status === "ACTIVE" ? "Disable this user?" : "Enable this user?",
+                                    )
+                                  ) {
+                                    return;
+                                  }
+                                  void toggleMembership(u);
+                                }}
+                              >
+                                {u.status === "ACTIVE" ? "Disable user" : "Enable user"}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {filteredUsers.length === 0 && (
+                  <div className="px-5 py-10 text-center text-sm text-textColorThird">No users match your filters.</div>
+                )}
+              </div>
             )}
+            </div>
           </div>
         </div>
       </div>
+    )}
     </div>
   );
 }

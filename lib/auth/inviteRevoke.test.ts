@@ -46,6 +46,7 @@ describe("revokeInvite", () => {
       companyId: "company-1",
       role: "OWNER",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.updateManyMock.mockResolvedValue({ count: 1 });
@@ -135,6 +136,7 @@ describe("revokeInvite", () => {
       companyId: "company-1",
       role: "USER",
       status: "ACTIVE",
+      appAccess: [],
     });
 
     const result = await revokeInvite({
@@ -153,6 +155,7 @@ describe("revokeInvite", () => {
       companyId: "company-1",
       role: "ADMIN",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.findUniqueMock.mockResolvedValue({

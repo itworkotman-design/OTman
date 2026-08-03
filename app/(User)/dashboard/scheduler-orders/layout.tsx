@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
-import { canManageAutomaticOrders } from "@/lib/users/orderAccess";
+import { getModuleAccess } from "@/lib/users/access";
 import AutomaticOrdersShell from "@/app/_components/Dahsboard/automaticOrders/AutomaticOrdersShell";
 
 export default async function AutomaticOrdersLayout({
@@ -42,7 +42,7 @@ export default async function AutomaticOrdersLayout({
     redirect("/login");
   }
 
-  if (!canManageAutomaticOrders(membership.role)) {
+  if (!getModuleAccess(membership, "SCHEDULER").enabled) {
     redirect("/dashboard");
   }
 

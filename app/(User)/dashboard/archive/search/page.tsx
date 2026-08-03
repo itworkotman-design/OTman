@@ -4,14 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { canAccessArchive } from "@/lib/users/access";
+import { getModuleAccess } from "@/lib/users/access";
 import { bookingText } from "@/lib/booking/bookingUiText";
+import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderResult = {
   id: string;
   name: string;
   description: string | null;
   status: string;
+  code: string;
 };
 
 type ArchiveItemResult = {
@@ -20,6 +22,7 @@ type ArchiveItemResult = {
   name: string;
   description: string | null;
   status: string;
+  code: string;
 };
 
 type FolderSearchResponse = {
@@ -41,7 +44,7 @@ const STATUS_OPTIONS = ["", "active", "inactive", "draft", "archived"] as const;
 export default function ArchiveSearchPage() {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const hasAccess = currentUser ? canAccessArchive(currentUser.role, currentUser.permissions) : true;
+  const hasAccess = !currentUser || getModuleAccess(currentUser, "ARCHIVE").enabled;
 
   const [nameContains, setNameContains] = useState("");
   const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]>("");
@@ -258,7 +261,7 @@ export default function ArchiveSearchPage() {
                 {folders.map((folder) => (
                   <Link
                     key={folder.id}
-                    href={`/dashboard/archive/${folder.id}`}
+                    href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
                     className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary"
                   >
                     <div className="min-w-0 flex-1">
@@ -303,7 +306,7 @@ export default function ArchiveSearchPage() {
                 {items.map((item) => (
                   <Link
                     key={item.id}
-                    href={`/dashboard/archive/${item.folderId}`}
+                    href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
                     className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary"
                   >
                     <div className="min-w-0 flex-1">

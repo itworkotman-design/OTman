@@ -37,6 +37,10 @@ function mockMembership(role: "OWNER" | "ADMIN" | "USER") {
     role,
     membershipPriceLists: [],
     permissions: [],
+    appAccess:
+      role === "OWNER" || role === "ADMIN"
+        ? [{ module: "WEBSITE_EDITOR", enabled: true, level: "ADMIN" }]
+        : [],
   });
 }
 

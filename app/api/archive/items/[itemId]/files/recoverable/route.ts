@@ -7,7 +7,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ itemId: string }> },
 ) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { itemId } = await params;

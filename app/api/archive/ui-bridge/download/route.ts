@@ -11,7 +11,7 @@ import { requireArchiveMembership } from "@/lib/docArchive/route";
 // travel through `fetch(...).json()` as-is, so content is base64-encoded for
 // the wire and decoded back into a Uint8Array on the client.
 export async function POST(req: Request) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const body = await req.json().catch(() => null);

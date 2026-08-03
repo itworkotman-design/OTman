@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
     userUpdateMock: vi.fn(),
     membershipCreateMock: vi.fn(),
     membershipPriceListCreateMock: vi.fn(),
+    membershipAppAccessCreateManyMock: vi.fn(),
     inviteUpdateMock: vi.fn(),
     hashPasswordMock: vi.fn(),
     createSessionMock: vi.fn(),
@@ -73,6 +74,7 @@ describe("acceptInvite", () => {
       usernameDisplayColor: null,
       priceListId: null,
       permissions: [],
+      appAccess: [],
     });
 
     mocks.findUniqueUserMock.mockResolvedValue(null);
@@ -90,6 +92,8 @@ describe("acceptInvite", () => {
       id: "membership-price-list-1",
     });
 
+    mocks.membershipAppAccessCreateManyMock.mockResolvedValue({ count: 0 });
+
     mocks.inviteUpdateMock.mockResolvedValue({
       id: "invite-1",
     });
@@ -105,6 +109,9 @@ describe("acceptInvite", () => {
         },
         membershipPriceList: {
           create: mocks.membershipPriceListCreateMock,
+        },
+        membershipAppAccess: {
+          createMany: mocks.membershipAppAccessCreateManyMock,
         },
         invite: {
           update: mocks.inviteUpdateMock,
@@ -184,6 +191,13 @@ describe("acceptInvite", () => {
         permissions: {
           select: {
             permission: true,
+          },
+        },
+        appAccess: {
+          select: {
+            module: true,
+            enabled: true,
+            level: true,
           },
         },
       },
@@ -307,6 +321,17 @@ describe("acceptInvite", () => {
 
     expect(mocks.membershipPriceListCreateMock).not.toHaveBeenCalled();
 
+    expect(mocks.membershipAppAccessCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        { membershipId: "membership-1", module: "ARCHIVE", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "BOOKING", enabled: false, level: "VIEWER" },
+        { membershipId: "membership-1", module: "WEBSITE_EDITOR", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "WEBSITE_ORDERS", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "SCHEDULER", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "USER_MANAGEMENT", enabled: false, level: "ADMIN" },
+      ],
+    });
+
     expect(mocks.inviteUpdateMock).toHaveBeenCalledWith({
       where: {
         id: "invite-1",
@@ -359,6 +384,7 @@ describe("acceptInvite", () => {
       usernameDisplayColor: null,
       priceListId: "price-list-1",
       permissions: [],
+      appAccess: [],
     });
 
     const result = await acceptInvite({

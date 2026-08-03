@@ -16,12 +16,64 @@ import {
   makeFieldUpdater,
   makeSelectUpdater,
   togglePriceListId,
-  toggleArchivePermission,
-  getAccessTypeFromPermissions,
-  getPermissionsFromAccessType,
-  type UserAccessType,
-  type AppPermission,
+  updateAppAccessModule,
 } from "@/lib/users/userModal";
+import { defaultAppAccessRows, MODULE_COLORS, MODULE_LABELS } from "@/lib/users/appAccessDefaults";
+import type { AppModule, Role } from "@/lib/users/types";
+
+const AVATAR_COLOR_SWATCHES = ["#273097", "#7a5cc7", "#2e9e6b", "#c67139", "#c0507a", "#3a8fb7"];
+
+type EditSection = "GENERAL" | "ACCESS" | "SECURITY";
+
+const SECTIONS: { id: EditSection; label: string }[] = [
+  { id: "GENERAL", label: "General" },
+  { id: "ACCESS", label: "App access & roles" },
+  { id: "SECURITY", label: "Security" },
+];
+
+// Booking is the one module where the legacy Permission system already
+// draws a real distinction between the two non-admin levels — "Viewer" is
+// a Subcontractor (read-only), "Admin" is an Order creator (can create
+// orders) — see lib/users/access.ts's isSubcontractorAccess/isOrderCreatorAccess.
+// That only applies to plain USER-role members though: an OWNER/ADMIN gets
+// full Booking access regardless of their own level (lib/orders/archiveAccess.ts
+// short-circuits on company Role first), so the generic Viewer/Admin labels
+// stay accurate for them instead of implying a restriction that isn't real.
+function getLevelOptionLabels(module: AppModule, role: string): { viewer: string; admin: string } {
+  if (module === "BOOKING" && role === "USER") {
+    return { viewer: "Subcontractor", admin: "Order creator" };
+  }
+  return { viewer: "Viewer", admin: "Admin" };
+}
+
+function ToggleSwitch({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative h-6 w-10.5 shrink-0 rounded-full transition-colors ${
+        checked ? "bg-logoblue" : "bg-black/15"
+      } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+    >
+      <span
+        className={`absolute top-0.75 h-4.5 w-4.5 rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-5.25" : "translate-x-0.75"
+        }`}
+      />
+    </button>
+  );
+}
 
 export default function UserModal({
   isOpen,
@@ -41,11 +93,13 @@ export default function UserModal({
   initialValueUsernameDisplayColor,
   initialValueRole,
   initialValueActive,
-  initialValuePermissions,
+  initialValueAppAccess,
   priceLists,
   initialPriceListIds,
 }: UserModalProps) {
   const isCreateMode = !initialValueEmail;
+
+  const [section, setSection] = useState<EditSection>("GENERAL");
 
   const [form, setForm] = useState(() =>
     buildInitialForm({
@@ -59,7 +113,7 @@ export default function UserModal({
       initialValueUsernameDisplayColor,
       initialValueRole,
       initialValueActive,
-      initialValuePermissions,
+      initialValueAppAccess,
       initialPriceListIds,
     }),
   );
@@ -78,10 +132,11 @@ export default function UserModal({
         initialValueUsernameDisplayColor,
         initialValueRole,
         initialValueActive,
-        initialValuePermissions,
+        initialValueAppAccess,
         initialPriceListIds,
       }),
     );
+    setSection("GENERAL");
   }, [isOpen, formResetKey]);
   const [sendingReset, setSendingReset] = useState(false);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(
@@ -96,7 +151,6 @@ export default function UserModal({
   const updateUsernameDisplayColor = (value: string) => setForm((prev) => ({ ...prev, usernameDisplayColor: value }));
 
   const handleTogglePriceList = (id: string) => togglePriceListId(id, setForm);
-  const handleToggleArchiveAccess = () => toggleArchivePermission(setForm);
   const updateProvisionMode = makeSelectUpdater("provisionMode", setForm);
 
   useEffect(() => {
@@ -118,45 +172,20 @@ export default function UserModal({
   const updateRole = (e: ChangeEvent<HTMLSelectElement>) => {
     const nextRole = e.target.value;
 
-    setForm((prev) => {
-      const bookingPermissions: AppPermission[] =
-        nextRole === "ADMIN" || nextRole === "OWNER"
-          ? ["BOOKING_VIEW", "BOOKING_CREATE"]
-          : prev.permissions.includes("BOOKING_CREATE")
-            ? ["BOOKING_VIEW", "BOOKING_CREATE"]
-            : ["BOOKING_VIEW"];
-
-      return {
-        ...prev,
-        role: nextRole,
-        permissions: prev.permissions.includes("ARCHIVE_VIEW")
-          ? [...bookingPermissions, "ARCHIVE_VIEW"]
-          : bookingPermissions,
-      };
-    });
+    setForm((prev) => ({
+      ...prev,
+      role: nextRole,
+      // Access is independent of company Role once a person exists — changing
+      // Role never silently overwrites their per-app grants. For a brand new
+      // user there's nothing to preserve yet, so default the access matrix
+      // from the newly selected Role instead.
+      appAccess: isCreateMode ? defaultAppAccessRows(nextRole as Role, []) : prev.appAccess,
+    }));
   };
 
-  const accessType = getAccessTypeFromPermissions(form.permissions);
   const shouldShowProvisionSelector = isCreateMode;
   const shouldShowPasswordInputs = isCreateMode && form.provisionMode === "DIRECT_PASSWORD";
   const colorPreview = form.usernameDisplayColor || "#273097";
-
-  const updateAccessType = (e: ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value as UserAccessType;
-
-    setForm((prev) => {
-      const bookingPermissions = getPermissionsFromAccessType(value);
-
-      return {
-        ...prev,
-        permissions: prev.permissions.includes("ARCHIVE_VIEW")
-          ? [...bookingPermissions, "ARCHIVE_VIEW"]
-          : bookingPermissions,
-      };
-    });
-  };
-
-  const shouldShowAccessSelector = form.role === "USER";
 
   async function handleSendReset() {
     if (!form.email) {
@@ -247,251 +276,406 @@ export default function UserModal({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
       onKeyDown={(e) => {
         if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
           e.preventDefault();
         }
       }}
     >
-      <div className="customContainer max-h-[90vh] w-full max-w-[1000] overflow-y-auto bg-white">
-        <div className="grid grid-cols-3 items-start">
-          <div />
-          <h1 className="whitespace-nowrap text-center text-3xl font-semibold text-logoblue">{isCreateMode ? "Add User" : "Edit User"}</h1>
-          <button className="ml-auto grid h-9 w-9 place-items-center rounded-full bg-logoblue text-white cursor-pointer" onClick={onClose} type="button">
-            x
-          </button>
+      <div className="relative max-h-[90vh] w-full max-w-[1040] overflow-y-auto rounded-3xl bg-white p-9 shadow-[0_20px_60px_rgba(0,0,0,.25)]">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-8 top-7 grid h-8.5 w-8.5 cursor-pointer place-items-center rounded-full bg-logoblue text-white"
+        >
+          ✕
+        </button>
+
+        <h1 className="mb-6 text-center text-[26px] font-extrabold text-logoblue">
+          {isCreateMode ? "Add user" : "Edit user"}
+        </h1>
+
+        <div className="mb-7 flex gap-1 border-b border-black/8">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setSection(s.id)}
+              className={`-mb-px mr-6 border-b-2 px-1 py-2.5 text-sm font-bold transition-colors ${
+                section === s.id
+                  ? "border-logoblue text-logoblue"
+                  : "border-transparent text-textColorThird hover:text-textColorSecond"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
 
-        <div className="mx-auto w-full max-w-[800]">
-          <div className="mt-6 gap-8 lg:flex lg:gap-10">
-            <div className="flex-1">
-              <h2 className="pl-2 pb-2 font-semibold text-logoblue">General</h2>
+        {section === "GENERAL" && (
+          <div className="mx-auto w-full max-w-[760]">
+            <div className="mb-6 flex flex-wrap items-start gap-6">
+              <div className="flex flex-col items-center gap-2">
+                {logoPreviewUrl ? (
+                  <div className="grid h-21 w-21 shrink-0 place-items-center overflow-hidden rounded-full bg-black/5 p-2">
+                    <img src={logoPreviewUrl} alt="User logo preview" className="h-full w-full object-contain" />
+                  </div>
+                ) : (
+                  <div
+                    className="grid h-21 w-21 place-items-center rounded-full text-2xl font-bold text-white"
+                    style={{ backgroundColor: colorPreview }}
+                  >
+                    {(form.username || form.email || "?").trim().charAt(0).toUpperCase()}
+                  </div>
+                )}
 
-              <label className="block pl-2 pb-2">Username</label>
-              <input
-                className="customInput mb-2 w-full"
-                value={form.username || ""}
-                onChange={updateField("username")}
-                type="text"
-                autoComplete="off"
-                disabled={!canEditTarget}
-              />
+                <div className="flex gap-2">
+                  <label
+                    className={`rounded-full border border-black/10 px-3 py-1 text-xs font-semibold text-textColorSecond ${
+                      canEditTarget ? "cursor-pointer hover:bg-black/3" : "cursor-not-allowed opacity-50"
+                    }`}
+                  >
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      onChange={handleLogoChange}
+                      disabled={!canEditTarget}
+                      className="hidden"
+                    />
+                  </label>
+                  {logoPreviewUrl && (
+                    <button
+                      type="button"
+                      className="rounded-full border border-black/10 px-3 py-1 text-xs font-semibold text-textColorSecond hover:bg-black/3"
+                      onClick={handleRemoveLogo}
+                      disabled={!canEditTarget}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
 
-              <label className="block pl-2 pb-2">Email</label>
-              <input
-                className="customInput mb-2 w-full"
-                value={form.email}
-                onChange={updateField("email")}
-                type="email"
-                autoComplete={isCreateMode ? "off" : "email"}
-                disabled={!canEditTarget}
-              />
+              <div className="min-w-52 flex-1">
+                <div className="mb-2 text-sm font-semibold text-textcolor">Username display color</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {AVATAR_COLOR_SWATCHES.map((swatch) => (
+                    <button
+                      key={swatch}
+                      type="button"
+                      onClick={() => updateUsernameDisplayColor(swatch)}
+                      disabled={!canEditTarget}
+                      aria-label={swatch}
+                      className={`h-7 w-7 rounded-full border-2 ${
+                        colorPreview.toLowerCase() === swatch ? "border-logoblue" : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: swatch }}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={colorPreview}
+                    onChange={(e) => updateUsernameDisplayColor(e.target.value)}
+                    disabled={!canEditTarget}
+                    title="Custom color"
+                    className="h-7 w-7 cursor-pointer rounded-full border border-lineSecondary p-0"
+                  />
+                  <button
+                    type="button"
+                    className="rounded-full border border-black/10 px-3 py-1 text-xs font-semibold text-textColorThird hover:bg-black/3"
+                    onClick={() => updateUsernameDisplayColor("")}
+                    disabled={!canEditTarget}
+                  >
+                    Clear color
+                  </button>
+                </div>
+                <div className="mt-3 font-semibold" style={{ color: colorPreview }}>
+                  {form.username || form.email || "Preview"}
+                </div>
+              </div>
+            </div>
 
-              <label className="block pl-2 pb-2">Warehouse email</label>
-              <input
-                className="customInput mb-2 w-full"
-                value={form.warehouseEmail}
-                onChange={updateField("warehouseEmail")}
-                type="email"
-                autoComplete="off"
-                disabled={!canEditTarget}
-              />
+            <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+              <div>
+                <label className="block pb-1.5 text-sm font-semibold text-textcolor">Username</label>
+                <input
+                  className="customInput w-full"
+                  value={form.username || ""}
+                  onChange={updateField("username")}
+                  type="text"
+                  autoComplete="off"
+                  disabled={!canEditTarget}
+                />
+              </div>
 
-              <label className="block pl-2 pb-2">Number</label>
-              <input
-                className="customInput mb-2 w-full"
-                value={form.phoneNumber || ""}
-                onChange={updateField("phoneNumber")}
-                type="tel"
-                autoComplete="off"
-                disabled={!canEditTarget}
-              />
+              <div>
+                <label className="block pb-1.5 text-sm font-semibold text-textcolor">Number</label>
+                <input
+                  className="customInput w-full"
+                  value={form.phoneNumber || ""}
+                  onChange={updateField("phoneNumber")}
+                  type="tel"
+                  autoComplete="off"
+                  disabled={!canEditTarget}
+                />
+              </div>
 
-              <label className="block pl-2 pb-2">Address</label>
-              <div className="mb-2">
+              <div>
+                <label className="block pb-1.5 text-sm font-semibold text-textcolor">Email</label>
+                <input
+                  className="customInput w-full"
+                  value={form.email}
+                  onChange={updateField("email")}
+                  type="email"
+                  autoComplete={isCreateMode ? "off" : "email"}
+                  disabled={!canEditTarget}
+                />
+              </div>
+
+              <div>
+                <label className="block pb-1.5 text-sm font-semibold text-textcolor">Warehouse email</label>
+                <input
+                  className="customInput w-full"
+                  value={form.warehouseEmail}
+                  onChange={updateField("warehouseEmail")}
+                  type="email"
+                  autoComplete="off"
+                  disabled={!canEditTarget}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block pb-1.5 text-sm font-semibold text-textcolor">Address</label>
                 <AddressAutocompleteInput value={form.address} onChange={updateAddress} placeholder="Enter an address" disabled={!canEditTarget} />
               </div>
 
-              <label className="block pl-2 pb-2">Description</label>
-              <textarea
-                className="customInput mb-2 min-h-[120] w-full resize-y"
-                value={form.description}
-                onChange={updateField("description")}
-                placeholder="Description"
-                disabled={!canEditTarget}
-              />
-
-              <label className="block pl-2 pb-2">Logo</label>
-              <div className="mb-4 rounded-lg border border-lineSecondary p-4">
-                {logoPreviewUrl ? (
-                  <div className="mb-3 flex items-center gap-3">
-                    <img src={logoPreviewUrl} alt="User logo preview" className="h-14 w-14 object-contain" />
-                    <button type="button" className="customButtonDefault" onClick={handleRemoveLogo} disabled={!canEditTarget}>
-                      Remove logo
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mb-3 text-sm text-textColorSecond">No logo uploaded</div>
-                )}
-
-                <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={handleLogoChange} disabled={!canEditTarget} />
-              </div>
-
-              <label className="block pl-2 pb-2">Username display color</label>
-              <div className="mb-4 flex items-center gap-3">
-                <input type="color" value={colorPreview} onChange={(e) => updateUsernameDisplayColor(e.target.value)} disabled={!canEditTarget} />
-                <div className="font-semibold" style={{ color: colorPreview }}>
-                  {form.username || form.email || "Preview"}
-                </div>
-                <button type="button" className="customButtonDefault" onClick={() => updateUsernameDisplayColor("")} disabled={!canEditTarget}>
-                  Clear color
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1">
-              <h2 className="pl-2 pb-2 font-semibold text-logoblue">Permissions</h2>
-
-              <label className="block pl-2 pb-2">Role</label>
-              <select className="customInput mb-4 w-full" value={form.role} onChange={updateRole} name="role" disabled={!canEditTarget}>
-                {isActorOwner && <option value="OWNER">Owner</option>}
-                <option value="ADMIN">Admin</option>
-                <option value="USER">User</option>
-              </select>
-
-              {shouldShowAccessSelector && (
-                <>
-                  <label className="block pl-2 pb-2">Access</label>
-                  <select className="customInput mb-4 w-full" value={accessType} onChange={updateAccessType} disabled={!canEditTarget}>
-                    <option value="SUBCONTRACTOR">Partner</option>
-                    <option value="ORDER_CREATOR">Order creator</option>
-                  </select>
-                </>
-              )}
-
-              <label className="mb-4 flex cursor-pointer items-center gap-2 pl-2">
-                <input
-                  type="checkbox"
-                  checked={form.permissions.includes("ARCHIVE_VIEW")}
-                  onChange={handleToggleArchiveAccess}
+              <div className="sm:col-span-2">
+                <label className="block pb-1.5 text-sm font-semibold text-textcolor">Description</label>
+                <textarea
+                  className="customInput min-h-[100] w-full resize-y"
+                  value={form.description}
+                  onChange={updateField("description")}
+                  placeholder="Description"
                   disabled={!canEditTarget}
                 />
-                <span>Archive access</span>
-              </label>
-
-              <label className="block pl-2 pb-2">Price lists</label>
-              <div className="mb-6 flex flex-col gap-1 pl-2">
-                {priceLists && priceLists.length > 0 ? (
-                  priceLists.map((pl) => (
-                    <label key={pl.id} className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={form.priceListIds.includes(pl.id)}
-                        onChange={() => handleTogglePriceList(pl.id)}
-                        disabled={!canEditTarget}
-                      />
-                      <span>{pl.name}</span>
-                    </label>
-                  ))
-                ) : (
-                  <span className="text-sm text-textColorThird">No price lists available</span>
-                )}
               </div>
-
-              <h2 className="pl-2 pb-2 font-semibold text-logoblue">Security</h2>
-
-              {shouldShowProvisionSelector && (
-                <>
-                  <label className="block pl-2 pb-2">Setup method</label>
-                  <select className="customInput mb-4 w-full" value={form.provisionMode} onChange={updateProvisionMode} disabled={!canEditTarget}>
-                    <option value="DIRECT_PASSWORD">Set password now</option>
-                    <option value="INVITE">Send invite link</option>
-                  </select>
-                </>
-              )}
-
-              <label className="block pl-2 pb-2">Password</label>
-              {shouldShowPasswordInputs ? (
-                <>
-                  <input
-                    className="customInput mb-2 w-full"
-                    type="password"
-                    value={form.password}
-                    onChange={updateField("password")}
-                    placeholder="Enter password"
-                    autoComplete="new-password"
-                    disabled={!canEditTarget}
-                  />
-                  <input
-                    className="customInput mb-4 w-full"
-                    type="password"
-                    value={form.confirmPassword}
-                    onChange={updateField("confirmPassword")}
-                    placeholder="Confirm password"
-                    autoComplete="new-password"
-                    disabled={!canEditTarget}
-                  />
-                </>
-              ) : (
-                <input
-                  className="customInput mb-4 w-full"
-                  type="text"
-                  value={isCreateMode ? "Will be set by invited user" : "********"}
-                  readOnly
-                  disabled={!canEditTarget}
-                />
-              )}
-
-              <div className="flex gap-4">
-                <button type="button" className="customButtonDefault" disabled={!canEditTarget || isCreateMode || sendingReset} onClick={handleSendReset}>
-                  {sendingReset ? "Sending..." : "Send reset link"}
-                </button>
-                <button type="button" className="customButtonDefault hidden" disabled={!canEditTarget}>
-                  Edit password
-                </button>
-              </div>
-
-              {canToggleActive && (
-                <div className="mt-8">
-                  <h2 className="pb-2 font-semibold text-logoblue">Manage</h2>
-
-                  <div className="mb-4 rounded-lg border border-lineSecondary p-4">
-                    <div className="mb-2 text-sm text-textColorSecond">Current status</div>
-                    <div className={`font-semibold ${form.active ? "text-green-700" : "text-red-700"}`}>{form.active ? "Active" : "Disabled"}</div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!confirm(form.active ? "Disable this user?" : "Enable this user?")) {
-                          return;
-                        }
-                        onToggleActive();
-                      }}
-                      className={["mb-3 w-40 customButtonEnabled", form.active ? "bg-red-800!" : "bg-green-700!"].join(" ")}
-                    >
-                      {form.active ? "Disable" : "Enable"}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
+        )}
 
-          <div className="mt-10 flex justify-center">
-            <button
-              onClick={() => {
-                void handleSave();
-              }}
-              className="customButtonEnabled h-10 w-96"
-              type="button"
+        {section === "ACCESS" && (
+          <div>
+            <label className="block pb-2 text-sm font-semibold text-textcolor">Company role</label>
+            <select
+              className="customInput mb-6 w-full max-w-70"
+              value={form.role}
+              onChange={updateRole}
+              name="role"
               disabled={!canEditTarget}
             >
-              {getSaveButtonLabel(isCreateMode, canEditTarget, form.provisionMode)}
-            </button>
+              {isActorOwner && <option value="OWNER">Owner</option>}
+              <option value="ADMIN">Admin</option>
+              <option value="USER">User</option>
+            </select>
+
+            <div className="grid gap-3.5 sm:grid-cols-2">
+              {form.appAccess.map((row) => {
+                const levelLabels = getLevelOptionLabels(row.module, form.role);
+                const color = MODULE_COLORS[row.module];
+
+                return (
+                  <div
+                    key={row.module}
+                    className="self-start overflow-hidden rounded-2xl border"
+                    style={{ borderColor: row.enabled ? `${color}4d` : "rgba(0,0,0,.08)" }}
+                  >
+                    <div className="flex items-center gap-3.5 p-4">
+                      <span
+                        className="grid h-9.5 w-9.5 shrink-0 place-items-center rounded-[11px] text-sm font-extrabold text-white"
+                        style={{ backgroundColor: color }}
+                      >
+                        {MODULE_LABELS[row.module].charAt(0)}
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold text-textcolor">{MODULE_LABELS[row.module]}</div>
+                        <div className="text-[11.5px] font-semibold" style={{ color: row.enabled ? color : "#a3a3a3" }}>
+                          {row.enabled ? "Enabled" : "Not enabled"}
+                        </div>
+                      </div>
+
+                      <ToggleSwitch
+                        checked={row.enabled}
+                        onChange={(next) => updateAppAccessModule(row.module, { enabled: next }, setForm)}
+                        disabled={!canEditTarget}
+                      />
+                    </div>
+
+                    {row.enabled && (
+                      <div className="px-4 pb-4">
+                        <select
+                          className="w-full rounded-lg border bg-white px-2.5 py-1.5 text-[12.5px] font-bold"
+                          style={{ borderColor: `${color}4d`, color }}
+                          value={row.level}
+                          onChange={(e) =>
+                            updateAppAccessModule(row.module, { level: e.target.value as "VIEWER" | "ADMIN" }, setForm)
+                          }
+                          disabled={!canEditTarget}
+                        >
+                          <option value="VIEWER">{levelLabels.viewer}</option>
+                          <option value="ADMIN">{levelLabels.admin}</option>
+                        </select>
+
+                        {row.module === "BOOKING" && form.role !== "USER" && (
+                          <p className="mt-2 text-xs text-textColorThird">
+                            As {form.role === "OWNER" ? "an Owner" : "an Admin"}, they always have full Booking access
+                            regardless of this setting.
+                          </p>
+                        )}
+
+                        {row.module === "BOOKING" && (
+                          <div className="mt-3 border-t pt-3" style={{ borderColor: `${color}33` }}>
+                            <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-textColorSecond">
+                              Price lists
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {priceLists && priceLists.length > 0 ? (
+                                priceLists.map((pl) => {
+                                  const checked = form.priceListIds.includes(pl.id);
+                                  return (
+                                    <label
+                                      key={pl.id}
+                                      className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                                        canEditTarget ? "cursor-pointer" : "cursor-not-allowed opacity-60"
+                                      } ${checked ? "text-white" : "text-textColorSecond"}`}
+                                      style={{
+                                        backgroundColor: checked ? color : "#fff",
+                                        borderColor: checked ? color : "rgba(0,0,0,.15)",
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => handleTogglePriceList(pl.id)}
+                                        disabled={!canEditTarget}
+                                        className="hidden"
+                                      />
+                                      {pl.name}
+                                    </label>
+                                  );
+                                })
+                              ) : (
+                                <span className="text-xs text-textColorThird">No price lists available</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        )}
+
+        {section === "SECURITY" && (
+          <div className="max-w-90">
+            {shouldShowProvisionSelector && (
+              <>
+                <label className="block pb-2 text-sm font-semibold text-textcolor">Setup method</label>
+                <select className="customInput mb-4 w-full" value={form.provisionMode} onChange={updateProvisionMode} disabled={!canEditTarget}>
+                  <option value="DIRECT_PASSWORD">Set password now</option>
+                  <option value="INVITE">Send invite link</option>
+                </select>
+              </>
+            )}
+
+            <label className="block pb-2 text-sm font-semibold text-textcolor">Password</label>
+            {shouldShowPasswordInputs ? (
+              <>
+                <input
+                  className="customInput mb-2 w-full"
+                  type="password"
+                  value={form.password}
+                  onChange={updateField("password")}
+                  placeholder="Enter password"
+                  autoComplete="new-password"
+                  disabled={!canEditTarget}
+                />
+                <input
+                  className="customInput mb-4 w-full"
+                  type="password"
+                  value={form.confirmPassword}
+                  onChange={updateField("confirmPassword")}
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                  disabled={!canEditTarget}
+                />
+              </>
+            ) : (
+              <input
+                className="customInput mb-4 w-full"
+                type="text"
+                value={isCreateMode ? "Will be set by invited user" : "********"}
+                readOnly
+                disabled={!canEditTarget}
+              />
+            )}
+
+            <div className="flex gap-4">
+              <button type="button" className="customButtonDefault" disabled={!canEditTarget || isCreateMode || sendingReset} onClick={handleSendReset}>
+                {sendingReset ? "Sending..." : "Send reset link"}
+              </button>
+            </div>
+
+            {canToggleActive && (
+              <div className="mt-8">
+                <h2 className="pb-2 text-sm font-bold text-logoblue">Account status</h2>
+
+                <div className="mb-4 rounded-lg border border-lineSecondary p-4">
+                  <div className="mb-2 text-sm text-textColorSecond">Current status</div>
+                  <div className={`font-semibold ${form.active ? "text-green-700" : "text-red-700"}`}>{form.active ? "Active" : "Disabled"}</div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!confirm(form.active ? "Disable this user?" : "Enable this user?")) {
+                      return;
+                    }
+                    onToggleActive();
+                  }}
+                  className={["w-40 customButtonEnabled", form.active ? "bg-red-800!" : "bg-green-700!"].join(" ")}
+                >
+                  {form.active ? "Disable" : "Enable"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-9 flex justify-center gap-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-black/12 bg-white px-7 py-2.5 text-sm font-bold text-textColorSecond hover:bg-black/3"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              void handleSave();
+            }}
+            className="rounded-full bg-logoblue px-10 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            disabled={!canEditTarget}
+          >
+            {getSaveButtonLabel(isCreateMode, canEditTarget, form.provisionMode)}
+          </button>
         </div>
       </div>
     </div>

@@ -205,6 +205,7 @@ describe("POST /api/auth/memberships/[membershipId]/disable", () => {
       companyId: "company-1",
       role: "USER",
       status: "ACTIVE",
+      appAccess: [],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/membership-2/disable", {
@@ -250,6 +251,7 @@ describe("POST /api/auth/memberships/[membershipId]/disable", () => {
       companyId: "company-1",
       role: "OWNER",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/membership-1/disable", {
@@ -296,6 +298,7 @@ describe("POST /api/auth/memberships/[membershipId]/disable", () => {
       companyId: "company-1",
       role: "OWNER",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.countMock.mockResolvedValueOnce(1);
@@ -351,6 +354,7 @@ describe("POST /api/auth/memberships/[membershipId]/disable", () => {
       companyId: "company-1",
       role: "ADMIN",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/membership-2/disable", {

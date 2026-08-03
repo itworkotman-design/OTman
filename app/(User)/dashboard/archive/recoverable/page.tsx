@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { canAccessArchive } from "@/lib/users/access";
+import { getModuleAccess } from "@/lib/users/access";
 
 type RecoverableFolderRow = {
   id: string;
@@ -23,7 +23,8 @@ type RecoverableItemRow = {
 export default function ArchiveRecoverablePage() {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const hasAccess = currentUser ? canAccessArchive(currentUser.role, currentUser.permissions) : true;
+  const archiveAccess = currentUser ? getModuleAccess(currentUser, "ARCHIVE") : { enabled: true, level: "ADMIN" as const };
+  const hasAccess = archiveAccess.enabled && archiveAccess.level === "ADMIN";
 
   const [folders, setFolders] = useState<RecoverableFolderRow[]>([]);
   const [items, setItems] = useState<RecoverableItemRow[]>([]);

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
+import { hasAnyAppAccess } from "@/lib/users/access";
 
 export default async function DashboardLayout({
   children,
@@ -40,7 +41,13 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  if (membership.role === "USER") {
+  // Any membership (OWNER/ADMIN/USER alike) with no enabled app at all has
+  // nothing to do in the dashboard shell — send them to the plain booking
+  // app instead. This replaces the old flat "USER role always redirects"
+  // rule: app access is now a per-person MembershipAppAccess grant,
+  // independent of company Role, so even a USER-role member with an
+  // enabled module reaches the dashboard now.
+  if (!hasAnyAppAccess(membership)) {
     redirect("/booking");
   }
 

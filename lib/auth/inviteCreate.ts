@@ -5,6 +5,8 @@ import { getActiveMembership } from "@/lib/auth/membership";
 import { logAuthEvent } from "@/lib/auth/authEvent";
 import { generateInviteToken, hashInviteToken } from "@/lib/auth/inviteToken";
 import { deliverInvite } from "@/lib/auth/inviteDelivery";
+import { defaultAppAccessRows, normalizeAppAccessInput, derivePermissionsFromAppAccess } from "@/lib/users/appAccessDefaults";
+import { getModuleAccess } from "@/lib/users/access";
 
 const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -57,6 +59,7 @@ export async function createInvite(params: {
   usernameDisplayColor?: string | null;
   priceListId?: string | null;
   permissions?: AppPermission[];
+  appAccess?: unknown;
   ip?: string | null;
   userAgent?: string | null;
 }): Promise<CreateInviteResult> {
@@ -74,7 +77,11 @@ export async function createInvite(params: {
     params.usernameDisplayColor,
   );
   const priceListId = normalizeOptionalString(params.priceListId);
-  const permissions = normalizePermissions(params.permissions);
+
+  const explicitAppAccess = normalizeAppAccessInput(params.appAccess);
+  const permissions = explicitAppAccess
+    ? derivePermissionsFromAppAccess(explicitAppAccess)
+    : normalizePermissions(params.permissions);
 
   if (
     !params.actorUserId ||
@@ -90,7 +97,7 @@ export async function createInvite(params: {
     companyId,
   });
 
-  if (!actorMembership || actorMembership.role === "USER") {
+  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
     return { ok: false, reason: "FORBIDDEN" };
   }
 
@@ -157,6 +164,13 @@ export async function createInvite(params: {
         })),
       });
     }
+
+    await tx.inviteAppAccess.createMany({
+      data: (explicitAppAccess ?? defaultAppAccessRows(nextRole, permissions)).map((row) => ({
+        inviteId: invite.id,
+        ...row,
+      })),
+    });
   });
 
   await deliverInvite({

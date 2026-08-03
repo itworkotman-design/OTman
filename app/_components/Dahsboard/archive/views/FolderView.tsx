@@ -1,16 +1,13 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
-import { canAccessArchive } from "@/lib/users/access";
-import { ExpandablePanelList } from "@/app/_components/Dahsboard/archive/ExpandablePanelList";
+import { getModuleAccess } from "@/lib/users/access";
+import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { ItemPill } from "@/app/_components/Dahsboard/archive/ItemPill";
-import { STATUS_ORDER } from "@/app/_components/Dahsboard/archive/types";
-import type { ArchiveBusinessStatus, ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
+import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
+import type { ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderDetail = ArchiveFolderSummary;
 type ArchiveItemRow = ArchiveItemSummary;
@@ -20,23 +17,16 @@ type ArchiveFolderPathEntry =
   | { hidden: false; folderId: string; name: string | null }
   | { hidden: true };
 
-const itemStatusLabel: Record<ArchiveBusinessStatus, { en: string; nb: string }> = {
-  active: { en: "Active", nb: "Aktiv" },
-  draft: { en: "Draft", nb: "Utkast" },
-  inactive: { en: "Inactive", nb: "Inaktiv" },
-  archived: { en: "Archived", nb: "Arkivert" },
-};
-
 // Pure browsing view: no create/upload/delete/permissions controls here —
 // every mutation lives on this folder's settings page or on an item's own
 // settings page, matching the otman-archive prototype's view/settings split.
-export default function ArchiveFolderPage() {
-  const params = useParams<{ folderId: string }>();
-  const folderId = params.folderId;
-
+// `codePath` is this folder's own code (e.g. "1.2F.3F") split on "." — the
+// exact URL segments that got us here, used to build every link on this
+// page instead of the folder's opaque id.
+export function FolderView({ folderId, codePath }: { folderId: string; codePath: string[] }) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const hasAccess = currentUser ? canAccessArchive(currentUser.role, currentUser.permissions) : true;
+  const hasAccess = !currentUser || getModuleAccess(currentUser, "ARCHIVE").enabled;
 
   const [folder, setFolder] = useState<ArchiveFolderDetail | null>(null);
   const [items, setItems] = useState<ArchiveItemRow[]>([]);
@@ -108,30 +98,13 @@ export default function ArchiveFolderPage() {
     );
   }
 
-  const itemGroups = STATUS_ORDER.map((status) => items.filter((item) => item.status === status)).filter(
-    (group) => group.length > 0,
-  );
+  // Status isn't shown or filterable here — this view only ever surfaces
+  // active entries; anything else is managed (and made visible again) from
+  // the folder's settings page.
+  const activeChildFolders = childFolders.filter((childFolder) => childFolder.status === "active");
+  const activeItems = items.filter((item) => item.status === "active");
 
-  const itemAccordionItems = itemGroups.map((group) => {
-    const status = group[0].status;
-    const urgentCount = group.filter((item) => item.isOverdue || item.isExpired).length;
-
-    return {
-      id: status,
-      title: itemStatusLabel[status][locale === "nb" ? "nb" : "en"],
-      columns: [
-        `${group.length} ${group.length === 1 ? (locale === "nb" ? "element" : "item") : locale === "nb" ? "elementer" : "items"}`,
-        ...(urgentCount > 0 ? [locale === "nb" ? `${urgentCount} forfalt` : `${urgentCount} overdue`] : []),
-      ],
-      content: (
-        <div className="grid gap-3">
-          {group.map((item) => (
-            <ItemPill key={item.id} item={item} href={`/dashboard/archive/${folderId}/items/${item.id}`} locale={locale} />
-          ))}
-        </div>
-      ),
-    };
-  });
+  const settingsHref = `/dashboard/archive/${codePath.join("/")}/settings`;
 
   return (
     <div className="w-full">
@@ -139,37 +112,45 @@ export default function ArchiveFolderPage() {
         <Link href="/dashboard/archive" className="hover:underline">
           {locale === "nb" ? "Arkiv" : "Archive"}
         </Link>
-        {folderPath
-          .filter((entry) => entry.hidden || entry.folderId !== folderId)
-          .map((entry, index) => (
+        {folderPath.map((entry, index) => {
+          if (!entry.hidden && entry.folderId === folderId) return null;
+          const href = `/dashboard/archive/${codePath.slice(0, index + 1).join("/")}`;
+          return (
             <span key={index} className="flex items-center gap-1">
               <span>/</span>
               {entry.hidden ? (
                 <span>…</span>
               ) : (
-                <Link href={`/dashboard/archive/${entry.folderId}`} className="hover:underline">
+                <Link href={href} className="hover:underline">
                   {entry.name ?? "…"}
                 </Link>
               )}
             </span>
-          ))}
+          );
+        })}
         <span>/</span>
         <span className="font-medium text-textcolor">
           {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
         </span>
       </nav>
 
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
-            {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
-          </h1>
-          {folder?.description && <p className="mt-2 max-w-xl text-sm text-textColorThird">{folder.description}</p>}
-        </div>
+      <div className="mb-8 flex w-full flex-col items-center gap-3 text-center">
+        <h1 className="text-2xl font-semibold text-logoblue lg:text-4xl">
+          {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
+        </h1>
+        {folder?.description && <p className="max-w-xl text-sm text-textColorThird">{folder.description}</p>}
 
-        <Link href={`/dashboard/archive/${folderId}/settings`} className="customButtonDefault">
+        <Link href={settingsHref} className="customButtonDefault">
           {locale === "nb" ? "Innstillinger" : "Settings"}
         </Link>
+
+        <div className="w-full max-w-[400]">
+          <ArchiveSearchBar
+            scopeFolderId={folderId}
+            locale={locale}
+            placeholder={locale === "nb" ? "Søk i denne mappen" : "Search this folder"}
+          />
+        </div>
       </div>
 
       {error && (
@@ -178,7 +159,7 @@ export default function ArchiveFolderPage() {
         </div>
       )}
 
-      {childFolders.length > 0 && (
+      {activeChildFolders.length > 0 && (
         <div className="mb-6 min-w-0 w-full overflow-x-auto">
           <div className="mb-3 flex items-end gap-4 font-semibold text-textColorThird">
             <h2 className="grow text-logoblue">{locale === "nb" ? "Undermapper" : "Subfolders"}</h2>
@@ -189,29 +170,47 @@ export default function ArchiveFolderPage() {
               <p>{locale === "nb" ? "Brukere" : "Users"}</p>
             </div>
             <div className="w-full max-w-[100] text-center">
-              <p>{locale === "nb" ? "Sist endret" : "Last modified"}</p>
+              <p>{locale === "nb" ? "Sist endret" : "Updated"}</p>
             </div>
           </div>
           <div className="grid gap-3">
-            {childFolders.map((childFolder) => (
-              <FolderPill key={childFolder.id} folder={childFolder} href={`/dashboard/archive/${childFolder.id}`} />
+            {activeChildFolders.map((childFolder) => (
+              <FolderPill
+                key={childFolder.id}
+                folder={childFolder}
+                href={`/dashboard/archive/${codeToUrlPath(childFolder.code)}`}
+              />
             ))}
           </div>
         </div>
       )}
 
       <div className="min-w-0 w-full overflow-x-auto">
-        <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Elementer" : "Items"}</h2>
+        <div className="mb-3 flex items-end gap-4 font-semibold text-textColorThird">
+          <h2 className="grow text-logoblue">{locale === "nb" ? "Elementer" : "Items"}</h2>
+          <div className="w-full max-w-[100] text-center">
+            <p>{locale === "nb" ? "Sist endret" : "Updated"}</p>
+          </div>
+        </div>
         {loading ? (
           <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
             {locale === "nb" ? "Laster elementer..." : "Loading items..."}
           </div>
-        ) : items.length === 0 ? (
+        ) : activeItems.length === 0 ? (
           <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
             {locale === "nb" ? "Ingen elementer funnet" : "No items found"}
           </div>
         ) : (
-          <ExpandablePanelList items={itemAccordionItems} variant="logoblue" />
+          <div className="grid gap-3">
+            {activeItems.map((item) => (
+              <ItemPill
+                key={item.id}
+                item={item}
+                href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
+                locale={locale}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>

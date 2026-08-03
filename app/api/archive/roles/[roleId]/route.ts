@@ -7,7 +7,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ roleId: string }> },
 ) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { roleId } = await params;
@@ -35,7 +35,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ roleId: string }> },
 ) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const { roleId } = await params;

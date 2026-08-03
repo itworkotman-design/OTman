@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     inviteUpdateManyMock: vi.fn(),
     membershipPriceListCreateManyMock: vi.fn(),
     membershipPermissionCreateManyMock: vi.fn(),
+    membershipAppAccessCreateManyMock: vi.fn(),
   };
 });
 
@@ -44,6 +45,7 @@ describe("createUserWithPassword", () => {
       companyId: "company-1",
       role: "OWNER",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     mocks.priceListFindManyMock.mockResolvedValue([{ id: "price-list-1" }]);
@@ -55,6 +57,7 @@ describe("createUserWithPassword", () => {
     mocks.inviteUpdateManyMock.mockResolvedValue({ count: 0 });
     mocks.membershipPriceListCreateManyMock.mockResolvedValue({ count: 0 });
     mocks.membershipPermissionCreateManyMock.mockResolvedValue({ count: 0 });
+    mocks.membershipAppAccessCreateManyMock.mockResolvedValue({ count: 0 });
 
     mocks.transactionMock.mockImplementation(async (callback) => {
       return callback({
@@ -74,6 +77,9 @@ describe("createUserWithPassword", () => {
         },
         membershipPermission: {
           createMany: mocks.membershipPermissionCreateManyMock,
+        },
+        membershipAppAccess: {
+          createMany: mocks.membershipAppAccessCreateManyMock,
         },
       });
     });
@@ -99,6 +105,7 @@ describe("createUserWithPassword", () => {
       companyId: "company-1",
       role: "ADMIN",
       status: "ACTIVE",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const result = await createUserWithPassword({
@@ -235,6 +242,17 @@ describe("createUserWithPassword", () => {
           membershipId: "membership-1",
           permission: "BOOKING_CREATE",
         },
+      ],
+    });
+
+    expect(mocks.membershipAppAccessCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        { membershipId: "membership-1", module: "ARCHIVE", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "BOOKING", enabled: true, level: "ADMIN" },
+        { membershipId: "membership-1", module: "WEBSITE_EDITOR", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "WEBSITE_ORDERS", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "SCHEDULER", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "USER_MANAGEMENT", enabled: false, level: "ADMIN" },
       ],
     });
   });

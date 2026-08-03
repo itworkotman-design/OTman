@@ -21,7 +21,7 @@ export default function ArchiveLayout({ children }: { children: ReactNode }) {
           <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW} />
         </aside>
         <main className="lg:pt-10 w-full flex">
-          <div className="px-4 w-full">{children}</div>
+          <div className="mx-auto w-full max-w-[1600] px-10">{children}</div>
         </main>
       </div>
       {/*Phone*/}
@@ -34,7 +34,7 @@ export default function ArchiveLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
         <main className="overflow-x-clip">
-          <div className="w-full px-4 pt-[60]">{children}</div>
+          <div className="mx-auto w-full max-w-4xl px-10 pt-[60]">{children}</div>
         </main>
       </div>
     </>

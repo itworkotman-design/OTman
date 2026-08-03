@@ -1,9 +1,16 @@
 import React from "react";
-import type { Role, AppPermission } from "@/lib/users/types";
+import type { AppModule, Role } from "@/lib/users/types";
+import { defaultAppAccessRows } from "@/lib/users/appAccessDefaults";
 
-export type { Role, AppPermission };
+export type { Role };
 
 export type UserProvisionMode = "DIRECT_PASSWORD" | "INVITE";
+
+export type AppAccessFormRow = {
+  module: AppModule;
+  enabled: boolean;
+  level: "VIEWER" | "ADMIN";
+};
 
 export interface UserFormData {
   username: string;
@@ -18,7 +25,7 @@ export interface UserFormData {
   logoFile: File | null;
   usernameDisplayColor: string;
   priceListIds: string[];
-  permissions: AppPermission[];
+  appAccess: AppAccessFormRow[];
   provisionMode: UserProvisionMode;
   password: string;
   confirmPassword: string;
@@ -40,7 +47,7 @@ export interface UserModalProps {
   initialValueUsernameDisplayColor?: string | null;
   initialValueRole: string;
   initialValueActive: boolean;
-  initialValuePermissions?: AppPermission[];
+  initialValueAppAccess?: AppAccessFormRow[];
   actorRole: Role;
   targetRole: Role;
   priceLists?: { id: string; name: string }[];
@@ -59,11 +66,13 @@ export type UserFormSource = Pick<
   | "initialValueUsernameDisplayColor"
   | "initialValueRole"
   | "initialValueActive"
-  | "initialValuePermissions"
+  | "initialValueAppAccess"
   | "initialPriceListIds"
 >;
 
 export function buildInitialForm(source: UserFormSource): UserFormData {
+  const role = (source.initialValueRole || "USER") as Role;
+
   return {
     username: source.initialValueUsername ?? "",
     email: source.initialValueEmail ?? "",
@@ -74,10 +83,13 @@ export function buildInitialForm(source: UserFormSource): UserFormData {
     logoPath: source.initialValueLogoPath ?? null,
     logoFile: null,
     usernameDisplayColor: source.initialValueUsernameDisplayColor ?? "",
-    role: source.initialValueRole || "USER",
+    role,
     active: source.initialValueActive,
     priceListIds: source.initialPriceListIds ?? [],
-    permissions: source.initialValuePermissions ?? ["BOOKING_VIEW"],
+    appAccess:
+      source.initialValueAppAccess && source.initialValueAppAccess.length > 0
+        ? source.initialValueAppAccess
+        : defaultAppAccessRows(role, []),
     provisionMode: "DIRECT_PASSWORD",
     password: "",
     confirmPassword: "",
@@ -151,31 +163,15 @@ export function togglePriceListId(
   }));
 }
 
-export function toggleArchivePermission(
+export function updateAppAccessModule(
+  module: AppModule,
+  patch: Partial<Pick<AppAccessFormRow, "enabled" | "level">>,
   setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
 ) {
   setForm((prev) => ({
     ...prev,
-    permissions: prev.permissions.includes("ARCHIVE_VIEW")
-      ? prev.permissions.filter((p) => p !== "ARCHIVE_VIEW")
-      : [...prev.permissions, "ARCHIVE_VIEW"],
+    appAccess: prev.appAccess.map((row) =>
+      row.module === module ? { ...row, ...patch } : row,
+    ),
   }));
-}
-
-export type UserAccessType = "SUBCONTRACTOR" | "ORDER_CREATOR";
-
-export function getAccessTypeFromPermissions(
-  permissions: AppPermission[],
-): UserAccessType {
-  return permissions.includes("BOOKING_CREATE")
-    ? "ORDER_CREATOR"
-    : "SUBCONTRACTOR";
-}
-
-export function getPermissionsFromAccessType(
-  accessType: UserAccessType,
-): AppPermission[] {
-  return accessType === "ORDER_CREATOR"
-    ? ["BOOKING_VIEW", "BOOKING_CREATE"]
-    : ["BOOKING_VIEW"];
 }

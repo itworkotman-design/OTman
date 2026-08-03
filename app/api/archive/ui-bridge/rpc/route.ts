@@ -57,7 +57,7 @@ type ArchiveMethodMap = Record<
 >;
 
 export async function POST(req: Request) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   const body = await req.json().catch(() => null);

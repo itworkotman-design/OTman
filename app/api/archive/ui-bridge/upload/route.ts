@@ -20,7 +20,7 @@ import {
 // deliberate separation of `service` (JSON-safe) from `transport` (byte
 // content).
 export async function POST(req: Request) {
-  const result = await requireArchiveMembership(req);
+  const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
   if (requestTooLargeByContentLength(req, ARCHIVE_MAX_UPLOAD_SIZE_BYTES)) {

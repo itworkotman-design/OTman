@@ -36,6 +36,7 @@ beforeEach(() => {
     role: "ADMIN",
     membershipPriceLists: [],
     permissions: [],
+    appAccess: [{ module: "WEBSITE_EDITOR", enabled: true, level: "ADMIN" }],
   });
 });
 

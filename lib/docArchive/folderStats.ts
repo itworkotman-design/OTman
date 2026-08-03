@@ -233,3 +233,62 @@ export async function getFolderViewerCounts(
 
   return counts;
 }
+
+// The single-user inverse of getFolderViewerCounts, for callers that read
+// broadly across the tree (searchArchiveTree.ts's recursive search has no
+// permission filtering of its own — the SQL just walks the folder tree) and
+// need to drop candidates the caller can't actually view before returning
+// them. Same chain-walk decision rule as above and as the package's own
+// ArchiveEffectiveAuthorizationService, just resolved for one userId across
+// many folderIds in one batch instead of many users against one folder.
+export async function getViewableFolderIds(
+  companyId: string,
+  tenantId: string,
+  userId: string,
+  folderIds: string[],
+): Promise<Set<string>> {
+  const viewable = new Set<string>();
+  if (folderIds.length === 0) return viewable;
+
+  const chains = await getAncestorChains(companyId, tenantId, folderIds);
+  const allTargetIds = [...new Set([...chains.values()].flat())];
+  const rules = await getViewRules(companyId, tenantId, allTargetIds);
+
+  const rulesByTarget = new Map<string, ViewRuleRow[]>();
+  for (const rule of rules) {
+    const list = rulesByTarget.get(rule.targetId) ?? [];
+    list.push(rule);
+    rulesByTarget.set(rule.targetId, list);
+  }
+
+  const roleIds = [...new Set(rules.filter((rule) => rule.subjectType === "role").map((rule) => rule.subjectId))];
+  const roleMembers = await getActiveRoleMembers(companyId, tenantId, roleIds);
+
+  function decideAtTarget(targetId: string): "allow" | "deny" | "none" {
+    const rulesAtTarget = rulesByTarget.get(targetId) ?? [];
+
+    const userRule = rulesAtTarget.find((rule) => rule.subjectType === "user" && rule.subjectId === userId);
+    if (userRule) return userRule.effect;
+
+    const roleRulesAtTarget = rulesAtTarget.filter(
+      (rule) => rule.subjectType === "role" && roleMembers.get(rule.subjectId)?.has(userId),
+    );
+    if (roleRulesAtTarget.some((rule) => rule.effect === "deny")) return "deny";
+    if (roleRulesAtTarget.some((rule) => rule.effect === "allow")) return "allow";
+    return "none";
+  }
+
+  for (const folderId of folderIds) {
+    const chain = chains.get(folderId) ?? [folderId];
+
+    for (const targetId of chain) {
+      const decision = decideAtTarget(targetId);
+      if (decision !== "none") {
+        if (decision === "allow") viewable.add(folderId);
+        break;
+      }
+    }
+  }
+
+  return viewable;
+}

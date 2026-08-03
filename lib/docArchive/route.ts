@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { ArchiveHostAdapterErrorCategory } from "@customprojects/custom-archive";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
-import { canAccessArchive } from "@/lib/users/access";
+import { getModuleAccess } from "@/lib/users/access";
 
 export function archiveErrorStatus(category: ArchiveHostAdapterErrorCategory): number {
   switch (category) {
@@ -17,7 +17,15 @@ export function archiveErrorStatus(category: ArchiveHostAdapterErrorCategory): n
   }
 }
 
-export async function requireArchiveMembership(req: Request) {
+// requireAdmin gates the mutation surface (create/upload/edit/delete/status/
+// sharing/etc.) — Viewer-level access only ever satisfies plain browsing and
+// read routes. Every call site below was classified by its own HTTP method,
+// not by file, since several route files mix a read GET with a mutating
+// POST/PATCH/DELETE.
+export async function requireArchiveMembership(
+  req: Request,
+  opts?: { requireAdmin?: boolean },
+) {
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
@@ -43,7 +51,18 @@ export async function requireArchiveMembership(req: Request) {
     companyId: session.activeCompanyId,
   });
 
-  if (!membership || !canAccessArchive(membership.role, membership.permissions)) {
+  if (!membership) {
+    return {
+      error: NextResponse.json(
+        { ok: false, reason: "FORBIDDEN" },
+        { status: 403 },
+      ),
+    } as const;
+  }
+
+  const access = getModuleAccess(membership, "ARCHIVE");
+
+  if (!access.enabled || (opts?.requireAdmin && access.level !== "ADMIN")) {
     return {
       error: NextResponse.json(
         { ok: false, reason: "FORBIDDEN" },

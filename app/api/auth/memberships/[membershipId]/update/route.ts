@@ -3,6 +3,7 @@ import path from "path";
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
+import { getModuleAccess } from "@/lib/users/access";
 import { prisma } from "@/lib/db";
 import {
   deleteAttachmentFromS3,
@@ -14,8 +15,6 @@ import {
   normalizeUsernameDisplayColor,
 } from "@/lib/users/profileAppearance";
 
-type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
-
 function parseOptionalString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -26,17 +25,6 @@ function parseEmail(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim().toLowerCase();
   return trimmed ? trimmed : null;
-}
-
-function parsePermissions(value: unknown): AppPermission[] {
-  if (!Array.isArray(value)) return [];
-
-  return value.filter(
-    (permission: unknown): permission is AppPermission =>
-      permission === "BOOKING_VIEW" ||
-      permission === "BOOKING_CREATE" ||
-      permission === "ARCHIVE_VIEW"
-  );
 }
 
 export async function PATCH(
@@ -64,10 +52,7 @@ export async function PATCH(
     companyId: session.activeCompanyId,
   });
 
-  if (
-    !actorMembership ||
-    (actorMembership.role !== "OWNER" && actorMembership.role !== "ADMIN")
-  ) {
+  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
     return NextResponse.json(
       { ok: false, reason: "FORBIDDEN" },
       { status: 403 }
@@ -95,7 +80,6 @@ export async function PATCH(
   const priceListIds: string[] = Array.isArray(body?.priceListIds)
     ? body.priceListIds.filter((id: unknown): id is string => typeof id === "string" && id.trim().length > 0).map((id: string) => id.trim())
     : [];
-  const permissions = parsePermissions(body?.permissions);
 
   if (!email) {
     return NextResponse.json(
@@ -103,14 +87,6 @@ export async function PATCH(
       { status: 400 }
     );
   }
-
-  const normalizedPermissions = permissions.includes("BOOKING_CREATE")
-    ? (["BOOKING_VIEW", ...permissions] as AppPermission[])
-    : permissions;
-
-  const uniquePermissions = Array.from(
-    new Set(normalizedPermissions)
-  ) as AppPermission[];
 
   const targetMembership = await prisma.membership.findUnique({
     where: { id: membershipId },
@@ -213,21 +189,6 @@ export async function PATCH(
         data: priceListIds.map((priceListId) => ({
           membershipId: targetMembership.id,
           priceListId,
-        })),
-      });
-    }
-    
-    await prisma.membershipPermission.deleteMany({
-      where: {
-        membershipId: targetMembership.id,
-      },
-    });
-
-    if (uniquePermissions.length > 0) {
-      await prisma.membershipPermission.createMany({
-        data: uniquePermissions.map((permission) => ({
-          membershipId: targetMembership.id,
-          permission,
         })),
       });
     }

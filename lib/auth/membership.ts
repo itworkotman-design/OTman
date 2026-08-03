@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/db";
+import type { AppAccessLevel, AppModule } from "@prisma/client";
 
 export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
+
+export type MembershipAppAccess = {
+  module: AppModule;
+  enabled: boolean;
+  level: AppAccessLevel;
+};
 
 export type ActiveMembership = {
   userId: string;
@@ -9,6 +16,7 @@ export type ActiveMembership = {
   status: "ACTIVE";
   priceListIds: string[];
   permissions: AppPermission[];
+  appAccess: MembershipAppAccess[];
 };
 
 export async function getActiveMembership(params: {
@@ -36,6 +44,13 @@ export async function getActiveMembership(params: {
           permission: true,
         },
       },
+      appAccess: {
+        select: {
+          module: true,
+          enabled: true,
+          level: true,
+        },
+      },
     },
   });
 
@@ -50,5 +65,6 @@ export async function getActiveMembership(params: {
     permissions: (membership.permissions ?? []).map(
       (p: { permission: AppPermission }) => p.permission,
     ),
+    appAccess: membership.appAccess ?? [],
   };
 }
