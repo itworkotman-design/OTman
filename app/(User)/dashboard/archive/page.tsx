@@ -73,12 +73,12 @@ export default function ArchivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, hasAccess]);
 
-  async function handleCreateFolder(name: string, description: string | null) {
+  async function handleCreateFolder(sectionId: string, name: string, description: string | null) {
     const res = await fetch("/api/archive/folders", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify({ name, description, sectionId }),
     });
 
     const data = await res.json().catch(() => null);
@@ -145,6 +145,7 @@ export default function ArchivePage() {
             onCreateFolder={handleCreateFolder}
             onArchiveFolder={handleArchiveFolder}
             onDeleteFolder={handleDeleteFolder}
+            onFoldersChanged={loadFolders}
           />
         )}
         <div className="w-full max-w-[400]">

@@ -16,8 +16,9 @@ import { getAncestorChains } from "@/lib/docArchive/folderStats";
 // — a real column value, not SQL NULL, because Postgres treats every NULL as
 // distinct and would silently defeat the one-row-per-scope @@unique
 // constraint. Archive folder ids are always UUIDs, so this plain string can
-// never collide with a real one.
-const ROOT_SCOPE = "root";
+// never collide with a real one. Exported for reuse by sections.ts, which
+// needs the same "root vs. a real folder id" scoping for ArchiveSection.
+export const ROOT_SCOPE = "root";
 
 async function nextLocalSeq(
   scope: ArchiveSequenceScope,
@@ -44,9 +45,10 @@ export async function assignFolderCode(
   tenantId: string,
   folderId: string,
   parentFolderId: string | null,
+  sectionId: string | null,
 ): Promise<number> {
   const localSeq = await nextLocalSeq("FOLDER", companyId, tenantId, parentFolderId);
-  await prisma.archiveFolderCode.create({ data: { companyId, tenantId, folderId, localSeq } });
+  await prisma.archiveFolderCode.create({ data: { companyId, tenantId, folderId, localSeq, sectionId } });
   return localSeq;
 }
 
@@ -55,10 +57,45 @@ export async function assignItemCode(
   tenantId: string,
   itemId: string,
   folderId: string,
+  sectionId: string | null,
 ): Promise<number> {
   const localSeq = await nextLocalSeq("ITEM", companyId, tenantId, folderId);
-  await prisma.archiveItemCode.create({ data: { companyId, tenantId, itemId, localSeq } });
+  await prisma.archiveItemCode.create({ data: { companyId, tenantId, itemId, localSeq, sectionId } });
   return localSeq;
+}
+
+// Batched sectionId lookups so list routes can group folders/items by
+// section without an extra query per row. Missing entries (not yet
+// assigned, or created before this feature existed) map to null, meaning
+// "ungrouped" in the UI rather than an error.
+export async function getFolderSectionIds(folderIds: string[]): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  if (folderIds.length === 0) return map;
+
+  const rows = await prisma.archiveFolderCode.findMany({
+    where: { folderId: { in: folderIds } },
+    select: { folderId: true, sectionId: true },
+  });
+
+  for (const row of rows) {
+    map.set(row.folderId, row.sectionId);
+  }
+  return map;
+}
+
+export async function getItemSectionIds(itemIds: string[]): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  if (itemIds.length === 0) return map;
+
+  const rows = await prisma.archiveItemCode.findMany({
+    where: { itemId: { in: itemIds } },
+    select: { itemId: true, sectionId: true },
+  });
+
+  for (const row of rows) {
+    map.set(row.itemId, row.sectionId);
+  }
+  return map;
 }
 
 async function getFolderLocalSeqs(folderIds: string[]): Promise<Map<string, number>> {

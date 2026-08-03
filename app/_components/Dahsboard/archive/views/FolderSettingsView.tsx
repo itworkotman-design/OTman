@@ -8,6 +8,7 @@ import { ExpandablePanelList } from "@/app/_components/Dahsboard/archive/Expanda
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
 import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
 import { EditableEntityRow } from "@/app/_components/Dahsboard/archive/EditableEntityRow";
+import { SectionedEntityManager } from "@/app/_components/Dahsboard/archive/SectionedEntityManager";
 import { codeToUrlPath, formatReminderSubtitle } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
@@ -69,15 +70,6 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
   const [error, setError] = useState("");
   const [rowActionError, setRowActionError] = useState("");
 
-  const [newItemName, setNewItemName] = useState("");
-  const [newItemDescription, setNewItemDescription] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState("");
-
-  const [newSubfolderName, setNewSubfolderName] = useState("");
-  const [newSubfolderDescription, setNewSubfolderDescription] = useState("");
-  const [creatingSubfolder, setCreatingSubfolder] = useState(false);
-  const [createSubfolderError, setCreateSubfolderError] = useState("");
   const [archivingChildFolderId, setArchivingChildFolderId] = useState<string | null>(null);
   const [deletingChildFolderId, setDeletingChildFolderId] = useState<string | null>(null);
   const [archivingItemId, setArchivingItemId] = useState<string | null>(null);
@@ -254,71 +246,47 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
     }
   }
 
-  async function handleCreateItem() {
-    const name = newItemName.trim();
-    if (!name) return;
-
+  async function handleCreateItem(sectionId: string, name: string, description: string | null) {
     try {
-      setCreating(true);
-      setCreateError("");
-
       const res = await fetch(`/api/archive/folders/${folderId}/items`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description: newItemDescription.trim() || null }),
+        body: JSON.stringify({ name, description, sectionId }),
       });
 
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
-        setCreateError(data?.reason || "Failed to create item");
-        return;
+        return { ok: false, reason: data?.reason || "Failed to create item" };
       }
 
-      setNewItemName("");
-      setNewItemDescription("");
       await loadFolderAndItems();
+      return { ok: true };
     } catch {
-      setCreateError("Failed to create item");
-    } finally {
-      setCreating(false);
+      return { ok: false, reason: "Failed to create item" };
     }
   }
 
-  async function handleCreateSubfolder() {
-    const name = newSubfolderName.trim();
-    if (!name) return;
-
+  async function handleCreateSubfolder(sectionId: string, name: string, description: string | null) {
     try {
-      setCreatingSubfolder(true);
-      setCreateSubfolderError("");
-
       const res = await fetch("/api/archive/folders", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description: newSubfolderDescription.trim() || null,
-          parentFolderId: folderId,
-        }),
+        body: JSON.stringify({ name, description, parentFolderId: folderId, sectionId }),
       });
 
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
-        setCreateSubfolderError(data?.reason || "Failed to create subfolder");
-        return;
+        return { ok: false, reason: data?.reason || "Failed to create subfolder" };
       }
 
-      setNewSubfolderName("");
-      setNewSubfolderDescription("");
       await loadFolderAndItems();
+      return { ok: true };
     } catch {
-      setCreateSubfolderError("Failed to create subfolder");
-    } finally {
-      setCreatingSubfolder(false);
+      return { ok: false, reason: "Failed to create subfolder" };
     }
   }
 
@@ -665,143 +633,48 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
         </section>
       )}
 
-      <div className="customContainer mb-6 p-4">
-        <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Ny undermappe" : "New subfolder"}</h2>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[200] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Navn" : "Name"}</label>
-            <input
-              className="customInput w-full"
-              value={newSubfolderName}
-              onChange={(e) => setNewSubfolderName(e.target.value)}
-              type="text"
-              disabled={creatingSubfolder}
+      {!loading && (
+        <SectionedEntityManager
+          parentFolderId={folderId}
+          locale={locale}
+          folders={childFolders}
+          items={items}
+          onFoldersChanged={loadFolderAndItems}
+          onItemsChanged={loadFolderAndItems}
+          onCreateSubfolder={handleCreateSubfolder}
+          onCreateItem={handleCreateItem}
+          renderFolderRow={(childFolder) => (
+            <EditableEntityRow
+              key={childFolder.id}
+              name={childFolder.name}
+              description={childFolder.description}
+              status={childFolder.status}
+              flags={childFolder}
+              settingsHref={`/dashboard/archive/${codeToUrlPath(childFolder.code)}/settings`}
+              onArchive={() => void handleArchiveChildFolder(childFolder.id)}
+              archiving={archivingChildFolderId === childFolder.id}
+              onDelete={() => void handleDeleteChildFolder(childFolder.id)}
+              deleting={deletingChildFolderId === childFolder.id}
+              locale={locale}
             />
-          </div>
-
-          <div className="min-w-[240] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Beskrivelse" : "Description"}</label>
-            <input
-              className="customInput w-full"
-              value={newSubfolderDescription}
-              onChange={(e) => setNewSubfolderDescription(e.target.value)}
-              type="text"
-              disabled={creatingSubfolder}
+          )}
+          renderItemRow={(item) => (
+            <EditableEntityRow
+              key={item.id}
+              name={item.name}
+              description={item.description}
+              status={item.status}
+              flags={item}
+              settingsHref={`/dashboard/archive/${codeToUrlPath(item.code)}/settings`}
+              onArchive={() => void handleArchiveItem(item.id)}
+              archiving={archivingItemId === item.id}
+              onDelete={() => void handleDeleteItem(item.id)}
+              deleting={deletingItemId === item.id}
+              locale={locale}
             />
-          </div>
-
-          <button
-            type="button"
-            className="customButtonEnabled h-10 px-6"
-            onClick={() => void handleCreateSubfolder()}
-            disabled={creatingSubfolder || !newSubfolderName.trim()}
-          >
-            {creatingSubfolder
-              ? locale === "nb"
-                ? "Oppretter..."
-                : "Creating..."
-              : locale === "nb"
-                ? "Opprett"
-                : "Create"}
-          </button>
-        </div>
-
-        {createSubfolderError && <p className="mt-3 text-sm font-medium text-red-600">{createSubfolderError}</p>}
-      </div>
-
-      {childFolders.length > 0 && (
-        <div className="mb-6 min-w-0 w-full overflow-x-auto">
-          <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Undermapper" : "Subfolders"}</h2>
-          <div className="grid gap-3">
-            {childFolders.map((childFolder) => (
-              <EditableEntityRow
-                key={childFolder.id}
-                name={childFolder.name}
-                description={childFolder.description}
-                status={childFolder.status}
-                flags={childFolder}
-                settingsHref={`/dashboard/archive/${codeToUrlPath(childFolder.code)}/settings`}
-                onArchive={() => void handleArchiveChildFolder(childFolder.id)}
-                archiving={archivingChildFolderId === childFolder.id}
-                onDelete={() => void handleDeleteChildFolder(childFolder.id)}
-                deleting={deletingChildFolderId === childFolder.id}
-                locale={locale}
-              />
-            ))}
-          </div>
-        </div>
+          )}
+        />
       )}
-
-      <div className="customContainer mb-6 p-4">
-        <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Nytt element" : "New item"}</h2>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[200] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Navn" : "Name"}</label>
-            <input
-              className="customInput w-full"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              type="text"
-              disabled={creating}
-            />
-          </div>
-
-          <div className="min-w-[240] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Beskrivelse" : "Description"}</label>
-            <input
-              className="customInput w-full"
-              value={newItemDescription}
-              onChange={(e) => setNewItemDescription(e.target.value)}
-              type="text"
-              disabled={creating}
-            />
-          </div>
-
-          <button
-            type="button"
-            className="customButtonEnabled h-10 px-6"
-            onClick={() => void handleCreateItem()}
-            disabled={creating || !newItemName.trim()}
-          >
-            {creating ? (locale === "nb" ? "Oppretter..." : "Creating...") : locale === "nb" ? "Opprett" : "Create"}
-          </button>
-        </div>
-
-        {createError && <p className="mt-3 text-sm font-medium text-red-600">{createError}</p>}
-      </div>
-
-      <div className="min-w-0 w-full overflow-x-auto">
-        <h2 className="mb-3 font-semibold text-logoblue">{locale === "nb" ? "Elementer" : "Items"}</h2>
-        {loading ? (
-          <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
-            {locale === "nb" ? "Laster elementer..." : "Loading items..."}
-          </div>
-        ) : items.length === 0 ? (
-          <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
-            {locale === "nb" ? "Ingen elementer funnet" : "No items found"}
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            {items.map((item) => (
-              <EditableEntityRow
-                key={item.id}
-                name={item.name}
-                description={item.description}
-                status={item.status}
-                flags={item}
-                settingsHref={`/dashboard/archive/${codeToUrlPath(item.code)}/settings`}
-                onArchive={() => void handleArchiveItem(item.id)}
-                archiving={archivingItemId === item.id}
-                onDelete={() => void handleDeleteItem(item.id)}
-                deleting={deletingItemId === item.id}
-                locale={locale}
-              />
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

@@ -74,7 +74,7 @@ async function backfillFolders(): Promise<{ total: number; backfilled: number }>
   const missing = folders.filter((folder) => !alreadyCoded.has(folder.id));
 
   for (const folder of missing) {
-    await assignFolderCode(folder.companyId, folder.tenantId, folder.id, folder.parentFolderId);
+    await assignFolderCode(folder.companyId, folder.tenantId, folder.id, folder.parentFolderId, null);
   }
 
   return { total: folders.length, backfilled: missing.length };
@@ -94,7 +94,7 @@ async function backfillItems(): Promise<{ total: number; backfilled: number }> {
   const missing = items.filter((item) => !alreadyCoded.has(item.id));
 
   for (const item of missing) {
-    await assignItemCode(item.companyId, item.tenantId, item.id, item.folderId);
+    await assignItemCode(item.companyId, item.tenantId, item.id, item.folderId, null);
   }
 
   return { total: items.length, backfilled: missing.length };

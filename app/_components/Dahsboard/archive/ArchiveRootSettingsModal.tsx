@@ -2,48 +2,34 @@
 
 import { useState } from "react";
 import { EditableEntityRow } from "./EditableEntityRow";
+import { SectionedEntityManager } from "./SectionedEntityManager";
 import { codeToUrlPath } from "./types";
 import type { ArchiveFolderSummary } from "./types";
 
 type ArchiveRootSettingsModalProps = {
   folders: ArchiveFolderSummary[];
   locale: string;
-  onCreateFolder: (name: string, description: string | null) => Promise<{ ok: boolean; reason?: string }>;
+  onCreateFolder: (sectionId: string, name: string, description: string | null) => Promise<{ ok: boolean; reason?: string }>;
   onArchiveFolder: (folderId: string) => Promise<void>;
   onDeleteFolder: (folderId: string) => Promise<void>;
+  onFoldersChanged: () => void;
 };
 
 // Root-level settings is a modal in the otman-archive prototype
 // (SettingsButton/SettingsModal), unlike folder/item settings which are full
 // pages — replicated here rather than a route, since there's nothing else
 // at the root level to navigate away from.
-export function ArchiveRootSettingsModal({ folders, locale, onCreateFolder, onArchiveFolder, onDeleteFolder }: ArchiveRootSettingsModalProps) {
+export function ArchiveRootSettingsModal({
+  folders,
+  locale,
+  onCreateFolder,
+  onArchiveFolder,
+  onDeleteFolder,
+  onFoldersChanged,
+}: ArchiveRootSettingsModalProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState("");
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  async function handleCreate() {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-
-    setCreating(true);
-    setCreateError("");
-
-    const result = await onCreateFolder(trimmed, description.trim() || null);
-
-    if (!result.ok) {
-      setCreateError(result.reason || "Failed to create folder");
-    } else {
-      setName("");
-      setDescription("");
-    }
-
-    setCreating(false);
-  }
 
   async function handleArchive(folderId: string) {
     setArchivingId(folderId);
@@ -81,62 +67,28 @@ export function ArchiveRootSettingsModal({ folders, locale, onCreateFolder, onAr
               </button>
             </div>
 
-            <div className="mb-2 flex flex-wrap items-end gap-3">
-              <div className="min-w-[200] flex-1">
-                <label className="block pb-2 text-sm">{locale === "nb" ? "Navn" : "Name"}</label>
-                <input
-                  className="customInput w-full"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  type="text"
-                  disabled={creating}
+            <SectionedEntityManager
+              parentFolderId={null}
+              locale={locale}
+              folders={folders}
+              onFoldersChanged={onFoldersChanged}
+              onCreateSubfolder={onCreateFolder}
+              renderFolderRow={(folder) => (
+                <EditableEntityRow
+                  key={folder.id}
+                  name={folder.name}
+                  description={folder.description}
+                  status={folder.status}
+                  flags={folder}
+                  settingsHref={`/dashboard/archive/${codeToUrlPath(folder.code)}/settings`}
+                  onArchive={() => void handleArchive(folder.id)}
+                  archiving={archivingId === folder.id}
+                  onDelete={() => void handleDelete(folder.id)}
+                  deleting={deletingId === folder.id}
+                  locale={locale}
                 />
-              </div>
-
-              <div className="min-w-[240] flex-1">
-                <label className="block pb-2 text-sm">{locale === "nb" ? "Beskrivelse" : "Description"}</label>
-                <input
-                  className="customInput w-full"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  type="text"
-                  disabled={creating}
-                />
-              </div>
-
-              <button
-                type="button"
-                className="customButtonEnabled h-10 px-6"
-                onClick={() => void handleCreate()}
-                disabled={creating || !name.trim()}
-              >
-                {creating ? (locale === "nb" ? "Oppretter..." : "Creating...") : locale === "nb" ? "Opprett" : "Create"}
-              </button>
-            </div>
-
-            {createError && <p className="mb-4 text-sm font-medium text-red-600">{createError}</p>}
-
-            <div className="mt-4 flex flex-col gap-3">
-              {folders.length === 0 ? (
-                <p className="text-sm text-textColorThird">{locale === "nb" ? "Ingen mapper" : "No folders"}</p>
-              ) : (
-                folders.map((folder) => (
-                  <EditableEntityRow
-                    key={folder.id}
-                    name={folder.name}
-                    description={folder.description}
-                    status={folder.status}
-                    flags={folder}
-                    settingsHref={`/dashboard/archive/${codeToUrlPath(folder.code)}/settings`}
-                    onArchive={() => void handleArchive(folder.id)}
-                    archiving={archivingId === folder.id}
-                    onDelete={() => void handleDelete(folder.id)}
-                    deleting={deletingId === folder.id}
-                    locale={locale}
-                  />
-                ))
               )}
-            </div>
+            />
           </div>
         </div>
       )}

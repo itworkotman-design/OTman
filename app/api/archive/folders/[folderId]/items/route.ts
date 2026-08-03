@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
-import { assignItemCode, getItemCodes } from "@/lib/docArchive/folderCodes";
+import { assignItemCode, getItemCodes, getItemSectionIds } from "@/lib/docArchive/folderCodes";
+import { sectionBelongsToScope } from "@/lib/docArchive/sections";
 
 export async function GET(
   req: Request,
@@ -22,13 +23,17 @@ export async function GET(
     );
   }
 
-  const codes = await getItemCodes(
-    ctx.companyId,
-    ctx.tenantId,
-    listResult.value.map((item) => ({ id: item.id, folderId: item.folderId })),
-  );
+  const itemIds = listResult.value.map((item) => item.id);
+  const [codes, sectionIds] = await Promise.all([
+    getItemCodes(ctx.companyId, ctx.tenantId, listResult.value.map((item) => ({ id: item.id, folderId: item.folderId }))),
+    getItemSectionIds(itemIds),
+  ]);
 
-  const items = listResult.value.map((item) => ({ ...item, code: codes.get(item.id) ?? "?" }));
+  const items = listResult.value.map((item) => ({
+    ...item,
+    code: codes.get(item.id) ?? "?",
+    sectionId: sectionIds.get(item.id) ?? null,
+  }));
 
   return NextResponse.json({ ok: true, items });
 }
@@ -55,8 +60,24 @@ export async function POST(
 
   const description =
     typeof body?.description === "string" ? body.description.trim() || null : null;
+  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() : "";
+
+  if (!sectionId) {
+    return NextResponse.json(
+      { ok: false, reason: "SECTION_REQUIRED" },
+      { status: 400 },
+    );
+  }
 
   const ctx = buildArchiveContext(session, membership);
+
+  if (!(await sectionBelongsToScope(ctx.companyId, ctx.tenantId, folderId, sectionId))) {
+    return NextResponse.json(
+      { ok: false, reason: "INVALID_SECTION" },
+      { status: 400 },
+    );
+  }
+
   const createResult = await archive.createItem(ctx, { folderId, name, description });
 
   if (!createResult.ok) {
@@ -66,7 +87,7 @@ export async function POST(
     );
   }
 
-  await assignItemCode(ctx.companyId, ctx.tenantId, createResult.value.id, folderId);
+  await assignItemCode(ctx.companyId, ctx.tenantId, createResult.value.id, folderId, sectionId);
 
-  return NextResponse.json({ ok: true, item: createResult.value }, { status: 201 });
+  return NextResponse.json({ ok: true, item: { ...createResult.value, sectionId } }, { status: 201 });
 }

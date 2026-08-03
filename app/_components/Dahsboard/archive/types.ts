@@ -18,6 +18,7 @@ export type ArchiveFolderSummary = ArchiveConditionFlags & {
   entryCount: number;
   viewerCount: number;
   code: string;
+  sectionId: string | null;
 };
 
 export type ArchiveItemSummary = ArchiveConditionFlags & {
@@ -30,7 +31,28 @@ export type ArchiveItemSummary = ArchiveConditionFlags & {
   expiresAt: string | null;
   updatedAt: string;
   code: string;
+  sectionId: string | null;
 };
+
+// A section is a purely host-side grouping label within a folder's settings
+// (or the archive root) — see lib/docArchive/sections.ts. folderCount/
+// itemCount reflect how many subfolders/items currently reference it, used
+// to gate deletion (a section can only be deleted while empty).
+export type ArchiveSectionSummary = {
+  id: string;
+  name: string;
+  description: string | null;
+  order: number;
+  folderCount: number;
+  itemCount: number;
+};
+
+// Sentinel used client-side only (never sent to the API as a real id) for
+// the bucket of subfolders/items whose ArchiveFolderCode/ArchiveItemCode.
+// sectionId is null — content created before sections existed. Distinct
+// from any real cuid, so it can share the same "group by sectionId" map key
+// space as actual sections.
+export const UNGROUPED_SECTION_ID = "__ungrouped__";
 
 export const STATUS_ORDER: ArchiveBusinessStatus[] = ["active", "draft", "inactive", "archived"];
 

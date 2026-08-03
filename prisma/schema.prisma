@@ -1019,25 +1019,58 @@ enum BlogSectionType {
 // renumbers the ones around it, since nothing here is derived from current
 // list position.
 model ArchiveFolderCode {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   companyId String
   tenantId  String
-  folderId  String   @unique
+  folderId  String          @unique
   localSeq  Int
-  createdAt DateTime @default(now())
+  sectionId String?
+  section   ArchiveSection? @relation(fields: [sectionId], references: [id])
+  createdAt DateTime        @default(now())
 
   @@index([companyId, tenantId])
+  @@index([sectionId])
 }
 
 model ArchiveItemCode {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   companyId String
   tenantId  String
-  itemId    String   @unique
+  itemId    String          @unique
   localSeq  Int
-  createdAt DateTime @default(now())
+  sectionId String?
+  section   ArchiveSection? @relation(fields: [sectionId], references: [id])
+  createdAt DateTime        @default(now())
 
   @@index([companyId, tenantId])
+  @@index([sectionId])
+}
+
+// Host-side grouping layer within a folder's settings (or the archive
+// root) — the @customprojects/custom-archive package's own folder/item
+// model has no concept of sections, so this lives in OTman's schema like
+// ArchiveFolderCode/ArchiveItemCode above. `parentFolderId` is the same
+// ROOT_SCOPE sentinel used by ArchiveSequenceCounter for root-level
+// sections, else the containing folder's id (opaque cross-database
+// reference, not a Prisma relation — see lib/docArchive/folderCodes.ts).
+// Folders/items reference their section via ArchiveFolderCode.sectionId /
+// ArchiveItemCode.sectionId, nullable so pre-existing rows created before
+// this feature can stay "ungrouped" rather than requiring a data backfill;
+// new subfolders/items are required (at the API layer) to specify one.
+model ArchiveSection {
+  id             String              @id @default(cuid())
+  companyId      String
+  tenantId       String
+  parentFolderId String
+  name           String
+  description    String?
+  order          Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  folderCodes    ArchiveFolderCode[]
+  itemCodes      ArchiveItemCode[]
+
+  @@index([companyId, tenantId, parentFolderId])
 }
 
 enum ArchiveSequenceScope {

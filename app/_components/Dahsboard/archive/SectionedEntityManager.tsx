@@ -1,0 +1,534 @@
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+import { UNGROUPED_SECTION_ID } from "./types";
+import type { ArchiveFolderSummary, ArchiveItemSummary, ArchiveSectionSummary } from "./types";
+
+type CreateResult = { ok: boolean; reason?: string };
+
+type SectionedEntityManagerProps = {
+  // null = the archive root's own section scope (top-level folders).
+  parentFolderId: string | null;
+  locale: string;
+  folders: ArchiveFolderSummary[];
+  // Omitted at the root, which has no items of its own.
+  items?: ArchiveItemSummary[];
+  renderFolderRow: (folder: ArchiveFolderSummary) => ReactNode;
+  renderItemRow?: (item: ArchiveItemSummary) => ReactNode;
+  onCreateSubfolder: (sectionId: string, name: string, description: string | null) => Promise<CreateResult>;
+  onCreateItem?: (sectionId: string, name: string, description: string | null) => Promise<CreateResult>;
+  // Called after a folder/item is moved into a different section, so the
+  // caller can refetch its own folders/items list (which carries sectionId).
+  onFoldersChanged: () => void;
+  onItemsChanged?: () => void;
+};
+
+// Groups a folder's subfolders/items into named sections instead of one flat
+// "add subfolder" / "add item" pair of forms — subfolders and items can only
+// be created *into* a section (per the now-mandatory sectionId on the create
+// routes), and existing content created before this feature shipped shows
+// under a client-only "Ungrouped" bucket with a "Move to..." picker rather
+// than being lost. Shared between the archive root (folders only) and a
+// folder's own settings page (folders + items) via the optional item props.
+export function SectionedEntityManager({
+  parentFolderId,
+  locale,
+  folders,
+  items,
+  renderFolderRow,
+  renderItemRow,
+  onCreateSubfolder,
+  onCreateItem,
+  onFoldersChanged,
+  onItemsChanged,
+}: SectionedEntityManagerProps) {
+  const sectionsBase = parentFolderId ? `/api/archive/folders/${parentFolderId}/sections` : "/api/archive/sections";
+
+  const [sections, setSections] = useState<ArchiveSectionSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [newSectionName, setNewSectionName] = useState("");
+  const [newSectionDescription, setNewSectionDescription] = useState("");
+  const [creatingSection, setCreatingSection] = useState(false);
+  const [createSectionError, setCreateSectionError] = useState("");
+  const [deletingSectionId, setDeletingSectionId] = useState<string | null>(null);
+  const [sectionActionError, setSectionActionError] = useState("");
+
+  const [openFolderFormFor, setOpenFolderFormFor] = useState<string | null>(null);
+  const [folderFormName, setFolderFormName] = useState("");
+  const [folderFormDescription, setFolderFormDescription] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [folderFormError, setFolderFormError] = useState("");
+
+  const [openItemFormFor, setOpenItemFormFor] = useState<string | null>(null);
+  const [itemFormName, setItemFormName] = useState("");
+  const [itemFormDescription, setItemFormDescription] = useState("");
+  const [creatingItem, setCreatingItem] = useState(false);
+  const [itemFormError, setItemFormError] = useState("");
+
+  const [movingFolderId, setMovingFolderId] = useState<string | null>(null);
+  const [movingItemId, setMovingItemId] = useState<string | null>(null);
+
+  async function loadSections() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const res = await fetch(sectionsBase, { credentials: "include", cache: "no-store" });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setError(data?.reason || "Failed to load sections");
+        return;
+      }
+
+      setSections(data.sections ?? []);
+    } catch {
+      setError("Failed to load sections");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadSections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionsBase]);
+
+  async function handleCreateSection() {
+    const name = newSectionName.trim();
+    if (!name) return;
+
+    try {
+      setCreatingSection(true);
+      setCreateSectionError("");
+
+      const res = await fetch(sectionsBase, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description: newSectionDescription.trim() || null }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setCreateSectionError(data?.reason || "Failed to create section");
+        return;
+      }
+
+      setNewSectionName("");
+      setNewSectionDescription("");
+      await loadSections();
+    } catch {
+      setCreateSectionError("Failed to create section");
+    } finally {
+      setCreatingSection(false);
+    }
+  }
+
+  async function handleDeleteSection(sectionId: string) {
+    if (!confirm(locale === "nb" ? "Slette denne seksjonen?" : "Delete this section?")) return;
+
+    try {
+      setDeletingSectionId(sectionId);
+      setSectionActionError("");
+
+      const res = await fetch(`/api/archive/sections/${sectionId}`, { method: "DELETE", credentials: "include" });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setSectionActionError(
+          data?.reason === "NOT_EMPTY"
+            ? locale === "nb"
+              ? "Seksjonen må være tom før den kan slettes"
+              : "The section must be empty before it can be deleted"
+            : data?.reason || "Failed to delete section",
+        );
+        return;
+      }
+
+      await loadSections();
+    } catch {
+      setSectionActionError("Failed to delete section");
+    } finally {
+      setDeletingSectionId(null);
+    }
+  }
+
+  function toggleFolderForm(sectionId: string) {
+    const opening = openFolderFormFor !== sectionId;
+    setOpenFolderFormFor(opening ? sectionId : null);
+    setFolderFormName("");
+    setFolderFormDescription("");
+    setFolderFormError("");
+  }
+
+  async function handleCreateFolderIn(sectionId: string) {
+    const name = folderFormName.trim();
+    if (!name) return;
+
+    try {
+      setCreatingFolder(true);
+      setFolderFormError("");
+
+      const result = await onCreateSubfolder(sectionId, name, folderFormDescription.trim() || null);
+
+      if (!result.ok) {
+        setFolderFormError(result.reason || "Failed to create subfolder");
+        return;
+      }
+
+      setOpenFolderFormFor(null);
+      setFolderFormName("");
+      setFolderFormDescription("");
+      await loadSections();
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
+
+  function toggleItemForm(sectionId: string) {
+    const opening = openItemFormFor !== sectionId;
+    setOpenItemFormFor(opening ? sectionId : null);
+    setItemFormName("");
+    setItemFormDescription("");
+    setItemFormError("");
+  }
+
+  async function handleCreateItemIn(sectionId: string) {
+    if (!onCreateItem) return;
+    const name = itemFormName.trim();
+    if (!name) return;
+
+    try {
+      setCreatingItem(true);
+      setItemFormError("");
+
+      const result = await onCreateItem(sectionId, name, itemFormDescription.trim() || null);
+
+      if (!result.ok) {
+        setItemFormError(result.reason || "Failed to create item");
+        return;
+      }
+
+      setOpenItemFormFor(null);
+      setItemFormName("");
+      setItemFormDescription("");
+      await loadSections();
+    } finally {
+      setCreatingItem(false);
+    }
+  }
+
+  async function handleMoveFolder(folderId: string, sectionId: string) {
+    try {
+      setMovingFolderId(folderId);
+
+      const res = await fetch(`/api/archive/folders/${folderId}/section`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sectionId }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
+        await Promise.all([loadSections(), onFoldersChanged()]);
+      }
+    } finally {
+      setMovingFolderId(null);
+    }
+  }
+
+  async function handleMoveItem(itemId: string, sectionId: string) {
+    try {
+      setMovingItemId(itemId);
+
+      const res = await fetch(`/api/archive/items/${itemId}/section`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sectionId }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
+        await Promise.all([loadSections(), onItemsChanged?.()]);
+      }
+    } finally {
+      setMovingItemId(null);
+    }
+  }
+
+  const t = {
+    sections: locale === "nb" ? "Seksjoner" : "Sections",
+    newSection: locale === "nb" ? "Ny seksjon" : "New section",
+    name: locale === "nb" ? "Navn" : "Name",
+    description: locale === "nb" ? "Beskrivelse" : "Description",
+    create: locale === "nb" ? "Opprett" : "Create",
+    creating: locale === "nb" ? "Oppretter..." : "Creating...",
+    delete: locale === "nb" ? "Slett" : "Delete",
+    addSubfolder: locale === "nb" ? "+ Ny undermappe" : "+ New subfolder",
+    addItem: locale === "nb" ? "+ Nytt element" : "+ New item",
+    cancel: locale === "nb" ? "Avbryt" : "Cancel",
+    ungrouped: locale === "nb" ? "Ugruppert" : "Ungrouped",
+    ungroupedHint:
+      locale === "nb"
+        ? "Opprettet før seksjoner fantes. Flytt til en seksjon:"
+        : "Created before sections existed. Move to a section:",
+    moveTo: locale === "nb" ? "Velg seksjon..." : "Choose a section...",
+    noSections: locale === "nb" ? "Ingen seksjoner ennå" : "No sections yet",
+  };
+
+  const foldersBySection = new Map<string, ArchiveFolderSummary[]>();
+  for (const folder of folders) {
+    const key = folder.sectionId ?? UNGROUPED_SECTION_ID;
+    const list = foldersBySection.get(key) ?? [];
+    list.push(folder);
+    foldersBySection.set(key, list);
+  }
+
+  const itemsBySection = new Map<string, ArchiveItemSummary[]>();
+  for (const item of items ?? []) {
+    const key = item.sectionId ?? UNGROUPED_SECTION_ID;
+    const list = itemsBySection.get(key) ?? [];
+    list.push(item);
+    itemsBySection.set(key, list);
+  }
+
+  const ungroupedFolders = foldersBySection.get(UNGROUPED_SECTION_ID) ?? [];
+  const ungroupedItems = itemsBySection.get(UNGROUPED_SECTION_ID) ?? [];
+
+  return (
+    <div className="mb-6">
+      <h2 className="mb-3 font-semibold text-logoblue">{t.sections}</h2>
+
+      <div className="customContainer mb-4 p-4">
+        <h3 className="mb-3 text-sm font-semibold text-textColorThird">{t.newSection}</h3>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[200] flex-1">
+            <label className="block pb-2 text-sm">{t.name}</label>
+            <input
+              className="customInput w-full"
+              value={newSectionName}
+              onChange={(e) => setNewSectionName(e.target.value)}
+              type="text"
+              disabled={creatingSection}
+            />
+          </div>
+          <div className="min-w-[240] flex-1">
+            <label className="block pb-2 text-sm">{t.description}</label>
+            <input
+              className="customInput w-full"
+              value={newSectionDescription}
+              onChange={(e) => setNewSectionDescription(e.target.value)}
+              type="text"
+              disabled={creatingSection}
+            />
+          </div>
+          <button
+            type="button"
+            className="customButtonEnabled h-10 px-6"
+            onClick={() => void handleCreateSection()}
+            disabled={creatingSection || !newSectionName.trim()}
+          >
+            {creatingSection ? t.creating : t.create}
+          </button>
+        </div>
+        {createSectionError && <p className="mt-3 text-sm font-medium text-red-600">{createSectionError}</p>}
+      </div>
+
+      {error && <p className="mb-4 text-sm font-medium text-red-600">{error}</p>}
+      {sectionActionError && <p className="mb-4 text-sm font-medium text-red-600">{sectionActionError}</p>}
+
+      {!loading && sections.length === 0 && ungroupedFolders.length === 0 && ungroupedItems.length === 0 && (
+        <p className="mb-4 text-sm text-textColorThird">{t.noSections}</p>
+      )}
+
+      <div className="grid gap-4">
+        {sections.map((section) => {
+          const sectionFolders = foldersBySection.get(section.id) ?? [];
+          const sectionItems = itemsBySection.get(section.id) ?? [];
+          const isEmpty = section.folderCount === 0 && section.itemCount === 0;
+
+          return (
+            <div key={section.id} className="customContainer p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-logoblue">{section.name}</h3>
+                  {section.description && <p className="text-sm text-textColorThird">{section.description}</p>}
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 text-sm text-red-600 hover:underline disabled:opacity-40"
+                  onClick={() => void handleDeleteSection(section.id)}
+                  disabled={!isEmpty || deletingSectionId === section.id}
+                  title={isEmpty ? undefined : locale === "nb" ? "Seksjonen er ikke tom" : "Section is not empty"}
+                >
+                  {t.delete}
+                </button>
+              </div>
+
+              {sectionFolders.length > 0 && (
+                <div className="mb-3 grid gap-2">{sectionFolders.map((folder) => renderFolderRow(folder))}</div>
+              )}
+
+              {openFolderFormFor === section.id ? (
+                <div className="mb-3 rounded-xl border border-lineSecondary p-3">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-[160] flex-1">
+                      <input
+                        className="customInput w-full"
+                        placeholder={t.name}
+                        value={folderFormName}
+                        onChange={(e) => setFolderFormName(e.target.value)}
+                        disabled={creatingFolder}
+                      />
+                    </div>
+                    <div className="min-w-[200] flex-1">
+                      <input
+                        className="customInput w-full"
+                        placeholder={t.description}
+                        value={folderFormDescription}
+                        onChange={(e) => setFolderFormDescription(e.target.value)}
+                        disabled={creatingFolder}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="customButtonEnabled h-10 px-4"
+                      onClick={() => void handleCreateFolderIn(section.id)}
+                      disabled={creatingFolder || !folderFormName.trim()}
+                    >
+                      {creatingFolder ? t.creating : t.create}
+                    </button>
+                    <button type="button" className="customButtonDefault h-10 px-4" onClick={() => toggleFolderForm(section.id)}>
+                      {t.cancel}
+                    </button>
+                  </div>
+                  {folderFormError && <p className="mt-2 text-sm font-medium text-red-600">{folderFormError}</p>}
+                </div>
+              ) : (
+                <button type="button" className="mb-3 text-sm text-logoblue hover:underline" onClick={() => toggleFolderForm(section.id)}>
+                  {t.addSubfolder}
+                </button>
+              )}
+
+              {items && (
+                <>
+                  {sectionItems.length > 0 && (
+                    <div className="mb-3 grid gap-2">{sectionItems.map((item) => renderItemRow?.(item))}</div>
+                  )}
+
+                  {openItemFormFor === section.id ? (
+                    <div className="rounded-xl border border-lineSecondary p-3">
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div className="min-w-[160] flex-1">
+                          <input
+                            className="customInput w-full"
+                            placeholder={t.name}
+                            value={itemFormName}
+                            onChange={(e) => setItemFormName(e.target.value)}
+                            disabled={creatingItem}
+                          />
+                        </div>
+                        <div className="min-w-[200] flex-1">
+                          <input
+                            className="customInput w-full"
+                            placeholder={t.description}
+                            value={itemFormDescription}
+                            onChange={(e) => setItemFormDescription(e.target.value)}
+                            disabled={creatingItem}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="customButtonEnabled h-10 px-4"
+                          onClick={() => void handleCreateItemIn(section.id)}
+                          disabled={creatingItem || !itemFormName.trim()}
+                        >
+                          {creatingItem ? t.creating : t.create}
+                        </button>
+                        <button type="button" className="customButtonDefault h-10 px-4" onClick={() => toggleItemForm(section.id)}>
+                          {t.cancel}
+                        </button>
+                      </div>
+                      {itemFormError && <p className="mt-2 text-sm font-medium text-red-600">{itemFormError}</p>}
+                    </div>
+                  ) : (
+                    <button type="button" className="text-sm text-logoblue hover:underline" onClick={() => toggleItemForm(section.id)}>
+                      {t.addItem}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+
+        {(ungroupedFolders.length > 0 || ungroupedItems.length > 0) && (
+          <div className="customContainer border-dashed p-4">
+            <h3 className="mb-1 font-semibold text-textColorThird">{t.ungrouped}</h3>
+            {sections.length > 0 && <p className="mb-3 text-sm text-textColorThird">{t.ungroupedHint}</p>}
+
+            {ungroupedFolders.length > 0 && (
+              <div className="mb-3 grid gap-2">
+                {ungroupedFolders.map((folder) => (
+                  <div key={folder.id} className="grid gap-1">
+                    {renderFolderRow(folder)}
+                    {sections.length > 0 && (
+                      <select
+                        className="customInput w-fit text-sm"
+                        value=""
+                        disabled={movingFolderId === folder.id}
+                        onChange={(e) => {
+                          if (e.target.value) void handleMoveFolder(folder.id, e.target.value);
+                        }}
+                      >
+                        <option value="">{t.moveTo}</option>
+                        {sections.map((section) => (
+                          <option key={section.id} value={section.id}>
+                            {section.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {items && ungroupedItems.length > 0 && (
+              <div className="grid gap-1">
+                {ungroupedItems.map((item) => (
+                  <div key={item.id} className="grid gap-1">
+                    {renderItemRow?.(item)}
+                    {sections.length > 0 && (
+                      <select
+                        className="customInput w-fit text-sm"
+                        value=""
+                        disabled={movingItemId === item.id}
+                        onChange={(e) => {
+                          if (e.target.value) void handleMoveItem(item.id, e.target.value);
+                        }}
+                      >
+                        <option value="">{t.moveTo}</option>
+                        {sections.map((section) => (
+                          <option key={section.id} value={section.id}>
+                            {section.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

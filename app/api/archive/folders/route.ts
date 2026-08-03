@@ -8,6 +8,7 @@ import {
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 import { withFolderStats } from "@/lib/docArchive/withFolderStats";
 import { assignFolderCode } from "@/lib/docArchive/folderCodes";
+import { sectionBelongsToScope } from "@/lib/docArchive/sections";
 
 export async function GET(req: Request) {
   const result = await requireArchiveMembership(req);
@@ -48,8 +49,23 @@ export async function POST(req: Request) {
     typeof body?.description === "string" ? body.description.trim() || null : null;
   const parentFolderId =
     typeof body?.parentFolderId === "string" ? body.parentFolderId.trim() || null : null;
+  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() : "";
+
+  if (!sectionId) {
+    return NextResponse.json(
+      { ok: false, reason: "SECTION_REQUIRED" },
+      { status: 400 },
+    );
+  }
 
   const ctx = buildArchiveContext(session, membership);
+
+  if (!(await sectionBelongsToScope(ctx.companyId, ctx.tenantId, parentFolderId, sectionId))) {
+    return NextResponse.json(
+      { ok: false, reason: "INVALID_SECTION" },
+      { status: 400 },
+    );
+  }
 
   if (!parentFolderId) {
     await ensureNamespaceBootstrapped(ctx, membership.role);
@@ -65,7 +81,7 @@ export async function POST(req: Request) {
   }
 
   await grantFolderCreatorCapabilities(ctx, createResult.value.id);
-  await assignFolderCode(ctx.companyId, ctx.tenantId, createResult.value.id, parentFolderId);
+  await assignFolderCode(ctx.companyId, ctx.tenantId, createResult.value.id, parentFolderId, sectionId);
 
-  return NextResponse.json({ ok: true, folder: createResult.value }, { status: 201 });
+  return NextResponse.json({ ok: true, folder: { ...createResult.value, sectionId } }, { status: 201 });
 }
