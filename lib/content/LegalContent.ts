@@ -42,8 +42,8 @@ export const privacyPolicyContent: LegalPageContent = {
       },
       paragraphs: [
         {
-          en: "Otman AS, org. no. 926425293, Kjeller, Nittebergsvingen 8, 2007.",
-          no: "Otman AS, org.nr. 926425293, Kjeller, Nittebergsvingen 8, 2007.",
+          en: "Otman AS, org. no. 926425293, Skedsmokorset, Gneisveien 8, 2020.",
+          no: "Otman AS, org.nr. 926425293, Skedsmokorset, Gneisveien 8, 2020.",
         },
         {
           en: "For privacy questions, contact us at info@otman.no or +47 402 84 977.",
@@ -241,8 +241,8 @@ export const termsContent: LegalPageContent = {
       },
       paragraphs: [
         {
-          en: "Otman AS, org. no. 926425293, Kjeller, Nittebergsvingen 8, 2007. Contact: info@otman.no, +47 402 84 977.",
-          no: "Otman AS, org.nr. 926425293, Kjeller, Nittebergsvingen 8, 2007. Kontakt: info@otman.no, +47 402 84 977.",
+          en: "Otman AS, org. no. 926425293, Skedsmokorset, Gneisveien 8, 2020. Contact: info@otman.no, +47 402 84 977.",
+          no: "Otman AS, org.nr. 926425293, Skedsmokorset, Gneisveien 8, 2020. Kontakt: info@otman.no, +47 402 84 977.",
         },
       ],
     },

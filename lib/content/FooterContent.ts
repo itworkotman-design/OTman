@@ -18,7 +18,7 @@ export const footerContent = {
   companyInfo: {
     name: "Otman AS",
     orgNumber: "Org.nr. 926425293",
-    address: "Kjeller, Nittebergsvingen 8, 2007",
+    address: "Skedsmokorset, Gneisveien 8, 2020",
   },
 
   navigationLinks: [

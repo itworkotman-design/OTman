@@ -93,17 +93,16 @@ const localBusinessJsonLd = {
   email: "info@otman.no",
   address: {
     "@type": "PostalAddress",
-    streetAddress: "Nittebergsvingen 8",
+    streetAddress: "Gneisveien 8",
     postalCode: "2007",
-    addressLocality: "Kjeller",
+    addressLocality: "Skedsmokorset",
     addressCountry: "NO",
   },
   areaServed: {
     "@type": "Country",
     name: "Norway",
   },
-  description:
-    "Transport, pakkelevering, flytting, spesialtransport og bemanning for private og bedrifter i Norge.",
+  description: "Transport, pakkelevering, flytting, spesialtransport og bemanning for private og bedrifter i Norge.",
   sameAs: ["https://otman.no"],
 } as const;
 
