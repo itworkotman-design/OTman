@@ -26,6 +26,26 @@ const gridColumnClasses: Record<NonNullable<ImagePreviewGridProps["columns"]>, s
   5: "grid-cols-5",
 };
 
+function DownloadIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
 function previewReducer(state: PreviewState, action: PreviewAction): PreviewState {
   if (action.type === "open") return { activeIndex: action.index };
   if (action.type === "close") return { activeIndex: null };
@@ -45,16 +65,26 @@ export function ImagePreviewGrid({ images, columns = 5 }: ImagePreviewGridProps)
     <>
       <div className={`grid ${gridColumnClasses[columns]} gap-3`}>
         {images.map((image, index) => (
-          <button
-            key={image.id}
-            type="button"
-            onClick={() => dispatch({ type: "open", index })}
-            className="rounded-xl border border-lineSecondary p-3 text-left transition-colors hover:border-logoblue"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image.src} alt={image.alt} className="mx-auto h-24 w-full object-contain" />
-            <p className="mt-2 truncate text-center text-sm text-textColorSecond">{image.alt}</p>
-          </button>
+          <div key={image.id} className="relative">
+            <button
+              type="button"
+              onClick={() => dispatch({ type: "open", index })}
+              className="w-full rounded-xl border border-lineSecondary p-3 text-left transition-colors hover:border-logoblue"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={image.src} alt={image.alt} className="mx-auto h-24 w-full object-contain" />
+              <p className="mt-2 truncate text-center text-sm text-textColorSecond">{image.alt}</p>
+            </button>
+            <a
+              href={`${image.src}?download=1`}
+              download
+              className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white text-logoblue shadow transition-colors hover:bg-logoblue/10"
+              aria-label="Download image"
+              title="Download"
+            >
+              <DownloadIcon />
+            </a>
+          </div>
         ))}
       </div>
 
@@ -71,27 +101,40 @@ export function ImagePreviewGrid({ images, columns = 5 }: ImagePreviewGridProps)
               </button>
             </div>
 
-            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 p-5">
-              <button
-                type="button"
-                onClick={() => dispatch({ type: "previous", imageCount: images.length })}
-                className="h-12 w-12 rounded-full border border-lineSecondary text-2xl font-semibold text-logoblue hover:bg-logoblue hover:text-white"
-                aria-label="Previous image"
-              >
-                &lt;
-              </button>
-              <div className="flex min-h-[420px] items-center justify-center">
+            <div className={`grid items-center gap-4 p-5 ${images.length > 1 ? "grid-cols-[auto_1fr_auto]" : "grid-cols-1"}`}>
+              {images.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: "previous", imageCount: images.length })}
+                  className="h-12 w-12 rounded-full border border-lineSecondary text-2xl font-semibold text-logoblue hover:bg-logoblue hover:text-white"
+                  aria-label="Previous image"
+                >
+                  &lt;
+                </button>
+              )}
+              <div className="relative flex min-h-[420px] items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={activeImage.src} alt={activeImage.alt} className="max-h-[65vh] w-auto max-w-full object-contain" />
+                <a
+                  href={`${activeImage.src}?download=1`}
+                  download
+                  className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-full bg-white text-logoblue shadow transition-colors hover:bg-logoblue/10"
+                  aria-label="Download image"
+                  title="Download"
+                >
+                  <DownloadIcon />
+                </a>
               </div>
-              <button
-                type="button"
-                onClick={() => dispatch({ type: "next", imageCount: images.length })}
-                className="h-12 w-12 rounded-full border border-lineSecondary text-2xl font-semibold text-logoblue hover:bg-logoblue hover:text-white"
-                aria-label="Next image"
-              >
-                &gt;
-              </button>
+              {images.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: "next", imageCount: images.length })}
+                  className="h-12 w-12 rounded-full border border-lineSecondary text-2xl font-semibold text-logoblue hover:bg-logoblue hover:text-white"
+                  aria-label="Next image"
+                >
+                  &gt;
+                </button>
+              )}
             </div>
 
             <div className="flex gap-2 overflow-x-auto border-t border-lineSecondary p-3">

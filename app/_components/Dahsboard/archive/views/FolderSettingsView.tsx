@@ -491,6 +491,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
           {
             id: "reminders",
             title: locale === "nb" ? "Påminnelser" : "Reminders",
+            dotColor: folder.reminderRecurrenceType ? "bg-green-500" : "bg-gray-300",
             content: (
               <ReminderSettingsPanel
                 kind="folder"
@@ -541,13 +542,14 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveControlTab(tab.id)}
-                className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
                   activeControlTab === tab.id
                     ? "border-logoblue text-logoblue"
                     : "border-transparent text-textColorThird hover:text-textColorSecond"
                 }`}
               >
                 {tab.title}
+                {"dotColor" in tab && <span className={`h-2 w-2 rounded-full ${tab.dotColor}`} />}
               </button>
             ))}
           </div>

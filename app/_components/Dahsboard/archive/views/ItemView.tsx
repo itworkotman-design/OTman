@@ -27,6 +27,26 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+function DownloadIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
 // Pure browsing view of a single item — read-only. Upload/delete/restore/
 // status-and-date editing all live on this item's settings page instead.
 // `codePath` is this item's own code (e.g. "1.2F.3F.5") split on "." — its
@@ -180,16 +200,26 @@ export function ItemView({
             ) : (
               <div className="customContainer divide-y divide-lineSecondary">
                 {otherFiles.map((file) => (
-                  <a
-                    key={file.id}
-                    href={`/api/archive/files/${file.id}/download`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-logoblue">{file.originalFileName}</span>
-                    <span className="shrink-0 text-sm text-textColorThird">{formatBytes(file.sizeBytes)}</span>
-                  </a>
+                  <div key={file.id} className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary">
+                    <a
+                      href={`/api/archive/files/${file.id}/download`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-w-0 flex-1 items-center gap-4"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-logoblue">{file.originalFileName}</span>
+                      <span className="shrink-0 text-sm text-textColorThird">{formatBytes(file.sizeBytes)}</span>
+                    </a>
+                    <a
+                      href={`/api/archive/files/${file.id}/download?download=1`}
+                      download
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-logoblue transition-colors hover:bg-logoblue/10"
+                      aria-label={locale === "nb" ? "Last ned" : "Download"}
+                      title={locale === "nb" ? "Last ned" : "Download"}
+                    >
+                      <DownloadIcon />
+                    </a>
+                  </div>
                 ))}
               </div>
             )}
