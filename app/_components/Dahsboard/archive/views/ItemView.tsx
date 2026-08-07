@@ -5,6 +5,7 @@ import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { ConditionBadge } from "@/app/_components/Dahsboard/archive/ConditionBadge";
+import { CopyUrlButton } from "@/app/_components/Dahsboard/archive/CopyUrlButton";
 import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePreviewGrid";
 import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/ContentSectionTypeIcon";
 import { TextFieldsReadOnly } from "@/app/_components/Dahsboard/archive/TextFieldsReadOnly";
@@ -170,6 +171,7 @@ export function ItemView({
         <span className="font-medium text-textcolor">
           {loading ? "..." : item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")}
         </span>
+        <CopyUrlButton locale={locale} />
       </nav>
 
       <div className="mb-8 flex w-full flex-col items-center gap-3 text-center">
@@ -178,7 +180,6 @@ export function ItemView({
           {item && <ConditionBadge flags={item} locale={locale} />}
         </h1>
         {item?.description && <p className="max-w-xl text-sm text-textColorThird">{item.description}</p>}
-        {item && <p className="text-sm text-textColorThird">{item.status}</p>}
 
         <Link href={settingsHref} className="customButtonDefault">
           {locale === "nb" ? "Innstillinger" : "Settings"}

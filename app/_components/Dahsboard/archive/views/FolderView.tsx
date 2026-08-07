@@ -4,6 +4,7 @@ import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
+import { CopyUrlButton } from "@/app/_components/Dahsboard/archive/CopyUrlButton";
 import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { ItemPill } from "@/app/_components/Dahsboard/archive/ItemPill";
 import { codeBadgeWidthCh, codeToUrlPath, groupMixedBySection } from "@/app/_components/Dahsboard/archive/types";
@@ -146,6 +147,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
         <span className="font-medium text-textcolor">
           {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
         </span>
+        <CopyUrlButton locale={locale} />
       </nav>
 
       <div className="mb-8 flex w-full flex-col items-center gap-3 text-center">
