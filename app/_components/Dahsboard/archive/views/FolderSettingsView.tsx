@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
-import { ExpandablePanelList } from "@/app/_components/Dahsboard/archive/ExpandablePanelList";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
 import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
-import { EditableEntityRow } from "@/app/_components/Dahsboard/archive/EditableEntityRow";
+import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
+import { ItemPill } from "@/app/_components/Dahsboard/archive/ItemPill";
 import { SectionedEntityManager } from "@/app/_components/Dahsboard/archive/SectionedEntityManager";
-import { codeToUrlPath, formatReminderSubtitle } from "@/app/_components/Dahsboard/archive/types";
+import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderDetail = ArchiveFolderSummary & {
@@ -68,12 +68,11 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
   const [childFolders, setChildFolders] = useState<ArchiveChildFolderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [rowActionError, setRowActionError] = useState("");
 
-  const [archivingChildFolderId, setArchivingChildFolderId] = useState<string | null>(null);
-  const [deletingChildFolderId, setDeletingChildFolderId] = useState<string | null>(null);
-  const [archivingItemId, setArchivingItemId] = useState<string | null>(null);
-  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  // Matches the top tab-switching style from user management
+  // (app/(User)/dashboard/users/page.tsx) — one tab always fully shown
+  // rather than the old click-to-expand accordion rows.
+  const [activeControlTab, setActiveControlTab] = useState("folder-settings");
 
   const [canManageSharing, setCanManageSharing] = useState(false);
   const [permissionRules, setPermissionRules] = useState<ArchivePermissionRule[]>([]);
@@ -290,122 +289,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
     }
   }
 
-  async function handleArchiveChildFolder(childFolderId: string) {
-    const current = childFolders.find((f) => f.id === childFolderId);
-    const nextStatus = current?.status === "archived" ? "active" : "archived";
-
-    try {
-      setArchivingChildFolderId(childFolderId);
-      setRowActionError("");
-
-      const res = await fetch(`/api/archive/folders/${childFolderId}/status`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setRowActionError(data?.reason || "Failed to archive folder");
-        return;
-      }
-
-      setChildFolders((prev) => prev.map((f) => (f.id === childFolderId ? { ...f, status: nextStatus } : f)));
-    } catch {
-      setRowActionError("Failed to archive folder");
-    } finally {
-      setArchivingChildFolderId(null);
-    }
-  }
-
-  async function handleDeleteChildFolder(childFolderId: string) {
-    if (!confirm(locale === "nb" ? "Slette denne mappen?" : "Delete this folder?")) return;
-
-    try {
-      setDeletingChildFolderId(childFolderId);
-      setRowActionError("");
-
-      const res = await fetch(`/api/archive/folders/${childFolderId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setRowActionError(data?.reason || "Failed to delete folder");
-        return;
-      }
-
-      setChildFolders((prev) => prev.filter((f) => f.id !== childFolderId));
-    } catch {
-      setRowActionError("Failed to delete folder");
-    } finally {
-      setDeletingChildFolderId(null);
-    }
-  }
-
-  async function handleArchiveItem(itemId: string) {
-    const current = items.find((i) => i.id === itemId);
-    const nextStatus = current?.status === "archived" ? "active" : "archived";
-
-    try {
-      setArchivingItemId(itemId);
-      setRowActionError("");
-
-      const res = await fetch(`/api/archive/items/${itemId}/status`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setRowActionError(data?.reason || "Failed to archive item");
-        return;
-      }
-
-      setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, status: nextStatus } : i)));
-    } catch {
-      setRowActionError("Failed to archive item");
-    } finally {
-      setArchivingItemId(null);
-    }
-  }
-
-  async function handleDeleteItem(itemId: string) {
-    if (!confirm(locale === "nb" ? "Slette dette elementet?" : "Delete this item?")) return;
-
-    try {
-      setDeletingItemId(itemId);
-      setRowActionError("");
-
-      const res = await fetch(`/api/archive/items/${itemId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setRowActionError(data?.reason || "Failed to delete item");
-        return;
-      }
-
-      setItems((prev) => prev.filter((i) => i.id !== itemId));
-    } catch {
-      setRowActionError("Failed to delete item");
-    } finally {
-      setDeletingItemId(null);
-    }
-  }
-
   async function handleFolderSettingsSaved() {
-    setRowActionError("");
     await loadFolderAndItems();
   }
 
@@ -433,117 +317,147 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
   }
   const coworkerById = new Map(coworkers.map((c) => [c.userId, c]));
   const roleById = new Map(roles.map((r) => [r.id, r]));
-  const sharedUserIds = new Set(
-    Array.from(sharedSubjects.values()).filter((s) => s.subjectType === "user").map((s) => s.subjectId),
-  );
-  const sharedRoleIds = new Set(
-    Array.from(sharedSubjects.values()).filter((s) => s.subjectType === "role").map((s) => s.subjectId),
-  );
-  const shareableCoworkers = coworkers.filter((c) => !sharedUserIds.has(c.userId));
-  const shareableRoles = roles.filter((r) => !sharedRoleIds.has(r.id));
+  const sharedSubjectList = Array.from(sharedSubjects.values());
+  const sharedUserSubjects = sharedSubjectList.filter((s) => s.subjectType === "user");
+  const sharedRoleSubjects = sharedSubjectList.filter((s) => s.subjectType === "role");
+  const shareableCoworkers = coworkers.filter((c) => !sharedUserSubjects.some((s) => s.subjectId === c.userId));
+  const shareableRoles = roles.filter((r) => !sharedRoleSubjects.some((s) => s.subjectId === r.id));
+
+  function renderAccessRow(subject: SharedSubject, label: string) {
+    return (
+      <div key={`${subject.subjectType}:${subject.subjectId}`} className="flex items-center justify-between gap-4 py-2 text-sm">
+        <div>
+          <span className="font-medium text-textcolor">{label}</span>
+          <span className="ml-2 text-textColorThird">{subject.actions.join(", ")}</span>
+        </div>
+        <button
+          type="button"
+          className="text-red-600 hover:underline"
+          onClick={() => void handleRevokeShare(subject.subjectType, subject.subjectId, subject.actions)}
+          disabled={revokingSubject === subject.subjectId}
+        >
+          {locale === "nb" ? "Fjern" : "Remove"}
+        </button>
+      </div>
+    );
+  }
 
   const sharingContent = (
-    <div>
-      {sharedSubjects.size > 0 && (
-        <div className="mb-4 flex flex-col gap-2">
-          {Array.from(sharedSubjects.values()).map((subject) => {
-            const label =
-              subject.subjectType === "role"
-                ? `${locale === "nb" ? "Rolle" : "Role"}: ${roleById.get(subject.subjectId)?.name ?? subject.subjectId}`
-                : coworkerById.get(subject.subjectId)?.username ||
-                  coworkerById.get(subject.subjectId)?.email ||
-                  subject.subjectId;
-            return (
-              <div key={`${subject.subjectType}:${subject.subjectId}`} className="flex items-center justify-between gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-textcolor">{label}</span>
-                  <span className="ml-2 text-textColorThird">{subject.actions.join(", ")}</span>
-                </div>
-                <button
-                  type="button"
-                  className="text-red-600 hover:underline"
-                  onClick={() => void handleRevokeShare(subject.subjectType, subject.subjectId, subject.actions)}
-                  disabled={revokingSubject === subject.subjectId}
-                >
-                  {locale === "nb" ? "Fjern" : "Remove"}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
+    <div className="grid gap-6">
+      <div className="rounded-xl border border-lineSecondary p-4">
+        <h3 className="mb-3 text-sm font-semibold text-textColorThird">
+          {locale === "nb" ? "Gi tilgang" : "Grant access"}
+        </h3>
 
-      {canShareWithRoles && (
-        <div className="mb-3 flex gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              checked={shareTargetType === "user"}
-              onChange={() => setShareTargetType("user")}
-              disabled={sharing}
-            />
-            {locale === "nb" ? "Kollega" : "Coworker"}
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              checked={shareTargetType === "role"}
-              onChange={() => setShareTargetType("role")}
-              disabled={sharing}
-            />
-            {locale === "nb" ? "Rolle" : "Role"}
-          </label>
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-end gap-3">
-        {shareTargetType === "role" ? (
-          <div className="min-w-[200] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Rolle" : "Role"}</label>
-            <select
-              className="customInput w-full"
-              value={shareRoleId}
-              onChange={(e) => setShareRoleId(e.target.value)}
-              disabled={sharing}
-            >
-              <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
-              {shareableRoles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <div className="min-w-[200] flex-1">
-            <label className="block pb-2 text-sm">{locale === "nb" ? "Kollega" : "Coworker"}</label>
-            <select
-              className="customInput w-full"
-              value={shareUserId}
-              onChange={(e) => setShareUserId(e.target.value)}
-              disabled={sharing}
-            >
-              <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
-              {shareableCoworkers.map((coworker) => (
-                <option key={coworker.userId} value={coworker.userId}>
-                  {coworker.username || coworker.email}
-                </option>
-              ))}
-            </select>
+        {canShareWithRoles && (
+          <div className="mb-3 flex gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                checked={shareTargetType === "user"}
+                onChange={() => setShareTargetType("user")}
+                disabled={sharing}
+              />
+              {locale === "nb" ? "Kollega" : "Coworker"}
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                checked={shareTargetType === "role"}
+                onChange={() => setShareTargetType("role")}
+                disabled={sharing}
+              />
+              {locale === "nb" ? "Rolle" : "Role"}
+            </label>
           </div>
         )}
 
-        <button
-          type="button"
-          className="customButtonEnabled h-10 px-6"
-          onClick={() => void handleGrantShare()}
-          disabled={sharing || (shareTargetType === "role" ? !shareRoleId : !shareUserId)}
-        >
-          {sharing ? (locale === "nb" ? "Deler..." : "Sharing...") : locale === "nb" ? "Del" : "Share"}
-        </button>
+        <div className="flex flex-wrap items-end gap-3">
+          {shareTargetType === "role" ? (
+            <div className="min-w-[200] flex-1">
+              <label className="block pb-2 text-sm">{locale === "nb" ? "Rolle" : "Role"}</label>
+              <select
+                className="customInput w-full"
+                value={shareRoleId}
+                onChange={(e) => setShareRoleId(e.target.value)}
+                disabled={sharing}
+              >
+                <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
+                {shareableRoles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="min-w-[200] flex-1">
+              <label className="block pb-2 text-sm">{locale === "nb" ? "Kollega" : "Coworker"}</label>
+              <select
+                className="customInput w-full"
+                value={shareUserId}
+                onChange={(e) => setShareUserId(e.target.value)}
+                disabled={sharing}
+              >
+                <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
+                {shareableCoworkers.map((coworker) => (
+                  <option key={coworker.userId} value={coworker.userId}>
+                    {coworker.username || coworker.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="customButtonEnabled h-10 px-6"
+            onClick={() => void handleGrantShare()}
+            disabled={sharing || (shareTargetType === "role" ? !shareRoleId : !shareUserId)}
+          >
+            {sharing ? (locale === "nb" ? "Deler..." : "Sharing...") : locale === "nb" ? "Del" : "Share"}
+          </button>
+        </div>
+
+        {shareError && <p className="mt-3 text-sm font-medium text-red-600">{shareError}</p>}
       </div>
 
-      {shareError && <p className="mt-3 text-sm font-medium text-red-600">{shareError}</p>}
+      <div className="grid gap-4">
+        <div>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-textColorThird">
+            {locale === "nb" ? "Kolleger med tilgang" : "Users with access"}
+          </h4>
+          {sharedUserSubjects.length > 0 ? (
+            <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
+              {sharedUserSubjects.map((subject) =>
+                renderAccessRow(
+                  subject,
+                  coworkerById.get(subject.subjectId)?.username || coworkerById.get(subject.subjectId)?.email || subject.subjectId,
+                ),
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-textColorThird">
+              {locale === "nb" ? "Ingen kolleger har tilgang" : "No users have access"}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-textColorThird">
+            {locale === "nb" ? "Roller med tilgang" : "Roles with access"}
+          </h4>
+          {sharedRoleSubjects.length > 0 ? (
+            <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
+              {sharedRoleSubjects.map((subject) =>
+                renderAccessRow(subject, roleById.get(subject.subjectId)?.name ?? subject.subjectId),
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-textColorThird">{locale === "nb" ? "Ingen roller har tilgang" : "No roles have access"}</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 
@@ -553,7 +467,6 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
           {
             id: "permissions",
             title: locale === "nb" ? "Deling" : "Permissions",
-            subtitle: locale === "nb" ? "Brukertilgang" : "User access rules",
             content: sharingContent,
           },
         ]
@@ -563,7 +476,6 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
           {
             id: "folder-settings",
             title: locale === "nb" ? "Mappeinnstillinger" : "Folder settings",
-            subtitle: folder.status,
             content: (
               <EntitySettingsPanel
                 kind="folder"
@@ -579,7 +491,6 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
           {
             id: "reminders",
             title: locale === "nb" ? "Påminnelser" : "Reminders",
-            subtitle: formatReminderSubtitle(folder.dueAt, folder.reminderRecurrenceType, folder.expiresAt, locale),
             content: (
               <ReminderSettingsPanel
                 kind="folder"
@@ -618,18 +529,30 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
         </div>
       )}
 
-      {rowActionError && (
-        <div className="customContainer mb-6 border-red-200! bg-red-50 py-4 px-4 text-sm font-medium text-red-600">
-          {rowActionError}
-        </div>
-      )}
-
       {controlItems.length > 0 && (
         <section className="mb-6">
           <h2 className="mb-3 text-[1.5rem] font-bold text-logoblue">
             {locale === "nb" ? "Arkivkontroller" : "Archive controls"}
           </h2>
-          <ExpandablePanelList items={controlItems} />
+
+          <div className="mb-6 flex gap-2 border-b border-lineSecondary">
+            {controlItems.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveControlTab(tab.id)}
+                className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                  activeControlTab === tab.id
+                    ? "border-logoblue text-logoblue"
+                    : "border-transparent text-textColorThird hover:text-textColorSecond"
+                }`}
+              >
+                {tab.title}
+              </button>
+            ))}
+          </div>
+
+          {controlItems.map((tab) => (tab.id === activeControlTab ? <div key={tab.id}>{tab.content}</div> : null))}
         </section>
       )}
 
@@ -644,33 +567,24 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
           onCreateSubfolder={handleCreateSubfolder}
           onCreateItem={handleCreateItem}
           renderFolderRow={(childFolder) => (
-            <EditableEntityRow
+            <FolderPill
               key={childFolder.id}
-              name={childFolder.name}
-              description={childFolder.description}
-              status={childFolder.status}
-              flags={childFolder}
-              settingsHref={`/dashboard/archive/${codeToUrlPath(childFolder.code)}/settings`}
-              onArchive={() => void handleArchiveChildFolder(childFolder.id)}
-              archiving={archivingChildFolderId === childFolder.id}
-              onDelete={() => void handleDeleteChildFolder(childFolder.id)}
-              deleting={deletingChildFolderId === childFolder.id}
+              folder={childFolder}
+              href={`/dashboard/archive/${codeToUrlPath(childFolder.code)}`}
               locale={locale}
+              showStats={false}
+              canEdit
+              onChanged={loadFolderAndItems}
             />
           )}
           renderItemRow={(item) => (
-            <EditableEntityRow
+            <ItemPill
               key={item.id}
-              name={item.name}
-              description={item.description}
-              status={item.status}
-              flags={item}
-              settingsHref={`/dashboard/archive/${codeToUrlPath(item.code)}/settings`}
-              onArchive={() => void handleArchiveItem(item.id)}
-              archiving={archivingItemId === item.id}
-              onDelete={() => void handleDeleteItem(item.id)}
-              deleting={deletingItemId === item.id}
+              item={item}
+              href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
               locale={locale}
+              canEdit
+              onChanged={loadFolderAndItems}
             />
           )}
         />

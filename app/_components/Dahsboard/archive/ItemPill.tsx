@@ -19,18 +19,20 @@ type ItemPillProps = {
   codeWidthCh?: number;
 };
 
-// Read-only row for item view pages — no settings icon, no delete. Unlike
-// FolderPill's bordered rounded-4xl pill, items render as a flush list row
-// (top/bottom border only, no side borders, no rounding), Google Drive-style
-// — the caller wraps a group of these in a single divide-y container so
-// adjacent rows share one border line instead of each carrying its own box.
-// Editing/deleting an item happens on the containing folder's settings page
-// (EditableEntityRow), not here. Status itself isn't shown here either —
-// this view only ever renders active items (see the folder page's
-// filtering), and status is changed via settings. `item.code` is a real,
-// stable display code (see lib/docArchive/folderCodes.ts), e.g. "1.2F.3" —
-// the containing folder's own code plus this item's local sequence number,
-// assigned once at creation and never recomputed from list position.
+// Flush list row, Google Drive-style (top/bottom border only, no side
+// borders, no rounding) — the caller wraps a group of these in a single
+// divide-y container so adjacent rows share one border line instead of each
+// carrying its own box. Used both for pure browsing (FolderView, no
+// canEdit/onChanged — no trailing actions at all) and management contexts
+// (a folder's settings page, its Sections accordion) where canEdit+onChanged
+// add PillHoverActions' rename/archive/delete/copy-link/settings-kebab
+// inline. Status itself isn't shown as its own column — it's visible via the
+// archive/unarchive icon's state when editable, otherwise only active items
+// are ever rendered (see the folder page's filtering). `item.code` is a
+// real, stable display code (see lib/docArchive/folderCodes.ts), e.g.
+// "1.2F.3" — the containing folder's own code plus this item's local
+// sequence number, assigned once at creation and never recomputed from list
+// position.
 export function ItemPill({ item, href, locale, canEdit, onChanged, codeWidthCh }: ItemPillProps) {
   const hasActions = Boolean(canEdit && onChanged);
 
@@ -69,6 +71,7 @@ export function ItemPill({ item, href, locale, canEdit, onChanged, codeWidthCh }
           locale={locale}
           onChanged={onChanged!}
           variant="flat"
+          status={item.status}
         />
       )}
     </div>

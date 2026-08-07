@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { EditableEntityRow } from "./EditableEntityRow";
+import { FolderPill } from "./FolderPill";
 import { SectionedEntityManager } from "./SectionedEntityManager";
 import { codeToUrlPath } from "./types";
 import type { ArchiveFolderSummary } from "./types";
@@ -10,8 +10,6 @@ type ArchiveRootSettingsModalProps = {
   folders: ArchiveFolderSummary[];
   locale: string;
   onCreateFolder: (sectionId: string, name: string, description: string | null) => Promise<{ ok: boolean; reason?: string }>;
-  onArchiveFolder: (folderId: string) => Promise<void>;
-  onDeleteFolder: (folderId: string) => Promise<void>;
   onFoldersChanged: () => void;
 };
 
@@ -23,27 +21,9 @@ export function ArchiveRootSettingsModal({
   folders,
   locale,
   onCreateFolder,
-  onArchiveFolder,
-  onDeleteFolder,
   onFoldersChanged,
 }: ArchiveRootSettingsModalProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [archivingId, setArchivingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  async function handleArchive(folderId: string) {
-    setArchivingId(folderId);
-    await onArchiveFolder(folderId);
-    setArchivingId(null);
-  }
-
-  async function handleDelete(folderId: string) {
-    if (!confirm(locale === "nb" ? "Slette denne mappen?" : "Delete this folder?")) return;
-
-    setDeletingId(folderId);
-    await onDeleteFolder(folderId);
-    setDeletingId(null);
-  }
 
   return (
     <>
@@ -74,18 +54,14 @@ export function ArchiveRootSettingsModal({
               onFoldersChanged={onFoldersChanged}
               onCreateSubfolder={onCreateFolder}
               renderFolderRow={(folder) => (
-                <EditableEntityRow
+                <FolderPill
                   key={folder.id}
-                  name={folder.name}
-                  description={folder.description}
-                  status={folder.status}
-                  flags={folder}
-                  settingsHref={`/dashboard/archive/${codeToUrlPath(folder.code)}/settings`}
-                  onArchive={() => void handleArchive(folder.id)}
-                  archiving={archivingId === folder.id}
-                  onDelete={() => void handleDelete(folder.id)}
-                  deleting={deletingId === folder.id}
+                  folder={folder}
+                  href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
                   locale={locale}
+                  showStats={false}
+                  canEdit
+                  onChanged={onFoldersChanged}
                 />
               )}
             />

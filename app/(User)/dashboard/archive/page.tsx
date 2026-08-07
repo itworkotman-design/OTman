@@ -86,37 +86,6 @@ export default function ArchivePage() {
     return { ok: true };
   }
 
-  async function handleArchiveFolder(folderId: string) {
-    const current = folders.find((f) => f.id === folderId);
-    const nextStatus = current?.status === "archived" ? "active" : "archived";
-
-    const res = await fetch(`/api/archive/folders/${folderId}/status`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: nextStatus }),
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (res.ok && data?.ok) {
-      setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, status: nextStatus } : f)));
-    }
-  }
-
-  async function handleDeleteFolder(folderId: string) {
-    const res = await fetch(`/api/archive/folders/${folderId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (res.ok && data?.ok) {
-      setFolders((prev) => prev.filter((f) => f.id !== folderId));
-    }
-  }
-
   const visibleFolders = useMemo(() => folders.filter((folder) => folder.status === "active"), [folders]);
   const codeWidthCh = useMemo(() => codeBadgeWidthCh(visibleFolders.map((f) => f.code), 5), [visibleFolders]);
 
@@ -139,8 +108,6 @@ export default function ArchivePage() {
             folders={folders}
             locale={locale}
             onCreateFolder={handleCreateFolder}
-            onArchiveFolder={handleArchiveFolder}
-            onDeleteFolder={handleDeleteFolder}
             onFoldersChanged={loadFolders}
           />
         )}

@@ -439,7 +439,9 @@ export function SectionedEntityManager({
           {sectionFolders.length > 0 && (
             <div className="grid gap-2">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-textColorThird">{t.foldersHeading}</h4>
-              <div className="grid gap-2">{sectionFolders.map((folder) => renderFolderRow(folder))}</div>
+              <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
+                {sectionFolders.map((folder) => renderFolderRow(folder))}
+              </div>
             </div>
           )}
 
@@ -485,7 +487,9 @@ export function SectionedEntityManager({
               {sectionItems.length > 0 && (
                 <div className="grid gap-2">
                   <h4 className="text-xs font-semibold uppercase tracking-wide text-textColorThird">{t.itemsHeading}</h4>
-                  <div className="grid gap-2">{sectionItems.map((item) => renderItemRow?.(item))}</div>
+                  <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
+                    {sectionItems.map((item) => renderItemRow?.(item))}
+                  </div>
                 </div>
               )}
 
@@ -534,9 +538,9 @@ export function SectionedEntityManager({
 
   return (
     <div className="mb-6">
-      <h2 className="mb-3 font-semibold text-logoblue">{t.sections}</h2>
+      <h2 className="mb-3 text-[1.5rem] font-bold text-logoblue">{t.sections}</h2>
 
-      <div className="customContainer mb-4 p-4">
+      <div className="mb-4">
         <h3 className="mb-3 text-sm font-semibold text-textColorThird">{t.newSection}</h3>
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[200] flex-1">

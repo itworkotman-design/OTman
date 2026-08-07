@@ -19,6 +19,12 @@ type PillHoverActionsProps = {
   // zone. "flat" drops the border/rounding entirely for ItemPill's
   // Google Drive-style list row, where the row itself has no side borders.
   variant?: "pill" | "flat";
+  // Current status — when given, an Archive/Unarchive toggle button renders
+  // alongside rename/delete/share, self-contained the same way delete is
+  // (PATCHes status directly, then calls onChanged). Omitted by callers with
+  // nowhere sensible for a status toggle (e.g. the archive root page's plain
+  // browsing list, which never passes canEdit/onChanged at all anyway).
+  status?: string;
 };
 
 const ICON_BUTTON_CLASS =
@@ -58,6 +64,16 @@ function TrashIcon() {
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <line x1="10" y1="11" x2="10" y2="17" />
       <line x1="14" y1="11" x2="14" y2="17" />
+    </IconSvg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <IconSvg>
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
+      <line x1="10" y1="13" x2="14" y2="13" />
     </IconSvg>
   );
 }
@@ -103,11 +119,43 @@ function DotsIcon() {
 // status/dates/section can be changed — see EntitySettingsPanel's file-top
 // comment), so it's shown disabled rather than omitted, as a placeholder for
 // when that lands.
-export function PillHoverActions({ kind, id, name, href, locale, onChanged, variant = "pill" }: PillHoverActionsProps) {
+export function PillHoverActions({
+  kind,
+  id,
+  name,
+  href,
+  locale,
+  onChanged,
+  variant = "pill",
+  status,
+}: PillHoverActionsProps) {
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const basePath = kind === "folder" ? `/api/archive/folders/${id}` : `/api/archive/items/${id}`;
+
+  async function handleToggleArchive(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!status) return;
+
+    const nextStatus = status === "archived" ? "active" : "archived";
+
+    try {
+      setArchiving(true);
+      const res = await fetch(`${basePath}/status`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) onChanged();
+    } finally {
+      setArchiving(false);
+    }
+  }
 
   async function handleDelete(e: MouseEvent) {
     e.preventDefault();
@@ -148,7 +196,7 @@ export function PillHoverActions({ kind, id, name, href, locale, onChanged, vari
 
   return (
     <div
-      className={`flex w-44 shrink-0 items-center justify-end gap-1 px-3 ${
+      className={`flex w-52 shrink-0 items-center justify-end gap-1 px-3 ${
         variant === "pill" ? "rounded-r-4xl border border-l-0 border-logoblue" : ""
       }`}
     >
@@ -163,6 +211,35 @@ export function PillHoverActions({ kind, id, name, href, locale, onChanged, vari
         >
           <PencilIcon />
         </button>
+
+        {status && (
+          <button
+            type="button"
+            className={ICON_BUTTON_CLASS}
+            onClick={(e) => void handleToggleArchive(e)}
+            disabled={archiving}
+            title={
+              status === "archived"
+                ? locale === "nb"
+                  ? "Gjenåpne"
+                  : "Unarchive"
+                : locale === "nb"
+                  ? "Arkiver"
+                  : "Archive"
+            }
+            aria-label={
+              status === "archived"
+                ? locale === "nb"
+                  ? "Gjenåpne"
+                  : "Unarchive"
+                : locale === "nb"
+                  ? "Arkiver"
+                  : "Archive"
+            }
+          >
+            <ArchiveIcon />
+          </button>
+        )}
 
         <button
           type="button"

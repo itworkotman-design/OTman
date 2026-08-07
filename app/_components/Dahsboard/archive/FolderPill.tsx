@@ -150,6 +150,7 @@ export function FolderPill({
           locale={locale}
           onChanged={onChanged!}
           variant="flat"
+          status={folder.status}
         />
       )}
     </div>
