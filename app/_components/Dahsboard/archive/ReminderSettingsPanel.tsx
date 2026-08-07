@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { RecurrenceType } from "@prisma/client";
 import { ReminderRecurrencePicker, type ReminderRecurrenceConfigDraft } from "./ReminderRecurrencePicker";
-import { isRecurrenceConfigValid } from "@/lib/orders/recurringOrders/occurrenceDates";
+import { findNextRecurrenceDate, isRecurrenceConfigValid } from "@/lib/orders/recurringOrders/occurrenceDates";
+import { getOsloDateKey } from "@/lib/dates/isoDate";
 
 type ReminderSettingsPanelProps = {
   kind: "item" | "folder";
@@ -26,12 +27,24 @@ function toDateInputValue(iso: string | null): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Reads either shape `reminderRecurrenceConfig` may already hold — a single
+// legacy number, or an array (up to MAX_MONTHLY_DAYS, enforced by the
+// picker, not here) — into the picker's always-array draft shape.
+function normalizeMonthlyDraftDays(value: unknown): number[] {
+  if (typeof value === "number") return [value];
+  if (Array.isArray(value)) {
+    const days = value.filter((d): d is number => typeof d === "number");
+    if (days.length > 0) return days;
+  }
+  return [1];
+}
+
 function toRecurrenceDraft(type: RecurrenceType | null, config: unknown): ReminderRecurrenceConfigDraft {
   const candidate = (config ?? {}) as Record<string, unknown>;
 
   return {
     weekdays: type === "WEEKLY" && Array.isArray(candidate.weekdays) ? (candidate.weekdays as number[]) : [],
-    dayOfMonth: type === "MONTHLY" && typeof candidate.dayOfMonth === "number" ? candidate.dayOfMonth : 1,
+    dayOfMonth: type === "MONTHLY" ? normalizeMonthlyDraftDays(candidate.dayOfMonth) : [1],
     dates: type === "CUSTOM_DATES" && Array.isArray(candidate.dates) ? (candidate.dates as string[]) : [],
   };
 }
@@ -93,13 +106,27 @@ export function ReminderSettingsPanel({
 
   const basePath = kind === "item" ? `/api/archive/items/${id}` : `/api/archive/folders/${id}`;
 
-  // Whether this folder/item is actually a "live" reminder is driven by
-  // dueAt, not recurrenceType — "Once" is a legitimate, active reminder
-  // state that just happens to always store recurrenceType as null. Using
-  // recurrenceType here would make "Once" show "Not set" forever even with
-  // a real due date saved, which is exactly the "pressing Once does
-  // nothing" bug this was fixed for.
-  const reminderActive = nextDueAt !== "";
+  // Weekly/Monthly/Custom dates no longer take a separately-entered due
+  // date at all — the due date IS the next date the chosen pattern matches,
+  // derived here and re-derived live as the picker's selection changes.
+  // Only "Once" (recurrenceType === null) still uses the manually-entered
+  // `nextDueAt`, since there's no pattern to derive it from.
+  const storedRecurrenceConfig = useMemo(
+    () => (nextRecurrenceType ? toStoredRecurrenceConfig(nextRecurrenceType, nextRecurrenceConfig) : null),
+    [nextRecurrenceType, nextRecurrenceConfig],
+  );
+  const computedRecurrenceDueDate = useMemo(
+    () => (nextRecurrenceType ? findNextRecurrenceDate(nextRecurrenceType, storedRecurrenceConfig, getOsloDateKey()) : null),
+    [nextRecurrenceType, storedRecurrenceConfig],
+  );
+
+  // Whether this folder/item is actually a "live" reminder is driven by the
+  // effective due date, not recurrenceType — "Once" is a legitimate, active
+  // reminder state that just happens to always store recurrenceType as
+  // null. Using recurrenceType here would make "Once" show "Not set"
+  // forever even with a real due date saved, which is exactly the
+  // "pressing Once does nothing" bug this was fixed for.
+  const reminderActive = nextRecurrenceType ? computedRecurrenceDueDate !== null : nextDueAt !== "";
   const canClearRecurrence = nextRecurrenceType !== null;
   const expiryActive = nextExpiresAt !== "";
 
@@ -151,14 +178,6 @@ export function ReminderSettingsPanel({
       setSaving(true);
       setError("");
 
-      if (nextDueAt !== toDateInputValue(dueAt)) {
-        await saveDueAt(nextDueAt ? new Date(nextDueAt).toISOString() : null);
-      }
-
-      const storedRecurrenceConfig = nextRecurrenceType
-        ? toStoredRecurrenceConfig(nextRecurrenceType, nextRecurrenceConfig)
-        : null;
-
       if (nextRecurrenceType && !isRecurrenceConfigValid(nextRecurrenceType, storedRecurrenceConfig)) {
         setError(
           locale === "nb"
@@ -166,6 +185,21 @@ export function ReminderSettingsPanel({
             : "Select at least one weekday or date for the recurrence",
         );
         return;
+      }
+
+      const effectiveDueDate = nextRecurrenceType ? computedRecurrenceDueDate : nextDueAt || null;
+
+      if (nextRecurrenceType && !effectiveDueDate) {
+        setError(
+          locale === "nb"
+            ? "Fant ingen kommende dato som passer gjentakelsen"
+            : "Couldn't find an upcoming date matching this recurrence",
+        );
+        return;
+      }
+
+      if (effectiveDueDate !== toDateInputValue(dueAt)) {
+        await saveDueAt(effectiveDueDate ? new Date(effectiveDueDate).toISOString() : null);
       }
 
       await saveRecurrence(nextRecurrenceType, storedRecurrenceConfig);
@@ -183,7 +217,7 @@ export function ReminderSettingsPanel({
       setError("");
       await saveRecurrence(null, null);
       setNextRecurrenceType(null);
-      setNextRecurrenceConfig({ weekdays: [], dayOfMonth: 1, dates: [] });
+      setNextRecurrenceConfig({ weekdays: [], dayOfMonth: [1], dates: [] });
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to clear recurrence");
@@ -274,7 +308,7 @@ export function ReminderSettingsPanel({
                   {locale === "nb" ? "Fjern gjentakelse" : "Clear recurrence"}
                 </button>
               )}
-              {reminderActive && (
+              {!nextRecurrenceType && reminderActive && (
                 <button
                   type="button"
                   className="text-sm font-medium text-red-600 hover:underline"
@@ -296,6 +330,7 @@ export function ReminderSettingsPanel({
           <ReminderRecurrencePicker
             dueAt={nextDueAt}
             onDueAtChange={setNextDueAt}
+            computedNextOccurrence={computedRecurrenceDueDate}
             description={nextDescription}
             onDescriptionChange={setNextDescription}
             recurrenceType={nextRecurrenceType}

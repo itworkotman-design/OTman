@@ -52,37 +52,6 @@ type ItemSearchApiResult = {
 
 const MAX_ROWS = 15;
 
-const WEEKDAY_ABBR: Record<string, string[]> = {
-  en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-  nb: ["Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"],
-};
-
-function formatRecurrenceBadge(type: RecurrenceType | null, config: unknown, locale: string): string | null {
-  if (!type) return null;
-  const abbr = WEEKDAY_ABBR[locale] ?? WEEKDAY_ABBR.en;
-  const candidate = (config ?? {}) as Record<string, unknown>;
-
-  if (type === "WEEKLY") {
-    const weekdays = Array.isArray(candidate.weekdays) ? (candidate.weekdays as number[]) : [];
-    if (weekdays.length === 0) return null;
-    return weekdays
-      .slice()
-      .sort()
-      .map((d) => abbr[d])
-      .join(", ");
-  }
-
-  if (type === "MONTHLY") {
-    const dayOfMonth = typeof candidate.dayOfMonth === "number" ? candidate.dayOfMonth : null;
-    if (!dayOfMonth) return null;
-    return locale === "nb" ? `den ${dayOfMonth}.` : `day ${dayOfMonth}`;
-  }
-
-  const dates = Array.isArray(candidate.dates) ? (candidate.dates as string[]) : [];
-  if (dates.length === 0) return null;
-  return `${dates.length} ${locale === "nb" ? "datoer" : "dates"}`;
-}
-
 // Merged view of the two "things that need attention" lists — due-date
 // reminders (dueAt + recurrence) and expiring items (expiresAt) — into one
 // table, per explicit user request to replace the old Folder/Item "Type"
@@ -327,33 +296,23 @@ export function ArchiveNotificationsPanel({ locale, canRunNow = false }: { local
                 </td>
               </tr>
             ) : (
-              rows.map((row, index) => {
-                const recurrenceBadge = formatRecurrenceBadge(row.recurrenceType, row.recurrenceConfig, locale);
-                return (
-                  <tr key={row.key} className={index !== rows.length - 1 ? "border-b border-logoblue h-10" : "h-10"}>
-                    <td className="border-r border-logoblue text-center text-sm text-textColorThird">
-                      {row.kind === "reminder" ? (locale === "nb" ? "Påminnelse" : "Reminder") : locale === "nb" ? "Utløper" : "Expiring"}
-                    </td>
-                    <td className="border-r border-logoblue text-center text-sm font-semibold text-logoblue">{row.code}</td>
-                    <td className="border-r border-logoblue pl-4">
-                      <Link href={row.href} className="font-semibold text-logoblue hover:underline">
-                        {row.name}
-                      </Link>
-                    </td>
-                    <td className="border-r border-logoblue pl-4 text-sm text-textColorThird">
-                      {row.description ?? ""}
-                      {recurrenceBadge && (
-                        <span className="ml-2 rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-medium text-logoblue">
-                          {recurrenceBadge}
-                        </span>
-                      )}
-                    </td>
-                    <td className={`pl-4 ${row.urgent ? "font-semibold text-red-500" : "text-logoblue"}`}>
-                      {formatDisplayDate(row.date)}
-                    </td>
-                  </tr>
-                );
-              })
+              rows.map((row, index) => (
+                <tr key={row.key} className={index !== rows.length - 1 ? "border-b border-logoblue h-10" : "h-10"}>
+                  <td className="border-r border-logoblue text-center text-sm text-textColorThird">
+                    {row.kind === "reminder" ? (locale === "nb" ? "Påminnelse" : "Reminder") : locale === "nb" ? "Utløper" : "Expiring"}
+                  </td>
+                  <td className="border-r border-logoblue text-center text-sm font-semibold text-logoblue">{row.code}</td>
+                  <td className="border-r border-logoblue pl-4">
+                    <Link href={row.href} className="font-semibold text-logoblue hover:underline">
+                      {row.name}
+                    </Link>
+                  </td>
+                  <td className="border-r border-logoblue pl-4 text-sm text-textColorThird">{row.description ?? ""}</td>
+                  <td className={`pl-4 ${row.urgent ? "font-semibold text-red-500" : "text-logoblue"}`}>
+                    {formatDisplayDate(row.date)}
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

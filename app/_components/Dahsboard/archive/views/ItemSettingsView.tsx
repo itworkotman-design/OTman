@@ -102,7 +102,7 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
     if (!itemId) return;
     void loadItem();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, hasAccess, itemId]);
+  }, [currentUser?.id, hasAccess, itemId]);
 
   async function handleItemSettingsSaved() {
     setRowActionError("");

@@ -64,7 +64,7 @@ export default function ArchiveRecoverablePage() {
     if (!hasAccess) return;
     void loadRecoverable();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, hasAccess]);
+  }, [currentUser?.id, hasAccess]);
 
   async function handleRestoreFolder(folderId: string) {
     try {

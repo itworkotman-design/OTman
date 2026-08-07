@@ -26,7 +26,9 @@ type ArchiveFolderPathEntry =
 export function FolderView({ folderId, codePath }: { folderId: string; codePath: string[] }) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const hasAccess = !currentUser || getModuleAccess(currentUser, "ARCHIVE").enabled;
+  const archiveAccess = currentUser ? getModuleAccess(currentUser, "ARCHIVE") : null;
+  const hasAccess = !currentUser || archiveAccess!.enabled;
+  const canEdit = archiveAccess?.level === "ADMIN";
 
   const [folder, setFolder] = useState<ArchiveFolderDetail | null>(null);
   const [items, setItems] = useState<ArchiveItemRow[]>([]);
@@ -93,7 +95,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
     if (!folderId) return;
     void loadFolderAndItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, hasAccess, folderId]);
+  }, [currentUser?.id, hasAccess, folderId]);
 
   if (currentUser && !hasAccess) {
     return (
@@ -186,7 +188,10 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
                     key={childFolder.id}
                     folder={childFolder}
                     href={`/dashboard/archive/${codeToUrlPath(childFolder.code)}`}
+                    locale={locale}
                     showStats={false}
+                    canEdit={canEdit}
+                    onChanged={loadFolderAndItems}
                   />
                 ))}
                 {group.items.map((item) => (
@@ -195,6 +200,8 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
                     item={item}
                     href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
                     locale={locale}
+                    canEdit={canEdit}
+                    onChanged={loadFolderAndItems}
                   />
                 ))}
               </div>

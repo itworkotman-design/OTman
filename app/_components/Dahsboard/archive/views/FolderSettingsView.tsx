@@ -132,7 +132,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
     if (!folderId) return;
     void loadFolderAndItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, hasAccess, folderId]);
+  }, [currentUser?.id, hasAccess, folderId]);
 
   async function loadSharing() {
     try {
@@ -175,7 +175,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
     if (!folderId) return;
     void loadSharing();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, hasAccess, folderId]);
+  }, [currentUser?.id, hasAccess, folderId]);
 
   async function handleGrantShare() {
     const subjectId = shareTargetType === "role" ? shareRoleId : shareUserId;

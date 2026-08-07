@@ -91,7 +91,7 @@ export function ArchiveRolesPanel() {
     if (!hasAccess) return;
     void loadRoles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, hasAccess]);
+  }, [currentUser?.id, hasAccess]);
 
   async function handleCreateRole() {
     const name = newRoleName.trim();

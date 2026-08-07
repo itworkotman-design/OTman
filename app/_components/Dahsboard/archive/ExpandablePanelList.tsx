@@ -6,6 +6,10 @@ import { useReducer } from "react";
 type PanelItem = {
   id: string;
   title: string;
+  // Shown under the title inside the header row itself (e.g. a section's
+  // own description), distinct from `subtitle` which renders on the right
+  // alongside the expand/collapse chevron.
+  description?: string;
   subtitle?: string;
   content?: ReactNode;
 };
@@ -32,9 +36,9 @@ function expandedReducer(state: ExpandedState, action: ExpandedAction): Expanded
   return { ...state, [action.id]: !state[action.id] };
 }
 
-const variantClasses: Record<PanelVariant, { row: string; title: string; subtitle: string }> = {
-  white: { row: "bg-white", title: "text-logoblue", subtitle: "text-textColorThird" },
-  logoblue: { row: "bg-logoblue", title: "text-white", subtitle: "text-white" },
+const variantClasses: Record<PanelVariant, { row: string; title: string; description: string; subtitle: string }> = {
+  white: { row: "bg-white", title: "text-logoblue", description: "text-textColorThird", subtitle: "text-textColorThird" },
+  logoblue: { row: "bg-logoblue", title: "text-white", description: "text-white/80", subtitle: "text-white" },
 };
 
 export function ExpandablePanelList({ items, emptyMessage, onToggle, variant = "white" }: ExpandablePanelListProps) {
@@ -63,11 +67,11 @@ export function ExpandablePanelList({ items, emptyMessage, onToggle, variant = "
               className={`flex w-full cursor-pointer items-center justify-between border-none px-6 py-4 text-left ${classes.row}`}
               aria-expanded={expanded}
             >
-              <span className={`text-[18px] font-bold ${classes.title}`}>{item.title}</span>
-              <span className={`flex items-center gap-1 text-[13px] font-semibold ${classes.subtitle}`}>
-                {item.subtitle}
-                <span className={`inline-block transition-transform ${expanded ? "rotate-180" : ""}`}>⌄</span>
+              <span className="flex flex-col items-start gap-0.5 text-left">
+                <span className={`text-[18px] font-bold ${classes.title}`}>{item.title}</span>
+                {item.description && <span className={`text-[13px] font-normal ${classes.description}`}>{item.description}</span>}
               </span>
+              <span className={`flex items-center gap-1 text-[13px] font-semibold ${classes.subtitle}`}>{item.subtitle}</span>
             </button>
             <div className={`grid bg-white transition-all duration-200 ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
               <div className="overflow-hidden">

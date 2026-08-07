@@ -93,7 +93,7 @@ export function ItemView({
     if (!itemId) return;
     void loadItem();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, hasAccess, folderId, itemId]);
+  }, [currentUser?.id, hasAccess, folderId, itemId]);
 
   if (currentUser && !hasAccess) {
     return (

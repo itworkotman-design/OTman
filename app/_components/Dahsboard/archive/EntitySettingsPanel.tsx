@@ -15,9 +15,13 @@ type EntitySettingsPanelProps = {
 
 const STATUS_OPTIONS: ArchiveBusinessStatus[] = ["active", "draft", "inactive", "archived"];
 
-// The backend has no rename/edit capability for name/description (a known,
+// The backend has no rename/re-describe capability yet (a known,
 // previously-documented gap in @customprojects/custom-archive — no such
-// method exists) — those fields are shown read-only.
+// method exists), so Name and Description below are editable in the UI but
+// purely local state — Save only persists Status (the one field that
+// genuinely has a backend endpoint); typed name/description are never sent
+// anywhere and reset on reload. This is intentional groundwork for when a
+// rename endpoint lands, not a bug.
 //
 // Due date and expiry date both live in the "Reminders" section
 // (ReminderSettingsPanel) now, as its two tabs — per explicit user
@@ -25,6 +29,8 @@ const STATUS_OPTIONS: ArchiveBusinessStatus[] = ["active", "draft", "inactive", 
 // neither is a "status" concept and both are really reminder concepts (a
 // recurring due-date reminder vs. a one-time expiry reminder).
 export function EntitySettingsPanel({ kind, id, name, description, status, locale, onSaved }: EntitySettingsPanelProps) {
+  const [nextName, setNextName] = useState(name);
+  const [nextDescription, setNextDescription] = useState(description ?? "");
   const [nextStatus, setNextStatus] = useState<ArchiveBusinessStatus>(status);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -58,17 +64,27 @@ export function EntitySettingsPanel({ kind, id, name, description, status, local
 
   return (
     <div className="grid gap-4">
-      <div className="flex min-w-0 items-center gap-4 rounded-xl border border-lineSecondary p-4">
-        <span className="w-[100px] shrink-0 font-semibold text-textColorThird">{locale === "nb" ? "Navn" : "Name"}</span>
-        <span className="min-w-0 grow text-textColorSecond">{name}</span>
+      <div className="min-w-[240]">
+        <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Navn" : "Name"}</label>
+        <input
+          className="customInput w-full max-w-[320]"
+          type="text"
+          value={nextName}
+          onChange={(e) => setNextName(e.target.value)}
+          disabled={saving}
+        />
       </div>
 
-      {description && (
-        <div className="flex min-w-0 items-start gap-4 rounded-xl border border-lineSecondary p-4">
-          <span className="w-[100px] shrink-0 font-semibold text-textColorThird">{locale === "nb" ? "Beskrivelse" : "Description"}</span>
-          <span className="min-w-0 grow whitespace-pre-wrap text-textColorSecond">{description}</span>
-        </div>
-      )}
+      <div className="min-w-[240]">
+        <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Beskrivelse" : "Description"}</label>
+        <textarea
+          className="customInput w-full max-w-[480]"
+          rows={3}
+          value={nextDescription}
+          onChange={(e) => setNextDescription(e.target.value)}
+          disabled={saving}
+        />
+      </div>
 
       <div className="min-w-[160]">
         <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Status" : "Status"}</label>

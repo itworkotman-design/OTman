@@ -6,13 +6,24 @@ import { toIsoDate, getOsloDateKey } from "@/lib/dates/isoDate";
 
 export type ReminderRecurrenceConfigDraft = {
   weekdays: number[];
-  dayOfMonth: number;
+  // Up to MAX_MONTHLY_DAYS days-of-month, unlike Scheduler Orders'
+  // single-day picker — the underlying `matchesRecurrence` (see
+  // lib/orders/recurringOrders/occurrenceDates.ts) accepts either shape, so
+  // this only widens the Archive-side draft/picker, not the shared type.
+  dayOfMonth: number[];
   dates: string[];
 };
+
+const MAX_MONTHLY_DAYS = 6;
 
 type Props = {
   dueAt: string;
   onDueAtChange: (value: string) => void;
+  // Live-computed "next date this recurrence pattern matches", shown as a
+  // read-only preview instead of the due-date input whenever a recurrence
+  // type is selected — Weekly/Monthly/Custom dates derive the due date from
+  // the pattern itself rather than taking a separately-entered one.
+  computedNextOccurrence: string | null;
   description: string;
   onDescriptionChange: (value: string) => void;
   recurrenceType: RecurrenceType | null;
@@ -72,6 +83,7 @@ function buildCalendarDays(month: Date) {
 export function ReminderRecurrencePicker({
   dueAt,
   onDueAtChange,
+  computedNextOccurrence,
   description,
   onDescriptionChange,
   recurrenceType,
@@ -117,6 +129,35 @@ export function ReminderRecurrencePicker({
     onRecurrenceConfigChange({ ...recurrenceConfig, dates: nextDates });
   }
 
+  // Each day must be strictly greater than the one before it (and, when
+  // editing a middle column, less than the one after it) — columns read
+  // left to right as an ascending sequence, so "1, 3, 2" can't happen.
+  function monthlyDayBounds(index: number): { min: number; max: number } {
+    const days = recurrenceConfig.dayOfMonth;
+    return {
+      min: index > 0 ? days[index - 1] + 1 : 1,
+      max: index < days.length - 1 ? days[index + 1] - 1 : 31,
+    };
+  }
+
+  function setMonthlyDay(index: number, value: number) {
+    const { min, max } = monthlyDayBounds(index);
+    const clamped = Math.min(Math.max(min, max), Math.max(min, value || min));
+    const nextDays = recurrenceConfig.dayOfMonth.map((d, i) => (i === index ? clamped : d));
+    onRecurrenceConfigChange({ ...recurrenceConfig, dayOfMonth: nextDays });
+  }
+
+  function addMonthlyDay() {
+    if (recurrenceConfig.dayOfMonth.length >= MAX_MONTHLY_DAYS) return;
+    const lastDay = recurrenceConfig.dayOfMonth[recurrenceConfig.dayOfMonth.length - 1] ?? 0;
+    onRecurrenceConfigChange({ ...recurrenceConfig, dayOfMonth: [...recurrenceConfig.dayOfMonth, Math.min(31, lastDay + 1)] });
+  }
+
+  function removeMonthlyDay(index: number) {
+    const nextDays = recurrenceConfig.dayOfMonth.filter((_, i) => i !== index);
+    onRecurrenceConfigChange({ ...recurrenceConfig, dayOfMonth: nextDays.length > 0 ? nextDays : [1] });
+  }
+
   const monthLabels = Array.from({ length: 12 }, (_, i) =>
     new Date(2000, i, 1).toLocaleDateString(locale === "nb" ? "nb-NO" : "en-GB", { month: "long" }),
   );
@@ -153,16 +194,28 @@ export function ReminderRecurrencePicker({
         ))}
       </div>
 
-      <div className="mb-4 min-w-[160]">
-        <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Forfallsdato" : "Due date"}</label>
-        <input
-          type="date"
-          className="customInput w-full max-w-[240]"
-          value={dueAt}
-          onChange={(e) => onDueAtChange(e.target.value)}
-          disabled={disabled}
-        />
-      </div>
+      {recurrenceType === null ? (
+        <div className="mb-4 min-w-[160]">
+          <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Forfallsdato" : "Due date"}</label>
+          <input
+            type="date"
+            className="customInput w-full max-w-[240]"
+            value={dueAt}
+            onChange={(e) => onDueAtChange(e.target.value)}
+            disabled={disabled}
+          />
+        </div>
+      ) : (
+        <p className="mb-4 text-sm text-textColorSecond">
+          {computedNextOccurrence
+            ? locale === "nb"
+              ? `Neste forfallsdato: ${computedNextOccurrence}`
+              : `Next due date: ${computedNextOccurrence}`
+            : locale === "nb"
+              ? "Velg minst én ukedag eller dato for å se neste forfallsdato"
+              : "Select at least one weekday or date to see the next due date"}
+        </p>
+      )}
 
       {recurrenceType === "WEEKLY" && (
         <div className="mb-2 flex flex-wrap gap-2">
@@ -189,24 +242,50 @@ export function ReminderRecurrencePicker({
           <label className="mb-1 block text-sm font-medium">
             {locale === "nb" ? "Dag i måneden" : "Day of month"}
           </label>
-          <input
-            type="number"
-            min={1}
-            max={31}
-            className="customInput w-24"
-            value={recurrenceConfig.dayOfMonth}
-            onChange={(e) =>
-              onRecurrenceConfigChange({
-                ...recurrenceConfig,
-                dayOfMonth: Math.min(31, Math.max(1, Number(e.target.value) || 1)),
-              })
-            }
-            disabled={disabled}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            {recurrenceConfig.dayOfMonth.map((day, index) => {
+              const bounds = monthlyDayBounds(index);
+              return (
+              <div key={index} className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={bounds.min}
+                  max={bounds.max}
+                  className="customInput w-20"
+                  value={day}
+                  onChange={(e) => setMonthlyDay(index, Number(e.target.value))}
+                  disabled={disabled}
+                />
+                {recurrenceConfig.dayOfMonth.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeMonthlyDay(index)}
+                    className="grid h-6 w-6 place-items-center rounded-full text-textColorThird hover:bg-linePrimary"
+                    disabled={disabled}
+                    aria-label={locale === "nb" ? "Fjern dag" : "Remove day"}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              );
+            })}
+            {recurrenceConfig.dayOfMonth.length < MAX_MONTHLY_DAYS && (
+              <button
+                type="button"
+                onClick={addMonthlyDay}
+                className="grid h-8 w-8 place-items-center rounded-full border border-logoblue text-logoblue hover:bg-logoblue/10"
+                disabled={disabled}
+                aria-label={locale === "nb" ? "Legg til dag" : "Add day"}
+              >
+                +
+              </button>
+            )}
+          </div>
           <p className="mt-1 text-xs text-textColorThird">
             {locale === "nb"
-              ? "Hvis måneden er kortere, brukes siste dag i måneden."
-              : "If a month is shorter, the last day of the month is used."}
+              ? `Hvis måneden er kortere, brukes siste dag i måneden. Opptil ${MAX_MONTHLY_DAYS} dager.`
+              : `If a month is shorter, the last day of the month is used. Up to ${MAX_MONTHLY_DAYS} days.`}
           </p>
         </div>
       )}

@@ -2,7 +2,13 @@ import type { RecurrenceType } from "@prisma/client";
 import { addDaysIso, compareIsoDate, parseIsoDate } from "@/lib/dates/isoDate";
 
 export type WeeklyRecurrenceConfig = { weekdays: number[] };
-export type MonthlyRecurrenceConfig = { dayOfMonth: number };
+// `dayOfMonth` accepts either a single day (the only shape Scheduler Orders'
+// RecurrencePicker ever produces) or an array of up to a few days (Archive
+// reminders' ReminderRecurrencePicker, which allows picking several days in
+// one month) — every reader below normalizes to an array first so both
+// shapes, including data already stored under the old single-number-only
+// shape, keep matching identically.
+export type MonthlyRecurrenceConfig = { dayOfMonth: number | number[] };
 export type CustomDatesRecurrenceConfig = { dates: string[] };
 export type RecurrenceConfig =
   | WeeklyRecurrenceConfig
@@ -27,7 +33,11 @@ export function isRecurrenceConfigValid(type: RecurrenceType, config: unknown): 
 
   if (type === "MONTHLY") {
     const dayOfMonth = (config as Partial<MonthlyRecurrenceConfig>).dayOfMonth;
-    return typeof dayOfMonth === "number" && Number.isInteger(dayOfMonth) && dayOfMonth >= 1 && dayOfMonth <= 31;
+    const days = Array.isArray(dayOfMonth) ? dayOfMonth : [dayOfMonth];
+    return (
+      days.length > 0 &&
+      days.every((d) => typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= 31)
+    );
   }
 
   if (type === "CUSTOM_DATES") {
@@ -49,9 +59,9 @@ export function matchesRecurrence(dateKey: string, type: RecurrenceType, config:
 
   if (type === "MONTHLY") {
     const { dayOfMonth } = config as MonthlyRecurrenceConfig;
+    const days = Array.isArray(dayOfMonth) ? dayOfMonth : [dayOfMonth];
     const lastDay = getLastDayOfMonth(date.getFullYear(), date.getMonth());
-    const effectiveDay = Math.min(dayOfMonth, lastDay);
-    return date.getDate() === effectiveDay;
+    return days.some((d) => date.getDate() === Math.min(d, lastDay));
   }
 
   if (type === "CUSTOM_DATES") {
@@ -60,6 +70,24 @@ export function matchesRecurrence(dateKey: string, type: RecurrenceType, config:
   }
 
   return false;
+}
+
+// Scans forward from (and including) `fromIsoInclusive` for the first date
+// the recurrence rule matches — used by Archive reminders to derive the due
+// date directly from the weekly/monthly/custom-dates pattern the user
+// picked, instead of asking for a separate manually-entered due date.
+// Returns null both for an invalid/empty config and for a technically-valid
+// one whose only matches (e.g. CUSTOM_DATES entirely in the past) fall
+// outside the scan window.
+export function findNextRecurrenceDate(type: RecurrenceType, config: unknown, fromIsoInclusive: string): string | null {
+  if (!isRecurrenceConfigValid(type, config)) return null;
+
+  let cursor = fromIsoInclusive;
+  for (let i = 0; i < MAX_DAYS_SCANNED; i++) {
+    if (matchesRecurrence(cursor, type, config)) return cursor;
+    cursor = addDaysIso(cursor, 1);
+  }
+  return null;
 }
 
 export type OccurrenceTemplateLike = {

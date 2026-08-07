@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ExpandablePanelList } from "./ExpandablePanelList";
 import { UNGROUPED_SECTION_ID } from "./types";
 import type { ArchiveFolderSummary, ArchiveItemSummary, ArchiveSectionSummary } from "./types";
@@ -23,6 +23,76 @@ type SectionedEntityManagerProps = {
   onFoldersChanged: () => void;
   onItemsChanged?: () => void;
 };
+
+// Single "+ Add" entry point at the top of a section, replacing the old
+// separate "+ New subfolder" / "+ New item" buttons. A dropdown so more
+// creatable kinds can be added later without adding more buttons.
+function SectionAddMenu({
+  open,
+  onOpen,
+  onClose,
+  onSelectFolder,
+  onSelectItem,
+  showItem,
+  addLabel,
+  folderLabel,
+  itemLabel,
+}: {
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onSelectFolder: () => void;
+  onSelectItem: () => void;
+  showItem: boolean;
+  addLabel: string;
+  folderLabel: string;
+  itemLabel: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open, onClose]);
+
+  return (
+    <div ref={containerRef} className="relative w-fit">
+      <button
+        type="button"
+        className="customButtonEnabled h-9 px-4 text-sm transition hover:brightness-95"
+        onClick={() => (open ? onClose() : onOpen())}
+      >
+        {addLabel}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+4px)] z-20 w-48 overflow-hidden rounded-2xl border border-lineSecondary bg-white text-left shadow-lg">
+          <button
+            type="button"
+            className="block w-full px-4 py-2 text-left text-sm transition-colors hover:bg-linePrimary"
+            onClick={onSelectFolder}
+          >
+            {folderLabel}
+          </button>
+          {showItem && (
+            <button
+              type="button"
+              className="block w-full px-4 py-2 text-left text-sm transition-colors hover:bg-linePrimary"
+              onClick={onSelectItem}
+            >
+              {itemLabel}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Groups a folder's subfolders/items into named sections instead of one flat
 // "add subfolder" / "add item" pair of forms — subfolders and items can only
@@ -55,6 +125,8 @@ export function SectionedEntityManager({
   const [createSectionError, setCreateSectionError] = useState("");
   const [deletingSectionId, setDeletingSectionId] = useState<string | null>(null);
   const [sectionActionError, setSectionActionError] = useState("");
+
+  const [openAddMenuFor, setOpenAddMenuFor] = useState<string | null>(null);
 
   const [openFolderFormFor, setOpenFolderFormFor] = useState<string | null>(null);
   const [folderFormName, setFolderFormName] = useState("");
@@ -155,6 +227,23 @@ export function SectionedEntityManager({
       setSectionActionError("Failed to delete section");
     } finally {
       setDeletingSectionId(null);
+    }
+  }
+
+  function openCreateForm(sectionId: string, kind: "folder" | "item") {
+    setOpenAddMenuFor(null);
+    if (kind === "folder") {
+      setOpenItemFormFor(null);
+      setOpenFolderFormFor(sectionId);
+      setFolderFormName("");
+      setFolderFormDescription("");
+      setFolderFormError("");
+    } else {
+      setOpenFolderFormFor(null);
+      setOpenItemFormFor(sectionId);
+      setItemFormName("");
+      setItemFormDescription("");
+      setItemFormError("");
     }
   }
 
@@ -271,8 +360,11 @@ export function SectionedEntityManager({
     create: locale === "nb" ? "Opprett" : "Create",
     creating: locale === "nb" ? "Oppretter..." : "Creating...",
     delete: locale === "nb" ? "Slett" : "Delete",
-    addSubfolder: locale === "nb" ? "+ Ny undermappe" : "+ New subfolder",
-    addItem: locale === "nb" ? "+ Nytt element" : "+ New item",
+    addNew: locale === "nb" ? "+ Legg til" : "+ Add",
+    subfolder: locale === "nb" ? "Undermappe" : "Subfolder",
+    item: locale === "nb" ? "Element" : "Item",
+    foldersHeading: locale === "nb" ? "Mapper" : "Folders",
+    itemsHeading: locale === "nb" ? "Elementer" : "Items",
     cancel: locale === "nb" ? "Avbryt" : "Cancel",
     ungrouped: locale === "nb" ? "Ugruppert" : "Ungrouped",
     ungroupedHint:
@@ -316,26 +408,42 @@ export function SectionedEntityManager({
     return {
       id: section.id,
       title: section.name,
+      description: section.description ?? undefined,
       subtitle: subtitleParts.join(" · "),
       content: (
         <div className="grid gap-3">
-          {section.description && <p className="text-sm text-textColorThird">{section.description}</p>}
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="text-sm text-red-600 hover:underline disabled:opacity-40"
-              onClick={() => void handleDeleteSection(section.id)}
-              disabled={!isEmpty || deletingSectionId === section.id}
-              title={isEmpty ? undefined : locale === "nb" ? "Seksjonen er ikke tom" : "Section is not empty"}
-            >
-              {t.delete}
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SectionAddMenu
+              open={openAddMenuFor === section.id}
+              onOpen={() => setOpenAddMenuFor(section.id)}
+              onClose={() => setOpenAddMenuFor(null)}
+              onSelectFolder={() => openCreateForm(section.id, "folder")}
+              onSelectItem={() => openCreateForm(section.id, "item")}
+              showItem={Boolean(items)}
+              addLabel={t.addNew}
+              folderLabel={t.subfolder}
+              itemLabel={t.item}
+            />
+            {isEmpty && (
+              <button
+                type="button"
+                className="text-sm text-red-600 hover:underline disabled:opacity-40"
+                onClick={() => void handleDeleteSection(section.id)}
+                disabled={deletingSectionId === section.id}
+              >
+                {t.delete}
+              </button>
+            )}
           </div>
 
-          {sectionFolders.length > 0 && <div className="grid gap-2">{sectionFolders.map((folder) => renderFolderRow(folder))}</div>}
+          {sectionFolders.length > 0 && (
+            <div className="grid gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-textColorThird">{t.foldersHeading}</h4>
+              <div className="grid gap-2">{sectionFolders.map((folder) => renderFolderRow(folder))}</div>
+            </div>
+          )}
 
-          {openFolderFormFor === section.id ? (
+          {openFolderFormFor === section.id && (
             <div className="rounded-xl border border-lineSecondary p-3">
               <div className="flex flex-wrap items-end gap-3">
                 <div className="min-w-[160] flex-1">
@@ -370,21 +478,18 @@ export function SectionedEntityManager({
               </div>
               {folderFormError && <p className="mt-2 text-sm font-medium text-red-600">{folderFormError}</p>}
             </div>
-          ) : (
-            <button
-              type="button"
-              className="w-fit text-sm text-logoblue hover:underline"
-              onClick={() => toggleFolderForm(section.id)}
-            >
-              {t.addSubfolder}
-            </button>
           )}
 
           {items && (
             <>
-              {sectionItems.length > 0 && <div className="grid gap-2">{sectionItems.map((item) => renderItemRow?.(item))}</div>}
+              {sectionItems.length > 0 && (
+                <div className="grid gap-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-textColorThird">{t.itemsHeading}</h4>
+                  <div className="grid gap-2">{sectionItems.map((item) => renderItemRow?.(item))}</div>
+                </div>
+              )}
 
-              {openItemFormFor === section.id ? (
+              {openItemFormFor === section.id && (
                 <div className="rounded-xl border border-lineSecondary p-3">
                   <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-[160] flex-1">
@@ -419,10 +524,6 @@ export function SectionedEntityManager({
                   </div>
                   {itemFormError && <p className="mt-2 text-sm font-medium text-red-600">{itemFormError}</p>}
                 </div>
-              ) : (
-                <button type="button" className="w-fit text-sm text-logoblue hover:underline" onClick={() => toggleItemForm(section.id)}>
-                  {t.addItem}
-                </button>
               )}
             </>
           )}
