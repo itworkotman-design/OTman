@@ -9,7 +9,7 @@ import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
 import { ArchiveNotificationsPanel } from "@/app/_components/Dahsboard/archive/ArchiveNotificationsPanel";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
-import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
+import { codeBadgeWidthCh, codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderRow = ArchiveFolderSummary & {
@@ -118,6 +118,7 @@ export default function ArchivePage() {
   }
 
   const visibleFolders = useMemo(() => folders.filter((folder) => folder.status === "active"), [folders]);
+  const codeWidthCh = useMemo(() => codeBadgeWidthCh(visibleFolders.map((f) => f.code), 5), [visibleFolders]);
 
   if (currentUser && !hasAccess) {
     return (
@@ -156,14 +157,14 @@ export default function ArchivePage() {
 
       <section className="mt-4 grid gap-6 lg:grid-cols-2">
         <div className="min-w-0">
-          <div className="mb-4 flex h-10 grow items-end justify-end gap-4 font-semibold text-textColorThird">
-            <div className="w-full max-w-[140] text-center">
+          <div className="mb-4 flex h-10 grow items-end justify-end font-semibold text-textColorThird">
+            <div className="w-full max-w-[100] text-center">
               <p>{locale === "nb" ? "Elementer" : "Entries"}</p>
             </div>
-            <div className="w-full max-w-[140] text-center">
+            <div className="w-full max-w-[100] text-center">
               <p>{locale === "nb" ? "Brukere" : "Users"}</p>
             </div>
-            <div className="w-full max-w-[140] text-center">
+            <div className="w-full max-w-[100] text-center">
               <p>{locale === "nb" ? "Sist endret" : "Updated"}</p>
             </div>
             {isArchiveAdmin && <div className="w-12 shrink-0" aria-hidden />}
@@ -183,7 +184,7 @@ export default function ArchivePage() {
                 {locale === "nb" ? "Ingen mapper funnet" : "No folders found"}
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
                 {visibleFolders.map((folder) => (
                   <FolderPill
                     key={folder.id}
@@ -192,6 +193,7 @@ export default function ArchivePage() {
                     locale={locale}
                     showDescription={false}
                     showFavorite={isArchiveAdmin}
+                    codeWidthCh={codeWidthCh}
                   />
                 ))}
               </div>

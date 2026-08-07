@@ -15,6 +15,10 @@ type PillHoverActionsProps = {
   // Re-fetches the parent view's folders/items list after a delete, since
   // the pill itself doesn't own that list.
   onChanged: () => void;
+  // "pill" (default) matches FolderPill's bordered rounded-4xl trailing
+  // zone. "flat" drops the border/rounding entirely for ItemPill's
+  // Google Drive-style list row, where the row itself has no side borders.
+  variant?: "pill" | "flat";
 };
 
 const ICON_BUTTON_CLASS =
@@ -99,7 +103,7 @@ function DotsIcon() {
 // status/dates/section can be changed — see EntitySettingsPanel's file-top
 // comment), so it's shown disabled rather than omitted, as a placeholder for
 // when that lands.
-export function PillHoverActions({ kind, id, name, href, locale, onChanged }: PillHoverActionsProps) {
+export function PillHoverActions({ kind, id, name, href, locale, onChanged, variant = "pill" }: PillHoverActionsProps) {
   const [deleting, setDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -143,7 +147,11 @@ export function PillHoverActions({ kind, id, name, href, locale, onChanged }: Pi
   }
 
   return (
-    <div className="flex w-44 shrink-0 items-center justify-end gap-1 rounded-r-4xl border border-l-0 border-logoblue px-3">
+    <div
+      className={`flex w-44 shrink-0 items-center justify-end gap-1 px-3 ${
+        variant === "pill" ? "rounded-r-4xl border border-l-0 border-logoblue" : ""
+      }`}
+    >
       {/* Hovered state: fades in to the left of the always-visible kebab. */}
       <div className="pointer-events-none flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover/pill:pointer-events-auto group-hover/pill:opacity-100">
         <button

@@ -6,7 +6,7 @@ import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { ItemPill } from "@/app/_components/Dahsboard/archive/ItemPill";
-import { codeToUrlPath, groupMixedBySection } from "@/app/_components/Dahsboard/archive/types";
+import { codeBadgeWidthCh, codeToUrlPath, groupMixedBySection } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderDetail = ArchiveFolderSummary;
@@ -113,6 +113,10 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
   const activeChildFolders = childFolders.filter((childFolder) => childFolder.status === "active");
   const activeItems = items.filter((item) => item.status === "active");
   const sectionGroups = groupMixedBySection(activeChildFolders, activeItems, sections, locale);
+  const codeWidthCh = codeBadgeWidthCh([
+    ...activeChildFolders.map((f) => f.code),
+    ...activeItems.map((i) => i.code),
+  ]);
 
   const settingsHref = `/dashboard/archive/${codePath.join("/")}/settings`;
 
@@ -182,7 +186,8 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
           {sectionGroups.map((group) => (
             <div key={group.id} className="min-w-0 w-full overflow-x-auto">
               {group.name && <h2 className="mb-3 font-semibold text-logoblue">{group.name}</h2>}
-              <div className="grid gap-3">
+
+              <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
                 {group.folders.map((childFolder) => (
                   <FolderPill
                     key={childFolder.id}
@@ -192,6 +197,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
                     showStats={false}
                     canEdit={canEdit}
                     onChanged={loadFolderAndItems}
+                    codeWidthCh={codeWidthCh}
                   />
                 ))}
                 {group.items.map((item) => (
@@ -202,6 +208,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
                     locale={locale}
                     canEdit={canEdit}
                     onChanged={loadFolderAndItems}
+                    codeWidthCh={codeWidthCh}
                   />
                 ))}
               </div>

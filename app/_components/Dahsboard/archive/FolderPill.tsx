@@ -23,6 +23,10 @@ type FolderPillProps = {
   // module access). No backend field for this exists yet — purely local
   // component state, resets on reload, by explicit design for now.
   showFavorite?: boolean;
+  // Fixed width (in `ch`) for the leading code badge, shared across every
+  // pill in the same list — see codeBadgeWidthCh in types.ts. Falls back to
+  // shrink-wrapping the badge's own text when omitted.
+  codeWidthCh?: number;
 };
 
 function StarIcon({ filled }: { filled: boolean }) {
@@ -43,10 +47,13 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 
-// Ported from the otman-archive prototype's ArchiveSectionItem/SectionPill —
-// same blue bordered row, leading code badge, bold name, right-side info
-// columns. `folder.code` is a real, stable display code (see
-// lib/docArchive/folderCodes.ts): root folders are plain numbers ("1"),
+// Flush list row, same Google Drive-style shape as ItemPill (no side
+// borders, no rounding, no gap to its neighbors — the caller wraps a group
+// of these in a shared divide-y container). The blue background behind the
+// code is the one deliberate difference from ItemPill, so folders stay easy
+// to pick out at a glance in a mixed folder/item list; the name also stays
+// blue for the same reason. `folder.code` is a real, stable display code
+// (see lib/docArchive/folderCodes.ts): root folders are plain numbers ("1"),
 // every folder below root gets its own local number suffixed "F" ("1.2F"),
 // assigned once at creation and never recomputed from list position — so
 // deleting a sibling never renumbers the ones around it. `entries`/`users`
@@ -65,48 +72,46 @@ export function FolderPill({
   canEdit,
   onChanged,
   showFavorite = false,
+  codeWidthCh,
 }: FolderPillProps) {
   const hasActions = Boolean(canEdit && onChanged);
-  const hasTrailingZone = hasActions || showFavorite;
   const [favorited, setFavorited] = useState(false);
 
   return (
-    <div className="group/pill flex w-full items-stretch font-semibold">
-      <Link
-        href={href}
-        className={`flex min-w-0 grow items-stretch overflow-hidden border border-logoblue transition-colors hover:bg-logoblue/5 ${
-          hasTrailingZone ? "rounded-l-4xl border-r-0" : "rounded-4xl"
-        }`}
-      >
-        <div className="flex min-w-12 shrink-0 items-center justify-center bg-logoblue px-2 py-3 text-base text-white">
-          {folder.code}
-        </div>
-
-        <div className="flex min-w-0 grow items-baseline gap-3 border-r border-logoblue px-4 py-3 text-logoblue">
-          <span className="shrink-0 wrap-break-word text-[1.25rem] leading-tight">{folder.name}</span>
-          {showDescription && folder.description && (
-            <span className="min-w-0 truncate text-sm font-normal text-textColorThird">{folder.description}</span>
-          )}
-        </div>
-
-        {showStats && (
-          <>
-            <div className="flex w-full max-w-[100] shrink-0 items-center justify-center border-r border-logoblue py-3 text-center text-sm text-textColorThird">
-              {folder.entryCount}
-            </div>
-
-            <div className="flex w-full max-w-[100] shrink-0 items-center justify-center border-r border-logoblue py-3 text-center text-sm text-textColorThird">
-              {folder.viewerCount}
-            </div>
-          </>
-        )}
-
-        <div
-          className={`flex w-full max-w-[100] shrink-0 items-center justify-center py-3 text-center text-sm text-textColorThird ${
-            hasTrailingZone ? "border-r border-logoblue" : ""
-          }`}
+    <div className="group/pill flex w-full items-stretch">
+      <Link href={href} className="flex min-w-0 grow items-stretch transition-colors hover:bg-linePrimary">
+        <span
+          className="flex shrink-0 items-center justify-center bg-logoblue px-2 text-sm font-semibold tabular-nums text-white"
+          style={codeWidthCh ? { minWidth: `${codeWidthCh}ch` } : undefined}
         >
-          {formatLastModified(folder.updatedAt)}
+          {folder.code}
+        </span>
+
+        <div className="flex min-w-0 grow items-center gap-3 px-2 py-3">
+          <span className="min-w-0 shrink-0 wrap-break-word font-medium text-logoblue">{folder.name}</span>
+          {showDescription && folder.description && (
+            <span className="min-w-0 truncate text-sm text-textColorThird">{folder.description}</span>
+          )}
+
+          {showStats && (
+            <>
+              <span className="ml-auto w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
+                {folder.entryCount}
+              </span>
+
+              <span className="w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
+                {folder.viewerCount}
+              </span>
+            </>
+          )}
+
+          <span
+            className={`w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird ${
+              showStats ? "" : "ml-auto"
+            }`}
+          >
+            {formatLastModified(folder.updatedAt)}
+          </span>
         </div>
       </Link>
 
@@ -117,9 +122,9 @@ export function FolderPill({
             e.preventDefault();
             setFavorited((v) => !v);
           }}
-          className={`flex w-12 shrink-0 items-center justify-center border border-l-0 border-logoblue ${
-            hasActions ? "" : "rounded-r-4xl"
-          } ${favorited ? "text-logoblue" : "text-textColorThird hover:text-logoblue"}`}
+          className={`flex w-12 shrink-0 items-center justify-center ${
+            favorited ? "text-logoblue" : "text-textColorThird hover:text-logoblue"
+          }`}
           title={
             favorited
               ? locale === "nb"
@@ -144,6 +149,7 @@ export function FolderPill({
           href={href}
           locale={locale}
           onChanged={onChanged!}
+          variant="flat"
         />
       )}
     </div>

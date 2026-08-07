@@ -155,6 +155,22 @@ export function codeToUrlPath(code: string): string {
   return code.split(".").join("/");
 }
 
+// FolderPill/ItemPill's leading code badge is given a shared, fixed width
+// (in `ch`) instead of shrink-wrapping to its own text — deeper folders have
+// longer codes ("1.2F.3F" vs "1"), and even same-length codes render at
+// very slightly different natural widths depending on which digits they
+// contain, so an auto-sized badge drifts a couple pixels row to row. Sizing
+// every badge in a list off the single longest code currently on screen
+// keeps them all pixel-identical, and the width grows on its own as you
+// navigate into deeper folders. +2 leaves room for the badge's own padding.
+// `minCh` raises the floor for lists that would otherwise size to a
+// single-digit root code (e.g. the archive root page's top-level folders,
+// "1", "2", …) and end up looking too thin next to the rest of the row.
+export function codeBadgeWidthCh(codes: string[], minCh = 0): number {
+  const maxLen = codes.reduce((max, code) => Math.max(max, code.length), 1);
+  return Math.max(maxLen + 2, minCh);
+}
+
 // Matches the otman-archive prototype's SectionPill "lastModified" column
 // format (dot-separated, 2-digit year, e.g. "29.07.26") rather than a
 // locale-dependent Intl format — this is a fixed display convention, not a
