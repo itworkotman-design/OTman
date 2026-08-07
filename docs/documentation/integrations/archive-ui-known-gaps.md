@@ -25,9 +25,10 @@ for this pass.
 
 ## Structured/spreadsheet ("excel") items
 
-The disabled "Add spreadsheet (coming soon)" control next to each item's
-upload button (`ExcelPlaceholder`,
-`app/_components/Dahsboard/archive/ExcelPlaceholder.tsx`) never calls any API.
+The disabled "Spreadsheet — Coming soon" tile in the item settings page's
+"Add section" picker (`app/_components/Dahsboard/archive/ContentSectionPicker.tsx`,
+alongside the real Images/Files/Text-fields section types) never calls any
+API.
 
 Items have no type discriminator (`itemType` is always `"record"`, see
 `docs/API.md` in the package) and there is no tabular/structured-data storage

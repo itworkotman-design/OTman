@@ -130,6 +130,16 @@ export function ReminderSettingsPanel({
   const canClearRecurrence = nextRecurrenceType !== null;
   const expiryActive = nextExpiresAt !== "";
 
+  // Save only shows once something in its own tab actually differs from
+  // what's persisted — Clear/StatusDot stay visible regardless, since those
+  // reflect current saved state rather than a pending edit.
+  const recurrenceDirty =
+    nextRecurrenceType !== reminderRecurrenceType ||
+    nextDescription !== (reminderDescription ?? "") ||
+    nextDueAt !== toDateInputValue(dueAt) ||
+    JSON.stringify(nextRecurrenceConfig) !== JSON.stringify(toRecurrenceDraft(reminderRecurrenceType, reminderRecurrenceConfig));
+  const expiryDirty = nextExpiresAt !== toDateInputValue(expiresAt);
+
   async function saveRecurrence(recurrenceType: RecurrenceType | null, recurrenceConfig: unknown | null) {
     const res = await fetch(`${basePath}/reminder-settings`, {
       method: "PATCH",
@@ -341,16 +351,18 @@ export function ReminderSettingsPanel({
             disabled={saving}
           />
 
-          <div>
-            <button
-              type="button"
-              className="customButtonEnabled h-10 px-6"
-              onClick={() => void handleSaveRecurrence()}
-              disabled={saving}
-            >
-              {saving ? (locale === "nb" ? "Lagrer..." : "Saving...") : locale === "nb" ? "Lagre" : "Save"}
-            </button>
-          </div>
+          {recurrenceDirty && (
+            <div>
+              <button
+                type="button"
+                className="customButtonEnabled h-10 px-6"
+                onClick={() => void handleSaveRecurrence()}
+                disabled={saving}
+              >
+                {saving ? (locale === "nb" ? "Lagrer..." : "Saving...") : locale === "nb" ? "Lagre" : "Save"}
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid gap-4">
@@ -390,16 +402,18 @@ export function ReminderSettingsPanel({
             />
           </div>
 
-          <div>
-            <button
-              type="button"
-              className="customButtonEnabled h-10 px-6"
-              onClick={() => void handleSaveExpiry()}
-              disabled={saving}
-            >
-              {saving ? (locale === "nb" ? "Lagrer..." : "Saving...") : locale === "nb" ? "Lagre" : "Save"}
-            </button>
-          </div>
+          {expiryDirty && (
+            <div>
+              <button
+                type="button"
+                className="customButtonEnabled h-10 px-6"
+                onClick={() => void handleSaveExpiry()}
+                disabled={saving}
+              >
+                {saving ? (locale === "nb" ? "Lagrer..." : "Saving...") : locale === "nb" ? "Lagre" : "Save"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

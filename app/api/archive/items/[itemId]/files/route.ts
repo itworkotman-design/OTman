@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ARCHIVE_MAX_UPLOAD_SIZE_BYTES, archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { assignFileToSection, assignOrphanFiles, getContentSection } from "@/lib/docArchive/contentSections";
 import {
   acquireUploadSlot,
   releaseUploadSlot,
@@ -31,7 +32,15 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ ok: true, files: listResult.value });
+  const sectionMap = await assignOrphanFiles(
+    ctx.companyId,
+    ctx.tenantId,
+    itemId,
+    listResult.value.map((f) => ({ id: f.id, mimeType: f.mimeType })),
+  );
+  const files = listResult.value.map((f) => ({ ...f, sectionId: sectionMap.get(f.id) ?? null }));
+
+  return NextResponse.json({ ok: true, files });
 }
 
 export async function POST(
@@ -77,7 +86,7 @@ export async function POST(
       );
     }
 
-    const { file } = upload;
+    const { file, fields } = upload;
 
     if (!file) {
       return NextResponse.json(
@@ -93,8 +102,24 @@ export async function POST(
       );
     }
 
+    const sectionId = fields.sectionId;
+    if (!sectionId) {
+      return NextResponse.json(
+        { ok: false, reason: "SECTION_REQUIRED" },
+        { status: 400 },
+      );
+    }
+
     const content = await file.readContent();
     const ctx = buildArchiveContext(session, membership);
+
+    const section = await getContentSection(ctx.companyId, ctx.tenantId, sectionId);
+    if (!section || section.itemId !== itemId) {
+      return NextResponse.json(
+        { ok: false, reason: "SECTION_NOT_FOUND" },
+        { status: 404 },
+      );
+    }
 
     const uploadResult = await archive.uploadFile(ctx, {
       archiveItemId: itemId,
@@ -110,7 +135,9 @@ export async function POST(
       );
     }
 
-    return NextResponse.json({ ok: true, file: uploadResult.value }, { status: 201 });
+    await assignFileToSection(ctx.companyId, ctx.tenantId, uploadResult.value.id, sectionId);
+
+    return NextResponse.json({ ok: true, file: { ...uploadResult.value, sectionId } }, { status: 201 });
   } finally {
     await upload?.cleanup();
     releaseUploadSlot();

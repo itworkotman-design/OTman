@@ -37,6 +37,12 @@ export function EntitySettingsPanel({ kind, id, name, description, status, local
 
   const basePath = kind === "item" ? `/api/archive/items/${id}` : `/api/archive/folders/${id}`;
 
+  // Name/description are decorative-only (see the comment above — no backend
+  // rename endpoint exists yet, so they're never actually sent), so "changed"
+  // here is deliberately just the one field Save genuinely persists —
+  // showing Save because someone typed in a no-op field would be misleading.
+  const dirty = nextStatus !== status;
+
   async function handleSave() {
     try {
       setSaving(true);
@@ -102,11 +108,13 @@ export function EntitySettingsPanel({ kind, id, name, description, status, local
         </select>
       </div>
 
-      <div>
-        <button type="button" className="customButtonEnabled h-10 px-6" onClick={() => void handleSave()} disabled={saving}>
-          {saving ? (locale === "nb" ? "Lagrer..." : "Saving...") : locale === "nb" ? "Lagre" : "Save"}
-        </button>
-      </div>
+      {dirty && (
+        <div>
+          <button type="button" className="customButtonEnabled h-10 px-6" onClick={() => void handleSave()} disabled={saving}>
+            {saving ? (locale === "nb" ? "Lagrer..." : "Saving...") : locale === "nb" ? "Lagre" : "Save"}
+          </button>
+        </div>
+      )}
 
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
     </div>

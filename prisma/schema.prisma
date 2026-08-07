@@ -1113,6 +1113,86 @@ model ArchiveItemReminderNote {
   @@index([companyId, tenantId])
 }
 
+enum ArchiveContentSectionType {
+  IMAGES
+  FILES
+  TEXT_FIELDS
+}
+
+// An item's "Content" area (Images/Files/Text fields) is broken into
+// reorderable section instances — same repositioning approach as
+// BlogSection/sectionPositions.ts (see lib/docArchive/contentSections.ts): a
+// unique (itemId, position) pair, repositioned via a two-phase temp-offset
+// update so a reorder never collides with the unique index mid-transaction.
+// An item can hold any number of sections of the same type (e.g. two
+// separate "Images" galleries), unlike ArchiveItemReminderNote's one-per-item
+// cap — each section instance scopes its own slice of content via
+// ArchiveItemTextField.sectionId / ArchiveItemFileSection below.
+model ArchiveItemContentSection {
+  id         String                     @id @default(cuid())
+  companyId  String
+  tenantId   String
+  itemId     String
+  type       ArchiveContentSectionType
+  position   Int
+  createdAt  DateTime                   @default(now())
+  updatedAt  DateTime                   @updatedAt
+  textFields ArchiveItemTextField[]
+  fileLinks  ArchiveItemFileSection[]
+
+  @@unique([itemId, position])
+  @@index([companyId, tenantId, itemId])
+}
+
+// Host-side "text field" item content, alongside the archive package's own
+// file storage — same reasoning as ArchiveItemReminderNote: the package has
+// no structured-content storage at all (see
+// docs/documentation/integrations/archive-ui-known-gaps.md), so this lives
+// in OTman's schema, keyed by the package's opaque itemId (cross-database
+// reference, not a Prisma relation). Unlike ArchiveItemReminderNote, an item
+// can have any number of these (each a user-labelled field), so itemId is
+// not unique — order is assigned like ArchiveSection.order, append-only by
+// default. sectionId scopes a field to one specific Text-fields section
+// instance (a real Prisma relation — both models live in this same schema);
+// deleting a section cascades to the fields inside it, same as deleting a
+// BlogSection deletes its own data.
+model ArchiveItemTextField {
+  id        String                    @id @default(cuid())
+  companyId String
+  tenantId  String
+  itemId    String
+  sectionId String
+  section   ArchiveItemContentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  label     String
+  value     String
+  order     Int                       @default(0)
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+
+  @@index([companyId, tenantId, itemId])
+  @@index([sectionId])
+}
+
+// Host-side mapping from an opaque archive-package fileId to the Images/
+// Files section instance it's displayed under — the package itself has no
+// concept of sections, so a file's section membership lives here instead of
+// on the file row. fileId is unique: a file belongs to at most one section.
+// Deleting the section only removes this mapping (the underlying file is
+// untouched); a file left without a mapping is lazily re-bucketed into the
+// item's next matching-type section on read — see
+// lib/docArchive/contentSections.ts's assignOrphanFiles.
+model ArchiveItemFileSection {
+  id        String                    @id @default(cuid())
+  companyId String
+  tenantId  String
+  fileId    String                    @unique
+  sectionId String
+  section   ArchiveItemContentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdAt DateTime                  @default(now())
+
+  @@index([companyId, tenantId, sectionId])
+}
+
 // One row per (parent scope, FOLDER-or-ITEM counter); parentFolderId is the
 // sentinel below for the tenant root scope (root folders have no parent, but
 // a NULL column wouldn't enforce the one-row-per-scope @@unique below, since
