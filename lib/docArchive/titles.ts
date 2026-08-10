@@ -7,7 +7,7 @@ import { sanitizeBlogHtml } from "@/lib/blog/sanitizeRichText";
 // structured-content storage (see
 // docs/documentation/integrations/archive-ui-known-gaps.md). A single
 // rich-text heading (bold/italic/color/alignment via
-// TitleRichTextEditorField, same sanitizeBlogHtml pass as
+// RichTextEditorField, same sanitizeBlogHtml pass as
 // ArchiveItemTextField.value), capped generously above a plain label length
 // to leave room for the formatting markup.
 export const MAX_TITLE_LENGTH = 2000;

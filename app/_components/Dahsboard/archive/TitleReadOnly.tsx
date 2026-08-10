@@ -15,7 +15,7 @@ type Props = {
 // Read-only counterpart to TitlePanel — the item view page (ItemView) only
 // ever browses, never edits (all mutation lives on the settings page), so
 // this just renders the saved, sanitized HTML (bold/italic/color/alignment
-// from TitleRichTextEditorField) as a large heading, no input.
+// from RichTextEditorField) as a large heading, no input.
 export function TitleReadOnly({ sectionId, locale }: Props) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);

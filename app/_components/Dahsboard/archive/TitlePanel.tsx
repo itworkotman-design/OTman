@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { TitleRichTextEditorField } from "@/app/_components/Dahsboard/archive/TitleRichTextEditorField";
+import { RichTextEditorField } from "@/app/_components/Dahsboard/RichTextEditorField";
 
 export type TitlePanelHandle = {
   // Takes the section's real id as a call-time argument — same reasoning as
@@ -21,7 +21,7 @@ type TitlePanelProps = {
 // A single rich-text heading content section — the simplest of the four
 // content-section types structurally (no list of fields like TextFieldsPanel,
 // no grid like SpreadsheetPanel), just one line, but still formattable
-// (bold/italic/color/alignment) via TitleRichTextEditorField, always
+// (bold/italic/color/alignment) via RichTextEditorField, always
 // rendered large. Same deferred-save/dirty-snapshot shape as
 // SpreadsheetPanel: nothing hits the network until the page-level Save
 // button flushes it via flushPendingChanges.
@@ -137,7 +137,7 @@ export const TitlePanel = forwardRef<TitlePanelHandle, TitlePanelProps>(function
 
   return (
     <div>
-      <TitleRichTextEditorField value={text} onChange={setText} locale={locale} />
+      <RichTextEditorField value={text} onChange={setText} locale={locale} showItalic size="lg" livePreview />
       {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
     </div>
   );

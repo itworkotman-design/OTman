@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import RichTextEditorField from "@/app/_components/Dahsboard/website/RichTextEditorField";
+import { RichTextEditorField } from "@/app/_components/Dahsboard/RichTextEditorField";
 import type { LocalizedTextValue } from "@/lib/blog/localizedText";
 
 type Props = {
@@ -36,6 +36,12 @@ export default function RichTextLocalizedEditor({ label, value, onChange }: Prop
       <RichTextEditorField
         value={value[activeLocale]}
         onChange={(html) => onChange({ ...value, [activeLocale]: html })}
+        showItalic
+        showUnderline
+        showLink
+        linkAdvanced
+        listMode="full"
+        showFontSize
       />
     </div>
   );

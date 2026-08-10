@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import { ArchiveRichTextEditorField } from "@/app/_components/Dahsboard/archive/ArchiveRichTextEditorField";
+import { RichTextEditorField } from "@/app/_components/Dahsboard/RichTextEditorField";
 import { sanitizeBlogHtml } from "@/lib/blog/sanitizeRichText";
 
 function isEmptyHtml(html: string): boolean {
@@ -219,7 +219,7 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
                   onChange={(e) => setEditLabel(e.target.value)}
                 />
                 <div className="mb-2">
-                  <ArchiveRichTextEditorField value={editValue} onChange={setEditValue} locale={locale} />
+                  <RichTextEditorField value={editValue} onChange={setEditValue} locale={locale} showLink listMode="bullet" showFontSize />
                 </div>
                 <div className="flex gap-3">
                   <button
@@ -314,7 +314,7 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
             onChange={(e) => setAddingLabel(e.target.value)}
           />
           <div className="mb-2">
-            <ArchiveRichTextEditorField value={addingValue} onChange={setAddingValue} locale={locale} />
+            <RichTextEditorField value={addingValue} onChange={setAddingValue} locale={locale} showLink listMode="bullet" showFontSize />
           </div>
           <div className="flex gap-3">
             <button
