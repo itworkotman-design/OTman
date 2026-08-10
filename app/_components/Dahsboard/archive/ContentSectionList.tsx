@@ -24,6 +24,7 @@ import {
 } from "@/app/_components/Dahsboard/archive/ContentSaveUploadModal";
 import type { TextFieldsPanelHandle } from "@/app/_components/Dahsboard/archive/TextFieldsPanel";
 import type { SpreadsheetPanelHandle } from "@/app/_components/Dahsboard/archive/SpreadsheetPanel";
+import type { TitlePanelHandle } from "@/app/_components/Dahsboard/archive/TitlePanel";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 
 type ArchiveRecoverableFileRow = {
@@ -146,6 +147,9 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
   const spreadsheetHandles = useRef(new Map<string, SpreadsheetPanelHandle>());
   const [spreadsheetDirty, setSpreadsheetDirty] = useState<Record<string, boolean>>({});
 
+  const titleHandles = useRef(new Map<string, TitlePanelHandle>());
+  const [titleDirty, setTitleDirty] = useState<Record<string, boolean>>({});
+
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadModalItems, setUploadModalItems] = useState<ContentSaveUploadItem[]>([]);
   const [uploadModalFinished, setUploadModalFinished] = useState(false);
@@ -196,8 +200,10 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
       setSavedOrder(loadedSections.map((s) => s.key));
       textFieldsHandles.current.clear();
       spreadsheetHandles.current.clear();
+      titleHandles.current.clear();
       setTextFieldsDirty({});
       setSpreadsheetDirty({});
+      setTitleDirty({});
       setPendingSectionDeletes(new Set());
       setPendingFileDeletes(new Set());
       if (filesRes.ok && filesData?.ok) setFiles(filesData.files ?? []);
@@ -248,8 +254,14 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
   const orderDirty = sections.length !== savedOrder.length || sections.some((s, i) => s.key !== savedOrder[i]);
   const anyTextFieldsDirty = Object.values(textFieldsDirty).some(Boolean);
   const anySpreadsheetDirty = Object.values(spreadsheetDirty).some(Boolean);
+  const anyTitleDirty = Object.values(titleDirty).some(Boolean);
   const dirty =
-    orderDirty || pendingUploads.length > 0 || pendingFileDeletes.size > 0 || anyTextFieldsDirty || anySpreadsheetDirty;
+    orderDirty ||
+    pendingUploads.length > 0 ||
+    pendingFileDeletes.size > 0 ||
+    anyTextFieldsDirty ||
+    anySpreadsheetDirty ||
+    anyTitleDirty;
 
   function registerTextFieldsHandle(sectionKey: string, handle: TextFieldsPanelHandle | null) {
     if (handle) textFieldsHandles.current.set(sectionKey, handle);
@@ -267,6 +279,15 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
 
   function handleSpreadsheetDirtyChange(sectionKey: string, sectionDirty: boolean) {
     setSpreadsheetDirty((prev) => (prev[sectionKey] === sectionDirty ? prev : { ...prev, [sectionKey]: sectionDirty }));
+  }
+
+  function registerTitleHandle(sectionKey: string, handle: TitlePanelHandle | null) {
+    if (handle) titleHandles.current.set(sectionKey, handle);
+    else titleHandles.current.delete(sectionKey);
+  }
+
+  function handleTitleDirtyChange(sectionKey: string, sectionDirty: boolean) {
+    setTitleDirty((prev) => (prev[sectionKey] === sectionDirty ? prev : { ...prev, [sectionKey]: sectionDirty }));
   }
 
   function handleMove(key: string, direction: "up" | "down") {
@@ -304,11 +325,16 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
     setSections((prev) => prev.filter((s) => s.key !== key));
     textFieldsHandles.current.delete(key);
     spreadsheetHandles.current.delete(key);
+    titleHandles.current.delete(key);
     setTextFieldsDirty((prev) => {
       const { [key]: _removed, ...rest } = prev;
       return rest;
     });
     setSpreadsheetDirty((prev) => {
+      const { [key]: _removed, ...rest } = prev;
+      return rest;
+    });
+    setTitleDirty((prev) => {
       const { [key]: _removed, ...rest } = prev;
       return rest;
     });
@@ -445,9 +471,10 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
       // individual staged files were all discarded one by one, or one added
       // via the picker and never filled in. An empty section is never
       // useful once saved, and silently creating it is exactly how "orphan
-      // empty section" confusion happens. TEXT_FIELDS/SPREADSHEET pending
-      // sections are exempt — an intentionally-empty one of those is still
-      // a meaningful container (a fresh grid, a place to add fields later).
+      // empty section" confusion happens. TEXT_FIELDS/SPREADSHEET/TITLE
+      // pending sections are exempt — an intentionally-empty one of those is
+      // still a meaningful container (a fresh grid, a place to add fields
+      // later, a title to fill in after).
       const pendingUploadSectionKeys = new Set(pendingUploads.map((u) => u.sectionKey));
       const emptyPendingKeys = sections
         .filter((s) => s.id === null && (s.type === "IMAGES" || s.type === "FILES") && !pendingUploadSectionKeys.has(s.key))
@@ -579,6 +606,10 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
         if (realId) await handle.flushPendingChanges(realId);
       }
       for (const [key, handle] of spreadsheetHandles.current) {
+        const realId = keyToRealId.get(key);
+        if (realId) await handle.flushPendingChanges(realId);
+      }
+      for (const [key, handle] of titleHandles.current) {
         const realId = keyToRealId.get(key);
         if (realId) await handle.flushPendingChanges(realId);
       }
@@ -738,6 +769,8 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
                 onTextFieldsDirtyChange={handleTextFieldsDirtyChange}
                 spreadsheetHandleRef={registerSpreadsheetHandle}
                 onSpreadsheetDirtyChange={handleSpreadsheetDirtyChange}
+                titleHandleRef={registerTitleHandle}
+                onTitleDirtyChange={handleTitleDirtyChange}
               />
             ))}
           </div>

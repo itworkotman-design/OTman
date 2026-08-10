@@ -1118,6 +1118,7 @@ enum ArchiveContentSectionType {
   FILES
   TEXT_FIELDS
   SPREADSHEET
+  TITLE
 }
 
 // An item's "Content" area (Images/Files/Text fields) is broken into
@@ -1155,6 +1156,7 @@ model ArchiveItemContentSection {
   textFields  ArchiveItemTextField[]
   fileLinks   ArchiveItemFileSection[]
   spreadsheet ArchiveItemSpreadsheet?
+  title       ArchiveItemTitle?
 
   @@unique([itemId, position])
   @@index([companyId, tenantId, itemId])
@@ -1225,6 +1227,28 @@ model ArchiveItemSpreadsheet {
   sectionId String                    @unique
   section   ArchiveItemContentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   data      Json
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+
+  @@index([companyId, tenantId, itemId])
+}
+
+// Host-side "title" item content, same reasoning as ArchiveItemSpreadsheet:
+// the package has no structured-content storage (see
+// docs/documentation/integrations/archive-ui-known-gaps.md). A single plain-
+// text heading, kept separate from ArchiveItemTextField (which is a list of
+// labeled rich-text fields) — a Title section is just one short line, always
+// rendered large, with no label of its own. One row per Title section
+// instance (sectionId unique), cascade-deleted with its section, and
+// provisioned lazily on first read like ArchiveItemSpreadsheet.
+model ArchiveItemTitle {
+  id        String                    @id @default(cuid())
+  companyId String
+  tenantId  String
+  itemId    String
+  sectionId String                    @unique
+  section   ArchiveItemContentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  text      String
   createdAt DateTime                  @default(now())
   updatedAt DateTime                  @updatedAt
 

@@ -21,6 +21,13 @@ export function ContentSectionTypeIcon({ type, className }: Props) {
   const props = { ...SHARED_PROPS, className };
 
   switch (type) {
+    case "TITLE":
+      return (
+        <svg {...props}>
+          <line x1="5" y1="6" x2="19" y2="6" />
+          <line x1="12" y1="6" x2="12" y2="18" />
+        </svg>
+      );
     case "IMAGES":
       return (
         <svg {...props}>

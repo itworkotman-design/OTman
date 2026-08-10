@@ -8,6 +8,7 @@ import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/Cont
 import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePreviewGrid";
 import { TextFieldsPanel, type TextFieldsPanelHandle } from "@/app/_components/Dahsboard/archive/TextFieldsPanel";
 import { SpreadsheetPanel, type SpreadsheetPanelHandle } from "@/app/_components/Dahsboard/archive/SpreadsheetPanel";
+import { TitlePanel, type TitlePanelHandle } from "@/app/_components/Dahsboard/archive/TitlePanel";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 
 // `key` is what dnd-kit/React reconciliation use — stable for a section's
@@ -63,6 +64,8 @@ type Props = {
   onTextFieldsDirtyChange?: (sectionKey: string, dirty: boolean) => void;
   spreadsheetHandleRef?: (sectionKey: string, handle: SpreadsheetPanelHandle | null) => void;
   onSpreadsheetDirtyChange?: (sectionKey: string, dirty: boolean) => void;
+  titleHandleRef?: (sectionKey: string, handle: TitlePanelHandle | null) => void;
+  onTitleDirtyChange?: (sectionKey: string, dirty: boolean) => void;
 };
 
 export function ContentSectionCard({
@@ -81,6 +84,8 @@ export function ContentSectionCard({
   onTextFieldsDirtyChange,
   spreadsheetHandleRef,
   onSpreadsheetDirtyChange,
+  titleHandleRef,
+  onTitleDirtyChange,
 }: Props) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const label = getContentSectionLabel(section.type, locale);
@@ -162,7 +167,14 @@ export function ContentSectionCard({
       </div>
 
       <div className="p-4">
-        {section.type === "TEXT_FIELDS" ? (
+        {section.type === "TITLE" ? (
+          <TitlePanel
+            ref={(handle) => titleHandleRef?.(section.key, handle)}
+            sectionId={section.id}
+            locale={locale}
+            onDirtyChange={(dirty) => onTitleDirtyChange?.(section.key, dirty)}
+          />
+        ) : section.type === "TEXT_FIELDS" ? (
           <TextFieldsPanel
             ref={(handle) => textFieldsHandleRef?.(section.key, handle)}
             sectionId={section.id}

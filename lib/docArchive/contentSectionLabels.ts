@@ -6,6 +6,8 @@ export function getContentSectionLabel(
 ): { name: string; description: string } {
   const nb = locale === "nb";
   switch (type) {
+    case "TITLE":
+      return { name: nb ? "Tittel" : "Title", description: nb ? "En stor overskrift" : "A large heading" };
     case "IMAGES":
       return { name: nb ? "Bilder" : "Images", description: nb ? "Et bildegalleri" : "A gallery of images" };
     case "FILES":

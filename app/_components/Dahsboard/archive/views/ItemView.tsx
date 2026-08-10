@@ -10,6 +10,7 @@ import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePrevi
 import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/ContentSectionTypeIcon";
 import { TextFieldsReadOnly } from "@/app/_components/Dahsboard/archive/TextFieldsReadOnly";
 import { SpreadsheetReadOnly } from "@/app/_components/Dahsboard/archive/SpreadsheetReadOnly";
+import { TitleReadOnly } from "@/app/_components/Dahsboard/archive/TitleReadOnly";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 import type { ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
@@ -212,7 +213,9 @@ export function ItemView({
                   </h2>
                 )}
 
-                {section.type === "TEXT_FIELDS" ? (
+                {section.type === "TITLE" ? (
+                  <TitleReadOnly sectionId={section.id} locale={locale} />
+                ) : section.type === "TEXT_FIELDS" ? (
                   <TextFieldsReadOnly sectionId={section.id} locale={locale} />
                 ) : section.type === "SPREADSHEET" ? (
                   <SpreadsheetReadOnly sectionId={section.id} locale={locale} />

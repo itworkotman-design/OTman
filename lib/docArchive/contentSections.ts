@@ -132,9 +132,10 @@ export async function reorderContentSections(
 
 export type DeleteContentSectionResult = { ok: true } | { ok: false; reason: "NOT_FOUND" };
 
-// TEXT_FIELDS and SPREADSHEET sections are hard-deleted: the DB cascade
-// (onDelete: Cascade) removes their ArchiveItemTextField/ArchiveItemSpreadsheet
-// rows — real content loss, which is why the UI requires a two-step confirm
+// TEXT_FIELDS, SPREADSHEET, and TITLE sections are hard-deleted: the DB
+// cascade (onDelete: Cascade) removes their ArchiveItemTextField/
+// ArchiveItemSpreadsheet/ArchiveItemTitle rows — real content loss, which is
+// why the UI requires a two-step confirm
 // for a non-empty section, same pattern as BlogSectionCard's
 // isSectionNonEmpty/confirmingDelete. Neither has a restore path for its
 // content, so hard-delete is correct for both (soft-deleting like
@@ -164,7 +165,7 @@ export async function deleteContentSection(
   if (!section) return { ok: false, reason: "NOT_FOUND" };
 
   await prisma.$transaction(async (tx) => {
-    if (section.type === "TEXT_FIELDS" || section.type === "SPREADSHEET") {
+    if (section.type === "TEXT_FIELDS" || section.type === "SPREADSHEET" || section.type === "TITLE") {
       await tx.archiveItemContentSection.delete({ where: { id: sectionId } });
     } else {
       await tx.archiveItemContentSection.update({

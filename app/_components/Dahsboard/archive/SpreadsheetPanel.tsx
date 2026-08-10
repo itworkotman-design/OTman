@@ -261,7 +261,39 @@ export const SpreadsheetPanel = forwardRef<SpreadsheetPanelHandle, SpreadsheetPa
     }
   }
 
+  // Tracks the `sectionId` this instance has actually loaded for —
+  // `undefined` means never loaded. Reordering this section within
+  // ContentSectionList's list (even via the plain up/down buttons, no
+  // drag-and-drop involved) can make this effect re-run with `sectionId`
+  // completely UNCHANGED — a keyed-list quirk that shows up reliably under
+  // StrictMode (React re-associates this fiber's effect during the
+  // reorder's reconciliation) though the component itself never remounts.
+  // Comparing against the dependency array alone isn't enough to catch
+  // that, since `[sectionId]` "changing" is exactly what React itself
+  // fails to rule out here — so this checks the ACTUAL last-loaded id
+  // instead, and skips entirely (no fetch, no reset-to-default) whenever
+  // it's unchanged, which is what a spurious re-run always looks like.
+  //
+  // The one legitimate case where `sectionId` truly changes without a
+  // fetch being safe is the pending-section-just-got-created transition
+  // (null -> real id), which ContentSectionList's Save triggers via
+  // setSections BEFORE it calls flushPendingChanges (see that function's
+  // own comment on why it takes the id as a call-time argument rather than
+  // waiting on this prop). A section that was pending a moment ago can't
+  // have any server-side data yet — refetching here would race
+  // flushPendingChanges and can win, clobbering `columnNames`/`cells` back
+  // to the default grid (making `dirty` false) right before the flush loop
+  // reads it, silently dropping whatever was just edited. Adopting the new
+  // id without a fetch keeps local state (and its dirty-ness) exactly
+  // as-is, so the flush that's about to happen still sees it.
+  const loadedForRef = useRef<string | null | undefined>(undefined);
+
   useEffect(() => {
+    if (loadedForRef.current === sectionId) return;
+    const wasPending = loadedForRef.current === null;
+    loadedForRef.current = sectionId;
+    if (sectionId && wasPending) return;
+
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionId]);
