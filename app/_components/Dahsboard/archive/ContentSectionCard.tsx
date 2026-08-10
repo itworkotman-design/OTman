@@ -147,24 +147,21 @@ export function ContentSectionCard({
           />
         ) : section.type === "IMAGES" ? (
           <div>
-            {files.length === 0 ? (
-              <p className="mb-3 text-sm text-textColorThird">{locale === "nb" ? "Ingen bilder" : "No images"}</p>
-            ) : (
-              <ImagePreviewGrid
-                images={files.map((f) => ({
-                  id: f.id,
-                  src: `/api/archive/files/${f.id}/download`,
-                  alt: f.originalFileName,
-                }))}
-                columns={5}
-              />
-            )}
-            <UploadControl
-              locale={locale}
-              accept="image/*"
-              uploadState={uploadState}
-              onUpload={(file) => onUploadFile(section.id, file)}
+            <ImagePreviewGrid
+              images={files.map((f) => ({
+                id: f.id,
+                src: `/api/archive/files/${f.id}/download`,
+                alt: f.originalFileName,
+              }))}
+              trailing={
+                <AddImageTile
+                  locale={locale}
+                  uploadState={uploadState}
+                  onUpload={(file) => onUploadFile(section.id, file)}
+                />
+              }
             />
+            {uploadState?.error && <p className="mt-2 text-sm font-medium text-red-600">{uploadState.error}</p>}
           </div>
         ) : (
           <div>
@@ -201,6 +198,59 @@ export function ContentSectionCard({
         )}
       </div>
     </div>
+  );
+}
+
+// Sits as the last cell in ImagePreviewGrid's own auto-fit grid (via its
+// `trailing` prop) rather than a separate button below the grid — a square
+// dashed-border "+" tile that takes up exactly the next grid column,
+// hoverable like the image cells beside it. `self-start`/capped width keep
+// it a compact square instead of stretching to a whole (possibly huge)
+// grid row when it's the only cell — see ImagePreviewGrid's per-count
+// auto-fit sizing comment.
+function AddImageTile({
+  locale,
+  uploadState,
+  onUpload,
+}: {
+  locale: string;
+  uploadState?: UploadState;
+  onUpload: (file: File) => void;
+}) {
+  const uploading = uploadState?.uploading ?? false;
+
+  return (
+    <label
+      className={`flex aspect-square w-full max-w-56 cursor-pointer flex-col items-center justify-center gap-2 self-start justify-self-start rounded-xl border-2 border-dashed border-lineSecondary p-3 text-textColorThird transition-colors hover:border-logoblue hover:bg-linePrimary/40 hover:text-logoblue ${uploading ? "pointer-events-none opacity-70" : ""}`}
+    >
+      {uploading ? (
+        <>
+          <span className="text-sm font-medium">{locale === "nb" ? "Laster opp..." : "Uploading..."}</span>
+          <div className="h-1.5 w-2/3 overflow-hidden rounded-full bg-linePrimary">
+            <div
+              className="h-full rounded-full bg-logoblue transition-all"
+              style={{ width: `${uploadState?.progress ?? 0}%` }}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <span className="text-4xl font-light leading-none">+</span>
+          <span className="text-sm font-medium">{locale === "nb" ? "Legg til bilde" : "Add image"}</span>
+        </>
+      )}
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        disabled={uploading}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) onUpload(file);
+        }}
+      />
+    </label>
   );
 }
 

@@ -68,7 +68,7 @@ export async function getContentSection(
   sectionId: string,
 ): Promise<{ id: string; itemId: string; type: ArchiveContentSectionType } | null> {
   return prisma.archiveItemContentSection.findFirst({
-    where: { id: sectionId, companyId, tenantId },
+    where: { id: sectionId, companyId, tenantId, deletedAt: null },
     select: { id: true, itemId: true, type: true },
   });
 }
@@ -80,11 +80,15 @@ export async function listContentSections(
 ): Promise<ArchiveContentSectionRow[]> {
   await getOrCreateDefaultSections(companyId, tenantId, itemId);
 
-  return prisma.archiveItemContentSection.findMany({
-    where: { companyId, tenantId, itemId },
+  const sections = await prisma.archiveItemContentSection.findMany({
+    where: { companyId, tenantId, itemId, deletedAt: null },
     orderBy: { position: "asc" },
     select: { id: true, type: true, position: true },
   });
+  // `deletedAt: null` above guarantees position is never actually null here
+  // (see the schema comment on ArchiveItemContentSection) — the `?? 0` is
+  // just satisfying Prisma's nullable field type, never a real fallback.
+  return sections.map((s) => ({ id: s.id, type: s.type, position: s.position ?? 0 }));
 }
 
 export async function createContentSection(
@@ -95,12 +99,12 @@ export async function createContentSection(
 ): Promise<ArchiveContentSectionRow> {
   await getOrCreateDefaultSections(companyId, tenantId, itemId);
 
-  const count = await prisma.archiveItemContentSection.count({ where: { itemId } });
+  const count = await prisma.archiveItemContentSection.count({ where: { itemId, deletedAt: null } });
   const section = await prisma.archiveItemContentSection.create({
     data: { companyId, tenantId, itemId, type, position: count },
   });
 
-  return { id: section.id, type: section.type, position: section.position };
+  return { id: section.id, type: section.type, position: section.position ?? count };
 }
 
 export type ReorderResult = { ok: true } | { ok: false; reason: "SECTION_SET_MISMATCH" };
@@ -112,7 +116,7 @@ export async function reorderContentSections(
   orderedSectionIds: string[],
 ): Promise<ReorderResult> {
   const existing = await prisma.archiveItemContentSection.findMany({
-    where: { companyId, tenantId, itemId },
+    where: { companyId, tenantId, itemId, deletedAt: null },
     select: { id: true },
   });
   const existingIds = new Set(existing.map((s) => s.id));
@@ -128,31 +132,45 @@ export async function reorderContentSections(
 
 export type DeleteContentSectionResult = { ok: true } | { ok: false; reason: "NOT_FOUND" };
 
-// Deleting a section cascades (DB-level, via onDelete: Cascade) to any
-// ArchiveItemTextField rows scoped to it — real content loss, which is why
+// TEXT_FIELDS sections are hard-deleted: the DB cascade (onDelete: Cascade)
+// removes their ArchiveItemTextField rows — real content loss, which is why
 // the UI requires a two-step confirm for a non-empty section, same pattern
-// as BlogSectionCard's isSectionNonEmpty/confirmingDelete. An IMAGES/FILES
-// section's ArchiveItemFileSection mappings cascade too, but that only
-// unlinks the files — the files themselves live in the archive package's
-// own storage and are untouched; they're lazily re-bucketed into another
-// matching-type section (or a freshly-recreated default one) next time the
-// item's files are listed, so no upload is ever actually lost.
+// as BlogSectionCard's isSectionNonEmpty/confirmingDelete. There's no
+// restore path for text-field content, so hard-delete is correct there.
+//
+// IMAGES/FILES sections are SOFT-deleted instead (deletedAt set, position
+// cleared to null — never a hard `.delete()`, which would cascade away the
+// ArchiveItemFileSection link rows). The caller (the section DELETE route)
+// is responsible for soft-deleting each linked file via the archive
+// package's own adapter (using listFileIdsForSection) BEFORE calling this.
+// Keeping the section row and its file links intact means
+// reviveSectionForFileIfDeleted (below) can bring back the EXACT original
+// section — not a substitute — the moment any one of its files is restored;
+// see the schema comment on ArchiveItemContentSection for why `position`
+// specifically has to go to null rather than just staying put.
 export async function deleteContentSection(
   companyId: string,
   tenantId: string,
   sectionId: string,
 ): Promise<DeleteContentSectionResult> {
   const section = await prisma.archiveItemContentSection.findFirst({
-    where: { id: sectionId, companyId, tenantId },
-    select: { id: true, itemId: true },
+    where: { id: sectionId, companyId, tenantId, deletedAt: null },
+    select: { id: true, itemId: true, type: true },
   });
   if (!section) return { ok: false, reason: "NOT_FOUND" };
 
   await prisma.$transaction(async (tx) => {
-    await tx.archiveItemContentSection.delete({ where: { id: sectionId } });
+    if (section.type === "TEXT_FIELDS") {
+      await tx.archiveItemContentSection.delete({ where: { id: sectionId } });
+    } else {
+      await tx.archiveItemContentSection.update({
+        where: { id: sectionId },
+        data: { deletedAt: new Date(), position: null },
+      });
+    }
 
     const remaining = await tx.archiveItemContentSection.findMany({
-      where: { itemId: section.itemId },
+      where: { itemId: section.itemId, deletedAt: null },
       orderBy: { position: "asc" },
       select: { id: true },
     });
@@ -162,6 +180,43 @@ export async function deleteContentSection(
   return { ok: true };
 }
 
+// Called after a file is restored (archive.restoreFile) — if the file's
+// ArchiveItemFileSection link still points at a section (it always does:
+// deleteContentSection never removes that link for IMAGES/FILES sections,
+// only soft-deletes the section itself), and that section is currently
+// soft-deleted, this brings the section itself back so the restored file
+// reappears in the EXACT section it was originally in. Reuses the same row
+// (same id), so if other files from that same original section get restored
+// later, they land back together in this one revived section rather than
+// each spawning a separate new one. A no-op if the section is already
+// active, or if the file has no section link at all (nothing to revive).
+export async function reviveSectionForFileIfDeleted(
+  companyId: string,
+  tenantId: string,
+  fileId: string,
+): Promise<void> {
+  const link = await prisma.archiveItemFileSection.findFirst({
+    where: { companyId, tenantId, fileId },
+    select: { sectionId: true },
+  });
+  if (!link) return;
+
+  const section = await prisma.archiveItemContentSection.findFirst({
+    where: { id: link.sectionId, companyId, tenantId },
+    select: { id: true, itemId: true, deletedAt: true },
+  });
+  if (!section || section.deletedAt === null) return;
+
+  const activeCount = await prisma.archiveItemContentSection.count({
+    where: { itemId: section.itemId, deletedAt: null },
+  });
+
+  await prisma.archiveItemContentSection.update({
+    where: { id: section.id },
+    data: { deletedAt: null, position: activeCount },
+  });
+}
+
 export async function assignFileToSection(
   companyId: string,
   tenantId: string,
@@ -169,6 +224,23 @@ export async function assignFileToSection(
   sectionId: string,
 ): Promise<void> {
   await prisma.archiveItemFileSection.create({ data: { companyId, tenantId, fileId, sectionId } });
+}
+
+// Read before deleteContentSection cascades away the ArchiveItemFileSection
+// link rows — the caller (the section DELETE route) needs this file id list
+// to soft-delete each file via the archive package's own adapter first, so
+// they land in "Show deleted files" instead of surviving as an invisible
+// orphan (see deleteContentSection's comment).
+export async function listFileIdsForSection(
+  companyId: string,
+  tenantId: string,
+  sectionId: string,
+): Promise<string[]> {
+  const rows = await prisma.archiveItemFileSection.findMany({
+    where: { companyId, tenantId, sectionId },
+    select: { fileId: true },
+  });
+  return rows.map((row) => row.fileId);
 }
 
 export async function getFileSectionMap(fileIds: string[]): Promise<Map<string, string>> {
@@ -202,7 +274,7 @@ export async function assignOrphanFiles(
 
   await getOrCreateDefaultSections(companyId, tenantId, itemId);
   const sections = await prisma.archiveItemContentSection.findMany({
-    where: { itemId, type: { in: ["IMAGES", "FILES"] } },
+    where: { itemId, type: { in: ["IMAGES", "FILES"] }, deletedAt: null },
     orderBy: { position: "asc" },
     select: { id: true, type: true },
   });

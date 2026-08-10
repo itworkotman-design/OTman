@@ -225,7 +225,6 @@ export function ItemView({
                         src: `/api/archive/files/${f.id}/download`,
                         alt: f.originalFileName,
                       }))}
-                      columns={5}
                     />
                   )
                 ) : sectionFiles.length === 0 ? (

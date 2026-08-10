@@ -50,9 +50,9 @@ export function TextFieldsReadOnly({ sectionId, locale }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="customContainer divide-y divide-lineSecondary">
       {fields.map((field) => (
-        <div key={field.id} className="rounded-xl border border-lineSecondary px-4 py-3">
+        <div key={field.id} className="py-3 first:pt-0 last:pb-0">
           <span className="font-semibold text-logoblue">{field.label}</span>
           {isEmptyHtml(field.value) ? null : (
             <div

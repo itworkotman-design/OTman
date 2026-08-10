@@ -122,7 +122,7 @@ export default function ArchivePage() {
 
       <PinnedFoldersSection locale={locale} />
 
-      <section className="mt-4 grid gap-6 lg:grid-cols-2">
+      <section className={`mt-4 grid gap-6 ${isArchiveAdmin ? "lg:grid-cols-2" : ""}`}>
         <div className="min-w-0">
           <div className="mb-4 flex h-10 grow items-end justify-end font-semibold text-textColorThird">
             <div className="w-full max-w-[100] text-center">
@@ -168,10 +168,12 @@ export default function ArchivePage() {
           </div>
         </div>
 
-        <div className="min-w-0">
-          <div className="mb-4 h-10" />
-          <ArchiveNotificationsPanel locale={locale} canRunNow={isArchiveAdmin} />
-        </div>
+        {isArchiveAdmin && (
+          <div className="min-w-0">
+            <div className="mb-4 h-10" />
+            <ArchiveNotificationsPanel locale={locale} canRunNow={isArchiveAdmin} />
+          </div>
+        )}
       </section>
     </div>
   );

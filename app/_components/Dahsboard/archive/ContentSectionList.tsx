@@ -23,9 +23,25 @@ type ArchiveRecoverableFileRow = {
   id: string;
   originalFileName: string;
   sizeBytes: number;
+  deletedAt: string;
+  deletedByName: string | null;
 };
 
 type UploadState = { uploading: boolean; progress: number; uploaded: boolean; error: string };
+
+// Deletion timestamp needs time-of-day precision (an audit column, not a
+// last-modified date), unlike types.ts's formatLastModified's day-only
+// "DD.MM.YY" convention — so this gets its own locale-aware formatter
+// instead of reusing that one.
+function formatDeletedAt(iso: string, locale: string): string {
+  return new Date(iso).toLocaleString(locale === "nb" ? "nb-NO" : "en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 type Props = {
   itemId: string;
@@ -389,7 +405,7 @@ export function ContentSectionList({ itemId, locale }: Props) {
       </button>
 
       {showDeletedFiles && (
-        <div className="flex flex-col gap-1">
+        <div>
           {deletedFilesLoading ? (
             <div className="text-sm text-textColorThird">{locale === "nb" ? "Laster..." : "Loading..."}</div>
           ) : deletedFiles.length === 0 ? (
@@ -397,19 +413,41 @@ export function ContentSectionList({ itemId, locale }: Props) {
               {locale === "nb" ? "Ingen slettede filer" : "No deleted files"}
             </div>
           ) : (
-            deletedFiles.map((file) => (
-              <div key={file.id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-textColorThird">{file.originalFileName}</span>
-                <button
-                  type="button"
-                  className="text-logoblue hover:underline"
-                  onClick={() => void handleRestoreFile(file.id)}
-                  disabled={restoringFileId === file.id}
-                >
-                  {locale === "nb" ? "Gjenopprett" : "Restore"}
-                </button>
-              </div>
-            ))
+            <div className="overflow-x-auto rounded-xl border border-lineSecondary">
+              {/* Server (listRecoverableFilesForItemWithActor) already sorts
+                  most-recently-deleted first — no client-side re-sort here. */}
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-lineSecondary text-xs text-textColorThird">
+                    <th className="px-3 py-2 font-medium">{locale === "nb" ? "Fil" : "File"}</th>
+                    <th className="px-3 py-2 font-medium">{locale === "nb" ? "Slettet" : "Deleted"}</th>
+                    <th className="px-3 py-2 font-medium">{locale === "nb" ? "Slettet av" : "Deleted by"}</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {deletedFiles.map((file) => (
+                    <tr key={file.id} className="border-b border-lineSecondary last:border-0">
+                      <td className="px-3 py-2 text-textColorSecond">{file.originalFileName}</td>
+                      <td className="px-3 py-2 text-textColorThird">{formatDeletedAt(file.deletedAt, locale)}</td>
+                      <td className="px-3 py-2 text-textColorThird">
+                        {file.deletedByName ?? (locale === "nb" ? "Ukjent" : "Unknown")}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          className="text-logoblue hover:underline"
+                          onClick={() => void handleRestoreFile(file.id)}
+                          disabled={restoringFileId === file.id}
+                        >
+                          {locale === "nb" ? "Gjenopprett" : "Restore"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

@@ -1128,13 +1128,27 @@ enum ArchiveContentSectionType {
 // separate "Images" galleries), unlike ArchiveItemReminderNote's one-per-item
 // cap — each section instance scopes its own slice of content via
 // ArchiveItemTextField.sectionId / ArchiveItemFileSection below.
+//
+// IMAGES/FILES sections are soft-deleted (deletedAt set, position cleared to
+// null) rather than hard-deleted, specifically so a later per-file restore
+// (see lib/docArchive/contentSections.ts's deleteContentSection/
+// reviveSectionForFileIfDeleted) can revive the EXACT original section a
+// restored file belonged to, instead of re-bucketing it into an unrelated
+// section. `position` has to be nullable for this: Postgres unique
+// constraints treat every NULL as distinct, so clearing a deleted section's
+// position frees its (itemId, position) slot for reuse by the remaining
+// active sections without a collision, while still enforcing uniqueness
+// among the never-null ACTIVE rows. TEXT_FIELDS sections are unaffected —
+// they have no file content to restore, so they're still hard-deleted (see
+// deleteContentSection).
 model ArchiveItemContentSection {
   id         String                     @id @default(cuid())
   companyId  String
   tenantId   String
   itemId     String
   type       ArchiveContentSectionType
-  position   Int
+  position   Int?
+  deletedAt  DateTime?
   createdAt  DateTime                   @default(now())
   updatedAt  DateTime                   @updatedAt
   textFields ArchiveItemTextField[]

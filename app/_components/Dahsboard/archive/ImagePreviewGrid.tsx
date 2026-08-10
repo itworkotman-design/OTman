@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer } from "react";
+import { useReducer, type ReactNode } from "react";
 
 export type PreviewableImage = {
   id: string;
@@ -10,7 +10,11 @@ export type PreviewableImage = {
 
 type ImagePreviewGridProps = {
   images: PreviewableImage[];
-  columns?: 2 | 5;
+  // Rendered as one more cell in the same auto-fit grid as the images
+  // themselves (see ContentSectionCard's AddImageTile) — an "add" tile
+  // takes up exactly the next grid column instead of sitting in a separate
+  // upload button below the grid.
+  trailing?: ReactNode;
 };
 
 type PreviewState = { activeIndex: number | null };
@@ -20,11 +24,6 @@ type PreviewAction =
   | { type: "close" }
   | { type: "next"; imageCount: number }
   | { type: "previous"; imageCount: number };
-
-const gridColumnClasses: Record<NonNullable<ImagePreviewGridProps["columns"]>, string> = {
-  2: "grid-cols-2",
-  5: "grid-cols-5",
-};
 
 function DownloadIcon() {
   return (
@@ -57,13 +56,20 @@ function previewReducer(state: PreviewState, action: PreviewAction): PreviewStat
 // Ported from the otman-archive prototype's ImagePreviewGrid, adapted to
 // plain <img> (real files are downloaded via an authenticated API route, not
 // static/optimizable assets, so next/image's optimizer doesn't apply here).
-export function ImagePreviewGrid({ images, columns = 5 }: ImagePreviewGridProps) {
+//
+// `auto-fit`/`minmax` instead of a fixed column count: with 1 image the
+// single column stretches to fill the row (as big as a lone "full-width"
+// image would be), 2 images split the row in half, 3 in thirds, and once
+// there's no more room images wrap onto further rows — no separate
+// per-section layout choice needed for that. Each image is capped at 400px
+// tall so a single large image doesn't blow out the section's height.
+export function ImagePreviewGrid({ images, trailing }: ImagePreviewGridProps) {
   const [state, dispatch] = useReducer(previewReducer, { activeIndex: null });
   const activeImage = state.activeIndex === null ? null : images[state.activeIndex];
 
   return (
     <>
-      <div className={`grid ${gridColumnClasses[columns]} gap-3`}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
         {images.map((image, index) => (
           <div key={image.id} className="relative">
             <button
@@ -72,7 +78,7 @@ export function ImagePreviewGrid({ images, columns = 5 }: ImagePreviewGridProps)
               className="w-full rounded-xl border border-lineSecondary p-3 text-left transition-colors hover:border-logoblue"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={image.src} alt={image.alt} className="mx-auto h-24 w-full object-contain" />
+              <img src={image.src} alt={image.alt} className="mx-auto max-h-100 w-full object-contain" />
               <p className="mt-2 truncate text-center text-sm text-textColorSecond">{image.alt}</p>
             </button>
             <a
@@ -86,6 +92,7 @@ export function ImagePreviewGrid({ images, columns = 5 }: ImagePreviewGridProps)
             </a>
           </div>
         ))}
+        {trailing}
       </div>
 
       {activeImage && state.activeIndex !== null ? (

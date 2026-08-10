@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { listRecoverableFilesForItemWithActor } from "@/lib/docArchive/recoverableFiles";
 
 export async function GET(
   req: Request,
@@ -12,7 +12,7 @@ export async function GET(
 
   const { itemId } = await params;
   const ctx = buildArchiveContext(result.session, result.membership);
-  const listResult = await archive.listRecoverableFilesForItem(ctx, itemId);
+  const listResult = await listRecoverableFilesForItemWithActor(ctx, itemId);
 
   if (!listResult.ok) {
     return NextResponse.json(
