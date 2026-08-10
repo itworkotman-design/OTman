@@ -4,7 +4,7 @@ import type { ArchiveContentSectionType } from "@prisma/client";
 import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/ContentSectionTypeIcon";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 
-const SECTION_TYPES: ArchiveContentSectionType[] = ["IMAGES", "FILES", "TEXT_FIELDS"];
+const SECTION_TYPES: ArchiveContentSectionType[] = ["IMAGES", "FILES", "TEXT_FIELDS", "SPREADSHEET"];
 
 type Props = {
   locale: string;
@@ -44,22 +44,6 @@ export function ContentSectionPicker({ locale, onPick, onClose }: Props) {
               </button>
             );
           })}
-
-          {/* Structured/spreadsheet sections have no backend support at all
-              (items have no type discriminator and there's no tabular-data
-              storage in @customprojects/custom-archive) — see
-              docs/documentation/integrations/archive-ui-known-gaps.md.
-              Visible but permanently disabled; never calls any API. */}
-          <button
-            type="button"
-            disabled
-            title={locale === "nb" ? "Regneark støttes ikke ennå" : "Spreadsheet sections aren't supported yet"}
-            className="flex flex-col items-start rounded-md border border-dashed border-linePrimary p-4 text-left text-textColorThird/50"
-          >
-            <ContentSectionTypeIcon type="FILES" className="h-6 w-6" />
-            <span className="mt-2 font-semibold">{locale === "nb" ? "Regneark" : "Spreadsheet"}</span>
-            <span className="mt-1 text-sm">{locale === "nb" ? "Kommer snart" : "Coming soon"}</span>
-          </button>
         </div>
       </div>
     </div>

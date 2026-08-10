@@ -12,5 +12,7 @@ export function getContentSectionLabel(
       return { name: nb ? "Filer" : "Files", description: nb ? "Opplastede filer" : "Uploaded files" };
     case "TEXT_FIELDS":
       return { name: nb ? "Tekstfelt" : "Text fields", description: nb ? "Navngitte tekstfelt" : "Named text fields" };
+    case "SPREADSHEET":
+      return { name: nb ? "Regneark" : "Spreadsheet", description: nb ? "Et redigerbart regneark" : "An editable spreadsheet" };
   }
 }

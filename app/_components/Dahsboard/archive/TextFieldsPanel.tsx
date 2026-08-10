@@ -15,17 +15,27 @@ export type ArchiveTextFieldRow = {
 };
 
 type PendingField = { tempId: string; label: string; value: string };
+type PendingEdit = { label: string; value: string };
 
 export type TextFieldsPanelHandle = {
-  flushPendingAdds: () => Promise<void>;
+  // Takes the section's real id as a call-time argument rather than reading
+  // the `sectionId` prop, so ContentSectionList can flush a section that was
+  // just created (a pending section has no real id until Save's first
+  // phase creates it) without needing a prop update to land first — and
+  // without ever changing this component's `key`, which would remount it
+  // and lose any other staged state.
+  flushPendingChanges: (sectionId: string) => Promise<void>;
 };
 
 type TextFieldsPanelProps = {
-  sectionId: string;
+  // `null` means this is a not-yet-created (pending) section — see
+  // ContentSectionList's staging model. There is nothing to fetch yet, so
+  // the panel behaves as pure local draft state until a real id exists.
+  sectionId: string | null;
   locale: string;
-  // Reported whenever a field is staged/discarded, so the page-level Save
-  // button (ContentSectionList) knows to show up — mirrors
-  // website/BlogSectionList.tsx's onDraftChange reporting pattern.
+  // Reported whenever staged state changes, so the page-level Save button
+  // (ContentSectionList) knows to show up — mirrors website/BlogSectionList
+  // .tsx's onDraftChange reporting pattern.
   onDirtyChange?: (dirty: boolean) => void;
 };
 
@@ -35,20 +45,19 @@ type TextFieldsPanelProps = {
 // have several Text-fields sections, each with its own independent field
 // list — see the model's comment in schema.prisma).
 //
-// Adding a field is staged locally (a "pending" row with a temp id, not sent
-// to the server) rather than saved immediately on its own inline button —
-// per explicit user request that the page-level big Save button is what
-// actually persists a new field, not the small "Add" button inside the
-// section. `flushPendingAdds` (exposed via ref) is what ContentSectionList
-// calls when that big Save button is clicked. Editing/deleting an
-// *existing* (already-persisted) field is unaffected — those still save
-// immediately, since only "adding" was in scope for this change.
+// Adding, editing, AND deleting a field are all staged locally (no network
+// call happens on the small inline buttons inside this panel) — matching the
+// rest of the item settings page's deferred-save model. `flushPendingChanges`
+// (exposed via ref) is what ContentSectionList's page-level Save button
+// calls to actually persist everything staged here at once.
 export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanelProps>(function TextFieldsPanel(
   { sectionId, locale, onDirtyChange },
   ref,
 ) {
   const [fields, setFields] = useState<ArchiveTextFieldRow[]>([]);
   const [pendingFields, setPendingFields] = useState<PendingField[]>([]);
+  const [pendingEdits, setPendingEdits] = useState<Record<string, PendingEdit>>({});
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   const [addingLabel, setAddingLabel] = useState("");
@@ -59,14 +68,17 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editValue, setEditValue] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  async function loadFields(idOverride?: string) {
+    const targetId = idOverride ?? sectionId;
+    if (!targetId) {
+      setLoading(false);
+      return;
+    }
 
-  async function loadFields() {
     try {
       setLoading(true);
-      const res = await fetch(`/api/archive/content-sections/${sectionId}/text-fields`, {
+      const res = await fetch(`/api/archive/content-sections/${targetId}/text-fields`, {
         credentials: "include",
         cache: "no-store",
       });
@@ -83,16 +95,16 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
   }, [sectionId]);
 
   useEffect(() => {
-    onDirtyChange?.(pendingFields.length > 0);
+    onDirtyChange?.(pendingFields.length > 0 || Object.keys(pendingEdits).length > 0 || pendingDeleteIds.size > 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingFields]);
+  }, [pendingFields, pendingEdits, pendingDeleteIds]);
 
   useImperativeHandle(ref, () => ({
-    async flushPendingAdds() {
-      if (pendingFields.length === 0) return;
+    async flushPendingChanges(resolvedSectionId: string) {
+      if (pendingFields.length === 0 && Object.keys(pendingEdits).length === 0 && pendingDeleteIds.size === 0) return;
 
       for (const pending of pendingFields) {
-        const res = await fetch(`/api/archive/content-sections/${sectionId}/text-fields`, {
+        const res = await fetch(`/api/archive/content-sections/${resolvedSectionId}/text-fields`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -105,8 +117,33 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
         }
       }
 
+      for (const [fieldId, edit] of Object.entries(pendingEdits)) {
+        const res = await fetch(`/api/archive/text-fields/${fieldId}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label: edit.label, value: edit.value }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.ok) {
+          setError(data?.reason || "Failed to save text field");
+          return;
+        }
+      }
+
+      for (const fieldId of pendingDeleteIds) {
+        const res = await fetch(`/api/archive/text-fields/${fieldId}`, { method: "DELETE", credentials: "include" });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.ok) {
+          setError(data?.reason || "Failed to delete text field");
+          return;
+        }
+      }
+
       setPendingFields([]);
-      await loadFields();
+      setPendingEdits({});
+      setPendingDeleteIds(new Set());
+      await loadFields(resolvedSectionId);
     },
   }));
 
@@ -125,89 +162,61 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
   }
 
   function startEdit(field: ArchiveTextFieldRow) {
+    const staged = pendingEdits[field.id];
     setEditingId(field.id);
-    setEditLabel(field.label);
-    setEditValue(field.value);
+    setEditLabel(staged?.label ?? field.label);
+    setEditValue(staged?.value ?? field.value);
     setError("");
   }
 
-  async function handleSaveEdit(fieldId: string) {
+  // Staged locally only — nothing is sent to the server until the page-level
+  // Save button flushes it via flushPendingChanges.
+  function handleStageEdit(fieldId: string) {
     const label = editLabel.trim();
     if (!label) return;
 
-    try {
-      setSaving(true);
-      setError("");
-
-      const res = await fetch(`/api/archive/text-fields/${fieldId}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label, value: editValue }),
-      });
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setError(data?.reason || "Failed to save text field");
-        return;
-      }
-
-      setEditingId(null);
-      await loadFields();
-    } catch {
-      setError("Failed to save text field");
-    } finally {
-      setSaving(false);
-    }
+    setPendingEdits((prev) => ({ ...prev, [fieldId]: { label, value: editValue } }));
+    setEditingId(null);
   }
 
-  async function handleDelete(fieldId: string) {
-    if (!confirm(locale === "nb" ? "Slette dette tekstfeltet?" : "Delete this text field?")) return;
-
-    try {
-      setDeletingId(fieldId);
-      setError("");
-
-      const res = await fetch(`/api/archive/text-fields/${fieldId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setError(data?.reason || "Failed to delete text field");
-        return;
-      }
-
-      await loadFields();
-    } catch {
-      setError("Failed to delete text field");
-    } finally {
-      setDeletingId(null);
-    }
+  // Hides the field immediately (optimistic); the actual delete only
+  // happens at Save time. Any staged edit for the same field is dropped
+  // since it would just be deleted right after anyway.
+  function handleStageDelete(fieldId: string) {
+    setPendingDeleteIds((prev) => new Set(prev).add(fieldId));
+    setPendingEdits((prev) => {
+      const { [fieldId]: _removed, ...rest } = prev;
+      return rest;
+    });
+    if (editingId === fieldId) setEditingId(null);
   }
 
   if (loading) {
     return <p className="text-sm text-textColorThird">{locale === "nb" ? "Laster..." : "Loading..."}</p>;
   }
 
+  const visibleFields = fields.filter((field) => !pendingDeleteIds.has(field.id));
+
   return (
     <div>
-      {fields.length === 0 && pendingFields.length === 0 && !showAddForm ? (
+      {visibleFields.length === 0 && pendingFields.length === 0 && !showAddForm ? (
         <p className="mb-3 text-sm text-textColorThird">
           {locale === "nb" ? "Ingen tekstfelt" : "No text fields"}
         </p>
       ) : (
         <div className="mb-3 flex flex-col gap-2">
-          {fields.map((field) =>
-            editingId === field.id ? (
+          {visibleFields.map((field) => {
+            const staged = pendingEdits[field.id];
+            const displayLabel = staged?.label ?? field.label;
+            const displayValue = staged?.value ?? field.value;
+
+            return editingId === field.id ? (
               <div key={field.id} className="rounded-xl border border-lineSecondary px-4 py-3">
                 <input
                   className="customInput mb-2 w-full max-w-[320]"
                   type="text"
                   value={editLabel}
                   onChange={(e) => setEditLabel(e.target.value)}
-                  disabled={saving}
                 />
                 <div className="mb-2">
                   <ArchiveRichTextEditorField value={editValue} onChange={setEditValue} locale={locale} />
@@ -216,16 +225,14 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
                   <button
                     type="button"
                     className="customButtonEnabled h-9 px-4 text-sm"
-                    onClick={() => void handleSaveEdit(field.id)}
-                    disabled={saving}
+                    onClick={() => handleStageEdit(field.id)}
                   >
-                    {saving ? (locale === "nb" ? "Lagrer..." : "Saving...") : locale === "nb" ? "Lagre" : "Save"}
+                    {locale === "nb" ? "Lagre" : "Save"}
                   </button>
                   <button
                     type="button"
                     className="text-sm text-textColorThird hover:underline"
                     onClick={() => setEditingId(null)}
-                    disabled={saving}
                   >
                     {locale === "nb" ? "Avbryt" : "Cancel"}
                   </button>
@@ -234,7 +241,14 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
             ) : (
               <div key={field.id} className="rounded-xl border border-lineSecondary px-4 py-3">
                 <div className="mb-1 flex items-start justify-between gap-3">
-                  <span className="font-semibold text-logoblue">{field.label}</span>
+                  <span className="flex items-center gap-2 font-semibold text-logoblue">
+                    {displayLabel}
+                    {staged && (
+                      <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
+                        {locale === "nb" ? "Ikke lagret" : "Unsaved"}
+                      </span>
+                    )}
+                  </span>
                   <div className="flex shrink-0 gap-3 text-sm">
                     <button type="button" className="text-logoblue hover:underline" onClick={() => startEdit(field)}>
                       {locale === "nb" ? "Rediger" : "Edit"}
@@ -242,24 +256,23 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
                     <button
                       type="button"
                       className="text-red-600 hover:underline"
-                      onClick={() => void handleDelete(field.id)}
-                      disabled={deletingId === field.id}
+                      onClick={() => handleStageDelete(field.id)}
                     >
                       {locale === "nb" ? "Slett" : "Delete"}
                     </button>
                   </div>
                 </div>
-                {isEmptyHtml(field.value) ? (
+                {isEmptyHtml(displayValue) ? (
                   <p className="text-sm text-textColorThird">{locale === "nb" ? "Tomt" : "Empty"}</p>
                 ) : (
                   <div
                     className="rich-text-content prose max-w-none text-sm text-textColorSecond [&_p]:m-0"
-                    dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(field.value) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(displayValue) }}
                   />
                 )}
               </div>
-            ),
-          )}
+            );
+          })}
 
           {pendingFields.map((field) => (
             <div key={field.tempId} className="rounded-xl border border-dashed border-logoblue/50 px-4 py-3">

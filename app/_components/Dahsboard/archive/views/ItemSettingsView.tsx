@@ -7,6 +7,7 @@ import { getModuleAccess } from "@/lib/users/access";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
 import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
 import { ContentSectionList } from "@/app/_components/Dahsboard/archive/ContentSectionList";
+import { SaveToast } from "@/app/_components/Dahsboard/archive/SaveToast";
 import type { ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveItemDetail = ArchiveItemSummary & {
@@ -35,6 +36,17 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
   // activeControlTab — one tab always fully shown rather than a click-to-expand
   // accordion row.
   const [activeControlTab, setActiveControlTab] = useState("details");
+
+  // A fresh `key` per save (rather than just a boolean) so SaveToast always
+  // gets its own mount + full 3s timer, even if two saves land in quick
+  // succession.
+  const [savedToastKey, setSavedToastKey] = useState(0);
+  const [showSavedToast, setShowSavedToast] = useState(false);
+
+  function triggerSavedToast() {
+    setSavedToastKey((key) => key + 1);
+    setShowSavedToast(true);
+  }
 
   async function loadItem() {
     try {
@@ -67,6 +79,7 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
 
   async function handleItemSettingsSaved() {
     await loadItem();
+    triggerSavedToast();
   }
 
   if (currentUser && !hasAccess) {
@@ -167,9 +180,17 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
 
           <section>
             <h2 className="mb-3 text-[1.5rem] font-bold text-logoblue">{locale === "nb" ? "Innhold" : "Content"}</h2>
-            <ContentSectionList itemId={itemId} locale={locale} />
+            <ContentSectionList itemId={itemId} locale={locale} onSaved={triggerSavedToast} />
           </section>
         </div>
+      )}
+
+      {showSavedToast && (
+        <SaveToast
+          key={savedToastKey}
+          message={locale === "nb" ? "Innstillinger lagret" : "Settings saved"}
+          onDismiss={() => setShowSavedToast(false)}
+        />
       )}
     </div>
   );

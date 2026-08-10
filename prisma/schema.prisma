@@ -1117,6 +1117,7 @@ enum ArchiveContentSectionType {
   IMAGES
   FILES
   TEXT_FIELDS
+  SPREADSHEET
 }
 
 // An item's "Content" area (Images/Files/Text fields) is broken into
@@ -1142,17 +1143,18 @@ enum ArchiveContentSectionType {
 // they have no file content to restore, so they're still hard-deleted (see
 // deleteContentSection).
 model ArchiveItemContentSection {
-  id         String                     @id @default(cuid())
-  companyId  String
-  tenantId   String
-  itemId     String
-  type       ArchiveContentSectionType
-  position   Int?
-  deletedAt  DateTime?
-  createdAt  DateTime                   @default(now())
-  updatedAt  DateTime                   @updatedAt
-  textFields ArchiveItemTextField[]
-  fileLinks  ArchiveItemFileSection[]
+  id          String                    @id @default(cuid())
+  companyId   String
+  tenantId    String
+  itemId      String
+  type        ArchiveContentSectionType
+  position    Int?
+  deletedAt   DateTime?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+  textFields  ArchiveItemTextField[]
+  fileLinks   ArchiveItemFileSection[]
+  spreadsheet ArchiveItemSpreadsheet?
 
   @@unique([itemId, position])
   @@index([companyId, tenantId, itemId])
@@ -1205,6 +1207,28 @@ model ArchiveItemFileSection {
   createdAt DateTime                  @default(now())
 
   @@index([companyId, tenantId, sectionId])
+}
+
+// Host-side "spreadsheet" item content, same reasoning as
+// ArchiveItemTextField: the package has no tabular/structured-data storage
+// (see docs/documentation/integrations/archive-ui-known-gaps.md), so the
+// whole grid lives here as one JSON document rather than normalized
+// row/column/cell rows — it's always read and saved as a unit (see
+// SpreadsheetPanel's manual-save flow), so a normalized schema would only
+// add join complexity with no benefit. One row per Spreadsheet section
+// instance (sectionId unique), cascade-deleted with its section.
+model ArchiveItemSpreadsheet {
+  id        String                    @id @default(cuid())
+  companyId String
+  tenantId  String
+  itemId    String
+  sectionId String                    @unique
+  section   ArchiveItemContentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  data      Json
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+
+  @@index([companyId, tenantId, itemId])
 }
 
 // One row per (parent scope, FOLDER-or-ITEM counter); parentFolderId is the

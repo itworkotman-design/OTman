@@ -47,7 +47,6 @@ export function proxy(req: NextRequest) {
 
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/booking") ||
     pathname.startsWith("/login") ||
@@ -75,6 +74,13 @@ export function proxy(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
+// /api is excluded outright, not routed through nextWithCsp: proxy duplexes
+// and buffers any request body in memory up to a size cap (10MB default,
+// see next.config's proxyClientMaxBodySize) to let both proxy and the route
+// handler read it, which would either truncate or double-buffer the large
+// file uploads archive routes accept (see ARCHIVE_MAX_UPLOAD_SIZE_BYTES).
+// The CSP nonce this sets is only consumed by (site)'s HTML layout, so API
+// JSON responses don't need it anyway.
 export const config = {
-  matcher: ["/((?!_next).*)"],
+  matcher: ["/((?!_next|api).*)"],
 };

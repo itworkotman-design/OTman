@@ -7,10 +7,18 @@ import { CSS } from "@dnd-kit/utilities";
 import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/ContentSectionTypeIcon";
 import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePreviewGrid";
 import { TextFieldsPanel, type TextFieldsPanelHandle } from "@/app/_components/Dahsboard/archive/TextFieldsPanel";
+import { SpreadsheetPanel, type SpreadsheetPanelHandle } from "@/app/_components/Dahsboard/archive/SpreadsheetPanel";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 
+// `key` is what dnd-kit/React reconciliation use — stable for a section's
+// whole lifetime. `id` is the real, server-side id and is `null` for a
+// pending section that Save hasn't created yet (see ContentSectionList's
+// staging model). Keeping these separate means a pending section never
+// remounts (and never loses staged text-field/spreadsheet/upload state) the
+// moment Save resolves it to a real id.
 export type ArchiveContentSectionRow = {
-  id: string;
+  key: string;
+  id: string | null;
   type: ArchiveContentSectionType;
   position: number;
 };
@@ -23,6 +31,15 @@ export type ArchiveContentFileRow = {
   sectionId: string | null;
 };
 
+// A file/image staged locally by the user but not yet uploaded — created the
+// moment a file is picked, only actually sent to the server during Save's
+// upload phase. `previewUrl` (an object URL) is only set for images.
+export type PendingUploadRow = {
+  tempId: string;
+  file: File;
+  previewUrl?: string;
+};
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -30,22 +47,22 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-type UploadState = { uploading: boolean; progress: number; uploaded: boolean; error: string };
-
 type Props = {
   section: ArchiveContentSectionRow;
   index: number;
   total: number;
   locale: string;
   files: ArchiveContentFileRow[];
-  uploadState?: UploadState;
-  deletingFileId: string | null;
-  onMove: (id: string, direction: "up" | "down") => void;
-  onDelete: (id: string) => void;
-  onUploadFile: (sectionId: string, file: File) => void;
+  pendingUploads: PendingUploadRow[];
+  onMove: (key: string, direction: "up" | "down") => void;
+  onDelete: (key: string) => void;
+  onStageUpload: (sectionKey: string, file: File) => void;
+  onDiscardPendingUpload: (tempId: string) => void;
   onDeleteFile: (fileId: string) => void;
-  textFieldsHandleRef?: (sectionId: string, handle: TextFieldsPanelHandle | null) => void;
-  onTextFieldsDirtyChange?: (sectionId: string, dirty: boolean) => void;
+  textFieldsHandleRef?: (sectionKey: string, handle: TextFieldsPanelHandle | null) => void;
+  onTextFieldsDirtyChange?: (sectionKey: string, dirty: boolean) => void;
+  spreadsheetHandleRef?: (sectionKey: string, handle: SpreadsheetPanelHandle | null) => void;
+  onSpreadsheetDirtyChange?: (sectionKey: string, dirty: boolean) => void;
 };
 
 export function ContentSectionCard({
@@ -54,19 +71,21 @@ export function ContentSectionCard({
   total,
   locale,
   files,
-  uploadState,
-  deletingFileId,
+  pendingUploads,
   onMove,
   onDelete,
-  onUploadFile,
+  onStageUpload,
+  onDiscardPendingUpload,
   onDeleteFile,
   textFieldsHandleRef,
   onTextFieldsDirtyChange,
+  spreadsheetHandleRef,
+  onSpreadsheetDirtyChange,
 }: Props) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const label = getContentSectionLabel(section.type, locale);
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.key });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   function handleDeleteClick() {
@@ -74,7 +93,7 @@ export function ContentSectionCard({
       setConfirmingDelete(true);
       return;
     }
-    onDelete(section.id);
+    onDelete(section.key);
   }
 
   return (
@@ -97,6 +116,11 @@ export function ContentSectionCard({
         <div className="flex flex-1 items-center gap-2 px-2 py-2">
           <ContentSectionTypeIcon type={section.type} className="h-5 w-5 shrink-0 text-logoblue" />
           <span className="font-semibold text-logoblue">{label.name}</span>
+          {section.id === null && (
+            <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
+              {locale === "nb" ? "Ikke lagret" : "Unsaved"}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -105,7 +129,7 @@ export function ContentSectionCard({
             aria-label={locale === "nb" ? "Flytt opp" : "Move up"}
             disabled={index === 0}
             className="customButtonDefault !px-2 !py-1 text-xs"
-            onClick={() => onMove(section.id, "up")}
+            onClick={() => onMove(section.key, "up")}
           >
             ↑
           </button>
@@ -114,7 +138,7 @@ export function ContentSectionCard({
             aria-label={locale === "nb" ? "Flytt ned" : "Move down"}
             disabled={index === total - 1}
             className="customButtonDefault !px-2 !py-1 text-xs"
-            onClick={() => onMove(section.id, "down")}
+            onClick={() => onMove(section.key, "down")}
           >
             ↓
           </button>
@@ -140,10 +164,17 @@ export function ContentSectionCard({
       <div className="p-4">
         {section.type === "TEXT_FIELDS" ? (
           <TextFieldsPanel
-            ref={(handle) => textFieldsHandleRef?.(section.id, handle)}
+            ref={(handle) => textFieldsHandleRef?.(section.key, handle)}
             sectionId={section.id}
             locale={locale}
-            onDirtyChange={(dirty) => onTextFieldsDirtyChange?.(section.id, dirty)}
+            onDirtyChange={(dirty) => onTextFieldsDirtyChange?.(section.key, dirty)}
+          />
+        ) : section.type === "SPREADSHEET" ? (
+          <SpreadsheetPanel
+            ref={(handle) => spreadsheetHandleRef?.(section.key, handle)}
+            sectionId={section.id}
+            locale={locale}
+            onDirtyChange={(dirty) => onSpreadsheetDirtyChange?.(section.key, dirty)}
           />
         ) : section.type === "IMAGES" ? (
           <div>
@@ -153,19 +184,22 @@ export function ContentSectionCard({
                 src: `/api/archive/files/${f.id}/download`,
                 alt: f.originalFileName,
               }))}
-              trailing={
-                <AddImageTile
+              downloadable={false}
+              onDeleteImage={onDeleteFile}
+              leading={<AddImageTile locale={locale} onPick={(file) => onStageUpload(section.key, file)} />}
+              trailing={pendingUploads.map((pending) => (
+                <PendingImageTile
+                  key={pending.tempId}
                   locale={locale}
-                  uploadState={uploadState}
-                  onUpload={(file) => onUploadFile(section.id, file)}
+                  pending={pending}
+                  onDiscard={() => onDiscardPendingUpload(pending.tempId)}
                 />
-              }
+              ))}
             />
-            {uploadState?.error && <p className="mt-2 text-sm font-medium text-red-600">{uploadState.error}</p>}
           </div>
         ) : (
           <div>
-            {files.length > 0 && (
+            {(files.length > 0 || pendingUploads.length > 0) && (
               <div className="mb-3 flex flex-col gap-2">
                 {files.map((file) => (
                   <div
@@ -185,15 +219,33 @@ export function ContentSectionCard({
                       type="button"
                       className="text-red-600 hover:underline"
                       onClick={() => onDeleteFile(file.id)}
-                      disabled={deletingFileId === file.id}
                     >
                       {locale === "nb" ? "Slett" : "Delete"}
                     </button>
                   </div>
                 ))}
+                {pendingUploads.map((pending) => (
+                  <div
+                    key={pending.tempId}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-logoblue/50 px-4 py-2 text-sm"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-textColorSecond">{pending.file.name}</span>
+                    <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
+                      {locale === "nb" ? "Ikke lagret" : "Unsaved"}
+                    </span>
+                    <span className="text-textColorThird">{formatBytes(pending.file.size)}</span>
+                    <button
+                      type="button"
+                      className="text-red-600 hover:underline"
+                      onClick={() => onDiscardPendingUpload(pending.tempId)}
+                    >
+                      {locale === "nb" ? "Forkast" : "Discard"}
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
-            <UploadControl locale={locale} uploadState={uploadState} onUpload={(file) => onUploadFile(section.id, file)} />
+            <UploadControl locale={locale} onPick={(file) => onStageUpload(section.key, file)} />
           </div>
         )}
       </div>
@@ -201,104 +253,77 @@ export function ContentSectionCard({
   );
 }
 
-// Sits as the last cell in ImagePreviewGrid's own auto-fit grid (via its
-// `trailing` prop) rather than a separate button below the grid — a square
-// dashed-border "+" tile that takes up exactly the next grid column,
-// hoverable like the image cells beside it. `self-start`/capped width keep
-// it a compact square instead of stretching to a whole (possibly huge)
-// grid row when it's the only cell — see ImagePreviewGrid's per-count
-// auto-fit sizing comment.
-function AddImageTile({
+// Sits as one more cell in ImagePreviewGrid's own auto-fit grid, same as
+// AddImageTile — a locally-previewed image that hasn't been uploaded yet.
+function PendingImageTile({
   locale,
-  uploadState,
-  onUpload,
+  pending,
+  onDiscard,
 }: {
   locale: string;
-  uploadState?: UploadState;
-  onUpload: (file: File) => void;
+  pending: PendingUploadRow;
+  onDiscard: () => void;
 }) {
-  const uploading = uploadState?.uploading ?? false;
-
   return (
-    <label
-      className={`flex aspect-square w-full max-w-56 cursor-pointer flex-col items-center justify-center gap-2 self-start justify-self-start rounded-xl border-2 border-dashed border-lineSecondary p-3 text-textColorThird transition-colors hover:border-logoblue hover:bg-linePrimary/40 hover:text-logoblue ${uploading ? "pointer-events-none opacity-70" : ""}`}
-    >
-      {uploading ? (
-        <>
-          <span className="text-sm font-medium">{locale === "nb" ? "Laster opp..." : "Uploading..."}</span>
-          <div className="h-1.5 w-2/3 overflow-hidden rounded-full bg-linePrimary">
-            <div
-              className="h-full rounded-full bg-logoblue transition-all"
-              style={{ width: `${uploadState?.progress ?? 0}%` }}
-            />
-          </div>
-        </>
-      ) : (
-        <>
-          <span className="text-4xl font-light leading-none">+</span>
-          <span className="text-sm font-medium">{locale === "nb" ? "Legg til bilde" : "Add image"}</span>
-        </>
-      )}
+    <div className="relative w-full max-w-56 self-start justify-self-start rounded-xl border-2 border-dashed border-logoblue/50 p-3">
+      <div className="aspect-square w-full overflow-hidden">
+        {pending.previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={pending.previewUrl} alt={pending.file.name} className="h-full w-full object-contain" />
+        ) : null}
+      </div>
+      <p className="mt-2 truncate text-center text-sm text-textColorSecond">{pending.file.name}</p>
+      <span className="absolute left-2 top-2 rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
+        {locale === "nb" ? "Ikke lagret" : "Unsaved"}
+      </span>
+      <button
+        type="button"
+        className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-white text-red-600 shadow hover:bg-red-50"
+        aria-label={locale === "nb" ? "Forkast" : "Discard"}
+        onClick={onDiscard}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+// Picks a file and stages it (via onPick) — no upload happens here anymore;
+// the actual XHR only runs during Save's upload phase (ContentSectionList).
+function AddImageTile({ locale, onPick }: { locale: string; onPick: (file: File) => void }) {
+  return (
+    <label className="flex aspect-square w-full max-w-56 cursor-pointer flex-col items-center justify-center gap-2 self-start justify-self-start rounded-xl border-2 border-dashed border-lineSecondary p-3 text-textColorThird transition-colors hover:border-logoblue hover:bg-linePrimary/40 hover:text-logoblue">
+      <span className="text-4xl font-light leading-none">+</span>
+      <span className="text-sm font-medium">{locale === "nb" ? "Legg til bilde" : "Add image"}</span>
       <input
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
-        disabled={uploading}
         onChange={(e) => {
-          const file = e.target.files?.[0];
+          const files = e.target.files;
           e.target.value = "";
-          if (file) onUpload(file);
+          if (files) for (const file of Array.from(files)) onPick(file);
         }}
       />
     </label>
   );
 }
 
-function UploadControl({
-  locale,
-  accept,
-  uploadState,
-  onUpload,
-}: {
-  locale: string;
-  accept?: string;
-  uploadState?: UploadState;
-  onUpload: (file: File) => void;
-}) {
+function UploadControl({ locale, accept, onPick }: { locale: string; accept?: string; onPick: (file: File) => void }) {
   return (
-    <div className="flex flex-col gap-2">
-      <label className="customButtonDefault inline-block w-fit cursor-pointer">
-        {uploadState?.uploading
-          ? locale === "nb"
-            ? "Laster opp..."
-            : "Uploading..."
-          : locale === "nb"
-            ? "Last opp fil"
-            : "Upload file"}
-        <input
-          type="file"
-          accept={accept}
-          className="hidden"
-          disabled={uploadState?.uploading}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file) onUpload(file);
-          }}
-        />
-      </label>
-
-      {uploadState?.uploading && (
-        <div className="h-1.5 w-48 overflow-hidden rounded-full bg-linePrimary">
-          <div className="h-full rounded-full bg-logoblue transition-all" style={{ width: `${uploadState.progress}%` }} />
-        </div>
-      )}
-
-      {uploadState?.uploaded && (
-        <p className="text-sm font-medium text-green-600">{locale === "nb" ? "✓ Lastet opp" : "✓ Uploaded"}</p>
-      )}
-
-      {uploadState?.error && <p className="text-sm font-medium text-red-600">{uploadState.error}</p>}
-    </div>
+    <label className="customButtonDefault inline-block w-fit cursor-pointer">
+      {locale === "nb" ? "Last opp fil" : "Upload file"}
+      <input
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) onPick(file);
+        }}
+      />
+    </label>
   );
 }

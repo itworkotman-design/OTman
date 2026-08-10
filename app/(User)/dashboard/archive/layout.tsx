@@ -20,7 +20,10 @@ export default function ArchiveLayout({ children }: { children: ReactNode }) {
         <aside className="">
           <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} width={sidebarW} />
         </aside>
-        <main className="lg:pt-10 w-full flex">
+        <main
+          className="lg:pt-10 w-full flex"
+          style={{ ["--dash-sidebar-width" as string]: `${sidebarW}px` }}
+        >
           <div className="mx-auto w-full max-w-[1600] px-10">{children}</div>
         </main>
       </div>

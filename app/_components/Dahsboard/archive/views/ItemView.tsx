@@ -9,6 +9,7 @@ import { CopyUrlButton } from "@/app/_components/Dahsboard/archive/CopyUrlButton
 import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePreviewGrid";
 import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/ContentSectionTypeIcon";
 import { TextFieldsReadOnly } from "@/app/_components/Dahsboard/archive/TextFieldsReadOnly";
+import { SpreadsheetReadOnly } from "@/app/_components/Dahsboard/archive/SpreadsheetReadOnly";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 import type { ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
@@ -213,6 +214,8 @@ export function ItemView({
 
                 {section.type === "TEXT_FIELDS" ? (
                   <TextFieldsReadOnly sectionId={section.id} locale={locale} />
+                ) : section.type === "SPREADSHEET" ? (
+                  <SpreadsheetReadOnly sectionId={section.id} locale={locale} />
                 ) : section.type === "IMAGES" ? (
                   sectionFiles.length === 0 ? (
                     <div className="customContainer flex items-center justify-center py-8 text-sm text-textColorThird">
