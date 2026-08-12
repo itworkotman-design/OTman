@@ -25,8 +25,19 @@ type NotificationRow = {
   recurrenceConfig: unknown | null;
   date: string | null;
   href: string;
-  urgent: boolean;
 };
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+// True once a row's date is overdue or within the next 24h — a tighter
+// window than the isOverdue/isDueSoon/isExpiringSoon flags the search API
+// filters on (those use a 72h threshold, see lib/docArchive/client.ts), so
+// this is computed client-side from the raw date instead of reusing those
+// flags.
+function isDueWithinOneDay(dateIso: string | null): boolean {
+  if (!dateIso) return false;
+  return new Date(dateIso).getTime() - Date.now() <= ONE_DAY_MS;
+}
 
 type FolderSearchApiResult = {
   ok?: boolean;
@@ -133,7 +144,6 @@ export function RemindersSection() {
           recurrenceConfig: item.reminderRecurrenceConfig,
           date: item.dueAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
-          urgent: true,
         })),
         ...(dueSoonItems?.items ?? []).map((item) => ({
           key: `reminder-item-${item.id}`,
@@ -147,7 +157,6 @@ export function RemindersSection() {
           recurrenceConfig: item.reminderRecurrenceConfig,
           date: item.dueAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
-          urgent: false,
         })),
         ...(overdueFolders?.items ?? []).map((folder) => ({
           key: `reminder-folder-${folder.id}`,
@@ -161,7 +170,6 @@ export function RemindersSection() {
           recurrenceConfig: folder.reminderRecurrenceConfig,
           date: folder.dueAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
-          urgent: true,
         })),
         ...(dueSoonFolders?.items ?? []).map((folder) => ({
           key: `reminder-folder-${folder.id}`,
@@ -175,7 +183,6 @@ export function RemindersSection() {
           recurrenceConfig: folder.reminderRecurrenceConfig,
           date: folder.dueAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
-          urgent: false,
         })),
         ...(expiredItems?.items ?? []).map((item) => ({
           key: `expiring-item-${item.id}`,
@@ -189,7 +196,6 @@ export function RemindersSection() {
           recurrenceConfig: null,
           date: item.expiresAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
-          urgent: true,
         })),
         ...(expiringSoonItems?.items ?? []).map((item) => ({
           key: `expiring-item-${item.id}`,
@@ -203,7 +209,6 @@ export function RemindersSection() {
           recurrenceConfig: null,
           date: item.expiresAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
-          urgent: false,
         })),
         ...(expiredFolders?.items ?? []).map((folder) => ({
           key: `expiring-folder-${folder.id}`,
@@ -217,7 +222,6 @@ export function RemindersSection() {
           recurrenceConfig: null,
           date: folder.expiresAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
-          urgent: true,
         })),
         ...(expiringSoonFolders?.items ?? []).map((folder) => ({
           key: `expiring-folder-${folder.id}`,
@@ -231,7 +235,6 @@ export function RemindersSection() {
           recurrenceConfig: null,
           date: folder.expiresAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
-          urgent: false,
         })),
       ].sort((a, b) => {
         if (!a.date) return 1;
@@ -319,8 +322,11 @@ export function RemindersSection() {
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">Nothing to show.</div>
         ) : (
           <div className="grid gap-3">
-            {rows.map((row) => (
-              <div key={row.key} className="flex flex-col gap-3 rounded-2xl border border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            {rows.map((row) => {
+              const dueSoon = isDueWithinOneDay(row.date);
+
+              return (
+              <div key={row.key} className={`flex flex-col gap-3 rounded-2xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${dueSoon ? "border-red-400" : "border-slate-200"}`}>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs font-semibold text-logoblue">{row.code}</span>
@@ -332,7 +338,7 @@ export function RemindersSection() {
                       <span className={`h-1.5 w-1.5 rounded-full ${row.kind === "reminder" ? "bg-blue-500" : "bg-orange-500"}`} />
                       {row.kind === "reminder" ? "Reminder" : "Expiring"}
                     </span>
-                    <span className={`text-sm font-medium ${row.urgent ? "text-red-600" : "text-slate-500"}`}>{formatDisplayDate(row.date)}</span>
+                    <span className={`text-sm font-medium ${dueSoon ? "text-red-600" : "text-slate-500"}`}>{formatDisplayDate(row.date)}</span>
                   </div>
 
                   <div className="mt-1 flex flex-wrap items-baseline gap-2">
@@ -366,7 +372,8 @@ export function RemindersSection() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
