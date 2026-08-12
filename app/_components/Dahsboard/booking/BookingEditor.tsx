@@ -37,6 +37,7 @@ import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { shouldClearWordpressImportReadOnly } from "@/lib/booking/wordpressReadOnlyCleanup";
 import { parseNokAdjustment } from "@/lib/orders/orderTotals";
+import { deriveDiscountSync } from "@/lib/booking/pricing/discountSync";
 
 export type OrderFormPayload = {
   productCards: SavedProductCard[];
@@ -336,33 +337,6 @@ function normalizeInitialStatus(value: string | null | undefined) {
   }
 }
 
-function formatAdjustmentAmount(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) {
-    return "";
-  }
-
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
-}
-
-function calculateDnbDiscountAdjustment(params: {
-  subtotalExVat: number;
-  currentRabatt: string;
-  currentLeggTil: string;
-  previousDnbDiscount: number;
-}) {
-  const currentDiscount = parseNokAdjustment(params.currentRabatt);
-  const currentExtra = parseNokAdjustment(params.currentLeggTil);
-  const baseDiscount = Math.max(0, currentDiscount - params.previousDnbDiscount);
-  const remainingTotal = Math.max(0, params.subtotalExVat - baseDiscount + currentExtra);
-  const dnbDiscount = Math.round(remainingTotal * 0.2);
-  const totalDiscount = baseDiscount + dnbDiscount;
-
-  return {
-    dnbDiscount,
-    totalDiscountText: formatAdjustmentAmount(totalDiscount),
-  };
-}
-
 function scrollToPageTop() {
   window.scrollTo({
     top: 0,
@@ -518,6 +492,7 @@ export default function BookingEditor({
   const previousSelectedCustomerIdRef = useRef<string | null>(null);
   const hasProcessedInitialCustomerSyncRef = useRef(false);
   const hasProcessedInitialReturnSyncRef = useRef(false);
+  const hasProcessedInitialAdjustmentsSyncRef = useRef(false);
   const hasUserEditedPickupAddressRef = useRef(false);
   const hasUserEditedReturnAddressRef = useRef(false);
   const lastUnlockedPickupAddressRef = useRef(initialValues?.pickupAddress ?? "");
@@ -812,6 +787,7 @@ export default function BookingEditor({
     setLeggTil(initialValues.leggTil ?? "");
     setSubcontractorMinus(initialValues.subcontractorMinus ?? "");
     setSubcontractorPlus(initialValues.subcontractorPlus ?? "");
+    hasProcessedInitialAdjustmentsSyncRef.current = false;
     setNulledOrderExtraKeysForCustomer(initialValues.nulledOrderExtraKeysForCustomer ?? []);
     setNulledOrderExtraKeysForSubcontractor(initialValues.nulledOrderExtraKeysForSubcontractor ?? []);
     setSubmitError("");
@@ -1213,30 +1189,43 @@ export default function BookingEditor({
 
   useEffect(() => {
     if (!allowDnbDiscount) return;
-    if (dnbDiscount) {
-      const { subtotalExVat, subcontractorBase } = storedSnapshotPricingResult.totals;
-      const adjustment = calculateDnbDiscountAdjustment({
-        subtotalExVat,
-        currentRabatt: manualRabatt,
-        currentLeggTil: leggTil,
-        previousDnbDiscount: 0,
-      });
-      setRabatt(adjustment.totalDiscountText);
-      const rabattAmount = parseNokAdjustment(adjustment.totalDiscountText);
-      if (Number.isFinite(rabattAmount) && rabattAmount > 0 && subtotalExVat > 0) {
-        setSubcontractorMinus(String(Math.round(subcontractorBase * rabattAmount / subtotalExVat)));
-      }
-    } else {
-      setRabatt(manualRabatt);
-      const { subtotalExVat, subcontractorBase } = storedSnapshotPricingResult.totals;
-      const manualRabattAmount = parseNokAdjustment(manualRabatt);
-      if (Number.isFinite(manualRabattAmount) && manualRabattAmount > 0 && subtotalExVat > 0) {
-        setSubcontractorMinus(String(Math.round(subcontractorBase * manualRabattAmount / subtotalExVat)));
-      } else {
-        setSubcontractorMinus("");
-      }
+
+    // This effect's job is narrow: resync `rabatt`/`subcontractorMinus` when
+    // the DNB toggle itself flips. It intentionally does NOT list
+    // manualRabatt/leggTil/pricing totals as dependencies (it reads their
+    // latest values from state/pricingResultRef instead) — a direct user
+    // edit to the rabatt field is already handled synchronously by
+    // handleAdjustmentsChange. If this effect also reacted to totals
+    // changing, it would re-fire (and clobber a manually-entered
+    // subcontractorMinus) any time something unrelated — hours, quantities,
+    // reopening the editor while product cards are still loading —
+    // recalculated the order totals, without the user ever touching the
+    // discount at all. See lib/booking/pricing/discountSync.ts for the full
+    // decision logic and its regression tests.
+    const isInitialSync = !hasProcessedInitialAdjustmentsSyncRef.current;
+    if (isInitialSync) {
+      hasProcessedInitialAdjustmentsSyncRef.current = true;
     }
-  }, [allowDnbDiscount, dnbDiscount, manualRabatt, leggTil, storedSnapshotPricingResult.totals.subtotalExVat, storedSnapshotPricingResult.totals.subcontractorBase]);
+
+    const { subtotalExVat, subcontractorBase } = pricingResultRef.current?.totals ?? { subtotalExVat: 0, subcontractorBase: 0 };
+
+    const result = deriveDiscountSync({
+      dnbDiscount,
+      manualRabatt,
+      leggTil,
+      subtotalExVat,
+      subcontractorBase,
+      isInitialSyncForExistingOrder: isInitialSync && Boolean(initialValues?.id),
+    });
+
+    if (result.skip) return;
+
+    setRabatt(result.rabatt);
+    if (result.subcontractorMinus !== null) {
+      setSubcontractorMinus(result.subcontractorMinus);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally reacts only to the dnbDiscount toggle; manualRabatt/leggTil/totals are read fresh from state/pricingResultRef, not tracked as retrigger sources (see comment above).
+  }, [allowDnbDiscount, dnbDiscount, initialValues?.id]);
 
   const isExistingOrder = Boolean(initialValues?.id);
   const storedOrderPricingTotals = useMemo(
