@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FolderPill } from "./FolderPill";
 import { SectionedEntityManager } from "./SectionedEntityManager";
+import { SettingsIcon, settingsIconButtonClass } from "./SettingsIcon";
 import { codeToUrlPath } from "./types";
 import type { ArchiveFolderSummary } from "./types";
 
@@ -27,8 +28,14 @@ export function ArchiveRootSettingsModal({
 
   return (
     <>
-      <button type="button" className="customButtonDefault" onClick={() => setIsOpen(true)}>
-        {locale === "nb" ? "Innstillinger" : "Settings"}
+      <button
+        type="button"
+        aria-label={locale === "nb" ? "Innstillinger" : "Settings"}
+        title={locale === "nb" ? "Innstillinger" : "Settings"}
+        className={settingsIconButtonClass}
+        onClick={() => setIsOpen(true)}
+      >
+        <SettingsIcon />
       </button>
 
       {isOpen && (

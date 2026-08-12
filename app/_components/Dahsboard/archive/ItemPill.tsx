@@ -35,21 +35,27 @@ type ItemPillProps = {
 // position.
 export function ItemPill({ item, href, locale, canEdit, onChanged, codeWidthCh }: ItemPillProps) {
   const hasActions = Boolean(canEdit && onChanged);
+  const isArchived = item.status === "archived";
 
   return (
-    <div className="group/pill flex w-full items-stretch">
+    <div className={`group/pill flex w-full items-stretch ${isArchived ? "opacity-50 grayscale" : ""}`}>
       <Link
         href={href}
         className="flex min-w-0 grow items-center gap-3 px-2 py-3 transition-colors hover:bg-linePrimary"
       >
         <span
-          className="shrink-0 text-center text-sm font-semibold tabular-nums text-logoblue"
+          className={`shrink-0 text-center text-sm font-semibold tabular-nums ${isArchived ? "text-textColorThird" : "text-logoblue"}`}
           style={codeWidthCh ? { minWidth: `${codeWidthCh}ch` } : undefined}
         >
           {item.code}
         </span>
 
         <span className="min-w-0 shrink-0 wrap-break-word font-medium text-textcolor">{item.name}</span>
+        {isArchived && (
+          <span className="shrink-0 rounded-full bg-textColorThird px-2 py-0.5 text-xs font-semibold text-white">
+            {locale === "nb" ? "Arkivert" : "Archived"}
+          </span>
+        )}
         {item.description && (
           <span className="min-w-0 truncate text-sm text-textColorThird">{item.description}</span>
         )}

@@ -8,6 +8,7 @@ import { ConditionBadge } from "@/app/_components/Dahsboard/archive/ConditionBad
 import { CopyUrlButton } from "@/app/_components/Dahsboard/archive/CopyUrlButton";
 import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePreviewGrid";
 import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/ContentSectionTypeIcon";
+import { SettingsIcon, settingsIconButtonClass } from "@/app/_components/Dahsboard/archive/SettingsIcon";
 import { TextFieldsReadOnly } from "@/app/_components/Dahsboard/archive/TextFieldsReadOnly";
 import { SpreadsheetReadOnly } from "@/app/_components/Dahsboard/archive/SpreadsheetReadOnly";
 import { TitleReadOnly } from "@/app/_components/Dahsboard/archive/TitleReadOnly";
@@ -180,17 +181,23 @@ export function ItemView({
       </nav>
 
       <div className="mb-8 flex w-full flex-col items-center gap-3 text-center">
-        <h1 className="flex items-center gap-3 text-2xl font-semibold text-logoblue lg:text-4xl">
-          {loading ? "..." : item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")}
-          {item && <ConditionBadge flags={item} locale={locale} />}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="flex items-center gap-3 text-2xl font-semibold text-logoblue lg:text-4xl">
+            {loading ? "..." : item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")}
+            {item && <ConditionBadge flags={item} locale={locale} />}
+          </h1>
+          {canEdit && (
+            <Link
+              href={settingsHref}
+              aria-label={locale === "nb" ? "Innstillinger" : "Settings"}
+              title={locale === "nb" ? "Innstillinger" : "Settings"}
+              className={settingsIconButtonClass}
+            >
+              <SettingsIcon />
+            </Link>
+          )}
+        </div>
         {item?.description && <p className="max-w-xl text-sm text-textColorThird">{item.description}</p>}
-
-        {canEdit && (
-          <Link href={settingsHref} className="customButtonDefault">
-            {locale === "nb" ? "Innstillinger" : "Settings"}
-          </Link>
-        )}
       </div>
 
       {error && (

@@ -120,15 +120,17 @@ export default function ArchivePage() {
   return (
     <div className="w-full">
       <section className="mb-2 flex w-full flex-col items-center gap-3">
-        <h1 className="text-[2.5rem] font-bold text-logoblue">{locale === "nb" ? "Arkiv" : "Archive"}</h1>
-        {isArchiveAdmin && (
-          <ArchiveRootSettingsModal
-            folders={folders}
-            locale={locale}
-            onCreateFolder={handleCreateFolder}
-            onFoldersChanged={loadFolders}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          <h1 className="text-[2.5rem] font-bold text-logoblue">{locale === "nb" ? "Arkiv" : "Archive"}</h1>
+          {isArchiveAdmin && (
+            <ArchiveRootSettingsModal
+              folders={folders}
+              locale={locale}
+              onCreateFolder={handleCreateFolder}
+              onFoldersChanged={loadFolders}
+            />
+          )}
+        </div>
         <div className="w-full max-w-[400]">
           <ArchiveSearchBar
             scopeFolderId={null}

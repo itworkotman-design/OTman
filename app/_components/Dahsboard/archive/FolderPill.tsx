@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useState } from "react";
+import { ConditionBadge } from "./ConditionBadge";
 import { formatLastModified } from "./types";
 import type { ArchiveFolderSummary } from "./types";
 import { PillHoverActions } from "./PillHoverActions";
@@ -76,19 +77,31 @@ export function FolderPill({
 }: FolderPillProps) {
   const hasActions = Boolean(canEdit && onChanged);
   const [favorited, setFavorited] = useState(false);
+  const isArchived = folder.status === "archived";
 
   return (
-    <div className="group/pill flex w-full items-stretch">
+    <div className={`group/pill flex w-full items-stretch ${isArchived ? "opacity-50 grayscale" : ""}`}>
       <Link href={href} className="flex min-w-0 grow items-stretch transition-colors hover:bg-linePrimary">
         <span
-          className="flex shrink-0 items-center justify-center bg-logoblue px-2 text-sm font-semibold tabular-nums text-white"
+          className={`flex shrink-0 items-center justify-center px-2 text-sm font-semibold tabular-nums text-white ${
+            isArchived ? "bg-textColorThird" : "bg-logoblue"
+          }`}
           style={codeWidthCh ? { minWidth: `${codeWidthCh}ch` } : undefined}
         >
           {folder.code}
         </span>
 
         <div className="flex min-w-0 grow items-center gap-3 px-2 py-3">
-          <span className="min-w-0 shrink-0 wrap-break-word font-medium text-logoblue">{folder.name}</span>
+          <span
+            className={`min-w-0 shrink-0 wrap-break-word font-medium ${isArchived ? "text-textColorThird" : "text-logoblue"}`}
+          >
+            {folder.name}
+          </span>
+          {isArchived && (
+            <span className="shrink-0 rounded-full bg-textColorThird px-2 py-0.5 text-xs font-semibold text-white">
+              {locale === "nb" ? "Arkivert" : "Archived"}
+            </span>
+          )}
           {showDescription && folder.description && (
             <span className="min-w-0 truncate text-sm text-textColorThird">{folder.description}</span>
           )}
@@ -105,11 +118,11 @@ export function FolderPill({
             </>
           )}
 
-          <span
-            className={`w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird ${
-              showStats ? "" : "ml-auto"
-            }`}
-          >
+          <span className={`shrink-0 ${showStats ? "" : "ml-auto"}`}>
+            <ConditionBadge flags={folder} locale={locale} />
+          </span>
+
+          <span className="w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
             {formatLastModified(folder.updatedAt)}
           </span>
         </div>

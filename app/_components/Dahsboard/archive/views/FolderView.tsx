@@ -7,6 +7,7 @@ import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSea
 import { CopyUrlButton } from "@/app/_components/Dahsboard/archive/CopyUrlButton";
 import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { ItemPill } from "@/app/_components/Dahsboard/archive/ItemPill";
+import { SettingsIcon, settingsIconButtonClass } from "@/app/_components/Dahsboard/archive/SettingsIcon";
 import { codeBadgeWidthCh, codeToUrlPath, groupMixedBySection } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
@@ -151,16 +152,22 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
       </nav>
 
       <div className="mb-8 flex w-full flex-col items-center gap-3 text-center">
-        <h1 className="text-2xl font-semibold text-logoblue lg:text-4xl">
-          {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-logoblue lg:text-4xl">
+            {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
+          </h1>
+          {canEdit && (
+            <Link
+              href={settingsHref}
+              aria-label={locale === "nb" ? "Innstillinger" : "Settings"}
+              title={locale === "nb" ? "Innstillinger" : "Settings"}
+              className={settingsIconButtonClass}
+            >
+              <SettingsIcon />
+            </Link>
+          )}
+        </div>
         {folder?.description && <p className="max-w-xl text-sm text-textColorThird">{folder.description}</p>}
-
-        {canEdit && (
-          <Link href={settingsHref} className="customButtonDefault">
-            {locale === "nb" ? "Innstillinger" : "Settings"}
-          </Link>
-        )}
 
         <div className="w-full max-w-[400]">
           <ArchiveSearchBar
