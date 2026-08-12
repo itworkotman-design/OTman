@@ -137,7 +137,15 @@ export const TitlePanel = forwardRef<TitlePanelHandle, TitlePanelProps>(function
 
   return (
     <div>
-      <RichTextEditorField value={text} onChange={setText} locale={locale} showItalic size="lg" livePreview />
+      <RichTextEditorField
+        value={text}
+        onChange={setText}
+        locale={locale}
+        showItalic
+        size="lg"
+        livePreview
+        placeholder={locale === "nb" ? "Klikk for å legge til en tittel..." : "Click to add a title..."}
+      />
       {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
     </div>
   );

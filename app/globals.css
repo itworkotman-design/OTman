@@ -354,6 +354,18 @@ button {
   font-size: inherit !important;
 }
 
+/* @tiptap/extension-placeholder marks the empty paragraph with
+   data-placeholder + is-editor-empty; this is the only place that turns it
+   into visible text, so every RichTextEditorField gets one for free just by
+   passing a `placeholder` prop. */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--textColorThird);
+}
+
 @layer utilities {
   .text-weird-landscape-large {
     @media (orientation: landscape) and (max-height: 800px) and (min-width: 900px) {

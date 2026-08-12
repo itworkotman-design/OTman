@@ -9,6 +9,7 @@ import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
+import Placeholder from "@tiptap/extension-placeholder";
 import { sanitizeBlogHtml } from "@/lib/blog/sanitizeRichText";
 import { StyledBulletList } from "@/lib/blog/tiptapListStyles";
 import { FontSize } from "@/lib/blog/tiptapFontSize";
@@ -43,6 +44,10 @@ type Props = {
   // staged/saved field alongside its own edit form), so per explicit
   // request it opts out and shows applied color live instead.
   livePreview?: boolean;
+  // Shown (via CSS, .ProseMirror p.is-editor-empty::before in globals.css)
+  // only while the editor is genuinely empty — makes it obvious at a glance
+  // that a section is click-to-edit rather than looking like inert text.
+  placeholder?: string;
 };
 
 const FONT_SIZE_OPTIONS = [
@@ -255,6 +260,7 @@ export function RichTextEditorField({
   showFontSize = false,
   size = "sm",
   livePreview = false,
+  placeholder,
 }: Props) {
   const nb = locale === "nb";
   const [linkPanel, setLinkPanel] = useState<LinkPanelState | null>(null);
@@ -345,6 +351,7 @@ export function RichTextEditorField({
       TextStyle,
       Color,
       ...(showFontSize ? [FontSize] : []),
+      ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
     ],
     content: value,
     immediatelyRender: false,
@@ -427,7 +434,7 @@ export function RichTextEditorField({
   const charCount = editor.getText().length;
 
   return (
-    <div className="rounded-md border border-linePrimary">
+    <div className="">
       <div className="flex flex-wrap items-center gap-2 border-b border-lineSecondary p-2">
         <ToolbarGroup>
           <ToolbarButton label="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>

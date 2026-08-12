@@ -547,6 +547,7 @@ export function SectionedEntityManager({
             <label className="block pb-2 text-sm">{t.name}</label>
             <input
               className="customInput w-full"
+              placeholder={t.name}
               value={newSectionName}
               onChange={(e) => setNewSectionName(e.target.value)}
               type="text"
@@ -557,6 +558,7 @@ export function SectionedEntityManager({
             <label className="block pb-2 text-sm">{t.description}</label>
             <input
               className="customInput w-full"
+              placeholder={t.description}
               value={newSectionDescription}
               onChange={(e) => setNewSectionDescription(e.target.value)}
               type="text"

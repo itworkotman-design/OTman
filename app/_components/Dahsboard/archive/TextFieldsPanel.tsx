@@ -215,11 +215,20 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
                 <input
                   className="customInput mb-2 w-full max-w-[320]"
                   type="text"
+                  placeholder={locale === "nb" ? "Feltnavn" : "Field label"}
                   value={editLabel}
                   onChange={(e) => setEditLabel(e.target.value)}
                 />
                 <div className="mb-2">
-                  <RichTextEditorField value={editValue} onChange={setEditValue} locale={locale} showLink listMode="bullet" showFontSize />
+                  <RichTextEditorField
+                    value={editValue}
+                    onChange={setEditValue}
+                    locale={locale}
+                    showLink
+                    listMode="bullet"
+                    showFontSize
+                    placeholder={locale === "nb" ? "Klikk for å legge til tekst..." : "Click to add text..."}
+                  />
                 </div>
                 <div className="flex gap-3">
                   <button
@@ -314,7 +323,15 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
             onChange={(e) => setAddingLabel(e.target.value)}
           />
           <div className="mb-2">
-            <RichTextEditorField value={addingValue} onChange={setAddingValue} locale={locale} showLink listMode="bullet" showFontSize />
+            <RichTextEditorField
+              value={addingValue}
+              onChange={setAddingValue}
+              locale={locale}
+              showLink
+              listMode="bullet"
+              showFontSize
+              placeholder={locale === "nb" ? "Klikk for å legge til tekst..." : "Click to add text..."}
+            />
           </div>
           <div className="flex gap-3">
             <button
