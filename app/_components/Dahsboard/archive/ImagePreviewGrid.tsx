@@ -6,6 +6,7 @@ export type PreviewableImage = {
   id: string;
   src: string;
   alt: string;
+  description?: string | null;
 };
 
 type ImagePreviewGridProps = {
@@ -21,7 +22,43 @@ type ImagePreviewGridProps = {
   // views only allow downloading it. Never both.
   downloadable?: boolean;
   onDeleteImage?: (id: string) => void;
+  // Only passed from the settings context — its presence is what switches an
+  // image's caption from a plain read-only line (or nothing, if there's no
+  // description) to an editable input. Read-only views never pass this.
+  onDescriptionChange?: (id: string, description: string) => void;
+  // Settings context keeps the gap (leading "Add image"/trailing pending
+  // tiles need visual separation); read-only views can turn it off.
+  gap?: boolean;
+  // Settings context needs equal-width grid cells (leading/trailing tiles
+  // line up predictably); read-only views can switch to a flex row of
+  // fixed-height, natural-width thumbnails instead.
+  uniformHeight?: boolean;
 };
+
+// Editable caption for one image — fully controlled by the settings-context
+// caller (ContentSectionList stages the edit and only PATCHes it at Save
+// time, same deferred model as everything else there), same as
+// ContentSectionCard's FileDescriptionInput for non-image files. Kept
+// outside the preview-open <button> (not nested inside it) so clicking or
+// typing into the input doesn't also trigger the button's click handler.
+function ImageDescriptionInput({
+  description,
+  onChange,
+}: {
+  description: string | null | undefined;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <input
+      type="text"
+      value={description ?? ""}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="Add a description..."
+      className="customInput mt-2 w-full !py-1 text-xs"
+    />
+  );
+}
 
 type PreviewState = { activeIndex: number | null };
 
@@ -91,25 +128,67 @@ function previewReducer(state: PreviewState, action: PreviewAction): PreviewStat
 // there's no more room images wrap onto further rows — no separate
 // per-section layout choice needed for that. Each image is capped at 400px
 // tall so a single large image doesn't blow out the section's height.
-export function ImagePreviewGrid({ images, leading, trailing, downloadable = true, onDeleteImage }: ImagePreviewGridProps) {
+export function ImagePreviewGrid({
+  images,
+  leading,
+  trailing,
+  downloadable = true,
+  onDeleteImage,
+  onDescriptionChange,
+  gap = true,
+  uniformHeight = false,
+}: ImagePreviewGridProps) {
   const [state, dispatch] = useReducer(previewReducer, { activeIndex: null });
   const activeImage = state.activeIndex === null ? null : images[state.activeIndex];
 
   return (
     <>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
+      <div
+        className={
+          uniformHeight
+            ? `flex flex-wrap items-start ${gap ? "gap-3" : "gap-0"}`
+            : `grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] ${gap ? "gap-3" : "gap-0"}`
+        }
+      >
         {leading}
         {images.map((image, index) => (
           <div key={image.id} className="group relative">
             <button
               type="button"
               onClick={() => dispatch({ type: "open", index })}
-              className="w-full rounded-xl border border-lineSecondary p-3 text-left transition-colors hover:border-logoblue"
+              className={`rounded-xl border border-lineSecondary p-3 text-left transition-colors hover:border-logoblue ${uniformHeight ? "pb-14" : "w-full"}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={image.src} alt={image.alt} className="mx-auto max-h-100 w-full object-contain" />
-              <p className="mt-2 truncate text-center text-sm text-textColorSecond">{image.alt}</p>
+              {uniformHeight ? (
+                <div className="relative mx-auto inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={image.src} alt={image.alt} className="h-64 w-auto object-contain" />
+                  {/* Pinned to this wrapper's own (image-derived) width via
+                      absolute positioning, so long captions truncate instead
+                      of stretching the tile wider than the image. */}
+                  <div className="absolute inset-x-0 top-full mt-2">
+                    <p className="truncate text-center text-sm text-textColorSecond">{image.alt}</p>
+                    {!onDescriptionChange && image.description ? (
+                      <p className="mt-1 line-clamp-2 text-center text-xs text-textColorThird">{image.description}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={image.src} alt={image.alt} className="mx-auto max-h-100 w-full object-contain" />
+                  <p className="mt-2 truncate text-center text-sm text-textColorSecond">{image.alt}</p>
+                  {!onDescriptionChange && image.description ? (
+                    <p className="mt-1 line-clamp-2 text-center text-xs text-textColorThird">{image.description}</p>
+                  ) : null}
+                </>
+              )}
             </button>
+            {onDescriptionChange ? (
+              <ImageDescriptionInput
+                description={image.description}
+                onChange={(value) => onDescriptionChange(image.id, value)}
+              />
+            ) : null}
             {onDeleteImage ? (
               <button
                 type="button"
@@ -142,9 +221,14 @@ export function ImagePreviewGrid({ images, leading, trailing, downloadable = tru
             className="relative m-auto grid max-h-full w-full max-w-5xl grid-rows-[auto_1fr_auto] overflow-hidden rounded-3xl bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-lineSecondary px-5 py-3">
-              <div className="min-w-0 truncate font-semibold text-logoblue">{activeImage.alt}</div>
-              <button type="button" onClick={() => dispatch({ type: "close" })} className="text-sm font-semibold text-textColorThird hover:text-logoblue">
+            <div className="flex items-center justify-between gap-4 border-b border-lineSecondary px-5 py-3">
+              <div className="min-w-0">
+                <div className="truncate font-semibold text-logoblue">{activeImage.alt}</div>
+                {activeImage.description ? (
+                  <div className="truncate text-sm text-textColorThird">{activeImage.description}</div>
+                ) : null}
+              </div>
+              <button type="button" onClick={() => dispatch({ type: "close" })} className="shrink-0 text-sm font-semibold text-textColorThird hover:text-logoblue">
                 Close
               </button>
             </div>

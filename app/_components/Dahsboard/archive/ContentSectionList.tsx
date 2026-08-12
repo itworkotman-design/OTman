@@ -63,11 +63,13 @@ function uploadFileXhr(
   itemId: string,
   sectionId: string,
   file: File,
+  description: string,
   onProgress: (progress: number) => void,
 ): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("sectionId", sectionId);
+  formData.append("description", description);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -136,6 +138,17 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
 
   const [pendingUploads, setPendingUploads] = useState<StagedUpload[]>([]);
   const [pendingFileDeletes, setPendingFileDeletes] = useState<Set<string>>(new Set());
+
+  // Description edits on already-uploaded files, staged locally and only
+  // PATCHed during Save — same deferred model as everything else here
+  // (order, uploads, deletes), unlike an already-persisted text field's
+  // "saves immediately" precedent (see TextFieldsPanel), which this
+  // deliberately does NOT follow, per explicit user request. Keyed by
+  // fileId; a file with no entry here just renders its persisted
+  // `description` unchanged. An edit that lands back on the original value
+  // removes its entry instead of leaving a no-op dirty flag (see
+  // handleDescriptionChange).
+  const [pendingDescriptions, setPendingDescriptions] = useState<Record<string, string>>({});
 
   // Per-section Text-fields/Spreadsheet handles/dirty flags, keyed by the
   // section's stable `key` (not its possibly-null `id`) — lets the
@@ -206,6 +219,7 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
       setTitleDirty({});
       setPendingSectionDeletes(new Set());
       setPendingFileDeletes(new Set());
+      setPendingDescriptions({});
       if (filesRes.ok && filesData?.ok) setFiles(filesData.files ?? []);
     } catch {
       setError("Failed to load content sections");
@@ -255,10 +269,12 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
   const anyTextFieldsDirty = Object.values(textFieldsDirty).some(Boolean);
   const anySpreadsheetDirty = Object.values(spreadsheetDirty).some(Boolean);
   const anyTitleDirty = Object.values(titleDirty).some(Boolean);
+  const descriptionsDirty = Object.keys(pendingDescriptions).length > 0;
   const dirty =
     orderDirty ||
     pendingUploads.length > 0 ||
     pendingFileDeletes.size > 0 ||
+    descriptionsDirty ||
     anyTextFieldsDirty ||
     anySpreadsheetDirty ||
     anyTitleDirty;
@@ -354,7 +370,11 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
   function handleStageUpload(sectionKey: string, file: File) {
     const tempId = crypto.randomUUID();
     const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
-    setPendingUploads((prev) => [...prev, { tempId, sectionKey, file, previewUrl }]);
+    setPendingUploads((prev) => [...prev, { tempId, sectionKey, file, previewUrl, description: "" }]);
+  }
+
+  function handleStagedDescriptionChange(tempId: string, description: string) {
+    setPendingUploads((prev) => prev.map((u) => (u.tempId === tempId ? { ...u, description } : u)));
   }
 
   function handleDiscardPendingUpload(tempId: string) {
@@ -370,6 +390,28 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
   function handleDeleteFile(fileId: string) {
     setFiles((prev) => prev.filter((f) => f.id !== fileId));
     setPendingFileDeletes((prev) => new Set(prev).add(fileId));
+    setPendingDescriptions((prev) => {
+      if (!(fileId in prev)) return prev;
+      const { [fileId]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }
+
+  // Staging only, same as every other edit here — the PATCH only fires
+  // during Save (see handleSave's description-flush step). Removes its own
+  // entry if the edit lands back on the originally-loaded value, so typing
+  // something and then undoing it doesn't leave the Save button spuriously
+  // enabled.
+  function handleDescriptionChange(fileId: string, description: string) {
+    const original = files.find((f) => f.id === fileId)?.description ?? "";
+    setPendingDescriptions((prev) => {
+      if (description === original) {
+        if (!(fileId in prev)) return prev;
+        const { [fileId]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [fileId]: description };
+    });
   }
 
   function updateUploadItem(id: string, patch: Partial<ContentSaveUploadItem>) {
@@ -421,7 +463,7 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
 
       updateUploadItem(upload.tempId, { status: "uploading" });
       try {
-        const fileId = await uploadFileXhr(itemId, realSectionId, upload.file, (progress) =>
+        const fileId = await uploadFileXhr(itemId, realSectionId, upload.file, upload.description, (progress) =>
           updateUploadItem(upload.tempId, { progress }),
         );
         uploadedFileIds.push(fileId);
@@ -614,6 +656,31 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
         if (realId) await handle.flushPendingChanges(realId);
       }
 
+      // 2b. Flush staged file-description edits. Skips anything also queued
+      // for deletion just below — no point saving a description on a file
+      // that's about to stop existing.
+      const descriptionEntries = Object.entries(pendingDescriptions).filter(
+        ([fileId]) => !pendingFileDeletes.has(fileId),
+      );
+      if (descriptionEntries.length > 0) {
+        const results = await Promise.all(
+          descriptionEntries.map(([fileId, description]) =>
+            fetch(`/api/archive/files/${fileId}`, {
+              method: "PATCH",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ description }),
+            }),
+          ),
+        );
+        if (results.some((res) => !res.ok)) {
+          setError("Failed to save file descriptions");
+          setSaving(false);
+          return;
+        }
+      }
+      setPendingDescriptions({});
+
       // 3. Apply staged section/file deletes BEFORE reordering — the reorder
       // endpoint requires its id list to exactly match the server's current
       // (non-deleted) section set, which still includes anything pending
@@ -755,16 +822,17 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
                 index={index}
                 total={sections.length}
                 locale={locale}
-                files={files.filter((f) =>
-                  f.sectionId === section.id &&
-                  (section.type === "IMAGES" ? f.mimeType.startsWith("image/") : !f.mimeType.startsWith("image/")),
-                )}
+                files={files
+                  .filter((f) => f.sectionId === section.id)
+                  .map((f) => (f.id in pendingDescriptions ? { ...f, description: pendingDescriptions[f.id] } : f))}
                 pendingUploads={pendingUploads.filter((u) => u.sectionKey === section.key)}
                 onMove={handleMove}
                 onDelete={handleDeleteSection}
                 onStageUpload={handleStageUpload}
                 onDiscardPendingUpload={handleDiscardPendingUpload}
                 onDeleteFile={handleDeleteFile}
+                onDescriptionChange={handleDescriptionChange}
+                onStageDescriptionChange={handleStagedDescriptionChange}
                 textFieldsHandleRef={registerTextFieldsHandle}
                 onTextFieldsDirtyChange={handleTextFieldsDirtyChange}
                 spreadsheetHandleRef={registerSpreadsheetHandle}

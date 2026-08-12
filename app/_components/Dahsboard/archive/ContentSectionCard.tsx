@@ -30,15 +30,21 @@ export type ArchiveContentFileRow = {
   mimeType: string;
   sizeBytes: number;
   sectionId: string | null;
+  description: string | null;
 };
 
 // A file/image staged locally by the user but not yet uploaded — created the
 // moment a file is picked, only actually sent to the server during Save's
 // upload phase. `previewUrl` (an object URL) is only set for images.
+// `description` is editable while still staged, and travels along in the
+// same upload request once Save runs (see ContentSectionList's
+// uploadFileXhr) — the description and the file itself land together in one
+// request instead of a separate PATCH after the fact.
 export type PendingUploadRow = {
   tempId: string;
   file: File;
   previewUrl?: string;
+  description: string;
 };
 
 function formatBytes(bytes: number): string {
@@ -60,6 +66,8 @@ type Props = {
   onStageUpload: (sectionKey: string, file: File) => void;
   onDiscardPendingUpload: (tempId: string) => void;
   onDeleteFile: (fileId: string) => void;
+  onDescriptionChange: (fileId: string, description: string) => void;
+  onStageDescriptionChange: (tempId: string, description: string) => void;
   textFieldsHandleRef?: (sectionKey: string, handle: TextFieldsPanelHandle | null) => void;
   onTextFieldsDirtyChange?: (sectionKey: string, dirty: boolean) => void;
   spreadsheetHandleRef?: (sectionKey: string, handle: SpreadsheetPanelHandle | null) => void;
@@ -80,6 +88,8 @@ export function ContentSectionCard({
   onStageUpload,
   onDiscardPendingUpload,
   onDeleteFile,
+  onDescriptionChange,
+  onStageDescriptionChange,
   textFieldsHandleRef,
   onTextFieldsDirtyChange,
   spreadsheetHandleRef,
@@ -195,9 +205,11 @@ export function ContentSectionCard({
                 id: f.id,
                 src: `/api/archive/files/${f.id}/download`,
                 alt: f.originalFileName,
+                description: f.description,
               }))}
               downloadable={false}
               onDeleteImage={onDeleteFile}
+              onDescriptionChange={onDescriptionChange}
               leading={<AddImageTile locale={locale} onPick={(file) => onStageUpload(section.key, file)} />}
               trailing={pendingUploads.map((pending) => (
                 <PendingImageTile
@@ -205,6 +217,7 @@ export function ContentSectionCard({
                   locale={locale}
                   pending={pending}
                   onDiscard={() => onDiscardPendingUpload(pending.tempId)}
+                  onDescriptionChange={(value) => onStageDescriptionChange(pending.tempId, value)}
                 />
               ))}
             />
@@ -216,43 +229,59 @@ export function ContentSectionCard({
                 {files.map((file) => (
                   <div
                     key={file.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-lineSecondary px-4 py-2 text-sm"
+                    className="flex flex-col gap-2 rounded-xl border border-lineSecondary px-4 py-2 text-sm"
                   >
-                    <a
-                      href={`/api/archive/files/${file.id}/download`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="min-w-0 flex-1 truncate text-logoblue hover:underline"
-                    >
-                      {file.originalFileName}
-                    </a>
-                    <span className="text-textColorThird">{formatBytes(file.sizeBytes)}</span>
-                    <button
-                      type="button"
-                      className="text-red-600 hover:underline"
-                      onClick={() => onDeleteFile(file.id)}
-                    >
-                      {locale === "nb" ? "Slett" : "Delete"}
-                    </button>
+                    <div className="flex items-center justify-between gap-3">
+                      <a
+                        href={`/api/archive/files/${file.id}/download`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="min-w-0 flex-1 truncate text-logoblue hover:underline"
+                      >
+                        {file.originalFileName}
+                      </a>
+                      <span className="text-textColorThird">{formatBytes(file.sizeBytes)}</span>
+                      <button
+                        type="button"
+                        className="text-red-600 hover:underline"
+                        onClick={() => onDeleteFile(file.id)}
+                      >
+                        {locale === "nb" ? "Slett" : "Delete"}
+                      </button>
+                    </div>
+                    <FileDescriptionInput
+                      locale={locale}
+                      description={file.description}
+                      onChange={(value) => onDescriptionChange(file.id, value)}
+                    />
                   </div>
                 ))}
                 {pendingUploads.map((pending) => (
                   <div
                     key={pending.tempId}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-logoblue/50 px-4 py-2 text-sm"
+                    className="flex flex-col gap-2 rounded-xl border border-dashed border-logoblue/50 px-4 py-2 text-sm"
                   >
-                    <span className="min-w-0 flex-1 truncate text-textColorSecond">{pending.file.name}</span>
-                    <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
-                      {locale === "nb" ? "Ikke lagret" : "Unsaved"}
-                    </span>
-                    <span className="text-textColorThird">{formatBytes(pending.file.size)}</span>
-                    <button
-                      type="button"
-                      className="text-red-600 hover:underline"
-                      onClick={() => onDiscardPendingUpload(pending.tempId)}
-                    >
-                      {locale === "nb" ? "Forkast" : "Discard"}
-                    </button>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 flex-1 truncate text-textColorSecond">{pending.file.name}</span>
+                      <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
+                        {locale === "nb" ? "Ikke lagret" : "Unsaved"}
+                      </span>
+                      <span className="text-textColorThird">{formatBytes(pending.file.size)}</span>
+                      <button
+                        type="button"
+                        className="text-red-600 hover:underline"
+                        onClick={() => onDiscardPendingUpload(pending.tempId)}
+                      >
+                        {locale === "nb" ? "Forkast" : "Discard"}
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={pending.description}
+                      onChange={(e) => onStageDescriptionChange(pending.tempId, e.target.value)}
+                      placeholder={locale === "nb" ? "Legg til en beskrivelse..." : "Add a description..."}
+                      className="customInput w-full !py-1.5 text-sm"
+                    />
                   </div>
                 ))}
               </div>
@@ -271,10 +300,12 @@ function PendingImageTile({
   locale,
   pending,
   onDiscard,
+  onDescriptionChange,
 }: {
   locale: string;
   pending: PendingUploadRow;
   onDiscard: () => void;
+  onDescriptionChange: (value: string) => void;
 }) {
   return (
     <div className="relative w-full max-w-56 self-start justify-self-start rounded-xl border-2 border-dashed border-logoblue/50 p-3">
@@ -285,6 +316,13 @@ function PendingImageTile({
         ) : null}
       </div>
       <p className="mt-2 truncate text-center text-sm text-textColorSecond">{pending.file.name}</p>
+      <input
+        type="text"
+        value={pending.description}
+        onChange={(e) => onDescriptionChange(e.target.value)}
+        placeholder={locale === "nb" ? "Legg til en beskrivelse..." : "Add a description..."}
+        className="customInput mt-2 w-full !py-1 text-xs"
+      />
       <span className="absolute left-2 top-2 rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
         {locale === "nb" ? "Ikke lagret" : "Unsaved"}
       </span>
@@ -319,6 +357,32 @@ function AddImageTile({ locale, onPick }: { locale: string; onPick: (file: File)
         }}
       />
     </label>
+  );
+}
+
+// A single already-uploaded file's description, editable inline — fully
+// controlled from ContentSectionList, which stages the edit locally
+// (pendingDescriptions) and only PATCHes it during Save, same deferred model
+// as everything else on this page. No local state/onBlur commit here: the
+// parent needs every keystroke to keep its dirty flag (and the effective
+// value shown here, via `files`) correct.
+function FileDescriptionInput({
+  locale,
+  description,
+  onChange,
+}: {
+  locale: string;
+  description: string | null;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <input
+      type="text"
+      value={description ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={locale === "nb" ? "Legg til en beskrivelse..." : "Add a description..."}
+      className="customInput w-full !py-1.5 text-sm"
+    />
   );
 }
 

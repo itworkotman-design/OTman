@@ -50,7 +50,7 @@ export function TextFieldsReadOnly({ sectionId, locale }: Props) {
   }
 
   return (
-    <div className="customContainer divide-y divide-lineSecondary">
+    <div className="rounded-[20px] py-5 pr-5 divide-y divide-lineSecondary">
       {fields.map((field) => (
         <div key={field.id} className="py-3 first:pt-0 last:pb-0">
           <span className="font-semibold text-logoblue">{field.label}</span>

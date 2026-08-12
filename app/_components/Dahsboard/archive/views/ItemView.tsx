@@ -28,6 +28,7 @@ type ArchiveFileRow = {
   mimeType: string;
   sizeBytes: number;
   sectionId: string | null;
+  description: string | null;
 };
 
 type ArchiveFolderPathEntry =
@@ -198,11 +199,7 @@ export function ItemView({
         <div className="flex flex-col gap-6">
           {sections.map((section) => {
             const label = getContentSectionLabel(section.type, locale);
-            const sectionFiles = files.filter(
-              (f) =>
-                f.sectionId === section.id &&
-                (section.type === "IMAGES" ? f.mimeType.startsWith("image/") : !f.mimeType.startsWith("image/")),
-            );
+            const sectionFiles = files.filter((f) => f.sectionId === section.id);
 
             return (
               <div key={section.id}>
@@ -221,7 +218,7 @@ export function ItemView({
                   <SpreadsheetReadOnly sectionId={section.id} locale={locale} />
                 ) : section.type === "IMAGES" ? (
                   sectionFiles.length === 0 ? (
-                    <div className="customContainer flex items-center justify-center py-8 text-sm text-textColorThird">
+                    <div className="flex items-center justify-center rounded-[20px] border border-linePrimary px-5 py-8 text-sm text-textColorThird">
                       {locale === "nb" ? "Ingen bilder" : "No images"}
                     </div>
                   ) : (
@@ -230,25 +227,33 @@ export function ItemView({
                         id: f.id,
                         src: `/api/archive/files/${f.id}/download`,
                         alt: f.originalFileName,
+                        description: f.description,
                       }))}
+                      gap={false}
+                      uniformHeight
                     />
                   )
                 ) : sectionFiles.length === 0 ? (
-                  <div className="customContainer flex items-center justify-center py-8 text-sm text-textColorThird">
+                  <div className="flex items-center justify-center rounded-[20px] border border-linePrimary px-5 py-8 text-sm text-textColorThird">
                     {locale === "nb" ? "Ingen filer" : "No files"}
                   </div>
                 ) : (
-                  <div className="customContainer divide-y divide-lineSecondary">
+                  <div className="rounded-[20px] border border-linePrimary p-5 divide-y divide-lineSecondary">
                     {sectionFiles.map((file) => (
                       <div key={file.id} className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary">
                         <a
                           href={`/api/archive/files/${file.id}/download`}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex min-w-0 flex-1 items-center gap-4"
+                          className="flex min-w-0 flex-1 flex-col gap-0.5"
                         >
-                          <span className="min-w-0 flex-1 truncate text-logoblue">{file.originalFileName}</span>
-                          <span className="shrink-0 text-sm text-textColorThird">{formatBytes(file.sizeBytes)}</span>
+                          <span className="flex min-w-0 items-center gap-4">
+                            <span className="min-w-0 flex-1 truncate text-logoblue">{file.originalFileName}</span>
+                            <span className="shrink-0 text-sm text-textColorThird">{formatBytes(file.sizeBytes)}</span>
+                          </span>
+                          {file.description && (
+                            <span className="truncate text-sm text-textColorThird">{file.description}</span>
+                          )}
                         </a>
                         <a
                           href={`/api/archive/files/${file.id}/download?download=1`}

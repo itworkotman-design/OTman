@@ -3,6 +3,7 @@ import { ARCHIVE_MAX_UPLOAD_SIZE_BYTES, archive } from "@/lib/docArchive/client"
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 import { assignFileToSection, assignOrphanFiles, getContentSection } from "@/lib/docArchive/contentSections";
+import { getFileDescriptionsMap, setFileDescription } from "@/lib/docArchive/fileDescriptions";
 import {
   acquireUploadSlot,
   releaseUploadSlot,
@@ -38,7 +39,12 @@ export async function GET(
     itemId,
     listResult.value.map((f) => ({ id: f.id, mimeType: f.mimeType })),
   );
-  const files = listResult.value.map((f) => ({ ...f, sectionId: sectionMap.get(f.id) ?? null }));
+  const descriptionMap = await getFileDescriptionsMap(listResult.value.map((f) => f.id));
+  const files = listResult.value.map((f) => ({
+    ...f,
+    sectionId: sectionMap.get(f.id) ?? null,
+    description: descriptionMap.get(f.id) ?? null,
+  }));
 
   return NextResponse.json({ ok: true, files });
 }
@@ -137,7 +143,21 @@ export async function POST(
 
     await assignFileToSection(ctx.companyId, ctx.tenantId, uploadResult.value.id, sectionId);
 
-    return NextResponse.json({ ok: true, file: { ...uploadResult.value, sectionId } }, { status: 201 });
+    // Description travels in the same multipart request as the file itself
+    // (fields.description, alongside sectionId) rather than a separate PATCH
+    // after the fact — an empty/missing description is a safe no-op (see
+    // setFileDescription).
+    const description = await setFileDescription(
+      ctx.companyId,
+      ctx.tenantId,
+      uploadResult.value.id,
+      fields.description ?? "",
+    );
+
+    return NextResponse.json(
+      { ok: true, file: { ...uploadResult.value, sectionId, description } },
+      { status: 201 },
+    );
   } finally {
     await upload?.cleanup();
     releaseUploadSlot();

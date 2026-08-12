@@ -1211,6 +1211,27 @@ model ArchiveItemFileSection {
   @@index([companyId, tenantId, sectionId])
 }
 
+// Host-side "description" text for an individual uploaded file, same
+// reasoning as ArchiveItemFileSection: the archive package's own file record
+// has no free-text field for the uploader to explain what's inside before
+// someone downloads it, so it lives here instead, keyed by the package's
+// opaque fileId (cross-database reference, not a Prisma relation). fileId is
+// unique: at most one description per file. A file with no row here simply
+// has no description yet — there's no separate "empty description" state,
+// the row is deleted instead of holding an empty string (see
+// lib/docArchive/fileDescriptions.ts).
+model ArchiveFileDescription {
+  id          String   @id @default(cuid())
+  companyId   String
+  tenantId    String
+  fileId      String   @unique
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId, tenantId])
+}
+
 // Host-side "spreadsheet" item content, same reasoning as
 // ArchiveItemTextField: the package has no tabular/structured-data storage
 // (see docs/documentation/integrations/archive-ui-known-gaps.md), so the

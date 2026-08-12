@@ -51,35 +51,3 @@ one of the 10 `ARCHIVE_PERMISSION_ACTIONS` the permission model defines
 host-adapter methods ever check for `edit` — it's a capability a host can
 grant via `setPermissionRule`, but nothing in the package currently exercises
 it.
-
----
-
-## 3. The delivered archive-ui package imports a backend package name that doesn't exist
-
-Every screen/bridge file in the archive-ui drop (`bridge.tsx`,
-`root-screen.tsx`, `folder-screen.tsx`, `item-screen.tsx`, `search-screen.tsx`,
-`permissions-screen.tsx`, `recovery-screen.tsx`, `history-screen.tsx`,
-`capabilities.tsx`, `view-state.tsx`) imports its domain types from
-`@customprojects/archive-service`. The backend package we actually install is
-`@customprojects/custom-archive` (same repo/delivery method described in its
-own `docs/INTEGRATION.md`). There is no `@customprojects/archive-service`
-anywhere — not in the registry, not as another git dependency — so the UI
-package fails to compile out of the box against the backend package it was
-shipped alongside.
-
----
-
-## 4. The archive-ui permission screen isn't actually browser-safe as written
-
-`permissions-screen.tsx` imports two runtime constants —
-`ARCHIVE_PERMISSION_ACTIONS` and `ARCHIVE_NAMESPACE_PERMISSION_ACTIONS` — as
-*values* from the package root. The package root's module graph also wires up
-the real Prisma-backed host adapter, which pulls in `@prisma/client`'s
-Node-only runtime (`node:module`, etc.). Every other archive-ui file only
-imports *types* from the package (erased at compile time, so this doesn't
-apply to them) — this one file is the exception. The result: any bundler that
-actually tries to ship this screen to the browser (we hit it with Next.js/
-Turbopack) fails outright, because a Node-only module can't be chunked for a
-client build. This directly contradicts the package's own repeated
-"host-neutral... no Prisma/repository/service import" framing in its file-top
-comments — that framing holds for every file except this one.
