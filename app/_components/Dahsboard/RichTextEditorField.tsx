@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { HexColorPicker, HexColorInput } from "react-colorful";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -147,6 +149,83 @@ function ToolbarGroup({ children }: { children: ReactNode }) {
   );
 }
 
+// Swatch button + a react-colorful popover, portalled to <body> so it
+// escapes ToolbarGroup's `overflow-hidden` (needed for the group's rounded
+// corners) instead of being clipped by it.
+function ColorPickerButton({
+  color,
+  onChange,
+  label,
+  disabled,
+}: {
+  color: string;
+  onChange: (color: string) => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function updatePosition() {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (rect) setCoords({ top: rect.bottom + 4, left: rect.left });
+    }
+    updatePosition();
+
+    function handlePointerDown(e: MouseEvent) {
+      if (buttonRef.current?.contains(e.target as Node) || popoverRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    }
+
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={label}
+        title={label}
+        disabled={disabled}
+        className="h-5 w-6 shrink-0 cursor-pointer rounded-sm border border-linePrimary disabled:cursor-auto disabled:opacity-60"
+        style={{ backgroundColor: color }}
+        onClick={() => setOpen((v) => !v)}
+      />
+      {open && !disabled && coords
+        ? createPortal(
+            <div
+              ref={popoverRef}
+              className="fixed z-50 flex flex-col gap-2 rounded-md border border-linePrimary bg-mainPrimary p-2 shadow-lg"
+              style={{ top: coords.top, left: coords.left }}
+            >
+              <HexColorPicker color={color} onChange={onChange} />
+              <HexColorInput
+                color={color}
+                onChange={onChange}
+                prefixed
+                className="customInput py-1! text-center text-xs uppercase"
+              />
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
 type LinkPanelState = {
   range: { from: number; to: number };
   hadLink: boolean;
@@ -241,12 +320,18 @@ export function RichTextEditorField({
   }
 
   // Shared by the native color picker and the recent-color swatches below.
+  // `focus()` runs as its own step, before we read `selection.empty` —
+  // chaining it together with `selectAll().setColor()` let a focus-driven
+  // selection reset land between them, so the first click only did the
+  // (visible) select-all and the color itself only "took" on a second
+  // click once a real selection already existed.
   function applyColor(color: string) {
     if (!editor || editor.isActive("link")) return;
+    editor.chain().focus().run();
     if (editor.state.selection.empty) {
-      editor.chain().focus().selectAll().setColor(color).run();
+      editor.chain().selectAll().setColor(color).run();
     } else {
-      editor.chain().focus().setColor(color).run();
+      editor.chain().setColor(color).run();
     }
   }
 
@@ -452,13 +537,11 @@ export function RichTextEditorField({
           </div>
           <label className="flex h-8 items-center gap-1 px-2 text-xs text-textColorSecond">
             {nb ? "Farge" : "Color"}
-            <input
-              aria-label="Text color"
-              type="color"
+            <ColorPickerButton
+              label="Text color"
+              color={/^#[0-9a-fA-F]{6}$/.test(colorValue) ? colorValue : "#000000"}
+              onChange={applyColor}
               disabled={editor.isActive("link")}
-              className="h-5 w-6 cursor-pointer rounded-sm border border-linePrimary disabled:cursor-auto disabled:opacity-60"
-              value={/^#[0-9a-fA-F]{6}$/.test(colorValue) ? colorValue : "#000000"}
-              onChange={(e) => applyColor(e.target.value)}
             />
           </label>
           <ToolbarButton
@@ -495,11 +578,10 @@ export function RichTextEditorField({
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-1 text-xs text-textColorSecond">
                 {nb ? "Farge" : "Color"}
-                <input
-                  type="color"
-                  className="h-6 w-8 cursor-pointer rounded border border-linePrimary"
-                  value={linkPanel.color ?? DEFAULT_LINK_COLOR}
-                  onChange={(e) => setLinkPanel({ ...linkPanel, color: e.target.value })}
+                <ColorPickerButton
+                  label="Link color"
+                  color={linkPanel.color ?? DEFAULT_LINK_COLOR}
+                  onChange={(color) => setLinkPanel({ ...linkPanel, color })}
                 />
               </label>
               <label className="flex items-center gap-1 text-xs text-textColorSecond">
@@ -514,15 +596,15 @@ export function RichTextEditorField({
           )}
 
           <div className="flex gap-2">
-            <button type="button" className="customButtonEnabled !px-3 !py-1 text-xs" onClick={applyLinkPanel}>
+            <button type="button" className="customButtonEnabled !px-3 py-1! text-xs" onClick={applyLinkPanel}>
               {nb ? "Bruk" : "Apply"}
             </button>
             {linkPanel.hadLink ? (
-              <button type="button" className="customButtonDefault !px-3 !py-1 text-xs" onClick={removeLinkFromPanel}>
+              <button type="button" className="customButtonDefault !px-3 py-1! text-xs" onClick={removeLinkFromPanel}>
                 {nb ? "Fjern lenke" : "Remove link"}
               </button>
             ) : null}
-            <button type="button" className="customButtonDefault !px-3 !py-1 text-xs" onClick={() => setLinkPanel(null)}>
+            <button type="button" className="customButtonDefault !px-3 py-1! text-xs" onClick={() => setLinkPanel(null)}>
               {nb ? "Avbryt" : "Cancel"}
             </button>
           </div>
