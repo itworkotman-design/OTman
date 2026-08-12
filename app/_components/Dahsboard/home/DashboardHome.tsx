@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Membership } from "@/lib/users/types";
 import GdprSection from "./GdprSection";
 import ReviewsSection from "./ReviewsSection";
+import { RemindersSection } from "./RemindersSection";
 
 type DashboardStats = {
   totalIncome: number;
@@ -728,6 +729,9 @@ export default function DashboardHome() {
             </div>
           ))}
         </section>
+
+        <RemindersSection />
+
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <MonthlyOrdersComparisonChart items={monthlyComparison} currentYear={data.currentYear} lastYear={data.lastYear} />
 

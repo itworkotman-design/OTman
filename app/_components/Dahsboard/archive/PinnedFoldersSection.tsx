@@ -11,7 +11,7 @@ export function PinnedFoldersSection({ locale }: { locale: string }) {
           {locale === "nb" ? "Kommer snart" : "Coming soon"}
         </span>
       </div>
-      <div className="customContainer flex items-center justify-center py-8 text-sm text-textColorThird">
+      <div className="flex items-center justify-center py-8 text-sm text-textColorThird">
         {locale === "nb"
           ? "Det er ikke mulig å feste mapper ennå."
           : "Pinning folders isn't available yet."}

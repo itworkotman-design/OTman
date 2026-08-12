@@ -66,10 +66,10 @@ function StatusDot({ active }: { active: boolean }) {
 
 // Everything reminder-shaped lives in this one section, split into two tabs
 // per explicit user request: "Recurrence" (the due date +
-// description-override + recurrence rule that drives the Reminders tab of
-// ArchiveNotificationsPanel on the archive homepage, and that
+// description-override + recurrence rule that drives the Reminders widget on
+// the admin dashboard (RemindersSection), and that
 // lib/docArchive/reminderRecurrence.ts advances) and "Expiry" (just the
-// expiry date that drives the same panel's Expiring tab). They're kept as
+// expiry date that drives that same widget's Expiring rows). They're kept as
 // separate tabs with independent Save actions rather than one merged form —
 // they're unrelated fields with unrelated semantics (a recurring due date vs.
 // a one-time expiry date), and merging them back into one form is exactly
@@ -333,8 +333,8 @@ export function ReminderSettingsPanel({
 
           <p className="text-xs text-textColorThird">
             {locale === "nb"
-              ? "Forfallsdatoen (og gjentakelsen under) styrer om dette vises under \"Påminnelser\" på arkivforsiden."
-              : "The due date (and the recurrence below) controls whether this shows up under \"Reminders\" on the archive homepage."}
+              ? "Forfallsdatoen (og gjentakelsen under) styrer om dette vises under \"Reminders\" på admin-dashbordet."
+              : "The due date (and the recurrence below) controls whether this shows up under \"Reminders\" on the admin dashboard."}
           </p>
 
           <ReminderRecurrencePicker
@@ -387,8 +387,8 @@ export function ReminderSettingsPanel({
 
           <p className="text-xs text-textColorThird">
             {locale === "nb"
-              ? "Denne utløpsdatoen styrer om dette vises under \"Utløper\" på arkivforsiden. Den gjentar seg ikke."
-              : "This expiry date controls whether this shows up under \"Expiring\" on the archive homepage. It does not repeat."}
+              ? "Denne utløpsdatoen styrer om dette vises under \"Expiring\" på admin-dashbordet. Den gjentar seg ikke."
+              : "This expiry date controls whether this shows up under \"Expiring\" on the admin dashboard. It does not repeat."}
           </p>
 
           <div className="min-w-[160]">

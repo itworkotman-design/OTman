@@ -24,7 +24,7 @@ export default function ArchiveLayout({ children }: { children: ReactNode }) {
           className="lg:pt-10 w-full flex"
           style={{ ["--dash-sidebar-width" as string]: `${sidebarW}px` }}
         >
-          <div className="mx-auto w-full max-w-[1600] px-10">{children}</div>
+          <div className="mx-auto w-full max-w-[1600]">{children}</div>
         </main>
       </div>
       {/*Phone*/}
@@ -37,7 +37,7 @@ export default function ArchiveLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
         <main className="overflow-x-clip">
-          <div className="mx-auto w-full max-w-4xl px-10 pt-[60]">{children}</div>
+          <div className="mx-auto w-full max-w-4xl px-6 pt-[60]">{children}</div>
         </main>
       </div>
     </>

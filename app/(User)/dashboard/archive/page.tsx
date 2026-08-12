@@ -7,7 +7,6 @@ import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
-import { ArchiveNotificationsPanel } from "@/app/_components/Dahsboard/archive/ArchiveNotificationsPanel";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
 import { codeBadgeWidthCh, codeToUrlPath, groupBySection } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
@@ -141,7 +140,7 @@ export default function ArchivePage() {
 
       <PinnedFoldersSection locale={locale} />
 
-      <section className={`mt-4 grid gap-6 ${isArchiveAdmin ? "lg:grid-cols-2" : ""}`}>
+      <section className="mt-4 grid gap-6">
         <div className="min-w-0">
           <div className="mb-4 flex h-10 grow items-end justify-end font-semibold text-textColorThird">
             <div className="w-full max-w-[100] text-center">
@@ -193,13 +192,6 @@ export default function ArchivePage() {
             )}
           </div>
         </div>
-
-        {isArchiveAdmin && (
-          <div className="min-w-0">
-            <div className="mb-4 h-10" />
-            <ArchiveNotificationsPanel locale={locale} canRunNow={isArchiveAdmin} />
-          </div>
-        )}
       </section>
     </div>
   );
