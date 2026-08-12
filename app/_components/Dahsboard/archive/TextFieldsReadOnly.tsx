@@ -42,7 +42,13 @@ export function TextFieldsReadOnly({ sectionId, locale }: Props) {
   }, [sectionId]);
 
   if (loading) {
-    return <p className="text-sm text-textColorThird">{locale === "nb" ? "Laster..." : "Loading..."}</p>;
+    return (
+      <div className="flex h-32 w-full animate-pulse items-center justify-center rounded-[20px] bg-gray-300">
+        <span className="text-sm font-medium text-white">
+          {locale === "nb" ? "Laster..." : "Loading..."}
+        </span>
+      </div>
+    );
   }
 
   if (fields.length === 0) {

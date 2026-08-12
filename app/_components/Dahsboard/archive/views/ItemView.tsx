@@ -6,7 +6,7 @@ import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { ConditionBadge } from "@/app/_components/Dahsboard/archive/ConditionBadge";
 import { CopyUrlButton } from "@/app/_components/Dahsboard/archive/CopyUrlButton";
-import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePreviewGrid";
+import { ImagesSectionReadOnly } from "@/app/_components/Dahsboard/archive/ImagesSectionReadOnly";
 import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/ContentSectionTypeIcon";
 import { SettingsIcon, settingsIconButtonClass } from "@/app/_components/Dahsboard/archive/SettingsIcon";
 import { TextFieldsReadOnly } from "@/app/_components/Dahsboard/archive/TextFieldsReadOnly";
@@ -228,22 +228,15 @@ export function ItemView({
                 ) : section.type === "SPREADSHEET" ? (
                   <SpreadsheetReadOnly sectionId={section.id} locale={locale} />
                 ) : section.type === "IMAGES" ? (
-                  sectionFiles.length === 0 ? (
-                    <div className="flex items-center justify-center rounded-[20px] border border-linePrimary px-5 py-8 text-sm text-textColorThird">
-                      {locale === "nb" ? "Ingen bilder" : "No images"}
-                    </div>
-                  ) : (
-                    <ImagePreviewGrid
-                      images={sectionFiles.map((f) => ({
-                        id: f.id,
-                        src: `/api/archive/files/${f.id}/download`,
-                        alt: f.originalFileName,
-                        description: f.description,
-                      }))}
-                      gap={false}
-                      uniformHeight
-                    />
-                  )
+                  <ImagesSectionReadOnly
+                    images={sectionFiles.map((f) => ({
+                      id: f.id,
+                      src: `/api/archive/files/${f.id}/download`,
+                      alt: f.originalFileName,
+                      description: f.description,
+                    }))}
+                    locale={locale}
+                  />
                 ) : sectionFiles.length === 0 ? (
                   <div className="flex items-center justify-center rounded-[20px] border border-linePrimary px-5 py-8 text-sm text-textColorThird">
                     {locale === "nb" ? "Ingen filer" : "No files"}

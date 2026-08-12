@@ -41,7 +41,13 @@ export function TitleReadOnly({ sectionId, locale }: Props) {
   }, [sectionId]);
 
   if (loading) {
-    return <p className="text-sm text-textColorThird">{locale === "nb" ? "Laster..." : "Loading..."}</p>;
+    return (
+      <div className="flex h-8 w-56 animate-pulse items-center justify-center rounded-md bg-gray-300">
+        <span className="text-xs font-medium text-white">
+          {locale === "nb" ? "Laster..." : "Loading..."}
+        </span>
+      </div>
+    );
   }
 
   if (isEmptyHtml(text)) {

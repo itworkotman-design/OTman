@@ -1,17 +1,6 @@
-import { archivePrisma } from "@/lib/docArchive/client";
 import { getFolderCodes, getItemCodes } from "@/lib/docArchive/folderCodes";
 import { getViewableFolderIds } from "@/lib/docArchive/folderStats";
-
-// Same "raw SQL against archivePrisma's own schema" pattern as
-// folderStats.ts's getFolderEntryCounts/getAncestorChains — the host adapter
-// has no bulk "search this subtree" method, only single-target
-// listChildFolders/listItemsInFolder, which would mean one round trip per
-// folder to walk a tree. A recursive CTE does it in one query instead.
-type ArchiveSearchQueryClient = {
-  $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
-};
-
-const db = archivePrisma as unknown as ArchiveSearchQueryClient;
+import { archiveTreeDb as db, DESCENDANTS_CTE, escapeLikePattern } from "@/lib/docArchive/archiveTreeScope";
 
 export type ArchiveTreeSearchFolder = {
   type: "folder";
@@ -50,10 +39,6 @@ const CODE_SCAN_LIMIT = 2000;
 type FolderRow = { id: string; name: string; description: string | null };
 type ItemRow = { id: string; name: string; description: string | null; folderId: string };
 
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-}
-
 // Loose matching: "basefolder2subfolder" should still find
 // "Base Folder 2 - Subfolder 1" — done by stripping whitespace, "-", and ","
 // from both the query and the compared column before ILIKE, rather than
@@ -65,26 +50,6 @@ function escapeLikePattern(value: string): string {
 function normalizeForMatch(value: string): string {
   return value.replace(/[\s,-]+/g, "");
 }
-
-// `scopeFolderId` is the folder whose subtree we're searching, or null for
-// the whole archive (every root folder and everything below it) — the same
-// query shape either way, just a different anchor.
-const DESCENDANTS_CTE = `
-  WITH RECURSIVE descendants AS (
-    SELECT "id"
-    FROM archive."archive_folders"
-    WHERE "companyId" = $1 AND "tenantId" = $2 AND "deletedAt" IS NULL
-      AND (
-        ($3::uuid IS NULL AND "parentFolderId" IS NULL)
-        OR "parentFolderId" = $3::uuid
-      )
-    UNION ALL
-    SELECT f."id"
-    FROM archive."archive_folders" f
-    JOIN descendants d ON f."parentFolderId" = d."id"
-    WHERE f."companyId" = $1 AND f."tenantId" = $2 AND f."deletedAt" IS NULL
-  )
-`;
 
 async function findFoldersByText(
   companyId: string,

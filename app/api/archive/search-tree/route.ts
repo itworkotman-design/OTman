@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { requireArchiveMembership } from "@/lib/docArchive/route";
 import { searchArchiveTree } from "@/lib/docArchive/searchArchiveTree";
+import { searchArchiveContent } from "@/lib/docArchive/searchArchiveContent";
 
 export async function GET(req: Request) {
   const result = await requireArchiveMembership(req);
@@ -12,7 +13,10 @@ export async function GET(req: Request) {
   const scopeFolderId = url.searchParams.get("scope")?.trim() || null;
 
   const ctx = buildArchiveContext(result.session, result.membership);
-  const results = await searchArchiveTree(ctx.companyId, ctx.tenantId, ctx.userId, scopeFolderId, query);
+  const [results, matches] = await Promise.all([
+    searchArchiveTree(ctx.companyId, ctx.tenantId, ctx.userId, scopeFolderId, query),
+    searchArchiveContent(ctx.companyId, ctx.tenantId, ctx.userId, scopeFolderId, query),
+  ]);
 
-  return NextResponse.json({ ok: true, results });
+  return NextResponse.json({ ok: true, results, matches });
 }

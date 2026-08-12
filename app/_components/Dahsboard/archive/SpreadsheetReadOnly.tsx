@@ -106,7 +106,11 @@ export function SpreadsheetReadOnly({ sectionId, locale }: Props) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-textColorThird">{locale === "nb" ? "Laster..." : "Loading..."}</p>
+        <div className="flex h-64 w-full animate-pulse items-center justify-center rounded-xl bg-gray-300">
+          <span className="text-sm font-medium text-white">
+            {locale === "nb" ? "Laster..." : "Loading..."}
+          </span>
+        </div>
       ) : !data || data.columnNames.length === 0 || data.cells.length === 0 ? (
         <p className="text-sm text-textColorThird">{locale === "nb" ? "Tomt regneark" : "Empty spreadsheet"}</p>
       ) : (
