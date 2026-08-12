@@ -36,6 +36,10 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
   // activeControlTab — one tab always fully shown rather than a click-to-expand
   // accordion row.
   const [activeControlTab, setActiveControlTab] = useState("details");
+  // Collapsed by default on entering settings, same as FolderSettingsView —
+  // Content is usually what someone's here for, so Archive controls starts
+  // out of the way.
+  const [controlsExpanded, setControlsExpanded] = useState(false);
 
   // A fresh `key` per save (rather than just a boolean) so SaveToast always
   // gets its own mount + full 3s timer, even if two saves land in quick
@@ -153,29 +157,48 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
       {!loading && item && (
         <div className="flex flex-col gap-6">
           <section>
-            <h2 className="mb-3 text-[1.5rem] font-bold text-logoblue">
+            <button
+              type="button"
+              onClick={() => setControlsExpanded((v) => !v)}
+              className="mb-3 flex w-full items-center gap-2 text-left text-[1.5rem] font-bold text-logoblue"
+              aria-expanded={controlsExpanded}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 16 16"
+                fill="none"
+                className={`shrink-0 transition-transform ${controlsExpanded ? "rotate-90" : ""}`}
+                aria-hidden="true"
+              >
+                <path d="M5 3l6 5-6 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
               {locale === "nb" ? "Arkivkontroller" : "Archive controls"}
-            </h2>
+            </button>
 
-            <div className="mb-6 flex gap-2 border-b border-lineSecondary">
-              {itemControlTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveControlTab(tab.id)}
-                  className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-                    activeControlTab === tab.id
-                      ? "border-logoblue text-logoblue"
-                      : "border-transparent text-textColorThird hover:text-textColorSecond"
-                  }`}
-                >
-                  {tab.title}
-                  {"dotColor" in tab && <span className={`h-2 w-2 rounded-full ${tab.dotColor}`} />}
-                </button>
-              ))}
-            </div>
+            {controlsExpanded && (
+              <>
+                <div className="mb-6 flex gap-2 border-b border-lineSecondary">
+                  {itemControlTabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveControlTab(tab.id)}
+                      className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                        activeControlTab === tab.id
+                          ? "border-logoblue text-logoblue"
+                          : "border-transparent text-textColorThird hover:text-textColorSecond"
+                      }`}
+                    >
+                      {tab.title}
+                      {"dotColor" in tab && <span className={`h-2 w-2 rounded-full ${tab.dotColor}`} />}
+                    </button>
+                  ))}
+                </div>
 
-            {itemControlTabs.map((tab) => (tab.id === activeControlTab ? <div key={tab.id}>{tab.content}</div> : null))}
+                {itemControlTabs.map((tab) => (tab.id === activeControlTab ? <div key={tab.id}>{tab.content}</div> : null))}
+              </>
+            )}
           </section>
 
           <section>
