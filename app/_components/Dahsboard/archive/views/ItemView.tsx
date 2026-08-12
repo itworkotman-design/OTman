@@ -78,7 +78,9 @@ export function ItemView({
 }) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const hasAccess = !currentUser || getModuleAccess(currentUser, "ARCHIVE").enabled;
+  const archiveAccess = currentUser ? getModuleAccess(currentUser, "ARCHIVE") : null;
+  const hasAccess = !currentUser || archiveAccess!.enabled;
+  const canEdit = archiveAccess?.level === "ADMIN";
 
   const [item, setItem] = useState<ArchiveItemDetail | null>(null);
   const [sections, setSections] = useState<ArchiveContentSectionRow[]>([]);
@@ -184,9 +186,11 @@ export function ItemView({
         </h1>
         {item?.description && <p className="max-w-xl text-sm text-textColorThird">{item.description}</p>}
 
-        <Link href={settingsHref} className="customButtonDefault">
-          {locale === "nb" ? "Innstillinger" : "Settings"}
-        </Link>
+        {canEdit && (
+          <Link href={settingsHref} className="customButtonDefault">
+            {locale === "nb" ? "Innstillinger" : "Settings"}
+          </Link>
+        )}
       </div>
 
       {error && (
@@ -238,23 +242,23 @@ export function ItemView({
                     {locale === "nb" ? "Ingen filer" : "No files"}
                   </div>
                 ) : (
-                  <div className="rounded-[20px] border border-linePrimary p-5 divide-y divide-lineSecondary">
-                    {sectionFiles.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between gap-4 py-3 px-2 hover:bg-linePrimary">
+                  <div className="rounded-[20px] pb-5 divide-y divide-lineSecondary">
+                    {sectionFiles.map((file, fileIndex) => (
+                      <div
+                        key={file.id}
+                        className="grid grid-cols-[2rem_minmax(0,200px)_1fr_auto_auto] items-center gap-4 py-3 px-2 hover:bg-linePrimary"
+                      >
+                        <span className="text-sm text-textColorThird">{fileIndex + 1}</span>
                         <a
                           href={`/api/archive/files/${file.id}/download`}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex min-w-0 flex-1 flex-col gap-0.5"
+                          className="min-w-0 truncate text-logoblue"
                         >
-                          <span className="flex min-w-0 items-center gap-4">
-                            <span className="min-w-0 flex-1 truncate text-logoblue">{file.originalFileName}</span>
-                            <span className="shrink-0 text-sm text-textColorThird">{formatBytes(file.sizeBytes)}</span>
-                          </span>
-                          {file.description && (
-                            <span className="truncate text-sm text-textColorThird">{file.description}</span>
-                          )}
+                          {file.originalFileName}
                         </a>
+                        <span className="min-w-0 truncate text-left text-sm text-textColorThird">{file.description}</span>
+                        <span className="shrink-0 text-sm text-textColorThird">{formatBytes(file.sizeBytes)}</span>
                         <a
                           href={`/api/archive/files/${file.id}/download?download=1`}
                           download

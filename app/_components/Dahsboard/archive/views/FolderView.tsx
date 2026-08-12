@@ -156,9 +156,11 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
         </h1>
         {folder?.description && <p className="max-w-xl text-sm text-textColorThird">{folder.description}</p>}
 
-        <Link href={settingsHref} className="customButtonDefault">
-          {locale === "nb" ? "Innstillinger" : "Settings"}
-        </Link>
+        {canEdit && (
+          <Link href={settingsHref} className="customButtonDefault">
+            {locale === "nb" ? "Innstillinger" : "Settings"}
+          </Link>
+        )}
 
         <div className="w-full max-w-[400]">
           <ArchiveSearchBar
