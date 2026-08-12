@@ -43,6 +43,7 @@ export default function ArchivePage() {
   const [sections, setSections] = useState<ArchiveSectionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [runningReminders, setRunningReminders] = useState(false);
 
   async function loadFolders() {
     try {
@@ -100,6 +101,26 @@ export default function ArchivePage() {
     return { ok: true };
   }
 
+  async function handleRunRemindersCron() {
+    setRunningReminders(true);
+    try {
+      const res = await fetch("/api/archive/reminders/generate-now", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        alert(data?.reason || "Failed to run archive reminders cron");
+        return;
+      }
+
+      alert(`Archive reminders cron ran. ${JSON.stringify(data)}`);
+    } finally {
+      setRunningReminders(false);
+    }
+  }
+
   const visibleFolders = useMemo(() => folders.filter((folder) => folder.status === "active"), [folders]);
   const codeWidthCh = useMemo(() => codeBadgeWidthCh(visibleFolders.map((f) => f.code), 5), [visibleFolders]);
   const sectionGroups = useMemo(
@@ -129,6 +150,17 @@ export default function ArchivePage() {
               onCreateFolder={handleCreateFolder}
               onFoldersChanged={loadFolders}
             />
+          )}
+          {process.env.NODE_ENV === "development" && isArchiveAdmin && (
+            <button
+              type="button"
+              className="customButtonDefault text-xs"
+              disabled={runningReminders}
+              onClick={handleRunRemindersCron}
+              title="Dev only: runs the archive-reminders cron job on demand"
+            >
+              {runningReminders ? "Running reminders cron..." : "Run reminders cron (dev)"}
+            </button>
           )}
         </div>
         <div className="w-full max-w-[400]">

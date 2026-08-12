@@ -7,25 +7,46 @@ import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { getModuleAccess } from "@/lib/users/access";
 import { formatDisplayDate } from "@/lib/dateDisplay";
 import { addDaysIso, getOsloDateKey } from "@/lib/dates/isoDate";
-import { findNextRecurrenceDate } from "@/lib/orders/recurringOrders/occurrenceDates";
 import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
 
 const SNOOZE_DAYS = 7;
 const MAX_ROWS = 10;
 
-type NotificationRow = {
-  key: string;
-  kind: "reminder" | "expiring";
-  entityKind: "item" | "folder";
-  entityId: string;
-  code: string;
-  name: string;
-  description: string | null;
-  recurrenceType: RecurrenceType | null;
-  recurrenceConfig: unknown | null;
-  date: string | null;
-  href: string;
-};
+// "legacy" rows are driven by the entity's single dueAt/expiresAt (search API
+// isOverdue/isDueSoon/isExpired/isExpiringSoon) and PATCH
+// /api/archive/{items,folders}/{id}/dates directly. "occurrence" rows come
+// from the new per-occurrence backlog (lib/docArchive/reminderOccurrences.ts)
+// for recurring reminders — a single recurring item can contribute several of
+// these at once (one per missed/upcoming matching date) — and PATCH
+// /api/archive/reminder-occurrences/{occurrenceId} instead. Non-recurring
+// ("Once") reminders and all expiring rows stay on the legacy path since they
+// only ever have exactly one relevant date.
+type NotificationRow =
+  | {
+      source: "legacy";
+      key: string;
+      kind: "reminder" | "expiring";
+      entityKind: "item" | "folder";
+      entityId: string;
+      code: string;
+      name: string;
+      description: string | null;
+      date: string | null;
+      href: string;
+    }
+  | {
+      source: "occurrence";
+      key: string;
+      kind: "reminder";
+      entityKind: "item" | "folder";
+      entityId: string;
+      occurrenceId: string;
+      code: string;
+      name: string;
+      description: string | null;
+      date: string | null;
+      href: string;
+    };
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -47,7 +68,6 @@ type FolderSearchApiResult = {
     description: string | null;
     reminderDescription: string | null;
     reminderRecurrenceType: RecurrenceType | null;
-    reminderRecurrenceConfig: unknown | null;
     dueAt?: string | null;
     expiresAt?: string | null;
     code: string;
@@ -63,10 +83,23 @@ type ItemSearchApiResult = {
     description: string | null;
     reminderDescription: string | null;
     reminderRecurrenceType: RecurrenceType | null;
-    reminderRecurrenceConfig: unknown | null;
     dueAt?: string | null;
     expiresAt?: string | null;
     code: string;
+  }>;
+};
+
+type OccurrenceApiResult = {
+  ok?: boolean;
+  occurrences?: Array<{
+    id: string;
+    entityKind: "item" | "folder";
+    entityId: string;
+    code: string;
+    name: string;
+    description: string | null;
+    date: string;
+    status: "PENDING" | "SNOOZED";
   }>;
 };
 
@@ -100,6 +133,7 @@ export function RemindersSection() {
         expiringSoonItemsRes,
         expiredFoldersRes,
         expiringSoonFoldersRes,
+        occurrencesRes,
       ] = await Promise.all([
         fetch("/api/archive/search/items?isOverdue=true", { credentials: "include", cache: "no-store" }),
         fetch("/api/archive/search/items?isDueSoon=true", { credentials: "include", cache: "no-store" }),
@@ -109,6 +143,7 @@ export function RemindersSection() {
         fetch("/api/archive/search/items?isExpiringSoon=true", { credentials: "include", cache: "no-store" }),
         fetch("/api/archive/search/folders?isExpired=true", { credentials: "include", cache: "no-store" }),
         fetch("/api/archive/search/folders?isExpiringSoon=true", { credentials: "include", cache: "no-store" }),
+        fetch("/api/archive/reminder-occurrences", { credentials: "include", cache: "no-store" }),
       ]);
 
       const [
@@ -120,6 +155,7 @@ export function RemindersSection() {
         expiringSoonItems,
         expiredFolders,
         expiringSoonFolders,
+        occurrences,
       ] = await Promise.all([
         overdueItemsRes.json().catch(() => null) as Promise<ItemSearchApiResult | null>,
         dueSoonItemsRes.json().catch(() => null) as Promise<ItemSearchApiResult | null>,
@@ -129,62 +165,71 @@ export function RemindersSection() {
         expiringSoonItemsRes.json().catch(() => null) as Promise<ItemSearchApiResult | null>,
         expiredFoldersRes.json().catch(() => null) as Promise<FolderSearchApiResult | null>,
         expiringSoonFoldersRes.json().catch(() => null) as Promise<FolderSearchApiResult | null>,
+        occurrencesRes.json().catch(() => null) as Promise<OccurrenceApiResult | null>,
       ]);
 
+      // Recurring reminders are sourced from the occurrence endpoint instead
+      // (below) — only non-recurring ("Once") reminders stay on this
+      // dueAt-driven path, since they only ever have one relevant date.
       const combined: NotificationRow[] = [
-        ...(overdueItems?.items ?? []).map((item) => ({
-          key: `reminder-item-${item.id}`,
-          kind: "reminder" as const,
-          entityKind: "item" as const,
-          entityId: item.id,
-          code: item.code,
-          name: item.name,
-          description: item.reminderDescription,
-          recurrenceType: item.reminderRecurrenceType,
-          recurrenceConfig: item.reminderRecurrenceConfig,
-          date: item.dueAt ?? null,
-          href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
-        })),
-        ...(dueSoonItems?.items ?? []).map((item) => ({
-          key: `reminder-item-${item.id}`,
-          kind: "reminder" as const,
-          entityKind: "item" as const,
-          entityId: item.id,
-          code: item.code,
-          name: item.name,
-          description: item.reminderDescription,
-          recurrenceType: item.reminderRecurrenceType,
-          recurrenceConfig: item.reminderRecurrenceConfig,
-          date: item.dueAt ?? null,
-          href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
-        })),
-        ...(overdueFolders?.items ?? []).map((folder) => ({
-          key: `reminder-folder-${folder.id}`,
-          kind: "reminder" as const,
-          entityKind: "folder" as const,
-          entityId: folder.id,
-          code: folder.code,
-          name: folder.name,
-          description: folder.reminderDescription,
-          recurrenceType: folder.reminderRecurrenceType,
-          recurrenceConfig: folder.reminderRecurrenceConfig,
-          date: folder.dueAt ?? null,
-          href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
-        })),
-        ...(dueSoonFolders?.items ?? []).map((folder) => ({
-          key: `reminder-folder-${folder.id}`,
-          kind: "reminder" as const,
-          entityKind: "folder" as const,
-          entityId: folder.id,
-          code: folder.code,
-          name: folder.name,
-          description: folder.reminderDescription,
-          recurrenceType: folder.reminderRecurrenceType,
-          recurrenceConfig: folder.reminderRecurrenceConfig,
-          date: folder.dueAt ?? null,
-          href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
-        })),
+        ...(overdueItems?.items ?? [])
+          .filter((item) => !item.reminderRecurrenceType)
+          .map((item) => ({
+            source: "legacy" as const,
+            key: `reminder-item-${item.id}`,
+            kind: "reminder" as const,
+            entityKind: "item" as const,
+            entityId: item.id,
+            code: item.code,
+            name: item.name,
+            description: item.reminderDescription,
+            date: item.dueAt ?? null,
+            href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
+          })),
+        ...(dueSoonItems?.items ?? [])
+          .filter((item) => !item.reminderRecurrenceType)
+          .map((item) => ({
+            source: "legacy" as const,
+            key: `reminder-item-${item.id}`,
+            kind: "reminder" as const,
+            entityKind: "item" as const,
+            entityId: item.id,
+            code: item.code,
+            name: item.name,
+            description: item.reminderDescription,
+            date: item.dueAt ?? null,
+            href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
+          })),
+        ...(overdueFolders?.items ?? [])
+          .filter((folder) => !folder.reminderRecurrenceType)
+          .map((folder) => ({
+            source: "legacy" as const,
+            key: `reminder-folder-${folder.id}`,
+            kind: "reminder" as const,
+            entityKind: "folder" as const,
+            entityId: folder.id,
+            code: folder.code,
+            name: folder.name,
+            description: folder.reminderDescription,
+            date: folder.dueAt ?? null,
+            href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
+          })),
+        ...(dueSoonFolders?.items ?? [])
+          .filter((folder) => !folder.reminderRecurrenceType)
+          .map((folder) => ({
+            source: "legacy" as const,
+            key: `reminder-folder-${folder.id}`,
+            kind: "reminder" as const,
+            entityKind: "folder" as const,
+            entityId: folder.id,
+            code: folder.code,
+            name: folder.name,
+            description: folder.reminderDescription,
+            date: folder.dueAt ?? null,
+            href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
+          })),
         ...(expiredItems?.items ?? []).map((item) => ({
+          source: "legacy" as const,
           key: `expiring-item-${item.id}`,
           kind: "expiring" as const,
           entityKind: "item" as const,
@@ -192,12 +237,11 @@ export function RemindersSection() {
           code: item.code,
           name: item.name,
           description: item.description,
-          recurrenceType: null,
-          recurrenceConfig: null,
           date: item.expiresAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
         })),
         ...(expiringSoonItems?.items ?? []).map((item) => ({
+          source: "legacy" as const,
           key: `expiring-item-${item.id}`,
           kind: "expiring" as const,
           entityKind: "item" as const,
@@ -205,12 +249,11 @@ export function RemindersSection() {
           code: item.code,
           name: item.name,
           description: item.description,
-          recurrenceType: null,
-          recurrenceConfig: null,
           date: item.expiresAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(item.code)}`,
         })),
         ...(expiredFolders?.items ?? []).map((folder) => ({
+          source: "legacy" as const,
           key: `expiring-folder-${folder.id}`,
           kind: "expiring" as const,
           entityKind: "folder" as const,
@@ -218,12 +261,11 @@ export function RemindersSection() {
           code: folder.code,
           name: folder.name,
           description: folder.description,
-          recurrenceType: null,
-          recurrenceConfig: null,
           date: folder.expiresAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
         })),
         ...(expiringSoonFolders?.items ?? []).map((folder) => ({
+          source: "legacy" as const,
           key: `expiring-folder-${folder.id}`,
           kind: "expiring" as const,
           entityKind: "folder" as const,
@@ -231,10 +273,21 @@ export function RemindersSection() {
           code: folder.code,
           name: folder.name,
           description: folder.description,
-          recurrenceType: null,
-          recurrenceConfig: null,
           date: folder.expiresAt ?? null,
           href: `/dashboard/archive/${codeToUrlPath(folder.code)}`,
+        })),
+        ...(occurrences?.occurrences ?? []).map((occurrence) => ({
+          source: "occurrence" as const,
+          key: `occurrence-${occurrence.id}`,
+          kind: "reminder" as const,
+          entityKind: occurrence.entityKind,
+          entityId: occurrence.entityId,
+          occurrenceId: occurrence.id,
+          code: occurrence.code,
+          name: occurrence.name,
+          description: occurrence.description,
+          date: occurrence.date,
+          href: `/dashboard/archive/${codeToUrlPath(occurrence.code)}`,
         })),
       ].sort((a, b) => {
         if (!a.date) return 1;
@@ -253,14 +306,17 @@ export function RemindersSection() {
     void loadNotifications();
   }, [canManage, loadNotifications]);
 
-  // Accept/Snooze both PATCH the same archive /dates endpoint the archive
-  // settings' ReminderSettingsPanel Save/Clear actions use. Accept: for a
-  // recurring reminder, rolls dueAt to its next occurrence (the same "this
-  // instance is done" advance the cron in lib/docArchive/reminderRecurrence.ts
-  // performs); for a one-time reminder or any expiring row (no recurrence
-  // concept) it just clears the date. Snooze never touches the recurrence
-  // rule — it only pushes the relevant date SNOOZE_DAYS forward.
-  async function patchDate(row: NotificationRow, field: "dueAt" | "expiresAt", value: string | null) {
+  // Legacy accept/snooze both PATCH the same archive /dates endpoint the
+  // archive settings' ReminderSettingsPanel Save/Clear actions use. These
+  // rows are always non-recurring by the time they reach here (recurring
+  // reminders are "occurrence" rows instead, handled separately below), so
+  // Accept always just clears the date and Snooze pushes it SNOOZE_DAYS
+  // forward.
+  async function patchDate(
+    row: Extract<NotificationRow, { source: "legacy" }>,
+    field: "dueAt" | "expiresAt",
+    value: string | null,
+  ) {
     const basePath = row.entityKind === "item" ? `/api/archive/items/${row.entityId}` : `/api/archive/folders/${row.entityId}`;
     const res = await fetch(`${basePath}/dates`, {
       method: "PATCH",
@@ -272,25 +328,34 @@ export function RemindersSection() {
     if (!res.ok || !data?.ok) throw new Error(data?.reason || "Failed to update");
   }
 
+  async function patchOccurrence(row: Extract<NotificationRow, { source: "occurrence" }>, action: "accept" | "snooze") {
+    const res = await fetch(`/api/archive/reminder-occurrences/${row.occurrenceId}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) throw new Error(data?.reason || "Failed to update");
+  }
+
   async function runRowAction(row: NotificationRow, action: "accept" | "snooze") {
     try {
       setActingKey(row.key);
       setActionError("");
 
-      const field: "dueAt" | "expiresAt" = row.kind === "reminder" ? "dueAt" : "expiresAt";
-
-      if (action === "accept") {
-        if (row.kind === "reminder" && row.recurrenceType) {
-          const tomorrow = addDaysIso(getOsloDateKey(), 1);
-          const nextDate = findNextRecurrenceDate(row.recurrenceType, row.recurrenceConfig, tomorrow);
-          await patchDate(row, field, nextDate ? `${nextDate}T00:00:00.000Z` : null);
-        } else {
-          await patchDate(row, field, null);
-        }
+      if (row.source === "occurrence") {
+        await patchOccurrence(row, action);
       } else {
-        const fromDate = row.date ? getOsloDateKey(new Date(row.date)) : getOsloDateKey();
-        const snoozedDate = addDaysIso(fromDate, SNOOZE_DAYS);
-        await patchDate(row, field, `${snoozedDate}T00:00:00.000Z`);
+        const field: "dueAt" | "expiresAt" = row.kind === "reminder" ? "dueAt" : "expiresAt";
+
+        if (action === "accept") {
+          await patchDate(row, field, null);
+        } else {
+          const fromDate = row.date ? getOsloDateKey(new Date(row.date)) : getOsloDateKey();
+          const snoozedDate = addDaysIso(fromDate, SNOOZE_DAYS);
+          await patchDate(row, field, `${snoozedDate}T00:00:00.000Z`);
+        }
       }
 
       await loadNotifications();
@@ -354,7 +419,7 @@ export function RemindersSection() {
                     type="button"
                     onClick={() => void runRowAction(row, "accept")}
                     disabled={actingKey === row.key}
-                    title={row.kind === "reminder" && row.recurrenceType ? "Mark done and advance to the next occurrence" : "Mark done"}
+                    title="Mark done"
                     aria-label="Mark done"
                     className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-logoblue transition-all duration-150 hover:bg-logoblue/10 active:scale-90 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:active:scale-100"
                   >

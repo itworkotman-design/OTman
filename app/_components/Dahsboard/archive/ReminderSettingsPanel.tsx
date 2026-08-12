@@ -221,33 +221,19 @@ export function ReminderSettingsPanel({
     }
   }
 
-  async function handleClearRecurrence() {
-    try {
-      setSaving(true);
-      setError("");
-      await saveRecurrence(null, null);
-      setNextRecurrenceType(null);
-      setNextRecurrenceConfig({ weekdays: [], dayOfMonth: [1], dates: [] });
-      onSaved();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to clear recurrence");
-    } finally {
-      setSaving(false);
-    }
+  // Clear only stages the change in the draft state — it does NOT hit the
+  // network. It just resets the relevant fields so `recurrenceDirty` goes
+  // true and the Save button appears; the actual PATCH happens in
+  // handleSaveRecurrence like any other edit, same as Clear expiry below.
+  function handleClearRecurrence() {
+    setError("");
+    setNextRecurrenceType(null);
+    setNextRecurrenceConfig({ weekdays: [], dayOfMonth: [1], dates: [] });
   }
 
-  async function handleClearDueDate() {
-    try {
-      setSaving(true);
-      setError("");
-      await saveDueAt(null);
-      setNextDueAt("");
-      onSaved();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to clear due date");
-    } finally {
-      setSaving(false);
-    }
+  function handleClearDueDate() {
+    setError("");
+    setNextDueAt("");
   }
 
   async function handleSaveExpiry() {
@@ -263,18 +249,12 @@ export function ReminderSettingsPanel({
     }
   }
 
-  async function handleClearExpiry() {
-    try {
-      setSaving(true);
-      setError("");
-      await saveExpiresAt(null);
-      setNextExpiresAt("");
-      onSaved();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to clear expiry date");
-    } finally {
-      setSaving(false);
-    }
+  // Same staging-only behavior as handleClearRecurrence/handleClearDueDate
+  // above — no network call here, just marks the Expiry tab dirty so Save
+  // performs the actual PATCH.
+  function handleClearExpiry() {
+    setError("");
+    setNextExpiresAt("");
   }
 
   return (
@@ -312,7 +292,7 @@ export function ReminderSettingsPanel({
                 <button
                   type="button"
                   className="text-sm font-medium text-red-600 hover:underline"
-                  onClick={() => void handleClearRecurrence()}
+                  onClick={handleClearRecurrence}
                   disabled={saving}
                 >
                   {locale === "nb" ? "Fjern gjentakelse" : "Clear recurrence"}
@@ -322,7 +302,7 @@ export function ReminderSettingsPanel({
                 <button
                   type="button"
                   className="text-sm font-medium text-red-600 hover:underline"
-                  onClick={() => void handleClearDueDate()}
+                  onClick={handleClearDueDate}
                   disabled={saving}
                 >
                   {locale === "nb" ? "Fjern forfallsdato" : "Clear due date"}
@@ -332,9 +312,13 @@ export function ReminderSettingsPanel({
           </div>
 
           <p className="text-xs text-textColorThird">
-            {locale === "nb"
-              ? "Forfallsdatoen (og gjentakelsen under) styrer om dette vises under \"Reminders\" på admin-dashbordet."
-              : "The due date (and the recurrence below) controls whether this shows up under \"Reminders\" on the admin dashboard."}
+            {nextRecurrenceType
+              ? locale === "nb"
+                ? "Gjentakelsen under styrer hvor mange påminnelser som vises under \"Reminders\" på admin-dashbordet (én per dato den treffer). Forfallsdatoen over er bare neste kommende dato, brukt andre steder i arkivet."
+                : "The recurrence pattern below controls how many reminders show up under \"Reminders\" on the admin dashboard (one per matching date). The due date above is just the next upcoming date, used elsewhere in the archive."
+              : locale === "nb"
+                ? "Forfallsdatoen styrer om dette vises under \"Reminders\" på admin-dashbordet."
+                : "The due date controls whether this shows up under \"Reminders\" on the admin dashboard."}
           </p>
 
           <ReminderRecurrencePicker
@@ -377,7 +361,7 @@ export function ReminderSettingsPanel({
               <button
                 type="button"
                 className="text-sm font-medium text-red-600 hover:underline"
-                onClick={() => void handleClearExpiry()}
+                onClick={handleClearExpiry}
                 disabled={saving}
               >
                 {locale === "nb" ? "Fjern utløpsdato" : "Clear expiry date"}

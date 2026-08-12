@@ -1113,6 +1113,48 @@ model ArchiveItemReminderNote {
   @@index([companyId, tenantId])
 }
 
+enum ArchiveReminderEntityKind {
+  ITEM
+  FOLDER
+}
+
+enum ArchiveReminderOccurrenceStatus {
+  PENDING
+  DONE
+  SNOOZED
+}
+
+// Per-occurrence backlog for a recurring reminder — ArchiveFolderReminderNote/
+// ArchiveItemReminderNote above only store the recurrence *rule*; the archive
+// entity itself only has one `dueAt`, so neither can represent "missed 3 of
+// the last 5 matching days." This table materializes individual matching
+// dates within a bounded window (see lib/docArchive/reminderOccurrences.ts)
+// so the dashboard Reminders widget can show/act on them one at a time,
+// independent of the entity's own single dueAt (which keeps being advanced by
+// the older, deliberately stateless lib/docArchive/reminderRecurrence.ts cron
+// for browse-page badges — the two are intentionally allowed to diverge, see
+// that file's own comment on why it stays stateless). occurrenceDate is a
+// "YYYY-MM-DD" key, immutable identity for the row (never renamed on
+// snooze) — snoozing sets snoozedUntil instead, which is what read queries
+// and display should treat as the row's effective date once set.
+model ArchiveReminderOccurrence {
+  id             String                          @id @default(cuid())
+  companyId      String
+  tenantId       String
+  entityKind     ArchiveReminderEntityKind
+  entityId       String
+  occurrenceDate String
+  status         ArchiveReminderOccurrenceStatus @default(PENDING)
+  snoozedUntil   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime                        @default(now())
+  updatedAt      DateTime                        @updatedAt
+
+  @@unique([entityKind, entityId, occurrenceDate])
+  @@index([companyId, status, occurrenceDate])
+  @@index([entityKind, entityId, status])
+}
+
 enum ArchiveContentSectionType {
   IMAGES
   FILES

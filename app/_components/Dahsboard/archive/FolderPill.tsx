@@ -106,9 +106,13 @@ export function FolderPill({
             <span className="min-w-0 truncate text-sm text-textColorThird">{folder.description}</span>
           )}
 
+          <span className="ml-auto shrink-0">
+            <ConditionBadge flags={folder} locale={locale} />
+          </span>
+
           {showStats && (
             <>
-              <span className="ml-auto w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
+              <span className="w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
                 {folder.entryCount}
               </span>
 
@@ -117,10 +121,6 @@ export function FolderPill({
               </span>
             </>
           )}
-
-          <span className={`shrink-0 ${showStats ? "" : "ml-auto"}`}>
-            <ConditionBadge flags={folder} locale={locale} />
-          </span>
 
           <span className="w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
             {formatLastModified(folder.updatedAt)}
