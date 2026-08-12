@@ -9,8 +9,8 @@ import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
 import { ArchiveNotificationsPanel } from "@/app/_components/Dahsboard/archive/ArchiveNotificationsPanel";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
-import { codeBadgeWidthCh, codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
-import type { ArchiveFolderSummary } from "@/app/_components/Dahsboard/archive/types";
+import { codeBadgeWidthCh, codeToUrlPath, groupBySection } from "@/app/_components/Dahsboard/archive/types";
+import type { ArchiveFolderSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderRow = ArchiveFolderSummary & {
   createdAt: string;
@@ -19,6 +19,12 @@ type ArchiveFolderRow = ArchiveFolderSummary & {
 type FoldersApiResponse = {
   ok?: boolean;
   folders?: ArchiveFolderRow[];
+  reason?: string;
+};
+
+type SectionsApiResponse = {
+  ok?: boolean;
+  sections?: ArchiveSectionSummary[];
   reason?: string;
 };
 
@@ -35,6 +41,7 @@ export default function ArchivePage() {
   const isArchiveAdmin = archiveAccess.level === "ADMIN";
 
   const [folders, setFolders] = useState<ArchiveFolderRow[]>([]);
+  const [sections, setSections] = useState<ArchiveSectionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -43,8 +50,12 @@ export default function ArchivePage() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("/api/archive/folders", { method: "GET", credentials: "include", cache: "no-store" });
+      const [res, sectionsRes] = await Promise.all([
+        fetch("/api/archive/folders", { method: "GET", credentials: "include", cache: "no-store" }),
+        fetch("/api/archive/sections", { method: "GET", credentials: "include", cache: "no-store" }),
+      ]);
       const data = (await res.json().catch(() => null)) as FoldersApiResponse | null;
+      const sectionsData = (await sectionsRes.json().catch(() => null)) as SectionsApiResponse | null;
 
       if (!res.ok || !data?.ok) {
         setError(data?.reason || "Failed to load folders");
@@ -53,6 +64,10 @@ export default function ArchivePage() {
       }
 
       setFolders(data.folders ?? []);
+
+      if (sectionsRes.ok && sectionsData?.ok) {
+        setSections(sectionsData.sections ?? []);
+      }
     } catch {
       setError("Failed to load folders");
       setFolders([]);
@@ -88,6 +103,10 @@ export default function ArchivePage() {
 
   const visibleFolders = useMemo(() => folders.filter((folder) => folder.status === "active"), [folders]);
   const codeWidthCh = useMemo(() => codeBadgeWidthCh(visibleFolders.map((f) => f.code), 5), [visibleFolders]);
+  const sectionGroups = useMemo(
+    () => groupBySection(visibleFolders, sections, locale),
+    [visibleFolders, sections, locale],
+  );
 
   if (currentUser && !hasAccess) {
     return (
@@ -151,17 +170,24 @@ export default function ArchivePage() {
                 {locale === "nb" ? "Ingen mapper funnet" : "No folders found"}
               </div>
             ) : (
-              <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
-                {visibleFolders.map((folder) => (
-                  <FolderPill
-                    key={folder.id}
-                    folder={folder}
-                    href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
-                    locale={locale}
-                    showDescription={false}
-                    showFavorite={isArchiveAdmin}
-                    codeWidthCh={codeWidthCh}
-                  />
+              <div className="grid gap-8">
+                {sectionGroups.map((group) => (
+                  <div key={group.id} className="min-w-0">
+                    {group.name && <h2 className="mb-3 font-semibold text-logoblue">{group.name}</h2>}
+                    <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
+                      {group.entries.map((folder) => (
+                        <FolderPill
+                          key={folder.id}
+                          folder={folder}
+                          href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
+                          locale={locale}
+                          showDescription={false}
+                          showFavorite={isArchiveAdmin}
+                          codeWidthCh={codeWidthCh}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
