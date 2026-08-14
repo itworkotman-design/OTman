@@ -61,6 +61,9 @@ describe("GET /api/address-search", () => {
               feature_type: "poi",
               full_address: "Strandveien 1, 1366 Lysaker, Norway",
               place_formatted: "Oslo, Norway",
+              context: {
+                address: { address_number: "1", street_name: "Strandveien" },
+              },
             },
             {
               mapbox_id: "address.1",
@@ -68,6 +71,17 @@ describe("GET /api/address-search", () => {
               feature_type: "address",
               full_address: "Karl Johans gate 1, 0154 Oslo, Norway",
               place_formatted: "Oslo, Norway",
+            },
+            {
+              mapbox_id: "poi.2",
+              name: "Martin Linges vei",
+              feature_type: "poi",
+              full_address: "0692 Oslo, Norway",
+              place_formatted: "Norway",
+              context: {
+                postcode: { name: "0692" },
+                place: { name: "Oslo" },
+              },
             },
           ],
         }),
@@ -116,6 +130,7 @@ describe("GET /api/address-search", () => {
           name: "IKEA Furuset",
           subtitle: "Strandveien 1, 1366 Lysaker, Norway",
           featureType: "poi",
+          precise: true,
         },
         {
           id: "address.1",
@@ -123,6 +138,15 @@ describe("GET /api/address-search", () => {
           name: "Karl Johans gate 1",
           subtitle: "Oslo, Norway",
           featureType: "address",
+          precise: true,
+        },
+        {
+          id: "poi.2",
+          label: "0692 Oslo, Norway",
+          name: "Martin Linges vei",
+          subtitle: "0692 Oslo, Norway",
+          featureType: "poi",
+          precise: false,
         },
       ],
     });

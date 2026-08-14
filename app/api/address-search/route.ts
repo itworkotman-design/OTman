@@ -7,7 +7,40 @@ type SearchBoxSuggestion = {
   full_address?: string;
   address?: string;
   place_formatted?: string;
+  context?: {
+    address?: {
+      name?: string;
+      address_number?: string;
+      street_name?: string;
+    };
+    street?: {
+      name?: string;
+    };
+  };
 };
+
+// "address" features are rooftop-accurate by definition. "poi" features
+// (businesses, bus stops, etc.) are only precise when Mapbox also matched a
+// real street/house-number context for them — otherwise they're just a
+// place pinned at postcode/city granularity (e.g. a bus stop resolving to
+// "0692 Oslo, Norway" with no street at all), which is effectively the same
+// problem as a street-only match.
+function isPreciseMatch(suggestion: SearchBoxSuggestion) {
+  if (suggestion.feature_type === "address") {
+    return true;
+  }
+
+  if (suggestion.feature_type === "poi") {
+    return Boolean(
+      suggestion.context?.address?.address_number ||
+        suggestion.context?.address?.street_name ||
+        suggestion.context?.address?.name ||
+        suggestion.context?.street?.name,
+    );
+  }
+
+  return false;
+}
 
 function buildSuggestionSubtitle(suggestion: SearchBoxSuggestion) {
   if (suggestion.feature_type === "poi") {
@@ -87,6 +120,7 @@ export async function GET(req: Request) {
     name: suggestion.name,
     subtitle: buildSuggestionSubtitle(suggestion),
     featureType: suggestion.feature_type,
+    precise: isPreciseMatch(suggestion),
   }));
 
   return NextResponse.json({

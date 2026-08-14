@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type AddressSuggestion = {
   id: string;
@@ -8,15 +10,35 @@ type AddressSuggestion = {
   name: string;
   subtitle: string;
   featureType: string;
+  precise: boolean;
 };
 
 type Props = {
   value: string;
-  onChange: (value: string, wasSelected?: boolean) => void;
+  onChange: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
   placeholder?: string;
   disabled?: boolean;
   inputId?: string;
+  locale?: BookingUiLocale;
+  // When set, addresses are listed before businesses/POIs (Mapbox's own
+  // relevance ranking is kept within each group).
+  prioritizeAddresses?: boolean;
 };
+
+const FEATURE_TYPE_RANK: Record<string, number> = {
+  address: 0,
+  poi: 1,
+};
+
+function sortSuggestions(results: AddressSuggestion[], prioritizeAddresses: boolean) {
+  if (!prioritizeAddresses) {
+    return results;
+  }
+
+  return [...results].sort(
+    (a, b) => (FEATURE_TYPE_RANK[a.featureType] ?? 2) - (FEATURE_TYPE_RANK[b.featureType] ?? 2),
+  );
+}
 
 export default function AddressAutocompleteInput({
   value,
@@ -24,7 +46,10 @@ export default function AddressAutocompleteInput({
   placeholder = "Enter a location",
   disabled = false,
   inputId,
+  locale,
+  prioritizeAddresses = false,
 }: Props) {
+  const t = (text: string) => bookingText(locale, text);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<AddressSuggestion[]>([]);
@@ -57,7 +82,11 @@ export default function AddressAutocompleteInput({
   };
 
   const selectSuggestion = (suggestion: AddressSuggestion) => {
-    onChange(suggestion.label, true);
+    onChange(suggestion.label, true, {
+      featureType: suggestion.featureType,
+      typedQuery: query,
+      precise: suggestion.precise,
+    });
     setQuery(suggestion.label);
     setResults([]);
     setOpen(false);
@@ -104,7 +133,7 @@ export default function AddressAutocompleteInput({
           return;
         }
 
-        setResults(data.results ?? []);
+        setResults(sortSuggestions(data.results ?? [], prioritizeAddresses));
         setOpen(true);
       } catch {
         setResults([]);
@@ -118,7 +147,7 @@ export default function AddressAutocompleteInput({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [query, disabled, hasInteracted]);
+  }, [query, disabled, hasInteracted, prioritizeAddresses]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -165,13 +194,13 @@ export default function AddressAutocompleteInput({
         <div className="absolute z-50 mt-1 w-full rounded-xl border bg-white shadow-lg max-h-72 overflow-auto">
           {loading && (
             <div className="px-3 py-2 text-sm text-textColorSecond">
-              Searching...
+              {t("Searching...")}
             </div>
           )}
 
           {!loading && results.length === 0 && (
             <div className="px-3 py-2 text-sm text-textColorSecond">
-              No addresses found
+              {t("No addresses found")}
             </div>
           )}
 
@@ -194,8 +223,16 @@ export default function AddressAutocompleteInput({
                       </div>
                     ) : null}
                   </div>
-                  <div className="shrink-0 text-xs uppercase tracking-[0.12em] text-textColorSecond">
-                    {item.featureType === "poi" ? "Business" : "Address"}
+                  <div
+                    className={`shrink-0 text-xs uppercase tracking-[0.12em] ${
+                      item.precise ? "text-textColorSecond" : "text-amber-700"
+                    }`}
+                  >
+                    {!item.precise
+                      ? t("Approximate")
+                      : item.featureType === "poi"
+                        ? t("Business")
+                        : t("Address")}
                   </div>
                 </div>
               </button>

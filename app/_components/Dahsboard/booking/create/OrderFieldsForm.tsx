@@ -13,6 +13,7 @@ import {
   bookingText,
   type BookingUiLocale,
 } from "@/lib/booking/bookingUiText";
+import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 
 const LIMITED_CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
@@ -53,6 +54,20 @@ function FieldErrorMessage({ message }: { message: string | null }) {
   }
 
   return <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{message}</div>;
+}
+
+function ImpreciseAddressWarning({ show, locale }: { show: boolean; locale?: BookingUiLocale }) {
+  if (!show) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+      {locale === "nb"
+        ? "Nøyaktig adresse ble ikke funnet på kartet – bare gaten ble matchet. Det du skrev er lagt til i beskrivelsen."
+        : "Exact address wasn't found on the map — only the street matched. What you typed has been added to the description."}
+    </div>
+  );
 }
 
 const DAY_NAMES_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -123,11 +138,13 @@ type Props = {
   customTimeContactNote: string;
   setCustomTimeContactNote: React.Dispatch<React.SetStateAction<string>>;
   deliveryAddress: string;
-  setDeliveryAddress: (value: string, wasSelected?: boolean) => void;
+  setDeliveryAddress: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
+  deliveryAddressImprecise?: boolean;
   drivingDistance: string;
   setDrivingDistance: React.Dispatch<React.SetStateAction<string>>;
   pickupAddress: string;
-  setPickupAddress: (value: string, wasSelected?: boolean) => void;
+  setPickupAddress: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
+  pickupAddressImprecise?: boolean;
   extraPickups: {
     id: string;
     address: string;
@@ -149,7 +166,8 @@ type Props = {
     >
   >;
   returnAddress: string;
-  setReturnAddress: (value: string, wasSelected?: boolean) => void;
+  setReturnAddress: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
+  returnAddressImprecise?: boolean;
   shouldShowReturnAddress: boolean;
 
   customerLabel: string;
@@ -274,14 +292,17 @@ export default function OrderFieldsForm({
   setCustomTimeContactNote,
   deliveryAddress,
   setDeliveryAddress,
+  deliveryAddressImprecise = false,
   drivingDistance,
   setDrivingDistance,
   pickupAddress,
   setPickupAddress,
+  pickupAddressImprecise = false,
   extraPickups,
   setExtraPickups,
   returnAddress,
   setReturnAddress,
+  returnAddressImprecise = false,
   shouldShowReturnAddress,
   customerName,
   setCustomerName,
@@ -626,6 +647,7 @@ export default function OrderFieldsForm({
           overrideValue={shouldLockPickupAddress ? t("No shop pickup address") : undefined}
           mainAddress={pickupAddress}
           mainAddressError={pickupAddressError}
+          mainAddressImprecise={pickupAddressImprecise}
           onMainAddressChange={setPickupAddress}
           pickups={extraPickups}
           onPickupsChange={setExtraPickups}
@@ -645,8 +667,11 @@ export default function OrderFieldsForm({
             value={deliveryAddress}
             onChange={setDeliveryAddress}
             placeholder={t("Enter a location")}
+            locale={locale}
+            prioritizeAddresses
           />
           <FieldErrorMessage message={deliveryAddressError} />
+          <ImpreciseAddressWarning show={deliveryAddressImprecise} locale={locale} />
 
           {shouldShowReturnAddress && (
             <>
@@ -656,8 +681,10 @@ export default function OrderFieldsForm({
                 value={returnAddress}
                 onChange={setReturnAddress}
                 placeholder={t("Enter a return location")}
+                locale={locale}
               />
               <FieldErrorMessage message={returnAddressError} />
+              <ImpreciseAddressWarning show={returnAddressImprecise} locale={locale} />
             </>
           )}
         </>

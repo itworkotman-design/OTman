@@ -35,6 +35,7 @@ import { calculateCurrentTotalsWithFrozenExternalLines } from "@/lib/booking/pri
 import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
 import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
+import { appendImpreciseAddressNote, isStreetOnlyMatch, type AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 import { shouldClearWordpressImportReadOnly } from "@/lib/booking/wordpressReadOnlyCleanup";
 import { parseNokAdjustment } from "@/lib/orders/orderTotals";
 import { deriveDiscountSync } from "@/lib/booking/pricing/discountSync";
@@ -428,6 +429,9 @@ export default function BookingEditor({
   // addresses typed fresh need to be picked from the dropdown before they
   // count toward the route-distance calculation.
   const [deliveryAddressSelected, setDeliveryAddressSelected] = useState(Boolean(initialValues?.deliveryAddress));
+  // True only right after picking a street-level (not exact address) match
+  // from the dropdown this session — drives the "not found on map" warning.
+  const [deliveryAddressImprecise, setDeliveryAddressImprecise] = useState(false);
   const [drivingDistance, setDrivingDistance] = useState(initialValues?.drivingDistance ?? "");
   const [customerName, setCustomerName] = useState(initialValues?.customerName ?? "");
   const [phone, setPhone] = useState(initialValues?.phone ?? "");
@@ -465,6 +469,7 @@ export default function BookingEditor({
   const [customTimeContactNote, setCustomTimeContactNote] = useState(initialValues?.customTimeContactNote ?? "");
   const [pickupAddress, setPickupAddress] = useState(initialValues?.pickupAddress ?? "");
   const [pickupAddressSelected, setPickupAddressSelected] = useState(Boolean(initialValues?.pickupAddress));
+  const [pickupAddressImprecise, setPickupAddressImprecise] = useState(false);
   const [extraPickups, setExtraPickups] = useState<ExtraPickupDraft[]>(
     initialValues?.extraPickups?.length
       ? initialValues.extraPickups.map((pickup, index) => ({
@@ -479,6 +484,7 @@ export default function BookingEditor({
   );
   const [returnAddress, setReturnAddress] = useState(initialValues?.returnAddress ?? "");
   const [returnAddressSelected, setReturnAddressSelected] = useState(Boolean(initialValues?.returnAddress));
+  const [returnAddressImprecise, setReturnAddressImprecise] = useState(false);
   const [customTimeFrom, setCustomTimeFrom] = useState(initialTimeWindowState.customTimeFrom);
 
   const [customTimeTo, setCustomTimeTo] = useState(initialTimeWindowState.customTimeTo);
@@ -834,22 +840,40 @@ export default function BookingEditor({
   // (true only when picked from the autocomplete dropdown) also gates
   // whether the address counts toward the route-distance calculation —
   // free-typed text shouldn't silently produce a km estimate.
-  const handlePickupAddressChange = useCallback((value: string, wasSelected?: boolean) => {
+  const handlePickupAddressChange = useCallback((value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => {
     hasUserEditedPickupAddressRef.current = true;
     setPickupAddress(value);
     setPickupAddressSelected(Boolean(wasSelected));
-  }, []);
 
-  const handleDeliveryAddressChange = useCallback((value: string, wasSelected?: boolean) => {
+    const imprecise = Boolean(wasSelected) && isStreetOnlyMatch(meta);
+    setPickupAddressImprecise(imprecise);
+    if (imprecise && meta) {
+      setDescription((current) => appendImpreciseAddressNote(current, bookingText(locale, "Pickup address"), meta.typedQuery));
+    }
+  }, [locale]);
+
+  const handleDeliveryAddressChange = useCallback((value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => {
     setDeliveryAddress(value);
     setDeliveryAddressSelected(Boolean(wasSelected));
-  }, []);
 
-  const handleReturnAddressChange = useCallback((value: string, wasSelected?: boolean) => {
+    const imprecise = Boolean(wasSelected) && isStreetOnlyMatch(meta);
+    setDeliveryAddressImprecise(imprecise);
+    if (imprecise && meta) {
+      setDescription((current) => appendImpreciseAddressNote(current, bookingText(locale, "Delivery address"), meta.typedQuery));
+    }
+  }, [locale]);
+
+  const handleReturnAddressChange = useCallback((value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => {
     hasUserEditedReturnAddressRef.current = true;
     setReturnAddress(value);
     setReturnAddressSelected(Boolean(wasSelected));
-  }, []);
+
+    const imprecise = Boolean(wasSelected) && isStreetOnlyMatch(meta);
+    setReturnAddressImprecise(imprecise);
+    if (imprecise && meta) {
+      setDescription((current) => appendImpreciseAddressNote(current, bookingText(locale, "Return address"), meta.typedQuery));
+    }
+  }, [locale]);
 
   const clearBothDiscountFields = useCallback(() => {
     setRabatt("");
@@ -2217,10 +2241,12 @@ export default function BookingEditor({
             setExpressDelivery={setExpressDelivery}
             pickupAddress={pickupAddress}
             setPickupAddress={handlePickupAddressChange}
+            pickupAddressImprecise={pickupAddressImprecise}
             extraPickups={extraPickups}
             setExtraPickups={setExtraPickups}
             returnAddress={returnAddress}
             setReturnAddress={handleReturnAddressChange}
+            returnAddressImprecise={returnAddressImprecise}
             customTimeFrom={customTimeFrom}
             setCustomTimeFrom={setCustomTimeFrom}
             customTimeTo={customTimeTo}
@@ -2231,6 +2257,7 @@ export default function BookingEditor({
             setCustomTimeContactNote={setCustomTimeContactNote}
             deliveryAddress={deliveryAddress}
             setDeliveryAddress={handleDeliveryAddressChange}
+            deliveryAddressImprecise={deliveryAddressImprecise}
             shouldShowReturnAddress={shouldShowReturnAddress}
             drivingDistance={drivingDistance}
             setDrivingDistance={setDrivingDistance}

@@ -8,6 +8,7 @@ import {
   type ExtraPickupInput,
 } from "@/lib/orders/extraPickups";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
+import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 
 type Pickup = {
   id: string;
@@ -19,6 +20,7 @@ export function PickupLocations({
   overrideValue,
   mainAddress,
   mainAddressError,
+  mainAddressImprecise = false,
   onMainAddressChange,
   pickups,
   onPickupsChange,
@@ -29,7 +31,8 @@ export function PickupLocations({
   overrideValue?: string;
   mainAddress: string;
   mainAddressError?: string | null;
-  onMainAddressChange: (value: string, wasSelected?: boolean) => void;
+  mainAddressImprecise?: boolean;
+  onMainAddressChange: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
   pickups: Pickup[];
   onPickupsChange: (pickups: Pickup[]) => void;
   locale?: BookingUiLocale;
@@ -62,8 +65,8 @@ export function PickupLocations({
     onPickupsChange(pickups.filter((p) => p.id !== id));
   };
 
-  const handleMainChange = (value: string, wasSelected?: boolean) => {
-    onMainAddressChange(value, wasSelected);
+  const handleMainChange = (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => {
+    onMainAddressChange(value, wasSelected, meta);
 
     if (value.trim().length === 0) {
       onPickupsChange([]);
@@ -80,15 +83,23 @@ export function PickupLocations({
         <AddressAutocompleteInput
           inputId="order-pickup-address"
           value={disabled ? (overrideValue ?? "") : mainAddress}
-          onChange={(value, wasSelected) => {
-            if (!disabled) handleMainChange(value, wasSelected);
+          onChange={(value, wasSelected, meta) => {
+            if (!disabled) handleMainChange(value, wasSelected, meta);
           }}
           disabled={disabled}
           placeholder={t("Enter a location")}
+          locale={locale}
         />
         {mainAddressError ? (
           <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {mainAddressError}
+          </div>
+        ) : null}
+        {!disabled && mainAddressImprecise ? (
+          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {locale === "nb"
+              ? "Nøyaktig adresse ble ikke funnet på kartet – bare gaten ble matchet. Det du skrev er lagt til i beskrivelsen."
+              : "Exact address wasn't found on the map — only the street matched. What you typed has been added to the description."}
           </div>
         ) : null}
       </div>
@@ -136,6 +147,7 @@ export function PickupLocations({
                         updatePickup(pickup.id, { address: value, addressSelected: Boolean(wasSelected) })
                       }
                       placeholder={t("Enter a location")}
+                      locale={locale}
                     />
                   </div>
 

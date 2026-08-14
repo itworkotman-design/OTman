@@ -1,6 +1,11 @@
 export type BookingUiLocale = "en" | "nb";
 
 const NB_TEXT: Record<string, string> = {
+  Address: "Adresse",
+  Approximate: "Omtrentlig",
+  Business: "Bedrift",
+  "Searching...": "Søker...",
+  "No addresses found": "Ingen adresser funnet",
   "Add additional pickup": "Legg til ekstra hentested",
   "Add extra products": "Legg til flere produkter",
   "Additional customer's phone": "Ekstra kundetelefon",
