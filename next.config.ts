@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Lets the dev server serve JS/CSS/HMR to other devices on the LAN (e.g.
+  // testing on a phone at http://<lan-ip>:3000) instead of only localhost.
+  // Dev-only — allowedDevOrigins has no effect in production builds.
+  allowedDevOrigins: ["192.168.3.20"],
   images: {
     remotePatterns: [
       {

@@ -32,13 +32,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <div className="lg:hidden">
         <div className="fixed w-full z-10">
           <div className={`bg-white shadow-md w-full`}>
-            <div
-              className={` ${sidebarOpenPhone ? "h-full pb-10" : "ml-auto w-11"}`}
-            >
+            <div className="w-full">
               <UserNavbar
                 open={sidebarOpenPhone}
                 onOpenChange={setSidebarOpenPhone}
                 width={""}
+                lockBodyScrollWhenOpen
               />
             </div>
           </div>

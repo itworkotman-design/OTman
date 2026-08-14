@@ -19,7 +19,10 @@ function buildCspHeader(nonce: string) {
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    "upgrade-insecure-requests",
+    // Forces every subresource on the page to be fetched over https — breaks
+    // loading the dev server from another device over plain http (e.g. a
+    // phone on the LAN), so it's production-only.
+    ...(isDev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 }
 

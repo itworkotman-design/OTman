@@ -124,7 +124,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
 
   return (
     <div className="w-full">
-      <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-textColorThird">
+      <nav className="mb-4 flex flex-wrap items-center gap-1 text-xs sm:text-sm text-textColorThird">
         <Link href="/dashboard/archive" className="hover:underline">
           {locale === "nb" ? "Arkiv" : "Archive"}
         </Link>
@@ -153,7 +153,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
 
       <div className="mb-8 flex w-full flex-col items-center gap-3 text-center">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold text-logoblue lg:text-4xl">
+          <h1 className="text-xl font-semibold text-logoblue sm:text-2xl lg:text-4xl">
             {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
           </h1>
           {canEdit && (
@@ -196,7 +196,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
         <div className="grid gap-8">
           {sectionGroups.map((group) => (
             <div key={group.id} className="min-w-0 w-full overflow-x-auto">
-              {group.name && <h2 className="mb-3 font-semibold text-logoblue">{group.name}</h2>}
+              {group.name && <h2 className="mb-3 text-sm sm:text-base font-semibold text-logoblue">{group.name}</h2>}
 
               <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
                 {group.folders.map((childFolder) => (

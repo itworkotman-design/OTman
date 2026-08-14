@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import FeatureRequestModal from "@/app/_components/Dahsboard/FeatureRequestModal";
 import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
@@ -16,6 +16,12 @@ type Props = {
   open: boolean;
   width: number | string;
   onOpenChange: (v: boolean) => void;
+  // Set by callers rendering this as the mobile overlay drawer (not the
+  // always-present desktop rail) — freezes background scroll while the
+  // drawer is open, since a `position: fixed` overlay doesn't block touch
+  // scroll from reaching the page underneath on its own, even once the
+  // drawer's own content scrolls internally.
+  lockBodyScrollWhenOpen?: boolean;
 };
 
 // ─── Icon paths ───────────────────────────────────────────────────────────────
@@ -55,7 +61,7 @@ function Icon({ path }: { path: string }) {
 
 // ─── UserNavbar ───────────────────────────────────────────────────────────────
 
-export default function UserNavbar({ open, width, onOpenChange }: Props) {
+export default function UserNavbar({ open, width, onOpenChange, lockBodyScrollWhenOpen }: Props) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
   const access = getBookingArchiveAccess(currentUser);
@@ -63,6 +69,15 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
   const router = useRouter();
 
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!lockBodyScrollWhenOpen || !open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, lockBodyScrollWhenOpen]);
   const usernameStyle = currentUser?.usernameDisplayColor
     ? { color: currentUser.usernameDisplayColor }
     : undefined;
@@ -74,7 +89,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
     href === "/booking" ? pathname === "/booking" : pathname.startsWith(href);
 
   const linkBase =
-    "flex w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-right md:text-left";
+    "flex w-full text-base md:text-sm font-[500] px-2 py-3 md:py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-left";
 
   const linkClass = (href: string) =>
     `${linkBase} ${
@@ -92,9 +107,18 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
   return (
     <div
       style={{ width }}
-      className={`h-full lg:bg-linePrimary ${open ? "w-full" : "w-10"}`}
+      className={`w-full bg-white max-h-dvh overflow-y-auto overscroll-contain lg:h-full lg:max-h-none lg:min-h-0 lg:overflow-visible lg:overscroll-auto lg:bg-linePrimary ${open ? "min-h-dvh" : "lg:w-10"}`}
     >
-      <div className="flex py-4">
+      <div className="relative flex h-[60] items-center px-4 lg:h-auto lg:py-4">
+        {/* Logo — always visible on mobile, centered in the bar, filling its height, so it isn't hidden while the menu is closed */}
+        <Image
+          src="/LogoSVG.svg"
+          alt="Logo"
+          width={96}
+          height={40}
+          className="absolute left-1/2 h-full w-auto -translate-x-1/2 lg:hidden"
+        />
+
         {/* Desktop toggle */}
         <button
           onClick={() => onOpenChange(!open)}
@@ -112,8 +136,8 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
         </button>
       </div>
 
-      <div className={open ? "" : "hidden"}>
-        <div className="flex justify-center">
+      <div className={`${open ? "" : "hidden"} pb-10 lg:pb-0`}>
+        <div className="hidden justify-center lg:flex">
           <Image
             src="/LogoSVG.svg"
             alt="Logo"
@@ -142,24 +166,16 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
             </div>
           </div>
 
-          <Link
-            href="/booking"
-            className={linkClass("/booking") + ` justify-end lg:justify-start`}
-          >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+          <Link href="/booking" className={linkClass("/booking")}>
+            <div className="flex items-center flex-row gap-2 w-full">
               <Icon path={ICONS.booking} />
               {bookingText(locale, "Orders")}
             </div>
           </Link>
 
           {access.canCreate && (
-            <Link
-              href="/booking/create"
-              className={
-                linkClass("/booking/create") + ` justify-end lg:justify-start`
-              }
-            >
-              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+            <Link href="/booking/create" className={linkClass("/booking/create")}>
+              <div className="flex items-center flex-row gap-2 w-full">
                 <Icon path={ICONS.createOrder} />
                 {bookingText(locale, "Create Order")}
               </div>
@@ -167,13 +183,8 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
           )}
 
           {(currentUser?.priceListIds?.length ?? 0) > 0 && (
-            <Link
-              href="/booking/pricelists"
-              className={
-                linkClass("/booking/pricelists") + ` justify-end lg:justify-start`
-              }
-            >
-              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">
+            <Link href="/booking/pricelists" className={linkClass("/booking/pricelists")}>
+              <div className="flex items-center flex-row gap-2 w-full">
                 <Icon path={ICONS.priceList} />
                 {bookingText(locale, "Price Lists")}
               </div>
@@ -182,13 +193,13 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
 
           <LanguageSwitchButton
             currentUser={currentUser}
-            className={`${linkBase} mt-20 cursor-pointer items-center gap-2 text-left justify-end lg:justify-start hover:bg-linePrimary`}
+            className={`${linkBase} mt-20 cursor-pointer items-center gap-2 hover:bg-linePrimary`}
           />
 
           <button
             type="button"
             onClick={() => setRequestModalOpen(true)}
-            className={`${linkBase} mt-2 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
+            className={`${linkBase} mt-2 cursor-pointer hover:bg-linePrimary`}
           >
             {bookingText(locale, "Request new function / bug fix")}
           </button>
@@ -196,7 +207,7 @@ export default function UserNavbar({ open, width, onOpenChange }: Props) {
           <button
             type="button"
             onClick={handleLogout}
-            className={`${linkBase} mt-2 cursor-pointer text-left justify-end lg:justify-start hover:bg-linePrimary`}
+            className={`${linkBase} mt-2 cursor-pointer hover:bg-linePrimary`}
           >
             {bookingText(locale, "log out")}
           </button>

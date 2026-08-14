@@ -142,7 +142,7 @@ export default function ArchivePage() {
     <div className="w-full">
       <section className="mb-2 flex w-full flex-col items-center gap-3">
         <div className="flex items-center gap-2">
-          <h1 className="text-[2.5rem] font-bold text-logoblue">{locale === "nb" ? "Arkiv" : "Archive"}</h1>
+          <h1 className="text-2xl font-bold text-logoblue sm:text-[2.5rem]">{locale === "nb" ? "Arkiv" : "Archive"}</h1>
           {isArchiveAdmin && (
             <ArchiveRootSettingsModal
               folders={folders}
@@ -176,7 +176,7 @@ export default function ArchivePage() {
 
       <section className="mt-4 grid gap-6">
         <div className="min-w-0">
-          <div className="mb-4 flex h-10 grow items-end justify-end font-semibold text-textColorThird">
+          <div className="mb-4 hidden h-10 grow items-end justify-end text-sm font-semibold text-textColorThird sm:flex">
             <div className="w-full max-w-[100] text-center">
               <p>{locale === "nb" ? "Elementer" : "Entries"}</p>
             </div>
@@ -206,7 +206,7 @@ export default function ArchivePage() {
               <div className="grid gap-8">
                 {sectionGroups.map((group) => (
                   <div key={group.id} className="min-w-0">
-                    {group.name && <h2 className="mb-3 font-semibold text-logoblue">{group.name}</h2>}
+                    {group.name && <h2 className="mb-3 text-sm sm:text-base font-semibold text-logoblue">{group.name}</h2>}
                     <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
                       {group.entries.map((folder) => (
                         <FolderPill

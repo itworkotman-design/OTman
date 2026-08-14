@@ -41,29 +41,29 @@ export function ItemPill({ item, href, locale, canEdit, onChanged, codeWidthCh }
     <div className={`group/pill flex w-full items-stretch ${isArchived ? "opacity-50 grayscale" : ""}`}>
       <Link
         href={href}
-        className="flex min-w-0 grow items-center gap-3 px-2 py-3 transition-colors hover:bg-linePrimary"
+        className="flex min-w-0 grow items-center gap-2 sm:gap-3 px-2 py-2 sm:py-3 transition-colors hover:bg-linePrimary"
       >
         <span
-          className={`shrink-0 text-center text-sm font-semibold tabular-nums ${isArchived ? "text-textColorThird" : "text-logoblue"}`}
+          className={`shrink-0 text-center text-xs sm:text-sm font-semibold tabular-nums ${isArchived ? "text-textColorThird" : "text-logoblue"}`}
           style={codeWidthCh ? { minWidth: `${codeWidthCh}ch` } : undefined}
         >
           {item.code}
         </span>
 
-        <span className="min-w-0 shrink-0 wrap-break-word font-medium text-textcolor">{item.name}</span>
+        <span className="min-w-0 shrink-0 wrap-break-word text-sm sm:text-base font-medium text-textcolor">{item.name}</span>
         {isArchived && (
           <span className="shrink-0 rounded-full bg-textColorThird px-2 py-0.5 text-xs font-semibold text-white">
             {locale === "nb" ? "Arkivert" : "Archived"}
           </span>
         )}
         {item.description && (
-          <span className="min-w-0 truncate text-sm text-textColorThird">{item.description}</span>
+          <span className="hidden min-w-0 truncate text-xs sm:inline sm:text-sm text-textColorThird">{item.description}</span>
         )}
-        <span className="ml-auto shrink-0">
+        <span className="ml-auto hidden shrink-0 sm:block">
           <ConditionBadge flags={item} locale={locale} />
         </span>
 
-        <span className="w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
+        <span className="hidden w-full max-w-[100] shrink-0 text-center text-sm sm:block text-textColorThird">
           {formatLastModified(item.updatedAt)}
         </span>
       </Link>

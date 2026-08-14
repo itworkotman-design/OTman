@@ -7,6 +7,10 @@ import { NavbarBooking } from "@/app/_components/Dahsboard/booking/NavbarBooking
 
 const SIDEBAR_OPEN = 300;
 const SIDEBAR_CLOSED = 50;
+// Wider than SIDEBAR_CLOSED: the collapsed mobile bar now shows the Otman
+// logo next to the hamburger (see Sidebar.tsx), which needs more room than
+// the icon-only desktop rail.
+const SIDEBAR_CLOSED_PHONE = 140;
 const TOPBAR_HEIGHT = 60;
 
 // Same Sidebar + NavbarBooking + content shell as dashboard/booking/layout.tsx
@@ -18,7 +22,7 @@ export default function AutomaticOrdersShell({ children }: { children: ReactNode
   const [navOpen, setNavOpen] = useState(false);
 
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
-  const sidebarWPhone = sidebarOpenPhone ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
+  const sidebarWPhone = sidebarOpenPhone ? SIDEBAR_OPEN : SIDEBAR_CLOSED_PHONE;
 
   return (
     <div className="min-h-screen overflow-x-clip bg-white">
@@ -39,7 +43,7 @@ export default function AutomaticOrdersShell({ children }: { children: ReactNode
               className={`bg-white shadow-md ${sidebarOpenPhone ? "h-dvh" : "h-[60]"}`}
               style={{ width: sidebarWPhone }}
             >
-              <Sidebar open={sidebarOpenPhone} onOpenChange={setSidebarOpenPhone} width={sidebarWPhone} />
+              <Sidebar open={sidebarOpenPhone} onOpenChange={setSidebarOpenPhone} width={sidebarWPhone} lockBodyScrollWhenOpen />
             </aside>
           </div>
 

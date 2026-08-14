@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import FeatureRequestModal from "@/app/_components/Dahsboard/FeatureRequestModal";
 import { bookingText } from "@/lib/booking/bookingUiText";
@@ -16,6 +16,12 @@ type Props = {
   open: boolean;
   width: number | string;
   onOpenChange: (v: boolean) => void;
+  // Set by callers rendering this as the mobile overlay drawer (not the
+  // always-present desktop rail) — freezes background scroll while the
+  // drawer is open, since a `position: fixed` overlay doesn't block touch
+  // scroll from reaching the page underneath on its own, even once the
+  // drawer's own content scrolls internally.
+  lockBodyScrollWhenOpen?: boolean;
 };
 
 // ─── Icon component ───────────────────────────────────────────────────────────
@@ -69,13 +75,22 @@ const ICONS = {
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-export default function Sidebar({ open, width, onOpenChange }: Props) {
+export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenOpen }: Props) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
   const pathname = usePathname();
   const router = useRouter();
 
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!lockBodyScrollWhenOpen || !open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, lockBodyScrollWhenOpen]);
   const currentUserLogoPath = currentUser?.logoPath ?? null;
   const currentUserLogoDisplayPath = getUserLogoDisplayPath(currentUserLogoPath);
   const usernameStyle = currentUser?.usernameDisplayColor
@@ -98,7 +113,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
       : pathname.startsWith(href);
 
   const linkBase =
-    "flex w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-right md:text-left";
+    "flex w-full text-base md:text-sm font-[500] px-2 py-3 md:py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-left";
 
   const linkClass = (href: string) =>
     `${linkBase} ${
@@ -114,8 +129,20 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
   }
 
   return (
-    <div style={{ width }} className={`h-full lg:bg-linePrimary ${open ? "w-full" : "w-10"}`}>
-      <div className="flex py-4">
+    <div
+      style={{ width }}
+      className={`w-full bg-white max-h-dvh overflow-y-auto overscroll-contain lg:h-full lg:max-h-none lg:min-h-0 lg:overflow-visible lg:overscroll-auto lg:bg-linePrimary ${open ? "min-h-dvh" : "lg:w-10"}`}
+    >
+      <div className="relative flex h-[60] items-center px-4 lg:h-auto lg:py-4">
+        {/* Logo — always visible on mobile, centered in the bar, filling its height, so it isn't hidden while the menu is closed */}
+        <Image
+          src="/LogoSVG.svg"
+          alt="Logo"
+          width={96}
+          height={40}
+          className="absolute left-1/2 h-full w-auto -translate-x-1/2 lg:hidden"
+        />
+
         {/* Desktop toggle */}
         <button onClick={() => onOpenChange(!open)} className="ml-auto hidden cursor-pointer px-2 hover:text-textcolor lg:block">
           <Icon path={open ? ICONS.sidebarOpen : ICONS.sidebarClose} />
@@ -127,8 +154,8 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
         </button>
       </div>
 
-      <div className={open ? "" : "hidden"}>
-        <div className="flex justify-center">
+      <div className={`${open ? "" : "hidden"} pb-10 lg:pb-0`}>
+        <div className="hidden justify-center lg:flex">
           <Image src="/LogoSVG.svg" alt="Logo" width={116} height={50} className="h-auto w-full max-w-[200]" />
         </div>
 
@@ -144,12 +171,12 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             </div>
           </div>
 
-          <h1 className="text-right lg:text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+          <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
             {bookingText(locale, "General")}
           </h1>
 
           <Link href="/dashboard" className={linkClass("/dashboard")}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+            <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.home} />
               {bookingText(locale, "Home")}
             </div>
@@ -157,7 +184,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
           {showBooking && (
             <Link href="/dashboard/booking" className={linkClass("/dashboard/booking")}>
-              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
                 <Icon path={ICONS.booking} />
                 {bookingText(locale, "Booking system")}
               </div>
@@ -166,7 +193,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
           {showWebsiteOrders && (
             <Link href="/dashboard/website-orders" className={linkClass("/dashboard/website-orders")}>
-              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
                 <Icon path={ICONS.globe} />
                 {locale === "nb" ? "Nettsidebestillinger" : "Website orders"}
               </div>
@@ -175,7 +202,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
           {showUserManagement && (
             <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
-              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
                 <Icon path={ICONS.users} />
                 {bookingText(locale, "User management")}
               </div>
@@ -184,7 +211,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
           {showWebsiteEditor && (
             <Link href="/dashboard/website" className={linkClass("/dashboard/website")}>
-              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
                 <Icon path={ICONS.edit} />
                 {bookingText(locale, "Edit website")}
               </div>
@@ -193,7 +220,7 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
           {showArchive && (
             <Link href="/dashboard/archive" className={linkClass("/dashboard/archive")}>
-              <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
                 <Icon path={ICONS.edit} />
                 {bookingText(locale, "Archive")}
               </div>
@@ -202,10 +229,10 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
 
           <Link
             href="https://beta.cphours.no/"
-            className="flex w-full text-sm font-[500] px-2 py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-right md:text-left bg-transparent hover:bg-linePrimary"
+            className={`${linkBase} bg-transparent hover:bg-linePrimary`}
             target="_blank"
           >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full text-weird-landscape">
+            <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
               <Icon path={ICONS.hours} />
               {bookingText(locale, "Custom Hours")}
             </div>
@@ -221,11 +248,11 @@ export default function Sidebar({ open, width, onOpenChange }: Props) {
             onClick={() => setRequestModalOpen(true)}
             className={`${linkBase} mt-2 cursor-pointer text-left hover:bg-linePrimary text-weird-landscape`}
           >
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">{bookingText(locale, "Request new function / bug fix")}</div>
+            <div className="flex items-center flex-row gap-2 w-full">{bookingText(locale, "Request new function / bug fix")}</div>
           </button>
 
           <button type="button" onClick={handleLogout} className={`${linkBase} mt-2 cursor-pointer text-left hover:bg-linePrimary text-weird-landscape`}>
-            <div className="flex items-center flex-row-reverse lg:flex-row gap-2 w-full">{bookingText(locale, "log out")}</div>
+            <div className="flex items-center flex-row gap-2 w-full">{bookingText(locale, "log out")}</div>
           </button>
         </div>
       </div>

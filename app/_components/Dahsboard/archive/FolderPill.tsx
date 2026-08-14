@@ -83,7 +83,7 @@ export function FolderPill({
     <div className={`group/pill flex w-full items-stretch ${isArchived ? "opacity-50 grayscale" : ""}`}>
       <Link href={href} className="flex min-w-0 grow items-stretch transition-colors hover:bg-linePrimary">
         <span
-          className={`flex shrink-0 items-center justify-center px-2 text-sm font-semibold tabular-nums text-white ${
+          className={`flex shrink-0 items-center justify-center px-1.5 sm:px-2 text-xs sm:text-sm font-semibold tabular-nums text-white ${
             isArchived ? "bg-textColorThird" : "bg-logoblue"
           }`}
           style={codeWidthCh ? { minWidth: `${codeWidthCh}ch` } : undefined}
@@ -91,9 +91,9 @@ export function FolderPill({
           {folder.code}
         </span>
 
-        <div className="flex min-w-0 grow items-center gap-3 px-2 py-3">
+        <div className="flex min-w-0 grow items-center gap-2 sm:gap-3 px-2 py-2 sm:py-3">
           <span
-            className={`min-w-0 shrink-0 wrap-break-word font-medium ${isArchived ? "text-textColorThird" : "text-logoblue"}`}
+            className={`min-w-0 shrink-0 wrap-break-word text-sm sm:text-base font-medium ${isArchived ? "text-textColorThird" : "text-logoblue"}`}
           >
             {folder.name}
           </span>
@@ -103,26 +103,26 @@ export function FolderPill({
             </span>
           )}
           {showDescription && folder.description && (
-            <span className="min-w-0 truncate text-sm text-textColorThird">{folder.description}</span>
+            <span className="hidden min-w-0 truncate text-xs sm:inline sm:text-sm text-textColorThird">{folder.description}</span>
           )}
 
-          <span className="ml-auto shrink-0">
+          <span className="ml-auto hidden shrink-0 sm:block">
             <ConditionBadge flags={folder} locale={locale} />
           </span>
 
           {showStats && (
             <>
-              <span className="w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
+              <span className="hidden w-full max-w-[100] shrink-0 text-center text-sm sm:block text-textColorThird">
                 {folder.entryCount}
               </span>
 
-              <span className="w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
+              <span className="hidden w-full max-w-[100] shrink-0 text-center text-sm sm:block text-textColorThird">
                 {folder.viewerCount}
               </span>
             </>
           )}
 
-          <span className="w-full max-w-[100] shrink-0 text-center text-sm text-textColorThird">
+          <span className="hidden w-full max-w-[100] shrink-0 text-center text-sm sm:block text-textColorThird">
             {formatLastModified(folder.updatedAt)}
           </span>
         </div>

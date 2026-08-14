@@ -31,8 +31,8 @@ export default function ArchiveLayout({ children }: { children: ReactNode }) {
       <div className="lg:hidden">
         <div className="fixed w-full z-10">
           <div className={`bg-white shadow-md w-full`}>
-            <div className={` ${sidebarOpenPhone ? "h-full pb-10" : "ml-auto w-11"}`}>
-              <Sidebar open={sidebarOpenPhone} onOpenChange={setSidebarOpenPhone} width={""} />
+            <div className="w-full">
+              <Sidebar open={sidebarOpenPhone} onOpenChange={setSidebarOpenPhone} width={""} lockBodyScrollWhenOpen />
             </div>
           </div>
         </div>

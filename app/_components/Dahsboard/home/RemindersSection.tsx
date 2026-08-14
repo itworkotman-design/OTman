@@ -11,6 +11,9 @@ import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
 
 const SNOOZE_DAYS = 7;
 const MAX_ROWS = 10;
+// Matches the row's own transition-duration-300 below — how long the
+// collapse/fade takes before the row is actually dropped from state.
+const ROW_LEAVE_MS = 300;
 
 // "legacy" rows are driven by the entity's single dueAt/expiresAt (search API
 // isOverdue/isDueSoon/isExpired/isExpiringSoon) and PATCH
@@ -119,6 +122,7 @@ export function RemindersSection() {
   const [loading, setLoading] = useState(true);
   const [actingKey, setActingKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
+  const [leavingKeys, setLeavingKeys] = useState<Set<string>>(new Set());
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -352,13 +356,33 @@ export function RemindersSection() {
         if (action === "accept") {
           await patchDate(row, field, null);
         } else {
-          const fromDate = row.date ? getOsloDateKey(new Date(row.date)) : getOsloDateKey();
-          const snoozedDate = addDaysIso(fromDate, SNOOZE_DAYS);
+          // Always snooze from today, not from the row's (possibly long-past)
+          // current date — matches the occurrence path's
+          // addDaysIso(getOsloDateKey(), SNOOZE_DAYS) below. Basing this on
+          // row.date instead used to mean anything overdue/expired by more
+          // than SNOOZE_DAYS got a new date that was still in the past, so it
+          // stayed flagged overdue/expired and reappeared immediately.
+          const snoozedDate = addDaysIso(getOsloDateKey(), SNOOZE_DAYS);
           await patchDate(row, field, `${snoozedDate}T00:00:00.000Z`);
         }
       }
 
-      await loadNotifications();
+      // The mutation succeeded, and by construction its new state can no
+      // longer match any of the "needs attention" filters that put this row
+      // here — so collapse it out locally instead of re-fetching all nine
+      // endpoints via loadNotifications(). A full reload here would replace
+      // the whole list at once (re-sorted, re-rendered), which reads as an
+      // abrupt flash/jump instead of the row the user just acted on smoothly
+      // disappearing.
+      setLeavingKeys((prev) => new Set(prev).add(row.key));
+      window.setTimeout(() => {
+        setRows((prev) => prev.filter((r) => r.key !== row.key));
+        setLeavingKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(row.key);
+          return next;
+        });
+      }, ROW_LEAVE_MS);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Failed to update");
     } finally {
@@ -386,12 +410,18 @@ export function RemindersSection() {
         ) : rows.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">Nothing to show.</div>
         ) : (
-          <div className="grid gap-3">
+          <div className="grid max-h-120 gap-3 overflow-y-auto pr-1">
             {rows.map((row) => {
               const dueSoon = isDueWithinOneDay(row.date);
+              const leaving = leavingKeys.has(row.key);
 
               return (
-              <div key={row.key} className={`flex flex-col gap-3 rounded-2xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${dueSoon ? "border-red-400" : "border-slate-200"}`}>
+              <div
+                key={row.key}
+                className={`grid transition-all duration-300 ease-in-out ${leaving ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"}`}
+              >
+              <div className="overflow-hidden">
+              <div className={`flex flex-col gap-3 rounded-2xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${dueSoon ? "border-red-400" : "border-slate-200"}`}>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs font-semibold text-logoblue">{row.code}</span>
@@ -436,6 +466,8 @@ export function RemindersSection() {
                     <SnoozeIcon />
                   </button>
                 </div>
+              </div>
+              </div>
               </div>
               );
             })}

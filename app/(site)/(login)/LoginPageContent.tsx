@@ -138,7 +138,7 @@ export default function LoginPageContent() {
                 autoComplete="username"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="h-10 w-full rounded-lg border border-logoblue/30 px-3 text-sm outline-none focus:border-logoblue/60"
+                className="h-10 w-full rounded-lg border border-logoblue/30 px-3 text-base outline-none focus:border-logoblue/60 sm:text-sm"
               />
             </div>
 
@@ -157,7 +157,7 @@ export default function LoginPageContent() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-10 w-full rounded-lg border border-logoblue/30 px-3 text-sm outline-none focus:border-logoblue/60"
+                className="h-10 w-full rounded-lg border border-logoblue/30 px-3 text-base outline-none focus:border-logoblue/60 sm:text-sm"
               />
             </div>
 
