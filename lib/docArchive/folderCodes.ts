@@ -20,7 +20,7 @@ import { getAncestorChains } from "@/lib/docArchive/folderStats";
 // needs the same "root vs. a real folder id" scoping for ArchiveSection.
 export const ROOT_SCOPE = "root";
 
-async function nextLocalSeq(
+export async function nextLocalSeq(
   scope: ArchiveSequenceScope,
   companyId: string,
   tenantId: string,
@@ -52,6 +52,33 @@ export async function assignFolderCode(
   return localSeq;
 }
 
+// Called after a folder's real parent changes (see lib/docArchive/moveFolder.ts)
+// — same reasoning as reassignItemCode below: ArchiveFolderCode has no
+// parentFolderId column of its own (getFolderCodes rebuilds the full dotted
+// path at read time from the folder's *current* live parentFolderId chain
+// plus this row's localSeq), so only this folder's own localSeq needs a
+// fresh value scoped to its new sibling group to avoid colliding with
+// whatever the destination already numbered at that position — every
+// descendant folder/item keeps its own already-assigned localSeq untouched
+// and just inherits a different (correct) path automatically, since their
+// paths are also rebuilt from the live parent chain on every read.
+// newSectionId is the destination folder's section the mover explicitly
+// picked (validated by the caller via sectionBelongsToScope before this
+// runs) — no longer defaulted to null/ungrouped, per explicit user request
+// that a move always requires choosing a section in the destination, same
+// as creating a folder/item there would.
+export async function reassignFolderCode(
+  companyId: string,
+  tenantId: string,
+  folderId: string,
+  newParentFolderId: string,
+  newSectionId: string,
+): Promise<number> {
+  const localSeq = await nextLocalSeq("FOLDER", companyId, tenantId, newParentFolderId);
+  await prisma.archiveFolderCode.update({ where: { folderId }, data: { localSeq, sectionId: newSectionId } });
+  return localSeq;
+}
+
 export async function assignItemCode(
   companyId: string,
   tenantId: string,
@@ -61,6 +88,33 @@ export async function assignItemCode(
 ): Promise<number> {
   const localSeq = await nextLocalSeq("ITEM", companyId, tenantId, folderId);
   await prisma.archiveItemCode.create({ data: { companyId, tenantId, itemId, localSeq, sectionId } });
+  return localSeq;
+}
+
+// Called after an item's real containing folder changes (see
+// lib/docArchive/moveItem.ts) — an item's ArchiveItemCode row is keyed only
+// by itemId (no folderId column of its own; getItemCodes rebuilds the full
+// dotted path at read time from the item's *current* live folderId plus this
+// localSeq, see getItemCodes below), so moving folders alone would already
+// produce a correct-looking path. But localSeq was minted from the OLD
+// folder's independent per-folder counter — reusing it verbatim risks
+// colliding with an item already holding that same number in the
+// destination folder (each folder counts its own items 1, 2, 3... from
+// zero). Minting a fresh one here, scoped to the destination folder, avoids
+// that collision. newSectionId is the destination folder's section the
+// mover explicitly picked (validated by the caller via sectionBelongsToScope
+// before this runs) — no longer defaulted to null/ungrouped, per explicit
+// user request that a move always requires choosing a section, same as
+// creating an item there directly would.
+export async function reassignItemCode(
+  companyId: string,
+  tenantId: string,
+  itemId: string,
+  newFolderId: string,
+  newSectionId: string,
+): Promise<number> {
+  const localSeq = await nextLocalSeq("ITEM", companyId, tenantId, newFolderId);
+  await prisma.archiveItemCode.update({ where: { itemId }, data: { localSeq, sectionId: newSectionId } });
   return localSeq;
 }
 

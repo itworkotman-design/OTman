@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, type MouseEvent } from "react";
+import { MoveEntityModal } from "@/app/_components/Dahsboard/archive/MoveEntityModal";
 
 type PillHoverActionsProps = {
   kind: "folder" | "item";
@@ -95,6 +96,16 @@ function CheckIcon() {
   );
 }
 
+function MoveIcon() {
+  return (
+    <IconSvg>
+      <path d="M5 9V5a2 2 0 0 1 2-2h4l2 2h4a2 2 0 0 1 2 2v2" />
+      <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M12 12v5m0-5 2.5 2.5M12 12l-2.5 2.5" />
+    </IconSvg>
+  );
+}
+
 // Always-visible affordance pinned to the far right — filled rather than
 // stroked so it reads as distinct from the hover-only action icons next to
 // it. Links straight to the folder/item's settings page.
@@ -132,6 +143,7 @@ export function PillHoverActions({
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
 
   const basePath = kind === "folder" ? `/api/archive/folders/${id}` : `/api/archive/items/${id}`;
 
@@ -244,6 +256,20 @@ export function PillHoverActions({
         <button
           type="button"
           className={ICON_BUTTON_CLASS}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setMoveModalOpen(true);
+          }}
+          title={locale === "nb" ? "Flytt til mappe" : "Move to folder"}
+          aria-label={locale === "nb" ? "Flytt til mappe" : "Move to folder"}
+        >
+          <MoveIcon />
+        </button>
+
+        <button
+          type="button"
+          className={ICON_BUTTON_CLASS}
           onClick={(e) => void handleDelete(e)}
           disabled={deleting}
           title={locale === "nb" ? "Slett" : "Delete"}
@@ -272,6 +298,17 @@ export function PillHoverActions({
       >
         <DotsIcon />
       </Link>
+
+      {moveModalOpen && (
+        <MoveEntityModal
+          kind={kind}
+          entityId={id}
+          entityName={name}
+          locale={locale}
+          onClose={() => setMoveModalOpen(false)}
+          onMoved={onChanged}
+        />
+      )}
     </div>
   );
 }

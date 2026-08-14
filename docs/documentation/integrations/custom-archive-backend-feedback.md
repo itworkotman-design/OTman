@@ -51,3 +51,32 @@ one of the 10 `ARCHIVE_PERMISSION_ACTIONS` the permission model defines
 host-adapter methods ever check for `edit` — it's a capability a host can
 grant via `setPermissionRule`, but nothing in the package currently exercises
 it.
+
+---
+
+## 3. No way to move a folder or item to a different parent folder
+
+Same shape as #2: `move` is one of the 10 `ARCHIVE_PERMISSION_ACTIONS`, and
+`createFolder` even grants it to a folder's creator automatically, but no
+method anywhere in the 47-method surface changes a folder's or item's
+`folderId` after creation. There's no `moveFolder`/`moveItem`, and none of
+the existing mutation methods (`setFolderStatus`/`setItemStatus`,
+`setFolderDates`/`setItemDates`) touch parentage either.
+
+Worked around host-side for both items and folders — see
+`lib/docArchive/moveItem.ts`/`lib/docArchive/moveFolder.ts` in this repo —
+by writing directly to `archive.archive_items.folderId` /
+`archive.archive_folders.parentFolderId` via raw SQL `UPDATE`s, since there
+is no package method to call instead. This is the first place this
+integration writes to the package's own tables directly rather than only
+reading from them; it works because permission resolution, display-code
+paths, and folder/item stats are all recomputed live from these columns on
+every read (nothing caches or denormalizes them elsewhere), so a direct
+update is immediately consistent everywhere. The folder case additionally
+has to guard against a cycle (moving a folder into its own descendant) since
+the package itself enforces no such invariant either — done host-side with a
+recursive-descendants check before the write. Still, a real
+`moveItem`/`moveFolder` method on the package would be the correct fix — a
+host shouldn't need to reach around the adapter into its own schema for a
+core operation like this, including reimplementing cycle protection the
+package's own tree should arguably guarantee itself.
