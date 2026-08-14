@@ -5,12 +5,16 @@ import { useReducer } from "react";
 
 type PanelItem = {
   id: string;
-  title: string;
+  title: ReactNode;
   // Shown under the title inside the header row itself (e.g. a section's
   // own description), distinct from `subtitle` which renders on the right
   // alongside the expand/collapse chevron.
   description?: string;
   subtitle?: string;
+  // Rendered outside the expand/collapse toggle button, at the far right of
+  // the header row — for row-level actions (rename, delete) that must stay
+  // reachable whether or not the row is expanded.
+  headerActions?: ReactNode;
   content?: ReactNode;
 };
 
@@ -58,21 +62,31 @@ export function ExpandablePanelList({ items, emptyMessage, onToggle, variant = "
 
         return (
           <div key={item.id} className="overflow-hidden rounded-xl border border-logoblue">
-            <button
-              type="button"
-              onClick={() => {
-                dispatch({ type: "toggle", id: item.id });
-                onToggle?.(item.id, !expanded);
-              }}
-              className={`flex w-full cursor-pointer items-center justify-between border-none px-6 py-4 text-left ${classes.row}`}
-              aria-expanded={expanded}
-            >
-              <span className="flex flex-col items-start gap-0.5 text-left">
-                <span className={`text-[18px] font-bold ${classes.title}`}>{item.title}</span>
-                {item.description && <span className={`text-[13px] font-normal ${classes.description}`}>{item.description}</span>}
-              </span>
-              <span className={`flex items-center gap-1 text-[13px] font-semibold ${classes.subtitle}`}>{item.subtitle}</span>
-            </button>
+            <div className={`flex w-full items-center gap-3 px-6 py-4 ${classes.row}`}>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  dispatch({ type: "toggle", id: item.id });
+                  onToggle?.(item.id, !expanded);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  dispatch({ type: "toggle", id: item.id });
+                  onToggle?.(item.id, !expanded);
+                }}
+                className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-3 text-left"
+                aria-expanded={expanded}
+              >
+                <span className="flex min-w-0 flex-col items-start gap-0.5 text-left">
+                  <span className={`text-[18px] font-bold ${classes.title}`}>{item.title}</span>
+                  {item.description && <span className={`text-[13px] font-normal ${classes.description}`}>{item.description}</span>}
+                </span>
+                <span className={`shrink-0 flex items-center gap-1 text-[13px] font-semibold ${classes.subtitle}`}>{item.subtitle}</span>
+              </div>
+              {item.headerActions && <div className="flex shrink-0 items-center gap-1.5">{item.headerActions}</div>}
+            </div>
             <div className={`grid bg-white transition-all duration-200 ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
               <div className="overflow-hidden">
                 <div className="border-t border-lineSecondary px-6 py-5 text-textColorSecond">{item.content}</div>

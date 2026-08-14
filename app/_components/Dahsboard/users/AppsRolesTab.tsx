@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import type { AppModule, Membership } from "@/lib/users/types";
-import { ALL_MODULES, MODULE_LABELS } from "@/lib/users/appAccessDefaults";
+import { ALL_MODULES, MODULE_COLORS, MODULE_LABELS } from "@/lib/users/appAccessDefaults";
 import { hasFullAccess } from "@/lib/users/access";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { ArchiveRolesPanel } from "@/app/_components/Dahsboard/users/ArchiveRolesPanel";
+
+function countEnabledUsers(module: AppModule, memberships: Membership[]): number {
+  return memberships.filter((m) => m.appAccess?.some((a) => a.module === module && a.enabled)).length;
+}
 
 // Every module's access is really just this pair of levels — Admin and
 // Viewer aren't something anyone creates or deletes, they're the two fixed
@@ -69,18 +73,18 @@ function BuiltInRolesCard({ module, memberships }: { module: AppModule; membersh
 
   return (
     <div className="customContainer mb-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[19px] font-bold text-textcolor">
           {MODULE_LABELS[module]} {locale === "nb" ? "roller" : "roles"}
         </h2>
-        <span className="text-[12.5px] text-textColorThird">
+        <span className="shrink-0 rounded-full bg-black/5 px-3 py-1 text-[11.5px] font-bold text-textColorThird">
           {locale === "nb" ? "Standard — kan ikke fjernes eller endres" : "Built in — can't be renamed or removed"}
         </span>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-2.5">
         {rows.map((row) => (
-          <div key={row.id} className="flex items-center gap-4 rounded-2xl border border-black/8 px-4 py-3">
+          <div key={row.id} className="flex items-center gap-4 rounded-2xl border border-lineSecondary px-4 py-3">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: row.color }} />
             <span className="min-w-35 text-sm font-bold text-textcolor">{row.name}</span>
             <span className="text-[12.5px] text-textColorThird">
@@ -122,25 +126,61 @@ function GenericAppPanel({ module }: { module: AppModule }) {
 }
 
 export function AppsRolesTab({ memberships }: { memberships: Membership[] }) {
+  const currentUser = useCurrentUser();
+  const { locale } = useUserLanguage(currentUser);
   const [selectedModule, setSelectedModule] = useState<AppModule>("ARCHIVE");
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap gap-2">
-        {ALL_MODULES.map((module) => (
-          <button
-            key={module}
-            type="button"
-            onClick={() => setSelectedModule(module)}
-            className={`rounded-full border px-4 py-2 text-[13px] font-bold transition-colors ${
-              selectedModule === module
-                ? "border-logoblue bg-logoblue text-white"
-                : "border-logoblue/30 bg-white text-logoblue hover:bg-logoblue/4"
-            }`}
-          >
-            {MODULE_LABELS[module]}
-          </button>
-        ))}
+      <div className="mb-3 flex items-baseline gap-2.5">
+        <h2 className="text-[15px] font-bold text-textcolor">{locale === "nb" ? "Velg en app" : "Choose an app"}</h2>
+        <span className="text-[12.5px] text-textColorThird">
+          {locale === "nb" ? "Roller under gjelder kun den valgte appen" : "Roles below apply only to the app you pick"}
+        </span>
+      </div>
+
+      <div className="mb-6 grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-2.5">
+        {ALL_MODULES.map((module) => {
+          const selected = selectedModule === module;
+          const color = MODULE_COLORS[module];
+          const userCount = countEnabledUsers(module, memberships);
+
+          return (
+            <button
+              key={module}
+              type="button"
+              onClick={() => setSelectedModule(module)}
+              aria-pressed={selected}
+              className={`relative flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all ${
+                selected
+                  ? "border-logoblue bg-white shadow-[0_4px_14px_rgba(39,48,151,.14)]"
+                  : "border-lineSecondary bg-[#fbfbfc] hover:border-black/20"
+              }`}
+            >
+              <span
+                className="grid h-9.5 w-9.5 shrink-0 place-items-center rounded-[11px] text-sm font-extrabold text-white"
+                style={{ backgroundColor: color, opacity: selected ? 1 : 0.55 }}
+              >
+                {MODULE_LABELS[module].charAt(0)}
+              </span>
+
+              <span className="min-w-0">
+                <span className={`block truncate text-[13.5px] font-bold ${selected ? "text-textcolor" : "text-textColorSecond"}`}>
+                  {MODULE_LABELS[module]}
+                </span>
+                <span className="block text-[11.5px] text-textColorThird">
+                  {userCount} {locale === "nb" ? "brukere" : userCount === 1 ? "user" : "users"}
+                </span>
+              </span>
+
+              {selected && (
+                <span className="absolute right-2.5 top-2.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-logoblue text-[9px] text-white">
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <BuiltInRolesCard module={selectedModule} memberships={memberships} />
