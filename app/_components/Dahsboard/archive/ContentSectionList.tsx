@@ -25,6 +25,7 @@ import {
 import type { TextFieldsPanelHandle } from "@/app/_components/Dahsboard/archive/TextFieldsPanel";
 import type { SpreadsheetPanelHandle } from "@/app/_components/Dahsboard/archive/SpreadsheetPanel";
 import type { TitlePanelHandle } from "@/app/_components/Dahsboard/archive/TitlePanel";
+import type { YoutubeEmbedPanelHandle } from "@/app/_components/Dahsboard/archive/YoutubeEmbedPanel";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 
 type ArchiveRecoverableFileRow = {
@@ -163,6 +164,9 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
   const titleHandles = useRef(new Map<string, TitlePanelHandle>());
   const [titleDirty, setTitleDirty] = useState<Record<string, boolean>>({});
 
+  const youtubeEmbedHandles = useRef(new Map<string, YoutubeEmbedPanelHandle>());
+  const [youtubeEmbedDirty, setYoutubeEmbedDirty] = useState<Record<string, boolean>>({});
+
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadModalItems, setUploadModalItems] = useState<ContentSaveUploadItem[]>([]);
   const [uploadModalFinished, setUploadModalFinished] = useState(false);
@@ -214,9 +218,11 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
       textFieldsHandles.current.clear();
       spreadsheetHandles.current.clear();
       titleHandles.current.clear();
+      youtubeEmbedHandles.current.clear();
       setTextFieldsDirty({});
       setSpreadsheetDirty({});
       setTitleDirty({});
+      setYoutubeEmbedDirty({});
       setPendingSectionDeletes(new Set());
       setPendingFileDeletes(new Set());
       setPendingDescriptions({});
@@ -269,6 +275,7 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
   const anyTextFieldsDirty = Object.values(textFieldsDirty).some(Boolean);
   const anySpreadsheetDirty = Object.values(spreadsheetDirty).some(Boolean);
   const anyTitleDirty = Object.values(titleDirty).some(Boolean);
+  const anyYoutubeEmbedDirty = Object.values(youtubeEmbedDirty).some(Boolean);
   const descriptionsDirty = Object.keys(pendingDescriptions).length > 0;
   const dirty =
     orderDirty ||
@@ -277,7 +284,8 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
     descriptionsDirty ||
     anyTextFieldsDirty ||
     anySpreadsheetDirty ||
-    anyTitleDirty;
+    anyTitleDirty ||
+    anyYoutubeEmbedDirty;
 
   function registerTextFieldsHandle(sectionKey: string, handle: TextFieldsPanelHandle | null) {
     if (handle) textFieldsHandles.current.set(sectionKey, handle);
@@ -304,6 +312,15 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
 
   function handleTitleDirtyChange(sectionKey: string, sectionDirty: boolean) {
     setTitleDirty((prev) => (prev[sectionKey] === sectionDirty ? prev : { ...prev, [sectionKey]: sectionDirty }));
+  }
+
+  function registerYoutubeEmbedHandle(sectionKey: string, handle: YoutubeEmbedPanelHandle | null) {
+    if (handle) youtubeEmbedHandles.current.set(sectionKey, handle);
+    else youtubeEmbedHandles.current.delete(sectionKey);
+  }
+
+  function handleYoutubeEmbedDirtyChange(sectionKey: string, sectionDirty: boolean) {
+    setYoutubeEmbedDirty((prev) => (prev[sectionKey] === sectionDirty ? prev : { ...prev, [sectionKey]: sectionDirty }));
   }
 
   function handleMove(key: string, direction: "up" | "down") {
@@ -342,6 +359,7 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
     textFieldsHandles.current.delete(key);
     spreadsheetHandles.current.delete(key);
     titleHandles.current.delete(key);
+    youtubeEmbedHandles.current.delete(key);
     setTextFieldsDirty((prev) => {
       const { [key]: _removed, ...rest } = prev;
       return rest;
@@ -351,6 +369,10 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
       return rest;
     });
     setTitleDirty((prev) => {
+      const { [key]: _removed, ...rest } = prev;
+      return rest;
+    });
+    setYoutubeEmbedDirty((prev) => {
       const { [key]: _removed, ...rest } = prev;
       return rest;
     });
@@ -655,6 +677,10 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
         const realId = keyToRealId.get(key);
         if (realId) await handle.flushPendingChanges(realId);
       }
+      for (const [key, handle] of youtubeEmbedHandles.current) {
+        const realId = keyToRealId.get(key);
+        if (realId) await handle.flushPendingChanges(realId);
+      }
 
       // 2b. Flush staged file-description edits. Skips anything also queued
       // for deletion just below — no point saving a description on a file
@@ -839,6 +865,8 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
                 onSpreadsheetDirtyChange={handleSpreadsheetDirtyChange}
                 titleHandleRef={registerTitleHandle}
                 onTitleDirtyChange={handleTitleDirtyChange}
+                youtubeEmbedHandleRef={registerYoutubeEmbedHandle}
+                onYoutubeEmbedDirtyChange={handleYoutubeEmbedDirtyChange}
               />
             ))}
           </div>

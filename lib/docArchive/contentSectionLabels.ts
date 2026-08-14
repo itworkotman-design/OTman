@@ -16,5 +16,7 @@ export function getContentSectionLabel(
       return { name: nb ? "Tekstfelt" : "Text fields", description: nb ? "Navngitte tekstfelt" : "Named text fields" };
     case "SPREADSHEET":
       return { name: nb ? "Regneark" : "Spreadsheet", description: nb ? "Et redigerbart regneark" : "An editable spreadsheet" };
+    case "YOUTUBE":
+      return { name: nb ? "YouTube-video" : "YouTube video", description: nb ? "En innebygd YouTube-video" : "An embedded YouTube video" };
   }
 }

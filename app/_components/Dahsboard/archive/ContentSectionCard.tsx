@@ -9,6 +9,7 @@ import { ImagePreviewGrid } from "@/app/_components/Dahsboard/archive/ImagePrevi
 import { TextFieldsPanel, type TextFieldsPanelHandle } from "@/app/_components/Dahsboard/archive/TextFieldsPanel";
 import { SpreadsheetPanel, type SpreadsheetPanelHandle } from "@/app/_components/Dahsboard/archive/SpreadsheetPanel";
 import { TitlePanel, type TitlePanelHandle } from "@/app/_components/Dahsboard/archive/TitlePanel";
+import { YoutubeEmbedPanel, type YoutubeEmbedPanelHandle } from "@/app/_components/Dahsboard/archive/YoutubeEmbedPanel";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 
 // `key` is what dnd-kit/React reconciliation use — stable for a section's
@@ -74,6 +75,8 @@ type Props = {
   onSpreadsheetDirtyChange?: (sectionKey: string, dirty: boolean) => void;
   titleHandleRef?: (sectionKey: string, handle: TitlePanelHandle | null) => void;
   onTitleDirtyChange?: (sectionKey: string, dirty: boolean) => void;
+  youtubeEmbedHandleRef?: (sectionKey: string, handle: YoutubeEmbedPanelHandle | null) => void;
+  onYoutubeEmbedDirtyChange?: (sectionKey: string, dirty: boolean) => void;
 };
 
 export function ContentSectionCard({
@@ -96,6 +99,8 @@ export function ContentSectionCard({
   onSpreadsheetDirtyChange,
   titleHandleRef,
   onTitleDirtyChange,
+  youtubeEmbedHandleRef,
+  onYoutubeEmbedDirtyChange,
 }: Props) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const label = getContentSectionLabel(section.type, locale);
@@ -197,6 +202,13 @@ export function ContentSectionCard({
             sectionId={section.id}
             locale={locale}
             onDirtyChange={(dirty) => onSpreadsheetDirtyChange?.(section.key, dirty)}
+          />
+        ) : section.type === "YOUTUBE" ? (
+          <YoutubeEmbedPanel
+            ref={(handle) => youtubeEmbedHandleRef?.(section.key, handle)}
+            sectionId={section.id}
+            locale={locale}
+            onDirtyChange={(dirty) => onYoutubeEmbedDirtyChange?.(section.key, dirty)}
           />
         ) : section.type === "IMAGES" ? (
           <div>

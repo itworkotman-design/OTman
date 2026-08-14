@@ -1161,6 +1161,7 @@ enum ArchiveContentSectionType {
   TEXT_FIELDS
   SPREADSHEET
   TITLE
+  YOUTUBE
 }
 
 // An item's "Content" area (Images/Files/Text fields) is broken into
@@ -1195,10 +1196,11 @@ model ArchiveItemContentSection {
   deletedAt   DateTime?
   createdAt   DateTime                  @default(now())
   updatedAt   DateTime                  @updatedAt
-  textFields  ArchiveItemTextField[]
-  fileLinks   ArchiveItemFileSection[]
-  spreadsheet ArchiveItemSpreadsheet?
-  title       ArchiveItemTitle?
+  textFields   ArchiveItemTextField[]
+  fileLinks    ArchiveItemFileSection[]
+  spreadsheet  ArchiveItemSpreadsheet?
+  title        ArchiveItemTitle?
+  youtubeEmbed ArchiveItemYoutubeEmbed?
 
   @@unique([itemId, position])
   @@index([companyId, tenantId, itemId])
@@ -1312,6 +1314,37 @@ model ArchiveItemTitle {
   sectionId String                    @unique
   section   ArchiveItemContentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   text      String
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+
+  @@index([companyId, tenantId, itemId])
+}
+
+// Host-side "YouTube embed" item content, same reasoning as
+// ArchiveItemTitle: the package has no structured-content storage (see
+// docs/documentation/integrations/archive-ui-known-gaps.md). Stores the raw
+// URL the user pasted (any accepted YouTube URL shape — watch/youtu.be/
+// embed/shorts), not a pre-parsed video id, so the settings panel's input
+// round-trips exactly what was typed; the video id is re-derived from `url`
+// via extractYoutubeVideoId at render time on both the settings preview and
+// the read-only view, same "store raw, sanitize/derive at render" shape as
+// ArchiveItemTitle's HTML. One row per YouTube section instance (sectionId
+// unique), cascade-deleted with its section, provisioned lazily on first
+// read like ArchiveItemTitle/ArchiveItemSpreadsheet.
+model ArchiveItemYoutubeEmbed {
+  id        String                    @id @default(cuid())
+  companyId String
+  tenantId  String
+  itemId    String
+  sectionId String                    @unique
+  section   ArchiveItemContentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  url       String
+  // Optional short plain-text caption rendered directly above the embed —
+  // deliberately not rich text (unlike ArchiveItemTitle): this is meant as
+  // a quick "what is this video" label for the one video in this section,
+  // not a standalone formattable heading, so no RichTextEditorField/
+  // sanitizeBlogHtml round-trip like ArchiveItemTitle.text needs.
+  title     String?
   createdAt DateTime                  @default(now())
   updatedAt DateTime                  @updatedAt
 

@@ -4,7 +4,7 @@ import { buildArchiveContext } from "@/lib/docArchive/context";
 import { requireArchiveMembership } from "@/lib/docArchive/route";
 import { createContentSection, listContentSections } from "@/lib/docArchive/contentSections";
 
-const SECTION_TYPES: ArchiveContentSectionType[] = ["IMAGES", "FILES", "TEXT_FIELDS", "SPREADSHEET", "TITLE"];
+const SECTION_TYPES: ArchiveContentSectionType[] = ["IMAGES", "FILES", "TEXT_FIELDS", "SPREADSHEET", "TITLE", "YOUTUBE"];
 
 export async function GET(
   req: Request,

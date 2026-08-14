@@ -4,7 +4,7 @@ import type { ArchiveContentSectionType } from "@prisma/client";
 import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/ContentSectionTypeIcon";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 
-const SECTION_TYPES: ArchiveContentSectionType[] = ["TITLE", "IMAGES", "FILES", "TEXT_FIELDS", "SPREADSHEET"];
+const SECTION_TYPES: ArchiveContentSectionType[] = ["TITLE", "IMAGES", "FILES", "TEXT_FIELDS", "SPREADSHEET", "YOUTUBE"];
 
 type Props = {
   locale: string;

@@ -8,6 +8,7 @@
 }
 .scrollbar-always::-webkit-scrollbar {
   height: 6px;
+  width: 6px;
 }
 .scrollbar-always::-webkit-scrollbar-track {
   background: transparent;

@@ -60,6 +60,13 @@ export function ContentSectionTypeIcon({ type, className }: Props) {
           <line x1="15" y1="4" x2="15" y2="20" />
         </svg>
       );
+    case "YOUTUBE":
+      return (
+        <svg {...props}>
+          <rect x="2.5" y="5.5" width="19" height="13" rx="3.5" />
+          <polygon points="10.5 9 15 12 10.5 15" fill="currentColor" stroke="none" />
+        </svg>
+      );
     default:
       return null;
   }

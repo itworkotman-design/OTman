@@ -12,6 +12,7 @@ import { SettingsIcon, settingsIconButtonClass } from "@/app/_components/Dahsboa
 import { TextFieldsReadOnly } from "@/app/_components/Dahsboard/archive/TextFieldsReadOnly";
 import { SpreadsheetReadOnly } from "@/app/_components/Dahsboard/archive/SpreadsheetReadOnly";
 import { TitleReadOnly } from "@/app/_components/Dahsboard/archive/TitleReadOnly";
+import { YoutubeEmbedReadOnly } from "@/app/_components/Dahsboard/archive/YoutubeEmbedReadOnly";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
 import type { ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
@@ -227,6 +228,8 @@ export function ItemView({
                   <TextFieldsReadOnly sectionId={section.id} locale={locale} />
                 ) : section.type === "SPREADSHEET" ? (
                   <SpreadsheetReadOnly sectionId={section.id} locale={locale} />
+                ) : section.type === "YOUTUBE" ? (
+                  <YoutubeEmbedReadOnly sectionId={section.id} locale={locale} />
                 ) : section.type === "IMAGES" ? (
                   <ImagesSectionReadOnly
                     images={sectionFiles.map((f) => ({

@@ -15,6 +15,12 @@ function buildCspHeader(nonce: string) {
     "img-src 'self' data: blob: https://*.s3.eu-north-1.amazonaws.com https://*.googleapis.com https://*.gstatic.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https://*.googleapis.com",
+    // Archive item pages can embed a YouTube video (YoutubeEmbedPanel/
+    // YoutubeEmbedReadOnly render an iframe to youtube-nocookie.com) — with
+    // no frame-src set, CSP falls back to default-src 'self' and silently
+    // blocks the frame outright (browser console: "Framing '...' violates
+    // ... default-src 'self'"), so this needs its own explicit allowance.
+    "frame-src 'self' https://www.youtube-nocookie.com",
     "frame-ancestors 'self'",
     "base-uri 'self'",
     "form-action 'self'",

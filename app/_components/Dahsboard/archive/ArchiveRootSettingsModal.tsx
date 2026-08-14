@@ -44,7 +44,7 @@ export function ArchiveRootSettingsModal({
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-8 shadow-lg animate-dialog-content-show"
+            className="scrollbar-always max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-8 shadow-lg animate-dialog-content-show"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-6 flex items-center justify-between">
