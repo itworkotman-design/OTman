@@ -122,28 +122,45 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
 
   const settingsHref = `/dashboard/archive/${codePath.join("/")}/settings`;
 
+  // Collapse a *run* of consecutive hidden ancestors into a single "…"
+  // instead of one "…" per hidden entry (which rendered as "/…/…/…" on deep
+  // trees) — one ellipsis, then the path picks back up from the next visible
+  // ancestor.
+  type BreadcrumbSegment =
+    | { kind: "ellipsis"; key: string }
+    | { kind: "link"; key: string; href: string; label: string };
+
+  const breadcrumbSegments: BreadcrumbSegment[] = [];
+  folderPath.forEach((entry, index) => {
+    if (!entry.hidden && entry.folderId === folderId) return;
+
+    if (entry.hidden) {
+      if (breadcrumbSegments.at(-1)?.kind !== "ellipsis") {
+        breadcrumbSegments.push({ kind: "ellipsis", key: `ellipsis-${index}` });
+      }
+      return;
+    }
+
+    breadcrumbSegments.push({
+      kind: "link",
+      key: String(index),
+      href: `/dashboard/archive/${codePath.slice(0, index + 1).join("/")}`,
+      label: entry.name ?? "…",
+    });
+  });
+
   return (
     <div className="w-full">
       <nav className="mb-4 flex flex-wrap items-center gap-1 text-xs sm:text-sm text-textColorThird">
         <Link href="/dashboard/archive" className="hover:underline">
           {locale === "nb" ? "Arkiv" : "Archive"}
         </Link>
-        {folderPath.map((entry, index) => {
-          if (!entry.hidden && entry.folderId === folderId) return null;
-          const href = `/dashboard/archive/${codePath.slice(0, index + 1).join("/")}`;
-          return (
-            <span key={index} className="flex items-center gap-1">
-              <span>/</span>
-              {entry.hidden ? (
-                <span>…</span>
-              ) : (
-                <Link href={href} className="hover:underline">
-                  {entry.name ?? "…"}
-                </Link>
-              )}
-            </span>
-          );
-        })}
+        {breadcrumbSegments.map((segment) => (
+          <span key={segment.key} className="flex items-center gap-1">
+            <span>/</span>
+            {segment.kind === "ellipsis" ? <span>…</span> : <Link href={segment.href} className="hover:underline">{segment.label}</Link>}
+          </span>
+        ))}
         <span>/</span>
         <span className="font-medium text-textcolor">
           {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}

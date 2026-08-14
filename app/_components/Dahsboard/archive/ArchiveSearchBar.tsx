@@ -177,14 +177,17 @@ export function ArchiveSearchBar({ scopeFolderId, locale, placeholder }: Archive
         }}
         onFocus={() => setOpen(true)}
         placeholder={placeholder}
+        // Font size below 16px makes iOS Safari/Chrome auto-zoom the page on
+        // focus — text-base (16px) on mobile avoids that; sm: reverts to the
+        // original smaller look on desktop, where that behavior doesn't apply.
+        className="text-base sm:text-[13px]"
         style={{
           width: "100%",
           border: "1px solid rgba(0,0,0,.1)",
           boxShadow: "0 0 6px rgba(0,0,0,.06)",
           borderRadius: 999,
           padding: "10px 16px 10px 38px",
-          font: "inherit",
-          fontSize: 13,
+          fontFamily: "inherit",
         }}
       />
 

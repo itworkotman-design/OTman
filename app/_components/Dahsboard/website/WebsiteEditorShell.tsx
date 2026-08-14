@@ -27,7 +27,7 @@ export default function WebsiteEditorShell({ children }: { children: ReactNode }
 
       {/* Phone */}
       <div className="lg:hidden">
-        <div className="fixed z-10 w-full">
+        <div className="fixed z-40 w-full">
           <div className="w-full bg-white shadow-md">
             <div className="w-full">
               <Sidebar open={sidebarOpenPhone} onOpenChange={setSidebarOpenPhone} width={""} lockBodyScrollWhenOpen />

@@ -26,7 +26,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </div>
       {/*Phone*/}
       <div className="lg:hidden">
-        <div className="fixed w-full z-10">
+        <div className="fixed w-full z-40">
           <div className={`bg-white shadow-md w-full`}>
             <div className="w-full">
               <Sidebar open={sidebarOpenPhone} onOpenChange={setSidebarOpenPhone} width={""} lockBodyScrollWhenOpen />

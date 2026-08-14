@@ -210,9 +210,10 @@ export default function CarRentalPage({ content, locale }: PageTypes) {
   return (
     <div className="mt-10">
       <h1 className="sr-only">{content.pageTitle[locale]}</h1>
-      <div className="flex mb-6 items-center gap-4">
-        {/* Filters button + panel */}
-        <div className="relative" ref={panelRef}>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Filters button + panel */}
+          <div className="relative" ref={panelRef}>
           <button
             onClick={() => setPanelOpen((o) => !o)}
             className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
@@ -311,8 +312,9 @@ export default function CarRentalPage({ content, locale }: PageTypes) {
             <option value="highest">{content.sortValueHighest[locale]}</option>
           </select>
         </div>
+      </div>
 
-        <div className="flex-1 text-right text-lineSecondary">
+        <div className="text-left text-lineSecondary sm:flex-1 sm:text-right">
           <p>
             {content.vehiclesFound[locale]} {filtered.length}
           </p>

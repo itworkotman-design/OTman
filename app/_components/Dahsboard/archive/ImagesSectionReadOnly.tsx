@@ -53,7 +53,7 @@ export function ImagesSectionReadOnly({ images, locale }: Props) {
 
   if (!loaded) {
     return (
-      <div className="flex h-64 w-full animate-pulse items-center justify-center rounded-[20px] bg-gray-300">
+      <div className="flex h-16 w-full animate-pulse items-center justify-center rounded-[20px] bg-gray-300 sm:h-64">
         <span className="text-sm font-medium text-white">
           {locale === "nb" ? "Laster..." : "Loading..."}
         </span>

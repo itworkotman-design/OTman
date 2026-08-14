@@ -85,8 +85,8 @@ export default function CarRentalDetailsPage({ params }: Props) {
 
   return (
     <section>
-      <div className="py-16">
-        <h1 className="text-logoblue text-5xl font-bold justify-self-center text-center">{name}</h1>
+      <div className="py-8 sm:py-16">
+        <h1 className="text-logoblue text-3xl sm:text-5xl font-bold justify-self-center text-center px-4">{name}</h1>
       </div>
 
       <div className="lg:customContainer flex flex-col gap-10 mb-16">

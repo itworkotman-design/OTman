@@ -716,7 +716,7 @@ export default function DashboardHome() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 text-slate-900">
+    <div className="min-h-screen bg-slate-50 px-3 py-6 sm:p-6 text-slate-900">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {statTiles.map((tile) => (

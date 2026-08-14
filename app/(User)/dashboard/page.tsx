@@ -31,7 +31,7 @@ export default function Dashboard() {
         </div>
         {/*Phone*/}
         <div className="lg:hidden">
-          <div className="fixed w-full z-10">
+          <div className="fixed w-full z-40">
             <div className={`bg-white shadow-md w-full`}>
               <div className="w-full">
                 <Sidebar
@@ -44,7 +44,7 @@ export default function Dashboard() {
             </div>
           </div>
           <main className="overflow-x-clip">
-            <div className="w-full px-4 pt-[60]">
+            <div className="w-full pt-[60]">
               <DashboardHome />
             </div>
           </main>

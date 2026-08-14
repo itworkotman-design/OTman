@@ -106,6 +106,10 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   const showUserManagement = !currentUser || getModuleAccess(currentUser, "USER_MANAGEMENT").enabled;
   const showWebsiteEditor = !currentUser || getModuleAccess(currentUser, "WEBSITE_EDITOR").enabled;
   const showArchive = !currentUser || getModuleAccess(currentUser, "ARCHIVE").enabled;
+  // Matches NavbarBooking's own gating for this link — no fail-open, since
+  // it's a rarer sub-feature and NavbarBooking never showed it while
+  // currentUser was still loading either.
+  const showScheduler = Boolean(currentUser && getModuleAccess(currentUser, "SCHEDULER").enabled);
 
   const isActive = (href: string) =>
     href === "/dashboard"
@@ -121,6 +125,25 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
         ? "bg-linePrimary text-textcolor"
         : "bg-transparent hover:bg-linePrimary"
     }`;
+
+  // Booking's own sub-pages — mobile only (see the "Booking system" link
+  // below). On desktop these still live in NavbarBooking's separate top nav
+  // bar; on mobile that second bar is gone and these are nested here instead,
+  // inside the same gray group box as their parent — the active one gets a
+  // white pill so it stands out against that gray backdrop.
+  const bookingSubLinkClass = (href: string, exact = false) =>
+    `block w-full rounded-lg px-3 py-2.5 text-base transition-colors ${
+      (exact ? pathname === href : pathname.startsWith(href))
+        ? "bg-white text-textcolor font-medium shadow-sm"
+        : "text-textColorSecond hover:bg-white/60"
+    }`;
+
+  // All the booking links (parent + nested sub-pages) live inside one
+  // persistent shell (BookingDashboardShell/AutomaticOrdersShell) that
+  // doesn't unmount between them, unlike every other Sidebar link's
+  // destination — so navigating between them needs an explicit close, or the
+  // mobile drawer just stays open over the newly-navigated page.
+  const closeMobileDrawer = () => onOpenChange(false);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -183,10 +206,51 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
           </Link>
 
           {showBooking && (
-            <Link href="/dashboard/booking" className={linkClass("/dashboard/booking")}>
+            <div className={`mb-2 rounded-lg transition-colors ${isActive("/dashboard/booking") ? "bg-linePrimary" : ""}`}>
+              <Link
+                href="/dashboard/booking"
+                onClick={closeMobileDrawer}
+                className={`flex w-full text-base md:text-sm font-[500] px-2 py-3 md:py-2.5 rounded-lg transition-colors text-left ${
+                  isActive("/dashboard/booking") ? "text-textcolor" : "text-textColorSecond hover:bg-linePrimary"
+                }`}
+              >
+                <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
+                  <Icon path={ICONS.booking} />
+                  {bookingText(locale, "Booking system")}
+                </div>
+              </Link>
+
+              {/* Booking's own pages — mobile only, nested here (inside the
+                  same gray group box as their parent) since the mobile layout
+                  has no separate NavbarBooking top bar to hold them. */}
+              <div className="flex flex-col gap-1 px-2 pb-2 lg:hidden">
+                <Link href="/dashboard/booking" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking", true)}>
+                  All orders
+                </Link>
+                <Link href="/dashboard/booking/create" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/create")}>
+                  Create order
+                </Link>
+                <Link href="/dashboard/booking/editPrices" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/editPrices")}>
+                  Edit prices
+                </Link>
+                {showScheduler && (
+                  <Link href="/dashboard/scheduler-orders" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/scheduler-orders")}>
+                    Scheduler orders
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Scheduler access doesn't require booking access — memberships can
+              have one without the other, so this can't just live nested under
+              "Booking system" above (that link/section is entirely absent
+              when showBooking is false). Mobile only, same reason as above. */}
+          {!showBooking && showScheduler && (
+            <Link href="/dashboard/scheduler-orders" onClick={closeMobileDrawer} className={`${linkClass("/dashboard/scheduler-orders")} lg:hidden`}>
               <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-                <Icon path={ICONS.booking} />
-                {bookingText(locale, "Booking system")}
+                <Icon path={ICONS.hours} />
+                Scheduler orders
               </div>
             </Link>
           )}

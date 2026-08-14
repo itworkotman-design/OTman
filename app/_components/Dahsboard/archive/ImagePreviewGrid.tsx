@@ -1,6 +1,7 @@
 "use client";
 
-import { useReducer, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { ImageLightbox } from "@/app/_components/utils/ImageLightbox";
 
 export type PreviewableImage = {
   id: string;
@@ -60,14 +61,6 @@ function ImageDescriptionInput({
   );
 }
 
-type PreviewState = { activeIndex: number | null };
-
-type PreviewAction =
-  | { type: "open"; index: number }
-  | { type: "close" }
-  | { type: "next"; imageCount: number }
-  | { type: "previous"; imageCount: number };
-
 function DownloadIcon() {
   return (
     <svg
@@ -110,12 +103,25 @@ function DeleteIcon() {
   );
 }
 
-function previewReducer(state: PreviewState, action: PreviewAction): PreviewState {
-  if (action.type === "open") return { activeIndex: action.index };
-  if (action.type === "close") return { activeIndex: null };
-  if (state.activeIndex === null || action.imageCount === 0) return state;
-  if (action.type === "next") return { activeIndex: (state.activeIndex + 1) % action.imageCount };
-  return { activeIndex: (state.activeIndex - 1 + action.imageCount) % action.imageCount };
+function ExpandIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+      <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+    </svg>
+  );
 }
 
 // Ported from the otman-archive prototype's ImagePreviewGrid, adapted to
@@ -138,34 +144,54 @@ export function ImagePreviewGrid({
   gap = true,
   uniformHeight = false,
 }: ImagePreviewGridProps) {
-  const [state, dispatch] = useReducer(previewReducer, { activeIndex: null });
-  const activeImage = state.activeIndex === null ? null : images[state.activeIndex];
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const activeImage = activeIndex === null ? null : images[activeIndex];
 
   return (
     <>
       <div
         className={
           uniformHeight
-            ? `flex flex-wrap items-start ${gap ? "gap-3" : "gap-0"}`
+            ? `relative flex flex-wrap items-start ${gap ? "gap-3" : "gap-0"}`
             : `grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] ${gap ? "gap-3" : "gap-0"}`
         }
       >
+        {/* One "opens a viewer" hint for the whole section rather than one
+            per thumbnail — tapping any individual image still opens the
+            lightbox at that image, this is purely a mobile-only visual cue. */}
+        {uniformHeight && images.length > 0 && (
+          <div className="pointer-events-none absolute inset-0 z-1 flex items-center justify-center bg-black/30 sm:hidden">
+            <span className="rounded-full bg-black/50 p-2 text-white">
+              <ExpandIcon />
+            </span>
+          </div>
+        )}
         {leading}
         {images.map((image, index) => (
           <div key={image.id} className="group relative">
             <button
               type="button"
-              onClick={() => dispatch({ type: "open", index })}
-              className={`rounded-xl border border-lineSecondary p-3 text-left transition-colors hover:border-logoblue ${uniformHeight ? "pb-14" : "w-full"}`}
+              onClick={() => setActiveIndex(index)}
+              className={`rounded-xl text-left transition-colors ${
+                uniformHeight
+                  ? "p-0 sm:border sm:border-lineSecondary sm:p-3 sm:pb-14 sm:hover:border-logoblue"
+                  : "w-full border border-lineSecondary p-3 hover:border-logoblue"
+              }`}
             >
               {uniformHeight ? (
+                // Small on phone, flush against its neighbors (no padding/
+                // border) — this is just a tap target to open the full
+                // ImagePreviewGrid lightbox below, not a place to actually
+                // look at the image, so the caption stays hidden and a dim
+                // overlay + expand icon signals "opens a viewer" until sm:,
+                // where it reverts to a normal bordered/captioned tile.
                 <div className="relative mx-auto inline-block">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={image.src} alt={image.alt} className="h-64 w-auto object-contain" />
+                  <img src={image.src} alt={image.alt} className="h-16 w-auto object-contain sm:h-64" />
                   {/* Pinned to this wrapper's own (image-derived) width via
                       absolute positioning, so long captions truncate instead
                       of stretching the tile wider than the image. */}
-                  <div className="absolute inset-x-0 top-full mt-2">
+                  <div className="absolute inset-x-0 top-full mt-2 hidden sm:block">
                     <p className="truncate text-center text-sm text-textColorSecond">{image.alt}</p>
                     {!onDescriptionChange && image.description ? (
                       <p className="mt-1 line-clamp-2 text-center text-xs text-textColorThird">{image.description}</p>
@@ -203,7 +229,12 @@ export function ImagePreviewGrid({
               <a
                 href={`${image.src}?download=1`}
                 download
-                className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white text-logoblue opacity-0 shadow transition-opacity hover:bg-logoblue/10 group-hover:opacity-100"
+                // `opacity-0`/hover-reveal only makes sense with an actual
+                // hover state — on touch there's no hover to gate it behind,
+                // so this stayed invisible but still tappable, quietly
+                // eating taps meant for the (much smaller, on phone) image
+                // button underneath. Hidden outright below sm:.
+                className="absolute right-2 top-2 hidden h-8 w-8 place-items-center rounded-full bg-white text-logoblue opacity-0 shadow transition-opacity hover:bg-logoblue/10 group-hover:opacity-100 sm:grid"
                 aria-label="Download image"
                 title="Download"
               >
@@ -215,78 +246,15 @@ export function ImagePreviewGrid({
         {trailing}
       </div>
 
-      {activeImage && state.activeIndex !== null ? (
-        <div className="fixed inset-0 z-50 grid bg-black/70 p-6" onClick={() => dispatch({ type: "close" })}>
-          <div
-            className="relative m-auto grid max-h-full w-full max-w-5xl grid-rows-[auto_1fr_auto] overflow-hidden rounded-3xl bg-white shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-4 border-b border-lineSecondary px-5 py-3">
-              <div className="min-w-0">
-                <div className="truncate font-semibold text-logoblue">{activeImage.alt}</div>
-                {activeImage.description ? (
-                  <div className="truncate text-sm text-textColorThird">{activeImage.description}</div>
-                ) : null}
-              </div>
-              <button type="button" onClick={() => dispatch({ type: "close" })} className="shrink-0 text-sm font-semibold text-textColorThird hover:text-logoblue">
-                Close
-              </button>
-            </div>
-
-            <div className={`grid items-center gap-4 p-5 ${images.length > 1 ? "grid-cols-[auto_1fr_auto]" : "grid-cols-1"}`}>
-              {images.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => dispatch({ type: "previous", imageCount: images.length })}
-                  className="h-12 w-12 rounded-full border border-lineSecondary text-2xl font-semibold text-logoblue hover:bg-logoblue hover:text-white"
-                  aria-label="Previous image"
-                >
-                  &lt;
-                </button>
-              )}
-              <div className="relative flex min-h-[420px] items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={activeImage.src} alt={activeImage.alt} className="max-h-[65vh] w-auto max-w-full object-contain" />
-                {downloadable && (
-                  <a
-                    href={`${activeImage.src}?download=1`}
-                    download
-                    className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-full bg-white text-logoblue shadow transition-colors hover:bg-logoblue/10"
-                    aria-label="Download image"
-                    title="Download"
-                  >
-                    <DownloadIcon />
-                  </a>
-                )}
-              </div>
-              {images.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => dispatch({ type: "next", imageCount: images.length })}
-                  className="h-12 w-12 rounded-full border border-lineSecondary text-2xl font-semibold text-logoblue hover:bg-logoblue hover:text-white"
-                  aria-label="Next image"
-                >
-                  &gt;
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto border-t border-lineSecondary p-3">
-              {images.map((image, index) => (
-                <button
-                  key={`preview-${image.id}`}
-                  type="button"
-                  onClick={() => dispatch({ type: "open", index })}
-                  className={`h-16 w-20 shrink-0 rounded-lg border p-1 ${index === state.activeIndex ? "border-logoblue" : "border-lineSecondary"}`}
-                  aria-label={`Preview ${image.alt}`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={image.src} alt={image.alt} className="h-full w-full object-contain" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+      {activeImage && activeIndex !== null ? (
+        <ImageLightbox
+          images={images.map((image) => ({ src: image.src, alt: image.alt, caption: image.description }))}
+          initialIndex={activeIndex}
+          onClose={() => setActiveIndex(null)}
+          background="white"
+          showTitle
+          downloadable={downloadable}
+        />
       ) : null}
     </>
   );

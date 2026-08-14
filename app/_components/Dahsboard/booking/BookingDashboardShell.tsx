@@ -7,10 +7,6 @@ import { NavbarBooking } from "@/app/_components/Dahsboard/booking/NavbarBooking
 
 const SIDEBAR_OPEN = 300;
 const SIDEBAR_CLOSED = 50;
-// Wider than SIDEBAR_CLOSED: the collapsed mobile bar now shows the Otman
-// logo next to the hamburger (see Sidebar.tsx), which needs more room than
-// the icon-only desktop rail.
-const SIDEBAR_CLOSED_PHONE = 140;
 const TOPBAR_HEIGHT = 60;
 
 export default function BookingDashboardShell({ children }: { children: ReactNode }) {
@@ -19,7 +15,6 @@ export default function BookingDashboardShell({ children }: { children: ReactNod
   const [navOpen, setNavOpen] = useState(false);
 
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
-  const sidebarWPhone = sidebarOpenPhone ? SIDEBAR_OPEN : SIDEBAR_CLOSED_PHONE;
 
   return (
     <div className="min-h-screen overflow-x-clip bg-white">
@@ -35,38 +30,16 @@ export default function BookingDashboardShell({ children }: { children: ReactNod
         />
       </aside>
 
-      {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-[60] bg-white">
-        <div className="relative h-full w-full">
-          {/* Mobile overlay sidebar */}
-          <div className="absolute top-0 left-0 z-50">
-            <aside
-              className={`bg-white shadow-md ${
-                sidebarOpenPhone ? "h-dvh" : "h-[60]"
-              }`}
-              style={{ width: sidebarWPhone }}
-            >
-              <Sidebar
-                open={sidebarOpenPhone}
-                onOpenChange={setSidebarOpenPhone}
-                width={sidebarWPhone}
-                lockBodyScrollWhenOpen
-              />
-            </aside>
-          </div>
-
-          {/* Mobile navbar stays full width underneath */}
-          <div className="h-full w-full">
-            <NavbarBooking
-              open={navOpen}
-              onToggle={() => {
-                setNavOpen((p) => !p);
-                setSidebarOpenPhone(false);
-              }}
-              onClose={() => setNavOpen(false)}
-            />
-          </div>
-        </div>
+      {/* Mobile header — booking's own links (NavbarBooking, below) live
+          nested under "Booking system" in Sidebar on mobile instead of a
+          second navbar; desktop still gets both. */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white shadow-md">
+        <Sidebar
+          open={sidebarOpenPhone}
+          onOpenChange={setSidebarOpenPhone}
+          width={""}
+          lockBodyScrollWhenOpen
+        />
       </div>
 
       {/* Desktop navbar */}
