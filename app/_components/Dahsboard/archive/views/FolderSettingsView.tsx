@@ -486,6 +486,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
                 name={folder.name}
                 description={folder.description}
                 status={folder.status}
+                ownerUserId={folder.ownerUserId}
                 locale={locale}
                 onSaved={() => void handleFolderSettingsSaved()}
               />
@@ -609,6 +610,9 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
               locale={locale}
               canEdit
               onChanged={loadFolderAndItems}
+              showFavorite
+              isPinned={item.isPinned}
+              onPinChanged={loadFolderAndItems}
             />
           )}
         />

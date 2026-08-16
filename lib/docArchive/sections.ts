@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { archivePrisma } from "@/lib/docArchive/client";
 import { ROOT_SCOPE } from "@/lib/docArchive/folderCodes";
 
 export type ArchiveSectionRow = {
@@ -19,6 +20,85 @@ function scopeKey(parentFolderId: string | null): string {
   return parentFolderId ?? ROOT_SCOPE;
 }
 
+// `archivePrisma` is typed as the package's narrow internal
+// `PrismaArchiveHostAdapterClient` contract, not a general query client, but
+// at runtime it's a real generated PrismaClient — same local-type-cast
+// workaround as folderStats.ts/runArchiveRetentionSweep.ts, scoped to the one
+// query below.
+type ArchiveLivenessQueryClient = {
+  $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
+};
+
+const archiveDb = archivePrisma as unknown as ArchiveLivenessQueryClient;
+
+// ArchiveFolderCode/ArchiveItemCode rows are permanent by design — assigned
+// once at creation, never removed even after the folder/item they reference
+// is (soft-)deleted in the separate archive package database, since display
+// codes must never be reused. That makes `_count.folderCodes`/`_count.itemCodes`
+// count *everything ever placed in a section*, not what's there now — a
+// section that once held one item that was later deleted would look
+// permanently "non-empty" forever. This resolves the id lists against the
+// live (non-deleted) archive_folders/archive_items tables instead, so
+// "empty" reflects the section's actual current contents.
+async function getLiveSectionCounts(
+  companyId: string,
+  tenantId: string,
+  sectionIds: string[],
+): Promise<Map<string, { folderCount: number; itemCount: number }>> {
+  const counts = new Map<string, { folderCount: number; itemCount: number }>();
+  for (const sectionId of sectionIds) counts.set(sectionId, { folderCount: 0, itemCount: 0 });
+  if (sectionIds.length === 0) return counts;
+
+  const [folderCodeRows, itemCodeRows] = await Promise.all([
+    prisma.archiveFolderCode.findMany({
+      where: { sectionId: { in: sectionIds } },
+      select: { sectionId: true, folderId: true },
+    }),
+    prisma.archiveItemCode.findMany({
+      where: { sectionId: { in: sectionIds } },
+      select: { sectionId: true, itemId: true },
+    }),
+  ]);
+
+  const folderIds = folderCodeRows.map((row) => row.folderId);
+  const itemIds = itemCodeRows.map((row) => row.itemId);
+
+  const [liveFolderRows, liveItemRows] = await Promise.all([
+    folderIds.length > 0
+      ? archiveDb.$queryRawUnsafe<{ id: string }[]>(
+          `SELECT "id" AS "id" FROM archive."archive_folders" WHERE "companyId" = $1 AND "tenantId" = $2 AND "deletedAt" IS NULL AND "id" = ANY($3::uuid[])`,
+          companyId,
+          tenantId,
+          folderIds,
+        )
+      : Promise.resolve([] as { id: string }[]),
+    itemIds.length > 0
+      ? archiveDb.$queryRawUnsafe<{ id: string }[]>(
+          `SELECT "id" AS "id" FROM archive."archive_items" WHERE "companyId" = $1 AND "tenantId" = $2 AND "deletedAt" IS NULL AND "id" = ANY($3::uuid[])`,
+          companyId,
+          tenantId,
+          itemIds,
+        )
+      : Promise.resolve([] as { id: string }[]),
+  ]);
+
+  const liveFolderIds = new Set(liveFolderRows.map((row) => row.id));
+  const liveItemIds = new Set(liveItemRows.map((row) => row.id));
+
+  for (const row of folderCodeRows) {
+    if (!row.sectionId || !liveFolderIds.has(row.folderId)) continue;
+    const entry = counts.get(row.sectionId);
+    if (entry) entry.folderCount += 1;
+  }
+  for (const row of itemCodeRows) {
+    if (!row.sectionId || !liveItemIds.has(row.itemId)) continue;
+    const entry = counts.get(row.sectionId);
+    if (entry) entry.itemCount += 1;
+  }
+
+  return counts;
+}
+
 export async function listSections(
   companyId: string,
   tenantId: string,
@@ -27,17 +107,61 @@ export async function listSections(
   const sections = await prisma.archiveSection.findMany({
     where: { companyId, tenantId, parentFolderId: scopeKey(parentFolderId) },
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-    include: { _count: { select: { folderCodes: true, itemCodes: true } } },
   });
 
-  return sections.map((section) => ({
-    id: section.id,
-    name: section.name,
-    description: section.description,
-    order: section.order,
-    folderCount: section._count.folderCodes,
-    itemCount: section._count.itemCodes,
-  }));
+  const liveCounts = await getLiveSectionCounts(
+    companyId,
+    tenantId,
+    sections.map((section) => section.id),
+  );
+
+  return sections.map((section) => {
+    const counts = liveCounts.get(section.id) ?? { folderCount: 0, itemCount: 0 };
+    return {
+      id: section.id,
+      name: section.name,
+      description: section.description,
+      order: section.order,
+      folderCount: counts.folderCount,
+      itemCount: counts.itemCount,
+    };
+  });
+}
+
+export type RenameSectionResult = { ok: true; section: ArchiveSectionRow } | { ok: false; reason: "NOT_FOUND" };
+
+export async function renameSection(
+  companyId: string,
+  tenantId: string,
+  sectionId: string,
+  name: string,
+  description: string | null,
+): Promise<RenameSectionResult> {
+  const existing = await prisma.archiveSection.findFirst({
+    where: { id: sectionId, companyId, tenantId },
+    select: { id: true },
+  });
+  if (!existing) return { ok: false, reason: "NOT_FOUND" };
+
+  const section = await prisma.archiveSection.update({
+    where: { id: sectionId },
+    data: { name, description },
+  });
+
+  const liveCounts = await getLiveSectionCounts(companyId, tenantId, [sectionId]);
+  const counts = liveCounts.get(sectionId) ?? { folderCount: 0, itemCount: 0 };
+
+  return {
+    ok: true,
+    section: {
+      id: section.id,
+      name: section.name,
+      description: section.description,
+      order: section.order,
+      folderCount: counts.folderCount,
+      itemCount: counts.itemCount,
+    },
+  };
 }
 
 export async function createSection(
@@ -74,7 +198,11 @@ export type DeleteSectionResult = { ok: true } | { ok: false; reason: "NOT_EMPTY
 // content, so there's nothing to recover. Only allowed when empty: the FK on
 // ArchiveFolderCode/ArchiveItemCode.sectionId is ON DELETE SET NULL as a
 // defensive fallback, but this check gives a real error instead of silently
-// scattering a section's contents back to "ungrouped".
+// scattering a section's contents back to "ungrouped". Emptiness is judged
+// against *live* (non-deleted) folders/items via getLiveSectionCounts, not
+// the permanent ArchiveFolderCode/ArchiveItemCode row counts — those rows
+// never shrink even after their folder/item is deleted, which would
+// otherwise make a section that once held anything permanently undeletable.
 export async function deleteSection(
   companyId: string,
   tenantId: string,
@@ -82,11 +210,14 @@ export async function deleteSection(
 ): Promise<DeleteSectionResult> {
   const section = await prisma.archiveSection.findFirst({
     where: { id: sectionId, companyId, tenantId },
-    include: { _count: { select: { folderCodes: true, itemCodes: true } } },
+    select: { id: true },
   });
 
   if (!section) return { ok: false, reason: "NOT_FOUND" };
-  if (section._count.folderCodes > 0 || section._count.itemCodes > 0) {
+
+  const liveCounts = await getLiveSectionCounts(companyId, tenantId, [sectionId]);
+  const counts = liveCounts.get(sectionId) ?? { folderCount: 0, itemCount: 0 };
+  if (counts.folderCount > 0 || counts.itemCount > 0) {
     return { ok: false, reason: "NOT_EMPTY" };
   }
 

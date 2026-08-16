@@ -2,18 +2,16 @@ import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
-import { withFolderStats } from "@/lib/docArchive/withFolderStats";
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ folderId: string }> },
-) {
+// The tenant's whole tag vocabulary (0.2.0 delivery) — used client-side only
+// for autocomplete suggestions when attaching a tag; requires no capability
+// beyond a valid Archive context.
+export async function GET(req: Request) {
   const result = await requireArchiveMembership(req);
   if ("error" in result) return result.error;
 
-  const { folderId } = await params;
   const ctx = buildArchiveContext(result.session, result.membership);
-  const listResult = await archive.listChildFolders(ctx, folderId);
+  const listResult = await archive.listTags(ctx);
 
   if (!listResult.ok) {
     return NextResponse.json(
@@ -22,7 +20,5 @@ export async function GET(
     );
   }
 
-  const folders = await withFolderStats(ctx, listResult.value);
-
-  return NextResponse.json({ ok: true, folders });
+  return NextResponse.json({ ok: true, tags: listResult.value });
 }

@@ -108,6 +108,7 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
               name={item.name}
               description={item.description}
               status={item.status}
+              ownerUserId={item.ownerUserId}
               locale={locale}
               onSaved={() => void handleItemSettingsSaved()}
             />

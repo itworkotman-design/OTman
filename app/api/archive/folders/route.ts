@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const folders = await withFolderStats(ctx.companyId, ctx.tenantId, listResult.value);
+  const folders = await withFolderStats(ctx, listResult.value);
 
   return NextResponse.json({ ok: true, folders });
 }

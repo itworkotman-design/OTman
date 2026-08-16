@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { useState } from "react";
 import { ConditionBadge } from "./ConditionBadge";
 import { formatLastModified } from "./types";
 import type { ArchiveFolderSummary } from "./types";
@@ -15,38 +14,26 @@ type FolderPillProps = {
   // lists) those columns are dropped and only the last-modified date shows,
   // to match the plainer per-section pill layout there.
   showStats?: boolean;
-  // Hover-reveal rename/edit/delete/share actions — only shown when both
-  // are given, i.e. the caller has already gated this on the viewer having
-  // archive edit (ADMIN) access.
+  // Every action in the trailing hover zone (rename/archive/move/delete/pin/
+  // settings-kebab) is admin-only — see PillHoverActions, which this always
+  // mounts now. Copy Link is the one exception and shows for any viewer
+  // regardless of canEdit. onChanged is only needed for the CRUD bundle
+  // (rename/archive/move/delete); pinning uses its own onPinChanged instead.
   canEdit?: boolean;
   onChanged?: () => void;
-  // Archive root page only, gated the same way as `canEdit` (ADMIN-level
-  // module access). No backend field for this exists yet — purely local
-  // component state, resets on reload, by explicit design for now.
+  // Backed by the package's real per-user pinFolder/unpinFolder (0.2.0
+  // delivery) — isPinned/onPinChanged are passed straight through to
+  // PillHoverActions, which only actually renders the star when canEdit is
+  // also true (pinning is admin-only, same as everything else here besides
+  // Copy Link).
   showFavorite?: boolean;
+  isPinned?: boolean;
+  onPinChanged?: () => void;
   // Fixed width (in `ch`) for the leading code badge, shared across every
   // pill in the same list — see codeBadgeWidthCh in types.ts. Falls back to
   // shrink-wrapping the badge's own text when omitted.
   codeWidthCh?: number;
 };
-
-function StarIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.3l-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9L12 2.5z" />
-    </svg>
-  );
-}
 
 // Flush list row, same Google Drive-style shape as ItemPill (no side
 // borders, no rounding, no gap to its neighbors — the caller wraps a group
@@ -73,10 +60,10 @@ export function FolderPill({
   canEdit,
   onChanged,
   showFavorite = false,
+  isPinned = false,
+  onPinChanged,
   codeWidthCh,
 }: FolderPillProps) {
-  const hasActions = Boolean(canEdit && onChanged);
-  const [favorited, setFavorited] = useState(false);
   const isArchived = folder.status === "archived";
 
   return (
@@ -128,44 +115,19 @@ export function FolderPill({
         </div>
       </Link>
 
-      {showFavorite && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            setFavorited((v) => !v);
-          }}
-          className={`flex w-12 shrink-0 items-center justify-center ${
-            favorited ? "text-logoblue" : "text-textColorThird hover:text-logoblue"
-          }`}
-          title={
-            favorited
-              ? locale === "nb"
-                ? "Fjern favoritt"
-                : "Remove favorite"
-              : locale === "nb"
-                ? "Legg til favoritt"
-                : "Add favorite"
-          }
-          aria-label={favorited ? (locale === "nb" ? "Fjern favoritt" : "Remove favorite") : locale === "nb" ? "Legg til favoritt" : "Add favorite"}
-          aria-pressed={favorited}
-        >
-          <StarIcon filled={favorited} />
-        </button>
-      )}
-
-      {hasActions && (
-        <PillHoverActions
-          kind="folder"
-          id={folder.id}
-          name={folder.name}
-          href={href}
-          locale={locale}
-          onChanged={onChanged!}
-          variant="flat"
-          status={folder.status}
-        />
-      )}
+      <PillHoverActions
+        kind="folder"
+        id={folder.id}
+        name={folder.name}
+        href={href}
+        locale={locale}
+        canEdit={Boolean(canEdit)}
+        onChanged={onChanged}
+        variant="flat"
+        status={folder.status}
+        isPinned={showFavorite ? isPinned : undefined}
+        onPinChanged={showFavorite ? onPinChanged : undefined}
+      />
     </div>
   );
 }

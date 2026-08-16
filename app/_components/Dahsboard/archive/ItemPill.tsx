@@ -8,11 +8,21 @@ type ItemPillProps = {
   item: ArchiveItemSummary;
   href: string;
   locale: string;
-  // Hover-reveal rename/edit/delete/share actions — only shown when both
-  // are given, i.e. the caller has already gated this on the viewer having
-  // archive edit (ADMIN) access.
+  // Every action in the trailing hover zone (rename/archive/move/delete/pin/
+  // settings-kebab) is admin-only — see PillHoverActions, which this always
+  // mounts now. Copy Link is the one exception and shows for any viewer
+  // regardless of canEdit. onChanged is only needed for the CRUD bundle
+  // (rename/archive/move/delete); pinning uses its own onPinChanged instead.
   canEdit?: boolean;
   onChanged?: () => void;
+  // Backed by the package's real per-user pinItem/unpinItem (0.2.0
+  // delivery) — isPinned/onPinChanged are passed straight through to
+  // PillHoverActions, which only actually renders the star when canEdit is
+  // also true (pinning is admin-only, same as everything else here besides
+  // Copy Link).
+  showFavorite?: boolean;
+  isPinned?: boolean;
+  onPinChanged?: () => void;
   // Fixed width (in `ch`) for the leading code, shared across every pill in
   // the same list — see codeBadgeWidthCh in types.ts. Falls back to
   // shrink-wrapping the code's own text when omitted.
@@ -23,18 +33,27 @@ type ItemPillProps = {
 // borders, no rounding) — the caller wraps a group of these in a single
 // divide-y container so adjacent rows share one border line instead of each
 // carrying its own box. Used both for pure browsing (FolderView, no
-// canEdit/onChanged — no trailing actions at all) and management contexts
-// (a folder's settings page, its Sections accordion) where canEdit+onChanged
-// add PillHoverActions' rename/archive/delete/copy-link/settings-kebab
-// inline. Status itself isn't shown as its own column — it's visible via the
-// archive/unarchive icon's state when editable, otherwise only active items
-// are ever rendered (see the folder page's filtering). `item.code` is a
-// real, stable display code (see lib/docArchive/folderCodes.ts), e.g.
-// "1.2F.3" — the containing folder's own code plus this item's local
-// sequence number, assigned once at creation and never recomputed from list
-// position.
-export function ItemPill({ item, href, locale, canEdit, onChanged, codeWidthCh }: ItemPillProps) {
-  const hasActions = Boolean(canEdit && onChanged);
+// canEdit/onChanged — no admin actions, just Copy Link) and management
+// contexts (a folder's settings page, its Sections accordion) where
+// canEdit+onChanged add PillHoverActions' full rename/archive/delete/pin/
+// settings-kebab bundle alongside Copy Link. Status itself isn't shown as
+// its own column — it's visible via the archive/unarchive icon's state when
+// editable, otherwise only active items are ever rendered (see the folder
+// page's filtering). `item.code` is a real, stable display code (see
+// lib/docArchive/folderCodes.ts), e.g. "1.2F.3" — the containing folder's
+// own code plus this item's local sequence number, assigned once at
+// creation and never recomputed from list position.
+export function ItemPill({
+  item,
+  href,
+  locale,
+  canEdit,
+  onChanged,
+  showFavorite = false,
+  isPinned = false,
+  onPinChanged,
+  codeWidthCh,
+}: ItemPillProps) {
   const isArchived = item.status === "archived";
 
   return (
@@ -68,18 +87,19 @@ export function ItemPill({ item, href, locale, canEdit, onChanged, codeWidthCh }
         </span>
       </Link>
 
-      {hasActions && (
-        <PillHoverActions
-          kind="item"
-          id={item.id}
-          name={item.name}
-          href={href}
-          locale={locale}
-          onChanged={onChanged!}
-          variant="flat"
-          status={item.status}
-        />
-      )}
+      <PillHoverActions
+        kind="item"
+        id={item.id}
+        name={item.name}
+        href={href}
+        locale={locale}
+        canEdit={Boolean(canEdit)}
+        onChanged={onChanged}
+        variant="flat"
+        status={item.status}
+        isPinned={showFavorite ? isPinned : undefined}
+        onPinChanged={showFavorite ? onPinChanged : undefined}
+      />
     </div>
   );
 }

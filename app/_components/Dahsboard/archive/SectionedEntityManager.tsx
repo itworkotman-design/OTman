@@ -126,6 +126,11 @@ export function SectionedEntityManager({
   const [deletingSectionId, setDeletingSectionId] = useState<string | null>(null);
   const [sectionActionError, setSectionActionError] = useState("");
 
+  const [renamingSectionId, setRenamingSectionId] = useState<string | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const [renameDescription, setRenameDescription] = useState("");
+  const [savingRename, setSavingRename] = useState(false);
+
   const [openAddMenuFor, setOpenAddMenuFor] = useState<string | null>(null);
 
   const [openFolderFormFor, setOpenFolderFormFor] = useState<string | null>(null);
@@ -227,6 +232,49 @@ export function SectionedEntityManager({
       setSectionActionError("Failed to delete section");
     } finally {
       setDeletingSectionId(null);
+    }
+  }
+
+  function startRenameSection(section: ArchiveSectionSummary) {
+    setRenamingSectionId(section.id);
+    setRenameName(section.name);
+    setRenameDescription(section.description ?? "");
+    setSectionActionError("");
+  }
+
+  function cancelRenameSection() {
+    setRenamingSectionId(null);
+    setSectionActionError("");
+  }
+
+  async function handleRenameSection(sectionId: string) {
+    const name = renameName.trim();
+    if (!name) return;
+
+    try {
+      setSavingRename(true);
+      setSectionActionError("");
+
+      const res = await fetch(`/api/archive/sections/${sectionId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description: renameDescription.trim() || null }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setSectionActionError(data?.reason || "Failed to rename section");
+        return;
+      }
+
+      setRenamingSectionId(null);
+      await loadSections();
+    } catch {
+      setSectionActionError("Failed to rename section");
+    } finally {
+      setSavingRename(false);
     }
   }
 
@@ -360,6 +408,8 @@ export function SectionedEntityManager({
     create: locale === "nb" ? "Opprett" : "Create",
     creating: locale === "nb" ? "Oppretter..." : "Creating...",
     delete: locale === "nb" ? "Slett" : "Delete",
+    rename: locale === "nb" ? "Endre navn" : "Rename",
+    save: locale === "nb" ? "Lagre" : "Save",
     addNew: locale === "nb" ? "+ Legg til" : "+ Add",
     subfolder: locale === "nb" ? "Undermappe" : "Subfolder",
     item: locale === "nb" ? "Element" : "Item",
@@ -399,7 +449,12 @@ export function SectionedEntityManager({
   const panelItems = sections.map((section) => {
     const sectionFolders = foldersBySection.get(section.id) ?? [];
     const sectionItems = itemsBySection.get(section.id) ?? [];
+    // folderCount/itemCount reflect live (non-deleted) content — see
+    // lib/docArchive/sections.ts's getLiveSectionCounts — so this correctly
+    // re-opens deletion once a section's last real folder/item is gone,
+    // unlike the old permanent-code-row count which never shrank.
     const isEmpty = section.folderCount === 0 && section.itemCount === 0;
+    const isRenaming = renamingSectionId === section.id;
 
     const subtitleParts: string[] = [];
     if (section.folderCount > 0) subtitleParts.push(t.folderCount(section.folderCount));
@@ -407,9 +462,104 @@ export function SectionedEntityManager({
 
     return {
       id: section.id,
-      title: section.name,
-      description: section.description ?? undefined,
+      title: isRenaming ? (
+        <span onClick={(e) => e.stopPropagation()} className="flex flex-col gap-1.5 py-0.5">
+          <input
+            className="customInput w-full max-w-70 rounded-lg py-1 text-[15px] font-bold text-textcolor"
+            value={renameName}
+            onChange={(e) => setRenameName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void handleRenameSection(section.id);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancelRenameSection();
+              }
+            }}
+            disabled={savingRename}
+            type="text"
+            placeholder={t.name}
+            autoFocus
+          />
+          <input
+            className="customInput w-full max-w-70 rounded-lg py-1 text-sm font-normal text-textcolor"
+            value={renameDescription}
+            onChange={(e) => setRenameDescription(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void handleRenameSection(section.id);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancelRenameSection();
+              }
+            }}
+            disabled={savingRename}
+            type="text"
+            placeholder={t.description}
+          />
+        </span>
+      ) : (
+        section.name
+      ),
+      description: isRenaming ? undefined : (section.description ?? undefined),
       subtitle: subtitleParts.join(" · "),
+      // Rename/Delete render in the header (not the collapsible content) so
+      // they're reachable whether or not the section is expanded, and every
+      // section always appears here regardless of content — only whether
+      // Delete is clickable depends on isEmpty.
+      headerActions: isRenaming ? (
+        <>
+          <button
+            type="button"
+            className="shrink-0 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-logoblue hover:opacity-90 disabled:opacity-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleRenameSection(section.id);
+            }}
+            disabled={savingRename || !renameName.trim()}
+          >
+            {savingRename ? `${t.save}...` : t.save}
+          </button>
+          <button
+            type="button"
+            className="shrink-0 rounded-full border border-white/50 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-white/10 disabled:opacity-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              cancelRenameSection();
+            }}
+            disabled={savingRename}
+          >
+            {t.cancel}
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="shrink-0 rounded-full border border-white/50 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-white/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              startRenameSection(section);
+            }}
+          >
+            {t.rename}
+          </button>
+          <button
+            type="button"
+            className="shrink-0 rounded-full border border-white/50 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-red-500/40 disabled:opacity-40 disabled:hover:bg-transparent"
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleDeleteSection(section.id);
+            }}
+            disabled={!isEmpty || deletingSectionId === section.id}
+            title={isEmpty ? undefined : locale === "nb" ? "Seksjonen må være tom" : "Section must be empty"}
+          >
+            {deletingSectionId === section.id ? `${t.delete}...` : t.delete}
+          </button>
+        </>
+      ),
       content: (
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -424,16 +574,6 @@ export function SectionedEntityManager({
               folderLabel={t.subfolder}
               itemLabel={t.item}
             />
-            {isEmpty && (
-              <button
-                type="button"
-                className="text-sm text-red-600 hover:underline disabled:opacity-40"
-                onClick={() => void handleDeleteSection(section.id)}
-                disabled={deletingSectionId === section.id}
-              >
-                {t.delete}
-              </button>
-            )}
           </div>
 
           {sectionFolders.length > 0 && (

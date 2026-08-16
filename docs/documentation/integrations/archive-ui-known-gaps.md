@@ -1,27 +1,31 @@
 # Archive UI — known gaps
 
-One feature visible in the Archive UI is an **intentionally unimplemented
-placeholder**, not a bug. It's a host-side (OTman) scope decision, not a
-`@customprojects/custom-archive` package issue, so it's recorded here rather
-than in `custom-archive-backend-feedback.md`.
+This file previously tracked host-side (OTman) scope decisions and
+intentionally unimplemented placeholders that were not
+`@customprojects/custom-archive` package issues.
 
 ---
 
-## Pinned folders
+## Pinned folders — resolved (2026-08-16)
 
 The "Pinned folders" section on the archive root page
 (`app/(User)/dashboard/archive/page.tsx`, rendered via
-`PinnedFoldersSection`) is visible but disabled/static — a "Coming soon"
-placeholder. The per-row pin toggle that used to sit on every `FolderPill`
-row was removed (2026-07-29, on request) since it had no function and was
-just visual clutter; the section above remains the only surviving pin-related
-UI.
+`PinnedFoldersSection`) was a disabled "Coming soon" placeholder because the
+package had no concept of pinning at all. The 0.2.0 package delivery added
+real per-user pinning (`pinFolder`/`unpinFolder`/`listPinnedFolders`), and
+the section — plus the per-`FolderPill` star toggle — now calls it for real
+via `POST`/`DELETE /api/archive/folders/[folderId]/pin` and
+`GET /api/archive/pinned-folders`.
 
-There is no `pinned` field anywhere on `ArchiveFolder` — the package has no
-concept of pinning at all. Implementing this for real would mean either a
-client-side-only preference (e.g. `localStorage`, not shared across devices
-or teammates) or a genuine new backend field, neither of which was in scope
-for this pass.
+Item pinning (`pinItem`/`unpinItem`/`listPinnedItems`) had no prior
+placeholder to replace — `ItemPill` had no favorite/star affordance at all
+before this. Built from scratch, same shape as folders: a star toggle on
+`ItemPill` (`showFavorite`/`isPinned`/`onPinChanged`, wired into both
+`FolderView` and `FolderSettingsView`, gated on plain archive access rather
+than admin-only since pinning only ever requires `view` in the package's own
+model) plus a `PinnedItemsSection` on the archive root page, backed by new
+`POST`/`DELETE /api/archive/items/[itemId]/pin` and
+`GET /api/archive/pinned-items` routes.
 
 ## Structured/spreadsheet ("excel") items — resolved
 

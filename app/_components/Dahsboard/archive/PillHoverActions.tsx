@@ -13,20 +13,55 @@ type PillHoverActionsProps = {
   // settings kebab links to `${href}/settings`.
   href: string;
   locale: string;
-  // Re-fetches the parent view's folders/items list after a delete, since
-  // the pill itself doesn't own that list.
-  onChanged: () => void;
+  // Every "settings" action — pin, rename, archive-toggle, move, delete, and
+  // the settings kebab itself — is admin-only. Copy Link is the one
+  // exception: it always renders regardless of canEdit, so any viewer with
+  // archive access (not just admins) gets it. This component now always
+  // mounts (FolderPill/ItemPill no longer gate its presence on canEdit) —
+  // canEdit just controls how much of it shows.
+  canEdit: boolean;
+  // Re-fetches the parent view's folders/items list after a mutation, since
+  // the pill itself doesn't own that list. Only meaningful (and only
+  // required in practice) when canEdit is true; callers with nowhere
+  // sensible for admin actions (e.g. the archive root page's plain browsing
+  // list) can omit it — the kebab/rename/archive/move/delete buttons stay
+  // hidden without it even if canEdit is true, same as they were hidden
+  // outright before this component always-mounted.
+  onChanged?: () => void;
   // "pill" (default) matches FolderPill's bordered rounded-4xl trailing
   // zone. "flat" drops the border/rounding entirely for ItemPill's
   // Google Drive-style list row, where the row itself has no side borders.
   variant?: "pill" | "flat";
   // Current status — when given, an Archive/Unarchive toggle button renders
   // alongside rename/delete/share, self-contained the same way delete is
-  // (PATCHes status directly, then calls onChanged). Omitted by callers with
-  // nowhere sensible for a status toggle (e.g. the archive root page's plain
-  // browsing list, which never passes canEdit/onChanged at all anyway).
+  // (PATCHes status directly, then calls onChanged).
   status?: string;
+  // Backed by the package's real per-user pinFolder/unpinFolder or
+  // pinItem/unpinItem (0.2.0 delivery) — the star renders only when both
+  // canEdit and onPinChanged are given, so callers with nowhere sensible for
+  // pinning (e.g. the root settings modal's management rows) just omit
+  // onPinChanged.
+  isPinned?: boolean;
+  onPinChanged?: () => void;
 };
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.3l-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9L12 2.5z" />
+    </svg>
+  );
+}
 
 const ICON_BUTTON_CLASS =
   "grid h-8 w-8 shrink-0 place-items-center rounded-full text-logoblue transition-all duration-150 hover:bg-logoblue/10 active:scale-90 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:active:scale-100";
@@ -120,32 +155,53 @@ function DotsIcon() {
 }
 
 // Permanent trailing zone on a folder/item pill (see FolderPill/ItemPill) —
-// only rendered for archive editors (module access level "ADMIN"); a
-// non-editor's pill is completely unchanged, no reserved space at all. The
-// kebab at the far right is always visible and links straight to the
+// mounted for every row regardless of access level, but everything inside
+// except Copy Link is admin-only: the kebab (links straight to the
 // folder/item's settings page — that page IS the edit surface, so there's no
-// separate inline "Edit" popover here. On hover of the whole pill
-// (`group/pill`), the rename/delete/share buttons fade in to the kebab's
-// left. "Rename" has no backing capability in the archive package yet (only
-// status/dates/section can be changed — see EntitySettingsPanel's file-top
-// comment), so it's shown disabled rather than omitted, as a placeholder for
-// when that lands.
+// separate inline "Edit" popover here), and on hover of the whole pill
+// (`group/pill`), the pin/rename/archive/move/delete buttons that fade in to
+// the kebab's left. A non-editor's pill still gets the reserved trailing
+// zone, just with only Copy Link inside it. The inline "Rename" pencil here
+// has no backing capability in the archive package's list-row surface yet
+// (rename is real now via EntitySettingsPanel's Details tab, just not from
+// this row) — shown disabled rather than omitted, still admin-only.
 export function PillHoverActions({
   kind,
   id,
   name,
   href,
   locale,
+  canEdit,
   onChanged,
   variant = "pill",
   status,
+  isPinned,
+  onPinChanged,
 }: PillHoverActionsProps) {
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [pinning, setPinning] = useState(false);
 
   const basePath = kind === "folder" ? `/api/archive/folders/${id}` : `/api/archive/items/${id}`;
+
+  async function handleTogglePin(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pinning) return;
+
+    try {
+      setPinning(true);
+      const res = await fetch(`${basePath}/pin`, {
+        method: isPinned ? "DELETE" : "POST",
+        credentials: "include",
+      });
+      if (res.ok) onPinChanged?.();
+    } finally {
+      setPinning(false);
+    }
+  }
 
   async function handleToggleArchive(e: MouseEvent) {
     e.preventDefault();
@@ -163,7 +219,7 @@ export function PillHoverActions({
         body: JSON.stringify({ status: nextStatus }),
       });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.ok) onChanged();
+      if (res.ok && data?.ok) onChanged?.();
     } finally {
       setArchiving(false);
     }
@@ -187,7 +243,7 @@ export function PillHoverActions({
       setDeleting(true);
       const res = await fetch(basePath, { method: "DELETE", credentials: "include" });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.ok) onChanged();
+      if (res.ok && data?.ok) onChanged?.();
     } finally {
       setDeleting(false);
     }
@@ -206,77 +262,130 @@ export function PillHoverActions({
     }
   }
 
+  // The full CRUD bundle (rename/archive/move/delete) and the settings
+  // kebab are admin-only AND need somewhere to report a mutation back to —
+  // callers that pass canEdit without onChanged (none currently do, but the
+  // types allow it) get neither. Pin is gated on canEdit alone (paired with
+  // its own onPinChanged, independent of the CRUD bundle's onChanged) since
+  // a pin toggle doesn't need the parent list refetched the way a
+  // rename/delete/move does.
+  const canManage = canEdit && Boolean(onChanged);
+  const showPin = canEdit && Boolean(onPinChanged);
+
   return (
     <div
       className={`flex w-52 shrink-0 items-center justify-end gap-1 px-3 ${
         variant === "pill" ? "rounded-r-4xl border border-l-0 border-logoblue" : ""
       }`}
     >
-      {/* Hovered state: fades in to the left of the always-visible kebab. */}
+      {/* Hovered state: fades in to the left of the always-visible kebab
+          (when canManage — otherwise this only ever holds Copy Link). */}
       <div className="pointer-events-none flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover/pill:pointer-events-auto group-hover/pill:opacity-100">
-        <button
-          type="button"
-          className={ICON_BUTTON_CLASS}
-          disabled
-          title={locale === "nb" ? "Kommer snart" : "Coming soon"}
-          aria-label={locale === "nb" ? "Gi nytt navn (kommer snart)" : "Rename (coming soon)"}
-        >
-          <PencilIcon />
-        </button>
-
-        {status && (
+        {showPin && (
           <button
             type="button"
-            className={ICON_BUTTON_CLASS}
-            onClick={(e) => void handleToggleArchive(e)}
-            disabled={archiving}
+            className={`${ICON_BUTTON_CLASS} ${isPinned ? "text-logoblue" : ""}`}
+            onClick={(e) => void handleTogglePin(e)}
+            disabled={pinning}
             title={
-              status === "archived"
+              isPinned
                 ? locale === "nb"
-                  ? "Gjenåpne"
-                  : "Unarchive"
+                  ? "Fjern fest"
+                  : "Unpin"
                 : locale === "nb"
-                  ? "Arkiver"
-                  : "Archive"
+                  ? kind === "folder"
+                    ? "Fest mappe"
+                    : "Fest element"
+                  : kind === "folder"
+                    ? "Pin folder"
+                    : "Pin item"
             }
             aria-label={
-              status === "archived"
+              isPinned
                 ? locale === "nb"
-                  ? "Gjenåpne"
-                  : "Unarchive"
+                  ? "Fjern fest"
+                  : "Unpin"
                 : locale === "nb"
-                  ? "Arkiver"
-                  : "Archive"
+                  ? kind === "folder"
+                    ? "Fest mappe"
+                    : "Fest element"
+                  : kind === "folder"
+                    ? "Pin folder"
+                    : "Pin item"
             }
+            aria-pressed={isPinned}
           >
-            <ArchiveIcon />
+            <StarIcon filled={Boolean(isPinned)} />
           </button>
         )}
 
-        <button
-          type="button"
-          className={ICON_BUTTON_CLASS}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setMoveModalOpen(true);
-          }}
-          title={locale === "nb" ? "Flytt til mappe" : "Move to folder"}
-          aria-label={locale === "nb" ? "Flytt til mappe" : "Move to folder"}
-        >
-          <MoveIcon />
-        </button>
+        {canManage && (
+          <>
+            <button
+              type="button"
+              className={ICON_BUTTON_CLASS}
+              disabled
+              title={locale === "nb" ? "Kommer snart" : "Coming soon"}
+              aria-label={locale === "nb" ? "Gi nytt navn (kommer snart)" : "Rename (coming soon)"}
+            >
+              <PencilIcon />
+            </button>
 
-        <button
-          type="button"
-          className={ICON_BUTTON_CLASS}
-          onClick={(e) => void handleDelete(e)}
-          disabled={deleting}
-          title={locale === "nb" ? "Slett" : "Delete"}
-          aria-label={locale === "nb" ? "Slett" : "Delete"}
-        >
-          <TrashIcon />
-        </button>
+            {status && (
+              <button
+                type="button"
+                className={ICON_BUTTON_CLASS}
+                onClick={(e) => void handleToggleArchive(e)}
+                disabled={archiving}
+                title={
+                  status === "archived"
+                    ? locale === "nb"
+                      ? "Gjenåpne"
+                      : "Unarchive"
+                    : locale === "nb"
+                      ? "Arkiver"
+                      : "Archive"
+                }
+                aria-label={
+                  status === "archived"
+                    ? locale === "nb"
+                      ? "Gjenåpne"
+                      : "Unarchive"
+                    : locale === "nb"
+                      ? "Arkiver"
+                      : "Archive"
+                }
+              >
+                <ArchiveIcon />
+              </button>
+            )}
+
+            <button
+              type="button"
+              className={ICON_BUTTON_CLASS}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setMoveModalOpen(true);
+              }}
+              title={locale === "nb" ? "Flytt til mappe" : "Move to folder"}
+              aria-label={locale === "nb" ? "Flytt til mappe" : "Move to folder"}
+            >
+              <MoveIcon />
+            </button>
+
+            <button
+              type="button"
+              className={ICON_BUTTON_CLASS}
+              onClick={(e) => void handleDelete(e)}
+              disabled={deleting}
+              title={locale === "nb" ? "Slett" : "Delete"}
+              aria-label={locale === "nb" ? "Slett" : "Delete"}
+            >
+              <TrashIcon />
+            </button>
+          </>
+        )}
 
         <button
           type="button"
@@ -289,17 +398,22 @@ export function PillHoverActions({
         </button>
       </div>
 
-      {/* Always visible: goes straight to this folder/item's settings page. */}
-      <Link
-        href={`${href}/settings`}
-        className={ICON_BUTTON_CLASS}
-        title={locale === "nb" ? "Innstillinger" : "Settings"}
-        aria-label={locale === "nb" ? "Innstillinger" : "Settings"}
-      >
-        <DotsIcon />
-      </Link>
+      {/* Always visible when canManage: goes straight to this folder/item's
+          settings page. Hidden entirely for non-admins/no-onChanged rows —
+          the settings page is the edit surface, so there's no reason to
+          link to it otherwise. */}
+      {canManage && (
+        <Link
+          href={`${href}/settings`}
+          className={ICON_BUTTON_CLASS}
+          title={locale === "nb" ? "Innstillinger" : "Settings"}
+          aria-label={locale === "nb" ? "Innstillinger" : "Settings"}
+        >
+          <DotsIcon />
+        </Link>
+      )}
 
-      {moveModalOpen && (
+      {moveModalOpen && onChanged && (
         <MoveEntityModal
           kind={kind}
           entityId={id}

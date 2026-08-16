@@ -19,6 +19,8 @@ export type ArchiveFolderSummary = ArchiveConditionFlags & {
   viewerCount: number;
   code: string;
   sectionId: string | null;
+  isPinned: boolean;
+  ownerUserId: string;
 };
 
 export type ArchiveItemSummary = ArchiveConditionFlags & {
@@ -32,6 +34,15 @@ export type ArchiveItemSummary = ArchiveConditionFlags & {
   updatedAt: string;
   code: string;
   sectionId: string | null;
+  ownerUserId: string;
+  isPinned: boolean;
+};
+
+// Tenant-scoped tag identity (0.2.0 delivery) — see
+// @customprojects/custom-archive's ArchiveTagSummary.
+export type ArchiveTagSummary = {
+  id: string;
+  name: string;
 };
 
 // A section is a purely host-side grouping label within a folder's settings

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
-import { assignItemCode, getItemCodes, getItemSectionIds } from "@/lib/docArchive/folderCodes";
+import { assignItemCode } from "@/lib/docArchive/folderCodes";
+import { withItemStats } from "@/lib/docArchive/withItemStats";
 import { sectionBelongsToScope } from "@/lib/docArchive/sections";
 
 export async function GET(
@@ -23,17 +24,7 @@ export async function GET(
     );
   }
 
-  const itemIds = listResult.value.map((item) => item.id);
-  const [codes, sectionIds] = await Promise.all([
-    getItemCodes(ctx.companyId, ctx.tenantId, listResult.value.map((item) => ({ id: item.id, folderId: item.folderId }))),
-    getItemSectionIds(itemIds),
-  ]);
-
-  const items = listResult.value.map((item) => ({
-    ...item,
-    code: codes.get(item.id) ?? "?",
-    sectionId: sectionIds.get(item.id) ?? null,
-  }));
+  const items = await withItemStats(ctx, listResult.value);
 
   return NextResponse.json({ ok: true, items });
 }

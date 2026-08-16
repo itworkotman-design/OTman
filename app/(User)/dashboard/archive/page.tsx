@@ -7,6 +7,7 @@ import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
+import { PinnedItemsSection } from "@/app/_components/Dahsboard/archive/PinnedItemsSection";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
 import { codeBadgeWidthCh, codeToUrlPath, groupBySection } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
@@ -44,6 +45,12 @@ export default function ArchivePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [runningReminders, setRunningReminders] = useState(false);
+  const [pinRefreshKey, setPinRefreshKey] = useState(0);
+
+  function handlePinChanged() {
+    setPinRefreshKey((key) => key + 1);
+    void loadFolders();
+  }
 
   async function loadFolders() {
     try {
@@ -172,7 +179,8 @@ export default function ArchivePage() {
         </div>
       </section>
 
-      <PinnedFoldersSection locale={locale} />
+      <PinnedFoldersSection locale={locale} canEdit={isArchiveAdmin} refreshKey={pinRefreshKey} onPinChanged={handlePinChanged} />
+      <PinnedItemsSection locale={locale} canEdit={isArchiveAdmin} />
 
       <section className="mt-4 grid gap-6">
         <div className="min-w-0">
@@ -215,7 +223,10 @@ export default function ArchivePage() {
                           href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
                           locale={locale}
                           showDescription={false}
+                          canEdit={isArchiveAdmin}
                           showFavorite={isArchiveAdmin}
+                          isPinned={folder.isPinned}
+                          onPinChanged={handlePinChanged}
                           codeWidthCh={codeWidthCh}
                         />
                       ))}

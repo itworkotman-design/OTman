@@ -236,6 +236,9 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
                     locale={locale}
                     canEdit={canEdit}
                     onChanged={loadFolderAndItems}
+                    showFavorite
+                    isPinned={item.isPinned}
+                    onPinChanged={loadFolderAndItems}
                     codeWidthCh={codeWidthCh}
                   />
                 ))}

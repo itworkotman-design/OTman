@@ -44,7 +44,19 @@ export function ArchiveRootSettingsModal({
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="scrollbar-always max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-8 shadow-lg animate-dialog-content-show"
+            // Sized to its content (fit-content) rather than a fixed
+            // max-width — the folder/item rows inside (code badge + name +
+            // condition badge + date column + the always-reserved hover-
+            // actions gutter, see FolderPill/ItemPill) can genuinely need
+            // more than the old max-w-2xl (672px) allowed, which forced them
+            // to bleed out of the modal instead of wrapping (several of
+            // their spans are deliberately shrink-0). min-w keeps it from
+            // collapsing too small for the plain create-section form; max-w
+            // keeps it comfortably inside the viewport on any window size;
+            // overflow-x-auto is a last-resort contained scroll for content
+            // that's still wider than that cap, instead of bleeding onto the
+            // page.
+            className="scrollbar-always max-h-[80vh] w-fit min-w-md max-w-[92vw] overflow-auto rounded-3xl bg-white p-8 shadow-lg animate-dialog-content-show"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-6 flex items-center justify-between">
