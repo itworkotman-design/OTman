@@ -120,6 +120,7 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   const showHome = !currentUser || hasAnyVisibleDashboardSection(currentUser);
   const showGeneralSection = showHome || showUserManagement;
   const showBookingSection = showBooking || showWebsiteOrders || showScheduler;
+  const showOthersSection = showWebsiteEditor || showArchive;
 
   // Booking's own sub-pages (All orders/Create order/Edit prices/Price
   // lists) used to live behind a separate top navbar (NavbarBooking) on
@@ -308,9 +309,11 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
             </Link>
           )}
 
-          <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
-            {bookingText(locale, "Others")}
-          </h1>
+          {showOthersSection && (
+            <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+              {bookingText(locale, "Others")}
+            </h1>
+          )}
 
           {showWebsiteEditor && (
             <Link href="/dashboard/website" className={linkClass("/dashboard/website")}>

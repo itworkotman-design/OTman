@@ -61,7 +61,7 @@ export function ExpandablePanelList({ items, emptyMessage, onToggle, variant = "
         const expanded = Boolean(expandedRows[item.id]);
 
         return (
-          <div key={item.id} className="overflow-hidden rounded-xl border border-logoblue">
+          <div key={item.id} className={`rounded-xl border border-logoblue ${expanded ? "overflow-visible" : "overflow-hidden"}`}>
             <div className={`flex w-full items-center gap-3 px-6 py-4 ${classes.row}`}>
               <div
                 role="button"
@@ -88,7 +88,13 @@ export function ExpandablePanelList({ items, emptyMessage, onToggle, variant = "
               {item.headerActions && <div className="flex shrink-0 items-center gap-1.5">{item.headerActions}</div>}
             </div>
             <div className={`grid bg-white transition-all duration-200 ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-              <div className="overflow-hidden">
+              {/* overflow-hidden is only needed while collapsed/collapsing, to
+                  clip content during the height animation — once expanded,
+                  it must lift so absolutely-positioned popovers inside
+                  item.content (e.g. the section "+ Add" dropdown) aren't
+                  cropped by this ancestor when the section itself is short
+                  (e.g. empty). */}
+              <div className={expanded ? "overflow-visible" : "overflow-hidden"}>
                 <div className="border-t border-lineSecondary px-6 py-5 text-textColorSecond">{item.content}</div>
               </div>
             </div>
