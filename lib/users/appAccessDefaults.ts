@@ -34,7 +34,10 @@ export const MODULE_COLORS: Record<AppModule, string> = {
 
 // Modules with no granular permission today — access is strictly whatever
 // hasFullAccess(role) already grants, so the default preserves that exactly.
-const BINARY_ADMIN_ONLY_MODULES: AppModule[] = [
+// Also the canonical "no Viewer concept" list: UserModal.tsx consults this
+// (rather than re-deriving its own approximation) to decide which modules'
+// toggle+level are fully locked for a non-owner USER_MANAGEMENT/Admin actor.
+export const BINARY_ADMIN_ONLY_MODULES: AppModule[] = [
   "WEBSITE_EDITOR",
   "WEBSITE_ORDERS",
   "SCHEDULER",
@@ -56,7 +59,7 @@ export function computeDefaultAppAccess(
   const result = {
     ARCHIVE: {
       enabled: fullAccess || hasPermission(permissions, "ARCHIVE_VIEW"),
-      level: "ADMIN" as AppAccessLevel,
+      level: (fullAccess ? "ADMIN" : "VIEWER") as AppAccessLevel,
     },
     BOOKING: {
       enabled: fullAccess || hasPermission(permissions, "BOOKING_VIEW"),
@@ -131,23 +134,40 @@ export function derivePermissionsFromAppAccess(appAccess: AppAccessRow[]): AppPe
 // on any module and either level on BOOKING (Subcontractor/Order-creator is
 // an order-permission split, not an administrative one — see
 // isSubcontractorAccess/isOrderCreatorAccess in lib/users/access.ts), but can
-// never grant Admin-level on any other module, and can never touch
+// never *newly escalate* a module to Admin-level, and can never touch
 // USER_MANAGEMENT itself in either direction — only an OWNER decides who else
-// gets to manage users. `currentUserManagementRow` is the target's existing
-// stored row; omit it for a brand-new membership, where "no existing grant"
-// is the only valid baseline to compare against.
+// gets to manage users. Leaving an already-Admin row untouched (e.g. granted
+// earlier by an Owner) is not an escalation and stays allowed, so saving
+// unrelated profile fields never gets blocked by a pre-existing grant.
+// `currentAppAccess` is the target's existing stored rows; omit it for a
+// brand-new membership, where "no existing grant" (disabled/Viewer) is the
+// only valid baseline to compare against.
 export function isAppAccessGrantAllowedForNonOwner(
   appAccess: AppAccessRow[],
-  currentUserManagementRow?: { enabled: boolean; level: AppAccessLevel },
+  currentAppAccess?: AppAccessRow[],
 ): boolean {
+  const currentByModule = new Map((currentAppAccess ?? []).map((row) => [row.module, row]));
+  const fallback = { enabled: false, level: "VIEWER" as AppAccessLevel };
+
   return appAccess.every((row) => {
     if (row.module === "BOOKING") return true;
 
+    const current = currentByModule.get(row.module) ?? fallback;
+
     if (row.module === "USER_MANAGEMENT") {
-      const current = currentUserManagementRow ?? { enabled: false, level: "VIEWER" as AppAccessLevel };
-      return row.enabled === current.enabled && row.level === current.level;
+      // A disabled row's level is inert — normalize to "no grant" before
+      // comparing, so the shared binary-module default of
+      // { enabled: false, level: "ADMIN" } isn't mistaken for a change
+      // against the { enabled: false, level: "VIEWER" } baseline.
+      const rowGrant = row.enabled ? row.level : null;
+      const currentGrant = current.enabled ? current.level : null;
+      return rowGrant === currentGrant;
     }
 
-    return !(row.enabled && row.level === "ADMIN");
+    if (row.enabled && row.level === "ADMIN" && !(current.enabled && current.level === "ADMIN")) {
+      return false;
+    }
+
+    return true;
   });
 }

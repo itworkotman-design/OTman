@@ -18,7 +18,12 @@ import {
   togglePriceListId,
   updateAppAccessModule,
 } from "@/lib/users/userModal";
-import { defaultAppAccessRows, MODULE_COLORS, MODULE_LABELS } from "@/lib/users/appAccessDefaults";
+import {
+  BINARY_ADMIN_ONLY_MODULES,
+  defaultAppAccessRows,
+  MODULE_COLORS,
+  MODULE_LABELS,
+} from "@/lib/users/appAccessDefaults";
 import type { AppModule, Role } from "@/lib/users/types";
 
 const AVATAR_COLOR_SWATCHES = ["#273097", "#7a5cc7", "#2e9e6b", "#c67139", "#c0507a", "#3a8fb7"];
@@ -492,15 +497,20 @@ export default function UserModal({
                 const levelLabels = getLevelOptionLabels(row.module, form.role);
                 const color = MODULE_COLORS[row.module];
                 const isBookingModule = row.module === "BOOKING";
-                const isUserManagementModule = row.module === "USER_MANAGEMENT";
-                // Only an Owner may grant/revoke USER_MANAGEMENT itself for
-                // someone else — a non-owner Admin can't touch this row at
-                // all, in either direction. For every other non-Booking
-                // module they can toggle it on/off but never escalate its
-                // level past Viewer (Booking's Viewer/Admin is Subcontractor
-                // vs Order creator, an order permission, not an admin grant).
-                const moduleToggleLocked = isNonOwnerUmAdmin && isUserManagementModule;
-                const moduleLevelLocked = isNonOwnerUmAdmin && !isBookingModule;
+                // BINARY_ADMIN_ONLY_MODULES have no Viewer concept at all —
+                // enabling them is inherently an Admin-level grant, which a
+                // non-owner can never hand out, so both the toggle and level
+                // are fully locked for those (this includes USER_MANAGEMENT,
+                // which only an Owner may grant/revoke in either direction).
+                // For every other non-Booking module (e.g. Archive) they can
+                // toggle it on/off and pick Viewer freely, but the Admin
+                // option itself is locked out (Booking's Viewer/Admin is
+                // Subcontractor vs Order creator, an order permission, not
+                // an admin grant, so it's exempt from both restrictions).
+                const isBinaryAdminOnlyModule = BINARY_ADMIN_ONLY_MODULES.includes(row.module);
+                const moduleToggleLocked = isNonOwnerUmAdmin && isBinaryAdminOnlyModule;
+                const moduleLevelLocked = isNonOwnerUmAdmin && isBinaryAdminOnlyModule;
+                const adminOptionLocked = isNonOwnerUmAdmin && !isBookingModule && !isBinaryAdminOnlyModule;
 
                 return (
                   <div key={row.module} className="self-start overflow-hidden rounded-2xl border border-lineSecondary">
@@ -537,7 +547,9 @@ export default function UserModal({
                           disabled={!canEditTarget || moduleLevelLocked}
                         >
                           <option value="VIEWER">{levelLabels.viewer}</option>
-                          <option value="ADMIN">{levelLabels.admin}</option>
+                          <option value="ADMIN" disabled={adminOptionLocked}>
+                            {levelLabels.admin}
+                          </option>
                         </select>
 
                         {row.module === "BOOKING" && form.role !== "USER" && (

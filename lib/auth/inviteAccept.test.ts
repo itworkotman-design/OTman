@@ -323,7 +323,7 @@ describe("acceptInvite", () => {
 
     expect(mocks.membershipAppAccessCreateManyMock).toHaveBeenCalledWith({
       data: [
-        { membershipId: "membership-1", module: "ARCHIVE", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "ARCHIVE", enabled: false, level: "VIEWER" },
         { membershipId: "membership-1", module: "BOOKING", enabled: false, level: "VIEWER" },
         { membershipId: "membership-1", module: "WEBSITE_EDITOR", enabled: false, level: "ADMIN" },
         { membershipId: "membership-1", module: "WEBSITE_ORDERS", enabled: false, level: "ADMIN" },

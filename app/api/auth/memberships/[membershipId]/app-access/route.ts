@@ -49,8 +49,7 @@ export async function PATCH(
       companyId: true,
       userId: true,
       appAccess: {
-        where: { module: "USER_MANAGEMENT" },
-        select: { enabled: true, level: true },
+        select: { module: true, enabled: true, level: true },
       },
     },
   });
@@ -74,7 +73,7 @@ export async function PATCH(
   // either Booking level) but can never escalate anyone to Admin on another
   // module, and can never touch this target's USER_MANAGEMENT row at all —
   // only an Owner grants/revokes who else gets to manage users.
-  if (!isOwner && !isAppAccessGrantAllowedForNonOwner(appAccess, targetMembership.appAccess[0])) {
+  if (!isOwner && !isAppAccessGrantAllowedForNonOwner(appAccess, targetMembership.appAccess)) {
     return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 

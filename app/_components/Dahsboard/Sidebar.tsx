@@ -115,6 +115,16 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   // currentUser was still loading either.
   const showScheduler = Boolean(currentUser && getModuleAccess(currentUser, "SCHEDULER").enabled);
 
+  // DashboardHome is entirely booking-stats content (income, orders,
+  // leaderboards) — showing "Home" to someone without Booking access just
+  // links to a page with nothing relevant to them.
+  const showHome = showBooking;
+  const showGeneralSection = showHome || showUserManagement;
+  // Scheduler's own link only ever renders on mobile (see below), but still
+  // needs to keep the section title alive there when it's the only enabled
+  // module in this group.
+  const showBookingSection = showBooking || showWebsiteOrders || showScheduler;
+
   const isActive = (href: string) =>
     href === "/dashboard"
       ? pathname === "/dashboard"
@@ -198,16 +208,20 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
             </div>
           </div>
 
-          <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
-            {bookingText(locale, "General")}
-          </h1>
+          {showGeneralSection && (
+            <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+              {bookingText(locale, "General")}
+            </h1>
+          )}
 
-          <Link href="/dashboard" className={linkClass("/dashboard")}>
-            <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.home} />
-              {bookingText(locale, "Home")}
-            </div>
-          </Link>
+          {showHome && (
+            <Link href="/dashboard" className={linkClass("/dashboard")}>
+              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
+                <Icon path={ICONS.home} />
+                {bookingText(locale, "Home")}
+              </div>
+            </Link>
+          )}
 
           {showUserManagement && (
             <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
@@ -218,9 +232,11 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
             </Link>
           )}
 
-          <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
-            {bookingText(locale, "Booking app")}
-          </h1>
+          {showBookingSection && (
+            <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+              {bookingText(locale, "Booking app")}
+            </h1>
+          )}
 
           {showBooking && (
             <div className={`mb-2 rounded-lg transition-colors ${isActive("/dashboard/booking") ? "bg-linePrimary" : ""}`}>
