@@ -15,6 +15,7 @@ import { StyledBulletList } from "@/lib/blog/tiptapListStyles";
 import { FontSize } from "@/lib/blog/tiptapFontSize";
 import { NonExtendingLink } from "@/lib/blog/tiptapLinkExtension";
 import type { WholeDocMarkChange } from "@/lib/blog/tiptapHeadlessMirror";
+import { RICH_TEXT_FONT_SIZE_OPTIONS } from "@/lib/blog/richTextFontSizes";
 
 // True when the current selection spans the entire document — the signal
 // used to decide whether a bold/italic/underline/color change should mirror
@@ -71,13 +72,7 @@ type Props = {
   placeholder?: string;
 };
 
-const FONT_SIZE_OPTIONS = [
-  { value: "", labelEn: "Default", labelNb: "Standard" },
-  { value: "14px", labelEn: "Small", labelNb: "Liten" },
-  { value: "16px", labelEn: "Normal", labelNb: "Normal" },
-  { value: "20px", labelEn: "Large", labelNb: "Stor" },
-  { value: "28px", labelEn: "Extra large", labelNb: "Ekstra stor" },
-];
+const FONT_SIZE_OPTIONS = RICH_TEXT_FONT_SIZE_OPTIONS;
 
 const LIST_OPTIONS = [
   { value: "none", labelEn: "No list", labelNb: "Ingen liste" },
@@ -292,7 +287,14 @@ export function RichTextEditorField({
     if (!editor) return;
 
     if (editor.isActive("link")) {
+      // Cursor is inside an existing link — edit that link's own range.
       editor.chain().extendMarkRange("link").run();
+    } else if (editor.state.selection.empty) {
+      // Nothing highlighted — link the whole (this language's) text rather
+      // than requiring an explicit selection first. Unlike bold/italic/
+      // underline/color, a link never mirrors to the other language (see
+      // onWholeDocMark callers below) — linking stays per-language.
+      editor.chain().focus().selectAll().run();
     }
 
     const { from, to } = editor.state.selection;
@@ -469,8 +471,16 @@ export function RichTextEditorField({
             label="Bold"
             active={editor.isActive("bold")}
             onClick={() => {
-              const wholeDoc = isWholeDocSelected(editor);
-              editor.chain().focus().toggleBold().run();
+              // No selection — apply to the whole (this language's) text
+              // rather than just arming the mark for the next typed
+              // character, same as color's existing empty-selection
+              // shortcut below.
+              const wholeDoc = editor.state.selection.empty || isWholeDocSelected(editor);
+              if (editor.state.selection.empty) {
+                editor.chain().focus().selectAll().toggleBold().run();
+              } else {
+                editor.chain().focus().toggleBold().run();
+              }
               if (wholeDoc) onWholeDocMark?.({ type: "bold", value: editor.isActive("bold") });
             }}
           >
@@ -481,8 +491,12 @@ export function RichTextEditorField({
               label="Italic"
               active={editor.isActive("italic")}
               onClick={() => {
-                const wholeDoc = isWholeDocSelected(editor);
-                editor.chain().focus().toggleItalic().run();
+                const wholeDoc = editor.state.selection.empty || isWholeDocSelected(editor);
+                if (editor.state.selection.empty) {
+                  editor.chain().focus().selectAll().toggleItalic().run();
+                } else {
+                  editor.chain().focus().toggleItalic().run();
+                }
                 if (wholeDoc) onWholeDocMark?.({ type: "italic", value: editor.isActive("italic") });
               }}
             >
@@ -499,8 +513,12 @@ export function RichTextEditorField({
                 // panel's own checkbox, so it stays tied to the link's
                 // styling rather than being toggled independently here.
                 if (editor.isActive("link")) return;
-                const wholeDoc = isWholeDocSelected(editor);
-                editor.chain().focus().toggleUnderline().run();
+                const wholeDoc = editor.state.selection.empty || isWholeDocSelected(editor);
+                if (editor.state.selection.empty) {
+                  editor.chain().focus().selectAll().toggleUnderline().run();
+                } else {
+                  editor.chain().focus().toggleUnderline().run();
+                }
                 if (wholeDoc) onWholeDocMark?.({ type: "underline", value: editor.isActive("underline") });
               }}
             >

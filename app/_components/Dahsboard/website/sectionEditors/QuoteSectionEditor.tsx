@@ -21,6 +21,7 @@ export default function QuoteSectionEditor({ data, onChange }: Props) {
         label="Attribution"
         value={data.attribution ?? { en: "", no: "" }}
         onChange={(attribution) => onChange({ ...data, attribution })}
+        fieldKind="heading"
       />
     </div>
   );

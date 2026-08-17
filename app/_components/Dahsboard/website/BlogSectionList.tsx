@@ -6,8 +6,10 @@ import {
   DndContext,
   PointerSensor,
   closestCenter,
+  pointerWithin,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -27,6 +29,20 @@ export type BlogSectionListHandle = {
 };
 
 const BASE_URL = (postId: string) => `/api/dashboard/website/blog/${postId}/sections`;
+
+// closestCenter (dnd-kit's usual default) compares the *dragged card's own*
+// center to each row's center — since the card follows the cursor offset by
+// wherever you grabbed it, that means dragging its center (not the cursor)
+// past a row's center before a swap registers, which reads as sluggish for
+// tall sections. Checking the pointer's own position against each row
+// instead makes the drop target track the cursor directly. Falls back to
+// closestCenter when the pointer isn't over any row at all (e.g. dragged
+// above the first card or below the last one), since pointerWithin alone
+// reports no collisions there.
+const dragCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  return pointerCollisions.length > 0 ? pointerCollisions : closestCenter(args);
+};
 
 const BlogSectionList = forwardRef<BlogSectionListHandle, Props>(function BlogSectionList(
   { postId, onSectionsChange, onFocusSections },
@@ -186,7 +202,7 @@ const BlogSectionList = forwardRef<BlogSectionListHandle, Props>(function BlogSe
 
   return (
     <div className="flex flex-col gap-3">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={dragCollisionDetection} onDragEnd={handleDragEnd}>
         <SortableContext items={sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           {sections.map((section, index) => (
             <BlogSectionCard

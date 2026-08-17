@@ -10,15 +10,19 @@ type Props = {
   label: string;
   value: LocalizedTextValue;
   onChange: (value: LocalizedTextValue) => void;
-  // Body paragraphs mirror a whole-text bold/italic/underline/color change
-  // into the other language (see handleWholeDocMark below) — short one-line
-  // fields like a section's "Heading" don't get the same treatment, since
-  // there's little reason a title's formatting in one language should force
-  // the other language's title to match.
-  mirrorWholeDoc?: boolean;
+  // "body" (default) paragraphs mirror a whole-text bold/italic/underline/
+  // color change into the other language (see handleWholeDocMark below).
+  // "heading" fields — short, single-line: a section's Heading, a quote's
+  // Attribution — opt out of that, since there's little reason one
+  // language's title styling should force the other language's title to
+  // match. Callers state what the field *is*, not the mirroring behavior
+  // directly, so every heading-shaped field gets the same treatment by
+  // construction instead of each caller having to remember a boolean flag.
+  fieldKind?: "body" | "heading";
 };
 
-export default function RichTextLocalizedEditor({ label, value, onChange, mirrorWholeDoc = true }: Props) {
+export default function RichTextLocalizedEditor({ label, value, onChange, fieldKind = "body" }: Props) {
+  const mirrorWholeDoc = fieldKind === "body";
   const [activeLocale, setActiveLocale] = useState<"en" | "no">("en");
   // Both the field's own onChange and onWholeDocMark below can fire within
   // the same click (bold's onUpdate, then the mirror into the other
