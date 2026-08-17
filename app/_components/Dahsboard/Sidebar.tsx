@@ -27,10 +27,10 @@ type Props = {
 
 // ─── Icon component ───────────────────────────────────────────────────────────
 
-function Icon({ path, path2 }: { path: string; path2?: string }) {
+function Icon({ path, path2, className = "mr-2 h-[24] w-[24] shrink-0" }: { path: string; path2?: string; className?: string }) {
   return (
     <svg
-      className="mr-2 h-[24] w-[24] shrink-0"
+      className={className}
       aria-hidden="true"
       xmlns="http://www.w3.org/2000/svg"
       width="24"
@@ -64,16 +64,12 @@ const ICONS = {
   home: "m4 12 8-8 8 8M6 10.5V19a1 1 0 0 0 1 1h3v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h3a1 1 0 0 0 1-1v-8.5",
   booking:
     "M13 7h6l2 4m-8-4v8m0-8V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9h2m8 0H9m4 0h2m4 0h2v-4m0 0h-5m3.5 5.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Zm-10 0a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z",
-  users:
-    "M16 19h4a1 1 0 0 0 1-1v-1a3 3 0 0 0-3-3h-2m-2.236-4a3 3 0 1 0 0-4M3 18v-1a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Zm8-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
   sidebarOpen: "M8.99994 10 7 11.9999l1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
   sidebarClose: "m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
   hamburger: "M5 7h14M5 12h14M5 17h14",
   hours: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 6v6l4 2",
   browser: "M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z",
   browserBar: "M4 8h16M7.5 5.5h.01M10.5 5.5h.01",
-  shoppingBag:
-    "M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25c-.67 0-1.189-.578-1.119-1.243l1.263-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007Z",
   folderOpen:
     "m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2",
 };
@@ -125,10 +121,11 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   const showGeneralSection = showHome || showUserManagement;
   const showBookingSection = showBooking || showWebsiteOrders || showScheduler;
 
-  // The Booking system's own sub-pages (All orders/Create order/Edit
-  // prices/Price lists) used to live behind a separate top navbar
-  // (NavbarBooking) on desktop; they're nested here instead now, for every
-  // tier, at every width — see the "Booking's own pages" block below.
+  // Booking's own sub-pages (All orders/Create order/Edit prices/Price
+  // lists) used to live behind a separate top navbar (NavbarBooking) on
+  // desktop, then nested under a "Booking system" parent button; they now
+  // render as top-level buttons under the "Booking app" header instead, for
+  // every tier, at every width — see the block below.
   const canCreateBooking = !currentUser || getBookingArchiveAccess(currentUser).canCreate;
   const isBookingFullAccess = !currentUser || hasFullAccess(currentUser.role);
   const showBookingPriceLists = Boolean(
@@ -150,24 +147,32 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
         : "bg-transparent hover:bg-linePrimary"
     }`;
 
-  // Booking's own sub-pages — mobile only (see the "Booking system" link
-  // below). On desktop these still live in NavbarBooking's separate top nav
-  // bar; on mobile that second bar is gone and these are nested here instead,
-  // inside the same gray group box as their parent — the active one gets a
-  // white pill so it stands out against that gray backdrop.
-  const bookingSubLinkClass = (href: string, exact = false) =>
-    `block w-full rounded-lg px-3 py-2.5 text-base transition-colors ${
+  // Booking's own sub-pages (All orders/Create order/Edit prices/Price
+  // lists/Scheduler orders) render as top-level nav buttons under the
+  // "Booking app" header, at every width — same gray active treatment as
+  // every other sidebar link (e.g. User management), just needs its own
+  // helper since "/dashboard/booking" needs an exact match (its sub-routes
+  // like /dashboard/booking/create would otherwise match via startsWith).
+  const bookingLinkClass = (href: string, exact = false) =>
+    `${linkBase} ${
       (exact ? pathname === href : pathname.startsWith(href))
-        ? "bg-white text-textcolor font-medium shadow-sm"
-        : "text-textColorSecond hover:bg-white/60"
+        ? "bg-linePrimary text-textcolor"
+        : "bg-transparent hover:bg-linePrimary"
     }`;
 
-  // All the booking links (parent + nested sub-pages) live inside one
-  // persistent shell (BookingDashboardShell/AutomaticOrdersShell) that
-  // doesn't unmount between them, unlike every other Sidebar link's
-  // destination — so navigating between them needs an explicit close, or the
-  // mobile drawer just stays open over the newly-navigated page.
-  const closeMobileDrawer = () => onOpenChange(false);
+  // All the booking links live inside one persistent shell
+  // (BookingDashboardShell/AutomaticOrdersShell) that doesn't unmount between
+  // them, unlike every other Sidebar link's destination — so navigating
+  // between them needs an explicit close, or the mobile drawer just stays
+  // open over the newly-navigated page. Every caller mounts two Sidebar
+  // instances sharing this component (a desktop rail + a mobile drawer),
+  // each with its own open/onOpenChange — on desktop, onOpenChange(false)
+  // collapses the rail to its narrow width rather than closing a drawer, so
+  // this must only fire for the actual mobile instance. lockBodyScrollWhenOpen
+  // is only ever passed true on that instance, so it doubles as the signal.
+  const closeMobileDrawer = () => {
+    if (lockBodyScrollWhenOpen) onOpenChange(false);
+  };
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -219,89 +224,71 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
           </div>
 
           {showGeneralSection && (
-            <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+            <h1 className="flex items-center gap-2 text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+              <Icon path={ICONS.home} className="h-4 w-4 shrink-0" />
               {bookingText(locale, "General")}
             </h1>
           )}
 
           {showHome && (
             <Link href="/dashboard" className={linkClass("/dashboard")}>
-              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-                <Icon path={ICONS.home} />
-                {bookingText(locale, "Home")}
-              </div>
+              {bookingText(locale, "Home")}
             </Link>
           )}
 
           {showUserManagement && (
             <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
-              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-                <Icon path={ICONS.users} />
-                {bookingText(locale, "User management")}
-              </div>
+              {bookingText(locale, "User management")}
             </Link>
           )}
 
           {showBookingSection && (
-            <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+            <h1 className="flex items-center gap-2 text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+              <Icon path={ICONS.booking} className="h-4 w-4 shrink-0" />
               {bookingText(locale, "Booking app")}
             </h1>
           )}
 
+          {/* Booking's own pages render directly as top-level nav buttons
+              (no more separate "Booking system" parent button/background),
+              gated per tier: everyone with Booking access sees "All
+              orders"; "Create order" only shows for those who can actually
+              create (Owner/Admin/Order creator, not Subcontractor); "Edit
+              prices" is Owner/Admin only (this is where the 4 admin buttons
+              come from, plus Scheduler orders when enabled); "Price lists"
+              is the read-only counterpart shown only to non-full-access
+              members with an assigned list. */}
           {showBooking && (
-            <div className={`mb-2 rounded-lg transition-colors ${isActive("/dashboard/booking") ? "bg-linePrimary" : ""}`}>
-              <Link
-                href="/dashboard/booking"
-                onClick={closeMobileDrawer}
-                className={`flex w-full text-base md:text-sm font-[500] px-2 py-3 md:py-2.5 rounded-lg transition-colors text-left ${
-                  isActive("/dashboard/booking") ? "text-textcolor" : "text-textColorSecond hover:bg-linePrimary"
-                }`}
-              >
-                <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-                  <Icon path={ICONS.booking} />
-                  {bookingText(locale, "Booking system")}
-                </div>
+            <>
+              <Link href="/dashboard/booking" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/booking", true)}>
+                All orders
               </Link>
-
-              {/* Booking's own pages — nested here at every width (there's no
-                  separate NavbarBooking top bar anymore; this is the only
-                  place these links live), gated per tier: everyone with
-                  Booking access sees "All orders"; "Create order" only shows
-                  for those who can actually create (Owner/Admin/Order
-                  creator, not Subcontractor); "Edit prices" is Owner/Admin
-                  only; "Price lists" is the read-only counterpart shown only
-                  to non-full-access members with an assigned list. */}
-              <div className="flex flex-col gap-1 px-2 pb-2">
-                <Link href="/dashboard/booking" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking", true)}>
-                  All orders
+              {canCreateBooking && (
+                <Link href="/dashboard/booking/create" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/booking/create")}>
+                  Create order
                 </Link>
-                {canCreateBooking && (
-                  <Link href="/dashboard/booking/create" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/create")}>
-                    Create order
-                  </Link>
-                )}
-                {isBookingFullAccess && (
-                  <Link href="/dashboard/booking/editPrices" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/editPrices")}>
-                    Edit prices
-                  </Link>
-                )}
-                {showBookingPriceLists && (
-                  <Link href="/dashboard/booking/pricelists" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/pricelists")}>
-                    Price lists
-                  </Link>
-                )}
-                {showScheduler && (
-                  <Link href="/dashboard/scheduler-orders" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/scheduler-orders")}>
-                    Scheduler orders
-                  </Link>
-                )}
-              </div>
-            </div>
+              )}
+              {isBookingFullAccess && (
+                <Link href="/dashboard/booking/editPrices" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/booking/editPrices")}>
+                  Edit prices
+                </Link>
+              )}
+              {showBookingPriceLists && (
+                <Link href="/dashboard/booking/pricelists" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/booking/pricelists")}>
+                  Price lists
+                </Link>
+              )}
+              {showScheduler && (
+                <Link href="/dashboard/scheduler-orders" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/scheduler-orders")}>
+                  Scheduler orders
+                </Link>
+              )}
+            </>
           )}
 
           {/* Scheduler access doesn't require booking access — memberships can
-              have one without the other, so this can't just live nested under
-              "Booking system" above (that link/section is entirely absent
+              have one without the other, so this can't just live in the
+              booking buttons above (that whole block is entirely absent
               when showBooking is false). Mobile only, same reason as above. */}
           {!showBooking && showScheduler && (
             <Link href="/dashboard/scheduler-orders" onClick={closeMobileDrawer} className={`${linkClass("/dashboard/scheduler-orders")} lg:hidden`}>
@@ -313,11 +300,8 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
           )}
 
           {showWebsiteOrders && (
-            <Link href="/dashboard/website-orders" className={linkClass("/dashboard/website-orders")}>
-              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-                <Icon path={ICONS.shoppingBag} />
-                {locale === "nb" ? "Nettsidebestillinger" : "Website orders"}
-              </div>
+            <Link href="/dashboard/website-orders" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/website-orders")}>
+              {locale === "nb" ? "Nettsidebestillinger" : "Website orders"}
             </Link>
           )}
 

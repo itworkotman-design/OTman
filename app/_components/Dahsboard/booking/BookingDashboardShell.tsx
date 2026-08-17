@@ -61,7 +61,7 @@ export default function BookingDashboardShell({ children }: { children: ReactNod
 
         @media (min-width: 1024px) {
           .content-shell {
-            padding-top: 0;
+            padding-top: 40px;
             padding-left: var(--sidebar-width);
           }
         }
