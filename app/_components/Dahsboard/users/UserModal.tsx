@@ -81,7 +81,8 @@ export default function UserModal({
   onClose,
   onSave,
   onToggleActive,
-  actorRole,
+  isOwner,
+  isUmAdmin,
   targetRole,
   initialValueUsername,
   initialValueEmail,
@@ -143,7 +144,12 @@ export default function UserModal({
     getUserLogoDisplayPath(initialValueLogoPath),
   );
 
-  const { isActorOwner, canEditTarget, canToggleActive } = getPermissions(actorRole, targetRole, isCreateMode);
+  const { isNonOwnerUmAdmin, canEditTarget, canToggleActive } = getPermissions(isOwner, isUmAdmin, targetRole, isCreateMode);
+
+  // A Viewer-tier actor (not Owner, no USER_MANAGEMENT/Admin grant) only
+  // ever sees General — App access & Security expose role/permission
+  // controls they have no authority to even look at.
+  const visibleSections = isUmAdmin ? SECTIONS : SECTIONS.filter((s) => s.id === "GENERAL");
 
   const updateField = (key: "username" | "email" | "warehouseEmail" | "phoneNumber" | "description" | "password" | "confirmPassword") =>
     makeFieldUpdater(key, setForm);
@@ -298,7 +304,7 @@ export default function UserModal({
         </h1>
 
         <div className="mb-7 flex gap-1 border-b border-black/8">
-          {SECTIONS.map((s) => (
+          {visibleSections.map((s) => (
             <button
               key={s.id}
               type="button"
@@ -476,8 +482,8 @@ export default function UserModal({
               name="role"
               disabled={!canEditTarget}
             >
-              {isActorOwner && <option value="OWNER">Owner</option>}
-              <option value="ADMIN">Admin</option>
+              {isOwner && <option value="OWNER">Owner</option>}
+              {isOwner && <option value="ADMIN">Admin</option>}
               <option value="USER">User</option>
             </select>
 
@@ -485,6 +491,16 @@ export default function UserModal({
               {form.appAccess.map((row) => {
                 const levelLabels = getLevelOptionLabels(row.module, form.role);
                 const color = MODULE_COLORS[row.module];
+                const isBookingModule = row.module === "BOOKING";
+                const isUserManagementModule = row.module === "USER_MANAGEMENT";
+                // Only an Owner may grant/revoke USER_MANAGEMENT itself for
+                // someone else — a non-owner Admin can't touch this row at
+                // all, in either direction. For every other non-Booking
+                // module they can toggle it on/off but never escalate its
+                // level past Viewer (Booking's Viewer/Admin is Subcontractor
+                // vs Order creator, an order permission, not an admin grant).
+                const moduleToggleLocked = isNonOwnerUmAdmin && isUserManagementModule;
+                const moduleLevelLocked = isNonOwnerUmAdmin && !isBookingModule;
 
                 return (
                   <div key={row.module} className="self-start overflow-hidden rounded-2xl border border-lineSecondary">
@@ -506,7 +522,7 @@ export default function UserModal({
                       <ToggleSwitch
                         checked={row.enabled}
                         onChange={(next) => updateAppAccessModule(row.module, { enabled: next }, setForm)}
-                        disabled={!canEditTarget}
+                        disabled={!canEditTarget || moduleToggleLocked}
                       />
                     </div>
 
@@ -518,7 +534,7 @@ export default function UserModal({
                           onChange={(e) =>
                             updateAppAccessModule(row.module, { level: e.target.value as "VIEWER" | "ADMIN" }, setForm)
                           }
-                          disabled={!canEditTarget}
+                          disabled={!canEditTarget || moduleLevelLocked}
                         >
                           <option value="VIEWER">{levelLabels.viewer}</option>
                           <option value="ADMIN">{levelLabels.admin}</option>

@@ -2,7 +2,7 @@ import type { ArchiveContextInput, ArchivePermissionAction } from "@customprojec
 import type { AuthenticatedSession } from "@/lib/auth/session";
 import type { ActiveMembership } from "@/lib/auth/membership";
 import { canAccessArchive, hasFullAccess } from "@/lib/users/access";
-import { archive } from "@/lib/docArchive/client";
+import { archive, archivePrisma } from "@/lib/docArchive/client";
 
 export function buildArchiveContext(
   session: AuthenticatedSession,
@@ -36,6 +36,49 @@ export async function ensureNamespaceBootstrapped(
       `Failed to bootstrap Archive namespace: ${result.error.message}`,
     );
   }
+}
+
+// `bootstrapNamespacePermissions` is a validation no-op the moment ANY
+// namespace manager already exists for the tenant (docs: "valid only while
+// the tenant has zero active namespace manage_permissions=allow rules") — so
+// it only ever provisions the very first OWNER/ADMIN to touch Archive. Every
+// full-access member after that has zero namespace permissions of their own
+// (a company Role/app-access grant is not an Archive-namespace grant), so
+// namespace-gated methods like `listArchiveRoles` return `not_found` for
+// them even though they're a legitimate company Admin with Archive access.
+// This self-heals that: every full-access + Archive-enabled caller becomes a
+// namespace manager on their own first Roles-surface request, not just
+// whoever happened to get there first. `archivePrisma` is typed narrowly
+// (see folderStats.ts's comment on the same pattern) but is a real Prisma
+// client at runtime, so the direct insert against the archive-owned
+// permissions table works; `ON CONFLICT DO NOTHING` makes it safe against the
+// package's own one-active-rule partial unique index without a separate
+// existence check.
+type ArchivePermissionWriteClient = {
+  $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
+};
+
+const permissionDb = archivePrisma as unknown as ArchivePermissionWriteClient;
+
+export async function ensureNamespaceManager(
+  ctx: ArchiveContextInput,
+  actorRole: ActiveMembership["role"],
+): Promise<void> {
+  if (!hasFullAccess(actorRole) || !ctx.archiveModuleAccess) return;
+
+  await ensureNamespaceBootstrapped(ctx, actorRole);
+
+  await permissionDb.$queryRawUnsafe(
+    `
+    INSERT INTO archive."archive_permissions"
+      ("id", "companyId", "tenantId", "targetType", "targetId", "subjectType", "subjectId", "action", "effect", "grantedByUserId")
+    VALUES (gen_random_uuid(), $1, $2, 'namespace', $2, 'user', $3, 'manage_permissions', 'allow', $3)
+    ON CONFLICT DO NOTHING
+    `,
+    ctx.companyId,
+    ctx.tenantId,
+    ctx.userId,
+  );
 }
 
 // createFolder only auto-grants the creator `view` + `manage_permissions` on

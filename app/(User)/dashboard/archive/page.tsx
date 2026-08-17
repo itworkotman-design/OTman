@@ -5,11 +5,11 @@ import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
-import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
+import { EntityPill, type PillField } from "@/app/_components/Dahsboard/archive/EntityPill";
+import { PillActions } from "@/app/_components/Dahsboard/archive/PillActions";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
-import { PinnedItemsSection } from "@/app/_components/Dahsboard/archive/PinnedItemsSection";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
-import { codeBadgeWidthCh, codeToUrlPath, groupBySection } from "@/app/_components/Dahsboard/archive/types";
+import { codeBadgeWidthCh, codeToUrlPath, formatLastModified, groupBySection } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderRow = ArchiveFolderSummary & {
@@ -179,24 +179,60 @@ export default function ArchivePage() {
         </div>
       </section>
 
-      <PinnedFoldersSection locale={locale} canEdit={isArchiveAdmin} refreshKey={pinRefreshKey} onPinChanged={handlePinChanged} />
-      <PinnedItemsSection locale={locale} canEdit={isArchiveAdmin} />
-
-      <section className="mt-4 grid gap-6">
-        <div className="min-w-0">
-          <div className="mb-4 hidden h-10 grow items-end justify-end text-sm font-semibold text-textColorThird sm:flex">
-            <div className="w-full max-w-[100] text-center">
-              <p>{locale === "nb" ? "Elementer" : "Entries"}</p>
-            </div>
+      {/* Mirrors EntityPill's own row shape (content div with the same
+          gap-2 sm:gap-3 + px-2) so these labels land over the value columns
+          they name instead of drifting as columns are hidden/shown. The
+          trailing spacer only renders for admins, matching EntityPill only
+          mounting PillActions when its mode is "admin" — for viewers
+          there's no trailing box at all, so the header has none either. It's
+          a real (invisible) PillActions rendered with the same props as the
+          folder rows below, rather than a fixed width, so it tracks
+          PillActions' own intrinsic width automatically as actions are
+          added or removed instead of needing to be kept in sync by hand.
+          Sits above Pinned folders/items since both sections share this
+          same column layout, not just the grouped list below. */}
+      <div className="mb-4 hidden h-10 items-end text-sm font-semibold text-textColorThird sm:flex">
+        <div className="flex min-w-0 grow items-center justify-end gap-2 sm:gap-3 px-2">
+          <div className="w-full max-w-[100] text-center">
+            <p>{locale === "nb" ? "Elementer" : "Entries"}</p>
+          </div>
+          {isArchiveAdmin && (
             <div className="w-full max-w-[100] text-center">
               <p>{locale === "nb" ? "Brukere" : "Users"}</p>
             </div>
-            <div className="w-full max-w-[100] text-center">
-              <p>{locale === "nb" ? "Sist endret" : "Updated"}</p>
-            </div>
-            {isArchiveAdmin && <div className="w-12 shrink-0" aria-hidden />}
+          )}
+          <div className="w-full max-w-[100] text-center">
+            <p>{locale === "nb" ? "Sist endret" : "Updated"}</p>
           </div>
+        </div>
+        {isArchiveAdmin && (
+          <div className="invisible shrink-0" aria-hidden>
+            <PillActions
+              kind="folder"
+              id=""
+              name=""
+              href="#"
+              locale={locale}
+              canEdit
+              onChanged={loadFolders}
+              status="active"
+              isPinned={false}
+              onPinChanged={handlePinChanged}
+            />
+          </div>
+        )}
+      </div>
 
+      <PinnedFoldersSection
+        locale={locale}
+        canEdit={isArchiveAdmin}
+        refreshKey={pinRefreshKey}
+        onChanged={handlePinChanged}
+        onPinChanged={handlePinChanged}
+      />
+
+      <section className="mt-4 grid gap-6">
+        <div className="min-w-0">
           <div className="min-w-0 w-full overflow-x-auto">
             {loading ? (
               <div className="customContainer flex items-center justify-center py-10 text-sm text-textColorThird">
@@ -216,20 +252,34 @@ export default function ArchivePage() {
                   <div key={group.id} className="min-w-0">
                     {group.name && <h2 className="mb-3 text-sm sm:text-base font-semibold text-logoblue">{group.name}</h2>}
                     <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
-                      {group.entries.map((folder) => (
-                        <FolderPill
-                          key={folder.id}
-                          folder={folder}
-                          href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
-                          locale={locale}
-                          showDescription={false}
-                          canEdit={isArchiveAdmin}
-                          showFavorite={isArchiveAdmin}
-                          isPinned={folder.isPinned}
-                          onPinChanged={handlePinChanged}
-                          codeWidthCh={codeWidthCh}
-                        />
-                      ))}
+                      {group.entries.map((folder) => {
+                        const fields: PillField[] = [{ key: "entries", value: folder.entryCount }];
+                        if (isArchiveAdmin) fields.push({ key: "users", value: folder.viewerCount });
+                        fields.push({ key: "updated", value: formatLastModified(folder.updatedAt) });
+
+                        return (
+                          <EntityPill
+                            key={folder.id}
+                            kind="folder"
+                            id={folder.id}
+                            name={folder.name}
+                            description={folder.description}
+                            status={folder.status}
+                            conditionFlags={folder}
+                            href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
+                            locale={locale}
+                            code={folder.code}
+                            showDescription={false}
+                            mode={isArchiveAdmin ? "admin" : "viewer"}
+                            fields={fields}
+                            onChanged={loadFolders}
+                            showFavorite={isArchiveAdmin}
+                            isPinned={folder.isPinned}
+                            onPinChanged={handlePinChanged}
+                            codeWidthCh={codeWidthCh}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
-import { buildArchiveContext, ensureNamespaceBootstrapped } from "@/lib/docArchive/context";
+import { buildArchiveContext, ensureNamespaceManager } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 
 export async function GET(req: Request) {
@@ -8,6 +8,7 @@ export async function GET(req: Request) {
   if ("error" in result) return result.error;
 
   const ctx = buildArchiveContext(result.session, result.membership);
+  await ensureNamespaceManager(ctx, result.membership.role);
   const listResult = await archive.listArchiveRoles(ctx);
 
   if (!listResult.ok) {
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
   }
 
   const ctx = buildArchiveContext(session, membership);
-  await ensureNamespaceBootstrapped(ctx, membership.role);
+  await ensureNamespaceManager(ctx, membership.role);
 
   const createResult = await archive.createArchiveRole(ctx, { name });
 

@@ -310,7 +310,17 @@ export function ArchiveRolesPanel() {
     );
   }
 
-  const coworkerById = new Map(coworkers.map((c) => [c.userId, c]));
+  // /api/archive/coworkers excludes the caller (it was built for the
+  // folder-sharing picker, where "share with yourself" is meaningless), but
+  // that exclusion doesn't fit here — assigning yourself to a group is
+  // completely normal. Rather than change the shared endpoint (and affect
+  // folder sharing too), inject self locally the same way
+  // EntitySettingsPanel's owner-picker already does.
+  const assignableCoworkers: ArchiveCoworker[] = currentUser
+    ? [{ userId: currentUser.id, email: currentUser.email, username: currentUser.username || null }, ...coworkers]
+    : coworkers;
+
+  const coworkerById = new Map(assignableCoworkers.map((c) => [c.userId, c]));
 
   const panelItems = roles.map((role) => {
     const assignments = assignmentsByRoleId[role.id] ?? [];
@@ -452,11 +462,12 @@ export function ArchiveRolesPanel() {
                 disabled={assigning}
               >
                 <option value="">{locale === "nb" ? "Velg kollega..." : "Select coworker..."}</option>
-                {coworkers
+                {assignableCoworkers
                   .filter((c) => !assignments.some((a) => a.platformUserId === c.userId))
                   .map((coworker) => (
                     <option key={coworker.userId} value={coworker.userId}>
                       {coworker.username || coworker.email}
+                      {coworker.userId === currentUser?.id ? (locale === "nb" ? " (deg)" : " (you)") : ""}
                     </option>
                   ))}
               </select>

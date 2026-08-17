@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import type { AppModule, Role, Membership, PendingInvite } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { ALL_MODULES, MODULE_LABELS } from "@/lib/users/appAccessDefaults";
+import { getModuleAccess } from "@/lib/users/access";
+import { canManageTarget } from "@/lib/users/userModal";
 import { getUserLogoDisplayPath } from "@/lib/users/profileAppearance";
 import {
   normalizedIncludes,
@@ -87,7 +89,7 @@ function AppAccessBadges({ appAccess }: { appAccess: Membership["appAccess"] }) 
           </span>
         )}
       </div>
-      <span className="text-[12.5px] text-textColorThird">{countLabel}</span>
+      <span className="whitespace-nowrap text-[12.5px] text-textColorThird">{countLabel}</span>
     </div>
   );
 }
@@ -116,7 +118,13 @@ type PageTab = "USERS" | "APPS_ROLES";
 
 export default function UserPage() {
   const currentUser = useCurrentUser();
-  const currentUserRole = currentUser?.role ?? "USER";
+  const isOwner = currentUser?.role === "OWNER";
+  // Fail closed while currentUser is still loading — unlike Sidebar's
+  // fail-open pattern, granting Admin-tier controls for a moment before the
+  // real check lands would let someone click "+ Add user" or a role select
+  // that's about to disappear underneath them.
+  const isUmAdmin = isOwner || (!!currentUser && getModuleAccess(currentUser, "USER_MANAGEMENT").level === "ADMIN");
+  const isNonOwnerUmAdmin = isUmAdmin && !isOwner;
   const [activeTab, setActiveTab] = useState<PageTab>("USERS");
   const [modalKey, setModalKey] = useState(0);
   const [users, setUsers] = useState<Membership[]>([]);
@@ -336,7 +344,7 @@ export default function UserPage() {
         {(
           [
             { id: "USERS" as const, label: "Users" },
-            { id: "APPS_ROLES" as const, label: "Apps & roles" },
+            ...(isUmAdmin ? [{ id: "APPS_ROLES" as const, label: "Apps & roles" }] : []),
           ]
         ).map((tab) => (
           <button
@@ -354,7 +362,7 @@ export default function UserPage() {
         ))}
       </div>
 
-      {activeTab === "APPS_ROLES" && <AppsRolesTab memberships={users} />}
+      {isUmAdmin && activeTab === "APPS_ROLES" && <AppsRolesTab memberships={users} />}
 
     {activeTab === "USERS" && (
     <div className="mx-auto min-w-0 w-full max-w-1800">
@@ -366,7 +374,8 @@ export default function UserPage() {
             setOpen(false);
             setSelectedUser(null);
           }}
-          actorRole={currentUserRole}
+          isOwner={isOwner}
+          isUmAdmin={isUmAdmin}
           targetRole={selectedUser?.role ?? "USER"}
           initialValueUsername={selectedUser?.user.username ?? ""}
           initialValueEmail={selectedUser?.user.email ?? ""}
@@ -556,21 +565,23 @@ export default function UserPage() {
               Export
             </button>
 
-            <button
-              type="button"
-              className="rounded-full bg-logoblue px-5.5 py-2.5 text-sm font-bold text-white shadow-[0_2px_8px_rgba(39,48,151,.25)] hover:opacity-90"
-              onClick={() => {
-                setSelectedUser(null);
-                setModalKey((prev) => prev + 1);
-                setOpen(true);
-              }}
-            >
-              + Add user
-            </button>
+            {isUmAdmin && (
+              <button
+                type="button"
+                className="rounded-full bg-logoblue px-5.5 py-2.5 text-sm font-bold text-white shadow-[0_2px_8px_rgba(39,48,151,.25)] hover:opacity-90"
+                onClick={() => {
+                  setSelectedUser(null);
+                  setModalKey((prev) => prev + 1);
+                  setOpen(true);
+                }}
+              >
+                + Add user
+              </button>
+            )}
           </div>
 
           <div className="min-w-0 w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">
-            <div className="min-w-375 w-full">
+            <div className="w-full">
             {!loading && !error && pendingInvites.length > 0 && (
               <div className="mb-6 overflow-hidden rounded-[20px] border border-black/8">
                 <h2 className="border-b border-black/8 bg-amber-500/10 px-5 py-3 text-sm font-bold text-textColorSecond">
@@ -654,11 +665,11 @@ export default function UserPage() {
               <div className="py-6 text-red-600">{error}</div>
             ) : (
               <div className="overflow-hidden rounded-[20px] border border-black/8">
-                <div className="grid grid-cols-[1.8fr_1.6fr_1fr_1fr_auto] gap-3 bg-logoblue/4 px-5 py-3.5 text-xs font-bold tracking-wide text-logoblue uppercase">
-                  <div>User</div>
-                  <div>Apps</div>
-                  <div>Last seen</div>
-                  <div>Status</div>
+                <div className="grid grid-cols-[minmax(min-content,1.8fr)_minmax(min-content,1.6fr)_minmax(min-content,1fr)_minmax(min-content,1fr)_auto] gap-3 bg-logoblue/4 px-5 py-3.5 text-xs font-bold tracking-wide text-logoblue uppercase">
+                  <div className="whitespace-nowrap px-2">User</div>
+                  <div className="whitespace-nowrap px-2">Apps</div>
+                  <div className="whitespace-nowrap px-2">Last seen</div>
+                  <div className="whitespace-nowrap px-2">Status</div>
                   <div />
                 </div>
 
@@ -668,11 +679,11 @@ export default function UserPage() {
                   return (
                     <div
                       key={u.id}
-                      className="grid grid-cols-[1.8fr_1.6fr_1fr_1fr_auto] items-center gap-3 border-t border-black/6 px-5 py-4"
+                      className="grid grid-cols-[minmax(min-content,1.8fr)_minmax(min-content,1.6fr)_minmax(min-content,1fr)_minmax(min-content,1fr)_auto] items-center gap-3 border-t border-black/6 px-5 py-4"
                     >
                       <button
                         type="button"
-                        className="flex min-w-0 cursor-pointer items-center gap-3 text-left"
+                        className="flex min-w-0 cursor-pointer items-center gap-3 px-2 text-left"
                         onClick={() => {
                           setSelectedUser(u);
                           setOpen(true);
@@ -687,7 +698,7 @@ export default function UserPage() {
 
                       <button
                         type="button"
-                        className="flex cursor-pointer items-center text-left"
+                        className="flex min-w-0 cursor-pointer items-center px-2 text-left"
                         onClick={() => {
                           setSelectedUser(u);
                           setOpen(true);
@@ -696,12 +707,12 @@ export default function UserPage() {
                         <AppAccessBadges appAccess={u.appAccess ?? []} />
                       </button>
 
-                      <div className="text-[13px] text-textColorSecond">
+                      <div className="whitespace-nowrap px-2 text-[13px] text-textColorSecond">
                         {formatLastSeen(u.lastSeenAt, !!u.isOnline)}
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: status.color }}>
-                        <span className="h-1.75 w-1.75 rounded-full" style={{ backgroundColor: status.color }} />
+                      <div className="flex items-center gap-1.5 whitespace-nowrap px-2 text-[13px] font-semibold" style={{ color: status.color }}>
+                        <span className="h-1.75 w-1.75 shrink-0 rounded-full" style={{ backgroundColor: status.color }} />
                         {status.label}
                       </div>
 
@@ -742,6 +753,7 @@ export default function UserPage() {
                               >
                                 Edit user
                               </button>
+                              {canManageTarget(isOwner, isNonOwnerUmAdmin, u.role) && (
                               <button
                                 type="button"
                                 className="block w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-textcolor hover:bg-black/5"
@@ -759,6 +771,7 @@ export default function UserPage() {
                               >
                                 {u.status === "ACTIVE" ? "Disable user" : "Enable user"}
                               </button>
+                              )}
                             </div>
                           </>
                         )}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
-import { buildArchiveContext } from "@/lib/docArchive/context";
+import { buildArchiveContext, ensureNamespaceManager } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 
 export async function PATCH(
@@ -19,6 +19,7 @@ export async function PATCH(
   }
 
   const ctx = buildArchiveContext(result.session, result.membership);
+  await ensureNamespaceManager(ctx, result.membership.role);
   const renameResult = await archive.renameArchiveRole(ctx, { roleId, name });
 
   if (!renameResult.ok) {
@@ -40,6 +41,7 @@ export async function DELETE(
 
   const { roleId } = await params;
   const ctx = buildArchiveContext(result.session, result.membership);
+  await ensureNamespaceManager(ctx, result.membership.role);
 
   // A role assigned to coworkers is in use — deleting it would silently
   // un-share every folder shared with it. Enforced here (not just in the

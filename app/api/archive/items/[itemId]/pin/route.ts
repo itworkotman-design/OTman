@@ -9,7 +9,7 @@ import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/r
 // package requirement): pinning is treated as one of the "settings" actions
 // alongside rename/archive/move/delete, all admin-only per explicit product
 // decision — only Copy Link is available to plain viewers. The UI already
-// hides the pin star from non-admins (PillHoverActions), but that alone
+// hides the pin action from non-admins (PillActions), but that alone
 // isn't real enforcement, so it's gated here too. unpinItem has no
 // target-existence check by design (removing a stale pin always succeeds
 // indistinguishably), so DELETE never surfaces a not_found either.

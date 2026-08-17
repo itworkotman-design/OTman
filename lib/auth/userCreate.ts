@@ -2,8 +2,13 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getActiveMembership } from "@/lib/auth/membership";
 import { hashPassword } from "@/lib/auth/password";
-import { defaultAppAccessRows, normalizeAppAccessInput, derivePermissionsFromAppAccess } from "@/lib/users/appAccessDefaults";
-import { getModuleAccess } from "@/lib/users/access";
+import {
+  defaultAppAccessRows,
+  normalizeAppAccessInput,
+  derivePermissionsFromAppAccess,
+  isAppAccessGrantAllowedForNonOwner,
+} from "@/lib/users/appAccessDefaults";
+import { isUserManagementAdmin } from "@/lib/users/access";
 
 type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 
@@ -112,12 +117,20 @@ export async function createUserWithPassword(params: {
     companyId,
   });
 
-  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
+  if (!actorMembership || !isUserManagementAdmin(actorMembership)) {
     return { ok: false, reason: "FORBIDDEN" };
   }
 
-  if (actorMembership.role === "ADMIN" && nextRole === "OWNER") {
-    return { ok: false, reason: "FORBIDDEN" };
+  // Only an Owner can create another Owner or Admin, or grant Admin-level
+  // access on any module besides Booking, or grant USER_MANAGEMENT at all —
+  // a non-owner USER_MANAGEMENT/Admin can only ever create plain USER-role
+  // people with Viewer-level (or Booking) grants.
+  const appAccessToWrite = explicitAppAccess ?? defaultAppAccessRows(nextRole, permissions);
+
+  if (actorMembership.role !== "OWNER") {
+    if (nextRole !== "USER" || !isAppAccessGrantAllowedForNonOwner(appAccessToWrite)) {
+      return { ok: false, reason: "FORBIDDEN" };
+    }
   }
 
   if (priceListIds.length > 0) {
@@ -214,7 +227,7 @@ export async function createUserWithPassword(params: {
     }
 
     await tx.membershipAppAccess.createMany({
-      data: (explicitAppAccess ?? defaultAppAccessRows(nextRole, permissions)).map((row) => ({
+      data: appAccessToWrite.map((row) => ({
         membershipId: membership.id,
         ...row,
       })),

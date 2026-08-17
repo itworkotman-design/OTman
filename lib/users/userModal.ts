@@ -48,7 +48,8 @@ export interface UserModalProps {
   initialValueRole: string;
   initialValueActive: boolean;
   initialValueAppAccess?: AppAccessFormRow[];
-  actorRole: Role;
+  isOwner: boolean;
+  isUmAdmin: boolean;
   targetRole: Role;
   priceLists?: { id: string; name: string }[];
   initialPriceListIds?: string[];
@@ -96,24 +97,38 @@ export function buildInitialForm(source: UserFormSource): UserFormData {
   };
 }
 
+// `isUmAdmin` is inclusive of Owner (an Owner always has full USER_MANAGEMENT
+// authority regardless of their own appAccess row — see
+// isUserManagementAdmin in lib/users/access.ts) — callers that need to
+// distinguish "Owner" from "non-owner USER_MANAGEMENT/Admin" use
+// isNonOwnerUmAdmin, which is the tier that's restricted to USER-role targets
+// and Viewer-only grants (Booking excepted).
 export function getPermissions(
-  actorRole: Role,
+  isOwner: boolean,
+  isUmAdmin: boolean,
   targetRole: Role,
   isCreateMode: boolean,
 ) {
-  const isActorOwner = actorRole === "OWNER";
-  const isActorAdmin = actorRole === "ADMIN";
+  const isNonOwnerUmAdmin = isUmAdmin && !isOwner;
   const isTargetOwner = targetRole === "OWNER";
 
-  const canEditTarget =
-    isCreateMode || isActorOwner || (isActorAdmin && targetRole === "USER");
+  const canEditTarget = isCreateMode
+    ? isUmAdmin
+    : isOwner || (isNonOwnerUmAdmin && targetRole === "USER");
 
   const canToggleActive =
     !isCreateMode &&
-    ((isActorOwner && !isTargetOwner) ||
-      (isActorAdmin && targetRole === "USER"));
+    (isOwner ? !isTargetOwner : isNonOwnerUmAdmin && targetRole === "USER");
 
-  return { isActorOwner, isActorAdmin, canEditTarget, canToggleActive };
+  return { isOwner, isUmAdmin, isNonOwnerUmAdmin, canEditTarget, canToggleActive };
+}
+
+// Shared by the Edit-user modal (canToggleActive above) and the Users list's
+// row-level "Disable/Enable" menu action — same rule, same reason: Owner can
+// touch anyone but another Owner, a non-owner USER_MANAGEMENT/Admin can only
+// touch plain USER-role members, and a Viewer-tier actor can't touch anyone.
+export function canManageTarget(isOwner: boolean, isNonOwnerUmAdmin: boolean, targetRole: Role): boolean {
+  return isOwner ? targetRole !== "OWNER" : isNonOwnerUmAdmin && targetRole === "USER";
 }
 
 export function getSaveButtonLabel(

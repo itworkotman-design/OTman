@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
 import {
   buildArchiveContext,
-  ensureNamespaceBootstrapped,
+  ensureNamespaceManager,
   grantFolderCreatorCapabilities,
 } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
   }
 
   if (!parentFolderId) {
-    await ensureNamespaceBootstrapped(ctx, membership.role);
+    await ensureNamespaceManager(ctx, membership.role);
   }
 
   const createResult = await archive.createFolder(ctx, { name, description, parentFolderId });

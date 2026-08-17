@@ -41,7 +41,7 @@ function CheckIcon() {
 
 // Sits at the right edge of a breadcrumb nav (FolderView/ItemView) and
 // copies the current page URL, not any particular entity's link — unlike
-// PillHoverActions' per-row share button, which copies that row's href.
+// PillActions' per-row share button, which copies that row's href.
 export function CopyUrlButton({ locale }: { locale: string }) {
   const [copied, setCopied] = useState(false);
 

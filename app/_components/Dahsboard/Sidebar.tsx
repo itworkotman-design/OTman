@@ -69,8 +69,10 @@ const ICONS = {
   sidebarClose: "m7 10 1.99994 1.9999-1.99994 2M12 5v14M5 4h14c.5523 0 1 .44772 1 1v14c0 .5523-.4477 1-1 1H5c-.55228 0-1-.4477-1-1V5c0-.55228.44772-1 1-1Z",
   hamburger: "M5 7h14M5 12h14M5 17h14",
   hours: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 6v6l4 2",
-  edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z",
-  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.5 0 4-4 4-9s-1.5-9-4-9-4 4-4 9 1.5 9 4 9ZM3 12h18",
+  browser: "M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z",
+  browserBar: "M4 8h16M7.5 5.5h.01M10.5 5.5h.01",
+  shoppingBag:
+    "M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25c-.67 0-1.189-.578-1.119-1.243l1.263-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007Z",
   folderOpen:
     "m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2",
 };
@@ -207,6 +209,19 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
             </div>
           </Link>
 
+          {showUserManagement && (
+            <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
+              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
+                <Icon path={ICONS.users} />
+                {bookingText(locale, "User management")}
+              </div>
+            </Link>
+          )}
+
+          <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+            {bookingText(locale, "Booking app")}
+          </h1>
+
           {showBooking && (
             <div className={`mb-2 rounded-lg transition-colors ${isActive("/dashboard/booking") ? "bg-linePrimary" : ""}`}>
               <Link
@@ -260,25 +275,20 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
           {showWebsiteOrders && (
             <Link href="/dashboard/website-orders" className={linkClass("/dashboard/website-orders")}>
               <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-                <Icon path={ICONS.globe} />
+                <Icon path={ICONS.shoppingBag} />
                 {locale === "nb" ? "Nettsidebestillinger" : "Website orders"}
               </div>
             </Link>
           )}
 
-          {showUserManagement && (
-            <Link href="/dashboard/users" className={linkClass("/dashboard/users")}>
-              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-                <Icon path={ICONS.users} />
-                {bookingText(locale, "User management")}
-              </div>
-            </Link>
-          )}
+          <h1 className="text-left mt-6 border-b border-lineSecondary px-2 py-1 text-sm font-semibold text-textColorSecond text-weird-landscape padding-weird-landscape">
+            {bookingText(locale, "Others")}
+          </h1>
 
           {showWebsiteEditor && (
             <Link href="/dashboard/website" className={linkClass("/dashboard/website")}>
               <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-                <Icon path={ICONS.edit} />
+                <Icon path={ICONS.browser} path2={ICONS.browserBar} />
                 {bookingText(locale, "Edit website")}
               </div>
             </Link>

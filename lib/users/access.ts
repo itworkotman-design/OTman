@@ -93,3 +93,18 @@ export function getModuleAccess(
 export function hasAnyAppAccess(membership: { appAccess: MembershipAppAccess[] }): boolean {
   return membership.appAccess.some((a) => a.enabled);
 }
+
+// A person can hold USER_MANAGEMENT at Admin level independent of their
+// company Role (that's the whole point of the appAccess redesign — Role and
+// app grants are decoupled). This is the actual authority check for every
+// user-management mutation: company OWNER always qualifies (even if their
+// appAccess rows are stale/missing pre-backfill, since Role is the
+// authoritative super-user signal, not a per-module grant); everyone else
+// needs an explicit USER_MANAGEMENT/Admin grant. A VIEWER-level grant (or no
+// grant) never qualifies, even though `.enabled` alone would let them browse.
+export function isUserManagementAdmin(membership: {
+  role: Role;
+  appAccess: MembershipAppAccess[];
+}): boolean {
+  return membership.role === "OWNER" || getModuleAccess(membership, "USER_MANAGEMENT").level === "ADMIN";
+}

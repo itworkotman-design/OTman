@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
-import { getModuleAccess } from "@/lib/users/access";
-import { normalizeAppAccessInput, derivePermissionsFromAppAccess } from "@/lib/users/appAccessDefaults";
+import { isUserManagementAdmin } from "@/lib/users/access";
+import {
+  normalizeAppAccessInput,
+  derivePermissionsFromAppAccess,
+  isAppAccessGrantAllowedForNonOwner,
+} from "@/lib/users/appAccessDefaults";
 import { prisma } from "@/lib/db";
 
 export async function PATCH(
@@ -24,7 +28,7 @@ export async function PATCH(
     companyId: session.activeCompanyId,
   });
 
-  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
+  if (!actorMembership || !isUserManagementAdmin(actorMembership)) {
     return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
@@ -38,7 +42,17 @@ export async function PATCH(
 
   const targetMembership = await prisma.membership.findUnique({
     where: { id: membershipId },
-    select: { id: true, role: true, status: true, companyId: true, userId: true },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+      companyId: true,
+      userId: true,
+      appAccess: {
+        where: { module: "USER_MANAGEMENT" },
+        select: { enabled: true, level: true },
+      },
+    },
   });
 
   if (
@@ -49,11 +63,18 @@ export async function PATCH(
     return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
-  const canEditTarget =
-    actorMembership.role === "OWNER" ||
-    (actorMembership.role === "ADMIN" && targetMembership.role === "USER");
+  const isOwner = actorMembership.role === "OWNER";
+  const canEditTarget = isOwner || targetMembership.role === "USER";
 
   if (!canEditTarget) {
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
+  }
+
+  // A non-owner USER_MANAGEMENT/Admin can hand out Viewer-level grants (and
+  // either Booking level) but can never escalate anyone to Admin on another
+  // module, and can never touch this target's USER_MANAGEMENT row at all —
+  // only an Owner grants/revokes who else gets to manage users.
+  if (!isOwner && !isAppAccessGrantAllowedForNonOwner(appAccess, targetMembership.appAccess[0])) {
     return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 

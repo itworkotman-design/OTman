@@ -166,7 +166,7 @@ export function codeToUrlPath(code: string): string {
   return code.split(".").join("/");
 }
 
-// FolderPill/ItemPill's leading code badge is given a shared, fixed width
+// EntityPill's leading code badge is given a shared, fixed width
 // (in `ch`) instead of shrink-wrapping to its own text — deeper folders have
 // longer codes ("1.2F.3F" vs "1"), and even same-length codes render at
 // very slightly different natural widths depending on which digits they

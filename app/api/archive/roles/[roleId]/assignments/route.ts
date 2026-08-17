@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
-import { buildArchiveContext } from "@/lib/docArchive/context";
+import { buildArchiveContext, ensureNamespaceManager } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 
 export async function GET(
@@ -12,6 +12,7 @@ export async function GET(
 
   const { roleId } = await params;
   const ctx = buildArchiveContext(result.session, result.membership);
+  await ensureNamespaceManager(ctx, result.membership.role);
   const listResult = await archive.listArchiveRoleAssignmentsForRole(ctx, roleId);
 
   if (!listResult.ok) {
@@ -40,6 +41,7 @@ export async function POST(
   }
 
   const ctx = buildArchiveContext(result.session, result.membership);
+  await ensureNamespaceManager(ctx, result.membership.role);
   const assignResult = await archive.assignArchiveRole(ctx, { roleId, platformUserId });
 
   if (!assignResult.ok) {
@@ -68,6 +70,7 @@ export async function DELETE(
   }
 
   const ctx = buildArchiveContext(result.session, result.membership);
+  await ensureNamespaceManager(ctx, result.membership.role);
   const unassignResult = await archive.unassignArchiveRole(ctx, { roleId, platformUserId });
 
   if (!unassignResult.ok) {

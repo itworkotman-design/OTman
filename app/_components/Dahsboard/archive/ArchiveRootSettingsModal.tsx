@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { FolderPill } from "./FolderPill";
+import { EntityPill } from "./EntityPill";
 import { SectionedEntityManager } from "./SectionedEntityManager";
 import { SettingsIcon, settingsIconButtonClass } from "./SettingsIcon";
-import { codeToUrlPath } from "./types";
+import { codeToUrlPath, formatLastModified } from "./types";
 import type { ArchiveFolderSummary } from "./types";
 
 type ArchiveRootSettingsModalProps = {
@@ -45,14 +45,14 @@ export function ArchiveRootSettingsModal({
         >
           <div
             // Sized to its content (fit-content) rather than a fixed
-            // max-width — the folder/item rows inside (code badge + name +
-            // condition badge + date column + the always-reserved hover-
-            // actions gutter, see FolderPill/ItemPill) can genuinely need
-            // more than the old max-w-2xl (672px) allowed, which forced them
-            // to bleed out of the modal instead of wrapping (several of
-            // their spans are deliberately shrink-0). min-w keeps it from
-            // collapsing too small for the plain create-section form; max-w
-            // keeps it comfortably inside the viewport on any window size;
+            // max-width — the folder rows inside (code badge + name +
+            // condition badge + date column + the actions gutter, see
+            // EntityPill/PillActions) can genuinely need more than the old
+            // max-w-2xl (672px) allowed, which forced them to bleed out of
+            // the modal instead of wrapping (several of their spans are
+            // deliberately shrink-0). min-w keeps it from collapsing too
+            // small for the plain create-section form; max-w keeps it
+            // comfortably inside the viewport on any window size;
             // overflow-x-auto is a last-resort contained scroll for content
             // that's still wider than that cap, instead of bleeding onto the
             // page.
@@ -73,13 +73,19 @@ export function ArchiveRootSettingsModal({
               onFoldersChanged={onFoldersChanged}
               onCreateSubfolder={onCreateFolder}
               renderFolderRow={(folder) => (
-                <FolderPill
+                <EntityPill
                   key={folder.id}
-                  folder={folder}
+                  kind="folder"
+                  id={folder.id}
+                  name={folder.name}
+                  description={folder.description}
+                  status={folder.status}
+                  conditionFlags={folder}
                   href={`/dashboard/archive/${codeToUrlPath(folder.code)}`}
                   locale={locale}
-                  showStats={false}
-                  canEdit
+                  code={folder.code}
+                  mode="admin"
+                  fields={[{ key: "updated", value: formatLastModified(folder.updatedAt) }]}
                   onChanged={onFoldersChanged}
                 />
               )}

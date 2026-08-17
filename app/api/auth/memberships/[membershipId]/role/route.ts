@@ -5,7 +5,7 @@ import {
   revokeAllUserSessions,
 } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
-import { getModuleAccess } from "@/lib/users/access";
+import { isUserManagementAdmin } from "@/lib/users/access";
 import { logAuthEvent } from "@/lib/auth/authEvent";
 import { prisma } from "@/lib/db";
 
@@ -61,7 +61,7 @@ export async function POST(
     companyId: targetMembership.companyId,
   });
 
-  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
+  if (!actorMembership || !isUserManagementAdmin(actorMembership)) {
     return NextResponse.json(
       { ok: false, reason: "FORBIDDEN" },
       { status: 403 }
@@ -79,8 +79,11 @@ export async function POST(
     );
   }
 
-  if (actorMembership.role === "ADMIN") {
-    if (targetMembership.role !== "USER" || nextRole === "OWNER") {
+  // Only an Owner can grant company role Admin/Owner or touch a
+  // non-USER-role member — a non-owner USER_MANAGEMENT/Admin can only ever
+  // manage plain USER-role members and can never promote them off USER.
+  if (actorMembership.role !== "OWNER") {
+    if (targetMembership.role !== "USER" || nextRole !== "USER") {
       return NextResponse.json(
         { ok: false, reason: "FORBIDDEN" },
         { status: 403 }

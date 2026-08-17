@@ -3,7 +3,7 @@ import path from "path";
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
-import { getModuleAccess } from "@/lib/users/access";
+import { isUserManagementAdmin } from "@/lib/users/access";
 import { prisma } from "@/lib/db";
 import {
   deleteAttachmentFromS3,
@@ -52,7 +52,7 @@ export async function PATCH(
     companyId: session.activeCompanyId,
   });
 
-  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
+  if (!actorMembership || !isUserManagementAdmin(actorMembership)) {
     return NextResponse.json(
       { ok: false, reason: "FORBIDDEN" },
       { status: 403 }
@@ -111,8 +111,7 @@ export async function PATCH(
   }
 
   const canEditTarget =
-    actorMembership.role === "OWNER" ||
-    (actorMembership.role === "ADMIN" && targetMembership.role === "USER");
+    actorMembership.role === "OWNER" || targetMembership.role === "USER";
 
   if (!canEditTarget) {
     return NextResponse.json(

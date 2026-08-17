@@ -6,10 +6,9 @@ import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
 import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
-import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
-import { ItemPill } from "@/app/_components/Dahsboard/archive/ItemPill";
+import { EntityPill } from "@/app/_components/Dahsboard/archive/EntityPill";
 import { SectionedEntityManager } from "@/app/_components/Dahsboard/archive/SectionedEntityManager";
-import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
+import { codeToUrlPath, formatLastModified } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderDetail = ArchiveFolderSummary & {
@@ -592,27 +591,37 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
           onCreateSubfolder={handleCreateSubfolder}
           onCreateItem={handleCreateItem}
           renderFolderRow={(childFolder) => (
-            <FolderPill
+            <EntityPill
               key={childFolder.id}
-              folder={childFolder}
+              kind="folder"
+              id={childFolder.id}
+              name={childFolder.name}
+              description={childFolder.description}
+              status={childFolder.status}
+              conditionFlags={childFolder}
               href={`/dashboard/archive/${codeToUrlPath(childFolder.code)}`}
               locale={locale}
-              showStats={false}
-              canEdit
+              code={childFolder.code}
+              mode="admin"
+              fields={[{ key: "updated", value: formatLastModified(childFolder.updatedAt) }]}
               onChanged={loadFolderAndItems}
             />
           )}
           renderItemRow={(item) => (
-            <ItemPill
+            <EntityPill
               key={item.id}
-              item={item}
+              kind="item"
+              id={item.id}
+              name={item.name}
+              description={item.description}
+              status={item.status}
+              conditionFlags={item}
               href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
               locale={locale}
-              canEdit
+              code={item.code}
+              mode="admin"
+              fields={[{ key: "updated", value: formatLastModified(item.updatedAt) }]}
               onChanged={loadFolderAndItems}
-              showFavorite
-              isPinned={item.isPinned}
-              onPinChanged={loadFolderAndItems}
             />
           )}
         />

@@ -5,10 +5,9 @@ import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { CopyUrlButton } from "@/app/_components/Dahsboard/archive/CopyUrlButton";
-import { FolderPill } from "@/app/_components/Dahsboard/archive/FolderPill";
-import { ItemPill } from "@/app/_components/Dahsboard/archive/ItemPill";
+import { EntityPill, type PillField } from "@/app/_components/Dahsboard/archive/EntityPill";
 import { SettingsIcon, settingsIconButtonClass } from "@/app/_components/Dahsboard/archive/SettingsIcon";
-import { codeBadgeWidthCh, codeToUrlPath, groupMixedBySection } from "@/app/_components/Dahsboard/archive/types";
+import { codeBadgeWidthCh, codeToUrlPath, formatLastModified, groupMixedBySection } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderDetail = ArchiveFolderSummary;
@@ -217,28 +216,38 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
 
               <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
                 {group.folders.map((childFolder) => (
-                  <FolderPill
+                  <EntityPill
                     key={childFolder.id}
-                    folder={childFolder}
+                    kind="folder"
+                    id={childFolder.id}
+                    name={childFolder.name}
+                    description={childFolder.description}
+                    status={childFolder.status}
+                    conditionFlags={childFolder}
                     href={`/dashboard/archive/${codeToUrlPath(childFolder.code)}`}
                     locale={locale}
-                    showStats={false}
-                    canEdit={canEdit}
+                    code={childFolder.code}
+                    mode={canEdit ? "admin" : "viewer"}
+                    fields={[{ key: "updated", value: formatLastModified(childFolder.updatedAt) }] satisfies PillField[]}
                     onChanged={loadFolderAndItems}
                     codeWidthCh={codeWidthCh}
                   />
                 ))}
                 {group.items.map((item) => (
-                  <ItemPill
+                  <EntityPill
                     key={item.id}
-                    item={item}
+                    kind="item"
+                    id={item.id}
+                    name={item.name}
+                    description={item.description}
+                    status={item.status}
+                    conditionFlags={item}
                     href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
                     locale={locale}
-                    canEdit={canEdit}
+                    code={item.code}
+                    mode={canEdit ? "admin" : "viewer"}
+                    fields={[{ key: "updated", value: formatLastModified(item.updatedAt) }] satisfies PillField[]}
                     onChanged={loadFolderAndItems}
-                    showFavorite
-                    isPinned={item.isPinned}
-                    onPinChanged={loadFolderAndItems}
                     codeWidthCh={codeWidthCh}
                   />
                 ))}

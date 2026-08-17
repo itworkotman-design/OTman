@@ -5,8 +5,13 @@ import { getActiveMembership } from "@/lib/auth/membership";
 import { logAuthEvent } from "@/lib/auth/authEvent";
 import { generateInviteToken, hashInviteToken } from "@/lib/auth/inviteToken";
 import { deliverInvite } from "@/lib/auth/inviteDelivery";
-import { defaultAppAccessRows, normalizeAppAccessInput, derivePermissionsFromAppAccess } from "@/lib/users/appAccessDefaults";
-import { getModuleAccess } from "@/lib/users/access";
+import {
+  defaultAppAccessRows,
+  normalizeAppAccessInput,
+  derivePermissionsFromAppAccess,
+  isAppAccessGrantAllowedForNonOwner,
+} from "@/lib/users/appAccessDefaults";
+import { isUserManagementAdmin } from "@/lib/users/access";
 
 const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -97,12 +102,20 @@ export async function createInvite(params: {
     companyId,
   });
 
-  if (!actorMembership || !getModuleAccess(actorMembership, "USER_MANAGEMENT").enabled) {
+  if (!actorMembership || !isUserManagementAdmin(actorMembership)) {
     return { ok: false, reason: "FORBIDDEN" };
   }
 
-  if (actorMembership.role === "ADMIN" && nextRole === "OWNER") {
-    return { ok: false, reason: "FORBIDDEN" };
+  // Only an Owner can invite another Owner or Admin, or grant Admin-level
+  // access on any module besides Booking, or grant USER_MANAGEMENT at all —
+  // a non-owner USER_MANAGEMENT/Admin can only ever invite plain USER-role
+  // people with Viewer-level (or Booking) grants.
+  const appAccessToWrite = explicitAppAccess ?? defaultAppAccessRows(nextRole, permissions);
+
+  if (actorMembership.role !== "OWNER") {
+    if (nextRole !== "USER" || !isAppAccessGrantAllowedForNonOwner(appAccessToWrite)) {
+      return { ok: false, reason: "FORBIDDEN" };
+    }
   }
 
   if (priceListId) {
@@ -166,7 +179,7 @@ export async function createInvite(params: {
     }
 
     await tx.inviteAppAccess.createMany({
-      data: (explicitAppAccess ?? defaultAppAccessRows(nextRole, permissions)).map((row) => ({
+      data: appAccessToWrite.map((row) => ({
         inviteId: invite.id,
         ...row,
       })),

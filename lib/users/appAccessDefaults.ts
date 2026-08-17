@@ -126,3 +126,28 @@ export function derivePermissionsFromAppAccess(appAccess: AppAccessRow[]): AppPe
 
   return permissions;
 }
+
+// A non-owner USER_MANAGEMENT/Admin grantee can hand out Viewer-level access
+// on any module and either level on BOOKING (Subcontractor/Order-creator is
+// an order-permission split, not an administrative one — see
+// isSubcontractorAccess/isOrderCreatorAccess in lib/users/access.ts), but can
+// never grant Admin-level on any other module, and can never touch
+// USER_MANAGEMENT itself in either direction — only an OWNER decides who else
+// gets to manage users. `currentUserManagementRow` is the target's existing
+// stored row; omit it for a brand-new membership, where "no existing grant"
+// is the only valid baseline to compare against.
+export function isAppAccessGrantAllowedForNonOwner(
+  appAccess: AppAccessRow[],
+  currentUserManagementRow?: { enabled: boolean; level: AppAccessLevel },
+): boolean {
+  return appAccess.every((row) => {
+    if (row.module === "BOOKING") return true;
+
+    if (row.module === "USER_MANAGEMENT") {
+      const current = currentUserManagementRow ?? { enabled: false, level: "VIEWER" as AppAccessLevel };
+      return row.enabled === current.enabled && row.level === current.level;
+    }
+
+    return !(row.enabled && row.level === "ADMIN");
+  });
+}
