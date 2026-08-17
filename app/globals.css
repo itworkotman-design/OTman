@@ -347,13 +347,25 @@ button {
   cursor: pointer;
 }
 
-/* Color/font-size formatting is stored on the section data and shown in the
-   live preview, but the editor's own typing surface always stays plain so
-   it's easy to read while writing. */
+/* Formatting (color, font-size, bold, italic, underline) is stored on the
+   section data and shown in the live preview, but the editor's own typing
+   surface always stays plain so it's easy to read while writing — and so a
+   mark you can't see doesn't get mistaken for one that isn't applied. */
 .rich-text-editor-surface .ProseMirror [style*="color"],
 .rich-text-editor-surface .ProseMirror [style*="font-size"] {
   color: inherit !important;
   font-size: inherit !important;
+}
+.rich-text-editor-surface .ProseMirror strong,
+.rich-text-editor-surface .ProseMirror b {
+  font-weight: inherit !important;
+}
+.rich-text-editor-surface .ProseMirror em,
+.rich-text-editor-surface .ProseMirror i {
+  font-style: inherit !important;
+}
+.rich-text-editor-surface .ProseMirror u {
+  text-decoration: inherit !important;
 }
 
 /* @tiptap/extension-placeholder marks the empty paragraph with

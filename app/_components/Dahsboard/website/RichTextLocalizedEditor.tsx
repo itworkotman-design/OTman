@@ -1,81 +1,56 @@
 // app/_components/Dahsboard/website/RichTextLocalizedEditor.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { RichTextEditorField } from "@/app/_components/Dahsboard/RichTextEditorField";
-import { applyWholeDocMarkToHtml, type WholeDocMarkChange } from "@/lib/blog/tiptapHeadlessMirror";
 import type { LocalizedTextValue } from "@/lib/blog/localizedText";
 
 type Props = {
   label: string;
   value: LocalizedTextValue;
   onChange: (value: LocalizedTextValue) => void;
-  // "body" (default) paragraphs mirror a whole-text bold/italic/underline/
-  // color change into the other language (see handleWholeDocMark below).
-  // "heading" fields — short, single-line: a section's Heading, a quote's
-  // Attribution — opt out of that, since there's little reason one
-  // language's title styling should force the other language's title to
-  // match. Callers state what the field *is*, not the mirroring behavior
-  // directly, so every heading-shaped field gets the same treatment by
-  // construction instead of each caller having to remember a boolean flag.
-  fieldKind?: "body" | "heading";
 };
 
-export default function RichTextLocalizedEditor({ label, value, onChange, fieldKind = "body" }: Props) {
-  const mirrorWholeDoc = fieldKind === "body";
-  const [activeLocale, setActiveLocale] = useState<"en" | "no">("en");
-  // Both the field's own onChange and onWholeDocMark below can fire within
-  // the same click (bold's onUpdate, then the mirror into the other
-  // language) — `value` as a prop only reflects the first of those until
-  // the next render, so a second `{ ...value, ... }` spread would silently
-  // drop the first update. This ref is updated synchronously by both
-  // handlers instead, so each always builds on the other's latest write.
-  const latestValue = useRef(value);
-  useEffect(() => {
-    latestValue.current = value;
-  }, [value]);
+const LOCALES = [
+  { key: "en", heading: "English" },
+  { key: "no", heading: "Norsk" },
+] as const;
 
-  function handleFieldChange(html: string) {
-    latestValue.current = { ...latestValue.current, [activeLocale]: html };
-    onChange(latestValue.current);
-  }
-
-  function handleWholeDocMark(mark: WholeDocMarkChange) {
-    const otherLocale = activeLocale === "en" ? "no" : "en";
-    const mirroredHtml = applyWholeDocMarkToHtml(latestValue.current[otherLocale], mark);
-    latestValue.current = { ...latestValue.current, [otherLocale]: mirroredHtml };
-    onChange(latestValue.current);
+// Both languages are edited side by side, at all times — previously this
+// showed one language at a time behind an EN/NO toggle button, with
+// whole-text bold/italic/underline/color changes mirrored into the hidden
+// language's document via a separate headless editor instance. That mirror
+// re-parsed the other language's stored HTML from scratch on every toggle,
+// so its "is this already formatted" read could disagree with the visible
+// editor's own (e.g. toggling underline on with nothing selected select-all
+// applied it, but the mirrored copy's differently-shaped HTML sometimes read
+// the whole doc as already underlined and unset it instead — the fix is
+// removing the indirection, not repairing it). With both languages visible
+// at once there's no need for one language's edit to silently reach into the
+// other's document — each editor only ever touches its own text.
+export default function RichTextLocalizedEditor({ label, value, onChange }: Props) {
+  function handleChange(locale: "en" | "no", html: string) {
+    onChange({ ...value, [locale]: html });
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-textcolor">{label}</span>
-        <div className="flex gap-1">
-          {(["en", "no"] as const).map((locale) => (
-            <button
-              key={locale}
-              type="button"
-              onClick={() => setActiveLocale(locale)}
-              className={`customButtonDefault !px-3 !py-1 text-xs uppercase ${
-                activeLocale === locale ? "bg-linePrimary" : ""
-              }`}
-            >
-              {locale}
-            </button>
-          ))}
-        </div>
+      <span className="text-sm font-semibold text-textcolor">{label}</span>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {LOCALES.map(({ key, heading }) => (
+          <div key={key} className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase text-textColorSecond">{heading}</span>
+            <RichTextEditorField
+              value={value[key]}
+              onChange={(html) => handleChange(key, html)}
+              showItalic
+              showUnderline
+              showLink
+              linkAdvanced
+              showAlign={false}
+            />
+          </div>
+        ))}
       </div>
-      <RichTextEditorField
-        value={value[activeLocale]}
-        onChange={handleFieldChange}
-        onWholeDocMark={mirrorWholeDoc ? handleWholeDocMark : undefined}
-        showItalic
-        showUnderline
-        showLink
-        linkAdvanced
-        showAlign={false}
-      />
     </div>
   );
 }

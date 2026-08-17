@@ -17,7 +17,6 @@ export default function CtaSectionEditor({ data, onChange }: Props) {
         label="Heading"
         value={data.heading ?? { en: "", no: "" }}
         onChange={(heading) => onChange({ ...data, heading })}
-        fieldKind="heading"
       />
       <RichTextLocalizedEditor
         label="Text"
