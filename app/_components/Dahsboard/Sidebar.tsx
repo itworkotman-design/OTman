@@ -132,10 +132,13 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
     currentUser && !hasFullAccess(currentUser.role) && (currentUser.priceListIds?.length ?? 0) > 0,
   );
 
+  // pathname.startsWith(href) alone false-matches sibling routes that share a
+  // prefix (e.g. "/dashboard/website-orders" starts with "/dashboard/website"),
+  // so anything past an exact match must be a "/" boundary, not just any char.
   const isActive = (href: string) =>
     href === "/dashboard"
       ? pathname === "/dashboard"
-      : pathname.startsWith(href);
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   const linkBase =
     "flex w-full text-base md:text-sm font-[500] px-2 py-3 md:py-2.5 rounded-lg mb-2 transition-colors text-textColorSecond text-left";
@@ -155,7 +158,7 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   // like /dashboard/booking/create would otherwise match via startsWith).
   const bookingLinkClass = (href: string, exact = false) =>
     `${linkBase} ${
-      (exact ? pathname === href : pathname.startsWith(href))
+      (exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`))
         ? "bg-linePrimary text-textcolor"
         : "bg-transparent hover:bg-linePrimary"
     }`;
@@ -326,17 +329,6 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
               </div>
             </Link>
           )}
-
-          <Link
-            href="https://beta.cphours.no/"
-            className={`${linkBase} bg-transparent hover:bg-linePrimary`}
-            target="_blank"
-          >
-            <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-              <Icon path={ICONS.hours} />
-              {bookingText(locale, "Custom Hours")}
-            </div>
-          </Link>
 
           <LanguageSwitchButton
             currentUser={currentUser}
