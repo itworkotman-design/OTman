@@ -2,10 +2,11 @@
 set -e
 
 mkdir -p ~/.ssh
-if echo "$SSH_KEY" | grep -q "PRIVATE KEY"; then
-  printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+CLEAN_KEY=$(printf '%s' "$SSH_KEY" | tr -d '\r')
+if echo "$CLEAN_KEY" | grep -q "PRIVATE KEY"; then
+  echo "$CLEAN_KEY" | sed -n '/-----BEGIN/,/-----END/p' > ~/.ssh/id_ed25519
 else
-  echo "$SSH_KEY" | base64 -d > ~/.ssh/id_ed25519
+  echo "$CLEAN_KEY" | base64 -d > ~/.ssh/id_ed25519
 fi
 chmod 600 ~/.ssh/id_ed25519
 ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null || {
