@@ -2,8 +2,16 @@
 set -e
 
 mkdir -p ~/.ssh
-echo "$SSH_KEY" | base64 -d > ~/.ssh/id_ed25519
+if echo "$SSH_KEY" | grep -q "PRIVATE KEY"; then
+  printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+else
+  echo "$SSH_KEY" | base64 -d > ~/.ssh/id_ed25519
+fi
 chmod 600 ~/.ssh/id_ed25519
+ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null || {
+  echo "SSH_KEY did not decode to a valid private key. Make sure it's the base64 of the PRIVATE key file (not the .pub file)." >&2
+  exit 1
+}
 ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 npm install
