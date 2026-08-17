@@ -17,5 +17,5 @@ ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 npm install
 npx prisma migrate deploy --schema=prisma/schema.prisma
-npx prisma migrate deploy --schema=node_modules/@customprojects/custom-archive/prisma/schema.prisma
+npx prisma migrate deploy --config node_modules/@customprojects/custom-archive/prisma.config.ts
 npm run build
