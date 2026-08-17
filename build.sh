@@ -2,7 +2,6 @@
 set -e
 
 mkdir -p ~/.ssh
-echo "SSH_KEY length: ${#SSH_KEY} chars, first line: $(printf '%s' "$SSH_KEY" | head -n1 | cut -c1-15)..."
 CLEAN_KEY=$(printf '%s' "$SSH_KEY" | tr -d '\r')
 if echo "$CLEAN_KEY" | grep -q "PRIVATE KEY"; then
   echo "$CLEAN_KEY" | sed -n '/-----BEGIN/,/-----END/p' > ~/.ssh/id_ed25519
@@ -18,4 +17,5 @@ ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 npm install
 npx prisma migrate deploy --schema=prisma/schema.prisma
+npx prisma migrate deploy --schema=node_modules/@customprojects/custom-archive/prisma/schema.prisma
 npm run build
