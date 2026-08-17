@@ -74,6 +74,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       ...(value.noIndex !== undefined ? { noIndex: value.noIndex } : {}),
       ...(value.coverImagePath !== undefined ? { coverImagePath: value.coverImagePath } : {}),
       ...(value.coverImageAlt !== undefined ? { coverImageAlt: value.coverImageAlt ?? Prisma.JsonNull } : {}),
+      ...(value.coverImagePosition !== undefined ? { coverImagePosition: value.coverImagePosition } : {}),
       ...(value.authorDisplayName !== undefined ? { authorDisplayName: value.authorDisplayName } : {}),
     },
   });

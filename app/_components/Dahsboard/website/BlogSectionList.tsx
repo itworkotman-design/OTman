@@ -143,15 +143,24 @@ const BlogSectionList = forwardRef<BlogSectionListHandle, Props>(function BlogSe
     });
   }
 
+  // Both reorder handlers recompute indices from `prev` inside the
+  // functional setSections updater — never from the outer `sections`
+  // closure — because flushPendingDraftSaves (awaited first) commits its
+  // own setSections calls while this function is suspended. Reading the
+  // outer closure's `sections` after that await would still see the
+  // pre-flush snapshot and silently revert whatever the flush just saved.
   async function handleMove(id: string, direction: "up" | "down") {
-    const index = sections.findIndex((s) => s.id === id);
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= sections.length) return;
-
     await flushPendingDraftSaves();
-    const reordered = arrayMove(sections, index, targetIndex);
-    setSections(reordered);
-    persistOrder(reordered.map((s) => s.id));
+    let reorderedIds: string[] | null = null;
+    setSections((prev) => {
+      const index = prev.findIndex((s) => s.id === id);
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const reordered = arrayMove(prev, index, targetIndex);
+      reorderedIds = reordered.map((s) => s.id);
+      return reordered;
+    });
+    if (reorderedIds) persistOrder(reorderedIds);
   }
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -159,11 +168,16 @@ const BlogSectionList = forwardRef<BlogSectionListHandle, Props>(function BlogSe
     if (!over || active.id === over.id) return;
 
     await flushPendingDraftSaves();
-    const oldIndex = sections.findIndex((s) => s.id === active.id);
-    const newIndex = sections.findIndex((s) => s.id === over.id);
-    const reordered = arrayMove(sections, oldIndex, newIndex);
-    setSections(reordered);
-    persistOrder(reordered.map((s) => s.id));
+    let reorderedIds: string[] | null = null;
+    setSections((prev) => {
+      const oldIndex = prev.findIndex((s) => s.id === active.id);
+      const newIndex = prev.findIndex((s) => s.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return prev;
+      const reordered = arrayMove(prev, oldIndex, newIndex);
+      reorderedIds = reordered.map((s) => s.id);
+      return reordered;
+    });
+    if (reorderedIds) persistOrder(reorderedIds);
   }
 
   if (loading) {

@@ -14,6 +14,7 @@ export type PublicBlogPostSummary = {
   excerpt: LocalizedTextValue;
   coverImagePath: string | null;
   coverImageAlt: LocalizedTextValue | null;
+  coverImagePosition: number;
   isPinned: boolean;
   pinnedAt: Date | null;
   publishedAt: Date | null;
@@ -41,6 +42,7 @@ const PUBLIC_SELECT = {
   noIndex: true,
   coverImagePath: true,
   coverImageAlt: true,
+  coverImagePosition: true,
   isPinned: true,
   pinnedAt: true,
   publishedAt: true,
@@ -59,6 +61,7 @@ function toSummary(post: {
   excerpt: unknown;
   coverImagePath: string | null;
   coverImageAlt: unknown;
+  coverImagePosition: number | null;
   isPinned: boolean;
   pinnedAt: Date | null;
   publishedAt: Date | null;
@@ -75,6 +78,7 @@ function toSummary(post: {
     excerpt: post.excerpt as LocalizedTextValue,
     coverImagePath: post.coverImagePath,
     coverImageAlt: post.coverImageAlt as LocalizedTextValue | null,
+    coverImagePosition: post.coverImagePosition ?? 50,
     isPinned: post.isPinned,
     pinnedAt: post.pinnedAt,
     publishedAt: post.publishedAt,

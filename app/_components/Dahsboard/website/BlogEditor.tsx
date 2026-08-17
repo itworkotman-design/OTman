@@ -30,6 +30,7 @@ type MetadataForm = {
   tags: string[];
   coverImagePath: string | null;
   coverImageAlt: LocalizedTextValue;
+  coverImagePosition: number;
   authorDisplayName: string;
 };
 
@@ -47,6 +48,7 @@ function toForm(post: {
   tagNames: string[];
   coverImagePath: string | null;
   coverImageAlt: LocalizedTextValue | null;
+  coverImagePosition: number | null;
   authorDisplayName: string | null;
 }): MetadataForm {
   return {
@@ -59,6 +61,7 @@ function toForm(post: {
     tags: post.tagNames,
     coverImagePath: post.coverImagePath,
     coverImageAlt: post.coverImageAlt ?? EMPTY_TEXT,
+    coverImagePosition: post.coverImagePosition ?? 50,
     authorDisplayName: post.authorDisplayName ?? "",
   };
 }
@@ -278,6 +281,7 @@ export default function BlogEditor({ postId }: { postId: string }) {
                   excerpt={form.excerpt}
                   excerptPlaceholder="Your excerpt will appear here."
                   coverImagePath={form.coverImagePath}
+                  coverImagePosition={form.coverImagePosition}
                   isPinned={isPinned}
                   dateLabel="Today"
                   authorDisplayName={form.authorDisplayName}
@@ -340,6 +344,8 @@ export default function BlogEditor({ postId }: { postId: string }) {
               blogPostId={postId}
               storagePath={form.coverImagePath}
               onChange={(coverImagePath) => setForm({ ...form, coverImagePath })}
+              position={form.coverImagePosition}
+              onPositionChange={(coverImagePosition) => setForm({ ...form, coverImagePosition })}
             />
             <LocalizedTextFieldGroup
               label="Cover image alt text"

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { HexColorPicker, HexColorInput } from "react-colorful";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
@@ -14,6 +14,16 @@ import { sanitizeBlogHtml } from "@/lib/blog/sanitizeRichText";
 import { StyledBulletList } from "@/lib/blog/tiptapListStyles";
 import { FontSize } from "@/lib/blog/tiptapFontSize";
 import { NonExtendingLink } from "@/lib/blog/tiptapLinkExtension";
+import type { WholeDocMarkChange } from "@/lib/blog/tiptapHeadlessMirror";
+
+// True when the current selection spans the entire document — the signal
+// used to decide whether a bold/italic/underline/color change should mirror
+// to the other language's document (see onWholeDocMark) rather than staying
+// scoped to whatever's selected in this one.
+function isWholeDocSelected(editor: Editor): boolean {
+  const { from, to } = editor.state.selection;
+  return from === 0 && to >= editor.state.doc.content.size;
+}
 
 type ListMode = "none" | "bullet" | "full";
 
@@ -32,6 +42,17 @@ type Props = {
   linkAdvanced?: boolean;
   listMode?: ListMode;
   showFontSize?: boolean;
+  // Blog turns this off: alignment there is a section-wide setting (see
+  // RichTextSectionEditor) rather than a per-paragraph mark inside each
+  // language's own document, so its editor has no in-toolbar align control
+  // at all. Archive still uses per-document alignment, hence the default.
+  showAlign?: boolean;
+  // Fires when a bold/italic/underline/color change was just applied across
+  // the *entire* document (as opposed to a partial selection) — Blog uses
+  // this to mirror the same change into the other language's document,
+  // since "the whole text was formatted" reads as one section-wide action
+  // rather than something scoped to whichever language happened to be open.
+  onWholeDocMark?: (change: WholeDocMarkChange) => void;
   // "lg" is Archive Title's large-heading look (its one caller); every
   // other caller uses the normal body-text size.
   size?: "sm" | "lg";
@@ -258,6 +279,8 @@ export function RichTextEditorField({
   linkAdvanced = false,
   listMode = "none",
   showFontSize = false,
+  showAlign = true,
+  onWholeDocMark,
   size = "sm",
   livePreview = false,
   placeholder,
@@ -334,11 +357,16 @@ export function RichTextEditorField({
   function applyColor(color: string) {
     if (!editor || editor.isActive("link")) return;
     editor.chain().focus().run();
+    // An empty selection already means "the whole document" here (that's
+    // the existing selectAll fallback below), so it counts as whole-doc for
+    // mirroring purposes exactly like an explicit select-all does.
+    const wholeDoc = editor.state.selection.empty || isWholeDocSelected(editor);
     if (editor.state.selection.empty) {
       editor.chain().selectAll().setColor(color).run();
     } else {
       editor.chain().setColor(color).run();
     }
+    if (wholeDoc) onWholeDocMark?.({ type: "color", value: color });
   }
 
   const editor = useEditor({
@@ -346,7 +374,7 @@ export function RichTextEditorField({
       StarterKit.configure({ bulletList: false, link: false, underline: false }),
       ...(listMode !== "none" ? [StyledBulletList] : []),
       ...(showUnderline ? [Underline] : []),
-      TextAlign.configure({ types: ["paragraph"] }),
+      ...(showAlign ? [TextAlign.configure({ types: ["paragraph"] })] : []),
       ...(showLink ? [NonExtendingLink.configure({ openOnClick: false, autolink: false })] : []),
       TextStyle,
       Color,
@@ -437,11 +465,27 @@ export function RichTextEditorField({
     <div className="">
       <div className="flex flex-wrap items-center gap-2 border-b border-lineSecondary p-2">
         <ToolbarGroup>
-          <ToolbarButton label="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
+          <ToolbarButton
+            label="Bold"
+            active={editor.isActive("bold")}
+            onClick={() => {
+              const wholeDoc = isWholeDocSelected(editor);
+              editor.chain().focus().toggleBold().run();
+              if (wholeDoc) onWholeDocMark?.({ type: "bold", value: editor.isActive("bold") });
+            }}
+          >
             B
           </ToolbarButton>
           {showItalic && (
-            <ToolbarButton label="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
+            <ToolbarButton
+              label="Italic"
+              active={editor.isActive("italic")}
+              onClick={() => {
+                const wholeDoc = isWholeDocSelected(editor);
+                editor.chain().focus().toggleItalic().run();
+                if (wholeDoc) onWholeDocMark?.({ type: "italic", value: editor.isActive("italic") });
+              }}
+            >
               <span className="italic">I</span>
             </ToolbarButton>
           )}
@@ -455,7 +499,9 @@ export function RichTextEditorField({
                 // panel's own checkbox, so it stays tied to the link's
                 // styling rather than being toggled independently here.
                 if (editor.isActive("link")) return;
+                const wholeDoc = isWholeDocSelected(editor);
                 editor.chain().focus().toggleUnderline().run();
+                if (wholeDoc) onWholeDocMark?.({ type: "underline", value: editor.isActive("underline") });
               }}
             >
               <span className="underline">U</span>
@@ -466,27 +512,31 @@ export function RichTextEditorField({
               🔗
             </ToolbarButton>
           )}
-          <ToolbarButton
-            label="Align left"
-            active={editor.isActive({ textAlign: "left" })}
-            onClick={() => editor.chain().focus().setTextAlign("left").run()}
-          >
-            <AlignLeftIcon />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Align center"
-            active={editor.isActive({ textAlign: "center" })}
-            onClick={() => editor.chain().focus().setTextAlign("center").run()}
-          >
-            <AlignCenterIcon />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Align right"
-            active={editor.isActive({ textAlign: "right" })}
-            onClick={() => editor.chain().focus().setTextAlign("right").run()}
-          >
-            <AlignRightIcon />
-          </ToolbarButton>
+          {showAlign && (
+            <>
+              <ToolbarButton
+                label="Align left"
+                active={editor.isActive({ textAlign: "left" })}
+                onClick={() => editor.chain().focus().setTextAlign("left").run()}
+              >
+                <AlignLeftIcon />
+              </ToolbarButton>
+              <ToolbarButton
+                label="Align center"
+                active={editor.isActive({ textAlign: "center" })}
+                onClick={() => editor.chain().focus().setTextAlign("center").run()}
+              >
+                <AlignCenterIcon />
+              </ToolbarButton>
+              <ToolbarButton
+                label="Align right"
+                active={editor.isActive({ textAlign: "right" })}
+                onClick={() => editor.chain().focus().setTextAlign("right").run()}
+              >
+                <AlignRightIcon />
+              </ToolbarButton>
+            </>
+          )}
           {listMode === "bullet" && (
             <ToolbarButton
               label={nb ? "Punktliste" : "Bullet list"}
@@ -556,11 +606,13 @@ export function RichTextEditorField({
             disabled={editor.isActive("link")}
             onClick={() => {
               if (editor.isActive("link")) return;
+              const wholeDoc = editor.state.selection.empty || isWholeDocSelected(editor);
               if (editor.state.selection.empty) {
                 editor.chain().focus().selectAll().unsetColor().run();
               } else {
                 editor.chain().focus().unsetColor().run();
               }
+              if (wholeDoc) onWholeDocMark?.({ type: "color", value: null });
             }}
           >
             ⌫

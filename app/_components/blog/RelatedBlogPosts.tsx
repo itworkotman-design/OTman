@@ -87,7 +87,12 @@ export default function RelatedBlogPosts({ posts, locale }: Props) {
               <div className="aspect-[16/9] bg-linePrimary/40">
                 {imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    style={{ objectPosition: `center ${post.coverImagePosition}%` }}
+                  />
                 ) : null}
               </div>
               <div className="flex flex-1 flex-col gap-2 p-4">

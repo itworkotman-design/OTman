@@ -146,6 +146,7 @@ export default function BlogPage({
                   excerpt={post.excerpt}
                   coverImagePath={post.coverImagePath}
                   coverImageAlt={post.coverImageAlt}
+                  coverImagePosition={post.coverImagePosition}
                   isPinned={post.isPinned}
                   dateLabel={post.publishedAt ? dateFormatter.format(new Date(post.publishedAt)) : ""}
                   dateTimeAttr={post.publishedAt?.toString()}

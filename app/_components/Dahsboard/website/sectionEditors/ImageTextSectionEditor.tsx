@@ -28,21 +28,36 @@ export default function ImageTextSectionEditor({ blogPostId, data, onChange }: P
         value={data.alt}
         onChange={(alt) => onChange({ ...data, alt })}
       />
-      <label className="flex flex-col gap-1 text-sm">
-        Image position
-        <select
-          className="customInput font-normal"
-          value={data.imagePosition}
-          onChange={(e) => onChange({ ...data, imagePosition: e.target.value as ImageTextSectionData["imagePosition"] })}
-        >
-          <option value="left">Left</option>
-          <option value="right">Right</option>
-        </select>
-      </label>
+      <div className="flex gap-4">
+        <label className="flex flex-col gap-1 text-sm">
+          Image position
+          <select
+            className="customInput font-normal"
+            value={data.imagePosition}
+            onChange={(e) => onChange({ ...data, imagePosition: e.target.value as ImageTextSectionData["imagePosition"] })}
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Image size
+          <select
+            className="customInput font-normal"
+            value={data.imageWidth ?? "half"}
+            onChange={(e) => onChange({ ...data, imageWidth: e.target.value as ImageTextSectionData["imageWidth"] })}
+          >
+            <option value="narrow">Narrow (1/3)</option>
+            <option value="half">Half (1/2)</option>
+            <option value="wide">Wide (2/3)</option>
+          </select>
+        </label>
+      </div>
       <RichTextLocalizedEditor
         label="Heading"
         value={data.heading ?? { en: "", no: "" }}
         onChange={(heading) => onChange({ ...data, heading })}
+        mirrorWholeDoc={false}
       />
       <RichTextLocalizedEditor
         label="Text"

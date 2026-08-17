@@ -23,6 +23,13 @@ const ALIGN_CLASS: Record<string, string> = {
   right: "ml-auto",
 };
 
+// [image column, text column] — complementary so the row always sums to 100%.
+const IMAGE_TEXT_WIDTH_CLASS: Record<string, [string, string]> = {
+  narrow: ["md:w-1/3", "md:w-2/3"],
+  half: ["md:w-1/2", "md:w-1/2"],
+  wide: ["md:w-2/3", "md:w-1/3"],
+};
+
 const SPACER_HEIGHT: Record<string, string> = {
   small: "h-4",
   medium: "h-8",
@@ -35,6 +42,7 @@ function RenderedSection({ section, locale }: { section: BlogSectionData; locale
       return (
         <div
           className="rich-text-content prose max-w-none"
+          style={{ textAlign: section.textAlign, fontSize: section.fontSize }}
           dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(getLocalizedText(section.html, locale)) }}
         />
       );
@@ -56,16 +64,17 @@ function RenderedSection({ section, locale }: { section: BlogSectionData; locale
     case "IMAGE_TEXT": {
       const url = getPublicBlogImageUrl(section.storagePath);
       const reverse = section.imagePosition === "right";
+      const [imageWidthClass, textWidthClass] = IMAGE_TEXT_WIDTH_CLASS[section.imageWidth ?? "half"];
       return (
         <div className={`flex flex-col gap-6 md:flex-row ${reverse ? "md:flex-row-reverse" : ""}`}>
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={url} alt={getLocalizedText(section.alt, locale)} className="w-full rounded-md object-cover md:w-1/2" />
+            <img src={url} alt={getLocalizedText(section.alt, locale)} className={`w-full rounded-md object-cover ${imageWidthClass}`} />
           ) : null}
-          <div className="md:w-1/2">
+          <div className={textWidthClass}>
             {getLocalizedText(section.heading, locale) ? (
               <div
-                className="rich-text-content text-xl font-bold text-textcolor [&_p]:m-0"
+                className="rich-text-content text-xl text-textcolor [&_p]:m-0"
                 dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(getLocalizedText(section.heading, locale)) }}
               />
             ) : null}

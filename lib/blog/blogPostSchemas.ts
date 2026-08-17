@@ -18,6 +18,7 @@ export const createBlogPostSchema = z.object({
   seoDescription: boundedLocalizedText(300).optional(),
   coverImagePath: z.string().optional(),
   coverImageAlt: boundedLocalizedText(300).optional(),
+  coverImagePosition: z.number().int().min(0).max(100).optional(),
   authorDisplayName: z.string().max(200).optional(),
   isPinned: z.boolean().optional(),
 });
@@ -31,6 +32,7 @@ export const updateBlogPostMetadataSchema = z.object({
   noIndex: z.boolean().optional(),
   coverImagePath: z.string().nullable().optional(),
   coverImageAlt: boundedLocalizedText(300).nullable().optional(),
+  coverImagePosition: z.number().int().min(0).max(100).optional(),
   authorDisplayName: z.string().max(200).nullable().optional(),
 });
 

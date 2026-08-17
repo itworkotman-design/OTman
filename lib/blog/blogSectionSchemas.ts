@@ -24,6 +24,12 @@ const backgroundColorSchema = z
 export const richTextSectionDataSchema = z.object({
   type: z.literal("RICH_TEXT"),
   html: boundedLocalizedText(20000),
+  // Alignment and font size apply to the whole section regardless of which
+  // language is being edited — unlike bold/italic/underline/color/links,
+  // which are marks inside each language's own `html` string, these two are
+  // deliberately kept out of the per-language document entirely.
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+  fontSize: z.string().max(20).optional(),
   backgroundColor: backgroundColorSchema,
 });
 
@@ -44,6 +50,9 @@ export const imageTextSectionDataSchema = z.object({
   heading: boundedLocalizedText(200).optional(),
   html: boundedLocalizedText(20000),
   imagePosition: z.enum(["left", "right"]),
+  // How much of the row the image takes — the text column always gets the
+  // rest, so these are complementary pairs, not independent sizes.
+  imageWidth: z.enum(["narrow", "half", "wide"]).optional(),
   backgroundColor: backgroundColorSchema,
 });
 

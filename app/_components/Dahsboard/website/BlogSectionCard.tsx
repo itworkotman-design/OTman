@@ -53,6 +53,13 @@ export default function BlogSectionCard({
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: section.id,
+    // dnd-kit's default FLIP animation reacts to any reorder of the
+    // SortableContext's items, not just an active drag — so a plain
+    // up/down button click (no drag in progress) was also triggering a
+    // layout-transition animation on every card, which could visually read
+    // as a card flickering/disappearing for a moment. Reorders from the
+    // move buttons should just snap to their new position instantly.
+    animateLayoutChanges: () => false,
   });
 
   const style = { transform: CSS.Transform.toString(transform), transition };

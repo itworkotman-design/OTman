@@ -955,8 +955,14 @@ model BlogPost {
   seoDescription Json?
   noIndex        Boolean @default(false)
 
-  coverImagePath String?
-  coverImageAlt  Json?
+  coverImagePath     String?
+  coverImageAlt      Json?
+  // Vertical focal point for the cover image crop, 0 (top) - 100 (bottom),
+  // applied as `object-position: center Y%` wherever the image is rendered
+  // with object-fit: cover — a percentage (not a fixed px value) so the same
+  // stored position stays correct across the different container heights
+  // BlogListCard/BlogImagePicker/etc. each render it at.
+  coverImagePosition Int?    @default(50)
 
   authorId          String?
   authorDisplayName String?

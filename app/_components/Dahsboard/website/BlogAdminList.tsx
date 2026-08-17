@@ -15,6 +15,7 @@ type AdminBlogPost = {
   title: { en: string; no: string };
   excerpt: { en: string; no: string };
   coverImagePath: string | null;
+  coverImagePosition: number | null;
   isPinned: boolean;
   createdAt: string;
   updatedAt: string;
@@ -166,7 +167,12 @@ export default function BlogAdminList() {
                 <div className="relative aspect-[16/9] bg-linePrimary/40">
                   {imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                    <img
+                      src={imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      style={{ objectPosition: `center ${post.coverImagePosition ?? 50}%` }}
+                    />
                   ) : null}
                   {post.isPinned ? (
                     <span

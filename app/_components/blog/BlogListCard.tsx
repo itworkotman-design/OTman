@@ -17,6 +17,7 @@ type Props = {
   excerptPlaceholder?: string;
   coverImagePath: string | null;
   coverImageAlt?: LocalizedTextValue | null;
+  coverImagePosition?: number | null;
   isPinned: boolean;
   dateLabel: string;
   dateTimeAttr?: string;
@@ -36,6 +37,7 @@ export default function BlogListCard({
   excerptPlaceholder = "",
   coverImagePath,
   coverImageAlt,
+  coverImagePosition,
   isPinned,
   dateLabel,
   dateTimeAttr,
@@ -57,7 +59,8 @@ export default function BlogListCard({
           <img
             src={imageUrl}
             alt={coverImageAlt ? getLocalizedText(coverImageAlt, locale) : ""}
-            className="h-full w-full object-contain"
+            className="h-full w-full object-cover"
+            style={{ objectPosition: `center ${coverImagePosition ?? 50}%` }}
           />
         ) : null}
         {isPinned ? (
