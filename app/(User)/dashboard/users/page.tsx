@@ -29,6 +29,7 @@ const MODULE_BADGE_LABELS: Record<AppModule, string> = {
   WEBSITE_ORDERS: "WO",
   SCHEDULER: "SC",
   USER_MANAGEMENT: "UM",
+  DASHBOARD: "DA",
 };
 
 const APP_ICON_STACK_LIMIT = 3;
@@ -392,6 +393,7 @@ export default function UserPage() {
             selectedUser ? selectedUser.status === "ACTIVE" : true
           }
           initialValueAppAccess={selectedUser?.appAccess}
+          initialValueDashboardSections={selectedUser?.dashboardSections}
           priceLists={priceLists}
           initialPriceListIds={selectedUser?.priceListIds ?? []}
           onSave={async (data) => {
@@ -429,6 +431,7 @@ export default function UserPage() {
                       usernameDisplayColor: data.usernameDisplayColor || null,
                       priceListId: data.priceListIds[0] ?? null,
                       appAccess: data.appAccess,
+                      dashboardSections: data.dashboardSections,
                     }
                   : {
                       email: data.email,
@@ -442,6 +445,7 @@ export default function UserPage() {
                       usernameDisplayColor: data.usernameDisplayColor || null,
                       priceListIds: data.priceListIds,
                       appAccess: data.appAccess,
+                      dashboardSections: data.dashboardSections,
                       password: data.password,
                       confirmPassword: data.confirmPassword,
                     };
@@ -503,7 +507,7 @@ export default function UserPage() {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify({ appAccess: data.appAccess }),
+                body: JSON.stringify({ appAccess: data.appAccess, dashboardSections: data.dashboardSections }),
               },
             );
 

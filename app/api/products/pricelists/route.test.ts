@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
   countMock: vi.fn(),
   findFirstMock: vi.fn(),
+  membershipFindFirstMock: vi.fn(),
   transactionMock: vi.fn(),
   createMock: vi.fn(),
   createManyMock: vi.fn(),
@@ -23,11 +24,14 @@ vi.mock("@/lib/db", () => ({
       count: mocks.countMock,
       findFirst: mocks.findFirstMock,
     },
+    membership: {
+      findFirst: mocks.membershipFindFirstMock,
+    },
     $transaction: mocks.transactionMock,
   },
 }));
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 describe("POST /api/products/pricelists", () => {
   beforeEach(() => {
@@ -54,7 +58,9 @@ describe("POST /api/products/pricelists", () => {
   it("adds the missing automatic first-step XTRA option when copying a price list", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
+      activeCompanyId: "company-1",
     });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "OWNER" });
     mocks.findUniqueMock.mockResolvedValue({
       id: "source-price-list",
       description: "__PRICE_LIST_SETTINGS__:{}",
@@ -115,5 +121,81 @@ describe("POST /api/products/pricelists", () => {
         }),
       ],
     });
+  });
+
+  it("returns FORBIDDEN when a non-full-access member tries to create a price list", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "USER" });
+
+    const response = await POST(
+      new Request("http://localhost/api/products/pricelists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourcePriceListId: "source-price-list" }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ ok: false, reason: "FORBIDDEN" });
+    expect(mocks.findUniqueMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/products/pricelists", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns a member's assigned lists for ?mine=true without requiring full access", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+    });
+    mocks.findManyMock.mockResolvedValue([{ id: "price-list-1", name: "List 1", code: "L1" }]);
+
+    const response = await GET(
+      new Request("http://localhost/api/products/pricelists?mine=true"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.findManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { isActive: true, id: { in: ["price-list-1"] } } }),
+    );
+  });
+
+  it("returns FORBIDDEN for the full unfiltered list when the caller lacks full access", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "USER" });
+
+    const response = await GET(new Request("http://localhost/api/products/pricelists"));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ ok: false, reason: "FORBIDDEN" });
+    expect(mocks.findManyMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the full unfiltered list for a full-access member", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "OWNER" });
+    mocks.findManyMock.mockResolvedValue([{ id: "price-list-1", name: "List 1", code: "L1" }]);
+
+    const response = await GET(new Request("http://localhost/api/products/pricelists"));
+
+    expect(response.status).toBe(200);
+    expect(mocks.findManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { isActive: true } }),
+    );
   });
 });

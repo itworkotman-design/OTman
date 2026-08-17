@@ -37,6 +37,7 @@ export async function requireWebsiteEditor(
       membershipPriceLists: { select: { priceListId: true } },
       permissions: { select: { permission: true } },
       appAccess: { select: { module: true, enabled: true, level: true } },
+      dashboardSections: { select: { section: true, enabled: true } },
     },
   });
 
@@ -58,6 +59,7 @@ export async function requireWebsiteEditor(
       priceListIds: membership.membershipPriceLists.map((mpl) => mpl.priceListId),
       permissions: membership.permissions.map((p) => p.permission),
       appAccess: membership.appAccess,
+      dashboardSections: membership.dashboardSections,
     },
   };
 }

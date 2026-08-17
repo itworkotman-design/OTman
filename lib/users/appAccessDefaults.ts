@@ -9,6 +9,7 @@ export const ALL_MODULES: AppModule[] = [
   "WEBSITE_ORDERS",
   "SCHEDULER",
   "USER_MANAGEMENT",
+  "DASHBOARD",
 ];
 
 export const MODULE_LABELS: Record<AppModule, string> = {
@@ -18,11 +19,12 @@ export const MODULE_LABELS: Record<AppModule, string> = {
   WEBSITE_ORDERS: "Website orders",
   SCHEDULER: "Scheduler orders",
   USER_MANAGEMENT: "User management",
+  DASHBOARD: "Dashboard",
 };
 
 // Purely a visual accent (used by the Edit User modal's per-app cards) so
-// six otherwise-identical cards are easy to tell apart at a glance — no
-// meaning attached to which module gets which color.
+// otherwise-identical cards are easy to tell apart at a glance — no meaning
+// attached to which module gets which color.
 export const MODULE_COLORS: Record<AppModule, string> = {
   ARCHIVE: "#273097",
   BOOKING: "#7a5cc7",
@@ -30,6 +32,7 @@ export const MODULE_COLORS: Record<AppModule, string> = {
   WEBSITE_ORDERS: "#c67139",
   SCHEDULER: "#c0507a",
   USER_MANAGEMENT: "#3a8fb7",
+  DASHBOARD: "#c9982a",
 };
 
 // Modules with no granular permission today — access is strictly whatever
@@ -42,6 +45,7 @@ export const BINARY_ADMIN_ONLY_MODULES: AppModule[] = [
   "WEBSITE_ORDERS",
   "SCHEDULER",
   "USER_MANAGEMENT",
+  "DASHBOARD",
 ];
 
 export type AppAccessDefaults = Record<AppModule, { enabled: boolean; level: AppAccessLevel }>;
@@ -89,7 +93,7 @@ export function defaultAppAccessRows(role: Role, permissions: AppPermission[]) {
 export type AppAccessRow = { module: AppModule; enabled: boolean; level: AppAccessLevel };
 
 // Parses the client-submitted access matrix for both membership creation and
-// the Edit User "Access" tab. Requires all 6 modules to be present — the
+// the Edit User "Access" tab. Requires all modules to be present — the
 // modal always renders (and submits) the full set, so a partial payload
 // means malformed/stale client state rather than an intentional partial
 // update, and a strict "all or nothing" input keeps the write side from

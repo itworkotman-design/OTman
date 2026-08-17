@@ -84,11 +84,6 @@ export default function LoginPageContent() {
         return;
       }
 
-      if (activeMembership.role === "USER") {
-        router.push("/booking");
-        return;
-      }
-
       router.push("/dashboard");
     } catch {
       setError("Something went wrong. Please try again.");

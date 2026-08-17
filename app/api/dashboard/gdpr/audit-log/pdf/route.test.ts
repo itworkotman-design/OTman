@@ -33,14 +33,29 @@ describe("GET /api/dashboard/gdpr/audit-log/pdf", () => {
       userId: "user-1",
       activeCompanyId: "company-1",
     });
-    mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN" });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      appAccess: [{ module: "DASHBOARD", enabled: true, level: "ADMIN" }],
+      dashboardSections: [],
+    });
     mocks.companyFindUniqueMock.mockResolvedValue({ name: "Test Company" });
     mocks.orderEventFindManyMock.mockResolvedValue([]);
     mocks.buildGdprAuditLogPdfMock.mockResolvedValue(Buffer.from("%PDF-fake"));
   });
 
-  it("returns 403 for a non-admin membership", async () => {
-    mocks.membershipFindFirstMock.mockResolvedValue({ role: "USER" });
+  it("returns 403 without a DASHBOARD grant", async () => {
+    mocks.membershipFindFirstMock.mockResolvedValue({ appAccess: [], dashboardSections: [] });
+
+    const res = await GET(new Request("http://localhost/api/dashboard/gdpr/audit-log/pdf"));
+
+    expect(res.status).toBe(403);
+    expect(mocks.buildGdprAuditLogPdfMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when the GDPR section is explicitly disabled", async () => {
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      appAccess: [{ module: "DASHBOARD", enabled: true, level: "ADMIN" }],
+      dashboardSections: [{ section: "GDPR", enabled: false }],
+    });
 
     const res = await GET(new Request("http://localhost/api/dashboard/gdpr/audit-log/pdf"));
 

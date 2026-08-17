@@ -64,6 +64,7 @@ model Membership {
   user                           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   permissions                    MembershipPermission[]
   appAccess                      MembershipAppAccess[]
+  dashboardSections              MembershipDashboardSection[]
   membershipPriceLists           MembershipPriceList[]
   createdOrders                  Order[]                  @relation("OrderCreatedByMembership")
   orders                         Order[]
@@ -114,6 +115,24 @@ model MembershipAppAccess {
 
   @@unique([membershipId, module])
   @@index([module, enabled])
+}
+
+// Per-person visibility for the Dashboard Home page's sub-sections (booking
+// overview, GDPR, etc). A missing row means visible — unlike
+// MembershipAppAccess, this is a sub-setting of an already-granted DASHBOARD
+// module, not a grant in its own right, so "no explicit restriction yet"
+// should default to showing the section (see lib/users/access.ts).
+model MembershipDashboardSection {
+  id           String           @id @default(cuid())
+  membershipId String
+  section      DashboardSection
+  enabled      Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  membership   Membership       @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, section])
+  @@index([section, enabled])
 }
 
 model Invite {
@@ -812,11 +831,20 @@ enum AppModule {
   WEBSITE_ORDERS
   SCHEDULER
   USER_MANAGEMENT
+  DASHBOARD
 }
 
 enum AppAccessLevel {
   VIEWER
   ADMIN
+}
+
+enum DashboardSection {
+  BOOKING_OVERVIEW
+  PEOPLE_ONLINE
+  REVIEWS
+  GDPR
+  QUICK_TASKS
 }
 
 enum AuthEventType {

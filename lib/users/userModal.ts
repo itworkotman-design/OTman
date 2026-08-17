@@ -1,6 +1,7 @@
 import React from "react";
-import type { AppModule, Role } from "@/lib/users/types";
+import type { AppModule, DashboardSection, Role } from "@/lib/users/types";
 import { defaultAppAccessRows } from "@/lib/users/appAccessDefaults";
+import { ALL_DASHBOARD_SECTIONS } from "@/lib/users/dashboardSections";
 
 export type { Role };
 
@@ -10,6 +11,11 @@ export type AppAccessFormRow = {
   module: AppModule;
   enabled: boolean;
   level: "VIEWER" | "ADMIN";
+};
+
+export type DashboardSectionFormRow = {
+  section: DashboardSection;
+  enabled: boolean;
 };
 
 export interface UserFormData {
@@ -26,6 +32,7 @@ export interface UserFormData {
   usernameDisplayColor: string;
   priceListIds: string[];
   appAccess: AppAccessFormRow[];
+  dashboardSections: DashboardSectionFormRow[];
   provisionMode: UserProvisionMode;
   password: string;
   confirmPassword: string;
@@ -48,6 +55,7 @@ export interface UserModalProps {
   initialValueRole: string;
   initialValueActive: boolean;
   initialValueAppAccess?: AppAccessFormRow[];
+  initialValueDashboardSections?: DashboardSectionFormRow[];
   isOwner: boolean;
   isUmAdmin: boolean;
   targetRole: Role;
@@ -68,6 +76,7 @@ export type UserFormSource = Pick<
   | "initialValueRole"
   | "initialValueActive"
   | "initialValueAppAccess"
+  | "initialValueDashboardSections"
   | "initialPriceListIds"
 >;
 
@@ -91,6 +100,10 @@ export function buildInitialForm(source: UserFormSource): UserFormData {
       source.initialValueAppAccess && source.initialValueAppAccess.length > 0
         ? source.initialValueAppAccess
         : defaultAppAccessRows(role, []),
+    dashboardSections:
+      source.initialValueDashboardSections && source.initialValueDashboardSections.length > 0
+        ? source.initialValueDashboardSections
+        : ALL_DASHBOARD_SECTIONS.map((section) => ({ section, enabled: true })),
     provisionMode: "DIRECT_PASSWORD",
     password: "",
     confirmPassword: "",
@@ -187,6 +200,18 @@ export function updateAppAccessModule(
     ...prev,
     appAccess: prev.appAccess.map((row) =>
       row.module === module ? { ...row, ...patch } : row,
+    ),
+  }));
+}
+
+export function toggleDashboardSection(
+  section: DashboardSection,
+  setForm: React.Dispatch<React.SetStateAction<UserFormData>>,
+) {
+  setForm((prev) => ({
+    ...prev,
+    dashboardSections: prev.dashboardSections.map((row) =>
+      row.section === section ? { ...row, enabled: !row.enabled } : row,
     ),
   }));
 }

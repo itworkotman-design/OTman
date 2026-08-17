@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { requireFullAccessMembership } from "@/lib/products/pricelistAccess";
 
 type SourceSpecialOption = {
   type: "RETURN" | "XTRA" | "EXTRA_SERVICE";
@@ -142,21 +143,29 @@ export async function GET(req: Request) {
 
   let assignedIds: string[] | null = null;
 
-  if (mine && session.activeCompanyId) {
-    const membership = await prisma.membership.findFirst({
-      where: {
-        userId: session.userId,
-        companyId: session.activeCompanyId,
-        status: "ACTIVE",
-      },
-      select: {
-        membershipPriceLists: {
-          select: { priceListId: true },
-        },
-      },
-    });
+  if (mine) {
+    const membership = session.activeCompanyId
+      ? await prisma.membership.findFirst({
+          where: {
+            userId: session.userId,
+            companyId: session.activeCompanyId,
+            status: "ACTIVE",
+          },
+          select: {
+            membershipPriceLists: {
+              select: { priceListId: true },
+            },
+          },
+        })
+      : null;
 
     assignedIds = membership?.membershipPriceLists.map((mpl) => mpl.priceListId) ?? [];
+  } else {
+    // The full, unfiltered list backs the price-list editor (Owner/Admin
+    // only) — everyone else only ever needs their own assigned lists via
+    // ?mine=true.
+    const gate = await requireFullAccessMembership(session);
+    if (!gate.ok) return gate.response;
   }
 
   const priceLists = await prisma.priceList.findMany({
@@ -191,6 +200,9 @@ export async function POST(req: Request) {
       { status: 401 },
     );
   }
+
+  const gate = await requireFullAccessMembership(session);
+  if (!gate.ok) return gate.response;
 
   try {
     const body = await req.json().catch(() => null);

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import OrderModal from "@/app/_components/Dahsboard/booking/OrderModal";
+import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadOnlyOrderModal";
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
 import OrderEmailModal from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
@@ -712,22 +713,35 @@ export default function BookingPage() {
         </div>
       </div>
 
-      <OrderModal
-        orderId={selectedOrderId}
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setSelectedOrderId(null);
-        }}
-        onSaved={() => void loadOrders(appliedFilters)}
-        canDelete={access.viewMode === "ADMIN"}
-        locale={locale}
-        onDeleted={() => {
-          setModalOpen(false);
-          setSelectedOrderId(null);
-          void loadOrders(appliedFilters);
-        }}
-      />
+      {access.viewMode === "ADMIN" ? (
+        <OrderModal
+          orderId={selectedOrderId}
+          open={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setSelectedOrderId(null);
+          }}
+          onSaved={() => void loadOrders(appliedFilters)}
+          canDelete
+          locale={locale}
+          onDeleted={() => {
+            setModalOpen(false);
+            setSelectedOrderId(null);
+            void loadOrders(appliedFilters);
+          }}
+        />
+      ) : (
+        <ReadOnlyOrderModal
+          open={modalOpen}
+          viewMode={access.viewMode}
+          order={selectedOrderId ? (orders.find((order) => order.id === selectedOrderId) ?? null) : null}
+          locale={locale}
+          onClose={() => {
+            setModalOpen(false);
+            setSelectedOrderId(null);
+          }}
+        />
+      )}
 
       <OrderEmailModal
         open={emailModalOpen}

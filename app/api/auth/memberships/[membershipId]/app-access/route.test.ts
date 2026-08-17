@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     countMock: vi.fn(),
     transactionMock: vi.fn(),
     upsertMock: vi.fn(),
+    dashboardSectionUpsertMock: vi.fn(),
     permissionDeleteManyMock: vi.fn(),
     permissionCreateManyMock: vi.fn(),
   };
@@ -42,6 +43,15 @@ const FULL_ACCESS = [
   { module: "WEBSITE_ORDERS", enabled: false, level: "VIEWER" },
   { module: "SCHEDULER", enabled: false, level: "VIEWER" },
   { module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" },
+  { module: "DASHBOARD", enabled: true, level: "ADMIN" },
+];
+
+const FULL_DASHBOARD_SECTIONS = [
+  { section: "BOOKING_OVERVIEW", enabled: true },
+  { section: "PEOPLE_ONLINE", enabled: false },
+  { section: "REVIEWS", enabled: true },
+  { section: "GDPR", enabled: false },
+  { section: "QUICK_TASKS", enabled: true },
 ];
 
 function buildRequest(body: unknown) {
@@ -83,12 +93,14 @@ describe("PATCH /api/auth/memberships/[membershipId]/app-access", () => {
 
     mocks.countMock.mockResolvedValue(1);
     mocks.upsertMock.mockResolvedValue(undefined);
+    mocks.dashboardSectionUpsertMock.mockResolvedValue(undefined);
     mocks.permissionDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.permissionCreateManyMock.mockResolvedValue({ count: 0 });
 
     mocks.transactionMock.mockImplementation(async (callback) => {
       return callback({
         membershipAppAccess: { upsert: mocks.upsertMock },
+        membershipDashboardSection: { upsert: mocks.dashboardSectionUpsertMock },
         membershipPermission: {
           deleteMany: mocks.permissionDeleteManyMock,
           createMany: mocks.permissionCreateManyMock,
@@ -250,7 +262,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/app-access", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ ok: true });
 
-    expect(mocks.upsertMock).toHaveBeenCalledTimes(6);
+    expect(mocks.upsertMock).toHaveBeenCalledTimes(7);
     expect(mocks.upsertMock).toHaveBeenCalledWith({
       where: { membershipId_module: { membershipId: "m2", module: "ARCHIVE" } },
       create: { membershipId: "m2", module: "ARCHIVE", enabled: true, level: "ADMIN" },
@@ -268,5 +280,75 @@ describe("PATCH /api/auth/memberships/[membershipId]/app-access", () => {
         { membershipId: "m2", permission: "ARCHIVE_VIEW" },
       ],
     });
+  });
+
+  it("returns 400 INVALID_INPUT when dashboardSections is present but incomplete", async () => {
+    const res = await PATCH(
+      buildRequest({ appAccess: FULL_ACCESS, dashboardSections: FULL_DASHBOARD_SECTIONS.slice(1) }),
+      { params: Promise.resolve({ membershipId: "m2" }) },
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ ok: false, reason: "INVALID_INPUT" });
+    expect(mocks.transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("writes dashboardSections when the actor is an Owner", async () => {
+    const res = await PATCH(
+      buildRequest({ appAccess: FULL_ACCESS, dashboardSections: FULL_DASHBOARD_SECTIONS }),
+      { params: Promise.resolve({ membershipId: "m2" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.dashboardSectionUpsertMock).toHaveBeenCalledTimes(5);
+    expect(mocks.dashboardSectionUpsertMock).toHaveBeenCalledWith({
+      where: { membershipId_section: { membershipId: "m2", section: "GDPR" } },
+      create: { membershipId: "m2", section: "GDPR", enabled: false },
+      update: { enabled: false },
+    });
+  });
+
+  it("silently ignores dashboardSections from a non-owner actor instead of rejecting the whole request", async () => {
+    mocks.getActiveMembershipMock.mockResolvedValue({
+      userId: "u1",
+      companyId: "c1",
+      role: "ADMIN",
+      status: "ACTIVE",
+      permissions: [],
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
+    });
+
+    // Target's current USER_MANAGEMENT grant must match the submitted row
+    // unchanged (isAppAccessGrantAllowedForNonOwner) — unrelated to this
+    // test's actual point (dashboardSections gets silently dropped).
+    mocks.findUniqueMock.mockResolvedValue({
+      id: "m2",
+      role: "USER",
+      status: "ACTIVE",
+      companyId: "c1",
+      userId: "u2",
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
+    });
+
+    const viewerOnlyAccess = FULL_ACCESS.map((row) =>
+      row.module === "USER_MANAGEMENT" || row.module === "BOOKING" ? row : { ...row, enabled: false, level: "VIEWER" },
+    );
+
+    const res = await PATCH(
+      buildRequest({ appAccess: viewerOnlyAccess, dashboardSections: FULL_DASHBOARD_SECTIONS }),
+      { params: Promise.resolve({ membershipId: "m2" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.dashboardSectionUpsertMock).not.toHaveBeenCalled();
+  });
+
+  it("omitting dashboardSections entirely leaves it untouched (not an error)", async () => {
+    const res = await PATCH(buildRequest({ appAccess: FULL_ACCESS }), {
+      params: Promise.resolve({ membershipId: "m2" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.dashboardSectionUpsertMock).not.toHaveBeenCalled();
   });
 });

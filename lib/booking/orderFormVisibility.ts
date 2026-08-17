@@ -10,6 +10,17 @@ function hide(...fields: OrderFieldValue[]): HiddenMask {
   return fields.reduce((mask, field) => mask | field, 0);
 }
 
+// The restricted create-order pages (any non-full-access role) additionally
+// hide these fields on top of getCreateOrderHiddenMask's role-based mask —
+// shared by both the legacy /booking/create page and /dashboard/booking/create
+// so the two never drift apart.
+export const HIDE_FOR_ORDER_CREATOR_EXTRA_MASK: HiddenMask = hide(
+  OrderFields.FeeExtraWork,
+  OrderFields.FeeAddToOrder,
+  OrderFields.ChangeCustomer,
+  OrderFields.ExpressDelivery,
+);
+
 export function getCreateOrderHiddenMask(
   role: Role,
   permissions: AppPermission[],

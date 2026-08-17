@@ -43,6 +43,12 @@ export async function GET(req: Request) {
           level: true,
         },
       },
+      dashboardSections: {
+        select: {
+          section: true,
+          enabled: true,
+        },
+      },
     },
   });
 
@@ -57,6 +63,7 @@ export async function GET(req: Request) {
     ),
     priceListIds: m.membershipPriceLists.map((mpl) => mpl.priceListId),
     appAccess: m.appAccess ?? [],
+    dashboardSections: m.dashboardSections ?? [],
   }));
 
   const activeMembership =
@@ -95,6 +102,7 @@ export async function GET(req: Request) {
             permissions: activeMembership.permissions,
             priceListIds: activeMembership.priceListIds,
             appAccess: activeMembership.appAccess,
+            dashboardSections: activeMembership.dashboardSections,
           }
         : null,
       memberships: selectableMemberships,

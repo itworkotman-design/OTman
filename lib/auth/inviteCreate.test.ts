@@ -251,6 +251,7 @@ describe("createInvite", () => {
         { inviteId: "invite-1", module: "WEBSITE_ORDERS", enabled: true, level: "ADMIN" },
         { inviteId: "invite-1", module: "SCHEDULER", enabled: true, level: "ADMIN" },
         { inviteId: "invite-1", module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" },
+        { inviteId: "invite-1", module: "DASHBOARD", enabled: true, level: "ADMIN" },
       ],
     });
 

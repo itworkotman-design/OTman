@@ -33,6 +33,14 @@ vi.mock("@/lib/db", () => ({
 
 import { GET, PATCH } from "./route";
 
+const FULL_ACCESS = {
+  appAccess: [
+    { module: "DASHBOARD", enabled: true, level: "ADMIN" },
+    { module: "BOOKING", enabled: true, level: "ADMIN" },
+  ],
+  dashboardSections: [],
+};
+
 describe("GET /api/dashboard/home", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,13 +60,13 @@ describe("GET /api/dashboard/home", () => {
     });
   });
 
-  it("returns company-scoped stats including store and subcontractor leaderboards", async () => {
+  it("returns company-scoped stats including store and subcontractor leaderboards, plus visibleSections", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
     });
     mocks.membershipFindFirstMock.mockResolvedValue({
-      role: "ADMIN",
+      ...FULL_ACCESS,
       company: {
         orderEmailsEnabled: true,
       },
@@ -127,6 +135,7 @@ describe("GET /api/dashboard/home", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       ok: true,
+      visibleSections: ["BOOKING_OVERVIEW", "QUICK_TASKS"],
       stats: {
         totalIncome: 100,
         ordersThisMonth: 12,
@@ -195,6 +204,13 @@ describe("GET /api/dashboard/home", () => {
       },
       select: {
         role: true,
+        appAccess: {
+          where: { module: { in: ["DASHBOARD", "BOOKING"] } },
+          select: { module: true, enabled: true, level: true },
+        },
+        dashboardSections: {
+          select: { section: true, enabled: true },
+        },
         company: {
           select: {
             orderEmailsEnabled: true,
@@ -220,14 +236,125 @@ describe("GET /api/dashboard/home", () => {
     });
   });
 
-  it("PATCH updates the company order email toggle", async () => {
+  it("returns 200 with only orderEmailsEnabled when BOOKING_OVERVIEW is disabled but QUICK_TASKS stays visible", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
     });
     mocks.membershipFindFirstMock.mockResolvedValue({
-      role: "ADMIN",
+      appAccess: FULL_ACCESS.appAccess,
+      dashboardSections: [{ section: "BOOKING_OVERVIEW", enabled: false }],
+      company: { orderEmailsEnabled: false },
     });
+
+    const response = await GET(
+      new Request("http://localhost/api/dashboard/home"),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      visibleSections: ["QUICK_TASKS"],
+      orderEmailsEnabled: false,
+    });
+    expect(mocks.orderCountMock).not.toHaveBeenCalled();
+  });
+
+  it("returns FORBIDDEN when the caller has no DASHBOARD access", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      appAccess: [],
+      dashboardSections: [],
+      company: { orderEmailsEnabled: true },
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/dashboard/home"),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      reason: "FORBIDDEN",
+    });
+    expect(mocks.orderCountMock).not.toHaveBeenCalled();
+  });
+
+  it("returns FORBIDDEN for a DASHBOARD grant without Booking-admin access", async () => {
+    // DashboardHome's booking-derived sections (revenue, profit by
+    // store/subcontractor, order email settings) require Booking-admin
+    // regardless of the section toggle — a Dashboard-only grantee must not
+    // see sensitive order data they have no other access to.
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      appAccess: [{ module: "DASHBOARD", enabled: true, level: "ADMIN" }],
+      dashboardSections: [],
+      company: { orderEmailsEnabled: true },
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/dashboard/home"),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      reason: "FORBIDDEN",
+    });
+    expect(mocks.orderCountMock).not.toHaveBeenCalled();
+  });
+
+  it("returns FORBIDDEN for Booking-admin access without a DASHBOARD grant", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      appAccess: [{ module: "BOOKING", enabled: true, level: "ADMIN" }],
+      dashboardSections: [],
+      company: { orderEmailsEnabled: true },
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/dashboard/home"),
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it("returns 200 for a USER-role membership with DASHBOARD + Booking-admin grants", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      ...FULL_ACCESS,
+      company: { orderEmailsEnabled: true },
+    });
+    mocks.orderCountMock.mockResolvedValue(0);
+    mocks.orderFindManyMock.mockResolvedValue([]);
+    mocks.orderGroupByMock.mockResolvedValue([]);
+    mocks.membershipFindManyMock.mockResolvedValue([]);
+
+    const response = await GET(
+      new Request("http://localhost/api/dashboard/home"),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it("PATCH updates the company order email toggle", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue(FULL_ACCESS);
     mocks.companyUpdateMock.mockResolvedValue({
       orderEmailsEnabled: false,
     });
@@ -257,5 +384,26 @@ describe("GET /api/dashboard/home", () => {
         orderEmailsEnabled: true,
       },
     });
+  });
+
+  it("PATCH returns FORBIDDEN without Booking-admin access", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      appAccess: [{ module: "DASHBOARD", enabled: true, level: "ADMIN" }],
+      dashboardSections: [],
+    });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/dashboard/home", {
+        method: "PATCH",
+        body: JSON.stringify({ orderEmailsEnabled: false }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.companyUpdateMock).not.toHaveBeenCalled();
   });
 });

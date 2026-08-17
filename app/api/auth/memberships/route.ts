@@ -60,6 +60,12 @@ export async function GET(req: Request) {
           level: true,
         },
       },
+      dashboardSections: {
+        select: {
+          section: true,
+          enabled: true,
+        },
+      },
       user: {
         select: {
           id: true,

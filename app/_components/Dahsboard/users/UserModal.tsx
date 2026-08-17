@@ -16,6 +16,7 @@ import {
   makeFieldUpdater,
   makeSelectUpdater,
   togglePriceListId,
+  toggleDashboardSection,
   updateAppAccessModule,
 } from "@/lib/users/userModal";
 import {
@@ -24,6 +25,7 @@ import {
   MODULE_COLORS,
   MODULE_LABELS,
 } from "@/lib/users/appAccessDefaults";
+import { ALL_DASHBOARD_SECTIONS, DASHBOARD_SECTION_LABELS } from "@/lib/users/dashboardSections";
 import type { AppModule, Role } from "@/lib/users/types";
 
 const AVATAR_COLOR_SWATCHES = ["#273097", "#7a5cc7", "#2e9e6b", "#c67139", "#c0507a", "#3a8fb7"];
@@ -593,6 +595,41 @@ export default function UserModal({
                               ) : (
                                 <span className="text-xs text-textColorThird">No price lists available</span>
                               )}
+                            </div>
+                          </div>
+                        )}
+
+                        {row.module === "DASHBOARD" && (
+                          <div className="mt-3 border-t pt-3" style={{ borderColor: `${color}33` }}>
+                            <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-textColorSecond">
+                              Visible sections
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {ALL_DASHBOARD_SECTIONS.map((section) => {
+                                const sectionRow = form.dashboardSections.find((s) => s.section === section);
+                                const checked = sectionRow?.enabled ?? true;
+                                return (
+                                  <label
+                                    key={section}
+                                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                                      !canEditTarget || moduleToggleLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                                    } ${checked ? "text-white" : "text-textColorSecond"}`}
+                                    style={{
+                                      backgroundColor: checked ? color : "#fff",
+                                      borderColor: checked ? color : "rgba(0,0,0,.15)",
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => toggleDashboardSection(section, setForm)}
+                                      disabled={!canEditTarget || moduleToggleLocked}
+                                      className="hidden"
+                                    />
+                                    {DASHBOARD_SECTION_LABELS[section]}
+                                  </label>
+                                );
+                              })}
                             </div>
                           </div>
                         )}

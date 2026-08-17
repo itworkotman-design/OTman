@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { AppAccessLevel, AppModule } from "@prisma/client";
+import type { AppAccessLevel, AppModule, DashboardSection } from "@prisma/client";
 
 export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 
@@ -7,6 +7,11 @@ export type MembershipAppAccess = {
   module: AppModule;
   enabled: boolean;
   level: AppAccessLevel;
+};
+
+export type MembershipDashboardSectionAccess = {
+  section: DashboardSection;
+  enabled: boolean;
 };
 
 export type ActiveMembership = {
@@ -17,6 +22,7 @@ export type ActiveMembership = {
   priceListIds: string[];
   permissions: AppPermission[];
   appAccess: MembershipAppAccess[];
+  dashboardSections: MembershipDashboardSectionAccess[];
 };
 
 export async function getActiveMembership(params: {
@@ -51,6 +57,12 @@ export async function getActiveMembership(params: {
           level: true,
         },
       },
+      dashboardSections: {
+        select: {
+          section: true,
+          enabled: true,
+        },
+      },
     },
   });
 
@@ -66,5 +78,6 @@ export async function getActiveMembership(params: {
       (p: { permission: AppPermission }) => p.permission,
     ),
     appAccess: membership.appAccess ?? [],
+    dashboardSections: membership.dashboardSections ?? [],
   };
 }

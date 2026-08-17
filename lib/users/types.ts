@@ -6,6 +6,8 @@ export type Role = ActiveMembership["role"];
 export type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 export type AppModuleAccess = ActiveMembership["appAccess"][number];
 export type AppModule = AppModuleAccess["module"];
+export type DashboardSectionAccess = ActiveMembership["dashboardSections"][number];
+export type DashboardSection = DashboardSectionAccess["section"];
 
 // ─── Status enums ─────────────────────────────────────────────────────────────
 
@@ -39,6 +41,7 @@ export type Membership = {
   warehouseEmail: string | null;
   permissions: { permission: AppPermission }[];
   appAccess: AppModuleAccess[];
+  dashboardSections: DashboardSectionAccess[];
 };
 
 export type PendingInvite = {

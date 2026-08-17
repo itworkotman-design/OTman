@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { requireDashboardSection } from "@/lib/users/requireDashboardSection";
 
 const INVOICED_WARNING_AFTER_MONTHS = 2;
 
@@ -18,26 +19,9 @@ function monthsAgo(months: number): Date {
 export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
 
-  if (!session) {
-    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
-  }
-
-  if (!session.activeCompanyId) {
-    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
-  }
-
-  const membership = await prisma.membership.findFirst({
-    where: {
-      userId: session.userId,
-      companyId: session.activeCompanyId,
-      status: "ACTIVE",
-    },
-    select: { role: true },
-  });
-
-  if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
-    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
-  }
+  const gate = await requireDashboardSection(session, "GDPR");
+  if (!gate.ok) return gate.response;
+  if (!session?.activeCompanyId) return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
 
   const candidates = await prisma.order.findMany({
     where: {

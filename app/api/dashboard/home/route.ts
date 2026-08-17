@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import type { DashboardSection } from "@prisma/client";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { canViewDashboardSection } from "@/lib/users/access";
 
 function getMonthRange(date = new Date()) {
   const start = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -162,11 +164,6 @@ export async function GET(req: Request) {
   }
 
   try {
-    const { start, end } = getMonthRange();
-    const currentYear = new Date().getFullYear();
-    const lastYear = currentYear - 1;
-    const yearRangeStart = new Date(lastYear, 0, 1);
-    const yearRangeEnd = new Date(currentYear + 1, 0, 1);
     const membership = await prisma.membership.findFirst({
       where: {
         userId: session.userId,
@@ -175,6 +172,13 @@ export async function GET(req: Request) {
       },
       select: {
         role: true,
+        appAccess: {
+          where: { module: { in: ["DASHBOARD", "BOOKING"] } },
+          select: { module: true, enabled: true, level: true },
+        },
+        dashboardSections: {
+          select: { section: true, enabled: true },
+        },
         company: {
           select: {
             orderEmailsEnabled: true,
@@ -183,15 +187,39 @@ export async function GET(req: Request) {
       },
     });
 
-    if (
-      !membership ||
-      (membership.role !== "OWNER" && membership.role !== "ADMIN")
-    ) {
+    const canSeeBookingOverview = Boolean(membership && canViewDashboardSection(membership, "BOOKING_OVERVIEW"));
+    const canSeeQuickTasks = Boolean(membership && canViewDashboardSection(membership, "QUICK_TASKS"));
+
+    if (!membership || (!canSeeBookingOverview && !canSeeQuickTasks)) {
       return NextResponse.json(
         { ok: false, reason: "FORBIDDEN" },
         { status: 403 },
       );
     }
+
+    const visibleSections: DashboardSection[] = [
+      ...(canSeeBookingOverview ? (["BOOKING_OVERVIEW"] as const) : []),
+      ...(canSeeQuickTasks ? (["QUICK_TASKS"] as const) : []),
+    ];
+
+    const responseBody: Record<string, unknown> = {
+      ok: true,
+      visibleSections,
+    };
+
+    if (canSeeQuickTasks) {
+      responseBody.orderEmailsEnabled = membership.company?.orderEmailsEnabled !== false;
+    }
+
+    if (!canSeeBookingOverview) {
+      return NextResponse.json(responseBody);
+    }
+
+    const { start, end } = getMonthRange();
+    const currentYear = new Date().getFullYear();
+    const lastYear = currentYear - 1;
+    const yearRangeStart = new Date(lastYear, 0, 1);
+    const yearRangeEnd = new Date(currentYear + 1, 0, 1);
 
     const [
       ordersThisMonth,
@@ -345,7 +373,7 @@ export async function GET(req: Request) {
     );
 
     return NextResponse.json({
-      ok: true,
+      ...responseBody,
       stats: {
         totalIncome,
         ordersThisMonth,
@@ -355,7 +383,6 @@ export async function GET(req: Request) {
         confirmedOrders,
         cancelledOrders,
       },
-      orderEmailsEnabled: membership.company?.orderEmailsEnabled !== false,
       statusBreakdown: allStatuses.map((item) => ({
         status: item.status ?? "unknown",
         count: item._count.status,
@@ -401,13 +428,17 @@ export async function PATCH(req: Request) {
     },
     select: {
       role: true,
+      appAccess: {
+        where: { module: { in: ["DASHBOARD", "BOOKING"] } },
+        select: { module: true, enabled: true, level: true },
+      },
+      dashboardSections: {
+        select: { section: true, enabled: true },
+      },
     },
   });
 
-  if (
-    !membership ||
-    (membership.role !== "OWNER" && membership.role !== "ADMIN")
-  ) {
+  if (!membership || !canViewDashboardSection(membership, "QUICK_TASKS")) {
     return NextResponse.json(
       { ok: false, reason: "FORBIDDEN" },
       { status: 403 },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { requireDashboardSection } from "@/lib/users/requireDashboardSection";
 
 // Every order currently on a GDPR hold, regardless of status. A hold placed
 // while an order was Invoiced can outlive that status (e.g. once it's
@@ -10,26 +11,9 @@ import { prisma } from "@/lib/db";
 export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
 
-  if (!session) {
-    return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
-  }
-
-  if (!session.activeCompanyId) {
-    return NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 });
-  }
-
-  const membership = await prisma.membership.findFirst({
-    where: {
-      userId: session.userId,
-      companyId: session.activeCompanyId,
-      status: "ACTIVE",
-    },
-    select: { role: true },
-  });
-
-  if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
-    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
-  }
+  const gate = await requireDashboardSection(session, "GDPR");
+  if (!gate.ok) return gate.response;
+  if (!session?.activeCompanyId) return NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 });
 
   const orders = await prisma.order.findMany({
     where: {

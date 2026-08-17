@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getActiveMembership } from "@/lib/auth/membership";
+import { hasFullAccess } from "@/lib/users/access";
 
-export default async function DashboardLayout({
+export default async function EditPricesLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -17,7 +18,7 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const req = new Request(`${protocol}://${host}/dashboard`, {
+  const req = new Request(`${protocol}://${host}/dashboard/booking/editPrices`, {
     headers: requestHeaders,
   });
 
@@ -38,6 +39,12 @@ export default async function DashboardLayout({
 
   if (!membership) {
     redirect("/login");
+  }
+
+  // Full price-list CRUD is Owner/Admin only — everyone else gets the
+  // read-only "Price lists" page instead (/dashboard/booking/pricelists).
+  if (!hasFullAccess(membership.role)) {
+    redirect("/dashboard/booking");
   }
 
   return <>{children}</>;

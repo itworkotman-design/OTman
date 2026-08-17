@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { canViewDashboardSection } from "@/lib/users/access";
 
-async function requireAdminMembership(req: Request) {
+async function requireGdprMembership(req: Request) {
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
@@ -25,10 +26,17 @@ async function requireAdminMembership(req: Request) {
       id: true,
       role: true,
       user: { select: { username: true, email: true } },
+      appAccess: {
+        where: { module: { in: ["DASHBOARD", "BOOKING"] } },
+        select: { module: true, enabled: true, level: true },
+      },
+      dashboardSections: {
+        select: { section: true, enabled: true },
+      },
     },
   });
 
-  if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+  if (!membership || !canViewDashboardSection(membership, "GDPR")) {
     return { error: NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 }) } as const;
   }
 
@@ -48,7 +56,7 @@ function parseOrderIds(body: unknown): string[] {
 // while a dispute, complaint, or unpaid-invoice review is open. A reason is
 // required so the audit log records why data retention was extended.
 export async function POST(req: Request) {
-  const auth = await requireAdminMembership(req);
+  const auth = await requireGdprMembership(req);
   if (auth.error) return auth.error;
   const { session, membership } = auth;
 
@@ -96,7 +104,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const auth = await requireAdminMembership(req);
+  const auth = await requireGdprMembership(req);
   if (auth.error) return auth.error;
   const { session, membership } = auth;
 

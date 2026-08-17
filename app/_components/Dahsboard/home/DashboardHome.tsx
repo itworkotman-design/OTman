@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Membership } from "@/lib/users/types";
+import type { DashboardSection } from "@prisma/client";
+import { useCurrentUser } from "@/lib/users/useCurrentUser";
+import { canViewDashboardSection } from "@/lib/users/access";
 import GdprSection from "./GdprSection";
 import ReviewsSection from "./ReviewsSection";
 import { RemindersSection } from "./RemindersSection";
@@ -23,16 +25,21 @@ type LeaderboardEntry = {
   profit: number;
 };
 
+// stats/monthlyRevenue/monthlyComparison/storeLeaderboard/subcontractorLeaderboard
+// and orderEmailsEnabled are each only present when the caller can see the
+// corresponding section (BOOKING_OVERVIEW / QUICK_TASKS respectively) — see
+// visibleSections and app/api/dashboard/home/route.ts.
 type DashboardResponse = {
   ok: boolean;
-  stats: DashboardStats;
-  orderEmailsEnabled: boolean;
-  monthlyRevenue: MonthlyRevenueItem[];
-  monthlyComparison: MonthlyComparisonItem[];
-  storeLeaderboard: LeaderboardEntry[];
-  subcontractorLeaderboard: LeaderboardEntry[];
-  currentYear: number;
-  lastYear: number;
+  visibleSections: DashboardSection[];
+  stats?: DashboardStats;
+  orderEmailsEnabled?: boolean;
+  monthlyRevenue?: MonthlyRevenueItem[];
+  monthlyComparison?: MonthlyComparisonItem[];
+  storeLeaderboard?: LeaderboardEntry[];
+  subcontractorLeaderboard?: LeaderboardEntry[];
+  currentYear?: number;
+  lastYear?: number;
   reason?: string;
 };
 
@@ -52,9 +59,19 @@ type MonthlyComparisonItem = {
   lastYearOrders: number;
 };
 
-type MembershipsResponse = {
+type OnlineMember = {
+  id: string;
+  role: string;
+  user: {
+    email: string;
+    username: string | null;
+    description: string | null;
+  };
+};
+
+type PeopleOnlineResponse = {
   ok: boolean;
-  memberships: Membership[];
+  members: OnlineMember[];
   reason?: string;
 };
 
@@ -80,7 +97,7 @@ function formatNOK(value: number) {
   }).format(value);
 }
 
-function getOnlineMemberLabel(member: Membership) {
+function getOnlineMemberLabel(member: OnlineMember) {
   return member.user.username?.trim() || member.user.email;
 }
 
@@ -504,8 +521,13 @@ function LeaderboardCard({
 }
 
 export default function DashboardHome() {
+  const currentUser = useCurrentUser();
+  const canSeePeopleOnline = Boolean(currentUser && canViewDashboardSection(currentUser, "PEOPLE_ONLINE"));
+  const canSeeReviews = Boolean(currentUser && canViewDashboardSection(currentUser, "REVIEWS"));
+  const canSeeGdpr = Boolean(currentUser && canViewDashboardSection(currentUser, "GDPR"));
+
   const [data, setData] = useState<DashboardResponse | null>(null);
-  const [onlineMembers, setOnlineMembers] = useState<Membership[]>([]);
+  const [onlineMembers, setOnlineMembers] = useState<OnlineMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [onlineError, setOnlineError] = useState("");
@@ -529,13 +551,25 @@ export default function DashboardHome() {
         });
 
         const json: DashboardResponse | null = await res.json().catch(() => null);
+
+        if (res.status === 403) {
+          // Neither section this endpoint serves (BOOKING_OVERVIEW/
+          // QUICK_TASKS) is visible to this person — not a page-level
+          // error, since GDPR/Reviews/People online are independently
+          // gated below and may still be visible.
+          setData({ ok: true, visibleSections: [] });
+          return;
+        }
+
         if (!res.ok || !json?.ok) {
           setError(json?.reason || "Failed to load dashboard");
           return;
         }
 
         setData(json);
-        setOrderEmailsEnabled(json.orderEmailsEnabled);
+        if (typeof json.orderEmailsEnabled === "boolean") {
+          setOrderEmailsEnabled(json.orderEmailsEnabled);
+        }
       } catch {
         setError("Failed to load dashboard");
       } finally {
@@ -547,16 +581,21 @@ export default function DashboardHome() {
   }, []);
 
   useEffect(() => {
+    if (!canSeePeopleOnline) {
+      setOnlineMembers([]);
+      return;
+    }
+
     let isActive = true;
 
     async function loadOnlineMembers() {
       try {
-        const res = await fetch("/api/auth/memberships", {
+        const res = await fetch("/api/dashboard/people-online", {
           credentials: "include",
           cache: "no-store",
         });
 
-        const json: MembershipsResponse | null = await res.json().catch(() => null);
+        const json: PeopleOnlineResponse | null = await res.json().catch(() => null);
 
         if (!res.ok || !json?.ok) {
           if (isActive) {
@@ -571,9 +610,7 @@ export default function DashboardHome() {
 
         setOnlineError("");
         setOnlineMembers(
-          json.memberships
-            .filter((member) => member.isOnline && member.status === "ACTIVE")
-            .toSorted((a, b) => getOnlineMemberLabel(a).localeCompare(getOnlineMemberLabel(b))),
+          json.members.toSorted((a, b) => getOnlineMemberLabel(a).localeCompare(getOnlineMemberLabel(b))),
         );
       } catch {
         if (isActive) {
@@ -602,7 +639,7 @@ export default function DashboardHome() {
       document.removeEventListener("visibilitychange", refreshOnlineMembers);
       window.removeEventListener("focus", refreshOnlineMembers);
     };
-  }, []);
+  }, [canSeePeopleOnline]);
 
   if (loading) {
     return <div className="p-6 text-sm text-slate-400">Loading dashboard...</div>;
@@ -612,11 +649,13 @@ export default function DashboardHome() {
     return <div className="p-6 text-sm text-red-400">{error || "No data"}</div>;
   }
 
-  const { stats } = data;
-  const monthlyRevenue = data.monthlyRevenue;
-  const monthlyComparison = data.monthlyComparison;
-  const storeLeaderboard = data.storeLeaderboard;
-  const subcontractorLeaderboard = data.subcontractorLeaderboard;
+  const canSeeBookingOverview = data.visibleSections.includes("BOOKING_OVERVIEW");
+  const canSeeQuickTasks = data.visibleSections.includes("QUICK_TASKS");
+  const stats = data.stats;
+  const monthlyRevenue = data.monthlyRevenue ?? [];
+  const monthlyComparison = data.monthlyComparison ?? [];
+  const storeLeaderboard = data.storeLeaderboard ?? [];
+  const subcontractorLeaderboard = data.subcontractorLeaderboard ?? [];
 
   async function handleFinishMonth() {
     try {
@@ -682,7 +721,7 @@ export default function DashboardHome() {
     label: string;
     value: string;
     dotClassName: string;
-  }> = [
+  }> = !stats ? [] : [
     {
       label: "Orders this month",
       value: stats.ordersThisMonth.toLocaleString("nb-NO"),
@@ -715,104 +754,120 @@ export default function DashboardHome() {
     },
   ];
 
+  const currentYear = data.currentYear ?? new Date().getFullYear();
+  const lastYear = data.lastYear ?? currentYear - 1;
+
   return (
     <div className="min-h-screen bg-slate-50 px-3 py-6 sm:p-6 text-slate-900">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {statTiles.map((tile) => (
-            <div key={tile.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <span className={`h-2 w-2 rounded-full ${tile.dotClassName}`} />
-                {tile.label}
+        {canSeeBookingOverview && (
+          <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {statTiles.map((tile) => (
+              <div key={tile.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <span className={`h-2 w-2 rounded-full ${tile.dotClassName}`} />
+                  {tile.label}
+                </div>
+                <div className="mt-2 text-2xl font-semibold text-slate-900">{tile.value}</div>
               </div>
-              <div className="mt-2 text-2xl font-semibold text-slate-900">{tile.value}</div>
-            </div>
-          ))}
-        </section>
+            ))}
+          </section>
+        )}
 
         <RemindersSection />
 
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <MonthlyOrdersComparisonChart items={monthlyComparison} currentYear={data.currentYear} lastYear={data.lastYear} />
+        {canSeeBookingOverview && (
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <MonthlyOrdersComparisonChart items={monthlyComparison} currentYear={currentYear} lastYear={lastYear} />
 
-          <MonthlyRevenueChart items={monthlyRevenue} currentYear={data.currentYear} lastYear={data.lastYear} />
-        </section>
-        <section className="grid gap-4 lg:grid-cols-3">
-          {/* Online members */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
-              <div>
-                <h2 className="text-base font-semibold text-logoblue">People Online</h2>
-              </div>
+            <MonthlyRevenueChart items={monthlyRevenue} currentYear={currentYear} lastYear={lastYear} />
+          </section>
+        )}
 
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                {onlineMembers.length} online
-              </div>
-            </div>
+        {(canSeePeopleOnline || canSeeBookingOverview) && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            {canSeePeopleOnline && (
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-logoblue">People Online</h2>
+                  </div>
 
-            <div className="p-6">
-              {onlineError ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{onlineError}</div>
-              ) : onlineMembers.length === 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">No one is online right now.</div>
-              ) : (
-                <div className="grid gap-3">
-                  {onlineMembers.map((member) => {
-                    const primaryLabel = getOnlineMemberLabel(member);
-                    const hasDisplayName = Boolean(member.user.username?.trim());
-                    const secondaryLabel =
-                      hasDisplayName && member.user.username !== member.user.email ? member.user.email : member.user.description?.trim() || member.role;
-
-                    return (
-                      <div
-                        key={member.id}
-                        className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/60"
-                      >
-                        <div className="flex min-w-0 items-center gap-4">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-logoblue to-blue-500 text-sm font-bold text-white shadow-md">
-                            {primaryLabel?.charAt(0)?.toUpperCase() || "U"}
-                          </div>
-
-                          <div className="min-w-0">
-                            <div className="truncate text-base font-semibold text-slate-800">{primaryLabel}</div>
-                            <div className="truncate text-sm text-slate-500">{secondaryLabel}</div>
-                          </div>
-                        </div>
-
-                        <div className="shrink-0">
-                          <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">
-                            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                            Online
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    {onlineMembers.length} online
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
 
-          <LeaderboardCard
-            title="Top Stores"
-            emptyLabel="No store orders yet this year."
-            entries={storeLeaderboard}
-            showProfit
-          />
+                <div className="p-6">
+                  {onlineError ? (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{onlineError}</div>
+                  ) : onlineMembers.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">No one is online right now.</div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {onlineMembers.map((member) => {
+                        const primaryLabel = getOnlineMemberLabel(member);
+                        const hasDisplayName = Boolean(member.user.username?.trim());
+                        const secondaryLabel =
+                          hasDisplayName && member.user.username !== member.user.email ? member.user.email : member.user.description?.trim() || member.role;
 
-          <LeaderboardCard
-            title="Top Subcontractors"
-            emptyLabel="No subcontractor orders yet this year."
-            entries={subcontractorLeaderboard}
-            showProfit={false}
-          />
-        </section>
+                        return (
+                          <div
+                            key={member.id}
+                            className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/60"
+                          >
+                            <div className="flex min-w-0 items-center gap-4">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-logoblue to-blue-500 text-sm font-bold text-white shadow-md">
+                                {primaryLabel?.charAt(0)?.toUpperCase() || "U"}
+                              </div>
 
-        <ReviewsSection />
+                              <div className="min-w-0">
+                                <div className="truncate text-base font-semibold text-slate-800">{primaryLabel}</div>
+                                <div className="truncate text-sm text-slate-500">{secondaryLabel}</div>
+                              </div>
+                            </div>
 
-        <GdprSection />
+                            <div className="shrink-0">
+                              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">
+                                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                                Online
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
+            {canSeeBookingOverview && (
+              <LeaderboardCard
+                title="Top Stores"
+                emptyLabel="No store orders yet this year."
+                entries={storeLeaderboard}
+                showProfit
+              />
+            )}
+
+            {canSeeBookingOverview && (
+              <LeaderboardCard
+                title="Top Subcontractors"
+                emptyLabel="No subcontractor orders yet this year."
+                entries={subcontractorLeaderboard}
+                showProfit={false}
+              />
+            )}
+          </section>
+        )}
+
+        {canSeeReviews && <ReviewsSection />}
+
+        {canSeeGdpr && <GdprSection />}
+
+        {canSeeQuickTasks && (
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-6 py-4">
             <h2 className="text-base font-semibold text-logoblue">Quick Tasks</h2>
@@ -882,6 +937,7 @@ export default function DashboardHome() {
             </div>
           </div>
         </section>
+        )}
       </div>
     </div>
   );

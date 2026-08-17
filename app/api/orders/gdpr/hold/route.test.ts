@@ -31,6 +31,8 @@ function adminSession() {
     id: "membership-1",
     role: "ADMIN",
     user: { username: "Admin", email: "admin@example.com" },
+    appAccess: [{ module: "DASHBOARD", enabled: true, level: "ADMIN" }],
+    dashboardSections: [],
   });
 }
 
@@ -54,12 +56,12 @@ describe("POST /api/orders/gdpr/hold", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 for a non-admin membership", async () => {
+  it("returns 403 without a DASHBOARD grant", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
     });
-    mocks.membershipFindFirstMock.mockResolvedValue({ role: "USER" });
+    mocks.membershipFindFirstMock.mockResolvedValue({ appAccess: [], dashboardSections: [] });
 
     const res = await POST(
       new Request("http://localhost/api/orders/gdpr/hold", {

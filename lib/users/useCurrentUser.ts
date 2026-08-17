@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AppModuleAccess, AppPermission, Role } from "@/lib/users/types";
+import type { MembershipDashboardSectionAccess } from "@/lib/auth/membership";
 
 export type CurrentUser = {
   id: string;
@@ -12,6 +13,7 @@ export type CurrentUser = {
   permissions: AppPermission[];
   priceListIds: string[];
   appAccess: AppModuleAccess[];
+  dashboardSections: MembershipDashboardSectionAccess[];
 };
 
 export function useCurrentUser() {
@@ -48,6 +50,7 @@ export function useCurrentUser() {
           permissions: data.activeTenant?.permissions ?? [],
           priceListIds: data.activeTenant?.priceListIds ?? [],
           appAccess: data.activeTenant?.appAccess ?? [],
+          dashboardSections: data.activeTenant?.dashboardSections ?? [],
         });
       } catch (error) {
         console.error("Failed loading current user", error);

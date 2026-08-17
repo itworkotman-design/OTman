@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       : [];
   const permissions = parsePermissions(body?.permissions);
   const appAccess = body?.appAccess;
+  const dashboardSections = body?.dashboardSections;
 
   if (password !== confirmPassword) {
     return NextResponse.json(
@@ -92,6 +93,7 @@ export async function POST(req: Request) {
     priceListIds,
     permissions,
     appAccess,
+    dashboardSections,
   });
 
   if (!result.ok) {

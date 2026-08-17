@@ -7,15 +7,9 @@ import BookingEditor, {
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { canCreateOrders } from "@/lib/users/orderAccess";
 import type { AppPermission } from "@/lib/users/types";
-import { OrderFields } from "@/app/_components/Dahsboard/booking/create/orderFields";
+import { HIDE_FOR_ORDER_CREATOR_EXTRA_MASK } from "@/lib/booking/orderFormVisibility";
 import { bookingText } from "@/lib/booking/bookingUiText";
 import { useUserLanguage } from "@/lib/users/language";
-
-const HIDE_FOR_CREATOR =
-  OrderFields.FeeExtraWork |
-  OrderFields.FeeAddToOrder |
-  OrderFields.ChangeCustomer |
-  OrderFields.ExpressDelivery;
 
 export default function BookingCreatePage() {
   const currentUser = useCurrentUser();
@@ -104,7 +98,7 @@ export default function BookingCreatePage() {
 
       <BookingEditor
         key={editorKey}
-        hidden={HIDE_FOR_CREATOR}
+        hidden={HIDE_FOR_ORDER_CREATOR_EXTRA_MASK}
         onSubmit={handleCreateOrder}
         locale={locale}
         showCapacityDetails={false}

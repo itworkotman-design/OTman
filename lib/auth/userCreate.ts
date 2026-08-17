@@ -8,6 +8,7 @@ import {
   derivePermissionsFromAppAccess,
   isAppAccessGrantAllowedForNonOwner,
 } from "@/lib/users/appAccessDefaults";
+import { normalizeDashboardSectionsInput } from "@/lib/users/dashboardSections";
 import { isUserManagementAdmin } from "@/lib/users/access";
 
 type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
@@ -75,6 +76,7 @@ export async function createUserWithPassword(params: {
   priceListIds?: string[];
   permissions?: AppPermission[];
   appAccess?: unknown;
+  dashboardSections?: unknown;
 }): Promise<CreateUserResult> {
   const email = params.email.trim().toLowerCase();
   const companyId = params.companyId.trim();
@@ -101,6 +103,18 @@ export async function createUserWithPassword(params: {
   const permissions = explicitAppAccess
     ? derivePermissionsFromAppAccess(explicitAppAccess)
     : normalizePermissions(params.permissions);
+
+  // Optional — omitted entirely means "use the default (all visible)",
+  // matching MembershipDashboardSection's missing-row-means-visible
+  // semantics. Only an Owner may set it (checked once actorMembership is
+  // known, below).
+  let dashboardSections: ReturnType<typeof normalizeDashboardSectionsInput> = null;
+  if (params.dashboardSections !== undefined) {
+    dashboardSections = normalizeDashboardSectionsInput(params.dashboardSections);
+    if (!dashboardSections) {
+      return { ok: false, reason: "INVALID_INPUT" };
+    }
+  }
 
   if (
     !params.actorUserId ||
@@ -232,6 +246,15 @@ export async function createUserWithPassword(params: {
         ...row,
       })),
     });
+
+    if (dashboardSections && actorMembership.role === "OWNER") {
+      await tx.membershipDashboardSection.createMany({
+        data: dashboardSections.map((row) => ({
+          membershipId: membership.id,
+          ...row,
+        })),
+      });
+    }
 
     return {
       ok: true as const,

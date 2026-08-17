@@ -7,6 +7,7 @@ import {
   derivePermissionsFromAppAccess,
   isAppAccessGrantAllowedForNonOwner,
 } from "@/lib/users/appAccessDefaults";
+import { normalizeDashboardSectionsInput } from "@/lib/users/dashboardSections";
 import { prisma } from "@/lib/db";
 
 export async function PATCH(
@@ -38,6 +39,18 @@ export async function PATCH(
 
   if (!appAccess) {
     return NextResponse.json({ ok: false, reason: "INVALID_INPUT" }, { status: 400 });
+  }
+
+  // Optional — omitted entirely means "no change". Only an Owner may set it
+  // (mirrors DASHBOARD itself being Owner-only-grantable), checked below
+  // once `isOwner` is known — a non-owner's value is validated here but
+  // never written.
+  let dashboardSections: ReturnType<typeof normalizeDashboardSectionsInput> = null;
+  if (body?.dashboardSections !== undefined) {
+    dashboardSections = normalizeDashboardSectionsInput(body.dashboardSections);
+    if (!dashboardSections) {
+      return NextResponse.json({ ok: false, reason: "INVALID_INPUT" }, { status: 400 });
+    }
   }
 
   const targetMembership = await prisma.membership.findUnique({
@@ -117,6 +130,16 @@ export async function PATCH(
         create: { membershipId: targetMembership.id, module: row.module, enabled: row.enabled, level: row.level },
         update: { enabled: row.enabled, level: row.level },
       });
+    }
+
+    if (dashboardSections && isOwner) {
+      for (const row of dashboardSections) {
+        await tx.membershipDashboardSection.upsert({
+          where: { membershipId_section: { membershipId: targetMembership.id, section: row.section } },
+          create: { membershipId: targetMembership.id, section: row.section, enabled: row.enabled },
+          update: { enabled: row.enabled },
+        });
+      }
     }
 
     await tx.membershipPermission.deleteMany({

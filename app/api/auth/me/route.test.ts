@@ -120,6 +120,7 @@ describe("GET /api/auth/me", () => {
         status: "ACTIVE",
         priceListIds: ["price-list-1"],
         appAccess: [],
+        dashboardSections: [],
       },
       memberships: [
         {
@@ -131,6 +132,7 @@ describe("GET /api/auth/me", () => {
           permissions: [],
           priceListIds: ["price-list-1"],
           appAccess: [],
+          dashboardSections: [],
         },
         {
           companyId: "company-2",
@@ -141,6 +143,7 @@ describe("GET /api/auth/me", () => {
           permissions: [],
           priceListIds: [],
           appAccess: [],
+          dashboardSections: [],
         },
       ],
     });
@@ -176,6 +179,12 @@ describe("GET /api/auth/me", () => {
             module: true,
             enabled: true,
             level: true,
+          },
+        },
+        dashboardSections: {
+          select: {
+            section: true,
+            enabled: true,
           },
         },
       },
@@ -260,6 +269,7 @@ describe("GET /api/auth/me", () => {
           permissions: [],
           priceListIds: [],
           appAccess: [],
+          dashboardSections: [],
         },
         {
           companyId: "company-2",
@@ -270,6 +280,7 @@ describe("GET /api/auth/me", () => {
           permissions: [],
           priceListIds: [],
           appAccess: [],
+          dashboardSections: [],
         },
       ],
     });
@@ -342,6 +353,7 @@ describe("GET /api/auth/me", () => {
           permissions: [],
           priceListIds: [],
           appAccess: [],
+          dashboardSections: [],
         },
       ],
     });
@@ -425,6 +437,7 @@ describe("GET /api/auth/me", () => {
           permissions: [],
           priceListIds: [],
           appAccess: [],
+          dashboardSections: [],
         },
         {
           companyId: "company-2",
@@ -435,6 +448,7 @@ describe("GET /api/auth/me", () => {
           permissions: [],
           priceListIds: [],
           appAccess: [],
+          dashboardSections: [],
         },
       ],
     });

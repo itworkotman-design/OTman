@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import Sidebar from "@/app/_components/Dahsboard/Sidebar";
-import { NavbarBooking } from "@/app/_components/Dahsboard/booking/NavbarBooking";
 
 const SIDEBAR_OPEN = 300;
 const SIDEBAR_CLOSED = 50;
@@ -12,7 +11,6 @@ const TOPBAR_HEIGHT = 60;
 export default function BookingDashboardShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarOpenPhone, setSidebarOpenPhone] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
 
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
 
@@ -30,33 +28,15 @@ export default function BookingDashboardShell({ children }: { children: ReactNod
         />
       </aside>
 
-      {/* Mobile header — booking's own links (NavbarBooking, below) live
-          nested under "Booking system" in Sidebar on mobile instead of a
-          second navbar; desktop still gets both. */}
+      {/* Mobile header — booking's own links live nested under "Booking
+          system" in Sidebar (same as desktop now; there's no separate
+          NavbarBooking top bar anymore). */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white shadow-md">
         <Sidebar
           open={sidebarOpenPhone}
           onOpenChange={setSidebarOpenPhone}
           width={""}
           lockBodyScrollWhenOpen
-        />
-      </div>
-
-      {/* Desktop navbar */}
-      <div
-        className="hidden lg:block fixed top-0 right-0 z-20"
-        style={{
-          left: sidebarW,
-          height: TOPBAR_HEIGHT,
-        }}
-      >
-        <NavbarBooking
-          open={navOpen}
-          onToggle={() => {
-            setNavOpen((p) => !p);
-            setSidebarOpen(false);
-          }}
-          onClose={() => setNavOpen(false)}
         />
       </div>
 
@@ -81,6 +61,7 @@ export default function BookingDashboardShell({ children }: { children: ReactNod
 
         @media (min-width: 1024px) {
           .content-shell {
+            padding-top: 0;
             padding-left: var(--sidebar-width);
           }
         }

@@ -10,7 +10,8 @@ import { bookingText } from "@/lib/booking/bookingUiText";
 import { useUserLanguage } from "@/lib/users/language";
 import LanguageSwitchButton from "@/app/_components/Users/LanguageSwitchButton";
 import { getUserLogoDisplayPath } from "@/lib/users/profileAppearance";
-import { getModuleAccess } from "@/lib/users/access";
+import { getModuleAccess, hasAnyVisibleDashboardSection, hasFullAccess } from "@/lib/users/access";
+import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
 
 type Props = {
   open: boolean;
@@ -115,15 +116,24 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   // currentUser was still loading either.
   const showScheduler = Boolean(currentUser && getModuleAccess(currentUser, "SCHEDULER").enabled);
 
-  // DashboardHome is entirely booking-stats content (income, orders,
-  // leaderboards) — showing "Home" to someone without Booking access just
-  // links to a page with nothing relevant to them.
-  const showHome = showBooking;
+  // Home/DashboardHome is its own controllable module (DASHBOARD) with 5
+  // independently-toggleable sub-sections (booking overview, GDPR, etc, see
+  // lib/users/dashboardSections.ts) — showing the link when literally none
+  // of them are visible for this person would just be a dead end, enforced
+  // the same way server-side in app/(User)/dashboard/page.tsx.
+  const showHome = !currentUser || hasAnyVisibleDashboardSection(currentUser);
   const showGeneralSection = showHome || showUserManagement;
-  // Scheduler's own link only ever renders on mobile (see below), but still
-  // needs to keep the section title alive there when it's the only enabled
-  // module in this group.
   const showBookingSection = showBooking || showWebsiteOrders || showScheduler;
+
+  // The Booking system's own sub-pages (All orders/Create order/Edit
+  // prices/Price lists) used to live behind a separate top navbar
+  // (NavbarBooking) on desktop; they're nested here instead now, for every
+  // tier, at every width — see the "Booking's own pages" block below.
+  const canCreateBooking = !currentUser || getBookingArchiveAccess(currentUser).canCreate;
+  const isBookingFullAccess = !currentUser || hasFullAccess(currentUser.role);
+  const showBookingPriceLists = Boolean(
+    currentUser && !hasFullAccess(currentUser.role) && (currentUser.priceListIds?.length ?? 0) > 0,
+  );
 
   const isActive = (href: string) =>
     href === "/dashboard"
@@ -253,19 +263,33 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
                 </div>
               </Link>
 
-              {/* Booking's own pages — mobile only, nested here (inside the
-                  same gray group box as their parent) since the mobile layout
-                  has no separate NavbarBooking top bar to hold them. */}
-              <div className="flex flex-col gap-1 px-2 pb-2 lg:hidden">
+              {/* Booking's own pages — nested here at every width (there's no
+                  separate NavbarBooking top bar anymore; this is the only
+                  place these links live), gated per tier: everyone with
+                  Booking access sees "All orders"; "Create order" only shows
+                  for those who can actually create (Owner/Admin/Order
+                  creator, not Subcontractor); "Edit prices" is Owner/Admin
+                  only; "Price lists" is the read-only counterpart shown only
+                  to non-full-access members with an assigned list. */}
+              <div className="flex flex-col gap-1 px-2 pb-2">
                 <Link href="/dashboard/booking" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking", true)}>
                   All orders
                 </Link>
-                <Link href="/dashboard/booking/create" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/create")}>
-                  Create order
-                </Link>
-                <Link href="/dashboard/booking/editPrices" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/editPrices")}>
-                  Edit prices
-                </Link>
+                {canCreateBooking && (
+                  <Link href="/dashboard/booking/create" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/create")}>
+                    Create order
+                  </Link>
+                )}
+                {isBookingFullAccess && (
+                  <Link href="/dashboard/booking/editPrices" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/editPrices")}>
+                    Edit prices
+                  </Link>
+                )}
+                {showBookingPriceLists && (
+                  <Link href="/dashboard/booking/pricelists" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/booking/pricelists")}>
+                    Price lists
+                  </Link>
+                )}
                 {showScheduler && (
                   <Link href="/dashboard/scheduler-orders" onClick={closeMobileDrawer} className={bookingSubLinkClass("/dashboard/scheduler-orders")}>
                     Scheduler orders

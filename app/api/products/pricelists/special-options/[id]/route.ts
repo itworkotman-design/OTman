@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { requireFullAccessMembership } from "@/lib/products/pricelistAccess";
 import { prisma } from "@/lib/db";
 import { OPTION_CATEGORIES } from "@/lib/booking/constants";
 import { getEffectivePrice } from "@/lib/products/discounts";
@@ -29,12 +30,8 @@ export async function PATCH(
 ) {
   const session = await getAuthenticatedSession(req);
 
-  if (!session) {
-    return NextResponse.json(
-      { ok: false, reason: "UNAUTHORIZED" },
-      { status: 401 },
-    );
-  }
+  const gate = await requireFullAccessMembership(session);
+  if (!gate.ok) return gate.response;
 
   const { id } = await params;
 
@@ -138,12 +135,8 @@ export async function DELETE(
 ) {
   const session = await getAuthenticatedSession(req);
 
-  if (!session) {
-    return NextResponse.json(
-      { ok: false, reason: "UNAUTHORIZED" },
-      { status: 401 },
-    );
-  }
+  const gate = await requireFullAccessMembership(session);
+  if (!gate.ok) return gate.response;
 
   const { id } = await params;
 

@@ -59,6 +59,12 @@ describe("getActiveMembership", () => {
             level: true,
           },
         },
+        dashboardSections: {
+          select: {
+            section: true,
+            enabled: true,
+          },
+        },
       },
     });
   });
@@ -71,6 +77,7 @@ describe("getActiveMembership", () => {
       status: "ACTIVE",
       membershipPriceLists: [{ priceListId: "price-list-1" }],
       appAccess: [{ module: "ARCHIVE", enabled: true, level: "ADMIN" }],
+      dashboardSections: [{ section: "GDPR", enabled: false }],
     });
 
     const result = await getActiveMembership({
@@ -86,6 +93,7 @@ describe("getActiveMembership", () => {
       priceListIds: ["price-list-1"],
       permissions: [],
       appAccess: [{ module: "ARCHIVE", enabled: true, level: "ADMIN" }],
+      dashboardSections: [{ section: "GDPR", enabled: false }],
     });
   });
 });

@@ -253,6 +253,7 @@ describe("createUserWithPassword", () => {
         { membershipId: "membership-1", module: "WEBSITE_ORDERS", enabled: false, level: "ADMIN" },
         { membershipId: "membership-1", module: "SCHEDULER", enabled: false, level: "ADMIN" },
         { membershipId: "membership-1", module: "USER_MANAGEMENT", enabled: false, level: "ADMIN" },
+        { membershipId: "membership-1", module: "DASHBOARD", enabled: false, level: "ADMIN" },
       ],
     });
   });

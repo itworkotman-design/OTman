@@ -91,8 +91,7 @@ export async function GET(req: Request) {
       }
 
       if (hasFullAccess(membership.role as Role)) return true;
-      if (isOrderCreatorAccess(permissions)) return true;
-      return true;
+      return isOrderCreatorAccess(permissions);
     })
     .map((membership) => ({
       id: membership.id,

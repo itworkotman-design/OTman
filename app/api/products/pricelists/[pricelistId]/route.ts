@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { requireFullAccessMembership } from "@/lib/products/pricelistAccess";
 import { getPriceListById } from "@/lib/products/priceLists";
 import { getProductConfigMap } from "@/lib/products/productConfig";
 import { prisma } from "@/lib/db";
@@ -244,12 +245,8 @@ export async function PATCH(
 ) {
   const session = await getAuthenticatedSession(req);
 
-  if (!session) {
-    return NextResponse.json(
-      { ok: false, reason: "UNAUTHORIZED" },
-      { status: 401 },
-    );
-  }
+  const gate = await requireFullAccessMembership(session);
+  if (!gate.ok) return gate.response;
 
   try {
     const { pricelistId } = await params;
