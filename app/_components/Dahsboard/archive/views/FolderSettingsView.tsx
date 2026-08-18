@@ -8,6 +8,14 @@ import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntityS
 import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
 import { EntityPill } from "@/app/_components/Dahsboard/archive/EntityPill";
 import { SectionedEntityManager } from "@/app/_components/Dahsboard/archive/SectionedEntityManager";
+import { FolderSharingPanel } from "@/app/_components/Dahsboard/archive/FolderSharingPanel";
+import type {
+  ArchiveCoworker,
+  ArchivePermissionAction,
+  ArchivePermissionRule,
+  ArchivePermissionSubjectType,
+  ArchiveRoleOption,
+} from "@/app/_components/Dahsboard/archive/FolderSharingPanel";
 import { codeToUrlPath, formatLastModified } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
 
@@ -18,37 +26,6 @@ type ArchiveFolderDetail = ArchiveFolderSummary & {
 };
 type ArchiveItemRow = ArchiveItemSummary;
 type ArchiveChildFolderRow = ArchiveFolderSummary;
-
-type ArchivePermissionAction =
-  | "view"
-  | "create"
-  | "upload"
-  | "edit"
-  | "delete"
-  | "restore"
-  | "move"
-  | "manage_metadata"
-  | "manage_status"
-  | "manage_permissions";
-
-type ArchivePermissionSubjectType = "user" | "role";
-
-type ArchivePermissionRule = {
-  subjectType: ArchivePermissionSubjectType;
-  subjectId: string;
-  action: ArchivePermissionAction;
-};
-
-type ArchiveCoworker = {
-  userId: string;
-  email: string;
-  username: string | null;
-};
-
-type ArchiveRoleOption = {
-  id: string;
-  name: string;
-};
 
 // Every mutation for this folder lives here — permissions, folder
 // status/dates, creating/deleting subfolders and items — matching the
@@ -81,9 +58,6 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
   const [coworkers, setCoworkers] = useState<ArchiveCoworker[]>([]);
   const [roles, setRoles] = useState<ArchiveRoleOption[]>([]);
   const [canShareWithRoles, setCanShareWithRoles] = useState(false);
-  const [shareTargetType, setShareTargetType] = useState<ArchivePermissionSubjectType>("user");
-  const [shareUserId, setShareUserId] = useState("");
-  const [shareRoleId, setShareRoleId] = useState("");
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState("");
   const [revokingSubject, setRevokingSubject] = useState<string | null>(null);
@@ -178,37 +152,34 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, hasAccess, folderId]);
 
-  async function handleGrantShare() {
-    const subjectId = shareTargetType === "role" ? shareRoleId : shareUserId;
-    if (!subjectId) return;
-
+  async function handleGrantShare(
+    subjectType: ArchivePermissionSubjectType,
+    subjectId: string,
+    actions: ArchivePermissionAction[],
+  ): Promise<boolean> {
     try {
       setSharing(true);
       setShareError("");
 
-      // Access-level (viewer/contributor/manage) is not chosen here — that
-      // belongs on the user/role's profile in user management once that
-      // exists. For now, sharing just grants "view" so the folder shows up
-      // for them at all.
       const res = await fetch(`/api/archive/folders/${folderId}/permissions`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subjectType: shareTargetType, subjectId, actions: ["view"] }),
+        body: JSON.stringify({ subjectType, subjectId, actions }),
       });
 
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
         setShareError(data?.reason || "Failed to share folder");
-        return;
+        return false;
       }
 
-      setShareUserId("");
-      setShareRoleId("");
       await loadSharing();
+      return true;
     } catch {
       setShareError("Failed to share folder");
+      return false;
     } finally {
       setSharing(false);
     }
@@ -305,162 +276,21 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
     );
   }
 
-  type SharedSubject = { subjectType: ArchivePermissionSubjectType; subjectId: string; actions: ArchivePermissionAction[] };
-  const sharedSubjects = new Map<string, SharedSubject>();
-  for (const rule of permissionRules) {
-    if (rule.subjectType === "user" && rule.subjectId === currentUser?.id) continue;
-    const key = `${rule.subjectType}:${rule.subjectId}`;
-    const existing = sharedSubjects.get(key);
-    if (existing) {
-      existing.actions.push(rule.action);
-    } else {
-      sharedSubjects.set(key, { subjectType: rule.subjectType, subjectId: rule.subjectId, actions: [rule.action] });
-    }
-  }
-  const coworkerById = new Map(coworkers.map((c) => [c.userId, c]));
-  const roleById = new Map(roles.map((r) => [r.id, r]));
-  const sharedSubjectList = Array.from(sharedSubjects.values());
-  const sharedUserSubjects = sharedSubjectList.filter((s) => s.subjectType === "user");
-  const sharedRoleSubjects = sharedSubjectList.filter((s) => s.subjectType === "role");
-  const shareableCoworkers = coworkers.filter((c) => !sharedUserSubjects.some((s) => s.subjectId === c.userId));
-  const shareableRoles = roles.filter((r) => !sharedRoleSubjects.some((s) => s.subjectId === r.id));
-
-  function renderAccessRow(subject: SharedSubject, label: string) {
-    return (
-      <div key={`${subject.subjectType}:${subject.subjectId}`} className="flex items-center justify-between gap-4 py-2 text-sm">
-        <div>
-          <span className="font-medium text-textcolor">{label}</span>
-          <span className="ml-2 text-textColorThird">{subject.actions.join(", ")}</span>
-        </div>
-        <button
-          type="button"
-          className="text-red-600 hover:underline"
-          onClick={() => void handleRevokeShare(subject.subjectType, subject.subjectId, subject.actions)}
-          disabled={revokingSubject === subject.subjectId}
-        >
-          {locale === "nb" ? "Fjern" : "Remove"}
-        </button>
-      </div>
-    );
-  }
-
   const sharingContent = (
-    <div className="grid gap-6">
-      <div className="rounded-xl border border-lineSecondary p-4">
-        <h3 className="mb-3 text-sm font-semibold text-textColorThird">
-          {locale === "nb" ? "Gi tilgang" : "Grant access"}
-        </h3>
-
-        {canShareWithRoles && (
-          <div className="mb-3 flex gap-4 text-sm">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={shareTargetType === "user"}
-                onChange={() => setShareTargetType("user")}
-                disabled={sharing}
-              />
-              {locale === "nb" ? "Kollega" : "Coworker"}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={shareTargetType === "role"}
-                onChange={() => setShareTargetType("role")}
-                disabled={sharing}
-              />
-              {locale === "nb" ? "Rolle" : "Role"}
-            </label>
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-end gap-3">
-          {shareTargetType === "role" ? (
-            <div className="min-w-[200] flex-1">
-              <label className="block pb-2 text-sm">{locale === "nb" ? "Rolle" : "Role"}</label>
-              <select
-                className="customInput w-full"
-                value={shareRoleId}
-                onChange={(e) => setShareRoleId(e.target.value)}
-                disabled={sharing}
-              >
-                <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
-                {shareableRoles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="min-w-[200] flex-1">
-              <label className="block pb-2 text-sm">{locale === "nb" ? "Kollega" : "Coworker"}</label>
-              <select
-                className="customInput w-full"
-                value={shareUserId}
-                onChange={(e) => setShareUserId(e.target.value)}
-                disabled={sharing}
-              >
-                <option value="">{locale === "nb" ? "Velg..." : "Select..."}</option>
-                {shareableCoworkers.map((coworker) => (
-                  <option key={coworker.userId} value={coworker.userId}>
-                    {coworker.username || coworker.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="customButtonEnabled h-10 px-6"
-            onClick={() => void handleGrantShare()}
-            disabled={sharing || (shareTargetType === "role" ? !shareRoleId : !shareUserId)}
-          >
-            {sharing ? (locale === "nb" ? "Deler..." : "Sharing...") : locale === "nb" ? "Del" : "Share"}
-          </button>
-        </div>
-
-        {shareError && <p className="mt-3 text-sm font-medium text-red-600">{shareError}</p>}
-      </div>
-
-      <div className="grid gap-4">
-        <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-textColorThird">
-            {locale === "nb" ? "Kolleger med tilgang" : "Users with access"}
-          </h4>
-          {sharedUserSubjects.length > 0 ? (
-            <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
-              {sharedUserSubjects.map((subject) =>
-                renderAccessRow(
-                  subject,
-                  coworkerById.get(subject.subjectId)?.username || coworkerById.get(subject.subjectId)?.email || subject.subjectId,
-                ),
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-textColorThird">
-              {locale === "nb" ? "Ingen kolleger har tilgang" : "No users have access"}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-textColorThird">
-            {locale === "nb" ? "Roller med tilgang" : "Roles with access"}
-          </h4>
-          {sharedRoleSubjects.length > 0 ? (
-            <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
-              {sharedRoleSubjects.map((subject) =>
-                renderAccessRow(subject, roleById.get(subject.subjectId)?.name ?? subject.subjectId),
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-textColorThird">{locale === "nb" ? "Ingen roller har tilgang" : "No roles have access"}</p>
-          )}
-        </div>
-      </div>
-    </div>
+    <FolderSharingPanel
+      locale={locale}
+      ownerUserId={folder?.ownerUserId ?? null}
+      currentUserId={currentUser?.id}
+      permissionRules={permissionRules}
+      coworkers={coworkers}
+      roles={roles}
+      canShareWithRoles={canShareWithRoles}
+      sharing={sharing}
+      shareError={shareError}
+      revokingSubject={revokingSubject}
+      onGrant={handleGrantShare}
+      onRevoke={(subjectType, subjectId, actions) => void handleRevokeShare(subjectType, subjectId, actions)}
+    />
   );
 
   const controlItems = [
