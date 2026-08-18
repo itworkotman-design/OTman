@@ -1,8 +1,9 @@
 import type { ArchiveContextInput, ArchivePermissionAction } from "@customprojects/custom-archive";
 import type { AuthenticatedSession } from "@/lib/auth/session";
 import type { ActiveMembership } from "@/lib/auth/membership";
-import { canAccessArchive, hasFullAccess } from "@/lib/users/access";
+import { canAccessArchive, getModuleAccess, hasFullAccess } from "@/lib/users/access";
 import { archive, archivePrisma } from "@/lib/docArchive/client";
+import { prisma } from "@/lib/db";
 
 export function buildArchiveContext(
   session: AuthenticatedSession,
@@ -116,6 +117,65 @@ export async function grantFolderCreatorCapabilities(
       throw new Error(
         `Failed to grant folder creator "${action}" capability: ${result.error.message}`,
       );
+    }
+  }
+}
+
+// Every action a folder co-manager can hold (the creator's own grant is this
+// same set, split across the package's own auto-grant of `view` +
+// `manage_permissions` plus FOLDER_CREATOR_GRANTED_ACTIONS above).
+const ALL_FOLDER_PERMISSION_ACTIONS: ArchivePermissionAction[] = [
+  "view",
+  "create",
+  "upload",
+  "edit",
+  "delete",
+  "restore",
+  "move",
+  "manage_metadata",
+  "manage_status",
+  "manage_permissions",
+];
+
+// On explicit user request: every company Admin (ARCHIVE module, level
+// "ADMIN") should start with full access to a newly created folder, not just
+// its creator — sharing is opt-out (remove a specific admin afterward via the
+// existing folder Sharing UI/permissions route) rather than opt-in. Only
+// ACTIVE memberships are considered, and the creator is skipped since they
+// already hold the full set via grantFolderCreatorCapabilities.
+export async function grantAllAdminsFolderCapabilities(
+  ctx: ArchiveContextInput,
+  folderId: string,
+): Promise<void> {
+  const memberships = await prisma.membership.findMany({
+    where: { companyId: ctx.companyId, status: "ACTIVE" },
+    select: {
+      userId: true,
+      appAccess: { select: { module: true, enabled: true, level: true } },
+    },
+  });
+
+  const adminUserIds = memberships
+    .filter((m) => m.userId !== ctx.userId)
+    .filter((m) => getModuleAccess(m, "ARCHIVE").enabled && getModuleAccess(m, "ARCHIVE").level === "ADMIN")
+    .map((m) => m.userId);
+
+  for (const adminUserId of adminUserIds) {
+    for (const action of ALL_FOLDER_PERMISSION_ACTIONS) {
+      const result = await archive.setPermissionRule(ctx, {
+        targetType: "folder",
+        targetId: folderId,
+        subjectType: "user",
+        subjectId: adminUserId,
+        action,
+        effect: "allow",
+      });
+
+      if (!result.ok) {
+        throw new Error(
+          `Failed to grant admin "${adminUserId}" folder "${action}" capability: ${result.error.message}`,
+        );
+      }
     }
   }
 }

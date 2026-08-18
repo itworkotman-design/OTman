@@ -3,6 +3,7 @@ import { archive } from "@/lib/docArchive/client";
 import {
   buildArchiveContext,
   ensureNamespaceManager,
+  grantAllAdminsFolderCapabilities,
   grantFolderCreatorCapabilities,
 } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
@@ -81,6 +82,7 @@ export async function POST(req: Request) {
   }
 
   await grantFolderCreatorCapabilities(ctx, createResult.value.id);
+  await grantAllAdminsFolderCapabilities(ctx, createResult.value.id);
   await assignFolderCode(ctx.companyId, ctx.tenantId, createResult.value.id, parentFolderId, sectionId);
 
   return NextResponse.json({ ok: true, folder: { ...createResult.value, sectionId } }, { status: 201 });
