@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { canEditOrders } from "@/lib/users/orderAccess";
+import type { AppPermission } from "@/lib/users/types";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { parseCustomNotificationInput } from "@/lib/orders/customNotificationSchedule";
 
@@ -10,7 +12,36 @@ type OrderNotificationRouteParams = {
   }>;
 };
 
-async function getAdminMembership(req: Request) {
+async function getSessionCompany(req: Request) {
+  const session = await getAuthenticatedSession(req);
+
+  if (!session) {
+    return {
+      companyId: null,
+      response: NextResponse.json(
+        { ok: false, reason: "UNAUTHORIZED" },
+        { status: 401 },
+      ),
+    };
+  }
+
+  if (!session.activeCompanyId) {
+    return {
+      companyId: null,
+      response: NextResponse.json(
+        { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+        { status: 409 },
+      ),
+    };
+  }
+
+  return {
+    companyId: session.activeCompanyId,
+    response: null,
+  };
+}
+
+async function getEditMembership(req: Request) {
   const session = await getAuthenticatedSession(req);
 
   if (!session) {
@@ -44,10 +75,17 @@ async function getAdminMembership(req: Request) {
     select: {
       id: true,
       role: true,
+      permissions: {
+        select: {
+          permission: true,
+        },
+      },
     },
   });
 
-  if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+  const permissions = membership?.permissions.map((p): AppPermission => p.permission) ?? [];
+
+  if (!membership || !canEditOrders(membership.role, permissions)) {
     return {
       companyId: null,
       membership: null,
@@ -66,7 +104,7 @@ async function getAdminMembership(req: Request) {
 }
 
 export async function GET(req: Request, { params }: OrderNotificationRouteParams) {
-  const auth = await getAdminMembership(req);
+  const auth = await getSessionCompany(req);
 
   if (auth.response) {
     return auth.response;
@@ -146,7 +184,7 @@ export async function GET(req: Request, { params }: OrderNotificationRouteParams
 }
 
 export async function POST(req: Request, { params }: OrderNotificationRouteParams) {
-  const auth = await getAdminMembership(req);
+  const auth = await getEditMembership(req);
 
   if (auth.response) {
     return auth.response;

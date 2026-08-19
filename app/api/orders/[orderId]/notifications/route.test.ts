@@ -117,26 +117,27 @@ describe("GET /api/orders/[orderId]/notifications", () => {
     );
   });
 
-  it("returns 403 for non-admin users", async () => {
+  it("returns notifications for non-admin users", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
       activeCompanyId: "company-1",
     });
-    mocks.membershipFindFirstMock.mockResolvedValue({
-      id: "membership-1",
-      role: "USER",
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
     });
+    mocks.orderNotificationFindManyMock.mockResolvedValue([]);
 
     const response = await GET(
       new Request("http://localhost/api/orders/order-1/notifications"),
       { params: Promise.resolve({ orderId: "order-1" }) },
     );
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      ok: false,
-      reason: "FORBIDDEN",
+      ok: true,
+      notifications: [],
     });
+    expect(mocks.membershipFindFirstMock).not.toHaveBeenCalled();
   });
 });
 
@@ -163,6 +164,7 @@ describe("POST /api/orders/[orderId]/notifications", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "ADMIN",
+      permissions: [],
     });
     mocks.orderFindFirstMock.mockResolvedValue({
       id: "order-1",
@@ -268,6 +270,7 @@ describe("POST /api/orders/[orderId]/notifications", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
+      permissions: [],
     });
 
     const response = await POST(

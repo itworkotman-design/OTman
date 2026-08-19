@@ -46,6 +46,7 @@ describe("PATCH /api/orders/[orderId]/notifications/[notificationId]", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "ADMIN",
+      permissions: [],
     });
     mocks.resolveOrderNotificationMock.mockResolvedValue(true);
 
@@ -85,6 +86,7 @@ describe("PATCH /api/orders/[orderId]/notifications/[notificationId]", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "OWNER",
+      permissions: [],
     });
     mocks.resolveOrderNotificationMock.mockResolvedValue(false);
 
@@ -124,6 +126,7 @@ describe("PUT /api/orders/[orderId]/notifications/[notificationId]", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "ADMIN",
+      permissions: [],
     });
   });
 
@@ -201,6 +204,7 @@ describe("PUT /api/orders/[orderId]/notifications/[notificationId]", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
+      permissions: [],
     });
 
     const response = await PUT(
@@ -234,6 +238,7 @@ describe("DELETE /api/orders/[orderId]/notifications/[notificationId]", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "ADMIN",
+      permissions: [],
     });
   });
 
@@ -277,6 +282,7 @@ describe("DELETE /api/orders/[orderId]/notifications/[notificationId]", () => {
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "USER",
+      permissions: [],
     });
 
     const response = await DELETE(

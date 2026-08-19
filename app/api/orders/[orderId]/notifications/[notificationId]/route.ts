@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { canEditOrders } from "@/lib/users/orderAccess";
+import type { AppPermission } from "@/lib/users/types";
 import {
   deleteCustomOrderNotification,
   resolveOrderNotification,
@@ -49,10 +51,17 @@ async function getAdminMembership(req: Request) {
     select: {
       id: true,
       role: true,
+      permissions: {
+        select: {
+          permission: true,
+        },
+      },
     },
   });
 
-  if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
+  const permissions = membership?.permissions.map((p): AppPermission => p.permission) ?? [];
+
+  if (!membership || !canEditOrders(membership.role, permissions)) {
     return {
       companyId: null,
       membershipId: null,

@@ -103,24 +103,6 @@ export async function GET(
     );
   }
 
-  const membership = await prisma.membership.findFirst({
-    where: {
-      userId: session.userId,
-      companyId: session.activeCompanyId,
-      status: "ACTIVE",
-    },
-    select: {
-      role: true,
-    },
-  });
-
-  if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
-    return NextResponse.json(
-      { ok: false, reason: "FORBIDDEN" },
-      { status: 403 },
-    );
-  }
-
   const { orderId } = await params;
 
   const order = await prisma.order.findFirst({
