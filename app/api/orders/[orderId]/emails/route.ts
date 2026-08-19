@@ -198,6 +198,18 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
     return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
+  const viewerMembership = await prisma.membership.findFirst({
+    where: {
+      userId: auth.session.userId,
+      companyId,
+      status: "ACTIVE",
+    },
+    select: {
+      role: true,
+    },
+  });
+  const viewerIsAdminOrOwner = viewerMembership?.role === "OWNER" || viewerMembership?.role === "ADMIN";
+
   const messages = await prisma.orderEmailMessage.findMany({
     where: {
       orderId,
@@ -209,6 +221,7 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
     include: {
       sentByMembership: {
         select: {
+          role: true,
           user: {
             select: {
               username: true,
@@ -220,6 +233,8 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
     },
   });
 
+  const linkedAccountUser = order.customerMembership?.user;
+  const createdByUser = order.createdByMembership?.user;
   const latestSentOutbound = messages.find(
     (message) =>
       message.direction === "OUTBOUND" &&
@@ -227,23 +242,31 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
         message.status === "SENT_WITH_SYNC_WARNING") &&
       message.toEmail.trim().length > 0,
   );
-  const linkedAccountUser = order.customerMembership?.user;
-  const createdByUser = order.createdByMembership?.user;
-  const defaultRecipientEmail =
-    latestSentOutbound?.toEmail.trim() ||
-    linkedAccountUser?.email.trim() ||
-    order.email?.trim() ||
-    createdByUser?.email.trim() ||
-    "";
-  const defaultRecipientName =
-    latestSentOutbound?.toName?.trim() ||
-    linkedAccountUser?.username?.trim() ||
-    linkedAccountUser?.email.trim() ||
-    order.customerLabel?.trim() ||
-    order.customerName?.trim() ||
-    createdByUser?.username?.trim() ||
-    createdByUser?.email.trim() ||
-    "";
+
+  // This thread has two sides: company staff and the order's customer
+  // (customerMembership / order.email / whoever created the order). Staff
+  // always reply to the customer side. But an order-creator account IS the
+  // customer side, so the old "reply to whoever the last outbound message
+  // was addressed to" default pointed them at their own email — mail to
+  // self, not a real conversation. Non-admin viewers default to the office
+  // address instead.
+  const defaultRecipientEmail = viewerIsAdminOrOwner
+    ? latestSentOutbound?.toEmail.trim() ||
+      linkedAccountUser?.email.trim() ||
+      order.email?.trim() ||
+      createdByUser?.email.trim() ||
+      ""
+    : getGmailSendAsEmail();
+  const defaultRecipientName = viewerIsAdminOrOwner
+    ? latestSentOutbound?.toName?.trim() ||
+      linkedAccountUser?.username?.trim() ||
+      linkedAccountUser?.email.trim() ||
+      order.customerLabel?.trim() ||
+      order.customerName?.trim() ||
+      createdByUser?.username?.trim() ||
+      createdByUser?.email.trim() ||
+      ""
+    : process.env.BREVO_SENDER_NAME || "Otman";
 
   return NextResponse.json({
     ok: true,
@@ -255,24 +278,35 @@ export async function GET(req: Request, { params }: OrderEmailRouteParams) {
       unreadInboundEmailCount: order.unreadInboundEmailCount,
       lastInboundEmailAt: order.lastInboundEmailAt,
       lastOutboundEmailAt: order.lastOutboundEmailAt,
-      messages: messages.map((message) => ({
-        id: message.id,
-        source: message.source,
-        direction: message.direction,
-        status: message.status,
-        subject: message.subject,
-        bodyText: message.bodyText ?? "",
-        bodyHtml: message.bodyHtml ?? "",
-        fromEmail: message.fromEmail,
-        fromName: message.fromName ?? "",
-        toEmail: message.toEmail,
-        toName: message.toName ?? "",
-        createdAt: message.createdAt,
-        sentAt: message.sentAt,
-        receivedAt: message.receivedAt,
-        sentByName: message.sentByMembership?.user.username || message.sentByMembership?.user.email || "",
-        sentByEmail: message.sentByMembership?.user.email || "",
-      })),
+      messages: messages.map((message) => {
+        // A real customer reply (INBOUND) is always the customer side. An
+        // app-composed message (OUTBOUND) reads as the customer side too
+        // when an order-creator sent it — the SMTP "direction" only tells
+        // us mail left the company inbox, not which human sent it, and
+        // order-creator sends must not visually group with staff replies.
+        const sentByRole = message.sentByMembership?.role;
+        const isCustomerSide = message.direction === "INBOUND" || (sentByRole !== undefined && sentByRole !== "OWNER" && sentByRole !== "ADMIN");
+
+        return {
+          id: message.id,
+          source: message.source,
+          direction: message.direction,
+          isCustomerSide,
+          status: message.status,
+          subject: message.subject,
+          bodyText: message.bodyText ?? "",
+          bodyHtml: message.bodyHtml ?? "",
+          fromEmail: message.fromEmail,
+          fromName: message.fromName ?? "",
+          toEmail: message.toEmail,
+          toName: message.toName ?? "",
+          createdAt: message.createdAt,
+          sentAt: message.sentAt,
+          receivedAt: message.receivedAt,
+          sentByName: message.sentByMembership?.user.username || message.sentByMembership?.user.email || "",
+          sentByEmail: message.sentByMembership?.user.email || "",
+        };
+      }),
     },
   });
 }
@@ -357,10 +391,17 @@ export async function POST(req: Request, { params }: OrderEmailRouteParams) {
   const senderAccount = getGmailSendAsEmail();
   const backupEmail = process.env.ORDER_CONVERSATION_BACKUP_EMAIL?.trim() || "";
   const notificationEmail = process.env.ORDER_NOTIFICATION_EMAIL?.trim() || "";
-  const disallowedToEmails = new Set(
-    [...getAdminEmails(), backupEmail.trim().toLowerCase(), notificationEmail.trim().toLowerCase()]
-      .filter((email) => email.length > 0),
-  );
+  const viewerIsAdminOrOwner = auth.membership.role === "OWNER" || auth.membership.role === "ADMIN";
+  // Staff replying to the customer side must never accidentally land on an
+  // admin/notification address instead of the real customer. An order-creator
+  // account IS the customer side replying back to the office, so the same
+  // exclusion would block the one address they're actually trying to reach.
+  const disallowedToEmails = viewerIsAdminOrOwner
+    ? new Set(
+        [...getAdminEmails(), backupEmail.trim().toLowerCase(), notificationEmail.trim().toLowerCase()]
+          .filter((email) => email.length > 0),
+      )
+    : new Set<string>();
   const recipientCandidates = [
     typedTo,
     order.email?.trim() ?? "",

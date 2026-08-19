@@ -92,13 +92,18 @@ function formatEmailPerson(name: string, email: string) {
 
 function ConversationMessageCard({ message, expanded, onToggle }: { message: ConversationMessage; expanded: boolean; onToggle: () => void }) {
   const isFromOrderCreator = message.direction === "INBOUND";
+  // Admin messages are always blue/right and order-creator messages are
+  // always amber/left, app-wide — this modal's own viewer being the
+  // order-creator doesn't flip that; it's a fixed staff-vs-customer color
+  // convention, not a "my messages on the right" chat layout.
+  const isAdminMessage = !isFromOrderCreator;
   const body = getConversationBody(message);
 
   return (
-    <div className={`flex ${isFromOrderCreator ? "justify-end pl-8 sm:pl-16 lg:pl-28" : "justify-start pr-8 sm:pr-16 lg:pr-28"}`}>
+    <div className={`flex ${isAdminMessage ? "justify-end pl-8 sm:pl-16 lg:pl-28" : "justify-start pr-8 sm:pr-16 lg:pr-28"}`}>
       <div
         className={`w-full max-w-[820] rounded-2xl border p-4 ${
-          isFromOrderCreator ? "border-blue-200 bg-blue-50" : message.status === "FAILED" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"
+          isAdminMessage ? "border-blue-200 bg-blue-50" : message.status === "FAILED" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"
         }`}
       >
         <button type="button" onClick={onToggle} className="flex w-full flex-wrap items-start justify-between gap-3 text-left" aria-expanded={expanded}>

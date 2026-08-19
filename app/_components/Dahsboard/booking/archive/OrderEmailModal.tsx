@@ -67,6 +67,7 @@ type OrderHistoryResponse = {
 type ConversationMessage = {
   id: string;
   direction: "OUTBOUND" | "INBOUND";
+  isCustomerSide: boolean;
   status: "SENT" | "SENT_WITH_SYNC_WARNING" | "FAILED" | "RECEIVED";
   subject: string;
   bodyText: string;
@@ -443,14 +444,15 @@ function ActionDetails({ payload }: { payload: ActionPayload }) {
 
 function ConversationMessageCard({ message, expanded, onToggle }: { message: ConversationMessage; expanded: boolean; onToggle: () => void }) {
   const isInbound = message.direction === "INBOUND";
+  const isCustomerSide = message.isCustomerSide;
   const statusLabel = getMessageStatusLabel(message);
   const body = getConversationBody(message);
 
   return (
-    <div className={`flex ${isInbound ? "justify-start pr-8 sm:pr-16 lg:pr-28" : "justify-end pl-8 sm:pl-16 lg:pl-28"}`}>
+    <div className={`flex ${isCustomerSide ? "justify-start pr-8 sm:pr-16 lg:pr-28" : "justify-end pl-8 sm:pl-16 lg:pl-28"}`}>
       <div
         className={`w-full max-w-[820] rounded-2xl border p-4 ${
-          isInbound ? "border-amber-200 bg-amber-50" : message.status === "FAILED" ? "border-red-200 bg-red-50" : "border-blue-200 bg-blue-50"
+          isCustomerSide ? "border-amber-200 bg-amber-50" : message.status === "FAILED" ? "border-red-200 bg-red-50" : "border-blue-200 bg-blue-50"
         }`}
       >
         <button type="button" onClick={onToggle} className="flex w-full flex-wrap items-start justify-between gap-3 text-left" aria-expanded={expanded}>

@@ -7,6 +7,7 @@ import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadO
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
 import OrderEmailModal from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
+import OrderCreatorContactModal from "@/app/_components/Dahsboard/booking/orders/OrderCreatorContactModal";
 import type {
   BookingArchiveFilters,
   BookingArchiveOption,
@@ -61,6 +62,8 @@ export default function BookingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [emailOrder, setEmailOrder] = useState<OrderRow | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [contactOrder, setContactOrder] = useState<OrderRow | null>(null);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
   const [columnModalOpen, setColumnModalOpen] = useState(false);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -699,8 +702,13 @@ export default function BookingPage() {
                 setModalOpen(true);
               }}
               onAlertClick={(order) => {
-                setEmailOrder(order);
-                setEmailModalOpen(true);
+                if (access.viewMode === "ADMIN") {
+                  setEmailOrder(order);
+                  setEmailModalOpen(true);
+                } else {
+                  setContactOrder(order);
+                  setContactModalOpen(true);
+                }
               }}
               selectable={canSelectOrders}
               selectedOrderIds={selectedOrderIds}
@@ -751,6 +759,16 @@ export default function BookingPage() {
           setEmailOrder(null);
         }}
         onAlertsChanged={() => void loadOrders(appliedFilters)}
+      />
+
+      <OrderCreatorContactModal
+        open={contactModalOpen}
+        order={contactOrder}
+        onClose={() => {
+          setContactModalOpen(false);
+          setContactOrder(null);
+        }}
+        onConversationChanged={() => void loadOrders(appliedFilters)}
       />
 
       <BookingColumnVisibilityModal
