@@ -187,7 +187,7 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   return (
     <div
       style={{ width }}
-      className={`w-full bg-white max-h-dvh overflow-y-auto overscroll-contain lg:h-full lg:max-h-none lg:min-h-0 lg:overflow-visible lg:overscroll-auto lg:bg-linePrimary ${open ? "min-h-dvh" : "lg:w-10"}`}
+      className={`w-full bg-white max-h-dvh overflow-y-auto overscroll-contain lg:h-full lg:max-h-none lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:bg-linePrimary ${open ? "min-h-dvh" : "lg:w-10"}`}
     >
       <div className="relative flex h-[60] items-center px-4 lg:h-auto lg:py-4">
         {/* Logo — always visible on mobile, centered in the bar, filling its height, so it isn't hidden while the menu is closed */}
@@ -335,7 +335,7 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
 
           <LanguageSwitchButton
             currentUser={currentUser}
-            className={`${linkBase} mt-20 cursor-pointer items-center gap-2 text-left hover:bg-linePrimary text-weird-landscape`}
+            className={`${linkBase} mt-6 lg:mt-20 cursor-pointer items-center gap-2 text-left hover:bg-linePrimary text-weird-landscape`}
           />
 
           <button

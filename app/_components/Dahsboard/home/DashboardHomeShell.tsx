@@ -13,42 +13,45 @@ export default function DashboardHomeShell({ children }: { children: ReactNode }
   const sidebarW = sidebarOpen ? SIDEBAR_OPEN : SIDEBAR_CLOSED;
 
   return (
-    <>
-      <div className="hidden lg:flex min-h-screen overflow-x-clip">
-        {/*PC*/}
-        <aside className="">
-          <Sidebar
-            open={sidebarOpen}
-            onOpenChange={setSidebarOpen}
-            width={sidebarW}
-          />
-        </aside>
-        <main className="lg:pt-10 w-full flex">
-          <div className="px-4 w-full">
-            {children}
-          </div>
-        </main>
+    <div className="min-h-screen overflow-x-clip">
+      {/* Desktop sidebar — fixed so it stays in place while the page scrolls */}
+      <aside className="hidden lg:block fixed top-0 left-0 z-30 h-screen" style={{ width: sidebarW }}>
+        <Sidebar
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
+          width={sidebarW}
+        />
+      </aside>
+
+      {/* Mobile header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white shadow-md">
+        <Sidebar
+          open={sidebarOpenPhone}
+          onOpenChange={setSidebarOpenPhone}
+          width={""}
+          lockBodyScrollWhenOpen
+        />
       </div>
-      {/*Phone*/}
-      <div className="lg:hidden">
-        <div className="fixed w-full z-40">
-          <div className={`bg-white shadow-md w-full`}>
-            <div className="w-full">
-              <Sidebar
-                open={sidebarOpenPhone}
-                onOpenChange={setSidebarOpenPhone}
-                width={""}
-                lockBodyScrollWhenOpen
-              />
-            </div>
-          </div>
+
+      <main
+        className="content-shell min-h-screen overflow-y-auto overflow-x-clip"
+        style={{ ["--sidebar-width" as string]: `${sidebarW}px` }}
+      >
+        <div className="w-full pt-[60] lg:px-4 lg:pt-10">
+          {children}
         </div>
-        <main className="overflow-x-clip">
-          <div className="w-full pt-[60]">
-            {children}
-          </div>
-        </main>
-      </div>
-    </>
+      </main>
+
+      <style jsx>{`
+        .content-shell {
+          padding-left: 0;
+        }
+        @media (min-width: 1024px) {
+          .content-shell {
+            padding-left: var(--sidebar-width);
+          }
+        }
+      `}</style>
+    </div>
   );
 }
