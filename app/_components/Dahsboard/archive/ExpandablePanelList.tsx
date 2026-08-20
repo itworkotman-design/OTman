@@ -61,8 +61,8 @@ export function ExpandablePanelList({ items, emptyMessage, onToggle, variant = "
         const expanded = Boolean(expandedRows[item.id]);
 
         return (
-          <div key={item.id} className={`rounded-xl border border-logoblue ${expanded ? "overflow-visible" : "overflow-hidden"}`}>
-            <div className={`flex w-full items-center gap-3 px-6 py-4 ${classes.row}`}>
+          <div key={item.id} className="overflow-visible rounded-xl border border-logoblue">
+            <div className={`flex w-full items-center gap-3 rounded-t-xl px-6 py-4 ${classes.row}`}>
               <div
                 role="button"
                 tabIndex={0}
@@ -102,7 +102,7 @@ export function ExpandablePanelList({ items, emptyMessage, onToggle, variant = "
                   cropped by this ancestor when the section itself is short
                   (e.g. empty). */}
               <div className={expanded ? "overflow-visible" : "overflow-hidden"}>
-                <div className="border-t border-lineSecondary px-6 py-5 text-textColorSecond">{item.content}</div>
+                <div className="rounded-b-xl border-t border-lineSecondary px-6 py-5 text-textColorSecond">{item.content}</div>
               </div>
             </div>
           </div>

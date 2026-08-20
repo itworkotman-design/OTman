@@ -468,16 +468,19 @@ export function SectionedEntityManager({
   const panelItems = sections.map((section) => {
     const sectionFolders = foldersBySection.get(section.id) ?? [];
     const sectionItems = itemsBySection.get(section.id) ?? [];
-    // folderCount/itemCount reflect live (non-deleted) content — see
-    // lib/docArchive/sections.ts's getLiveSectionCounts — so this correctly
-    // re-opens deletion once a section's last real folder/item is gone,
-    // unlike the old permanent-code-row count which never shrank.
-    const isEmpty = section.folderCount === 0 && section.itemCount === 0;
+    // Derived from the live folders/items props (already recomputed above)
+    // rather than section.folderCount/itemCount, which only refreshes on the
+    // next loadSections() call. Folder/item deletion happens outside this
+    // component (via EntityPill's onChanged -> onFoldersChanged/
+    // onItemsChanged), so relying on the fetched section counts left Delete
+    // disabled until the settings view was reopened even after a section's
+    // last folder/item was removed.
+    const isEmpty = sectionFolders.length === 0 && sectionItems.length === 0;
     const isRenaming = renamingSectionId === section.id;
 
     const subtitleParts: string[] = [];
-    if (section.folderCount > 0) subtitleParts.push(t.folderCount(section.folderCount));
-    if (section.itemCount > 0) subtitleParts.push(t.itemCount(section.itemCount));
+    if (sectionFolders.length > 0) subtitleParts.push(t.folderCount(sectionFolders.length));
+    if (sectionItems.length > 0) subtitleParts.push(t.itemCount(sectionItems.length));
 
     return {
       id: section.id,

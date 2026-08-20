@@ -877,8 +877,13 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
         <p className="text-sm text-textColorThird">{locale === "nb" ? "Ingen seksjoner ennå" : "No sections yet"}</p>
       ) : null}
 
-      <button type="button" className="customButtonEnabled self-start" onClick={() => setPickerOpen(true)}>
-        {locale === "nb" ? "Legg til seksjon" : "Add section"}
+      <button
+        type="button"
+        className="flex w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-lineSecondary py-6 text-textColorThird transition-colors hover:border-logoblue hover:bg-linePrimary/40 hover:text-logoblue"
+        onClick={() => setPickerOpen(true)}
+      >
+        <span className="text-3xl font-light leading-none">+</span>
+        <span className="text-sm font-medium">{locale === "nb" ? "Legg til seksjon" : "Add section"}</span>
       </button>
 
       {pickerOpen ? (
@@ -886,24 +891,32 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
       ) : null}
 
       {dirty && (
-        <button
-          type="button"
-          className="customButtonEnabled h-14 w-full text-base font-semibold"
-          onClick={() => void handleSave()}
-          disabled={saving}
-        >
-          {cleaningUp
-            ? locale === "nb"
-              ? "Rydder opp..."
-              : "Cleaning up..."
-            : saving
-              ? locale === "nb"
-                ? "Lagrer..."
-                : "Saving..."
-              : locale === "nb"
-                ? "Lagre"
-                : "Save"}
-        </button>
+        <>
+          {/* Reserves space so the fixed bar below doesn't cover the last content. */}
+          <div className="h-20" aria-hidden="true" />
+          <div className="fixed inset-x-0 bottom-0 z-30 px-6 pb-6 pt-3 lg:pl-(--sidebar-width) lg:pr-6">
+            <div className="mx-auto w-full max-w-4xl lg:max-w-[1600]">
+              <button
+                type="button"
+                className="customButtonEnabled h-14 w-full text-base font-semibold shadow-lg"
+                onClick={() => void handleSave()}
+                disabled={saving}
+              >
+                {cleaningUp
+                  ? locale === "nb"
+                    ? "Rydder opp..."
+                    : "Cleaning up..."
+                  : saving
+                    ? locale === "nb"
+                      ? "Lagrer..."
+                      : "Saving..."
+                    : locale === "nb"
+                      ? "Lagre"
+                      : "Save"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {uploadModalOpen && (

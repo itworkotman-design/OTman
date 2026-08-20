@@ -48,8 +48,8 @@ export const archive: ArchiveHostAdapter =
     fileStorageProvider: archiveS3StorageProvider,
     fileContentPolicy: { maxUploadSizeBytes: ARCHIVE_MAX_UPLOAD_SIZE_BYTES },
     conditionThresholds: {
-      dueSoonMs: 72 * 60 * 60 * 1000,
-      expiringSoonMs: 72 * 60 * 60 * 1000,
+      dueSoonMs: 7 * 24 * 60 * 60 * 1000,
+      expiringSoonMs: 7 * 24 * 60 * 60 * 1000,
     },
     searchPolicy: { defaultLimit: 20, maxLimit: 100 },
     retentionPolicy: { deletedFileRetentionMs: ARCHIVE_DELETED_FILE_RETENTION_MS },
