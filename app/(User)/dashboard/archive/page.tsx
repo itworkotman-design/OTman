@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
@@ -177,6 +178,9 @@ export default function ArchivePage() {
             placeholder={locale === "nb" ? "Søk i arkivet" : "Search in this archive"}
           />
         </div>
+        <Link href="/dashboard/archive/shared" className="text-sm text-logoblue hover:underline">
+          {locale === "nb" ? "Delt med deg" : "Shared with you"}
+        </Link>
       </section>
 
       {/* Mirrors EntityPill's own row shape (content div with the same

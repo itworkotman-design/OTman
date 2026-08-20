@@ -1080,6 +1080,27 @@ model ArchiveItemCode {
   @@index([sectionId])
 }
 
+// Records which two @customprojects/custom-archive ArchiveRole ids are this
+// tenant's durable system roles ("Admin", "Viewer") — one row per company.
+// The package has no concept of "the" role for a purpose; roles are just
+// arbitrary named subject groups (see ArchiveRolesPanel.tsx's user-facing
+// "folder-sharing groups"). These two are created once per tenant (see
+// lib/docArchive/tenantRoles.ts) and every company member with ARCHIVE
+// module access is kept assigned to the matching one (lib/docArchive/
+// roleSync.ts), giving Admins edit and Viewers view access everywhere by
+// default via a role-based allow grant on every root folder — folder owners
+// override per-folder by adding a local deny for a specific person. Without
+// this table there'd be no reliable way to tell these two apart from a
+// user-created sharing group of the same name in listArchiveRoles' results.
+model ArchiveTenantRoles {
+  id           String   @id @default(cuid())
+  companyId    String   @unique
+  tenantId     String
+  adminRoleId  String
+  viewerRoleId String
+  createdAt    DateTime @default(now())
+}
+
 // Host-side grouping layer within a folder's settings (or the archive
 // root) — the @customprojects/custom-archive package's own folder/item
 // model has no concept of sections, so this lives in OTman's schema like

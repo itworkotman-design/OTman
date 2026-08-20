@@ -15,9 +15,30 @@ import type {
   ArchivePermissionRule,
   ArchivePermissionSubjectType,
   ArchiveRoleOption,
+  FolderDefaultAccessRow,
 } from "@/app/_components/Dahsboard/archive/FolderSharingPanel";
 import { codeToUrlPath, formatLastModified } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
+
+// Denies a person's default (Admin/Viewer role) access on this exact
+// folder — the only way to exclude someone whose access comes from the
+// company default (see grantDefaultRoleAccessOnRootFolder in
+// lib/docArchive/context.ts) rather than a local grant. The full content
+// bundle (not just `view`) so it blocks both an Admin-level and a
+// Viewer-level default uniformly, and — because a deny falls through to
+// descendants the same way the default itself does — this also excludes
+// them from every subfolder beneath this one, not just this folder.
+const DEFAULT_ACCESS_DENY_ACTIONS: ArchivePermissionAction[] = [
+  "view",
+  "create",
+  "upload",
+  "edit",
+  "delete",
+  "restore",
+  "move",
+  "manage_metadata",
+  "manage_status",
+];
 
 type ArchiveFolderDetail = ArchiveFolderSummary & {
   reminderDescription: string | null;
@@ -55,6 +76,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
 
   const [canManageSharing, setCanManageSharing] = useState(false);
   const [permissionRules, setPermissionRules] = useState<ArchivePermissionRule[]>([]);
+  const [defaultAccess, setDefaultAccess] = useState<FolderDefaultAccessRow[]>([]);
   const [coworkers, setCoworkers] = useState<ArchiveCoworker[]>([]);
   const [roles, setRoles] = useState<ArchiveRoleOption[]>([]);
   const [canShareWithRoles, setCanShareWithRoles] = useState(false);
@@ -126,6 +148,13 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
 
       setCanManageSharing(true);
       setPermissionRules(rulesData.rules ?? []);
+      setDefaultAccess(
+        ((rulesData.effectiveAccess ?? []) as { userId: string; source: string }[])
+          .filter((row): row is { userId: string; source: "admin-role" | "viewer-role" } =>
+            row.source === "admin-role" || row.source === "viewer-role",
+          )
+          .map((row) => ({ userId: row.userId, source: row.source })),
+      );
 
       const coworkersData = await coworkersRes.json().catch(() => null);
       if (coworkersRes.ok && coworkersData?.ok) {
@@ -218,6 +247,39 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
     }
   }
 
+  async function handleRemoveDefaultAccess(userId: string): Promise<boolean> {
+    if (!confirm(locale === "nb" ? "Fjerne denne tilgangen?" : "Remove this access?")) return false;
+
+    try {
+      setShareError("");
+
+      const res = await fetch(`/api/archive/folders/${folderId}/permissions`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subjectType: "user",
+          subjectId: userId,
+          actions: DEFAULT_ACCESS_DENY_ACTIONS,
+          effect: "deny",
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setShareError(data?.reason || "Failed to remove access");
+        return false;
+      }
+
+      await loadSharing();
+      return true;
+    } catch {
+      setShareError("Failed to remove access");
+      return false;
+    }
+  }
+
   async function handleCreateItem(sectionId: string, name: string, description: string | null) {
     try {
       const res = await fetch(`/api/archive/folders/${folderId}/items`, {
@@ -282,6 +344,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
       ownerUserId={folder?.ownerUserId ?? null}
       currentUserId={currentUser?.id}
       permissionRules={permissionRules}
+      defaultAccess={defaultAccess}
       coworkers={coworkers}
       roles={roles}
       canShareWithRoles={canShareWithRoles}
@@ -290,6 +353,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
       revokingSubject={revokingSubject}
       onGrant={handleGrantShare}
       onRevoke={(subjectType, subjectId, actions) => void handleRevokeShare(subjectType, subjectId, actions)}
+      onRemoveDefaultAccess={handleRemoveDefaultAccess}
     />
   );
 

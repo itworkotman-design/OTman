@@ -10,7 +10,11 @@ import { SettingsIcon, settingsIconButtonClass } from "@/app/_components/Dahsboa
 import { codeBadgeWidthCh, codeToUrlPath, formatLastModified, groupMixedBySection } from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
-type ArchiveFolderDetail = ArchiveFolderSummary;
+// The raw GET /api/archive/folders/:id response spreads the package's full
+// ArchiveFolder (which includes parentFolderId), but ArchiveFolderSummary
+// only lists the fields the normal browsing view otherwise needs — widened
+// here since "sharedId" mode's best-effort "Located in" lookup needs it.
+type ArchiveFolderDetail = ArchiveFolderSummary & { parentFolderId?: string | null };
 type ArchiveItemRow = ArchiveItemSummary;
 type ArchiveChildFolderRow = ArchiveFolderSummary;
 
@@ -18,13 +22,35 @@ type ArchiveFolderPathEntry =
   | { hidden: false; folderId: string; name: string | null }
   | { hidden: true };
 
+// Normal browsing arrives via the code-path route ({kind:"code"}) and every
+// link (breadcrumb, settings, child rows) is built from `codePath`, which
+// only resolves if the viewer has `view` on every ancestor along the way.
+// The "Shared with me" entry point ({kind:"sharedId"}) instead reaches a
+// folder the viewer has a DIRECT grant on with no such ancestor access —
+// see lib/docArchive/sharedWithMe.ts — so it can't reuse code-path links at
+// all: rendering the real breadcrumb or settings href would either 403 or
+// (worse) leak clickable links into folders the viewer can't open. In this
+// mode the breadcrumb collapses to a static, non-interactive indicator and
+// every link (settings, child rows) is rebuilt id-based under
+// /dashboard/archive/shared/... instead of the folder's own absolute code.
+type ArchiveLinkMode = { kind: "code" } | { kind: "sharedId" };
+
 // Pure browsing view: no create/upload/delete/permissions controls here —
 // every mutation lives on this folder's settings page or on an item's own
 // settings page, matching the otman-archive prototype's view/settings split.
 // `codePath` is this folder's own code (e.g. "1.2F.3F") split on "." — the
 // exact URL segments that got us here, used to build every link on this
-// page instead of the folder's opaque id.
-export function FolderView({ folderId, codePath }: { folderId: string; codePath: string[] }) {
+// page instead of the folder's opaque id. Ignored when `linkMode` is
+// "sharedId" (see ArchiveLinkMode above) — pass an empty array in that case.
+export function FolderView({
+  folderId,
+  codePath,
+  linkMode = { kind: "code" },
+}: {
+  folderId: string;
+  codePath: string[];
+  linkMode?: ArchiveLinkMode;
+}) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
   const archiveAccess = currentUser ? getModuleAccess(currentUser, "ARCHIVE") : null;
@@ -36,6 +62,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
   const [childFolders, setChildFolders] = useState<ArchiveChildFolderRow[]>([]);
   const [sections, setSections] = useState<ArchiveSectionSummary[]>([]);
   const [folderPath, setFolderPath] = useState<ArchiveFolderPathEntry[]>([]);
+  const [locatedInName, setLocatedInName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -64,6 +91,20 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
       }
 
       setFolder(folderData.folder);
+
+      // Best-effort "Located in" hint for the "Shared with me" entry point:
+      // only attempted if this caller happens to also have access to the
+      // immediate parent — a failure here (403/404, the common case) is
+      // swallowed rather than shown as an error, since the parent's name is
+      // decorative, not required to view this folder.
+      if (linkMode.kind === "sharedId" && folderData.folder?.parentFolderId) {
+        fetch(`/api/archive/folders/${folderData.folder.parentFolderId}`, { credentials: "include", cache: "no-store" })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.ok && data.folder?.name) setLocatedInName(data.folder.name);
+          })
+          .catch(() => {});
+      }
 
       if (!itemsRes.ok || !itemsData?.ok) {
         setError(itemsData?.reason || "Failed to load items");
@@ -119,34 +160,43 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
     ...activeItems.map((i) => i.code),
   ]);
 
-  const settingsHref = `/dashboard/archive/${codePath.join("/")}/settings`;
+  const settingsHref = linkMode.kind === "code" ? `/dashboard/archive/${codePath.join("/")}/settings` : null;
 
   // Collapse a *run* of consecutive hidden ancestors into a single "…"
   // instead of one "…" per hidden entry (which rendered as "/…/…/…" on deep
   // trees) — one ellipsis, then the path picks back up from the next visible
-  // ancestor.
+  // ancestor. Only meaningful in "code" mode — in "sharedId" mode no
+  // ancestor link is ever rendered (see ArchiveLinkMode above), regardless
+  // of what folderPath itself reports.
   type BreadcrumbSegment =
     | { kind: "ellipsis"; key: string }
     | { kind: "link"; key: string; href: string; label: string };
 
   const breadcrumbSegments: BreadcrumbSegment[] = [];
-  folderPath.forEach((entry, index) => {
-    if (!entry.hidden && entry.folderId === folderId) return;
+  if (linkMode.kind === "code") {
+    folderPath.forEach((entry, index) => {
+      if (!entry.hidden && entry.folderId === folderId) return;
 
-    if (entry.hidden) {
-      if (breadcrumbSegments.at(-1)?.kind !== "ellipsis") {
-        breadcrumbSegments.push({ kind: "ellipsis", key: `ellipsis-${index}` });
+      if (entry.hidden) {
+        if (breadcrumbSegments.at(-1)?.kind !== "ellipsis") {
+          breadcrumbSegments.push({ kind: "ellipsis", key: `ellipsis-${index}` });
+        }
+        return;
       }
-      return;
-    }
 
-    breadcrumbSegments.push({
-      kind: "link",
-      key: String(index),
-      href: `/dashboard/archive/${codePath.slice(0, index + 1).join("/")}`,
-      label: entry.name ?? "…",
+      breadcrumbSegments.push({
+        kind: "link",
+        key: String(index),
+        href: `/dashboard/archive/${codePath.slice(0, index + 1).join("/")}`,
+        label: entry.name ?? "…",
+      });
     });
-  });
+  }
+
+  function childHref(kind: "folder" | "item", id: string, code: string): string {
+    if (linkMode.kind === "code") return `/dashboard/archive/${codeToUrlPath(code)}`;
+    return `/dashboard/archive/shared/${kind}/${id}`;
+  }
 
   return (
     <div className="w-full">
@@ -154,12 +204,24 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
         <Link href="/dashboard/archive" className="hover:underline">
           {locale === "nb" ? "Arkiv" : "Archive"}
         </Link>
-        {breadcrumbSegments.map((segment) => (
-          <span key={segment.key} className="flex items-center gap-1">
+        {linkMode.kind === "sharedId" ? (
+          <span className="flex items-center gap-1">
             <span>/</span>
-            {segment.kind === "ellipsis" ? <span>…</span> : <Link href={segment.href} className="hover:underline">{segment.label}</Link>}
+            <span>{locale === "nb" ? "Delt med deg" : "Shared with you"}</span>
+            {locatedInName && (
+              <span className="text-textColorThird">
+                ({locale === "nb" ? "i" : "in"} {locatedInName})
+              </span>
+            )}
           </span>
-        ))}
+        ) : (
+          breadcrumbSegments.map((segment) => (
+            <span key={segment.key} className="flex items-center gap-1">
+              <span>/</span>
+              {segment.kind === "ellipsis" ? <span>…</span> : <Link href={segment.href} className="hover:underline">{segment.label}</Link>}
+            </span>
+          ))
+        )}
         <span>/</span>
         <span className="font-medium text-textcolor">
           {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
@@ -172,7 +234,7 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
           <h1 className="text-xl font-semibold text-logoblue sm:text-2xl lg:text-4xl">
             {loading ? "..." : folder?.name || (locale === "nb" ? "Ukjent mappe" : "Unknown folder")}
           </h1>
-          {canEdit && (
+          {canEdit && settingsHref && (
             <Link
               href={settingsHref}
               aria-label={locale === "nb" ? "Innstillinger" : "Settings"}
@@ -224,10 +286,10 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
                     description={childFolder.description}
                     status={childFolder.status}
                     conditionFlags={childFolder}
-                    href={`/dashboard/archive/${codeToUrlPath(childFolder.code)}`}
+                    href={childHref("folder", childFolder.id, childFolder.code)}
                     locale={locale}
                     code={childFolder.code}
-                    mode={canEdit ? "admin" : "viewer"}
+                    mode={linkMode.kind === "sharedId" ? "viewer" : canEdit ? "admin" : "viewer"}
                     fields={[{ key: "updated", value: formatLastModified(childFolder.updatedAt) }] satisfies PillField[]}
                     onChanged={loadFolderAndItems}
                     codeWidthCh={codeWidthCh}
@@ -242,10 +304,10 @@ export function FolderView({ folderId, codePath }: { folderId: string; codePath:
                     description={item.description}
                     status={item.status}
                     conditionFlags={item}
-                    href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
+                    href={childHref("item", item.id, item.code)}
                     locale={locale}
                     code={item.code}
-                    mode={canEdit ? "admin" : "viewer"}
+                    mode={linkMode.kind === "sharedId" ? "viewer" : canEdit ? "admin" : "viewer"}
                     fields={[{ key: "updated", value: formatLastModified(item.updatedAt) }] satisfies PillField[]}
                     onChanged={loadFolderAndItems}
                     codeWidthCh={codeWidthCh}

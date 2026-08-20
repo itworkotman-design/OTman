@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import type { ArchivePermissionAction, ArchivePermissionSubjectType } from "@customprojects/custom-archive";
+import type { ArchivePermissionAction, ArchivePermissionEffect, ArchivePermissionSubjectType } from "@customprojects/custom-archive";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { listEffectiveFolderAccess } from "@/lib/docArchive/folderAccessList";
+import { getArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
 
 const VALID_ACTIONS: ArchivePermissionAction[] = [
   "view",
@@ -34,6 +36,13 @@ function parseSubjectType(body: unknown): ArchivePermissionSubjectType {
   return "user";
 }
 
+// Only "allow"/"deny" — "remove" from the Sharing panel is a deny grant
+// (see POST below and FolderSharingPanel.tsx), not a distinct verb.
+function parseEffect(body: unknown): ArchivePermissionEffect {
+  const raw = (body as { effect?: unknown } | null)?.effect;
+  return raw === "deny" ? "deny" : "allow";
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ folderId: string }> },
@@ -43,10 +52,11 @@ export async function GET(
 
   const { folderId } = await params;
   const ctx = buildArchiveContext(result.session, result.membership);
-  const listResult = await archive.listPermissionRules(ctx, {
-    targetType: "folder",
-    targetId: folderId,
-  });
+
+  const [listResult, folderResult] = await Promise.all([
+    archive.listPermissionRules(ctx, { targetType: "folder", targetId: folderId }),
+    archive.readFolder(ctx, folderId),
+  ]);
 
   if (!listResult.ok) {
     return NextResponse.json(
@@ -55,7 +65,33 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ ok: true, rules: listResult.value });
+  // "Who effectively has access" (including via the Admin/Viewer role
+  // default, not just rows local to this folder) needs the folder's owner
+  // to label ownership correctly — best-effort: a failed readFolder here
+  // (shouldn't happen, the caller just proved manage_permissions on this
+  // exact folder) degrades to an empty effective-access list rather than
+  // failing the whole response, since permissionRules alone is still usable.
+  const effectiveAccess = folderResult.ok
+    ? await listEffectiveFolderAccess(ctx.companyId, ctx.tenantId, folderId, folderResult.value.ownerUserId)
+    : [];
+
+  // The two system roles (see lib/docArchive/tenantRoles.ts) have real
+  // local ArchivePermission rows on every root folder — that's how the
+  // default cascade works — but they aren't a user-manageable "group" like
+  // the rest of this list; they're already surfaced, correctly labeled, in
+  // effectiveAccess above ("admin-role"/"viewer-role"). Left in, they'd show
+  // up in FolderSharingPanel's generic "Groups with access" list as a raw
+  // UUID (they're excluded from /api/archive/roles' name lookup for the
+  // same reason), duplicating the "Access via company default" section.
+  const systemRoleIds = await getArchiveTenantRoleIds(ctx.companyId);
+  const rules = systemRoleIds
+    ? listResult.value.filter(
+        (rule) =>
+          !(rule.subjectType === "role" && (rule.subjectId === systemRoleIds.adminRoleId || rule.subjectId === systemRoleIds.viewerRoleId)),
+      )
+    : listResult.value;
+
+  return NextResponse.json({ ok: true, rules, effectiveAccess });
 }
 
 export async function POST(
@@ -70,6 +106,7 @@ export async function POST(
   const subjectId = typeof body?.subjectId === "string" ? body.subjectId.trim() : "";
   const subjectType = parseSubjectType(body);
   const actions = parseActions(body);
+  const effect = parseEffect(body);
 
   if (!subjectId || !actions) {
     return NextResponse.json({ ok: false, reason: "INVALID_INPUT" }, { status: 400 });
@@ -84,7 +121,7 @@ export async function POST(
       subjectType,
       subjectId,
       action,
-      effect: "allow",
+      effect,
     });
 
     if (!setResult.ok) {

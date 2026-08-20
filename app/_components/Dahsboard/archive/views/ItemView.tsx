@@ -37,6 +37,11 @@ type ArchiveFolderPathEntry =
   | { hidden: false; folderId: string; name: string | null }
   | { hidden: true };
 
+// See the matching comment on FolderView's ArchiveLinkMode — same rationale:
+// an item reached via "Shared with me" has no guaranteed ancestor access, so
+// its breadcrumb/settings links can't be code-path-based.
+type ArchiveLinkMode = { kind: "code" } | { kind: "sharedId" };
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -73,10 +78,12 @@ export function ItemView({
   folderId,
   itemId,
   codePath,
+  linkMode = { kind: "code" },
 }: {
   folderId: string;
   itemId: string;
   codePath: string[];
+  linkMode?: ArchiveLinkMode;
 }) {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
@@ -88,6 +95,7 @@ export function ItemView({
   const [sections, setSections] = useState<ArchiveContentSectionRow[]>([]);
   const [files, setFiles] = useState<ArchiveFileRow[]>([]);
   const [folderPath, setFolderPath] = useState<ArchiveFolderPathEntry[]>([]);
+  const [locatedInName, setLocatedInName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -114,6 +122,17 @@ export function ItemView({
       }
 
       setItem(itemData.item);
+
+      // Best-effort "Located in" hint for the "Shared with me" entry point —
+      // see the matching comment in FolderView.tsx.
+      if (linkMode.kind === "sharedId") {
+        fetch(`/api/archive/folders/${folderId}`, { credentials: "include", cache: "no-store" })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.ok && data.folder?.name) setLocatedInName(data.folder.name);
+          })
+          .catch(() => {});
+      }
 
       if (sectionsRes.ok && sectionsData?.ok) {
         setSections(sectionsData.sections ?? []);
@@ -151,7 +170,7 @@ export function ItemView({
     );
   }
 
-  const settingsHref = `/dashboard/archive/${codePath.join("/")}/settings`;
+  const settingsHref = linkMode.kind === "code" ? `/dashboard/archive/${codePath.join("/")}/settings` : null;
 
   return (
     <div className="w-full">
@@ -159,21 +178,33 @@ export function ItemView({
         <Link href="/dashboard/archive" className="hover:underline">
           {locale === "nb" ? "Arkiv" : "Archive"}
         </Link>
-        {folderPath.map((entry, index) => {
-          const href = `/dashboard/archive/${codePath.slice(0, index + 1).join("/")}`;
-          return (
-            <span key={index} className="flex items-center gap-1">
-              <span>/</span>
-              {entry.hidden ? (
-                <span>…</span>
-              ) : (
-                <Link href={href} className="hover:underline">
-                  {entry.name ?? "…"}
-                </Link>
-              )}
-            </span>
-          );
-        })}
+        {linkMode.kind === "sharedId" ? (
+          <span className="flex items-center gap-1">
+            <span>/</span>
+            <span>{locale === "nb" ? "Delt med deg" : "Shared with you"}</span>
+            {locatedInName && (
+              <span className="text-textColorThird">
+                ({locale === "nb" ? "i" : "in"} {locatedInName})
+              </span>
+            )}
+          </span>
+        ) : (
+          folderPath.map((entry, index) => {
+            const href = `/dashboard/archive/${codePath.slice(0, index + 1).join("/")}`;
+            return (
+              <span key={index} className="flex items-center gap-1">
+                <span>/</span>
+                {entry.hidden ? (
+                  <span>…</span>
+                ) : (
+                  <Link href={href} className="hover:underline">
+                    {entry.name ?? "…"}
+                  </Link>
+                )}
+              </span>
+            );
+          })
+        )}
         <span>/</span>
         <span className="font-medium text-textcolor">
           {loading ? "..." : item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")}
@@ -187,7 +218,7 @@ export function ItemView({
             {loading ? "..." : item?.name || (locale === "nb" ? "Ukjent element" : "Unknown item")}
             {item && <ConditionBadge flags={item} locale={locale} />}
           </h1>
-          {canEdit && (
+          {canEdit && settingsHref && (
             <Link
               href={settingsHref}
               aria-label={locale === "nb" ? "Innstillinger" : "Settings"}

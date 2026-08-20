@@ -9,6 +9,7 @@ import {
 } from "@/lib/users/appAccessDefaults";
 import { normalizeDashboardSectionsInput } from "@/lib/users/dashboardSections";
 import { prisma } from "@/lib/db";
+import { syncArchiveRoleAssignment } from "@/lib/docArchive/roleSync";
 
 export async function PATCH(
   req: Request,
@@ -155,6 +156,8 @@ export async function PATCH(
       });
     }
   });
+
+  await syncArchiveRoleAssignment(targetMembership.companyId, targetMembership.companyId, targetMembership.userId);
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }

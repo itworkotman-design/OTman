@@ -64,40 +64,69 @@ export async function getFolderEntryCounts(
   return counts;
 }
 
-// Nearest-first ancestor chain per requested folder id (folder itself first,
-// root last) — shared with lib/docArchive/folderCodes.ts, which needs the
-// same chain in root-first order to build display codes.
+export type AncestorChain = {
+  // Nearest-first (folder itself first, root last).
+  chain: string[];
+  // Mirrors the package's own resolveAuthorizationChain (mode "normal",
+  // effective-authorization.js): the WHOLE chain is invalid the instant any
+  // node from the target to the root is soft-deleted, or the walk never
+  // reaches a true root (a missing ancestor) — not merely truncated at that
+  // point. An earlier version of this query filtered `deletedAt IS NULL`
+  // inside the recursive CTE itself, which silently stopped the walk at the
+  // first deleted ancestor instead of invalidating the chain; that let a
+  // nearer target's rule decide access the package would have denied
+  // outright (proven divergence: folder with its own `allow`, a
+  // soft-deleted parent, nothing above — package denies, the old query here
+  // allowed). Callers MUST check `valid` before evaluating any rule.
+  valid: boolean;
+};
+
+// Ancestor chain per requested folder id — shared with
+// lib/docArchive/folderCodes.ts (which only needs `.chain`, in root-first
+// order, to build display codes and doesn't care about `valid`: a code is
+// rendered for a folder regardless of whether it's currently accessible).
 export async function getAncestorChains(
   companyId: string,
   tenantId: string,
   folderIds: string[],
-): Promise<Map<string, string[]>> {
-  const chains = new Map<string, string[]>();
+): Promise<Map<string, AncestorChain>> {
+  const chains = new Map<string, AncestorChain>();
   if (folderIds.length === 0) return chains;
 
-  const rows = await db.$queryRawUnsafe<{ rootId: string; ancestorId: string }[]>(
+  const rows = await db.$queryRawUnsafe<
+    { rootId: string; ancestorId: string; parentFolderId: string | null; deletedAt: string | null }[]
+  >(
     `
     WITH RECURSIVE chain AS (
-      SELECT "id" AS "rootId", "id" AS "ancestorId", "parentFolderId", 0 AS depth
+      SELECT "id" AS "rootId", "id" AS "ancestorId", "parentFolderId", "deletedAt", 0 AS depth
       FROM archive."archive_folders"
-      WHERE "companyId" = $1 AND "tenantId" = $2 AND "deletedAt" IS NULL AND "id" = ANY($3::uuid[])
+      WHERE "companyId" = $1 AND "tenantId" = $2 AND "id" = ANY($3::uuid[])
       UNION ALL
-      SELECT c."rootId", f."id", f."parentFolderId", c.depth + 1
+      SELECT c."rootId", f."id", f."parentFolderId", f."deletedAt", c.depth + 1
       FROM archive."archive_folders" f
       JOIN chain c ON f."id" = c."parentFolderId"
-      WHERE f."companyId" = $1 AND f."tenantId" = $2 AND f."deletedAt" IS NULL
+      WHERE f."companyId" = $1 AND f."tenantId" = $2
     )
-    SELECT "rootId" AS "rootId", "ancestorId" AS "ancestorId" FROM chain ORDER BY "rootId", depth ASC
+    SELECT "rootId" AS "rootId", "ancestorId" AS "ancestorId", "parentFolderId" AS "parentFolderId", "deletedAt" AS "deletedAt"
+    FROM chain ORDER BY "rootId", depth ASC
     `,
     companyId,
     tenantId,
     folderIds,
   );
 
+  const rowsByRoot = new Map<string, typeof rows>();
   for (const row of rows) {
-    const list = chains.get(row.rootId) ?? [];
-    list.push(row.ancestorId);
-    chains.set(row.rootId, list);
+    const list = rowsByRoot.get(row.rootId) ?? [];
+    list.push(row);
+    rowsByRoot.set(row.rootId, list);
+  }
+
+  for (const [rootId, chainRows] of rowsByRoot) {
+    const chain = chainRows.map((row) => row.ancestorId);
+    const anyDeleted = chainRows.some((row) => row.deletedAt !== null);
+    const reachedRoot = chainRows[chainRows.length - 1]?.parentFolderId === null;
+    chains.set(rootId, { chain, valid: !anyDeleted && reachedRoot });
   }
   return chains;
 }
@@ -174,7 +203,7 @@ export async function getFolderViewerCounts(
   if (folderIds.length === 0) return counts;
 
   const chains = await getAncestorChains(companyId, tenantId, folderIds);
-  const allTargetIds = [...new Set([...chains.values()].flat())];
+  const allTargetIds = [...new Set([...chains.values()].flatMap((c) => c.chain))];
   const rules = await getViewRules(companyId, tenantId, allTargetIds);
 
   const rulesByTarget = new Map<string, ViewRuleRow[]>();
@@ -202,7 +231,12 @@ export async function getFolderViewerCounts(
   }
 
   for (const folderId of folderIds) {
-    const chain = chains.get(folderId) ?? [folderId];
+    const resolvedChain = chains.get(folderId);
+    // An invalid (or entirely missing/unknown) chain denies outright,
+    // matching hasEffectivePermission's "!chain.valid -> false" — a nearer
+    // target's allow never gets a chance to decide.
+    if (!resolvedChain || !resolvedChain.valid) continue;
+    const chain = resolvedChain.chain;
 
     const candidateUsers = new Set<string>();
     for (const targetId of chain) {
@@ -251,7 +285,7 @@ export async function getViewableFolderIds(
   if (folderIds.length === 0) return viewable;
 
   const chains = await getAncestorChains(companyId, tenantId, folderIds);
-  const allTargetIds = [...new Set([...chains.values()].flat())];
+  const allTargetIds = [...new Set([...chains.values()].flatMap((c) => c.chain))];
   const rules = await getViewRules(companyId, tenantId, allTargetIds);
 
   const rulesByTarget = new Map<string, ViewRuleRow[]>();
@@ -279,9 +313,12 @@ export async function getViewableFolderIds(
   }
 
   for (const folderId of folderIds) {
-    const chain = chains.get(folderId) ?? [folderId];
+    const resolvedChain = chains.get(folderId);
+    // Same "!valid -> deny outright" rule as getFolderViewerCounts above —
+    // see AncestorChain's doc comment.
+    if (!resolvedChain || !resolvedChain.valid) continue;
 
-    for (const targetId of chain) {
+    for (const targetId of resolvedChain.chain) {
       const decision = decideAtTarget(targetId);
       if (decision !== "none") {
         if (decision === "allow") viewable.add(folderId);
@@ -291,4 +328,91 @@ export async function getViewableFolderIds(
   }
 
   return viewable;
+}
+
+export type FolderEffectiveViewer = {
+  userId: string;
+  // Which folder in the chain (this folder itself, or an ancestor) made the
+  // decision — lets a caller tell "local to this folder" from "inherited".
+  decidedByTargetId: string;
+  decidedBySubjectType: "user" | "role";
+  // The direct-user id, or the role id, whose rule actually decided.
+  decidedBySubjectId: string;
+};
+
+// Every platform user who effectively holds `view` on this one folder, with
+// which rule decided it — lib/docArchive/folderAccessList.ts's "who
+// currently has access" list (surfaced in FolderSharingPanel.tsx) needs not
+// just a count (getFolderViewerCounts above) but WHO and via WHAT, so
+// "remove" can target the right subject. Same chain-walk/decision rule as
+// getFolderViewerCounts, just for one folder and returning the decision
+// instead of only counting it.
+export async function getFolderEffectiveViewers(
+  companyId: string,
+  tenantId: string,
+  folderId: string,
+): Promise<FolderEffectiveViewer[]> {
+  const chains = await getAncestorChains(companyId, tenantId, [folderId]);
+  const resolvedChain = chains.get(folderId);
+  if (!resolvedChain || !resolvedChain.valid) return [];
+
+  const chain = resolvedChain.chain;
+  const rules = await getViewRules(companyId, tenantId, chain);
+
+  const rulesByTarget = new Map<string, ViewRuleRow[]>();
+  for (const rule of rules) {
+    const list = rulesByTarget.get(rule.targetId) ?? [];
+    list.push(rule);
+    rulesByTarget.set(rule.targetId, list);
+  }
+
+  const roleIds = [...new Set(rules.filter((rule) => rule.subjectType === "role").map((rule) => rule.subjectId))];
+  const roleMembers = await getActiveRoleMembers(companyId, tenantId, roleIds);
+
+  const candidateUsers = new Set<string>();
+  for (const rule of rules) {
+    if (rule.subjectType === "user") {
+      candidateUsers.add(rule.subjectId);
+    } else {
+      for (const memberId of roleMembers.get(rule.subjectId) ?? []) {
+        candidateUsers.add(memberId);
+      }
+    }
+  }
+
+  const viewers: FolderEffectiveViewer[] = [];
+
+  for (const userId of candidateUsers) {
+    for (const targetId of chain) {
+      const rulesAtTarget = rulesByTarget.get(targetId) ?? [];
+      const userRule = rulesAtTarget.find((rule) => rule.subjectType === "user" && rule.subjectId === userId);
+
+      if (userRule) {
+        if (userRule.effect === "allow") {
+          viewers.push({ userId, decidedByTargetId: targetId, decidedBySubjectType: "user", decidedBySubjectId: userId });
+        }
+        break;
+      }
+
+      const roleRulesAtTarget = rulesAtTarget.filter(
+        (rule) => rule.subjectType === "role" && roleMembers.get(rule.subjectId)?.has(userId),
+      );
+      const denyRole = roleRulesAtTarget.find((rule) => rule.effect === "deny");
+      if (denyRole) break;
+
+      const allowRole = roleRulesAtTarget.find((rule) => rule.effect === "allow");
+      if (allowRole) {
+        viewers.push({
+          userId,
+          decidedByTargetId: targetId,
+          decidedBySubjectType: "role",
+          decidedBySubjectId: allowRole.subjectId,
+        });
+        break;
+      }
+      // No decision at this target — continue outward.
+    }
+  }
+
+  return viewers;
 }

@@ -179,11 +179,11 @@ export async function getFolderCodes(
   if (folderIds.length === 0) return codes;
 
   const chains = await getAncestorChains(companyId, tenantId, folderIds);
-  const allAncestorIds = [...new Set([...chains.values()].flat())];
+  const allAncestorIds = [...new Set([...chains.values()].flatMap((c) => c.chain))];
   const localSeqs = await getFolderLocalSeqs(allAncestorIds);
 
   for (const folderId of folderIds) {
-    const rootFirstChain = [...(chains.get(folderId) ?? [folderId])].reverse();
+    const rootFirstChain = [...(chains.get(folderId)?.chain ?? [folderId])].reverse();
 
     const code = rootFirstChain
       .map((ancestorId, index) => {

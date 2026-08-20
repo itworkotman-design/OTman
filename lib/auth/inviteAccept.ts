@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/createSession";
 import { logAuthEvent } from "@/lib/auth/authEvent";
 import { defaultAppAccessRows } from "@/lib/users/appAccessDefaults";
+import { syncArchiveRoleAssignment } from "@/lib/docArchive/roleSync";
 
 type AcceptInviteResult =
   | {
@@ -244,6 +245,8 @@ export async function acceptInvite(params: {
       },
     });
   });
+
+  await syncArchiveRoleAssignment(invite.companyId, invite.companyId, userId);
 
   const { sessionToken, sessionExpiresAt } = await createSession({
     userId,

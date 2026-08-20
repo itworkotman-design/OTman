@@ -10,6 +10,7 @@ import {
 } from "@/lib/users/appAccessDefaults";
 import { normalizeDashboardSectionsInput } from "@/lib/users/dashboardSections";
 import { isUserManagementAdmin } from "@/lib/users/access";
+import { syncArchiveRoleAssignment } from "@/lib/docArchive/roleSync";
 
 type AppPermission = "BOOKING_VIEW" | "BOOKING_CREATE" | "ARCHIVE_VIEW";
 
@@ -160,7 +161,7 @@ export async function createUserWithPassword(params: {
 
   const passwordHash = await hashPassword(password);
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existingUser = await tx.user.findUnique({
       where: { email },
       select: { id: true },
@@ -262,4 +263,10 @@ export async function createUserWithPassword(params: {
       membershipId: membership.id,
     };
   });
+
+  if (result.ok) {
+    await syncArchiveRoleAssignment(companyId, companyId, result.userId);
+  }
+
+  return result;
 }

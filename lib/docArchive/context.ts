@@ -1,9 +1,14 @@
-import type { ArchiveContextInput, ArchivePermissionAction } from "@customprojects/custom-archive";
+import type {
+  ArchiveContextInput,
+  ArchivePermissionAction,
+  ArchivePermissionEffect,
+  ArchivePermissionSubjectType,
+} from "@customprojects/custom-archive";
 import type { AuthenticatedSession } from "@/lib/auth/session";
 import type { ActiveMembership } from "@/lib/auth/membership";
-import { canAccessArchive, getModuleAccess, hasFullAccess } from "@/lib/users/access";
+import { canAccessArchive, hasFullAccess } from "@/lib/users/access";
 import { archive, archivePrisma } from "@/lib/docArchive/client";
-import { prisma } from "@/lib/db";
+import { ensureArchiveTenantRoles } from "@/lib/docArchive/tenantRoles";
 
 export function buildArchiveContext(
   session: AuthenticatedSession,
@@ -121,10 +126,13 @@ export async function grantFolderCreatorCapabilities(
   }
 }
 
-// Every action a folder co-manager can hold (the creator's own grant is this
-// same set, split across the package's own auto-grant of `view` +
-// `manage_permissions` plus FOLDER_CREATOR_GRANTED_ACTIONS above).
-const ALL_FOLDER_PERMISSION_ACTIONS: ArchivePermissionAction[] = [
+// Everything the Admin role gets by default on a root folder — deliberately
+// NOT manage_permissions, so only the folder's owner (or someone they
+// explicitly co-share full access with) can change who's allowed on it. If
+// Admin also got manage_permissions here, any company admin could undo
+// another admin's per-folder override, and "the owner decides" wouldn't
+// actually be true.
+const ADMIN_DEFAULT_ROLE_ACTIONS: ArchivePermissionAction[] = [
   "view",
   "create",
   "upload",
@@ -134,48 +142,110 @@ const ALL_FOLDER_PERMISSION_ACTIONS: ArchivePermissionAction[] = [
   "move",
   "manage_metadata",
   "manage_status",
-  "manage_permissions",
 ];
 
-// On explicit user request: every company Admin (ARCHIVE module, level
-// "ADMIN") should start with full access to a newly created folder, not just
-// its creator — sharing is opt-out (remove a specific admin afterward via the
-// existing folder Sharing UI/permissions route) rather than opt-in. Only
-// ACTIVE memberships are considered, and the creator is skipped since they
-// already hold the full set via grantFolderCreatorCapabilities.
-export async function grantAllAdminsFolderCapabilities(
+// Grants the tenant's two durable roles (see lib/docArchive/tenantRoles.ts)
+// default access on a newly created ROOT folder: Admin -> allow the bundle
+// above, Viewer -> allow view. Subfolders need no grant of their own to
+// inherit this — the package's nearest-wins ancestor-chain resolver falls
+// through to whatever rule an ancestor has when a descendant has none of
+// its own (verified against effective-authorization.js), so these two rows
+// cascade to the whole tree beneath this folder automatically. A folder
+// owner overrides per-folder by adding a local deny for a specific person
+// through the Sharing panel (see FolderSharingPanel.tsx) — there is no
+// separate "restricted" flag; removal IS the override.
+export async function grantDefaultRoleAccessOnRootFolder(
   ctx: ArchiveContextInput,
-  folderId: string,
+  rootFolderId: string,
 ): Promise<void> {
-  const memberships = await prisma.membership.findMany({
-    where: { companyId: ctx.companyId, status: "ACTIVE" },
-    select: {
-      userId: true,
-      appAccess: { select: { module: true, enabled: true, level: true } },
-    },
+  const { adminRoleId, viewerRoleId } = await ensureArchiveTenantRoles(ctx);
+
+  for (const action of ADMIN_DEFAULT_ROLE_ACTIONS) {
+    const result = await archive.setPermissionRule(ctx, {
+      targetType: "folder",
+      targetId: rootFolderId,
+      subjectType: "role",
+      subjectId: adminRoleId,
+      action,
+      effect: "allow",
+    });
+
+    if (!result.ok) {
+      throw new Error(
+        `Failed to grant Admin role "${action}" on root folder: ${result.error.message}`,
+      );
+    }
+  }
+
+  const viewerResult = await archive.setPermissionRule(ctx, {
+    targetType: "folder",
+    targetId: rootFolderId,
+    subjectType: "role",
+    subjectId: viewerRoleId,
+    action: "view",
+    effect: "allow",
   });
 
-  const adminUserIds = memberships
-    .filter((m) => m.userId !== ctx.userId)
-    .filter((m) => getModuleAccess(m, "ARCHIVE").enabled && getModuleAccess(m, "ARCHIVE").level === "ADMIN")
-    .map((m) => m.userId);
+  if (!viewerResult.ok) {
+    throw new Error(
+      `Failed to grant Viewer role view on root folder: ${viewerResult.error.message}`,
+    );
+  }
+}
 
-  for (const adminUserId of adminUserIds) {
-    for (const action of ALL_FOLDER_PERMISSION_ACTIONS) {
-      const result = await archive.setPermissionRule(ctx, {
-        targetType: "folder",
-        targetId: folderId,
-        subjectType: "user",
-        subjectId: adminUserId,
-        action,
-        effect: "allow",
-      });
+type ArchivePermissionRow = {
+  subjectType: ArchivePermissionSubjectType;
+  subjectId: string;
+  action: ArchivePermissionAction;
+  effect: ArchivePermissionEffect;
+};
 
-      if (!result.ok) {
-        throw new Error(
-          `Failed to grant admin "${adminUserId}" folder "${action}" capability: ${result.error.message}`,
-        );
-      }
+// Snapshot-copies a folder's current explicit permission rules onto a newly
+// created subfolder, so the subfolder starts with a real, visible,
+// independently-editable ACL matching its parent — instead of relying purely
+// on the package's implicit "no rule of my own falls through to my parent"
+// resolution, which already grants the same *effective* access dynamically
+// but leaves nothing for the new folder's own Sharing UI to show, and would
+// silently change if the parent's permissions are edited later. This is a
+// deliberate one-time copy at creation, not an ongoing sync, so each
+// folder's grants stay independently adjustable afterward.
+//
+// Reads the parent's rows via a direct query rather than the package's own
+// listPermissionRules, which additionally requires manage_permissions on the
+// parent — createFolder itself only requires `create` on the parent, so a
+// legitimate subfolder-creator isn't guaranteed to clear that stricter bar
+// (e.g. a restricted folder's explicit viewer who was also granted create).
+export async function copyParentFolderPermissions(
+  ctx: ArchiveContextInput,
+  parentFolderId: string,
+  newFolderId: string,
+): Promise<void> {
+  const rows = await permissionDb.$queryRawUnsafe<ArchivePermissionRow[]>(
+    `
+    SELECT "subjectType" AS "subjectType", "subjectId" AS "subjectId", "action" AS "action", "effect" AS "effect"
+    FROM archive."archive_permissions"
+    WHERE "companyId" = $1 AND "tenantId" = $2 AND "targetType" = 'folder'
+      AND "targetId" = $3 AND "revokedAt" IS NULL
+    `,
+    ctx.companyId,
+    ctx.tenantId,
+    parentFolderId,
+  );
+
+  for (const row of rows) {
+    const result = await archive.setPermissionRule(ctx, {
+      targetType: "folder",
+      targetId: newFolderId,
+      subjectType: row.subjectType,
+      subjectId: row.subjectId,
+      action: row.action,
+      effect: row.effect,
+    });
+
+    if (!result.ok) {
+      throw new Error(
+        `Failed to copy parent folder permission "${row.action}" for subject "${row.subjectId}": ${result.error.message}`,
+      );
     }
   }
 }

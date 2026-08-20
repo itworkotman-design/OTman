@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext, ensureNamespaceManager } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { getArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
 
 export async function GET(req: Request) {
   const result = await requireArchiveMembership(req, { requireAdmin: true });
@@ -18,7 +19,17 @@ export async function GET(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, roles: listResult.value });
+  // The tenant's two durable "Admin"/"Viewer" system roles (see
+  // lib/docArchive/tenantRoles.ts) back the default company-wide access
+  // cascade — they're not user-created folder-sharing groups, so they're
+  // excluded from every user-facing roles list (this GET backs both the
+  // Roles management UI and the folder Sharing panel's "Gruppe" picker).
+  const systemRoleIds = await getArchiveTenantRoleIds(result.membership.companyId);
+  const roles = systemRoleIds
+    ? listResult.value.filter((role) => role.id !== systemRoleIds.adminRoleId && role.id !== systemRoleIds.viewerRoleId)
+    : listResult.value;
+
+  return NextResponse.json({ ok: true, roles });
 }
 
 export async function POST(req: Request) {

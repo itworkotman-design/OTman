@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext, ensureNamespaceManager } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
+import { getArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
+
+// The tenant's two durable "Admin"/"Viewer" system roles (see
+// lib/docArchive/tenantRoles.ts) are not user-manageable groups — they back
+// the default company-wide access cascade, so renaming or deleting them
+// here would silently break it. The Roles UI already excludes them from its
+// list (see the GET handler in ../route.ts), so a request naming one of
+// these ids can only be a direct API call.
+async function isSystemRole(companyId: string, roleId: string): Promise<boolean> {
+  const roleIds = await getArchiveTenantRoleIds(companyId);
+  return roleIds !== null && (roleId === roleIds.adminRoleId || roleId === roleIds.viewerRoleId);
+}
 
 export async function PATCH(
   req: Request,
@@ -16,6 +28,10 @@ export async function PATCH(
 
   if (!name) {
     return NextResponse.json({ ok: false, reason: "INVALID_INPUT" }, { status: 400 });
+  }
+
+  if (await isSystemRole(result.membership.companyId, roleId)) {
+    return NextResponse.json({ ok: false, reason: "SYSTEM_ROLE" }, { status: 403 });
   }
 
   const ctx = buildArchiveContext(result.session, result.membership);
@@ -40,6 +56,11 @@ export async function DELETE(
   if ("error" in result) return result.error;
 
   const { roleId } = await params;
+
+  if (await isSystemRole(result.membership.companyId, roleId)) {
+    return NextResponse.json({ ok: false, reason: "SYSTEM_ROLE" }, { status: 403 });
+  }
+
   const ctx = buildArchiveContext(result.session, result.membership);
   await ensureNamespaceManager(ctx, result.membership.role);
 

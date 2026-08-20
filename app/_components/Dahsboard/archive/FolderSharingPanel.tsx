@@ -16,11 +16,13 @@ export type ArchivePermissionAction =
   | "manage_permissions";
 
 export type ArchivePermissionSubjectType = "user" | "role";
+export type ArchivePermissionEffect = "allow" | "deny";
 
 export type ArchivePermissionRule = {
   subjectType: ArchivePermissionSubjectType;
   subjectId: string;
   action: ArchivePermissionAction;
+  effect: ArchivePermissionEffect;
 };
 
 export type ArchiveCoworker = {
@@ -37,6 +39,16 @@ export type ArchiveRoleOption = {
 type ArchiveRoleAssignmentRow = {
   roleId: string;
   platformUserId: string;
+};
+
+// One row per person who effectively has view access via the company's
+// Admin/Viewer default (see lib/docArchive/folderAccessList.ts) — not a
+// local grant, so there's nothing here to revoke; "Remove" instead adds a
+// local deny on this folder that overrides it (and cascades to every
+// subfolder beneath it the same way the default itself does).
+export type FolderDefaultAccessRow = {
+  userId: string;
+  source: "admin-role" | "viewer-role";
 };
 
 // The raw action list ("view, create, upload, edit, delete, restore, move,
@@ -122,7 +134,36 @@ const ACCESS_LEVEL_META: Record<
   },
 };
 
-function AccessBadge({ actions, locale }: { actions: ArchivePermissionAction[]; locale: string }) {
+function AccessBadge({
+  actions,
+  effect,
+  locale,
+}: {
+  actions: ArchivePermissionAction[];
+  effect: ArchivePermissionEffect;
+  locale: string;
+}) {
+  // A deny rule (e.g. from removing someone from the Admin/Viewer default —
+  // see FolderSettingsView.tsx's handleRemoveDefaultAccess) shares its
+  // action set with an allow grant of the same shape, so classifyAccess
+  // alone can't tell them apart — without this branch a blocked person
+  // would show the same green "Contributor" badge as someone with real
+  // access, which is actively misleading.
+  if (effect === "deny") {
+    return (
+      <span
+        className="inline-flex shrink-0 items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700"
+        title={
+          locale === "nb"
+            ? "Eksplisitt fjernet fra denne mappen (og alt inni den)."
+            : "Explicitly blocked from this folder (and everything inside it)."
+        }
+      >
+        {locale === "nb" ? "Fjernet" : "Blocked"}
+      </span>
+    );
+  }
+
   const level = classifyAccess(actions);
   const meta = ACCESS_LEVEL_META[level];
   return (
@@ -149,6 +190,11 @@ type SharedSubject = {
   subjectType: ArchivePermissionSubjectType;
   subjectId: string;
   actions: ArchivePermissionAction[];
+  // A subject's rules are always set together as one action bundle with one
+  // effect (see actionsForGrant / handleRemoveDefaultAccess) — grouping by
+  // first-seen effect is a reasonable simplification, not a real merge of
+  // mixed-effect rules.
+  effect: ArchivePermissionEffect;
 };
 
 type FolderSharingPanelProps = {
@@ -156,6 +202,7 @@ type FolderSharingPanelProps = {
   ownerUserId: string | null;
   currentUserId?: string;
   permissionRules: ArchivePermissionRule[];
+  defaultAccess?: FolderDefaultAccessRow[];
   coworkers: ArchiveCoworker[];
   roles: ArchiveRoleOption[];
   canShareWithRoles: boolean;
@@ -172,6 +219,10 @@ type FolderSharingPanelProps = {
     subjectId: string,
     actions: ArchivePermissionAction[],
   ) => void;
+  // Denies this person on this exact folder (see the permissions route's
+  // POST with effect="deny") — the only way to remove someone whose access
+  // comes from the Admin/Viewer default rather than a local grant.
+  onRemoveDefaultAccess?: (userId: string) => Promise<boolean>;
 };
 
 // Replaces the old flat "name — view, create, upload, ..." list with
@@ -186,6 +237,7 @@ export function FolderSharingPanel({
   ownerUserId,
   currentUserId,
   permissionRules,
+  defaultAccess,
   coworkers,
   roles,
   canShareWithRoles,
@@ -194,12 +246,24 @@ export function FolderSharingPanel({
   revokingSubject,
   onGrant,
   onRevoke,
+  onRemoveDefaultAccess,
 }: FolderSharingPanelProps) {
   const [shareTargetType, setShareTargetType] = useState<ArchivePermissionSubjectType>("user");
   const [shareUserId, setShareUserId] = useState("");
   const [shareRoleId, setShareRoleId] = useState("");
   const [shareLevel, setShareLevel] = useState<GrantLevel>("viewer");
   const [shareCanManageSharing, setShareCanManageSharing] = useState(false);
+  const [removingDefaultAccessFor, setRemovingDefaultAccessFor] = useState<string | null>(null);
+
+  async function handleRemoveDefaultAccess(userId: string) {
+    if (!onRemoveDefaultAccess) return;
+    try {
+      setRemovingDefaultAccessFor(userId);
+      await onRemoveDefaultAccess(userId);
+    } finally {
+      setRemovingDefaultAccessFor(null);
+    }
+  }
 
   const [roleAssignments, setRoleAssignments] = useState<Record<string, ArchiveRoleAssignmentRow[]>>({});
   const [loadedRoleAssignments, setLoadedRoleAssignments] = useState<Record<string, boolean>>({});
@@ -244,7 +308,7 @@ export function FolderSharingPanel({
     if (existing) {
       existing.actions.push(rule.action);
     } else {
-      subjectMap.set(key, { subjectType: rule.subjectType, subjectId: rule.subjectId, actions: [rule.action] });
+      subjectMap.set(key, { subjectType: rule.subjectType, subjectId: rule.subjectId, actions: [rule.action], effect: rule.effect });
     }
   }
 
@@ -271,6 +335,14 @@ export function FolderSharingPanel({
 
   const ownerLabel = ownerUserId ? labelForUser(ownerUserId) : null;
 
+  // Excludes the owner (always shown separately above) — nobody else can
+  // appear here AND in userSubjects/roleSubjects below, since a local rule
+  // on this exact folder always decides over the role default (nearest-wins:
+  // see effective-authorization.js), so listEffectiveFolderAccess would
+  // already classify such a person as "direct"/"group", not "admin-role"/
+  // "viewer-role".
+  const defaultAccessRows = (defaultAccess ?? []).filter((row) => row.userId !== ownerUserId);
+
   const t = {
     grantHeading: locale === "nb" ? "Gi tilgang" : "Grant access",
     coworker: locale === "nb" ? "Kollega" : "Coworker",
@@ -290,10 +362,18 @@ export function FolderSharingPanel({
     groupsHeading: locale === "nb" ? "Grupper med tilgang" : "Groups with access",
     noGroups: locale === "nb" ? "Ingen grupper har tilgang" : "No groups have access",
     remove: locale === "nb" ? "Fjern" : "Remove",
+    restore: locale === "nb" ? "Gjenopprett" : "Restore access",
     loadingMembers: locale === "nb" ? "Laster medlemmer..." : "Loading members...",
     noMembers: locale === "nb" ? "Ingen medlemmer i denne gruppen" : "No members in this group",
     member: locale === "nb" ? "medlem" : "member",
     members: locale === "nb" ? "medlemmer" : "members",
+    defaultAccessHeading: locale === "nb" ? "Tilgang via firmaets standard" : "Access via company default",
+    defaultAccessHint:
+      locale === "nb"
+        ? "Alle administratorer og seere har tilgang til denne mappen som standard. Fjern noen her for å utelukke dem fra kun denne mappen (og alt inni den)."
+        : "Every company Admin and Viewer has access to this folder by default. Remove someone here to exclude them from just this folder (and everything inside it).",
+    viaAdmin: locale === "nb" ? "Via administratortilgang" : "Via Admin access",
+    viaViewer: locale === "nb" ? "Via seertilgang" : "Via Viewer access",
   };
 
   const levelOptions: { value: GrantLevel; label: string }[] = [
@@ -312,7 +392,7 @@ export function FolderSharingPanel({
       subtitle: memberCount === null ? "" : memberCount === 1 ? `1 ${t.member}` : `${memberCount} ${t.members}`,
       headerActions: (
         <div className="flex shrink-0 items-center gap-2">
-          <AccessBadge actions={subject.actions} locale={locale} />
+          <AccessBadge actions={subject.actions} effect={subject.effect} locale={locale} />
           <button
             type="button"
             className="shrink-0 rounded-full border border-lineSecondary px-3.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
@@ -322,7 +402,7 @@ export function FolderSharingPanel({
             }}
             disabled={revokingSubject === subject.subjectId}
           >
-            {t.remove}
+            {subject.effect === "deny" ? t.restore : t.remove}
           </button>
         </div>
       ),
@@ -463,6 +543,35 @@ export function FolderSharingPanel({
         </div>
       )}
 
+      {defaultAccessRows.length > 0 && (
+        <div>
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-textColorThird">
+            {t.defaultAccessHeading} ({defaultAccessRows.length})
+          </h4>
+          <p className="mb-2 text-xs text-textColorThird">{t.defaultAccessHint}</p>
+          <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
+            {defaultAccessRows.map((row) => (
+              <div key={row.userId} className="flex items-center justify-between gap-4 py-2 text-sm">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-medium text-textcolor">{labelForUser(row.userId)}</span>
+                  <span className="inline-flex shrink-0 items-center rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-textColorSecond">
+                    {row.source === "admin-role" ? t.viaAdmin : t.viaViewer}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 text-red-600 hover:underline disabled:opacity-50"
+                  onClick={() => void handleRemoveDefaultAccess(row.userId)}
+                  disabled={!onRemoveDefaultAccess || removingDefaultAccessFor === row.userId}
+                >
+                  {t.remove}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4">
         <div>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-textColorThird">
@@ -477,7 +586,7 @@ export function FolderSharingPanel({
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="truncate font-medium text-textcolor">{labelForUser(subject.subjectId)}</span>
-                    <AccessBadge actions={subject.actions} locale={locale} />
+                    <AccessBadge actions={subject.actions} effect={subject.effect} locale={locale} />
                   </div>
                   <button
                     type="button"
@@ -485,7 +594,7 @@ export function FolderSharingPanel({
                     onClick={() => onRevoke(subject.subjectType, subject.subjectId, subject.actions)}
                     disabled={revokingSubject === subject.subjectId}
                   >
-                    {t.remove}
+                    {subject.effect === "deny" ? t.restore : t.remove}
                   </button>
                 </div>
               ))}
