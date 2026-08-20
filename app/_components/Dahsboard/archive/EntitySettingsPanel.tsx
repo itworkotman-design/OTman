@@ -23,9 +23,9 @@ const STATUS_OPTIONS: ArchiveBusinessStatus[] = ["active", "draft", "inactive", 
 // Rename landed in the 0.2.0 package delivery (renameFolder/renameItem —
 // see custom-archive-backend-feedback.md #2, now resolved upstream), so
 // Name is real and persists via PATCH .../name. Description still has no
-// backend field anywhere in the package's rename/create surface, so it
-// stays local-only/decorative — typed description is never sent and resets
-// on reload.
+// backend field anywhere in the package's rename/create surface (create-only,
+// no update method), so it's shown read-only here rather than as an editable
+// field that would silently fail to save.
 //
 // Owner (setFolderOwner/setItemOwner, also 0.2.0) is real too. The option
 // list is self + /api/archive/coworkers (same ARCHIVE_VIEW-filtered roster
@@ -45,7 +45,6 @@ const STATUS_OPTIONS: ArchiveBusinessStatus[] = ["active", "draft", "inactive", 
 export function EntitySettingsPanel({ kind, id, name, description, status, ownerUserId, locale, onSaved }: EntitySettingsPanelProps) {
   const currentUser = useCurrentUser();
   const [nextName, setNextName] = useState(name);
-  const [nextDescription, setNextDescription] = useState(description ?? "");
   const [nextStatus, setNextStatus] = useState<ArchiveBusinessStatus>(status);
   const [nextOwnerUserId, setNextOwnerUserId] = useState(ownerUserId);
   const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
@@ -172,13 +171,12 @@ export function EntitySettingsPanel({ kind, id, name, description, status, owner
 
       <div className="min-w-[240]">
         <label className="block pb-2 text-sm text-textColorThird">{locale === "nb" ? "Beskrivelse" : "Description"}</label>
-        <textarea
-          className="customInput w-full max-w-[480]"
-          rows={3}
-          value={nextDescription}
-          onChange={(e) => setNextDescription(e.target.value)}
-          disabled={saving}
-        />
+        <textarea className="customInput w-full max-w-[480] cursor-not-allowed opacity-70" rows={3} value={description ?? ""} readOnly disabled />
+        <p className="pt-1 text-xs text-textColorThird">
+          {locale === "nb"
+            ? "Beskrivelse kan ikke redigeres ennå."
+            : "Description can't be edited yet."}
+        </p>
       </div>
 
       <div className="min-w-[160]">
