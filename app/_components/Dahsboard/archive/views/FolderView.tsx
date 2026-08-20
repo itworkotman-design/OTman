@@ -112,6 +112,19 @@ export function FolderView({
           .catch(() => {});
       }
 
+      // Best-effort "last opened" record for the archive root page's
+      // "Shared with you" preview — see SharedWithYouSection.tsx. Only
+      // reached-through-"Shared with me" opens count, matching the "sharedId"
+      // scoping of the "Located in" hint above.
+      if (linkMode.kind === "sharedId") {
+        fetch("/api/archive/shared-with-me/recent", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entityKind: "FOLDER", entityId: folderId }),
+        }).catch(() => {});
+      }
+
       if (!itemsRes.ok || !itemsData?.ok) {
         setError(itemsData?.reason || "Failed to load items");
         return;

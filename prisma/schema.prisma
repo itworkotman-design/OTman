@@ -1441,3 +1441,23 @@ model ArchiveSequenceCounter {
 
   @@unique([companyId, tenantId, parentFolderId, scope])
 }
+
+// Most recent time each user opened a folder/item through the "Shared with
+// me" entry point (lib/docArchive/sharedWithMe.ts) — powers the archive root
+// page's inline "Shared with you" preview (last 5 opened). Upserted, not
+// inserted, on every open so `openedAt` always reflects the latest visit
+// rather than accumulating one row per open. Reuses ArchiveReminderEntityKind
+// since it's the same folder/item split ArchiveReminderOccurrence already
+// uses, despite the "Reminder" name — not worth a near-duplicate enum.
+model ArchiveSharedRecentOpen {
+  id         String                    @id @default(cuid())
+  companyId  String
+  tenantId   String
+  userId     String
+  entityKind ArchiveReminderEntityKind
+  entityId   String
+  openedAt   DateTime                  @default(now())
+
+  @@unique([userId, entityKind, entityId])
+  @@index([companyId, tenantId, userId, openedAt])
+}

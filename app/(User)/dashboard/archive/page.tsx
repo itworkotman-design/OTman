@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { EntityPill, PillFieldsHeader, type PillField, type PillHeaderField } from "@/app/_components/Dahsboard/archive/EntityPill";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
+import { SharedWithYouSection } from "@/app/_components/Dahsboard/archive/SharedWithYouSection";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
 import {
   codeBadgeWidthCh,
@@ -186,9 +186,7 @@ export default function ArchivePage() {
             placeholder={locale === "nb" ? "Søk i arkivet" : "Search in this archive"}
           />
         </div>
-        <Link href="/dashboard/archive/shared" className="text-sm text-logoblue hover:underline">
-          {locale === "nb" ? "Delt med deg" : "Shared with you"}
-        </Link>
+        <SharedWithYouSection locale={locale} />
       </section>
 
       {/* Sits above Pinned folders/items since both sections share this same

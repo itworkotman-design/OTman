@@ -132,6 +132,15 @@ export function ItemView({
             if (data?.ok && data.folder?.name) setLocatedInName(data.folder.name);
           })
           .catch(() => {});
+
+        // Best-effort "last opened" record for the archive root page's
+        // "Shared with you" preview — see SharedWithYouSection.tsx.
+        fetch("/api/archive/shared-with-me/recent", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entityKind: "ITEM", entityId: itemId }),
+        }).catch(() => {});
       }
 
       if (sectionsRes.ok && sectionsData?.ok) {
