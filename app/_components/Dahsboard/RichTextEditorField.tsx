@@ -555,8 +555,18 @@ export function RichTextEditorField({
               className="h-8 border-0 bg-transparent px-2 text-xs font-normal text-textColorSecond outline-none"
               value={fontSizeValue}
               onChange={(e) => {
-                if (e.target.value) editor.chain().focus().setFontSize(e.target.value).run();
-                else editor.chain().focus().unsetFontSize().run();
+                // Same "no selection = whole text" convention as Bold/
+                // Italic/Underline/Color above — without this, an empty
+                // selection only arms the mark for the next typed
+                // character instead of resizing what's already there.
+                const wholeText = editor.state.selection.empty;
+                if (e.target.value) {
+                  if (wholeText) editor.chain().focus().selectAll().setFontSize(e.target.value).run();
+                  else editor.chain().focus().setFontSize(e.target.value).run();
+                } else {
+                  if (wholeText) editor.chain().focus().selectAll().unsetFontSize().run();
+                  else editor.chain().focus().unsetFontSize().run();
+                }
               }}
             >
               {FONT_SIZE_OPTIONS.map((option) => (
