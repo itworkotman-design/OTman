@@ -205,13 +205,23 @@ export function ContentSectionList({ itemId, locale, onSaved }: Props) {
         return;
       }
 
+      // Reuse the existing local `key` for a section we already know about
+      // (matched by real id), instead of always re-keying from `s.id`. Save
+      // calls `load()` right after creating a pending section server-side —
+      // if that section's key jumped from its "pending-<uuid>" placeholder
+      // to the real id here, ContentSectionCard/TextFieldsPanel would remount
+      // (see ContentSectionCard's key-vs-id comment), discarding the panel's
+      // local edit state and making it look locked until a full page reload.
       const loadedSections: ArchiveContentSectionRow[] = (sectionsData.sections ?? []).map(
-        (s: { id: string; type: ArchiveContentSectionType; position: number }) => ({
-          key: s.id,
-          id: s.id,
-          type: s.type,
-          position: s.position,
-        }),
+        (s: { id: string; type: ArchiveContentSectionType; position: number }) => {
+          const existing = sections.find((section) => section.id === s.id);
+          return {
+            key: existing?.key ?? s.id,
+            id: s.id,
+            type: s.type,
+            position: s.position,
+          };
+        },
       );
       setSections(loadedSections);
       setSavedOrder(loadedSections.map((s) => s.key));

@@ -529,7 +529,8 @@ export function FolderSharingPanel({
                 <option value="">{t.select}</option>
                 {shareableCoworkers.map((coworker) => (
                   <option key={coworker.userId} value={coworker.userId}>
-                    {coworker.username || coworker.email}
+                    {coworker.username || coworker.email} ·{" "}
+                    {coworker.archiveLevel === "ADMIN" ? "Admin" : locale === "nb" ? "Kan se" : "Viewer"}
                   </option>
                 ))}
               </select>
