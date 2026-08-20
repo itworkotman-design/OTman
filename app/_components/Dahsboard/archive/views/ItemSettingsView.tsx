@@ -8,7 +8,34 @@ import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntityS
 import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
 import { ContentSectionList } from "@/app/_components/Dahsboard/archive/ContentSectionList";
 import { SaveToast } from "@/app/_components/Dahsboard/archive/SaveToast";
+import { FolderSharingPanel } from "@/app/_components/Dahsboard/archive/FolderSharingPanel";
+import type {
+  ArchiveCoworker,
+  ArchivePermissionAction,
+  ArchivePermissionRule,
+  ArchivePermissionSubjectType,
+  ArchiveRoleOption,
+  FolderDefaultAccessRow,
+} from "@/app/_components/Dahsboard/archive/FolderSharingPanel";
 import type { ArchiveItemSummary } from "@/app/_components/Dahsboard/archive/types";
+
+// Denies a person's default (Admin/Viewer role) access on this exact item —
+// the only way to exclude someone whose access comes from the company
+// default (see grantDefaultRoleAccessOnRootFolder in
+// lib/docArchive/context.ts, inherited down through the item's containing
+// folder) rather than a local grant. Mirrors FolderSettingsView.tsx's own
+// DEFAULT_ACCESS_DENY_ACTIONS exactly.
+const DEFAULT_ACCESS_DENY_ACTIONS: ArchivePermissionAction[] = [
+  "view",
+  "create",
+  "upload",
+  "edit",
+  "delete",
+  "restore",
+  "move",
+  "manage_metadata",
+  "manage_status",
+];
 
 type ArchiveItemDetail = ArchiveItemSummary & {
   reminderDescription: string | null;
@@ -47,6 +74,15 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
   const [savedToastKey, setSavedToastKey] = useState(0);
   const [showSavedToast, setShowSavedToast] = useState(false);
 
+  const [canManageSharing, setCanManageSharing] = useState(false);
+  const [permissionRules, setPermissionRules] = useState<ArchivePermissionRule[]>([]);
+  const [defaultAccess, setDefaultAccess] = useState<FolderDefaultAccessRow[]>([]);
+  const [coworkers, setCoworkers] = useState<ArchiveCoworker[]>([]);
+  const [roles, setRoles] = useState<ArchiveRoleOption[]>([]);
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState("");
+  const [revokingSubject, setRevokingSubject] = useState<string | null>(null);
+
   function triggerSavedToast() {
     setSavedToastKey((key) => key + 1);
     setShowSavedToast(true);
@@ -81,6 +117,152 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, hasAccess, itemId]);
 
+  async function loadSharing() {
+    try {
+      const [rulesRes, coworkersRes, rolesRes] = await Promise.all([
+        fetch(`/api/archive/items/${itemId}/permissions`, { credentials: "include", cache: "no-store" }),
+        fetch("/api/archive/coworkers", { credentials: "include", cache: "no-store" }),
+        fetch("/api/archive/roles", { credentials: "include", cache: "no-store" }),
+      ]);
+
+      const rulesData = await rulesRes.json().catch(() => null);
+
+      if (!rulesRes.ok || !rulesData?.ok) {
+        setCanManageSharing(false);
+        return;
+      }
+
+      setCanManageSharing(true);
+      setPermissionRules(rulesData.rules ?? []);
+      setDefaultAccess(
+        ((rulesData.effectiveAccess ?? []) as { userId: string; source: string }[])
+          .filter((row): row is { userId: string; source: "admin-role" | "viewer-role" } =>
+            row.source === "admin-role" || row.source === "viewer-role",
+          )
+          .map((row) => ({ userId: row.userId, source: row.source })),
+      );
+
+      const coworkersData = await coworkersRes.json().catch(() => null);
+      if (coworkersRes.ok && coworkersData?.ok) {
+        setCoworkers(coworkersData.coworkers ?? []);
+      }
+
+      const rolesData = await rolesRes.json().catch(() => null);
+      if (rolesRes.ok && rolesData?.ok) {
+        setRoles(rolesData.roles ?? []);
+      }
+    } catch {
+      setCanManageSharing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!hasAccess) return;
+    if (!itemId) return;
+    void loadSharing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, hasAccess, itemId]);
+
+  async function handleGrantShare(
+    subjectType: ArchivePermissionSubjectType,
+    subjectId: string,
+    alsoManageSharing: boolean,
+  ): Promise<boolean> {
+    try {
+      setSharing(true);
+      setShareError("");
+
+      const res = await fetch(`/api/archive/items/${itemId}/permissions`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subjectType, subjectId, alsoManageSharing }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setShareError(data?.reason || "Failed to share item");
+        return false;
+      }
+
+      await loadSharing();
+      return true;
+    } catch {
+      setShareError("Failed to share item");
+      return false;
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function handleRevokeShare(
+    subjectType: ArchivePermissionSubjectType,
+    subjectId: string,
+    actions: ArchivePermissionAction[],
+  ) {
+    if (!confirm(locale === "nb" ? "Fjerne denne tilgangen?" : "Remove this access?")) return;
+
+    try {
+      setRevokingSubject(subjectId);
+      setShareError("");
+
+      const res = await fetch(`/api/archive/items/${itemId}/permissions`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subjectType, subjectId, actions }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setShareError(data?.reason || "Failed to remove access");
+        return;
+      }
+
+      await loadSharing();
+    } catch {
+      setShareError("Failed to remove access");
+    } finally {
+      setRevokingSubject(null);
+    }
+  }
+
+  async function handleRemoveDefaultAccess(userId: string): Promise<boolean> {
+    if (!confirm(locale === "nb" ? "Fjerne denne tilgangen?" : "Remove this access?")) return false;
+
+    try {
+      setShareError("");
+
+      const res = await fetch(`/api/archive/items/${itemId}/permissions`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subjectType: "user",
+          subjectId: userId,
+          actions: DEFAULT_ACCESS_DENY_ACTIONS,
+          effect: "deny",
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setShareError(data?.reason || "Failed to remove access");
+        return false;
+      }
+
+      await loadSharing();
+      return true;
+    } catch {
+      setShareError("Failed to remove access");
+      return false;
+    }
+  }
+
   async function handleItemSettingsSaved() {
     await loadItem();
     triggerSavedToast();
@@ -96,8 +278,36 @@ export function ItemSettingsView({ itemId, codePath }: { itemId: string; codePat
     );
   }
 
+  const sharingContent = (
+    <FolderSharingPanel
+      locale={locale}
+      entityKind="item"
+      ownerUserId={item?.ownerUserId ?? null}
+      currentUserId={currentUser?.id}
+      permissionRules={permissionRules}
+      defaultAccess={defaultAccess}
+      coworkers={coworkers}
+      roles={roles}
+      sharing={sharing}
+      shareError={shareError}
+      revokingSubject={revokingSubject}
+      onGrant={handleGrantShare}
+      onRevoke={(subjectType, subjectId, actions) => void handleRevokeShare(subjectType, subjectId, actions)}
+      onRemoveDefaultAccess={handleRemoveDefaultAccess}
+    />
+  );
+
   const itemControlTabs = item
     ? [
+        ...(canManageSharing
+          ? [
+              {
+                id: "permissions",
+                title: locale === "nb" ? "Deling" : "Permissions",
+                content: sharingContent,
+              },
+            ]
+          : []),
         {
           id: "details",
           title: locale === "nb" ? "Detaljer" : "Details",

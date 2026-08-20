@@ -126,13 +126,15 @@ export async function grantFolderCreatorCapabilities(
   }
 }
 
-// Everything the Admin role gets by default on a root folder — deliberately
-// NOT manage_permissions, so only the folder's owner (or someone they
+// Everything an Archive-Admin gets by default — deliberately NOT
+// manage_permissions, so only a folder/item's owner (or someone they
 // explicitly co-share full access with) can change who's allowed on it. If
 // Admin also got manage_permissions here, any company admin could undo
-// another admin's per-folder override, and "the owner decides" wouldn't
-// actually be true.
-const ADMIN_DEFAULT_ROLE_ACTIONS: ArchivePermissionAction[] = [
+// another admin's override, and "the owner decides" wouldn't actually be
+// true. Exported so lib/docArchive/groupShareExpansion.ts can grant the same
+// bundle to a group's individual Admin members (never a single role-level
+// row for a mixed group — see that file's header comment).
+export const ARCHIVE_ADMIN_ACTIONS: ArchivePermissionAction[] = [
   "view",
   "create",
   "upload",
@@ -144,23 +146,30 @@ const ADMIN_DEFAULT_ROLE_ACTIONS: ArchivePermissionAction[] = [
   "manage_status",
 ];
 
-// Grants the tenant's two durable roles (see lib/docArchive/tenantRoles.ts)
-// default access on a newly created ROOT folder: Admin -> allow the bundle
-// above, Viewer -> allow view. Subfolders need no grant of their own to
-// inherit this — the package's nearest-wins ancestor-chain resolver falls
-// through to whatever rule an ancestor has when a descendant has none of
-// its own (verified against effective-authorization.js), so these two rows
-// cascade to the whole tree beneath this folder automatically. A folder
-// owner overrides per-folder by adding a local deny for a specific person
-// through the Sharing panel (see FolderSharingPanel.tsx) — there is no
-// separate "restricted" flag; removal IS the override.
+export const ARCHIVE_VIEWER_ACTIONS: ArchivePermissionAction[] = ["view"];
+
+// Grants the tenant's Admin role (see lib/docArchive/tenantRoles.ts) default
+// access on a newly created ROOT folder — every company Archive-Admin can
+// see and edit every root folder and everything under it, full stop.
+// Viewers get NO automatic access anywhere; they only ever gain access
+// through an explicit share (individual or group), same as any other
+// company member — see FolderSharingPanel.tsx. Subfolders need no grant of
+// their own to inherit the Admin default — the package's nearest-wins
+// ancestor-chain resolver falls through to whatever rule an ancestor has
+// when a descendant has none of its own (verified against
+// effective-authorization.js), so this one row cascades to the whole tree
+// beneath this folder automatically. There is no "remove this person"
+// override for it: access here is purely additive (you either have a rule
+// granting you in somewhere on the chain, or you don't) — if a specific
+// Admin shouldn't see a given root folder's contents, that's a User
+// Management role change, not a per-folder exclusion.
 export async function grantDefaultRoleAccessOnRootFolder(
   ctx: ArchiveContextInput,
   rootFolderId: string,
 ): Promise<void> {
-  const { adminRoleId, viewerRoleId } = await ensureArchiveTenantRoles(ctx);
+  const { adminRoleId } = await ensureArchiveTenantRoles(ctx);
 
-  for (const action of ADMIN_DEFAULT_ROLE_ACTIONS) {
+  for (const action of ARCHIVE_ADMIN_ACTIONS) {
     const result = await archive.setPermissionRule(ctx, {
       targetType: "folder",
       targetId: rootFolderId,
@@ -175,21 +184,6 @@ export async function grantDefaultRoleAccessOnRootFolder(
         `Failed to grant Admin role "${action}" on root folder: ${result.error.message}`,
       );
     }
-  }
-
-  const viewerResult = await archive.setPermissionRule(ctx, {
-    targetType: "folder",
-    targetId: rootFolderId,
-    subjectType: "role",
-    subjectId: viewerRoleId,
-    action: "view",
-    effect: "allow",
-  });
-
-  if (!viewerResult.ok) {
-    throw new Error(
-      `Failed to grant Viewer role view on root folder: ${viewerResult.error.message}`,
-    );
   }
 }
 

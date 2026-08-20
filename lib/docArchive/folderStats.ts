@@ -138,6 +138,10 @@ type ViewRuleRow = {
   effect: "allow" | "deny";
 };
 
+// Not filtered by targetType — chain target ids are unique uuids regardless
+// of whether they name a folder or an item (see getItemAncestorChain), so a
+// single query correctly covers both a folder-only chain and a chain that
+// starts with an item.
 async function getViewRules(
   companyId: string,
   tenantId: string,
@@ -149,7 +153,7 @@ async function getViewRules(
     `
     SELECT "targetId" AS "targetId", "subjectType" AS "subjectType", "subjectId" AS "subjectId", "effect" AS "effect"
     FROM archive."archive_permissions"
-    WHERE "companyId" = $1 AND "tenantId" = $2 AND "targetType" = 'folder'
+    WHERE "companyId" = $1 AND "tenantId" = $2
       AND "action" = 'view' AND "revokedAt" IS NULL AND "targetId" = ANY($3::text[])
     `,
     companyId,
@@ -332,31 +336,24 @@ export async function getViewableFolderIds(
 
 export type FolderEffectiveViewer = {
   userId: string;
-  // Which folder in the chain (this folder itself, or an ancestor) made the
-  // decision — lets a caller tell "local to this folder" from "inherited".
+  // Which target in the chain (the folder/item itself, or an ancestor) made
+  // the decision — lets a caller tell "local to this target" from
+  // "inherited".
   decidedByTargetId: string;
   decidedBySubjectType: "user" | "role";
   // The direct-user id, or the role id, whose rule actually decided.
   decidedBySubjectId: string;
 };
 
-// Every platform user who effectively holds `view` on this one folder, with
-// which rule decided it — lib/docArchive/folderAccessList.ts's "who
-// currently has access" list (surfaced in FolderSharingPanel.tsx) needs not
-// just a count (getFolderViewerCounts above) but WHO and via WHAT, so
-// "remove" can target the right subject. Same chain-walk/decision rule as
-// getFolderViewerCounts, just for one folder and returning the decision
-// instead of only counting it.
-export async function getFolderEffectiveViewers(
+// Shared by getFolderEffectiveViewers and getItemEffectiveViewers below —
+// everything past "I already have a valid chain" is identical for a folder
+// target and an item target (an item's chain is just its own id prepended
+// to its containing folder's chain — see getItemAncestorChain).
+async function getEffectiveViewersForChain(
   companyId: string,
   tenantId: string,
-  folderId: string,
+  chain: string[],
 ): Promise<FolderEffectiveViewer[]> {
-  const chains = await getAncestorChains(companyId, tenantId, [folderId]);
-  const resolvedChain = chains.get(folderId);
-  if (!resolvedChain || !resolvedChain.valid) return [];
-
-  const chain = resolvedChain.chain;
   const rules = await getViewRules(companyId, tenantId, chain);
 
   const rulesByTarget = new Map<string, ViewRuleRow[]>();
@@ -415,4 +412,65 @@ export async function getFolderEffectiveViewers(
   }
 
   return viewers;
+}
+
+// Every platform user who effectively holds `view` on this one folder, with
+// which rule decided it — lib/docArchive/folderAccessList.ts's "who
+// currently has access" list (surfaced in FolderSharingPanel.tsx) needs not
+// just a count (getFolderViewerCounts above) but WHO and via WHAT, so
+// "remove" can target the right subject. Same chain-walk/decision rule as
+// getFolderViewerCounts, just for one folder and returning the decision
+// instead of only counting it.
+export async function getFolderEffectiveViewers(
+  companyId: string,
+  tenantId: string,
+  folderId: string,
+): Promise<FolderEffectiveViewer[]> {
+  const chains = await getAncestorChains(companyId, tenantId, [folderId]);
+  const resolvedChain = chains.get(folderId);
+  if (!resolvedChain || !resolvedChain.valid) return [];
+
+  return getEffectiveViewersForChain(companyId, tenantId, resolvedChain.chain);
+}
+
+// An item's own chain, nearest-first: the item itself, then its containing
+// folder's own ancestor chain. Mirrors AncestorChain's contract (see
+// getAncestorChains) — `valid` is false if the item itself is missing/
+// deleted, or if its containing folder's own chain is invalid.
+export async function getItemAncestorChain(
+  companyId: string,
+  tenantId: string,
+  itemId: string,
+): Promise<AncestorChain | null> {
+  const itemRows = await db.$queryRawUnsafe<{ id: string; folderId: string; deletedAt: string | null }[]>(
+    `SELECT "id" AS "id", "folderId" AS "folderId", "deletedAt" AS "deletedAt" FROM archive."archive_items" WHERE "companyId" = $1 AND "tenantId" = $2 AND "id" = $3`,
+    companyId,
+    tenantId,
+    itemId,
+  );
+  const item = itemRows[0];
+  if (!item) return null;
+
+  const folderChains = await getAncestorChains(companyId, tenantId, [item.folderId]);
+  const folderChain = folderChains.get(item.folderId);
+  if (!folderChain) return { chain: [itemId], valid: false };
+
+  return {
+    chain: [itemId, ...folderChain.chain],
+    valid: folderChain.valid && item.deletedAt === null,
+  };
+}
+
+// The item-level counterpart to getFolderEffectiveViewers — same "who has
+// view, and via what rule" computation, starting from an item's own chain
+// instead of a folder's.
+export async function getItemEffectiveViewers(
+  companyId: string,
+  tenantId: string,
+  itemId: string,
+): Promise<FolderEffectiveViewer[]> {
+  const resolvedChain = await getItemAncestorChain(companyId, tenantId, itemId);
+  if (!resolvedChain || !resolvedChain.valid) return [];
+
+  return getEffectiveViewersForChain(companyId, tenantId, resolvedChain.chain);
 }

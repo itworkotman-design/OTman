@@ -3,9 +3,21 @@ import type { ArchivePermissionAction, ArchivePermissionEffect, ArchivePermissio
 import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
-import { listEffectiveFolderAccess } from "@/lib/docArchive/folderAccessList";
+import { listEffectiveItemAccess } from "@/lib/docArchive/folderAccessList";
 import { getArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
 import { actionsForArchiveLevel, expandGroupShare, getArchiveLevelForUser } from "@/lib/docArchive/groupShareExpansion";
+
+// Item-level counterpart to app/api/archive/folders/[folderId]/permissions/
+// route.ts — same shape, same VALID_ACTIONS/parse helpers, just targeting
+// "item" instead of "folder". Lets an owner share (or explicitly deny) one
+// item without touching the rest of its containing folder: since an item's
+// access is resolved the same nearest-wins way as a folder's (item -> its
+// folder -> ... -> root), a direct item-level allow is enough for someone
+// to open that one item via readItem/the "Shared with me" id-based route,
+// while listChildFolders/listItemsInFolder still gate the folder itself —
+// they still can't browse the folder's other contents unless separately
+// shared. See lib/docArchive/folderStats.ts's getItemEffectiveViewers/
+// getItemAncestorChain for the read side of this.
 
 const VALID_ACTIONS: ArchivePermissionAction[] = [
   "view",
@@ -24,17 +36,10 @@ const VALID_SUBJECT_TYPES: ArchivePermissionSubjectType[] = ["user", "role"];
 
 // An explicit action list is sent by two flows: the DELETE handler below
 // (revoking a specific direct/group-derived grant) and the "remove this
-// admin from this folder's default access" deny flow (see
-// FolderSettingsView.tsx's DEFAULT_ACCESS_DENY_ACTIONS) — the latter is the
-// one deliberate exception to "access is purely additive": an owner can
-// deny a specific company Admin on their folder even though that Admin's
-// access comes from the role default, not a row of their own. Viewers never
-// get a default to deny in the first place (see
-// grantDefaultRoleAccessOnRootFolder in context.ts) — they're only ever
-// added, and "remove" for them is always a real revoke (DELETE) of their
-// direct/group-derived row. A normal grant omits `actions` entirely and
-// lets the server derive it from the subject's own current Archive role —
-// see the POST handler below.
+// admin from this item's default access" deny flow — the one deliberate
+// exception to "access is purely additive" (see the folder-level route's
+// header comment for the full rationale). Viewers never get a default to
+// deny; a normal grant omits `actions` and lets the server derive it.
 function parseActions(body: unknown): ArchivePermissionAction[] | null {
   const raw = (body as { actions?: unknown } | null)?.actions;
   if (!Array.isArray(raw) || raw.length === 0) return null;
@@ -50,10 +55,8 @@ function parseSubjectType(body: unknown): ArchivePermissionSubjectType {
   return "user";
 }
 
-// Only "allow"/"deny". Deny is deliberately narrow — see parseActions above
-// — the caller (FolderSettingsView.tsx) only ever sends it for the
-// "remove this admin from my folder" flow, always paired with
-// subjectType: "user" and explicit actions; a normal share never sends it.
+// Only "allow"/"deny" — "remove" from the Sharing panel is a deny grant
+// (see POST below and FolderSharingPanel.tsx), not a distinct verb.
 function parseEffect(body: unknown): ArchivePermissionEffect {
   const raw = (body as { effect?: unknown } | null)?.effect;
   return raw === "deny" ? "deny" : "allow";
@@ -61,17 +64,17 @@ function parseEffect(body: unknown): ArchivePermissionEffect {
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ folderId: string }> },
+  { params }: { params: Promise<{ itemId: string }> },
 ) {
   const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
-  const { folderId } = await params;
+  const { itemId } = await params;
   const ctx = buildArchiveContext(result.session, result.membership);
 
-  const [listResult, folderResult] = await Promise.all([
-    archive.listPermissionRules(ctx, { targetType: "folder", targetId: folderId }),
-    archive.readFolder(ctx, folderId),
+  const [listResult, itemResult] = await Promise.all([
+    archive.listPermissionRules(ctx, { targetType: "item", targetId: itemId }),
+    archive.readItem(ctx, itemId),
   ]);
 
   if (!listResult.ok) {
@@ -81,24 +84,17 @@ export async function GET(
     );
   }
 
-  // "Who effectively has access" (including via the Admin/Viewer role
-  // default, not just rows local to this folder) needs the folder's owner
-  // to label ownership correctly — best-effort: a failed readFolder here
-  // (shouldn't happen, the caller just proved manage_permissions on this
-  // exact folder) degrades to an empty effective-access list rather than
-  // failing the whole response, since permissionRules alone is still usable.
-  const effectiveAccess = folderResult.ok
-    ? await listEffectiveFolderAccess(ctx.companyId, ctx.tenantId, folderId, folderResult.value.ownerUserId)
+  // Best-effort — a failed readItem here (shouldn't happen, the caller just
+  // proved manage_permissions on this exact item) degrades to an empty
+  // effective-access list rather than failing the whole response, since
+  // permissionRules alone is still usable.
+  const effectiveAccess = itemResult.ok
+    ? await listEffectiveItemAccess(ctx.companyId, ctx.tenantId, itemId, itemResult.value.ownerUserId)
     : [];
 
-  // The two system roles (see lib/docArchive/tenantRoles.ts) have real
-  // local ArchivePermission rows on every root folder — that's how the
-  // default cascade works — but they aren't a user-manageable "group" like
-  // the rest of this list; they're already surfaced, correctly labeled, in
-  // effectiveAccess above ("admin-role"/"viewer-role"). Left in, they'd show
-  // up in FolderSharingPanel's generic "Groups with access" list as a raw
-  // UUID (they're excluded from /api/archive/roles' name lookup for the
-  // same reason), duplicating the "Access via company default" section.
+  // Same system-role filtering as the folder route — the two durable
+  // Admin/Viewer roles aren't a user-manageable "group", they're already
+  // surfaced (correctly labeled) in effectiveAccess.
   const systemRoleIds = await getArchiveTenantRoleIds(ctx.companyId);
   const rules = systemRoleIds
     ? listResult.value.filter(
@@ -112,22 +108,19 @@ export async function GET(
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ folderId: string }> },
+  { params }: { params: Promise<{ itemId: string }> },
 ) {
   const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
-  const { folderId } = await params;
+  const { itemId } = await params;
   const body = await req.json().catch(() => null);
   const subjectId = typeof body?.subjectId === "string" ? body.subjectId.trim() : "";
   const subjectType = parseSubjectType(body);
   const explicitActions = parseActions(body);
   const alsoManageSharing = body?.alsoManageSharing === true;
-  // Deny is only ever valid for an individual user (removing them from the
-  // Admin default on this folder) — a group share stays purely additive
-  // regardless of what the caller sends, so a malformed/unexpected
-  // subjectType: "role" + effect: "deny" combination silently degrades to
-  // "allow" rather than denying an entire group.
+  // Deny only applies to an individual user — a group share stays purely
+  // additive regardless of what the caller sends (see the folder route).
   const effect: ArchivePermissionEffect = subjectType === "user" ? parseEffect(body) : "allow";
 
   if (!subjectId) {
@@ -136,13 +129,12 @@ export async function POST(
 
   const ctx = buildArchiveContext(result.session, result.membership);
 
-  // A group (arbitrary ArchiveRole) fans out into a direct per-member grant
-  // each, with the action bundle derived from each member's own current
-  // Archive role — see lib/docArchive/groupShareExpansion.ts's header
-  // comment for why one role-level row can't do this for a mixed group.
+  // A group fans out into a direct per-member grant each, with the action
+  // bundle derived from each member's own current Archive role — see
+  // lib/docArchive/groupShareExpansion.ts.
   if (!explicitActions && subjectType === "role") {
     try {
-      const { adminCount, viewerCount } = await expandGroupShare(ctx, subjectId, "folder", folderId, alsoManageSharing);
+      const { adminCount, viewerCount } = await expandGroupShare(ctx, subjectId, "item", itemId, alsoManageSharing);
       return NextResponse.json({ ok: true, adminCount, viewerCount });
     } catch (error) {
       return NextResponse.json(
@@ -153,14 +145,13 @@ export async function POST(
   }
 
   // A plain user grant with no explicit actions: derive the bundle from
-  // their own current Archive role, same as the group fan-out above does
-  // per member — capability is never picked ad hoc per share.
+  // their own current Archive role.
   const actions = explicitActions ?? actionsForArchiveLevel(await getArchiveLevelForUser(ctx.companyId, subjectId), alsoManageSharing);
 
   for (const action of actions) {
     const setResult = await archive.setPermissionRule(ctx, {
-      targetType: "folder",
-      targetId: folderId,
+      targetType: "item",
+      targetId: itemId,
       subjectType,
       subjectId,
       action,
@@ -180,12 +171,12 @@ export async function POST(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ folderId: string }> },
+  { params }: { params: Promise<{ itemId: string }> },
 ) {
   const result = await requireArchiveMembership(req, { requireAdmin: true });
   if ("error" in result) return result.error;
 
-  const { folderId } = await params;
+  const { itemId } = await params;
   const body = await req.json().catch(() => null);
   const subjectId = typeof body?.subjectId === "string" ? body.subjectId.trim() : "";
   const subjectType = parseSubjectType(body);
@@ -199,8 +190,8 @@ export async function DELETE(
 
   for (const action of actions) {
     const revokeResult = await archive.revokePermissionRule(ctx, {
-      targetType: "folder",
-      targetId: folderId,
+      targetType: "item",
+      targetId: itemId,
       subjectType,
       subjectId,
       action,

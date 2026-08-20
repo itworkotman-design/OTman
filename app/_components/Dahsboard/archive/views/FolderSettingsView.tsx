@@ -79,7 +79,6 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
   const [defaultAccess, setDefaultAccess] = useState<FolderDefaultAccessRow[]>([]);
   const [coworkers, setCoworkers] = useState<ArchiveCoworker[]>([]);
   const [roles, setRoles] = useState<ArchiveRoleOption[]>([]);
-  const [canShareWithRoles, setCanShareWithRoles] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState("");
   const [revokingSubject, setRevokingSubject] = useState<string | null>(null);
@@ -163,10 +162,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
 
       const rolesData = await rolesRes.json().catch(() => null);
       if (rolesRes.ok && rolesData?.ok) {
-        setCanShareWithRoles(true);
         setRoles(rolesData.roles ?? []);
-      } else {
-        setCanShareWithRoles(false);
       }
     } catch {
       setCanManageSharing(false);
@@ -184,7 +180,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
   async function handleGrantShare(
     subjectType: ArchivePermissionSubjectType,
     subjectId: string,
-    actions: ArchivePermissionAction[],
+    alsoManageSharing: boolean,
   ): Promise<boolean> {
     try {
       setSharing(true);
@@ -194,7 +190,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subjectType, subjectId, actions }),
+        body: JSON.stringify({ subjectType, subjectId, alsoManageSharing }),
       });
 
       const data = await res.json().catch(() => null);
@@ -347,7 +343,6 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
       defaultAccess={defaultAccess}
       coworkers={coworkers}
       roles={roles}
-      canShareWithRoles={canShareWithRoles}
       sharing={sharing}
       shareError={shareError}
       revokingSubject={revokingSubject}

@@ -29,6 +29,12 @@ export type ArchiveCoworker = {
   userId: string;
   email: string;
   username: string | null;
+  // Their company-wide ARCHIVE module level (User Management), not a
+  // per-share choice — sharing directly with a coworker always gives them
+  // the same kind of access their role already implies everywhere else
+  // (Admin -> can edit, Viewer -> can only view), never something picked
+  // ad hoc per folder/item. See actionsForCoworker below.
+  archiveLevel: "ADMIN" | "VIEWER";
 };
 
 export type ArchiveRoleOption = {
@@ -75,7 +81,6 @@ const CONTRIBUTOR_ACTIONS: ArchivePermissionAction[] = [
 const FULL_ACTIONS: ArchivePermissionAction[] = [...CONTRIBUTOR_ACTIONS, "manage_permissions"];
 
 type AccessLevel = "full" | "contributor" | "viewer" | "custom";
-type GrantLevel = Exclude<AccessLevel, "custom">;
 
 function sameActionSet(a: ArchivePermissionAction[], b: ArchivePermissionAction[]) {
   if (a.length !== b.length) return false;
@@ -119,8 +124,8 @@ const ACCESS_LEVEL_META: Record<
     nb: "Kan se",
     badgeClass: "bg-black/5 text-textColorSecond",
     description: {
-      en: "Can only view this folder's contents.",
-      nb: "Kan kun se innholdet i denne mappen.",
+      en: "Can only view, not edit.",
+      nb: "Kan kun se, ikke redigere.",
     },
   },
   custom: {
@@ -138,10 +143,12 @@ function AccessBadge({
   actions,
   effect,
   locale,
+  entityKind,
 }: {
   actions: ArchivePermissionAction[];
   effect: ArchivePermissionEffect;
   locale: string;
+  entityKind: "folder" | "item";
 }) {
   // A deny rule (e.g. from removing someone from the Admin/Viewer default —
   // see FolderSettingsView.tsx's handleRemoveDefaultAccess) shares its
@@ -150,14 +157,18 @@ function AccessBadge({
   // would show the same green "Contributor" badge as someone with real
   // access, which is actively misleading.
   if (effect === "deny") {
+    const blockedTooltip =
+      entityKind === "item"
+        ? locale === "nb"
+          ? "Eksplisitt fjernet fra dette elementet."
+          : "Explicitly blocked from this item."
+        : locale === "nb"
+          ? "Eksplisitt fjernet fra denne mappen (og alt inni den)."
+          : "Explicitly blocked from this folder (and everything inside it).";
     return (
       <span
         className="inline-flex shrink-0 items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700"
-        title={
-          locale === "nb"
-            ? "Eksplisitt fjernet fra denne mappen (og alt inni den)."
-            : "Explicitly blocked from this folder (and everything inside it)."
-        }
+        title={blockedTooltip}
       >
         {locale === "nb" ? "Fjernet" : "Blocked"}
       </span>
@@ -180,10 +191,13 @@ function levelRank(actions: ArchivePermissionAction[]) {
   return ACCESS_LEVEL_ORDER.indexOf(classifyAccess(actions));
 }
 
-function actionsForGrant(level: GrantLevel, alsoManageSharing: boolean): ArchivePermissionAction[] {
-  if (level === "full") return FULL_ACTIONS;
-  const base = level === "contributor" ? CONTRIBUTOR_ACTIONS : VIEWER_ACTIONS;
-  return alsoManageSharing ? [...base, "manage_permissions"] : base;
+// Preview only — what a coworker/group member will actually be granted is
+// always derived server-side (see the permissions route's POST handler and
+// lib/docArchive/groupShareExpansion.ts), never computed or trusted from the
+// client. This just mirrors that same rule for the "will get: X" badge next
+// to the picker, so the owner sees the real outcome before clicking Share.
+function previewActionsForLevel(level: "ADMIN" | "VIEWER"): ArchivePermissionAction[] {
+  return level === "ADMIN" ? CONTRIBUTOR_ACTIONS : VIEWER_ACTIONS;
 }
 
 type SharedSubject = {
@@ -199,20 +213,34 @@ type SharedSubject = {
 
 type FolderSharingPanelProps = {
   locale: string;
+  // Adjusts a handful of user-facing strings ("this folder (and everything
+  // inside it)" vs. "this item") — everything else (owner row, access
+  // levels, grant form) reads identically for both. Defaults to "folder" so
+  // existing callers don't need to change.
+  entityKind?: "folder" | "item";
   ownerUserId: string | null;
   currentUserId?: string;
   permissionRules: ArchivePermissionRule[];
   defaultAccess?: FolderDefaultAccessRow[];
   coworkers: ArchiveCoworker[];
+  // Shareable groups (arbitrary named ArchiveRoles — see
+  // ArchiveRolesPanel.tsx). Sharing with one fans out server-side into a
+  // direct grant per current member, each derived from THAT member's own
+  // Archive role (see lib/docArchive/groupShareExpansion.ts) — a group with
+  // a mix of Admins and Viewers correctly gives each their own real
+  // capability, never one level applied to everyone.
   roles: ArchiveRoleOption[];
-  canShareWithRoles: boolean;
   sharing: boolean;
   shareError: string;
   revokingSubject: string | null;
+  // No `actions` param — capability is never chosen on the client. The
+  // server derives it per subject (per member, for a group) from their
+  // current Archive role; `alsoManageSharing` is the one thing that stays
+  // an explicit owner choice, independent of role.
   onGrant: (
     subjectType: ArchivePermissionSubjectType,
     subjectId: string,
-    actions: ArchivePermissionAction[],
+    alsoManageSharing: boolean,
   ) => Promise<boolean>;
   onRevoke: (
     subjectType: ArchivePermissionSubjectType,
@@ -234,13 +262,13 @@ type FolderSharingPanelProps = {
 // "who has access via this group" was previously invisible from this panel.
 export function FolderSharingPanel({
   locale,
+  entityKind = "folder",
   ownerUserId,
   currentUserId,
   permissionRules,
   defaultAccess,
   coworkers,
   roles,
-  canShareWithRoles,
   sharing,
   shareError,
   revokingSubject,
@@ -251,7 +279,6 @@ export function FolderSharingPanel({
   const [shareTargetType, setShareTargetType] = useState<ArchivePermissionSubjectType>("user");
   const [shareUserId, setShareUserId] = useState("");
   const [shareRoleId, setShareRoleId] = useState("");
-  const [shareLevel, setShareLevel] = useState<GrantLevel>("viewer");
   const [shareCanManageSharing, setShareCanManageSharing] = useState(false);
   const [removingDefaultAccessFor, setRemovingDefaultAccessFor] = useState<string | null>(null);
 
@@ -291,8 +318,7 @@ export function FolderSharingPanel({
     const subjectId = shareTargetType === "role" ? shareRoleId : shareUserId;
     if (!subjectId) return;
 
-    const actions = actionsForGrant(shareLevel, shareLevel !== "full" && shareCanManageSharing);
-    const ok = await onGrant(shareTargetType, subjectId, actions);
+    const ok = await onGrant(shareTargetType, subjectId, shareCanManageSharing);
     if (ok) {
       setShareUserId("");
       setShareRoleId("");
@@ -325,7 +351,8 @@ export function FolderSharingPanel({
   const shareableCoworkers = coworkers.filter(
     (c) => c.userId !== ownerUserId && !userSubjects.some((s) => s.subjectId === c.userId),
   );
-  const shareableRoles = roles.filter((r) => !roleSubjects.some((s) => s.subjectId === r.id));
+  const selectedCoworker = shareableCoworkers.find((c) => c.userId === shareUserId) ?? null;
+  const selectedRole = roles.find((r) => r.id === shareRoleId) ?? null;
 
   function labelForUser(userId: string) {
     if (userId === currentUserId) return locale === "nb" ? "Deg" : "You";
@@ -349,14 +376,26 @@ export function FolderSharingPanel({
     group: locale === "nb" ? "Gruppe" : "Group",
     select: locale === "nb" ? "Velg..." : "Select...",
     accessLevel: locale === "nb" ? "Tilgangsnivå" : "Access level",
+    fromRole:
+      locale === "nb"
+        ? "fra deres administratortilgang"
+        : "from their Archive role",
+    perMemberHint:
+      locale === "nb"
+        ? "Hvert medlem får sitt eget faktiske tilgangsnivå (administrator -> kan redigere, seer -> kan kun se)."
+        : "Each member gets their own real access level (Admin -> can edit, Viewer -> can only view).",
     alsoManageSharing: locale === "nb" ? "Kan også administrere deling" : "Can also manage sharing",
     share: locale === "nb" ? "Del" : "Share",
     sharingInProgress: locale === "nb" ? "Deler..." : "Sharing...",
     owner: locale === "nb" ? "Eier" : "Owner",
     ownerNote:
-      locale === "nb"
-        ? "Opprettet denne mappen og har alltid full tilgang."
-        : "Created this folder and always has full access.",
+      entityKind === "item"
+        ? locale === "nb"
+          ? "Opprettet dette elementet og har alltid full tilgang."
+          : "Created this item and always has full access."
+        : locale === "nb"
+          ? "Opprettet denne mappen og har alltid full tilgang."
+          : "Created this folder and always has full access.",
     usersHeading: locale === "nb" ? "Kolleger med tilgang" : "Users with access",
     noUsers: locale === "nb" ? "Ingen kolleger har fått tilgang direkte ennå" : "No users have been individually granted access yet",
     groupsHeading: locale === "nb" ? "Grupper med tilgang" : "Groups with access",
@@ -369,18 +408,16 @@ export function FolderSharingPanel({
     members: locale === "nb" ? "medlemmer" : "members",
     defaultAccessHeading: locale === "nb" ? "Tilgang via firmaets standard" : "Access via company default",
     defaultAccessHint:
-      locale === "nb"
-        ? "Alle administratorer og seere har tilgang til denne mappen som standard. Fjern noen her for å utelukke dem fra kun denne mappen (og alt inni den)."
-        : "Every company Admin and Viewer has access to this folder by default. Remove someone here to exclude them from just this folder (and everything inside it).",
+      entityKind === "item"
+        ? locale === "nb"
+          ? "Alle administratorer har tilgang til dette elementet som standard (arvet fra mappen det ligger i). Fjern noen her for å utelukke dem fra kun dette elementet."
+          : "Every company Admin has access to this item by default (inherited from its containing folder). Remove someone here to exclude them from just this item."
+        : locale === "nb"
+          ? "Alle administratorer har tilgang til denne mappen som standard. Fjern noen her for å utelukke dem fra kun denne mappen (og alt inni den)."
+          : "Every company Admin has access to this folder by default. Remove someone here to exclude them from just this folder (and everything inside it).",
     viaAdmin: locale === "nb" ? "Via administratortilgang" : "Via Admin access",
     viaViewer: locale === "nb" ? "Via seertilgang" : "Via Viewer access",
   };
-
-  const levelOptions: { value: GrantLevel; label: string }[] = [
-    { value: "viewer", label: locale === "nb" ? ACCESS_LEVEL_META.viewer.nb : ACCESS_LEVEL_META.viewer.en },
-    { value: "contributor", label: locale === "nb" ? ACCESS_LEVEL_META.contributor.nb : ACCESS_LEVEL_META.contributor.en },
-    { value: "full", label: locale === "nb" ? ACCESS_LEVEL_META.full.nb : ACCESS_LEVEL_META.full.en },
-  ];
 
   const roleGroupPanelItems = roleSubjects.map((subject) => {
     const assignments = roleAssignments[subject.subjectId] ?? [];
@@ -392,7 +429,7 @@ export function FolderSharingPanel({
       subtitle: memberCount === null ? "" : memberCount === 1 ? `1 ${t.member}` : `${memberCount} ${t.members}`,
       headerActions: (
         <div className="flex shrink-0 items-center gap-2">
-          <AccessBadge actions={subject.actions} effect={subject.effect} locale={locale} />
+          <AccessBadge actions={subject.actions} effect={subject.effect} locale={locale} entityKind={entityKind} />
           <button
             type="button"
             className="shrink-0 rounded-full border border-lineSecondary px-3.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
@@ -430,7 +467,7 @@ export function FolderSharingPanel({
       <div className="rounded-xl border border-lineSecondary p-4">
         <h3 className="mb-3 text-sm font-semibold text-textColorThird">{t.grantHeading}</h3>
 
-        {canShareWithRoles && (
+        {roles.length > 0 && (
           <div className="mb-3 flex gap-4 text-sm">
             <label className="flex items-center gap-2">
               <input
@@ -464,7 +501,7 @@ export function FolderSharingPanel({
                 disabled={sharing}
               >
                 <option value="">{t.select}</option>
-                {shareableRoles.map((role) => (
+                {roles.map((role) => (
                   <option key={role.id} value={role.id}>
                     {role.name}
                   </option>
@@ -490,21 +527,27 @@ export function FolderSharingPanel({
             </div>
           )}
 
-          <div className="min-w-[180] flex-1">
-            <label className="block pb-2 text-sm">{t.accessLevel}</label>
-            <select
-              className="customInput w-full"
-              value={shareLevel}
-              onChange={(e) => setShareLevel(e.target.value as GrantLevel)}
-              disabled={sharing}
-            >
-              {levelOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {shareTargetType === "user" && selectedCoworker && (
+            <div className="min-w-[180] flex-1">
+              <label className="block pb-2 text-sm">{t.accessLevel}</label>
+              <div className="flex h-10 items-center gap-2 text-sm text-textColorSecond">
+                <AccessBadge
+                  actions={previewActionsForLevel(selectedCoworker.archiveLevel)}
+                  effect="allow"
+                  locale={locale}
+                  entityKind={entityKind}
+                />
+                <span>{t.fromRole}</span>
+              </div>
+            </div>
+          )}
+
+          {shareTargetType === "role" && selectedRole && (
+            <div className="min-w-[220] flex-1">
+              <label className="block pb-2 text-sm">{t.accessLevel}</label>
+              <p className="text-xs text-textColorSecond">{t.perMemberHint}</p>
+            </div>
+          )}
 
           <button
             type="button"
@@ -516,17 +559,15 @@ export function FolderSharingPanel({
           </button>
         </div>
 
-        {shareLevel !== "full" && (
-          <label className="mt-3 flex items-center gap-2 text-sm text-textColorSecond">
-            <input
-              type="checkbox"
-              checked={shareCanManageSharing}
-              onChange={(e) => setShareCanManageSharing(e.target.checked)}
-              disabled={sharing}
-            />
-            {t.alsoManageSharing}
-          </label>
-        )}
+        <label className="mt-3 flex items-center gap-2 text-sm text-textColorSecond">
+          <input
+            type="checkbox"
+            checked={shareCanManageSharing}
+            onChange={(e) => setShareCanManageSharing(e.target.checked)}
+            disabled={sharing}
+          />
+          {t.alsoManageSharing}
+        </label>
 
         {shareError && <p className="mt-3 text-sm font-medium text-red-600">{shareError}</p>}
       </div>
@@ -586,7 +627,7 @@ export function FolderSharingPanel({
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="truncate font-medium text-textcolor">{labelForUser(subject.subjectId)}</span>
-                    <AccessBadge actions={subject.actions} effect={subject.effect} locale={locale} />
+                    <AccessBadge actions={subject.actions} effect={subject.effect} locale={locale} entityKind={entityKind} />
                   </div>
                   <button
                     type="button"

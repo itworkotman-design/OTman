@@ -28,6 +28,12 @@ export async function GET(req: Request) {
       userId: m.user.id,
       email: m.user.email,
       username: m.user.username,
+      // Drives FolderSharingPanel's action bundle when sharing with this
+      // person directly — capability always follows their real Archive
+      // role, never a level picked ad hoc per share (see
+      // grantDefaultRoleAccessOnRootFolder in lib/docArchive/context.ts for
+      // the same Admin=edit/Viewer=view rule applied to the default cascade).
+      archiveLevel: getModuleAccess(m, "ARCHIVE").level,
     }));
 
   return NextResponse.json({ ok: true, coworkers });
