@@ -62,17 +62,16 @@ export async function assignFolderCode(
 // descendant folder/item keeps its own already-assigned localSeq untouched
 // and just inherits a different (correct) path automatically, since their
 // paths are also rebuilt from the live parent chain on every read.
-// newSectionId is the destination folder's section the mover explicitly
-// picked (validated by the caller via sectionBelongsToScope before this
-// runs) — no longer defaulted to null/ungrouped, per explicit user request
-// that a move always requires choosing a section in the destination, same
-// as creating a folder/item there would.
+// newSectionId is the destination folder's section the mover picked
+// (validated by the caller via sectionBelongsToScope before this runs), or
+// null to leave the folder ungrouped in its new location — sections are
+// optional, same as at creation time.
 export async function reassignFolderCode(
   companyId: string,
   tenantId: string,
   folderId: string,
   newParentFolderId: string,
-  newSectionId: string,
+  newSectionId: string | null,
 ): Promise<number> {
   const localSeq = await nextLocalSeq("FOLDER", companyId, tenantId, newParentFolderId);
   await prisma.archiveFolderCode.update({ where: { folderId }, data: { localSeq, sectionId: newSectionId } });
@@ -102,16 +101,15 @@ export async function assignItemCode(
 // destination folder (each folder counts its own items 1, 2, 3... from
 // zero). Minting a fresh one here, scoped to the destination folder, avoids
 // that collision. newSectionId is the destination folder's section the
-// mover explicitly picked (validated by the caller via sectionBelongsToScope
-// before this runs) — no longer defaulted to null/ungrouped, per explicit
-// user request that a move always requires choosing a section, same as
-// creating an item there directly would.
+// mover picked (validated by the caller via sectionBelongsToScope before
+// this runs), or null to leave the item ungrouped in its new folder —
+// sections are optional, same as at creation time.
 export async function reassignItemCode(
   companyId: string,
   tenantId: string,
   itemId: string,
   newFolderId: string,
-  newSectionId: string,
+  newSectionId: string | null,
 ): Promise<number> {
   const localSeq = await nextLocalSeq("ITEM", companyId, tenantId, newFolderId);
   await prisma.archiveItemCode.update({ where: { itemId }, data: { localSeq, sectionId: newSectionId } });

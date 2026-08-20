@@ -14,23 +14,25 @@ export type MoveItemResult =
   | { ok: true }
   | { ok: false; reason: "ITEM_NOT_FOUND" | "DESTINATION_NOT_FOUND" | "SAME_FOLDER" | "INVALID_SECTION" };
 
-// destinationSectionId is required (not defaulted to "ungrouped") — the
-// caller (MoveEntityModal) always has the mover pick a real section inside
-// the destination folder first, same as creating an item there directly
-// would require, and validated here the same way createItem's route does
-// (sectionBelongsToScope) before anything is written.
+// destinationSectionId is optional — the mover can either pick a real
+// section inside the destination folder (validated the same way createItem's
+// route does, via sectionBelongsToScope) or pass null to land the item in
+// the destination folder's "Ungrouped" bucket, same as creating an item
+// there directly without a section would.
 export async function moveItemToFolder(
   ctx: ArchiveContextInput,
   itemId: string,
   destinationFolderId: string,
-  destinationSectionId: string,
+  destinationSectionId: string | null,
 ): Promise<MoveItemResult> {
   const itemResult = await archive.readItem(ctx, itemId);
   if (!itemResult.ok) return { ok: false, reason: "ITEM_NOT_FOUND" };
   if (itemResult.value.folderId === destinationFolderId) return { ok: false, reason: "SAME_FOLDER" };
 
-  const validSection = await sectionBelongsToScope(ctx.companyId, ctx.tenantId, destinationFolderId, destinationSectionId);
-  if (!validSection) return { ok: false, reason: "INVALID_SECTION" };
+  if (destinationSectionId) {
+    const validSection = await sectionBelongsToScope(ctx.companyId, ctx.tenantId, destinationFolderId, destinationSectionId);
+    if (!validSection) return { ok: false, reason: "INVALID_SECTION" };
+  }
 
   const moveResult = await archive.moveItem(ctx, itemId, { folderId: destinationFolderId });
   // Denials never leak in this package (unauthorized/archived-guard failures

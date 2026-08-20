@@ -16,13 +16,10 @@ export async function PATCH(
   // moveFolder.ts's file-top comment) — parentFolderId is required here,
   // not the nullable-for-root shape an earlier pass used.
   const parentFolderId = typeof body?.parentFolderId === "string" ? body.parentFolderId.trim() : "";
-  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() : "";
+  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() || null : null;
 
   if (!parentFolderId) {
     return NextResponse.json({ ok: false, reason: "FOLDER_REQUIRED" }, { status: 400 });
-  }
-  if (!sectionId) {
-    return NextResponse.json({ ok: false, reason: "SECTION_REQUIRED" }, { status: 400 });
   }
 
   const ctx = buildArchiveContext(result.session, result.membership);

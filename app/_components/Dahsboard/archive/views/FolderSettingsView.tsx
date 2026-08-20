@@ -276,7 +276,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
     }
   }
 
-  async function handleCreateItem(sectionId: string, name: string, description: string | null) {
+  async function handleCreateItem(sectionId: string | null, name: string, description: string | null) {
     try {
       const res = await fetch(`/api/archive/folders/${folderId}/items`, {
         method: "POST",
@@ -298,7 +298,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
     }
   }
 
-  async function handleCreateSubfolder(sectionId: string, name: string, description: string | null) {
+  async function handleCreateSubfolder(sectionId: string | null, name: string, description: string | null) {
     try {
       const res = await fetch("/api/archive/folders", {
         method: "POST",

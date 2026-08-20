@@ -51,18 +51,13 @@ export async function POST(req: Request) {
     typeof body?.description === "string" ? body.description.trim() || null : null;
   const parentFolderId =
     typeof body?.parentFolderId === "string" ? body.parentFolderId.trim() || null : null;
-  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() : "";
-
-  if (!sectionId) {
-    return NextResponse.json(
-      { ok: false, reason: "SECTION_REQUIRED" },
-      { status: 400 },
-    );
-  }
+  // Sections are optional — a folder can be created with no section at all
+  // (renders in the "Ungrouped" bucket) and moved into a section later.
+  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() || null : null;
 
   const ctx = buildArchiveContext(session, membership);
 
-  if (!(await sectionBelongsToScope(ctx.companyId, ctx.tenantId, parentFolderId, sectionId))) {
+  if (sectionId && !(await sectionBelongsToScope(ctx.companyId, ctx.tenantId, parentFolderId, sectionId))) {
     return NextResponse.json(
       { ok: false, reason: "INVALID_SECTION" },
       { status: 400 },

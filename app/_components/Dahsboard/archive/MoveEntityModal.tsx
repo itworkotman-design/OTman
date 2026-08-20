@@ -39,12 +39,13 @@ function errorMessage(kind: "item" | "folder", locale: string, reason: string | 
 // Destination picker for moving an item or folder — deliberately mirrors the
 // real archive browsing UI (breadcrumb + section-grouped folder list, drill
 // in/out) rather than a search box, per explicit user request, with two
-// steps: first browse to and pick a *folder*, then pick a *section* inside
-// it (sections are mandatory here, same as creating something there
-// directly would require — no more defaulting to "ungrouped"). The archive
-// root itself is never a selectable destination (see moveFolder.ts's
-// file-top comment on why root moves were removed) — you can only browse
-// through it to reach a real folder.
+// steps: first browse to and pick a *folder*, then optionally pick a
+// *section* inside it — sections are optional, same as creating something
+// there directly, so there's always an "Ungrouped" choice alongside the
+// destination's real sections. The archive root itself is never a
+// selectable destination (see moveFolder.ts's file-top comment on why root
+// moves were removed) — you can only browse through it to reach a real
+// folder.
 export function MoveEntityModal({ kind, entityId, entityName, locale, onClose, onMoved }: MoveEntityModalProps) {
   const [path, setPath] = useState<BreadcrumbEntry[]>([{ id: null, name: locale === "nb" ? "Arkiv" : "Archive" }]);
   const currentFolderId = path[path.length - 1].id;
@@ -151,7 +152,7 @@ export function MoveEntityModal({ kind, entityId, entityName, locale, onClose, o
     setError("");
   }
 
-  async function submitMove(sectionId: string) {
+  async function submitMove(sectionId: string | null) {
     if (!destination) return;
     try {
       setMoving(true);
@@ -304,23 +305,29 @@ export function MoveEntityModal({ kind, entityId, entityName, locale, onClose, o
             </button>
             <p className="mb-3 text-sm text-textColorThird">
               {locale === "nb" ? "Velg en seksjon i" : "Choose a section in"}{" "}
-              <span className="font-semibold text-textcolor">{destination.name}</span>
+              <span className="font-semibold text-textcolor">{destination.name}</span>{" "}
+              {locale === "nb" ? "(valgfritt)" : "(optional)"}
             </p>
 
             {error && <p className="mb-3 text-sm font-medium text-red-600">{error}</p>}
 
             <div className="scrollbar-always min-h-0 flex-1 overflow-y-auto">
-              {loadingSections ? (
-                <p className="py-4 text-center text-sm text-textColorThird">
-                  {locale === "nb" ? "Laster..." : "Loading..."}
-                </p>
-              ) : destinationSections.length === 0 ? (
-                <p className="py-4 text-center text-sm text-textColorThird">
-                  {locale === "nb" ? "Ingen seksjoner ennå" : "No sections yet"}
-                </p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {destinationSections.map((section) => (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  className="rounded-xl border border-lineSecondary px-4 py-3 text-left font-semibold text-textcolor transition-colors hover:border-logoblue disabled:opacity-50"
+                  onClick={() => void submitMove(null)}
+                  disabled={moving || creatingSection}
+                >
+                  {locale === "nb" ? "Ugruppert (ingen seksjon)" : "Ungrouped (no section)"}
+                </button>
+
+                {loadingSections ? (
+                  <p className="py-4 text-center text-sm text-textColorThird">
+                    {locale === "nb" ? "Laster..." : "Loading..."}
+                  </p>
+                ) : (
+                  destinationSections.map((section) => (
                     <button
                       key={section.id}
                       type="button"
@@ -330,9 +337,9 @@ export function MoveEntityModal({ kind, entityId, entityName, locale, onClose, o
                     >
                       {section.name}
                     </button>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
 
             <div className="mt-3 border-t border-lineSecondary pt-3">

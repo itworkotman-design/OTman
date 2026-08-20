@@ -13,13 +13,10 @@ export async function PATCH(
   const { itemId } = await params;
   const body = await req.json().catch(() => null);
   const folderId = typeof body?.folderId === "string" ? body.folderId.trim() : "";
-  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() : "";
+  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() || null : null;
 
   if (!folderId) {
     return NextResponse.json({ ok: false, reason: "FOLDER_REQUIRED" }, { status: 400 });
-  }
-  if (!sectionId) {
-    return NextResponse.json({ ok: false, reason: "SECTION_REQUIRED" }, { status: 400 });
   }
 
   const ctx = buildArchiveContext(result.session, result.membership);

@@ -16,8 +16,8 @@ type SectionedEntityManagerProps = {
   items?: ArchiveItemSummary[];
   renderFolderRow: (folder: ArchiveFolderSummary) => ReactNode;
   renderItemRow?: (item: ArchiveItemSummary) => ReactNode;
-  onCreateSubfolder: (sectionId: string, name: string, description: string | null) => Promise<CreateResult>;
-  onCreateItem?: (sectionId: string, name: string, description: string | null) => Promise<CreateResult>;
+  onCreateSubfolder: (sectionId: string | null, name: string, description: string | null) => Promise<CreateResult>;
+  onCreateItem?: (sectionId: string | null, name: string, description: string | null) => Promise<CreateResult>;
   // Called after a folder/item is moved into a different section, so the
   // caller can refetch its own folders/items list (which carries sectionId).
   onFoldersChanged: () => void;
@@ -95,12 +95,13 @@ function SectionAddMenu({
 }
 
 // Groups a folder's subfolders/items into named sections instead of one flat
-// "add subfolder" / "add item" pair of forms — subfolders and items can only
-// be created *into* a section (per the now-mandatory sectionId on the create
-// routes), and existing content created before this feature shipped shows
-// under a client-only "Ungrouped" bucket with a "Move to..." picker rather
-// than being lost. Shared between the archive root (folders only) and a
-// folder's own settings page (folders + items) via the optional item props.
+// "add subfolder" / "add item" pair of forms. Sections are optional — a
+// subfolder/item can be created with no section at all via the "Ungrouped"
+// bucket's own add menu, which also holds pre-existing content created
+// before this feature shipped or before it was ever moved into a section,
+// with a "Move to..." picker to file it into one later. Shared between the
+// archive root (folders only) and a folder's own settings page (folders +
+// items) via the optional item props.
 export function SectionedEntityManager({
   parentFolderId,
   locale,
@@ -311,7 +312,11 @@ export function SectionedEntityManager({
       setCreatingFolder(true);
       setFolderFormError("");
 
-      const result = await onCreateSubfolder(sectionId, name, folderFormDescription.trim() || null);
+      const result = await onCreateSubfolder(
+        sectionId === UNGROUPED_SECTION_ID ? null : sectionId,
+        name,
+        folderFormDescription.trim() || null,
+      );
 
       if (!result.ok) {
         setFolderFormError(result.reason || "Failed to create subfolder");
@@ -344,7 +349,11 @@ export function SectionedEntityManager({
       setCreatingItem(true);
       setItemFormError("");
 
-      const result = await onCreateItem(sectionId, name, itemFormDescription.trim() || null);
+      const result = await onCreateItem(
+        sectionId === UNGROUPED_SECTION_ID ? null : sectionId,
+        name,
+        itemFormDescription.trim() || null,
+      );
 
       if (!result.ok) {
         setItemFormError(result.reason || "Failed to create item");
@@ -419,10 +428,11 @@ export function SectionedEntityManager({
     ungrouped: locale === "nb" ? "Ugruppert" : "Ungrouped",
     ungroupedHint:
       locale === "nb"
-        ? "Opprettet før seksjoner fantes. Flytt til en seksjon:"
-        : "Created before sections existed. Move to a section:",
+        ? "Ikke i en seksjon ennå. Flytt til en seksjon:"
+        : "Not in a section yet. Move to a section:",
+    ungroupedEmpty: locale === "nb" ? "Ingenting her ennå" : "Nothing here yet",
+    loadingSections: locale === "nb" ? "Laster seksjoner..." : "Loading sections...",
     moveTo: locale === "nb" ? "Velg seksjon..." : "Choose a section...",
-    noSections: locale === "nb" ? "Ingen seksjoner ennå" : "No sections yet",
     folderCount: (n: number) => `${n} ${locale === "nb" ? "mapper" : n === 1 ? "folder" : "folders"}`,
     itemCount: (n: number) => `${n} ${locale === "nb" ? "elementer" : n === 1 ? "item" : "items"}`,
   };
@@ -445,6 +455,7 @@ export function SectionedEntityManager({
 
   const ungroupedFolders = foldersBySection.get(UNGROUPED_SECTION_ID) ?? [];
   const ungroupedItems = itemsBySection.get(UNGROUPED_SECTION_ID) ?? [];
+  const ungroupedHasContent = ungroupedFolders.length > 0 || ungroupedItems.length > 0;
 
   const panelItems = sections.map((section) => {
     const sectionFolders = foldersBySection.get(section.id) ?? [];
@@ -720,73 +731,174 @@ export function SectionedEntityManager({
       {error && <p className="mb-4 text-sm font-medium text-red-600">{error}</p>}
       {sectionActionError && <p className="mb-4 text-sm font-medium text-red-600">{sectionActionError}</p>}
 
-      {!loading && sections.length === 0 && ungroupedFolders.length === 0 && ungroupedItems.length === 0 && (
-        <p className="mb-4 text-sm text-textColorThird">{t.noSections}</p>
-      )}
+      {loading && <p className="mb-4 text-sm text-textColorThird">{t.loadingSections}</p>}
 
       <div className="grid gap-4">
         {panelItems.length > 0 && <ExpandablePanelList items={panelItems} variant="logoblue" />}
 
-        {(ungroupedFolders.length > 0 || ungroupedItems.length > 0) && (
-          <div className="customContainer border-dashed p-4">
-            <h3 className="mb-1 font-semibold text-textColorThird">{t.ungrouped}</h3>
-            {sections.length > 0 && <p className="mb-3 text-sm text-textColorThird">{t.ungroupedHint}</p>}
+        {/* Sections are optional — this bucket is always available, not just
+            once there's pre-existing ungrouped content, so a company with no
+            sections at all still has a way to create folders/items. */}
+        <div className="customContainer border-dashed p-4">
+          <h3 className="mb-1 font-semibold text-textColorThird">{t.ungrouped}</h3>
+          {sections.length > 0 && ungroupedHasContent && (
+            <p className="mb-3 text-sm text-textColorThird">{t.ungroupedHint}</p>
+          )}
 
-            {ungroupedFolders.length > 0 && (
-              <div className="mb-3 grid gap-2">
-                {ungroupedFolders.map((folder) => (
-                  <div key={folder.id} className="grid gap-1">
-                    {renderFolderRow(folder)}
-                    {sections.length > 0 && (
-                      <select
-                        className="customInput w-fit text-sm"
-                        value=""
-                        disabled={movingFolderId === folder.id}
-                        onChange={(e) => {
-                          if (e.target.value) void handleMoveFolder(folder.id, e.target.value);
-                        }}
-                      >
-                        <option value="">{t.moveTo}</option>
-                        {sections.map((section) => (
-                          <option key={section.id} value={section.id}>
-                            {section.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {items && ungroupedItems.length > 0 && (
-              <div className="grid gap-1">
-                {ungroupedItems.map((item) => (
-                  <div key={item.id} className="grid gap-1">
-                    {renderItemRow?.(item)}
-                    {sections.length > 0 && (
-                      <select
-                        className="customInput w-fit text-sm"
-                        value=""
-                        disabled={movingItemId === item.id}
-                        onChange={(e) => {
-                          if (e.target.value) void handleMoveItem(item.id, e.target.value);
-                        }}
-                      >
-                        <option value="">{t.moveTo}</option>
-                        {sections.map((section) => (
-                          <option key={section.id} value={section.id}>
-                            {section.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="mb-3">
+            <SectionAddMenu
+              open={openAddMenuFor === UNGROUPED_SECTION_ID}
+              onOpen={() => setOpenAddMenuFor(UNGROUPED_SECTION_ID)}
+              onClose={() => setOpenAddMenuFor(null)}
+              onSelectFolder={() => openCreateForm(UNGROUPED_SECTION_ID, "folder")}
+              onSelectItem={() => openCreateForm(UNGROUPED_SECTION_ID, "item")}
+              showItem={Boolean(items)}
+              addLabel={t.addNew}
+              folderLabel={t.subfolder}
+              itemLabel={t.item}
+            />
           </div>
-        )}
+
+          {openFolderFormFor === UNGROUPED_SECTION_ID && (
+            <div className="mb-3 rounded-xl border border-lineSecondary p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[160] flex-1">
+                  <input
+                    className="customInput w-full"
+                    placeholder={t.name}
+                    value={folderFormName}
+                    onChange={(e) => setFolderFormName(e.target.value)}
+                    disabled={creatingFolder}
+                  />
+                </div>
+                <div className="min-w-[200] flex-1">
+                  <input
+                    className="customInput w-full"
+                    placeholder={t.description}
+                    value={folderFormDescription}
+                    onChange={(e) => setFolderFormDescription(e.target.value)}
+                    disabled={creatingFolder}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="customButtonEnabled h-10 px-4"
+                  onClick={() => void handleCreateFolderIn(UNGROUPED_SECTION_ID)}
+                  disabled={creatingFolder || !folderFormName.trim()}
+                >
+                  {creatingFolder ? t.creating : t.create}
+                </button>
+                <button
+                  type="button"
+                  className="customButtonDefault h-10 px-4"
+                  onClick={() => toggleFolderForm(UNGROUPED_SECTION_ID)}
+                >
+                  {t.cancel}
+                </button>
+              </div>
+              {folderFormError && <p className="mt-2 text-sm font-medium text-red-600">{folderFormError}</p>}
+            </div>
+          )}
+
+          {items && openItemFormFor === UNGROUPED_SECTION_ID && (
+            <div className="mb-3 rounded-xl border border-lineSecondary p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[160] flex-1">
+                  <input
+                    className="customInput w-full"
+                    placeholder={t.name}
+                    value={itemFormName}
+                    onChange={(e) => setItemFormName(e.target.value)}
+                    disabled={creatingItem}
+                  />
+                </div>
+                <div className="min-w-[200] flex-1">
+                  <input
+                    className="customInput w-full"
+                    placeholder={t.description}
+                    value={itemFormDescription}
+                    onChange={(e) => setItemFormDescription(e.target.value)}
+                    disabled={creatingItem}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="customButtonEnabled h-10 px-4"
+                  onClick={() => void handleCreateItemIn(UNGROUPED_SECTION_ID)}
+                  disabled={creatingItem || !itemFormName.trim()}
+                >
+                  {creatingItem ? t.creating : t.create}
+                </button>
+                <button
+                  type="button"
+                  className="customButtonDefault h-10 px-4"
+                  onClick={() => toggleItemForm(UNGROUPED_SECTION_ID)}
+                >
+                  {t.cancel}
+                </button>
+              </div>
+              {itemFormError && <p className="mt-2 text-sm font-medium text-red-600">{itemFormError}</p>}
+            </div>
+          )}
+
+          {ungroupedFolders.length === 0 && (!items || ungroupedItems.length === 0) && (
+            <p className="text-sm text-textColorThird">{t.ungroupedEmpty}</p>
+          )}
+
+          {ungroupedFolders.length > 0 && (
+            <div className="mb-3 grid gap-2">
+              {ungroupedFolders.map((folder) => (
+                <div key={folder.id} className="grid gap-1">
+                  {renderFolderRow(folder)}
+                  {sections.length > 0 && (
+                    <select
+                      className="customInput w-fit text-sm"
+                      value=""
+                      disabled={movingFolderId === folder.id}
+                      onChange={(e) => {
+                        if (e.target.value) void handleMoveFolder(folder.id, e.target.value);
+                      }}
+                    >
+                      <option value="">{t.moveTo}</option>
+                      {sections.map((section) => (
+                        <option key={section.id} value={section.id}>
+                          {section.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {items && ungroupedItems.length > 0 && (
+            <div className="grid gap-1">
+              {ungroupedItems.map((item) => (
+                <div key={item.id} className="grid gap-1">
+                  {renderItemRow?.(item)}
+                  {sections.length > 0 && (
+                    <select
+                      className="customInput w-fit text-sm"
+                      value=""
+                      disabled={movingItemId === item.id}
+                      onChange={(e) => {
+                        if (e.target.value) void handleMoveItem(item.id, e.target.value);
+                      }}
+                    >
+                      <option value="">{t.moveTo}</option>
+                      {sections.map((section) => (
+                        <option key={section.id} value={section.id}>
+                          {section.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

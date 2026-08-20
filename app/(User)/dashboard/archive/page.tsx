@@ -91,7 +91,7 @@ export default function ArchivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, hasAccess]);
 
-  async function handleCreateFolder(sectionId: string, name: string, description: string | null) {
+  async function handleCreateFolder(sectionId: string | null, name: string, description: string | null) {
     const res = await fetch("/api/archive/folders", {
       method: "POST",
       credentials: "include",

@@ -19,15 +19,15 @@ export type MoveFolderResult =
   | { ok: true }
   | { ok: false; reason: "FOLDER_NOT_FOUND" | "DESTINATION_NOT_FOUND" | "SAME_FOLDER" | "CYCLE" | "INVALID_SECTION" };
 
-// destinationSectionId is required (not defaulted to "ungrouped") — same
-// reasoning as moveItemToFolder: the mover always picks a real section
-// inside the destination folder, validated via sectionBelongsToScope before
-// anything is written.
+// destinationSectionId is optional — same reasoning as moveItemToFolder: the
+// mover can pick a real section inside the destination folder (validated via
+// sectionBelongsToScope) or pass null to land in the destination's
+// "Ungrouped" bucket.
 export async function moveFolderToFolder(
   ctx: ArchiveContextInput,
   folderId: string,
   destinationFolderId: string,
-  destinationSectionId: string,
+  destinationSectionId: string | null,
 ): Promise<MoveFolderResult> {
   const folderResult = await archive.readFolder(ctx, folderId);
   if (!folderResult.ok) return { ok: false, reason: "FOLDER_NOT_FOUND" };
@@ -36,8 +36,10 @@ export async function moveFolderToFolder(
   if (currentParentId === destinationFolderId) return { ok: false, reason: "SAME_FOLDER" };
   if (destinationFolderId === folderId) return { ok: false, reason: "CYCLE" };
 
-  const validSection = await sectionBelongsToScope(ctx.companyId, ctx.tenantId, destinationFolderId, destinationSectionId);
-  if (!validSection) return { ok: false, reason: "INVALID_SECTION" };
+  if (destinationSectionId) {
+    const validSection = await sectionBelongsToScope(ctx.companyId, ctx.tenantId, destinationFolderId, destinationSectionId);
+    if (!validSection) return { ok: false, reason: "INVALID_SECTION" };
+  }
 
   const moveResult = await archive.moveFolder(ctx, folderId, { parentFolderId: destinationFolderId });
   if (!moveResult.ok) {

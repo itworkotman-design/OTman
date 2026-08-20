@@ -10,7 +10,7 @@ import type { ArchiveFolderSummary } from "./types";
 type ArchiveRootSettingsModalProps = {
   folders: ArchiveFolderSummary[];
   locale: string;
-  onCreateFolder: (sectionId: string, name: string, description: string | null) => Promise<{ ok: boolean; reason?: string }>;
+  onCreateFolder: (sectionId: string | null, name: string, description: string | null) => Promise<{ ok: boolean; reason?: string }>;
   onFoldersChanged: () => void;
 };
 

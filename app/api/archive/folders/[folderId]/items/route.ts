@@ -51,18 +51,13 @@ export async function POST(
 
   const description =
     typeof body?.description === "string" ? body.description.trim() || null : null;
-  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() : "";
-
-  if (!sectionId) {
-    return NextResponse.json(
-      { ok: false, reason: "SECTION_REQUIRED" },
-      { status: 400 },
-    );
-  }
+  // Sections are optional — an item can be created with no section at all
+  // (renders in the "Ungrouped" bucket) and moved into a section later.
+  const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() || null : null;
 
   const ctx = buildArchiveContext(session, membership);
 
-  if (!(await sectionBelongsToScope(ctx.companyId, ctx.tenantId, folderId, sectionId))) {
+  if (sectionId && !(await sectionBelongsToScope(ctx.companyId, ctx.tenantId, folderId, sectionId))) {
     return NextResponse.json(
       { ok: false, reason: "INVALID_SECTION" },
       { status: 400 },
