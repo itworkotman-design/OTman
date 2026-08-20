@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { MoveEntityModal } from "@/app/_components/Dahsboard/archive/MoveEntityModal";
+import { RenameEntityModal } from "@/app/_components/Dahsboard/archive/RenameEntityModal";
 
 type PillActionsProps = {
   kind: "folder" | "item";
@@ -172,16 +173,15 @@ function DotsIcon() {
 //   - Mobile (below sm): a single "..." trigger that opens a dropdown
 //     listing the same actions as text rows, since hover has no equivalent
 //     on touch.
-// Rename is a plain window.prompt() rather than an inline input/modal,
-// matching delete's window.confirm() — quick and consistent with the rest of
-// this row, not meant to replace EntitySettingsPanel's Details tab for
-// anything fancier.
+// Rename opens RenameEntityModal (matching this row's other modal action,
+// MoveEntityModal) rather than an inline input — not meant to replace
+// EntitySettingsPanel's Details tab for anything fancier.
 export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, status, isPinned, onPinChanged }: PillActionsProps) {
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
-  const [renaming, setRenaming] = useState(false);
   const [copied, setCopied] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [pinning, setPinning] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -261,26 +261,10 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
     }
   }
 
-  async function handleRename(e: MouseEvent) {
+  function handleRename(e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-
-    const nextName = window.prompt(locale === "nb" ? "Nytt navn" : "New name", name)?.trim();
-    if (!nextName || nextName === name) return;
-
-    try {
-      setRenaming(true);
-      const res = await fetch(`${basePath}/name`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nextName }),
-      });
-      const data = await res.json().catch(() => null);
-      if (res.ok && data?.ok) onChanged?.();
-    } finally {
-      setRenaming(false);
-    }
+    setRenameModalOpen(true);
   }
 
   function handleMove(e: MouseEvent) {
@@ -338,7 +322,7 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
   const actions: PillAction[] = [];
   if (showPin) actions.push({ key: "pin", label: pinLabel, icon: <StarIcon filled={Boolean(isPinned)} />, onClick: handleTogglePin, disabled: pinning, active: isPinned });
   if (canManage) {
-    actions.push({ key: "rename", label: renameLabel, icon: <PencilIcon />, onClick: handleRename, disabled: renaming });
+    actions.push({ key: "rename", label: renameLabel, icon: <PencilIcon />, onClick: handleRename });
     if (status) actions.push({ key: "archive", label: archiveLabel, icon: <ArchiveIcon />, onClick: handleToggleArchive, disabled: archiving });
     actions.push({ key: "move", label: moveLabel, icon: <MoveIcon />, onClick: handleMove });
     actions.push({ key: "delete", label: deleteLabel, icon: <TrashIcon />, onClick: handleDelete, disabled: deleting });
@@ -433,6 +417,17 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
           locale={locale}
           onClose={() => setMoveModalOpen(false)}
           onMoved={onChanged}
+        />
+      )}
+
+      {renameModalOpen && onChanged && (
+        <RenameEntityModal
+          kind={kind}
+          entityId={id}
+          currentName={name}
+          locale={locale}
+          onClose={() => setRenameModalOpen(false)}
+          onRenamed={onChanged}
         />
       )}
     </div>
