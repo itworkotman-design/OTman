@@ -189,24 +189,24 @@ async function getActiveRoleMembers(
   return members;
 }
 
-// "Users" = how many distinct platform users effectively hold `view` on this
-// folder, resolved the same way the package's own
+// "Users" = how many distinct platform users effectively hold `view` on a
+// given target, resolved the same way the package's own
 // ArchiveEffectiveAuthorizationService does (see
 // effective-authorization.js#resolveDirectPermissionDecision /
-// #hasEffectivePermission): walk the folder's ancestor chain nearest-first,
+// #hasEffectivePermission): walk the target's ancestor chain nearest-first,
 // at each target a direct user rule decides outright, else a role deny beats
 // a role allow, else move outward; the first target that decides wins. Done
 // here per-candidate-user instead of per-single-caller since we need a count,
-// not one user's yes/no.
-export async function getFolderViewerCounts(
+// not one user's yes/no. Shared by getFolderViewerCounts and
+// getItemViewerCounts below — everything past "I already have a chain per
+// id" is identical for a folder target and an item target.
+async function getViewerCountsForChains(
   companyId: string,
   tenantId: string,
-  folderIds: string[],
+  chains: Map<string, AncestorChain>,
 ): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
-  if (folderIds.length === 0) return counts;
 
-  const chains = await getAncestorChains(companyId, tenantId, folderIds);
   const allTargetIds = [...new Set([...chains.values()].flatMap((c) => c.chain))];
   const rules = await getViewRules(companyId, tenantId, allTargetIds);
 
@@ -234,12 +234,11 @@ export async function getFolderViewerCounts(
     return "none";
   }
 
-  for (const folderId of folderIds) {
-    const resolvedChain = chains.get(folderId);
+  for (const [id, resolvedChain] of chains) {
     // An invalid (or entirely missing/unknown) chain denies outright,
     // matching hasEffectivePermission's "!chain.valid -> false" — a nearer
     // target's allow never gets a chance to decide.
-    if (!resolvedChain || !resolvedChain.valid) continue;
+    if (!resolvedChain.valid) continue;
     const chain = resolvedChain.chain;
 
     const candidateUsers = new Set<string>();
@@ -266,10 +265,47 @@ export async function getFolderViewerCounts(
       }
     }
 
-    counts.set(folderId, allowedCount);
+    counts.set(id, allowedCount);
   }
 
   return counts;
+}
+
+export async function getFolderViewerCounts(
+  companyId: string,
+  tenantId: string,
+  folderIds: string[],
+): Promise<Map<string, number>> {
+  if (folderIds.length === 0) return new Map();
+
+  const chains = await getAncestorChains(companyId, tenantId, folderIds);
+  return getViewerCountsForChains(companyId, tenantId, chains);
+}
+
+// The item-level counterpart to getFolderViewerCounts — an item's own chain
+// is just its own id prepended to its containing folder's chain (see
+// getItemAncestorChain), so this batches that same shape across many items
+// at once instead of resolving one item's chain per call.
+export async function getItemViewerCounts(
+  companyId: string,
+  tenantId: string,
+  items: { id: string; folderId: string }[],
+): Promise<Map<string, number>> {
+  if (items.length === 0) return new Map();
+
+  const folderIds = [...new Set(items.map((item) => item.folderId))];
+  const folderChains = await getAncestorChains(companyId, tenantId, folderIds);
+
+  const chains = new Map<string, AncestorChain>();
+  for (const item of items) {
+    const folderChain = folderChains.get(item.folderId);
+    chains.set(
+      item.id,
+      folderChain ? { chain: [item.id, ...folderChain.chain], valid: folderChain.valid } : { chain: [item.id], valid: false },
+    );
+  }
+
+  return getViewerCountsForChains(companyId, tenantId, chains);
 }
 
 // The single-user inverse of getFolderViewerCounts, for callers that read

@@ -92,7 +92,7 @@ export function EntityPill({
   const rowContent = (
     <>
       <span
-        className={`min-w-0 shrink-0 wrap-break-word text-sm sm:text-base font-medium ${
+        className={`min-w-0 truncate text-sm sm:text-base font-medium ${
           isFolder ? (isArchived ? "text-textColorThird" : "text-logoblue") : "text-textcolor"
         }`}
       >
@@ -169,6 +169,91 @@ export function EntityPill({
           isPinned={showFavorite ? isPinned : undefined}
           onPinChanged={showFavorite ? onPinChanged : undefined}
         />
+      )}
+    </div>
+  );
+}
+
+export type PillHeaderField = { key: string; label: string };
+
+type PillFieldsHeaderProps = {
+  kind: "folder" | "item";
+  mode: EntityPillMode;
+  fields: PillHeaderField[];
+  codeWidthCh?: number;
+  // Mirrors the row props that decide which actions PillActions renders
+  // (see its own "which actions are offered" comment) — a row with
+  // onChanged offers rename/archive/move/delete plus the settings kebab, a
+  // row with onPinChanged offers the pin star. The header needs an
+  // action-column placeholder exactly as wide as the real thing so its
+  // field labels line up with the values beneath, so instead of
+  // reimplementing that width math it mounts a real (invisible, inert)
+  // PillActions with the same shape of props and lets it size itself.
+  hasManageActions?: boolean;
+  hasPin?: boolean;
+  locale: string;
+};
+
+function noop() {}
+
+// A label row for the fields EntityPill renders (see PillField) — same kind/
+// codeWidthCh/mode as the rows beneath it, empty name/description/condition
+// slots (fields already sit flush against the row's right edge via the
+// condition badge's `ml-auto`, so nothing before them needs to match), and
+// an invisible PillActions clone reserving the same trailing width the real
+// hover bar/kebab occupies on every row. Not itself a PillField consumer —
+// callers pass `{key, label}` pairs lined up 1:1 with the PillField `key`s
+// used on the rows below, in the same order.
+export function PillFieldsHeader({ kind, mode, fields, codeWidthCh, hasManageActions = false, hasPin = false, locale }: PillFieldsHeaderProps) {
+  return (
+    <div className="flex w-full items-stretch text-xs font-semibold uppercase tracking-wide text-textColorThird">
+      {kind === "folder" ? (
+        <>
+          <span
+            className="flex shrink-0 items-center justify-center px-1.5 sm:px-2 text-xs sm:text-sm font-semibold"
+            style={codeWidthCh ? { minWidth: `${codeWidthCh}ch` } : undefined}
+            aria-hidden="true"
+          />
+          <div className="flex min-w-0 grow items-center gap-2 sm:gap-3 px-2 py-2 sm:py-3">
+            <span className="ml-auto hidden shrink-0 sm:block" aria-hidden="true" />
+            {fields.map((field) => (
+              <span key={field.key} className="hidden w-full max-w-[100] shrink-0 text-center sm:block">
+                {field.label}
+              </span>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="flex min-w-0 grow items-center gap-2 sm:gap-3 px-2 py-2 sm:py-3">
+          <span
+            className="shrink-0 text-center text-xs sm:text-sm font-semibold tabular-nums"
+            style={codeWidthCh ? { minWidth: `${codeWidthCh}ch` } : undefined}
+            aria-hidden="true"
+          />
+          <span className="ml-auto hidden shrink-0 sm:block" aria-hidden="true" />
+          {fields.map((field) => (
+            <span key={field.key} className="hidden w-full max-w-[100] shrink-0 text-center sm:block">
+              {field.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {mode === "admin" && (
+        <div className="invisible" aria-hidden="true">
+          <PillActions
+            kind={kind}
+            id="header"
+            name=""
+            href=""
+            locale={locale}
+            canEdit
+            onChanged={hasManageActions ? noop : undefined}
+            status={hasManageActions ? "active" : undefined}
+            isPinned={hasPin ? false : undefined}
+            onPinChanged={hasPin ? noop : undefined}
+          />
+        </div>
       )}
     </div>
   );

@@ -6,7 +6,7 @@ import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
 import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
-import { EntityPill } from "@/app/_components/Dahsboard/archive/EntityPill";
+import { EntityPill, type PillField } from "@/app/_components/Dahsboard/archive/EntityPill";
 import { SectionedEntityManager } from "@/app/_components/Dahsboard/archive/SectionedEntityManager";
 import { FolderSharingPanel } from "@/app/_components/Dahsboard/archive/FolderSharingPanel";
 import type {
@@ -500,7 +500,13 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
               locale={locale}
               code={childFolder.code}
               mode="admin"
-              fields={[{ key: "updated", value: formatLastModified(childFolder.updatedAt) }]}
+              fields={
+                [
+                  { key: "entries", value: childFolder.entryCount },
+                  { key: "users", value: childFolder.viewerCount },
+                  { key: "updated", value: formatLastModified(childFolder.updatedAt) },
+                ] satisfies PillField[]
+              }
               onChanged={loadFolderAndItems}
             />
           )}
@@ -517,7 +523,12 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
               locale={locale}
               code={item.code}
               mode="admin"
-              fields={[{ key: "updated", value: formatLastModified(item.updatedAt) }]}
+              fields={
+                [
+                  { key: "users", value: item.viewerCount },
+                  { key: "updated", value: formatLastModified(item.updatedAt) },
+                ] satisfies PillField[]
+              }
               onChanged={loadFolderAndItems}
             />
           )}

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { EntityPill } from "./EntityPill";
+import { EntityPill, PillFieldsHeader, type PillField, type PillHeaderField } from "./EntityPill";
 import { SectionedEntityManager } from "./SectionedEntityManager";
 import { SettingsIcon, settingsIconButtonClass } from "./SettingsIcon";
-import { codeToUrlPath, formatLastModified } from "./types";
+import { codeToUrlPath, formatLastModified, pillFieldLabel } from "./types";
 import type { ArchiveFolderSummary } from "./types";
 
 type ArchiveRootSettingsModalProps = {
@@ -26,6 +26,12 @@ export function ArchiveRootSettingsModal({
 }: ArchiveRootSettingsModalProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const headerFields: PillHeaderField[] = [
+    { key: "entries", label: pillFieldLabel("entries", locale) },
+    { key: "users", label: pillFieldLabel("users", locale) },
+    { key: "updated", label: pillFieldLabel("updated", locale) },
+  ];
+
   return (
     <>
       <button
@@ -46,17 +52,21 @@ export function ArchiveRootSettingsModal({
           <div
             // Sized to its content (fit-content) rather than a fixed
             // max-width — the folder rows inside (code badge + name +
-            // condition badge + date column + the actions gutter, see
-            // EntityPill/PillActions) can genuinely need more than the old
-            // max-w-2xl (672px) allowed, which forced them to bleed out of
-            // the modal instead of wrapping (several of their spans are
-            // deliberately shrink-0). min-w keeps it from collapsing too
-            // small for the plain create-section form; max-w keeps it
+            // condition badge + entries/users/updated columns + the actions
+            // gutter, see EntityPill/PillActions) can genuinely need more
+            // than the old max-w-2xl (672px) allowed, which forced them to
+            // bleed out of the modal instead of wrapping (several of their
+            // spans are deliberately shrink-0). min-w keeps it from
+            // collapsing too small for the plain create-section form —
+            // doubled from the original min-w-md (28rem) since three field
+            // columns plus the actions gutter were still getting squished
+            // into that floor, with the hover-actions bar overlapping the
+            // Updated column instead of sitting clear of it; max-w keeps it
             // comfortably inside the viewport on any window size;
             // overflow-x-auto is a last-resort contained scroll for content
             // that's still wider than that cap, instead of bleeding onto the
             // page.
-            className="scrollbar-always max-h-[80vh] w-fit min-w-md max-w-[92vw] overflow-auto rounded-3xl bg-white p-8 shadow-lg animate-dialog-content-show"
+            className="scrollbar-always max-h-[80vh] w-fit min-w-4xl max-w-[92vw] overflow-auto rounded-3xl bg-white p-8 shadow-lg animate-dialog-content-show"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-6 flex items-center justify-between">
@@ -72,6 +82,7 @@ export function ArchiveRootSettingsModal({
               folders={folders}
               onFoldersChanged={onFoldersChanged}
               onCreateSubfolder={onCreateFolder}
+              folderListHeader={<PillFieldsHeader kind="folder" mode="admin" locale={locale} hasManageActions fields={headerFields} />}
               renderFolderRow={(folder) => (
                 <EntityPill
                   key={folder.id}
@@ -85,7 +96,13 @@ export function ArchiveRootSettingsModal({
                   locale={locale}
                   code={folder.code}
                   mode="admin"
-                  fields={[{ key: "updated", value: formatLastModified(folder.updatedAt) }]}
+                  fields={
+                    [
+                      { key: "entries", value: folder.entryCount },
+                      { key: "users", value: folder.viewerCount },
+                      { key: "updated", value: formatLastModified(folder.updatedAt) },
+                    ] satisfies PillField[]
+                  }
                   onChanged={onFoldersChanged}
                 />
               )}

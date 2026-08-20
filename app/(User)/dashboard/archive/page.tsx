@@ -6,11 +6,16 @@ import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
-import { EntityPill, type PillField } from "@/app/_components/Dahsboard/archive/EntityPill";
-import { PillActions } from "@/app/_components/Dahsboard/archive/PillActions";
+import { EntityPill, PillFieldsHeader, type PillField, type PillHeaderField } from "@/app/_components/Dahsboard/archive/EntityPill";
 import { PinnedFoldersSection } from "@/app/_components/Dahsboard/archive/PinnedFoldersSection";
 import { ArchiveRootSettingsModal } from "@/app/_components/Dahsboard/archive/ArchiveRootSettingsModal";
-import { codeBadgeWidthCh, codeToUrlPath, formatLastModified, groupBySection } from "@/app/_components/Dahsboard/archive/types";
+import {
+  codeBadgeWidthCh,
+  codeToUrlPath,
+  formatLastModified,
+  groupBySection,
+  pillFieldLabel,
+} from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
 type ArchiveFolderRow = ArchiveFolderSummary & {
@@ -135,6 +140,9 @@ export default function ArchivePage() {
     () => groupBySection(visibleFolders, sections, locale),
     [visibleFolders, sections, locale],
   );
+  const headerFields: PillHeaderField[] = [{ key: "entries", label: pillFieldLabel("entries", locale) }];
+  if (isArchiveAdmin) headerFields.push({ key: "users", label: pillFieldLabel("users", locale) });
+  headerFields.push({ key: "updated", label: pillFieldLabel("updated", locale) });
 
   if (currentUser && !hasAccess) {
     return (
@@ -183,49 +191,11 @@ export default function ArchivePage() {
         </Link>
       </section>
 
-      {/* Mirrors EntityPill's own row shape (content div with the same
-          gap-2 sm:gap-3 + px-2) so these labels land over the value columns
-          they name instead of drifting as columns are hidden/shown. The
-          trailing spacer only renders for admins, matching EntityPill only
-          mounting PillActions when its mode is "admin" — for viewers
-          there's no trailing box at all, so the header has none either. It's
-          a real (invisible) PillActions rendered with the same props as the
-          folder rows below, rather than a fixed width, so it tracks
-          PillActions' own intrinsic width automatically as actions are
-          added or removed instead of needing to be kept in sync by hand.
-          Sits above Pinned folders/items since both sections share this
-          same column layout, not just the grouped list below. */}
-      <div className="mb-4 hidden h-10 items-end text-sm font-semibold text-textColorThird sm:flex">
-        <div className="flex min-w-0 grow items-center justify-end gap-2 sm:gap-3 px-2">
-          <div className="w-full max-w-[100] text-center">
-            <p>{locale === "nb" ? "Elementer" : "Entries"}</p>
-          </div>
-          {isArchiveAdmin && (
-            <div className="w-full max-w-[100] text-center">
-              <p>{locale === "nb" ? "Brukere" : "Users"}</p>
-            </div>
-          )}
-          <div className="w-full max-w-[100] text-center">
-            <p>{locale === "nb" ? "Sist endret" : "Updated"}</p>
-          </div>
-        </div>
-        {isArchiveAdmin && (
-          <div className="invisible shrink-0" aria-hidden>
-            <PillActions
-              kind="folder"
-              id=""
-              name=""
-              href="#"
-              locale={locale}
-              canEdit
-              onChanged={loadFolders}
-              status="active"
-              isPinned={false}
-              onPinChanged={handlePinChanged}
-            />
-          </div>
-        )}
-      </div>
+      {/* Sits above Pinned folders/items since both sections share this same
+          column layout, not just the grouped list below — see
+          PillFieldsHeader in EntityPill.tsx for how it keeps these labels
+          lined up with the value columns beneath. */}
+      <PillFieldsHeader kind="folder" mode={isArchiveAdmin ? "admin" : "viewer"} locale={locale} hasManageActions hasPin fields={headerFields} />
 
       <PinnedFoldersSection
         locale={locale}

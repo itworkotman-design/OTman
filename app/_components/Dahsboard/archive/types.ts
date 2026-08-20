@@ -36,6 +36,7 @@ export type ArchiveItemSummary = ArchiveConditionFlags & {
   sectionId: string | null;
   ownerUserId: string;
   isPinned: boolean;
+  viewerCount: number;
 };
 
 // Tenant-scoped tag identity (0.2.0 delivery) — see
@@ -203,6 +204,21 @@ export function formatReminderSubtitle(
   if (dueAt) parts.push(recurrenceType ? (locale === "nb" ? "Gjentar" : "Repeats") : (locale === "nb" ? "Forfaller" : "Due"));
   if (expiresAt) parts.push(locale === "nb" ? "Utløper" : "Expires");
   return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+// Localized column labels for EntityPill's PillField "entries"/"users"/
+// "updated" keys — shared by every list that builds a PillFieldsHeader (see
+// EntityPill.tsx) to caption those columns, so the label text always matches
+// whichever locale computed the row values themselves.
+export function pillFieldLabel(key: "entries" | "users" | "updated", locale: string): string {
+  switch (key) {
+    case "entries":
+      return locale === "nb" ? "Oppføringer" : "Entries";
+    case "users":
+      return locale === "nb" ? "Brukere" : "Users";
+    case "updated":
+      return locale === "nb" ? "Oppdatert" : "Updated";
+  }
 }
 
 export function formatLastModified(iso: string): string {

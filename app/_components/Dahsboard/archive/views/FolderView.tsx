@@ -5,9 +5,15 @@ import { useUserLanguage } from "@/lib/users/language";
 import { getModuleAccess } from "@/lib/users/access";
 import { ArchiveSearchBar } from "@/app/_components/Dahsboard/archive/ArchiveSearchBar";
 import { CopyUrlButton } from "@/app/_components/Dahsboard/archive/CopyUrlButton";
-import { EntityPill, type PillField } from "@/app/_components/Dahsboard/archive/EntityPill";
+import { EntityPill, PillFieldsHeader, type EntityPillMode, type PillField, type PillHeaderField } from "@/app/_components/Dahsboard/archive/EntityPill";
 import { SettingsIcon, settingsIconButtonClass } from "@/app/_components/Dahsboard/archive/SettingsIcon";
-import { codeBadgeWidthCh, codeToUrlPath, formatLastModified, groupMixedBySection } from "@/app/_components/Dahsboard/archive/types";
+import {
+  codeBadgeWidthCh,
+  codeToUrlPath,
+  formatLastModified,
+  groupMixedBySection,
+  pillFieldLabel,
+} from "@/app/_components/Dahsboard/archive/types";
 import type { ArchiveFolderSummary, ArchiveItemSummary, ArchiveSectionSummary } from "@/app/_components/Dahsboard/archive/types";
 
 // The raw GET /api/archive/folders/:id response spreads the package's full
@@ -162,6 +168,14 @@ export function FolderView({
 
   const settingsHref = linkMode.kind === "code" ? `/dashboard/archive/${codePath.join("/")}/settings` : null;
 
+  // Shared by every folder/item row below — see PillFieldsHeader's own doc
+  // comment for why it needs the exact same mode (and field set) as the rows
+  // it captions.
+  const pillMode: EntityPillMode = linkMode.kind === "sharedId" ? "viewer" : canEdit ? "admin" : "viewer";
+  const headerFields: PillHeaderField[] = [{ key: "entries", label: pillFieldLabel("entries", locale) }];
+  if (canEdit) headerFields.push({ key: "users", label: pillFieldLabel("users", locale) });
+  headerFields.push({ key: "updated", label: pillFieldLabel("updated", locale) });
+
   // Collapse a *run* of consecutive hidden ancestors into a single "…"
   // instead of one "…" per hidden entry (which rendered as "/…/…/…" on deep
   // trees) — one ellipsis, then the path picks back up from the next visible
@@ -276,43 +290,67 @@ export function FolderView({
             <div key={group.id} className="min-w-0 w-full overflow-x-auto">
               {group.name && <h2 className="mb-3 text-sm sm:text-base font-semibold text-logoblue">{group.name}</h2>}
 
+              <PillFieldsHeader
+                kind="folder"
+                mode={pillMode}
+                locale={locale}
+                codeWidthCh={codeWidthCh}
+                hasManageActions
+                fields={headerFields}
+              />
               <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
-                {group.folders.map((childFolder) => (
-                  <EntityPill
-                    key={childFolder.id}
-                    kind="folder"
-                    id={childFolder.id}
-                    name={childFolder.name}
-                    description={childFolder.description}
-                    status={childFolder.status}
-                    conditionFlags={childFolder}
-                    href={childHref("folder", childFolder.id, childFolder.code)}
-                    locale={locale}
-                    code={childFolder.code}
-                    mode={linkMode.kind === "sharedId" ? "viewer" : canEdit ? "admin" : "viewer"}
-                    fields={[{ key: "updated", value: formatLastModified(childFolder.updatedAt) }] satisfies PillField[]}
-                    onChanged={loadFolderAndItems}
-                    codeWidthCh={codeWidthCh}
-                  />
-                ))}
-                {group.items.map((item) => (
-                  <EntityPill
-                    key={item.id}
-                    kind="item"
-                    id={item.id}
-                    name={item.name}
-                    description={item.description}
-                    status={item.status}
-                    conditionFlags={item}
-                    href={childHref("item", item.id, item.code)}
-                    locale={locale}
-                    code={item.code}
-                    mode={linkMode.kind === "sharedId" ? "viewer" : canEdit ? "admin" : "viewer"}
-                    fields={[{ key: "updated", value: formatLastModified(item.updatedAt) }] satisfies PillField[]}
-                    onChanged={loadFolderAndItems}
-                    codeWidthCh={codeWidthCh}
-                  />
-                ))}
+                {group.folders.map((childFolder) => {
+                  const folderFields: PillField[] = [{ key: "entries", value: childFolder.entryCount }];
+                  if (canEdit) folderFields.push({ key: "users", value: childFolder.viewerCount });
+                  folderFields.push({ key: "updated", value: formatLastModified(childFolder.updatedAt) });
+
+                  return (
+                    <EntityPill
+                      key={childFolder.id}
+                      kind="folder"
+                      id={childFolder.id}
+                      name={childFolder.name}
+                      description={childFolder.description}
+                      status={childFolder.status}
+                      conditionFlags={childFolder}
+                      href={childHref("folder", childFolder.id, childFolder.code)}
+                      locale={locale}
+                      code={childFolder.code}
+                      mode={pillMode}
+                      fields={folderFields}
+                      onChanged={loadFolderAndItems}
+                      codeWidthCh={codeWidthCh}
+                    />
+                  );
+                })}
+                {group.items.map((item) => {
+                  // Items have no "entries" of their own (leaf nodes, nothing
+                  // under them to count) — kept as a blank placeholder rather
+                  // than omitted so the column still lines up with folder
+                  // rows sharing this same list.
+                  const itemFields: PillField[] = [{ key: "entries", value: "" }];
+                  if (canEdit) itemFields.push({ key: "users", value: item.viewerCount });
+                  itemFields.push({ key: "updated", value: formatLastModified(item.updatedAt) });
+
+                  return (
+                    <EntityPill
+                      key={item.id}
+                      kind="item"
+                      id={item.id}
+                      name={item.name}
+                      description={item.description}
+                      status={item.status}
+                      conditionFlags={item}
+                      href={childHref("item", item.id, item.code)}
+                      locale={locale}
+                      code={item.code}
+                      mode={pillMode}
+                      fields={itemFields}
+                      onChanged={loadFolderAndItems}
+                      codeWidthCh={codeWidthCh}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}

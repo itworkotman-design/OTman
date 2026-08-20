@@ -16,6 +16,12 @@ type SectionedEntityManagerProps = {
   items?: ArchiveItemSummary[];
   renderFolderRow: (folder: ArchiveFolderSummary) => ReactNode;
   renderItemRow?: (item: ArchiveItemSummary) => ReactNode;
+  // Column-label row (see PillFieldsHeader in EntityPill.tsx) shown above a
+  // section's own folders/items list, once per section — the caller builds
+  // it since only it knows what PillFields the rows below actually carry.
+  // Omitted entirely (no reserved space) by callers with nothing to caption.
+  folderListHeader?: ReactNode;
+  itemListHeader?: ReactNode;
   onCreateSubfolder: (sectionId: string | null, name: string, description: string | null) => Promise<CreateResult>;
   onCreateItem?: (sectionId: string | null, name: string, description: string | null) => Promise<CreateResult>;
   // Called after a folder/item is moved into a different section, so the
@@ -109,6 +115,8 @@ export function SectionedEntityManager({
   items,
   renderFolderRow,
   renderItemRow,
+  folderListHeader,
+  itemListHeader,
   onCreateSubfolder,
   onCreateItem,
   onFoldersChanged,
@@ -597,6 +605,7 @@ export function SectionedEntityManager({
           {sectionFolders.length > 0 && (
             <div className="grid gap-2">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-textColorThird">{t.foldersHeading}</h4>
+              {folderListHeader}
               <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
                 {sectionFolders.map((folder) => renderFolderRow(folder))}
               </div>
@@ -645,6 +654,7 @@ export function SectionedEntityManager({
               {sectionItems.length > 0 && (
                 <div className="grid gap-2">
                   <h4 className="text-xs font-semibold uppercase tracking-wide text-textColorThird">{t.itemsHeading}</h4>
+                  {itemListHeader}
                   <div className="divide-y divide-lineSecondary border-y border-lineSecondary">
                     {sectionItems.map((item) => renderItemRow?.(item))}
                   </div>
