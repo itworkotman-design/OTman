@@ -3,7 +3,7 @@ import {
   getItemEffectiveViewers,
   type FolderEffectiveViewer,
 } from "@/lib/docArchive/folderStats";
-import { getArchiveTenantRoleIds, type ArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
+import { getArchiveFolderDefaultRoleIds, getArchiveTenantRoleIds, type ArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
 
 export type FolderAccessSource = "owner" | "admin-role" | "viewer-role" | "direct" | "group";
 
@@ -28,6 +28,7 @@ export type FolderAccessEntry = {
 function buildAccessEntries(
   viewers: FolderEffectiveViewer[],
   systemRoleIds: ArchiveTenantRoleIds | null,
+  folderDefaultRoleIds: Set<string>,
   targetId: string,
   ownerUserId: string,
 ): FolderAccessEntry[] {
@@ -45,7 +46,15 @@ function buildAccessEntries(
       source = "owner";
     } else if (viewer.decidedBySubjectType === "user") {
       source = "direct";
-    } else if (systemRoleIds && viewer.decidedBySubjectId === systemRoleIds.adminRoleId) {
+    } else if (
+      folderDefaultRoleIds.has(viewer.decidedBySubjectId) ||
+      (systemRoleIds && viewer.decidedBySubjectId === systemRoleIds.adminRoleId)
+    ) {
+      // Either a folder's own dedicated default-access role (the current
+      // model — see ArchiveFolderDefaultRole/grantDefaultRoleAccessOnRootFolder
+      // in context.ts) or, for a folder created before that model existed,
+      // the legacy company-wide adminRoleId row it still carries until a
+      // backfill converts it (see runArchiveFolderDefaultRoleBackfill.ts).
       source = "admin-role";
     } else if (systemRoleIds && viewer.decidedBySubjectId === systemRoleIds.viewerRoleId) {
       source = "viewer-role";
@@ -80,12 +89,13 @@ export async function listEffectiveFolderAccess(
   folderId: string,
   ownerUserId: string,
 ): Promise<FolderAccessEntry[]> {
-  const [viewers, systemRoleIds] = await Promise.all([
+  const [viewers, systemRoleIds, folderDefaultRoleIds] = await Promise.all([
     getFolderEffectiveViewers(companyId, tenantId, folderId),
     getArchiveTenantRoleIds(companyId),
+    getArchiveFolderDefaultRoleIds(companyId),
   ]);
 
-  return buildAccessEntries(viewers, systemRoleIds, folderId, ownerUserId);
+  return buildAccessEntries(viewers, systemRoleIds, folderDefaultRoleIds, folderId, ownerUserId);
 }
 
 // Item-level counterpart to listEffectiveFolderAccess — same idea, but for
@@ -98,10 +108,11 @@ export async function listEffectiveItemAccess(
   itemId: string,
   ownerUserId: string,
 ): Promise<FolderAccessEntry[]> {
-  const [viewers, systemRoleIds] = await Promise.all([
+  const [viewers, systemRoleIds, folderDefaultRoleIds] = await Promise.all([
     getItemEffectiveViewers(companyId, tenantId, itemId),
     getArchiveTenantRoleIds(companyId),
+    getArchiveFolderDefaultRoleIds(companyId),
   ]);
 
-  return buildAccessEntries(viewers, systemRoleIds, itemId, ownerUserId);
+  return buildAccessEntries(viewers, systemRoleIds, folderDefaultRoleIds, itemId, ownerUserId);
 }

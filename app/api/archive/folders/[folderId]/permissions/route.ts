@@ -4,7 +4,7 @@ import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 import { listEffectiveFolderAccess } from "@/lib/docArchive/folderAccessList";
-import { getArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
+import { getArchiveFolderDefaultRoleIds, getArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
 import { actionsForArchiveLevel, expandGroupShare, getArchiveLevelForUser } from "@/lib/docArchive/groupShareExpansion";
 
 const VALID_ACTIONS: ArchivePermissionAction[] = [
@@ -91,21 +91,28 @@ export async function GET(
     ? await listEffectiveFolderAccess(ctx.companyId, ctx.tenantId, folderId, folderResult.value.ownerUserId)
     : [];
 
-  // The two system roles (see lib/docArchive/tenantRoles.ts) have real
-  // local ArchivePermission rows on every root folder — that's how the
-  // default cascade works — but they aren't a user-manageable "group" like
-  // the rest of this list; they're already surfaced, correctly labeled, in
-  // effectiveAccess above ("admin-role"/"viewer-role"). Left in, they'd show
-  // up in FolderSharingPanel's generic "Groups with access" list as a raw
-  // UUID (they're excluded from /api/archive/roles' name lookup for the
-  // same reason), duplicating the "Access via company default" section.
-  const systemRoleIds = await getArchiveTenantRoleIds(ctx.companyId);
-  const rules = systemRoleIds
-    ? listResult.value.filter(
-        (rule) =>
-          !(rule.subjectType === "role" && (rule.subjectId === systemRoleIds.adminRoleId || rule.subjectId === systemRoleIds.viewerRoleId)),
-      )
-    : listResult.value;
+  // The system roles — the two company-wide ones (see
+  // lib/docArchive/tenantRoles.ts) plus every folder's own dedicated
+  // default-access role (see ArchiveFolderDefaultRole) — have real local
+  // ArchivePermission rows on root folders; that's how the default cascade
+  // works. None of them are a user-manageable "group" like the rest of this
+  // list; they're already surfaced, correctly labeled, in effectiveAccess
+  // above ("admin-role"/"viewer-role"). Left in, they'd show up in
+  // FolderSharingPanel's generic "Groups with access" list as a raw UUID
+  // (they're excluded from /api/archive/roles' name lookup for the same
+  // reason), duplicating the "Access via company default" section.
+  const [systemRoleIds, folderDefaultRoleIds] = await Promise.all([
+    getArchiveTenantRoleIds(ctx.companyId),
+    getArchiveFolderDefaultRoleIds(ctx.companyId),
+  ]);
+  const rules = listResult.value.filter(
+    (rule) =>
+      !(
+        rule.subjectType === "role" &&
+        ((systemRoleIds && (rule.subjectId === systemRoleIds.adminRoleId || rule.subjectId === systemRoleIds.viewerRoleId)) ||
+          folderDefaultRoleIds.has(rule.subjectId))
+      ),
+  );
 
   return NextResponse.json({ ok: true, rules, effectiveAccess });
 }

@@ -8,7 +8,12 @@ import type { AuthenticatedSession } from "@/lib/auth/session";
 import type { ActiveMembership } from "@/lib/auth/membership";
 import { canAccessArchive, hasFullAccess } from "@/lib/users/access";
 import { archive, archivePrisma } from "@/lib/docArchive/client";
-import { ensureArchiveTenantRoles } from "@/lib/docArchive/tenantRoles";
+import {
+  createFolderDefaultAccessRole,
+  ensureArchiveTenantRoles,
+  getActiveArchiveAdminUserIds,
+  setArchiveRoleAssignment,
+} from "@/lib/docArchive/tenantRoles";
 
 export function buildArchiveContext(
   session: AuthenticatedSession,
@@ -148,40 +153,64 @@ export const ARCHIVE_ADMIN_ACTIONS: ArchivePermissionAction[] = [
 
 export const ARCHIVE_VIEWER_ACTIONS: ArchivePermissionAction[] = ["view"];
 
-// Grants the tenant's Admin role (see lib/docArchive/tenantRoles.ts) default
-// access on a newly created ROOT folder — every company Archive-Admin can
-// see and edit every root folder and everything under it, full stop.
+// Grants default access on a newly created ROOT folder to every company
+// Archive-Admin who exists AT THIS MOMENT — a one-time snapshot, not a live
+// view of the company-wide Admin role. Deliberately NOT granted to
+// ensureArchiveTenantRoles' shared adminRoleId: that role's membership
+// changes live (roleSync.ts, on every ARCHIVE access change), so a rule
+// written against it would silently hand a brand-new Admin access to every
+// root folder ever created, forcing whoever set up per-folder access
+// beforehand to redo it each time someone's promoted. Instead this creates
+// one dedicated role per folder (see ArchiveFolderDefaultRole in
+// schema.prisma / createFolderDefaultAccessRole in tenantRoles.ts),
+// assigns it to today's Admins, and grants THAT role here — a newly
+// promoted Admin only ever lands in the snapshot for folders created after
+// their promotion. Demoting/disabling an Admin still revokes them from
+// every snapshot they're in (reconcileArchiveRoleAssignment in
+// tenantRoles.ts), so access doesn't outlive their Admin status.
+//
 // Viewers get NO automatic access anywhere; they only ever gain access
 // through an explicit share (individual or group), same as any other
 // company member — see FolderSharingPanel.tsx. Subfolders need no grant of
-// their own to inherit the Admin default — the package's nearest-wins
+// their own to inherit this default — the package's nearest-wins
 // ancestor-chain resolver falls through to whatever rule an ancestor has
 // when a descendant has none of its own (verified against
 // effective-authorization.js), so this one row cascades to the whole tree
 // beneath this folder automatically. There is no "remove this person"
 // override for it: access here is purely additive (you either have a rule
 // granting you in somewhere on the chain, or you don't) — if a specific
-// Admin shouldn't see a given root folder's contents, that's a User
-// Management role change, not a per-folder exclusion.
+// Admin shouldn't see a given root folder's contents, that's the "Access
+// via company default" deny flow (FolderSettingsView.tsx), not a User
+// Management role change.
 export async function grantDefaultRoleAccessOnRootFolder(
   ctx: ArchiveContextInput,
   rootFolderId: string,
 ): Promise<void> {
-  const { adminRoleId } = await ensureArchiveTenantRoles(ctx);
+  // Still needed: the company-wide Admin/Viewer roles back other things
+  // unrelated to folder defaults (the namespace `create` permission that
+  // lets Admins make root folders at all, and share-bundle derivation for
+  // explicit grants — see groupShareExpansion.ts).
+  await ensureArchiveTenantRoles(ctx);
+
+  const roleId = await createFolderDefaultAccessRole(ctx.companyId, ctx.tenantId, rootFolderId, ctx.userId);
+  const adminUserIds = await getActiveArchiveAdminUserIds(ctx.companyId);
+  for (const userId of adminUserIds) {
+    await setArchiveRoleAssignment(ctx.companyId, ctx.tenantId, roleId, userId, true);
+  }
 
   for (const action of ARCHIVE_ADMIN_ACTIONS) {
     const result = await archive.setPermissionRule(ctx, {
       targetType: "folder",
       targetId: rootFolderId,
       subjectType: "role",
-      subjectId: adminRoleId,
+      subjectId: roleId,
       action,
       effect: "allow",
     });
 
     if (!result.ok) {
       throw new Error(
-        `Failed to grant Admin role "${action}" on root folder: ${result.error.message}`,
+        `Failed to grant default-access role "${action}" on root folder: ${result.error.message}`,
       );
     }
   }

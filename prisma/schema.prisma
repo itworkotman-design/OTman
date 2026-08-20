@@ -1101,6 +1101,26 @@ model ArchiveTenantRoles {
   createdAt    DateTime @default(now())
 }
 
+// One dedicated Archive role per folder that has ever had default access
+// granted on it (currently only root folders, via
+// grantDefaultRoleAccessOnRootFolder in lib/docArchive/context.ts) — its
+// membership is a one-time snapshot of who was an Archive-Admin when the
+// grant was made, not a live view of ArchiveTenantRoles' company-wide Admin
+// role. This is what stops a newly-promoted Admin from retroactively
+// inheriting access to every folder that already existed before them. See
+// tenantRoles.ts's createFolderDefaultAccessRole/
+// getArchiveFolderDefaultRoleIds/revokeAllFolderDefaultRoleAssignments.
+model ArchiveFolderDefaultRole {
+  id        String   @id @default(cuid())
+  companyId String
+  tenantId  String
+  folderId  String   @unique
+  roleId    String
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+}
+
 // Host-side grouping layer within a folder's settings (or the archive
 // root) — the @customprojects/custom-archive package's own folder/item
 // model has no concept of sections, so this lives in OTman's schema like

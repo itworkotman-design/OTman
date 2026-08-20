@@ -4,7 +4,7 @@ import { archive } from "@/lib/docArchive/client";
 import { buildArchiveContext } from "@/lib/docArchive/context";
 import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/route";
 import { listEffectiveItemAccess } from "@/lib/docArchive/folderAccessList";
-import { getArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
+import { getArchiveFolderDefaultRoleIds, getArchiveTenantRoleIds } from "@/lib/docArchive/tenantRoles";
 import { actionsForArchiveLevel, expandGroupShare, getArchiveLevelForUser } from "@/lib/docArchive/groupShareExpansion";
 
 // Item-level counterpart to app/api/archive/folders/[folderId]/permissions/
@@ -93,15 +93,21 @@ export async function GET(
     : [];
 
   // Same system-role filtering as the folder route — the two durable
-  // Admin/Viewer roles aren't a user-manageable "group", they're already
-  // surfaced (correctly labeled) in effectiveAccess.
-  const systemRoleIds = await getArchiveTenantRoleIds(ctx.companyId);
-  const rules = systemRoleIds
-    ? listResult.value.filter(
-        (rule) =>
-          !(rule.subjectType === "role" && (rule.subjectId === systemRoleIds.adminRoleId || rule.subjectId === systemRoleIds.viewerRoleId)),
-      )
-    : listResult.value;
+  // Admin/Viewer roles and every folder's own dedicated default-access role
+  // aren't a user-manageable "group", they're already surfaced (correctly
+  // labeled) in effectiveAccess.
+  const [systemRoleIds, folderDefaultRoleIds] = await Promise.all([
+    getArchiveTenantRoleIds(ctx.companyId),
+    getArchiveFolderDefaultRoleIds(ctx.companyId),
+  ]);
+  const rules = listResult.value.filter(
+    (rule) =>
+      !(
+        rule.subjectType === "role" &&
+        ((systemRoleIds && (rule.subjectId === systemRoleIds.adminRoleId || rule.subjectId === systemRoleIds.viewerRoleId)) ||
+          folderDefaultRoleIds.has(rule.subjectId))
+      ),
+  );
 
   return NextResponse.json({ ok: true, rules, effectiveAccess });
 }

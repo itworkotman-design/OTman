@@ -348,8 +348,17 @@ export function FolderSharingPanel({
     .filter((s) => s.subjectType === "role")
     .sort((a, b) => levelRank(a.actions) - levelRank(b.actions));
 
+  // Excludes anyone who already effectively has access, however they got
+  // it: the owner, a direct/group-derived row (userSubjects — this also
+  // covers someone blocked here via the "Access via company default" deny
+  // flow, since a deny is itself a subjectType: "user" row), or the
+  // company-default Admin/Viewer cascade (defaultAccess, computed below).
+  // Offering them here would either duplicate access they already have or,
+  // for someone blocked, silently re-grant it through a side door instead
+  // of the intended "Restore access" action.
+  const defaultAccessUserIds = new Set((defaultAccess ?? []).map((row) => row.userId));
   const shareableCoworkers = coworkers.filter(
-    (c) => c.userId !== ownerUserId && !userSubjects.some((s) => s.subjectId === c.userId),
+    (c) => c.userId !== ownerUserId && !userSubjects.some((s) => s.subjectId === c.userId) && !defaultAccessUserIds.has(c.userId),
   );
   const selectedCoworker = shareableCoworkers.find((c) => c.userId === shareUserId) ?? null;
   const selectedRole = roles.find((r) => r.id === shareRoleId) ?? null;
