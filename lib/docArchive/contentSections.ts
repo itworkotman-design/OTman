@@ -32,18 +32,18 @@ async function applyContentSectionPositions(
   );
 }
 
-// Every item starts with one Images/Files/Text-fields section each (matching
-// what the page always showed before sections became reorderable/addable) —
-// provisioned lazily on first read rather than at item-creation time, so
-// items created before this feature still get sections the first time
-// they're opened. A no-op once any section exists for the item, even if the
-// user has since deleted one of the three defaults.
+// Backward-compat only, for items/files that predate the content-sections
+// feature entirely: assignOrphanFiles calls this to give orphaned files (no
+// ArchiveItemFileSection link) somewhere to land. New items get zero
+// sections until the user explicitly adds one via the picker — this must
+// NOT be called from listContentSections/createContentSection, or every
+// freshly created item would silently reacquire the old fixed
+// Images/Files/Text-fields trio. A no-op once any section exists for the
+// item, even if the user has since deleted one of the three defaults.
 //
-// The count-then-create is not atomic, and it doesn't need to be: opening the
-// same item's settings page fires several of these concurrently (the page's
-// own content-sections + files fetches, sometimes doubled by React dev-mode
-// double-invoking effects, occasionally a second browser tab) — several
-// requests can all see `existing === 0` before any of them has committed.
+// The count-then-create is not atomic, and it doesn't need to be: concurrent
+// requests (React dev-mode double-invoking effects, a second browser tab)
+// can all see `existing === 0` before any of them has committed.
 // `skipDuplicates` makes the createMany itself idempotent against the
 // (itemId, position) unique constraint (Postgres ON CONFLICT DO NOTHING per
 // row), so whichever request's insert lands first wins and the rest no-op
@@ -78,8 +78,6 @@ export async function listContentSections(
   tenantId: string,
   itemId: string,
 ): Promise<ArchiveContentSectionRow[]> {
-  await getOrCreateDefaultSections(companyId, tenantId, itemId);
-
   const sections = await prisma.archiveItemContentSection.findMany({
     where: { companyId, tenantId, itemId, deletedAt: null },
     orderBy: { position: "asc" },
@@ -97,8 +95,6 @@ export async function createContentSection(
   itemId: string,
   type: ArchiveContentSectionType,
 ): Promise<ArchiveContentSectionRow> {
-  await getOrCreateDefaultSections(companyId, tenantId, itemId);
-
   const count = await prisma.archiveItemContentSection.count({ where: { itemId, deletedAt: null } });
   const section = await prisma.archiveItemContentSection.create({
     data: { companyId, tenantId, itemId, type, position: count },
