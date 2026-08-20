@@ -69,7 +69,7 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
   // Matches the top tab-switching style from user management
   // (app/(User)/dashboard/users/page.tsx) — one tab always fully shown
   // rather than the old click-to-expand accordion rows.
-  const [activeControlTab, setActiveControlTab] = useState("folder-settings");
+  const [activeControlTab, setActiveControlTab] = useState("permissions");
   // Collapsed by default on entering settings — Content is usually what
   // someone's here for, so Archive controls starts out of the way.
   const [controlsExpanded, setControlsExpanded] = useState(false);
@@ -443,29 +443,37 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
             {locale === "nb" ? "Arkivkontroller" : "Archive controls"}
           </button>
 
-          {controlsExpanded && (
-            <>
-              <div className="mb-6 flex gap-2 border-b border-lineSecondary">
-                {controlItems.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveControlTab(tab.id)}
-                    className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-                      activeControlTab === tab.id
-                        ? "border-logoblue text-logoblue"
-                        : "border-transparent text-textColorThird hover:text-textColorSecond"
-                    }`}
-                  >
-                    {tab.title}
-                    {"dotColor" in tab && <span className={`h-2 w-2 rounded-full ${tab.dotColor}`} />}
-                  </button>
-                ))}
-              </div>
+          {controlsExpanded && (() => {
+            // Permissions is the default tab, but it's only present when
+            // canManageSharing — fall back to the first available tab
+            // (Folder settings) rather than showing nothing when it isn't.
+            const effectiveTab = controlItems.some((tab) => tab.id === activeControlTab)
+              ? activeControlTab
+              : controlItems[0]?.id;
+            return (
+              <>
+                <div className="mb-6 flex gap-2 border-b border-lineSecondary">
+                  {controlItems.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveControlTab(tab.id)}
+                      className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                        effectiveTab === tab.id
+                          ? "border-logoblue text-logoblue"
+                          : "border-transparent text-textColorThird hover:text-textColorSecond"
+                      }`}
+                    >
+                      {tab.title}
+                      {"dotColor" in tab && <span className={`h-2 w-2 rounded-full ${tab.dotColor}`} />}
+                    </button>
+                  ))}
+                </div>
 
-              {controlItems.map((tab) => (tab.id === activeControlTab ? <div key={tab.id}>{tab.content}</div> : null))}
-            </>
-          )}
+                {controlItems.map((tab) => (tab.id === effectiveTab ? <div key={tab.id}>{tab.content}</div> : null))}
+              </>
+            );
+          })()}
         </section>
       )}
 
