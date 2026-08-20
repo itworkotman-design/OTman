@@ -5,7 +5,11 @@ import { getContentSection } from "@/lib/docArchive/contentSections";
 import { createSectionTextField, listSectionTextFields } from "@/lib/docArchive/textFields";
 import { sanitizeBlogHtml } from "@/lib/blog/sanitizeRichText";
 
-const MAX_LABEL_LENGTH = 200;
+// Label is now optional rich-text (bold/italic/align/color via
+// RichTextEditorField, same as ArchiveItemTitle) rather than a required
+// plain string — capped the same as titles.ts's MAX_TITLE_LENGTH, generously
+// above a plain label length to leave room for formatting markup.
+const MAX_LABEL_LENGTH = 2000;
 const MAX_VALUE_LENGTH = 20000;
 
 export async function GET(
@@ -31,13 +35,14 @@ export async function POST(
 
   const { sectionId } = await params;
   const body = await req.json().catch(() => null);
-  const label = typeof body?.label === "string" ? body.label.trim() : "";
+  const rawLabel = typeof body?.label === "string" ? body.label : "";
   const rawValue = typeof body?.value === "string" ? body.value : "";
 
-  if (!label || label.length > MAX_LABEL_LENGTH || rawValue.length > MAX_VALUE_LENGTH) {
+  if (rawLabel.length > MAX_LABEL_LENGTH || rawValue.length > MAX_VALUE_LENGTH) {
     return NextResponse.json({ ok: false, reason: "INVALID_INPUT" }, { status: 400 });
   }
 
+  const label = sanitizeBlogHtml(rawLabel);
   const value = sanitizeBlogHtml(rawValue);
 
   const ctx = buildArchiveContext(result.session, result.membership);

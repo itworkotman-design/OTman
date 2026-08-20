@@ -59,7 +59,12 @@ export function TextFieldsReadOnly({ sectionId, locale }: Props) {
     <div className="rounded-[20px] py-5 pr-5 divide-y divide-lineSecondary">
       {fields.map((field) => (
         <div key={field.id} className="py-3 first:pt-0 last:pb-0">
-          <span className="font-semibold text-logoblue">{field.label}</span>
+          {isEmptyHtml(field.label) ? null : (
+            <div
+              className="rich-text-content prose max-w-none font-semibold text-logoblue [&_p]:m-0"
+              dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(field.label) }}
+            />
+          )}
           {isEmptyHtml(field.value) ? null : (
             <div
               className="rich-text-content prose mt-1 max-w-none text-sm text-textColorSecond [&_p]:m-0"

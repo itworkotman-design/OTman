@@ -182,7 +182,10 @@ export async function searchArchiveContent(
 
   const pending: PendingMatch[] = [];
   for (const row of textFieldRows) {
-    pending.push({ itemId: row.itemId, kind: "textField", label: row.label, value: row.value });
+    // Both label and value are stored as sanitized rich-text HTML (see
+    // ArchiveItemTextField) — stripped the same way title's `text` already
+    // is just above, so a search snippet never shows raw markup.
+    pending.push({ itemId: row.itemId, kind: "textField", label: stripHtml(row.label), value: stripHtml(row.value) });
   }
   for (const row of titleRows) {
     pending.push({ itemId: row.itemId, kind: "title", text: stripHtml(row.text) });

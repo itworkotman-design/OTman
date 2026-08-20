@@ -4,7 +4,9 @@ import { requireArchiveMembership } from "@/lib/docArchive/route";
 import { deleteItemTextField, updateItemTextField } from "@/lib/docArchive/textFields";
 import { sanitizeBlogHtml } from "@/lib/blog/sanitizeRichText";
 
-const MAX_LABEL_LENGTH = 200;
+// See the matching comment in the section-scoped POST route — label is
+// optional rich-text now, capped the same as titles.ts's MAX_TITLE_LENGTH.
+const MAX_LABEL_LENGTH = 2000;
 const MAX_VALUE_LENGTH = 20000;
 
 export async function PATCH(
@@ -20,11 +22,11 @@ export async function PATCH(
   const data: { label?: string; value?: string } = {};
 
   if (body?.label !== undefined) {
-    const label = typeof body.label === "string" ? body.label.trim() : "";
-    if (!label || label.length > MAX_LABEL_LENGTH) {
+    const rawLabel = typeof body.label === "string" ? body.label : "";
+    if (rawLabel.length > MAX_LABEL_LENGTH) {
       return NextResponse.json({ ok: false, reason: "INVALID_INPUT" }, { status: 400 });
     }
-    data.label = label;
+    data.label = sanitizeBlogHtml(rawLabel);
   }
 
   if (body?.value !== undefined) {

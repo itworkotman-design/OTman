@@ -148,10 +148,7 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
   }));
 
   function handleStageAdd() {
-    const label = addingLabel.trim();
-    if (!label) return;
-
-    setPendingFields((prev) => [...prev, { tempId: crypto.randomUUID(), label, value: addingValue }]);
+    setPendingFields((prev) => [...prev, { tempId: crypto.randomUUID(), label: addingLabel, value: addingValue }]);
     setAddingLabel("");
     setAddingValue("");
     setShowAddForm(false);
@@ -172,10 +169,7 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
   // Staged locally only — nothing is sent to the server until the page-level
   // Save button flushes it via flushPendingChanges.
   function handleStageEdit(fieldId: string) {
-    const label = editLabel.trim();
-    if (!label) return;
-
-    setPendingEdits((prev) => ({ ...prev, [fieldId]: { label, value: editValue } }));
+    setPendingEdits((prev) => ({ ...prev, [fieldId]: { label: editLabel, value: editValue } }));
     setEditingId(null);
   }
 
@@ -212,13 +206,16 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
 
             return editingId === field.id ? (
               <div key={field.id} className="rounded-xl border border-lineSecondary px-4 py-3">
-                <input
-                  className="customInput mb-2 w-full max-w-[320]"
-                  type="text"
-                  placeholder={locale === "nb" ? "Feltnavn" : "Field label"}
-                  value={editLabel}
-                  onChange={(e) => setEditLabel(e.target.value)}
-                />
+                <div className="mb-2">
+                  <RichTextEditorField
+                    value={editLabel}
+                    onChange={setEditLabel}
+                    locale={locale}
+                    showItalic
+                    livePreview
+                    placeholder={locale === "nb" ? "Valgfri tittel..." : "Optional title..."}
+                  />
+                </div>
                 <div className="mb-2">
                   <RichTextEditorField
                     value={editValue}
@@ -250,8 +247,7 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
             ) : (
               <div key={field.id} className="rounded-xl border border-lineSecondary px-4 py-3">
                 <div className="mb-1 flex items-start justify-between gap-3">
-                  <span className="flex items-center gap-2 font-semibold text-logoblue">
-                    {displayLabel}
+                  <span className="flex shrink-0 items-center gap-2">
                     {staged && (
                       <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
                         {locale === "nb" ? "Ikke lagret" : "Unsaved"}
@@ -271,6 +267,19 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
                     </button>
                   </div>
                 </div>
+                {!isEmptyHtml(displayLabel) && (
+                  // A block-level child of the card, not a flex item — a
+                  // flex item shrinks to its content width by default, which
+                  // silently defeats center/right text-align (nothing left
+                  // to align within). Kept on its own row, above the
+                  // Unsaved/Edit/Delete row, so its own alignment is visible
+                  // across the full card width the same way it already is
+                  // on the read-only item view (TextFieldsReadOnly).
+                  <div
+                    className="rich-text-content prose mb-1 max-w-none font-semibold text-logoblue [&_p]:m-0"
+                    dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(displayLabel) }}
+                  />
+                )}
                 {isEmptyHtml(displayValue) ? (
                   <p className="text-sm text-textColorThird">{locale === "nb" ? "Tomt" : "Empty"}</p>
                 ) : (
@@ -286,11 +295,8 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
           {pendingFields.map((field) => (
             <div key={field.tempId} className="rounded-xl border border-dashed border-logoblue/50 px-4 py-3">
               <div className="mb-1 flex items-start justify-between gap-3">
-                <span className="flex items-center gap-2 font-semibold text-logoblue">
-                  {field.label}
-                  <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
-                    {locale === "nb" ? "Ikke lagret" : "Unsaved"}
-                  </span>
+                <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-normal text-logoblue">
+                  {locale === "nb" ? "Ikke lagret" : "Unsaved"}
                 </span>
                 <button
                   type="button"
@@ -300,6 +306,12 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
                   {locale === "nb" ? "Forkast" : "Discard"}
                 </button>
               </div>
+              {!isEmptyHtml(field.label) && (
+                <div
+                  className="rich-text-content prose mb-1 max-w-none font-semibold text-logoblue [&_p]:m-0"
+                  dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(field.label) }}
+                />
+              )}
               {isEmptyHtml(field.value) ? (
                 <p className="text-sm text-textColorThird">{locale === "nb" ? "Tomt" : "Empty"}</p>
               ) : (
@@ -315,13 +327,16 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
 
       {showAddForm ? (
         <div className="rounded-xl border border-dashed border-lineSecondary px-4 py-3">
-          <input
-            className="customInput mb-2 w-full max-w-[320]"
-            type="text"
-            placeholder={locale === "nb" ? "Feltnavn" : "Field label"}
-            value={addingLabel}
-            onChange={(e) => setAddingLabel(e.target.value)}
-          />
+          <div className="mb-2">
+            <RichTextEditorField
+              value={addingLabel}
+              onChange={setAddingLabel}
+              locale={locale}
+              showItalic
+              livePreview
+              placeholder={locale === "nb" ? "Valgfri tittel..." : "Optional title..."}
+            />
+          </div>
           <div className="mb-2">
             <RichTextEditorField
               value={addingValue}
@@ -334,12 +349,7 @@ export const TextFieldsPanel = forwardRef<TextFieldsPanelHandle, TextFieldsPanel
             />
           </div>
           <div className="flex gap-3">
-            <button
-              type="button"
-              className="customButtonEnabled h-9 px-4 text-sm"
-              onClick={handleStageAdd}
-              disabled={!addingLabel.trim()}
-            >
+            <button type="button" className="customButtonEnabled h-9 px-4 text-sm" onClick={handleStageAdd}>
               {locale === "nb" ? "Legg til" : "Add"}
             </button>
             <button
