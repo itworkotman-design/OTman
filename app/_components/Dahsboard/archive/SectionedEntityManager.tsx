@@ -476,10 +476,16 @@ export function SectionedEntityManager({
       title: isRenaming ? (
         <span onClick={(e) => e.stopPropagation()} className="flex flex-col gap-1.5 py-0.5">
           <input
-            className="customInput w-full max-w-70 rounded-lg py-1 text-[15px] font-bold text-textcolor"
+            className="customInput w-full max-w-70 rounded-lg bg-white py-1 text-[15px] font-bold text-textcolor"
             value={renameName}
             onChange={(e) => setRenameName(e.target.value)}
             onKeyDown={(e) => {
+              // Stop here so a space (or any other key) doesn't bubble up to
+              // ExpandablePanelList's header row, which toggles
+              // expand/collapse on Space and would otherwise eat the
+              // keystroke via its own preventDefault before it reaches this
+              // input's value.
+              e.stopPropagation();
               if (e.key === "Enter") {
                 e.preventDefault();
                 void handleRenameSection(section.id);
@@ -494,10 +500,11 @@ export function SectionedEntityManager({
             autoFocus
           />
           <input
-            className="customInput w-full max-w-70 rounded-lg py-1 text-sm font-normal text-textcolor"
+            className="customInput w-full max-w-70 rounded-lg bg-white py-1 text-sm font-normal text-textcolor"
             value={renameDescription}
             onChange={(e) => setRenameDescription(e.target.value)}
             onKeyDown={(e) => {
+              e.stopPropagation();
               if (e.key === "Enter") {
                 e.preventDefault();
                 void handleRenameSection(section.id);

@@ -71,6 +71,13 @@ export function ExpandablePanelList({ items, emptyMessage, onToggle, variant = "
                   onToggle?.(item.id, !expanded);
                 }}
                 onKeyDown={(e) => {
+                  // Ignore keydowns that bubbled up from a nested interactive
+                  // element (e.g. an inline-rename <input> rendered inside
+                  // `item.title`) — otherwise Space here both eats the
+                  // keystroke via preventDefault below (so it never reaches
+                  // the input's value) and spuriously toggles expand/collapse
+                  // while the user is just trying to type a space.
+                  if (e.target !== e.currentTarget) return;
                   if (e.key !== "Enter" && e.key !== " ") return;
                   e.preventDefault();
                   dispatch({ type: "toggle", id: item.id });
