@@ -5,6 +5,7 @@ import { archiveErrorStatus, requireArchiveMembership } from "@/lib/docArchive/r
 import { assignItemCode } from "@/lib/docArchive/folderCodes";
 import { withItemStats } from "@/lib/docArchive/withItemStats";
 import { sectionBelongsToScope } from "@/lib/docArchive/sections";
+import { listInjectedShortcuts } from "@/lib/docArchive/shortcuts";
 
 export async function GET(
   req: Request,
@@ -25,8 +26,9 @@ export async function GET(
   }
 
   const items = await withItemStats(ctx, listResult.value);
+  const shortcutItems = await listInjectedShortcuts(ctx, folderId);
 
-  return NextResponse.json({ ok: true, items });
+  return NextResponse.json({ ok: true, items: [...items, ...shortcutItems] });
 }
 
 export async function POST(

@@ -225,6 +225,17 @@ export function FolderView({
     return `/dashboard/archive/shared/${kind}/${id}`;
   }
 
+  // A shortcut's own display row (see lib/docArchive/shortcuts.ts) carries
+  // the SOURCE item's real code (for the badge) but must open through its
+  // own dedicated shortcut page — not the item's real code path — so its
+  // breadcrumb reflects THIS folder, not the item's real one. `id` here is
+  // already the shortcut row's own id (never the real item's), per
+  // listInjectedShortcuts.
+  function itemHref(item: ArchiveItemRow): string {
+    if (item.isShortcut) return `/dashboard/archive/shortcut/${item.id}`;
+    return childHref("item", item.id, item.code);
+  }
+
   return (
     <div className="w-full">
       <nav className="mb-4 flex flex-wrap items-center gap-1 text-xs sm:text-sm text-textColorThird">
@@ -354,13 +365,14 @@ export function FolderView({
                       description={item.description}
                       status={item.status}
                       conditionFlags={item}
-                      href={childHref("item", item.id, item.code)}
+                      href={itemHref(item)}
                       locale={locale}
                       code={item.code}
                       mode={pillMode}
                       fields={itemFields}
                       onChanged={loadFolderAndItems}
                       codeWidthCh={codeWidthCh}
+                      isShortcut={item.isShortcut}
                     />
                   );
                 })}

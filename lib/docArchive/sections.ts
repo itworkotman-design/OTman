@@ -49,7 +49,7 @@ async function getLiveSectionCounts(
   for (const sectionId of sectionIds) counts.set(sectionId, { folderCount: 0, itemCount: 0 });
   if (sectionIds.length === 0) return counts;
 
-  const [folderCodeRows, itemCodeRows] = await Promise.all([
+  const [folderCodeRows, itemCodeRows, shortcutRows] = await Promise.all([
     prisma.archiveFolderCode.findMany({
       where: { sectionId: { in: sectionIds } },
       select: { sectionId: true, folderId: true },
@@ -58,10 +58,25 @@ async function getLiveSectionCounts(
       where: { sectionId: { in: sectionIds } },
       select: { sectionId: true, itemId: true },
     }),
+    // A shortcut occupies a section slot too — without this, a section
+    // holding only shortcuts (no real items/folders) would report itemCount
+    // 0 and pass deleteSection's "NOT_EMPTY" guard, silently orphaning the
+    // shortcut's sectionId (FK is ON DELETE SET NULL) the moment the section
+    // is deleted, even though the shortcut pill is still visibly rendered
+    // under it.
+    prisma.archiveItemShortcut.findMany({
+      where: { sectionId: { in: sectionIds } },
+      select: { sectionId: true, itemId: true },
+    }),
   ]);
 
   const folderIds = folderCodeRows.map((row) => row.folderId);
-  const itemIds = itemCodeRows.map((row) => row.itemId);
+  // Shortcuts share the same itemIds address space as real items, and are
+  // resolved against the same live-items lookup below — a shortcut whose
+  // source item was since (soft-)deleted is already invisible everywhere
+  // (see listInjectedShortcuts), so it shouldn't count as "occupying" the
+  // section either, same as a deleted real item's stale ArchiveItemCode row.
+  const itemIds = [...new Set([...itemCodeRows.map((row) => row.itemId), ...shortcutRows.map((row) => row.itemId)])];
 
   const [liveFolderRows, liveItemRows] = await Promise.all([
     folderIds.length > 0
@@ -91,6 +106,11 @@ async function getLiveSectionCounts(
     if (entry) entry.folderCount += 1;
   }
   for (const row of itemCodeRows) {
+    if (!row.sectionId || !liveItemIds.has(row.itemId)) continue;
+    const entry = counts.get(row.sectionId);
+    if (entry) entry.itemCount += 1;
+  }
+  for (const row of shortcutRows) {
     if (!row.sectionId || !liveItemIds.has(row.itemId)) continue;
     const entry = counts.get(row.sectionId);
     if (entry) entry.itemCount += 1;

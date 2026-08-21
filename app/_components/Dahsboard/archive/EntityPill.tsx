@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ConditionBadge } from "./ConditionBadge";
 import { PillActions } from "./PillActions";
+import { ShortcutBadge } from "./ShortcutBadge";
 import type { ArchiveBusinessStatus, ArchiveConditionFlags } from "./types";
 
 // A caller-supplied value column (entries/users/updated/…). EntityPill only
@@ -54,6 +55,11 @@ type EntityPillProps = {
   showFavorite?: boolean;
   isPinned?: boolean;
   onPinChanged?: () => void;
+  // True only for a shortcut's injected display row — draws a small
+  // corner-arrow badge over the code so it reads as a pointer at a glance,
+  // and tells PillActions to swap in the shortcut action set (Go to source
+  // instead of Rename/Archive/Move/Shortcut). See ShortcutEntityModal.
+  isShortcut?: boolean;
 };
 
 // Single component for both folders and items, in both admin and viewer
@@ -85,6 +91,7 @@ export function EntityPill({
   showFavorite = false,
   isPinned = false,
   onPinChanged,
+  isShortcut = false,
 }: EntityPillProps) {
   const isArchived = status === "archived";
   const isFolder = kind === "folder";
@@ -144,12 +151,15 @@ export function EntityPill({
         ) : (
           <>
             <span
-              className={`shrink-0 text-center text-xs sm:text-sm font-semibold tabular-nums ${
+              className={`relative shrink-0 text-center text-xs sm:text-sm font-semibold tabular-nums ${
                 isArchived ? "text-textColorThird" : "text-logoblue"
               }`}
               style={codeWidthCh ? { minWidth: `${codeWidthCh}ch` } : undefined}
             >
               {code}
+              {isShortcut && (
+                <ShortcutBadge className="pointer-events-none absolute -bottom-1 -right-1.5 h-2.5 w-2.5" />
+              )}
             </span>
             {rowContent}
           </>
@@ -168,6 +178,8 @@ export function EntityPill({
           status={status}
           isPinned={showFavorite ? isPinned : undefined}
           onPinChanged={showFavorite ? onPinChanged : undefined}
+          isShortcut={isShortcut}
+          code={code}
         />
       )}
     </div>

@@ -7,6 +7,7 @@ import { getModuleAccess } from "@/lib/users/access";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
 import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
 import { EntityPill, type PillField } from "@/app/_components/Dahsboard/archive/EntityPill";
+import { ShortcutBadge } from "@/app/_components/Dahsboard/archive/ShortcutBadge";
 import { SectionedEntityManager } from "@/app/_components/Dahsboard/archive/SectionedEntityManager";
 import { FolderSharingPanel } from "@/app/_components/Dahsboard/archive/FolderSharingPanel";
 import type {
@@ -110,6 +111,17 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
         return;
       }
 
+      // Shortcuts (see the shared GET .../items endpoint, which also injects
+      // them for the normal browsing view) are kept in state rather than
+      // filtered out here — SectionedEntityManager derives a section's
+      // "empty enough to delete" state directly from this array's length per
+      // section (see its own isEmpty comment), so a shortcut sitting in an
+      // otherwise-empty section must still count toward that, or Delete
+      // would incorrectly stay enabled and silently orphan the shortcut's
+      // sectionId. renderItemRow below renders shortcuts as a distinct
+      // read-only placeholder instead of a full manageable pill, since
+      // rename/move/delete-item semantics don't apply to a pointer — it's
+      // managed via its own pill's hover actions in the normal folder view.
       setItems(itemsData.items ?? []);
 
       if (childrenRes.ok && childrenData?.ok) {
@@ -510,28 +522,46 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
               onChanged={loadFolderAndItems}
             />
           )}
-          renderItemRow={(item) => (
-            <EntityPill
-              key={item.id}
-              kind="item"
-              id={item.id}
-              name={item.name}
-              description={item.description}
-              status={item.status}
-              conditionFlags={item}
-              href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
-              locale={locale}
-              code={item.code}
-              mode="admin"
-              fields={
-                [
-                  { key: "users", value: item.viewerCount },
-                  { key: "updated", value: formatLastModified(item.updatedAt) },
-                ] satisfies PillField[]
-              }
-              onChanged={loadFolderAndItems}
-            />
-          )}
+          renderItemRow={(item) =>
+            item.isShortcut ? (
+              // Shortcuts aren't rendered as a manageable pill here — rename/
+              // move/delete-item semantics don't apply to a pointer, it's
+              // managed via its own pill's hover actions in the normal
+              // folder view (Go to source / Remove shortcut). Still a real
+              // row (not filtered out of the `items` array this maps over),
+              // so SectionedEntityManager's client-side section-emptiness
+              // check correctly counts it and keeps Delete disabled for a
+              // section that holds only a shortcut.
+              <div key={item.id} className="flex items-center gap-2 px-2 py-2 text-sm text-textColorThird">
+                <ShortcutBadge className="h-3.5 w-3.5 shrink-0 text-logoblue" />
+                <span className="min-w-0 truncate">{item.name}</span>
+                <span className="shrink-0 text-xs">
+                  {locale === "nb" ? "(snarvei — administreres i mappevisningen)" : "(shortcut — managed from the folder view)"}
+                </span>
+              </div>
+            ) : (
+              <EntityPill
+                key={item.id}
+                kind="item"
+                id={item.id}
+                name={item.name}
+                description={item.description}
+                status={item.status}
+                conditionFlags={item}
+                href={`/dashboard/archive/${codeToUrlPath(item.code)}`}
+                locale={locale}
+                code={item.code}
+                mode="admin"
+                fields={
+                  [
+                    { key: "users", value: item.viewerCount },
+                    { key: "updated", value: formatLastModified(item.updatedAt) },
+                  ] satisfies PillField[]
+                }
+                onChanged={loadFolderAndItems}
+              />
+            )
+          }
         />
       )}
     </div>

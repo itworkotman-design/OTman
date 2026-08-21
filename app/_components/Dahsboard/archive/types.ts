@@ -37,6 +37,10 @@ export type ArchiveItemSummary = ArchiveConditionFlags & {
   ownerUserId: string;
   isPinned: boolean;
   viewerCount: number;
+  // True only for a shortcut's injected display row (see
+  // lib/docArchive/shortcuts.ts) — the real item, as seen from a second
+  // folder it's been pointed into. Absent/false for a real item row.
+  isShortcut?: boolean;
 };
 
 // Tenant-scoped tag identity (0.2.0 delivery) — see

@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { MoveEntityModal } from "@/app/_components/Dahsboard/archive/MoveEntityModal";
 import { RenameEntityModal } from "@/app/_components/Dahsboard/archive/RenameEntityModal";
+import { ShortcutEntityModal } from "@/app/_components/Dahsboard/archive/ShortcutEntityModal";
+import { codeToUrlPath } from "@/app/_components/Dahsboard/archive/types";
 
 type PillActionsProps = {
   kind: "folder" | "item";
@@ -38,6 +41,13 @@ type PillActionsProps = {
   // just omit onPinChanged.
   isPinned?: boolean;
   onPinChanged?: () => void;
+  // True only for a shortcut's injected display row — swaps the action set
+  // to Go-to-source (plus Delete/Copy-link) instead of the real-item CRUD
+  // bundle, since this row is a pointer, not the real item. `code` is the
+  // SOURCE item's own real dotted code, needed to build the Go-to-source
+  // link (present on every item pill, real or shortcut).
+  isShortcut?: boolean;
+  code?: string;
 };
 
 type PillAction = {
@@ -148,6 +158,26 @@ function MoveIcon() {
   );
 }
 
+function ShortcutPlusIcon() {
+  return (
+    <IconSvg>
+      <path d="M13 7h5a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-3" />
+      <path d="M4 15V6a2 2 0 0 1 2-2h4l2 2" />
+      <path d="M9 15l6-6m0 0h-4m4 0v4" />
+    </IconSvg>
+  );
+}
+
+function GoToSourceIcon() {
+  return (
+    <IconSvg>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+    </IconSvg>
+  );
+}
+
 // Filled rather than stroked so it reads as distinct from the stroked action
 // icons — used both as the always-visible settings link (desktop) and the
 // "more actions" menu trigger (mobile).
@@ -176,12 +206,14 @@ function DotsIcon() {
 // Rename opens RenameEntityModal (matching this row's other modal action,
 // MoveEntityModal) rather than an inline input — not meant to replace
 // EntitySettingsPanel's Details tab for anything fancier.
-export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, status, isPinned, onPinChanged }: PillActionsProps) {
+export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, status, isPinned, onPinChanged, isShortcut, code }: PillActionsProps) {
+  const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [shortcutModalOpen, setShortcutModalOpen] = useState(false);
   const [pinning, setPinning] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -196,7 +228,12 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [mobileMenuOpen]);
 
-  const basePath = kind === "folder" ? `/api/archive/folders/${id}` : `/api/archive/items/${id}`;
+  // A shortcut row's `id` is the shortcut row's OWN id (never the real
+  // item's — see listInjectedShortcuts), so pointing Delete at
+  // /api/archive/shortcuts/{id} here is what makes it remove only the
+  // pointer, never the real item — handleDelete below needs no other change.
+  const basePath =
+    kind === "folder" ? `/api/archive/folders/${id}` : isShortcut ? `/api/archive/shortcuts/${id}` : `/api/archive/items/${id}`;
 
   async function handleTogglePin(e: MouseEvent) {
     e.preventDefault();
@@ -246,9 +283,13 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
         ? locale === "nb"
           ? `Slette mappen "${name}"?`
           : `Delete the folder "${name}"?`
-        : locale === "nb"
-          ? `Slette elementet "${name}"?`
-          : `Delete the item "${name}"?`;
+        : isShortcut
+          ? locale === "nb"
+            ? `Fjerne snarveien til "${name}"?`
+            : `Remove this shortcut to "${name}"?`
+          : locale === "nb"
+            ? `Slette elementet "${name}"?`
+            : `Delete the item "${name}"?`;
     if (!confirm(confirmMessage)) return;
 
     try {
@@ -273,6 +314,18 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
     setMoveModalOpen(true);
   }
 
+  function handleAddShortcut(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setShortcutModalOpen(true);
+  }
+
+  function handleGoToSource(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (code) router.push(`/dashboard/archive/${codeToUrlPath(code)}`);
+  }
+
   async function handleCopyLink(e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -294,7 +347,14 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
   // independent of the CRUD bundle's onChanged) since a pin toggle doesn't
   // need the parent list refetched the way a rename/delete/move does.
   const canManage = canEdit && Boolean(onChanged);
-  const showPin = canEdit && Boolean(onPinChanged);
+  const showPin = canEdit && Boolean(onPinChanged) && !isShortcut;
+  // Rename/Archive/Move/Shortcut/Pin/Settings all act on the REAL item — a
+  // shortcut pill represents "the real item, as seen from here", so none of
+  // those are offered on it (mutating the real item from a pointer, with no
+  // visual cue the mutation reaches back to its actual home, is confusing).
+  // Delete stays available on shortcuts (it only ever removes the pointer —
+  // see basePath above); Go to source is offered instead of the rest.
+  const canManageMutations = canManage && !isShortcut;
 
   const pinLabel = isPinned
     ? locale === "nb"
@@ -311,7 +371,9 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
   const archiveLabel =
     status === "archived" ? (locale === "nb" ? "Gjenåpne" : "Unarchive") : locale === "nb" ? "Arkiver" : "Archive";
   const moveLabel = locale === "nb" ? "Flytt til mappe" : "Move to folder";
-  const deleteLabel = locale === "nb" ? "Slett" : "Delete";
+  const shortcutLabel = locale === "nb" ? "Legg til snarvei" : "Add shortcut";
+  const goToSourceLabel = locale === "nb" ? "Gå til kilden" : "Go to source";
+  const deleteLabel = isShortcut ? (locale === "nb" ? "Fjern snarvei" : "Remove shortcut") : locale === "nb" ? "Slett" : "Delete";
   const copyLabel = copied ? (locale === "nb" ? "Kopiert!" : "Copied!") : locale === "nb" ? "Kopier lenke" : "Copy link";
   const settingsLabel = locale === "nb" ? "Innstillinger" : "Settings";
   const moreLabel = locale === "nb" ? "Flere handlinger" : "More actions";
@@ -321,12 +383,14 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
   // presentations (and the desktop bar's intrinsic width) follow.
   const actions: PillAction[] = [];
   if (showPin) actions.push({ key: "pin", label: pinLabel, icon: <StarIcon filled={Boolean(isPinned)} />, onClick: handleTogglePin, disabled: pinning, active: isPinned });
-  if (canManage) {
+  if (canManageMutations) {
     actions.push({ key: "rename", label: renameLabel, icon: <PencilIcon />, onClick: handleRename });
     if (status) actions.push({ key: "archive", label: archiveLabel, icon: <ArchiveIcon />, onClick: handleToggleArchive, disabled: archiving });
     actions.push({ key: "move", label: moveLabel, icon: <MoveIcon />, onClick: handleMove });
-    actions.push({ key: "delete", label: deleteLabel, icon: <TrashIcon />, onClick: handleDelete, disabled: deleting });
+    if (kind === "item") actions.push({ key: "shortcut", label: shortcutLabel, icon: <ShortcutPlusIcon />, onClick: handleAddShortcut });
   }
+  if (canManage) actions.push({ key: "delete", label: deleteLabel, icon: <TrashIcon />, onClick: handleDelete, disabled: deleting });
+  if (isShortcut && code) actions.push({ key: "go-to-source", label: goToSourceLabel, icon: <GoToSourceIcon />, onClick: handleGoToSource });
   if (canEdit) actions.push({ key: "copy", label: copyLabel, icon: copied ? <CheckIcon /> : <LinkIcon />, onClick: handleCopyLink, active: copied });
 
   return (
@@ -354,7 +418,7 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
           ))}
         </div>
 
-        {canManage && (
+        {canManageMutations && (
           <Link href={`${href}/settings`} className={ICON_BUTTON_CLASS} title={settingsLabel} aria-label={settingsLabel}>
             <DotsIcon />
           </Link>
@@ -399,7 +463,7 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
                 {action.label}
               </button>
             ))}
-            {canManage && (
+            {canManageMutations && (
               <Link href={`${href}/settings`} className={MENU_ITEM_CLASS} onClick={() => setMobileMenuOpen(false)}>
                 <DotsIcon />
                 {settingsLabel}
@@ -428,6 +492,16 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
           locale={locale}
           onClose={() => setRenameModalOpen(false)}
           onRenamed={onChanged}
+        />
+      )}
+
+      {shortcutModalOpen && onChanged && (
+        <ShortcutEntityModal
+          itemId={id}
+          itemName={name}
+          locale={locale}
+          onClose={() => setShortcutModalOpen(false)}
+          onShortcutCreated={onChanged}
         />
       )}
     </div>

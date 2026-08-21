@@ -1080,6 +1080,39 @@ model ArchiveItemCode {
   @@index([sectionId])
 }
 
+// A one-way pointer that makes a real ArchiveItem additionally *appear* in a
+// second folder's listing, without moving or duplicating it — see
+// lib/docArchive/shortcuts.ts. itemId/targetFolderId are opaque references
+// into the @customprojects/custom-archive package's own database (cross-
+// database, not a Prisma relation), same pattern as ArchiveItemCode.itemId
+// above. Unlike ArchiveItemCode (one row per item, @unique on itemId), a
+// single item can have many shortcuts (one per folder it's pointed into),
+// and a folder can hold many shortcuts, so itemId alone isn't unique here —
+// instead (itemId, targetFolderId) is, so the same item can't be shortcut
+// into the same folder twice.
+//
+// No ArchiveItemCode row is minted for a shortcut — it has no display code
+// of its own; it borrows the source item's own real code for display
+// purposes only. This row has no DB-level cascade to the source item: a
+// shortcut whose source item is later deleted or made inaccessible to a
+// given viewer simply stops being injected at read time (see
+// listInjectedShortcuts) rather than being cleaned up by a job.
+model ArchiveItemShortcut {
+  id              String          @id @default(cuid())
+  companyId       String
+  tenantId        String
+  itemId          String
+  targetFolderId  String
+  sectionId       String?
+  section         ArchiveSection? @relation(fields: [sectionId], references: [id])
+  createdByUserId String
+  createdAt       DateTime        @default(now())
+
+  @@unique([itemId, targetFolderId])
+  @@index([companyId, tenantId, targetFolderId])
+  @@index([itemId])
+}
+
 // Records which two @customprojects/custom-archive ArchiveRole ids are this
 // tenant's durable system roles ("Admin", "Viewer") — one row per company.
 // The package has no concept of "the" role for a purpose; roles are just
@@ -1144,6 +1177,7 @@ model ArchiveSection {
   updatedAt      DateTime            @updatedAt
   folderCodes    ArchiveFolderCode[]
   itemCodes      ArchiveItemCode[]
+  itemShortcuts  ArchiveItemShortcut[]
 
   @@index([companyId, tenantId, parentFolderId])
 }
