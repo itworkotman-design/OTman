@@ -30,6 +30,55 @@ function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
+// react-spreadsheet evaluates any cell value starting with "=" as a formula
+// on its own (it bundles fast-formula-parser internally — see
+// SpreadsheetPanel's module comment), so a formula is just a plain string in
+// SheetCell.value; no separate "is this a formula" field is needed anywhere
+// else in this app. This function only has to translate that convention to
+// and from exceljs's own formula representation (a `{ formula }` object, not
+// a string) when crossing the .xlsx boundary.
+function toExcelCellValue(value: string): ExcelJS.CellValue {
+  if (value.length > 1 && value[0] === "=") {
+    return { formula: shiftFormulaRowRefs(value.slice(1), 1) };
+  }
+  return value;
+}
+
+// A cell reference token: optional "$", 1-3 letters (Excel's own column-name
+// bound, so this can't over-match into a 4+ letter word), optional "$", then
+// digits. Guarded on both sides so it only matches a reference that stands
+// on its own — not the leading letters+digits of a function name that just
+// happens to look like one (LOG10, ATAN2, BIN2DEC, IMLOG2, HEX2OCT, and
+// several dozen more in fast-formula-parser's 280-function library all have
+// this shape). A real reference is never immediately followed by "(" (that
+// makes it a function call) or by another identifier character (that makes
+// it the middle of a longer word), and is never immediately preceded by one
+// either (that makes IT the middle of a longer word).
+const CELL_REF_PATTERN = /(?<![A-Za-z0-9_.])(\$?[A-Za-z]{1,3}\$?)(\d+)(?![A-Za-z0-9_(])/g;
+
+// Excel's row numbering includes the header row (row 1), but
+// react-spreadsheet's own row numbering starts at 1 for the first DATA row
+// — it never sees the header row at all, since columnNames is a separate
+// field from cells. A row-relative reference inside an imported formula
+// therefore points one row too high once the header is stripped out (Excel
+// row 2 == react-spreadsheet row 1), and the reverse is true on export once
+// the header row is written back in. Column letters are unaffected — column
+// order is preserved 1:1 on both sides.
+//
+// This is a plain regex substitution, not a real formula tokenizer, so it
+// can't distinguish a cell reference from a look-alike string literal
+// inside the formula (e.g. a text argument like "Sheet A1") — an accepted,
+// narrow limitation given fast-formula-parser doesn't expose its own lexer
+// for reuse. Row 1 (delta -1 landing on 0, i.e. a reference to the header
+// row itself) has no equivalent cell post-import and is left unshifted
+// rather than produced as an invalid "row 0" reference.
+function shiftFormulaRowRefs(formula: string, delta: number): string {
+  return formula.replace(CELL_REF_PATTERN, (match, colPart: string, rowDigits: string) => {
+    const row = parseInt(rowDigits, 10) + delta;
+    return row >= 1 ? `${colPart}${row}` : match;
+  });
+}
+
 // Excel's column "width" is in units of the default font's digit width, not
 // pixels — these conversions use the same ~7px-per-unit + 5px-padding
 // approximation Excel itself uses for its default Calibri 11 font. Not
@@ -63,7 +112,7 @@ export async function exportSpreadsheetToExcel(data: SpreadsheetData, filename: 
   });
 
   data.cells.forEach((row, rowIndex) => {
-    const excelRow = worksheet.addRow(row.map((cell) => cell.value));
+    const excelRow = worksheet.addRow(row.map((cell) => toExcelCellValue(cell.value)));
     row.forEach((cell, columnIndex) => {
       if (!cell.bg) return;
       excelRow.getCell(columnIndex + 1).fill = {
@@ -88,9 +137,9 @@ export async function exportSpreadsheetToExcel(data: SpreadsheetData, filename: 
   );
 }
 
-// Formulas/rich text/dates aren't part of this section's scope (plain
-// text/number cells only) — any non-primitive cell value is flattened to a
-// display string rather than preserved structurally.
+// Rich text/dates aren't part of this section's scope (plain text/number
+// cells only, plus formulas — see below) — any other non-primitive cell
+// value is flattened to a display string rather than preserved structurally.
 function cellValueToDisplayString(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toLocaleDateString();
@@ -101,6 +150,21 @@ function cellValueToDisplayString(value: ExcelJS.CellValue): string {
     return "";
   }
   return String(value);
+}
+
+// Formula cells import as the formula text itself (react-spreadsheet's own
+// convention for a formula — see toExcelCellValue above), not their cached
+// result — so the grid re-evaluates them live (via react-spreadsheet's
+// bundled fast-formula-parser) instead of freezing in whatever value Excel
+// last computed. A "shared formula" cell (Excel's optimization for a
+// formula repeated across a range) resolves its own absolute `.formula`
+// through exceljs when present; on the rare cell where exceljs can't
+// resolve it, this falls back to the cached result like any other value.
+function excelCellToSheetValue(value: ExcelJS.CellValue): string {
+  if (value !== null && typeof value === "object" && "formula" in value && typeof value.formula === "string") {
+    return `=${shiftFormulaRowRefs(value.formula, -1)}`;
+  }
+  return cellValueToDisplayString(value);
 }
 
 export async function importSpreadsheetFromExcelFile(file: File): Promise<SpreadsheetData> {
@@ -133,7 +197,7 @@ export async function importSpreadsheetFromExcelFile(file: File): Promise<Spread
     rowHeights.push(excelRow.height !== undefined ? excelHeightToPx(excelRow.height) : undefined);
     return Array.from({ length: columnCount }, (_, columnIndex): SheetCell => {
       const excelCell = excelRow.getCell(columnIndex + 1);
-      const value = cellValueToDisplayString(excelCell.value);
+      const value = excelCellToSheetValue(excelCell.value);
       const fill = excelCell.fill;
       const bg =
         fill?.type === "pattern" && fill.pattern === "solid" && "fgColor" in fill
