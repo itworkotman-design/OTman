@@ -4,11 +4,13 @@ import { createContext, forwardRef, useContext, useEffect, useImperativeHandle, 
 import SpreadsheetImpl, {
   type CellBase,
   type ColumnIndicatorProps,
+  type CornerIndicatorProps,
   type DataViewerProps,
   type Matrix,
   type Props as SpreadsheetComponentProps,
   type RowIndicatorProps,
   type Selection,
+  type SpreadsheetRef,
 } from "react-spreadsheet";
 import {
   DEFAULT_COLUMN_WIDTH,
@@ -38,9 +40,13 @@ function fillArray(length: number, value: number): number[] {
 // CellType to CellBase<any>. Re-casting it back to a generic function type
 // (a standard forwardRef+generics workaround) lets `<Spreadsheet<SheetCell>>`
 // below type-check DataViewer/ColumnIndicator/RowIndicator against our own
-// SheetCell shape instead of the erased `any`.
+// SheetCell shape instead of the erased `any`. `React.RefAttributes` is
+// added back in explicitly (rather than using React.forwardRef's own type)
+// so `ref` still type-checks — the underlying rendered component is still
+// the real forwardRef-wrapped one, so passing a ref through at runtime
+// works regardless of how this local type recast shapes it.
 const Spreadsheet = SpreadsheetImpl as unknown as <CellType extends CellBase>(
-  props: SpreadsheetComponentProps<CellType>,
+  props: SpreadsheetComponentProps<CellType> & React.RefAttributes<SpreadsheetRef>,
 ) => React.ReactElement;
 
 export type SpreadsheetPanelHandle = {
@@ -234,6 +240,32 @@ function SheetRowIndicator({ row, label, selected, onSelect }: RowIndicatorProps
   );
 }
 
+// react-spreadsheet already dispatches an EntireWorksheetSelection when this
+// cell is clicked (it's the library's default CornerIndicator behavior,
+// wired up the same way as the column/row indicators above) — the only
+// thing missing was any visible sign that this blank corner cell does
+// anything. The color toolbar already applies to whatever `selection.
+// toRange()` returns regardless of its concrete Selection subclass
+// (RangeSelection, EntireRowsSelection, EntireColumnsSelection, or this
+// one), so clicking here and then a color swatch fills every cell in the
+// sheet with no extra wiring needed beyond this affordance.
+function SheetCornerIndicator({ selected, onSelect }: CornerIndicatorProps) {
+  const actions = useContext(SheetActionsContext);
+  if (!actions) return null;
+
+  return (
+    <th
+      className={`Spreadsheet__header ${selected ? "Spreadsheet__header--selected" : ""}`}
+      onClick={onSelect}
+      title={actions.locale === "nb" ? "Velg alt" : "Select all"}
+    >
+      <svg viewBox="0 0 24 24" className="mx-auto h-3 w-3 opacity-50">
+        <polygon points="24,24 24,10 10,24" fill="currentColor" />
+      </svg>
+    </th>
+  );
+}
+
 // A full editable spreadsheet content section — the tabular counterpart to
 // TextFieldsPanel, backed by ArchiveItemSpreadsheet (see
 // lib/docArchive/spreadsheets.ts). Grid mechanics (rectangular drag-select,
@@ -265,6 +297,7 @@ export const SpreadsheetPanel = forwardRef<SpreadsheetPanelHandle, SpreadsheetPa
   const [importing, setImporting] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sheetRef = useRef<SpreadsheetRef>(null);
 
   // Normalizes a just-loaded (or freshly-defaulted) SpreadsheetData into a
   // fully-populated shape — columnWidths/rowHeights filled in when the
@@ -394,14 +427,24 @@ export const SpreadsheetPanel = forwardRef<SpreadsheetPanelHandle, SpreadsheetPa
   }));
 
   function handleAddRow() {
+    const newRowIndex = cells.length;
     setCells((prev) => [...prev, emptyRow(columnNames.length)]);
     setRowHeights((prev) => [...prev, DEFAULT_ROW_HEIGHT]);
+    // ACTIVATE isn't bounds-checked against the grid's current data (see
+    // spreadsheetGrid.tsx's SizedCell — any cell that later renders at this
+    // point picks up `active` reactively), so this can fire immediately
+    // rather than waiting for the new row to actually be in the DOM — moves
+    // focus straight to the new row's first cell, matching how
+    // Excel/Sheets both jump the cursor onto a freshly-inserted row.
+    sheetRef.current?.activate({ row: newRowIndex, column: 0 });
   }
 
   function handleAddColumn() {
+    const newColumnIndex = columnNames.length;
     setColumnNames((prev) => [...prev, nextUnusedColumnName(prev)]);
     setCells((prev) => prev.map((row) => [...row, { value: "" }]));
     setColumnWidths((prev) => [...prev, DEFAULT_COLUMN_WIDTH]);
+    sheetRef.current?.activate({ row: 0, column: newColumnIndex });
   }
 
   function handleRenameColumn(column: number, name: string) {
@@ -472,6 +515,7 @@ export const SpreadsheetPanel = forwardRef<SpreadsheetPanelHandle, SpreadsheetPa
         data.columnWidths?.slice(0, importedColumnNames.length) ?? fillArray(importedColumnNames.length, DEFAULT_COLUMN_WIDTH),
       );
       setRowHeights(data.rowHeights?.slice(0, importedCells.length) ?? fillArray(importedCells.length, DEFAULT_ROW_HEIGHT));
+      sheetRef.current?.activate({ row: 0, column: 0 });
     } catch {
       setError(locale === "nb" ? "Kunne ikke importere filen" : "Failed to import file");
     } finally {
@@ -580,6 +624,7 @@ export const SpreadsheetPanel = forwardRef<SpreadsheetPanelHandle, SpreadsheetPa
             <div className="inline-block">
               <div className="flex items-stretch">
                 <Spreadsheet<SheetCell>
+                  ref={sheetRef}
                   data={cells}
                   columnLabels={columnNames}
                   onChange={handleGridChange}
@@ -587,6 +632,7 @@ export const SpreadsheetPanel = forwardRef<SpreadsheetPanelHandle, SpreadsheetPa
                   DataViewer={SheetDataViewer}
                   ColumnIndicator={SheetColumnIndicator}
                   RowIndicator={SheetRowIndicator}
+                  CornerIndicator={SheetCornerIndicator}
                   Table={SizedTable}
                   Row={SizedRow}
                   Cell={SizedCell}
