@@ -6,10 +6,11 @@ import SpreadsheetImpl, {
   type DataViewerProps,
   type Props as SpreadsheetComponentProps,
 } from "react-spreadsheet";
-import type { SheetCell, SpreadsheetData } from "@/lib/docArchive/spreadsheetShared";
+import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT, type SheetCell, type SpreadsheetData } from "@/lib/docArchive/spreadsheetShared";
 import { exportSpreadsheetToExcel } from "@/lib/docArchive/spreadsheetExcel";
 import { ContentSectionTypeIcon } from "@/app/_components/Dahsboard/archive/ContentSectionTypeIcon";
 import { getContentSectionLabel } from "@/lib/docArchive/contentSectionLabels";
+import { SheetSizingContext, SizedCell, SizedRow, SizedTable } from "@/app/_components/Dahsboard/archive/spreadsheetGrid";
 
 // Same forwardRef-generics workaround as SpreadsheetPanel — see its comment.
 const Spreadsheet = SpreadsheetImpl as unknown as <CellType extends CellBase>(
@@ -24,14 +25,7 @@ const CELL_MAX_WIDTH_CLASS = "block max-w-[240px] whitespace-pre-wrap break-word
 
 function SheetDataViewer({ cell, evaluatedCell }: DataViewerProps<ReadOnlyCell>) {
   const value = evaluatedCell?.value ?? cell?.value ?? "";
-  return (
-    <span
-      className={`Spreadsheet__data-viewer ${CELL_MAX_WIDTH_CLASS}`}
-      style={cell?.bg ? { backgroundColor: cell.bg } : undefined}
-    >
-      {String(value)}
-    </span>
-  );
+  return <span className={`Spreadsheet__data-viewer ${CELL_MAX_WIDTH_CLASS}`}>{String(value)}</span>;
 }
 
 type Props = {
@@ -81,6 +75,17 @@ export function SpreadsheetReadOnly({ sectionId, locale }: Props) {
     [data],
   );
 
+  // Same fallback-to-defaults logic as SpreadsheetPanel's applyLoadedData —
+  // a spreadsheet saved before column/row sizing existed just renders at the
+  // library defaults here too.
+  const sheetSizing = useMemo(
+    () => ({
+      columnWidths: data?.columnWidths ?? Array.from({ length: data?.columnNames.length ?? 0 }, () => DEFAULT_COLUMN_WIDTH),
+      rowHeights: data?.rowHeights ?? Array.from({ length: data?.cells.length ?? 0 }, () => DEFAULT_ROW_HEIGHT),
+    }),
+    [data],
+  );
+
   function handleExport() {
     if (!data) return;
     void exportSpreadsheetToExcel(data, "spreadsheet.xlsx");
@@ -115,7 +120,16 @@ export function SpreadsheetReadOnly({ sectionId, locale }: Props) {
         <p className="text-sm text-textColorThird">{locale === "nb" ? "Tomt regneark" : "Empty spreadsheet"}</p>
       ) : (
         <div className="overflow-x-auto">
-          <Spreadsheet<ReadOnlyCell> data={readOnlyCells} columnLabels={data.columnNames} DataViewer={SheetDataViewer} />
+          <SheetSizingContext.Provider value={sheetSizing}>
+            <Spreadsheet<ReadOnlyCell>
+              data={readOnlyCells}
+              columnLabels={data.columnNames}
+              DataViewer={SheetDataViewer}
+              Table={SizedTable}
+              Row={SizedRow}
+              Cell={SizedCell}
+            />
+          </SheetSizingContext.Provider>
         </div>
       )}
     </div>

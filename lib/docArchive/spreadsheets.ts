@@ -1,6 +1,15 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { MAX_COLUMNS, MAX_ROWS, defaultSpreadsheetData, type SpreadsheetData } from "@/lib/docArchive/spreadsheetShared";
+import {
+  MAX_COLUMNS,
+  MAX_COLUMN_WIDTH,
+  MAX_ROW_HEIGHT,
+  MAX_ROWS,
+  MIN_COLUMN_WIDTH,
+  MIN_ROW_HEIGHT,
+  defaultSpreadsheetData,
+  type SpreadsheetData,
+} from "@/lib/docArchive/spreadsheetShared";
 
 export type { SheetCell, SpreadsheetData } from "@/lib/docArchive/spreadsheetShared";
 
@@ -67,14 +76,23 @@ export async function getOrCreateSpreadsheet(
 
 export type UpdateSpreadsheetResult = { ok: true } | { ok: false; reason: "INVALID_DATA" };
 
+function isValidSizeArray(value: unknown, expectedLength: number, min: number, max: number): boolean {
+  if (value === undefined) return true;
+  if (!Array.isArray(value) || value.length !== expectedLength) return false;
+  return value.every((n) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max);
+}
+
 function isValidSpreadsheetData(data: unknown): data is SpreadsheetData {
   if (!data || typeof data !== "object") return false;
-  const { columnNames, cells } = data as Record<string, unknown>;
+  const { columnNames, cells, columnWidths, rowHeights } = data as Record<string, unknown>;
 
   if (!Array.isArray(columnNames) || columnNames.length > MAX_COLUMNS) return false;
   if (!columnNames.every((name) => typeof name === "string")) return false;
 
   if (!Array.isArray(cells) || cells.length > MAX_ROWS) return false;
+
+  if (!isValidSizeArray(columnWidths, columnNames.length, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH)) return false;
+  if (!isValidSizeArray(rowHeights, cells.length, MIN_ROW_HEIGHT, MAX_ROW_HEIGHT)) return false;
 
   return cells.every((row) => {
     if (!Array.isArray(row) || row.length !== columnNames.length) return false;
