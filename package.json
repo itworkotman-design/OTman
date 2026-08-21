@@ -60,7 +60,7 @@
     "nodemailer": "^9.0.1",
     "pdf-lib": "^1.17.1",
     "pg": "^8.20.0",
-    "prisma": "^7.7.0",
+    "prisma": "^7.9.1",
     "react": "^19.2.3",
     "react-colorful": "^5.8.0",
     "react-dom": "^19.2.3",
