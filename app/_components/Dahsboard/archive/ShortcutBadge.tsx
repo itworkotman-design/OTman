@@ -1,3 +1,16 @@
+import type { CSSProperties } from "react";
+
+// A subtle grayish diagonal hatch, layered under a row's own background —
+// used together with ShortcutBadge (below) to mark a shortcut row so it
+// reads as "not the real thing" at a glance, since the corner-arrow badge
+// alone is too small to notice in a quick scan of a mixed folder/item list.
+// Shared by EntityPill's item row and FolderSettingsView's read-only
+// shortcut placeholder row.
+export const SHORTCUT_STRIPE_BG: CSSProperties = {
+  backgroundImage:
+    "repeating-linear-gradient(135deg, rgba(100,116,139,0.16) 0px, rgba(100,116,139,0.16) 5px, transparent 5px, transparent 11px)",
+};
+
 // Small OS-shortcut-style corner arrow — marks a pill/row as a shortcut
 // (see lib/docArchive/shortcuts.ts) rather than the real item. Shared by
 // EntityPill's code-badge overlay, ShortcutItemView's breadcrumb, and

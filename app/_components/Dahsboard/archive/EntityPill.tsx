@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ConditionBadge } from "./ConditionBadge";
 import { PillActions } from "./PillActions";
-import { ShortcutBadge } from "./ShortcutBadge";
+import { SHORTCUT_STRIPE_BG, ShortcutBadge } from "./ShortcutBadge";
 import type { ArchiveBusinessStatus, ArchiveConditionFlags } from "./types";
 
 // A caller-supplied value column (entries/users/updated/…). EntityPill only
@@ -56,9 +56,11 @@ type EntityPillProps = {
   isPinned?: boolean;
   onPinChanged?: () => void;
   // True only for a shortcut's injected display row — draws a small
-  // corner-arrow badge over the code so it reads as a pointer at a glance,
-  // and tells PillActions to swap in the shortcut action set (Go to source
-  // instead of Rename/Archive/Move/Shortcut). See ShortcutEntityModal.
+  // corner-arrow badge over the code plus a diagonal hatch across the row
+  // background (see SHORTCUT_STRIPE_BG in ShortcutBadge.tsx) so it reads as
+  // a pointer at a glance, and tells PillActions to swap in the shortcut
+  // action set (Go to source instead of Rename/Archive/Move/Shortcut). See
+  // ShortcutEntityModal.
   isShortcut?: boolean;
 };
 
@@ -135,6 +137,7 @@ export function EntityPill({
             ? "flex min-w-0 grow items-stretch transition-colors hover:bg-linePrimary"
             : "flex min-w-0 grow items-center gap-2 sm:gap-3 px-2 py-2 sm:py-3 transition-colors hover:bg-linePrimary"
         }
+        style={isShortcut ? SHORTCUT_STRIPE_BG : undefined}
       >
         {isFolder ? (
           <>

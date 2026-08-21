@@ -7,7 +7,7 @@ import { getModuleAccess } from "@/lib/users/access";
 import { EntitySettingsPanel } from "@/app/_components/Dahsboard/archive/EntitySettingsPanel";
 import { ReminderSettingsPanel } from "@/app/_components/Dahsboard/archive/ReminderSettingsPanel";
 import { EntityPill, type PillField } from "@/app/_components/Dahsboard/archive/EntityPill";
-import { ShortcutBadge } from "@/app/_components/Dahsboard/archive/ShortcutBadge";
+import { SHORTCUT_STRIPE_BG, ShortcutBadge } from "@/app/_components/Dahsboard/archive/ShortcutBadge";
 import { SectionedEntityManager } from "@/app/_components/Dahsboard/archive/SectionedEntityManager";
 import { FolderSharingPanel } from "@/app/_components/Dahsboard/archive/FolderSharingPanel";
 import type {
@@ -526,13 +526,18 @@ export function FolderSettingsView({ folderId, codePath }: { folderId: string; c
             item.isShortcut ? (
               // Shortcuts aren't rendered as a manageable pill here — rename/
               // move/delete-item semantics don't apply to a pointer, it's
-              // managed via its own pill's hover actions in the normal
-              // folder view (Go to source / Remove shortcut). Still a real
-              // row (not filtered out of the `items` array this maps over),
-              // so SectionedEntityManager's client-side section-emptiness
-              // check correctly counts it and keeps Delete disabled for a
-              // section that holds only a shortcut.
-              <div key={item.id} className="flex items-center gap-2 px-2 py-2 text-sm text-textColorThird">
+              // managed via its own pill's actions (always visible, not just
+              // on hover — see PillActions) in the normal folder view (Go to
+              // source / Remove shortcut). Still a real row (not filtered out
+              // of the `items` array this maps over), so
+              // SectionedEntityManager's client-side section-emptiness check
+              // correctly counts it and keeps Delete disabled for a section
+              // that holds only a shortcut.
+              <div
+                key={item.id}
+                className="flex items-center gap-2 px-2 py-2 text-sm text-textColorThird"
+                style={SHORTCUT_STRIPE_BG}
+              >
                 <ShortcutBadge className="h-3.5 w-3.5 shrink-0 text-logoblue" />
                 <span className="min-w-0 truncate">{item.name}</span>
                 <span className="shrink-0 text-xs">

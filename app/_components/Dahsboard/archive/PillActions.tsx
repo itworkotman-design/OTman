@@ -397,9 +397,19 @@ export function PillActions({ kind, id, name, href, locale, canEdit, onChanged, 
     <div className="flex shrink-0 items-center">
       {/* Desktop: fade in to the left of the always-visible settings kebab
           (when canManage — otherwise this bar is just the hover-revealed
-          actions with no kebab). */}
+          actions with no kebab). A shortcut row has no settings kebab to
+          fall back on (canManageMutations is always false for it — see
+          above), so its actions stay permanently visible instead of
+          hover-only, or Delete/Go-to-source would have no visible affordance
+          at all outside of a hover. */}
       <div className="hidden shrink-0 items-center gap-1 px-3 sm:flex">
-        <div className="pointer-events-none flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover/pill:pointer-events-auto group-hover/pill:opacity-100">
+        <div
+          className={
+            isShortcut
+              ? "flex items-center gap-1"
+              : "pointer-events-none flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover/pill:pointer-events-auto group-hover/pill:opacity-100"
+          }
+        >
           {actions.map((action) => (
             <button
               key={action.key}
