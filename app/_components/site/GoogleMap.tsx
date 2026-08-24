@@ -58,13 +58,6 @@ export default function GoogleMap() {
         streetViewControl: false,
         fullscreenControl: false,
         rotateControl: false,
-        styles: [
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
-          { featureType: "transit", stylers: [{ visibility: "off" }] },
-          { featureType: "road.local", stylers: [{ visibility: "off" }] },
-          { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#d9d9d9" }] },
-          { featureType: "water", elementType: "geometry", stylers: [{ color: "#aab3d6" }] },
-        ],
       });
 
       const pin = new PinElement({

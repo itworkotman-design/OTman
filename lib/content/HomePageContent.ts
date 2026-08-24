@@ -30,7 +30,7 @@ export const homePageContent = {
     en: "Otman Transport crew carrying a delivery",
     no: "Otman Transport-team som bærer en leveranse",
   },
-  aboutImageSrc: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/Otman+Delivery+With+Installtion+Oslo.jpg",
+  aboutImageSrc: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/OtmanAS-Delivery-Assembly-Oslo.jpg",
   testimonialsHeading: {
     en: "What our customers say",
     no: "Det sier kundene våre",
