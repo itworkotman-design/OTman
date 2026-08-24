@@ -1,7 +1,7 @@
 export const homePageContent = {
   title: {
-    en: "What can we help you with today?",
-    no: "Hva skal vi hjelpe deg med i dag?",
+    en: "What can we\nhelp you with today?",
+    no: "Hva skal vi\nhjelpe deg med i dag?",
   },
   subtitle: {
     en: "Choose what you need help with, we'll take care of the rest.",
@@ -23,7 +23,7 @@ export const homePageContent = {
     en: "Otman Transport crew carrying a delivery",
     no: "Otman Transport-team som bærer en leveranse",
   },
-  aboutImageSrc: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/IMG_9136.HEIC",
+  aboutImageSrc: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/Otman+Delivery+With+Installtion+Oslo.jpg",
   testimonialsHeading: {
     en: "What our customers say",
     no: "Det sier kundene våre",
@@ -100,40 +100,40 @@ export const homePageContent = {
   },
   items: [
     {
-    title: {
+      title: {
         en: "Collection & Pickup",
         no: "Henting og innsamling",
       },
       svg: "Service logos-01.svg",
     },
     {
-    title: {
+      title: {
         en: "Package Delivery",
         no: "Pakkelevering",
       },
       svg: "Service logos-02.svg",
     },
     {
-    title: {
+      title: {
         en: "Moving & Relocation",
         no: "Flytting",
       },
       svg: "Service logos-03.svg",
     },
     {
-    title: {
+      title: {
         en: "Custom Transport",
         no: "Spesialtransport",
       },
       svg: "Service logos-04.svg",
     },
   ],
-  stats:[
+  stats: [
     {
-    title:{
-        en:"Newspapers delivered",
-        no:"Aviser levert",
-    }
-    }
-  ]
+      title: {
+        en: "Newspapers delivered",
+        no: "Aviser levert",
+      },
+    },
+  ],
 };

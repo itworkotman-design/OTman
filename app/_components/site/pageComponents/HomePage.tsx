@@ -15,7 +15,7 @@ type HomePageProps = {
   content: typeof homePageContent;
   statsContent?: typeof statsContent;
   locale: Locale;
-}
+};
 
 function StarRow({ rating }: { rating: number }) {
   return (
@@ -40,16 +40,22 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
 
   return (
     <>
-      <header className="py-16">
-        <h1 className="text-logoblue text-[40px] md:text-[48px] font-bold text-center">{content.title[locale]}</h1>
-        <p className="text-logoblue text-[18px] md:text-[20px] font-bold text-center">{content.subtitle[locale]}</p>
+      <header className="pt-12 pb-14 flex items-center justify-center gap-10">
+        <Image src="/Logo-Icon-Blue.svg" width={200} height={200} alt="Logo" loading="eager" className="h-[200] w-auto" />
+        <div>
+          <h1 className="text-logoblue text-[48px] md:text-[48px] font-bold leading-14 text-center whitespace-pre-line text-left pb-4">
+            {content.title[locale]}
+          </h1>
+          <p className="text-textColorSecond text-[16px] md:text-[20px] font-regular text-left">{content.subtitle[locale]}</p>
+        </div>
       </header>
 
       <ServiceWindow title={serviceWindowContent.title} items={serviceWindowContent.items} locale={locale} />
+      <section className="py-8">
+        <StatsDisplay content={resolvedStatsContent} locale={locale} />
+      </section>
 
-      <StatsDisplay content={resolvedStatsContent} locale={locale} />
-
-      <section className="py-14">
+      <section className="pb-14">
         <div className="mx-auto flex max-w-[1200] flex-col items-center gap-10 px-5 lg:flex-row">
           <div className="lg:flex-1">
             <h2 className="text-[22px] font-bold text-logoblue md:text-[26px]">{content.introHeading[locale]}</h2>
@@ -59,14 +65,8 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
             </Link>
           </div>
 
-          <div className="relative h-[280] w-full overflow-hidden rounded-3xl lg:h-[320] lg:flex-1">
-            <Image
-              src={content.aboutImageSrc}
-              alt={content.aboutImageAlt[locale]}
-              fill
-              sizes="(min-width: 1024px) 50vw, 100vw"
-              className="object-cover"
-            />
+          <div className="relative h-[280] w-full overflow-hidden rounded-2xl lg:h-[320] lg:flex-1">
+            <Image src={content.aboutImageSrc} alt={content.aboutImageAlt[locale]} fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover" />
           </div>
         </div>
       </section>
@@ -95,7 +95,19 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
         </div>
       </section>
 
-      <PartnersDisplay content={partnersContent} locale={locale} />
+      <section className="pb-16">
+        <div className="mx-auto max-w-[1200] px-5">
+          <div className="flex flex-col items-start gap-6 rounded-2xl bg-logoblue p-8 text-white md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-[24px] font-semibold">{content.cta.title[locale]}</h2>
+              <p className="mt-1 text-[12px] font-medium text-white/80">{content.cta.subtitle[locale]}</p>
+            </div>
+            <Link href={`/${locale}/tjenester`} className="py-4 px-10 rounded-2xl bg-white text-logoblue font-semibold whitespace-nowrap">
+              {content.cta.buttonText[locale]} →
+            </Link>
+          </div>
+        </div>
+      </section>
 
       <section className="py-10">
         <div className="mx-auto max-w-[1200] px-5">
@@ -103,25 +115,8 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
             images={content.gallery.map((image) => ({ src: image.src, alt: image.alt[locale] }))}
             autoplay
             intervalSeconds={4}
-            frameClassName="aspect-[16/7] rounded-3xl bg-linePrimary/20"
+            frameClassName="aspect-[16/9] rounded-2xl bg-linePrimary/20"
           />
-        </div>
-      </section>
-
-      <section className="pb-16">
-        <div className="mx-auto max-w-[1200] px-5">
-          <div className="flex flex-col items-start gap-6 rounded-3xl bg-logoblue p-8 text-white md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-[22px] font-bold">{content.cta.title[locale]}</h2>
-              <p className="mt-1 text-white/80">{content.cta.subtitle[locale]}</p>
-            </div>
-            <Link
-              href={`/${locale}/tjenester`}
-              className="customButtonEnabled bg-white! text-logoblue! font-semibold! whitespace-nowrap"
-            >
-              {content.cta.buttonText[locale]} →
-            </Link>
-          </div>
         </div>
       </section>
     </>

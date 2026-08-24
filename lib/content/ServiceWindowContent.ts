@@ -39,8 +39,8 @@ export const serviceWindowContent = {
         no: "Henting og oppsamling",
       },
       modalIntro: {
-        en: "Store pickups, supplier collections, and scheduled handovers.",
-        no: "Butikkhenting, leverandorhenting og planlagte overleveringer.",
+        en: "We deliver whatever you need, straight to your door.",
+        no: "Vi leverer det du trenger, rett til døren.",
       },
       formVariant: "transport",
       categories: [
@@ -69,8 +69,8 @@ export const serviceWindowContent = {
         no: "Flytting og relokasjon",
       },
       modalIntro: {
-        en: "Home moves, office relocations, and multi-stop logistics.",
-        no: "Flytting av hjem, kontor og flerstopp logistikk.",
+        en: "We deliver, carry in, and assemble it for you.",
+        no: "Vi leverer, bærer inn og monterer for deg.",
       },
       formVariant: "transport",
       categories: [
@@ -99,8 +99,8 @@ export const serviceWindowContent = {
         no: "Spesialtransport",
       },
       modalIntro: {
-        en: "Tailored transport for oversized, fragile, or unusual cargo.",
-        no: "Skreddersydd transport for stort, skjort eller krevende gods.",
+        en: "We assemble what you already have at home.",
+        no: "Vi monterer det du allerede har hjemme.",
       },
       formVariant: "transport",
       categories: [
@@ -129,8 +129,8 @@ export const serviceWindowContent = {
         no: "Alle tjenester",
       },
       modalIntro: {
-        en: "Browse all available services.",
-        no: "Se alle tilgjengelige tjenester.",
+        en: "We help you with all or part of your move.",
+        no: "Vi hjelper deg med hele eller deler av flyttingen.",
       },
       formVariant: "manpower",
       categories: [

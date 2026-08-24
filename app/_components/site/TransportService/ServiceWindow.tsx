@@ -28,12 +28,14 @@ export function ServiceWindow({
 }: ServiceWindowProps) {
   const router = useRouter();
   const isCarousel = items.length > 1;
+  const badgeText = locale === "no" ? "Velg → " : "Select";
 
 const localizedItems = useMemo(
   () =>
     items.map((item) => ({
       id: item.id,
       title: item.title[locale],
+      description: item.modalIntro[locale],
       svg: item.svg,
     })),
   [items, locale]
@@ -205,12 +207,13 @@ const localizedItems = useMemo(
           <div className="md:hidden">
             <div
               ref={scrollerRef}
-              className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[calc(50%-110px)] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[calc(50%-120px)] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {loopItems.map((item, idx) => (
                 <div key={`${item.title}-${idx}`} data-card className="shrink-0 snap-center">
                   <ServiceWindowItem
                     {...item}
+                    badgeText={badgeText}
                     onClick={() => handleItemClick(item.id)}
                   />
                 </div>
@@ -240,7 +243,9 @@ const localizedItems = useMemo(
               <ServiceWindowItem
                 key={item.id}
                 title={item.title[locale]}
+                description={item.modalIntro[locale]}
                 svg={item.svg}
+                badgeText={badgeText}
                 onClick={() => handleItemClick(item.id)}
               />
             ))}
