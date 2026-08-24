@@ -30,44 +30,27 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="w-full start-0 z-50 shadow-sm">
-      <div className="nav relative max-w-7xl px-[20] mx-auto flex items-center h-15">
-        <Link href={`/${locale}`} className="justify-self-start">
-          <Image
-            src="/LogoSVG.svg"
-            width={116}
-            height={50}
-            alt="Logo"
-            loading="eager"
-            className="h-[50] w-auto"
-          />
+    <nav className="w-full start-0 z-50 shadow-sm bg-logoblue">
+      <div className="nav relative max-w-7xl px-[20] mx-auto grid grid-cols-3 items-center h-15 md:flex">
+        <button onClick={() => setOpen((prev) => !prev)} aria-expanded={open} aria-controls="navbar-menu" className="justify-self-start md:hidden">
+          <span className="sr-only">{content.openMenuLabel[locale]}</span>
+          <svg className="w-8 h-8 text-white" viewBox="0 0 24 24">
+            <path stroke="currentColor" strokeLinecap="round" strokeWidth="2" d="M5 7h14M5 12h14M5 17h14" />
+          </svg>
+        </button>
+        <Link href={`/${locale}`} className="justify-self-center md:justify-self-auto">
+          <Image src="/white horizontal.svg" width={116} height={50} alt="Logo" loading="eager" className="h-[34] w-auto" />
         </Link>
 
-        <div className="flex items-center md:grow ml-auto">
-          <button
-            onClick={() => setOpen((prev) => !prev)}
-            aria-expanded={open}
-            aria-controls="navbar-menu"
-            className="md:hidden"
-          >
-            <span className="sr-only">{content.openMenuLabel[locale]}</span>
-            <svg className="w-8 h-8 text-logoblue" viewBox="0 0 24 24">
-              <path
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="2"
-                d="M5 7h14M5 12h14M5 17h14"
-              />
-            </svg>
-          </button>
-
+        <div className="flex items-center justify-self-end md:grow ml-auto">
           <div
             id="navbar-menu"
-            className={`${
-              open ? "block" : "hidden"
-            } absolute right-0 top-full md:mt-0 md:static md:block md:w-auto w-full mx-auto md:border-t-0 border-t border-logoblue bg-white shadow-sm md:shadow-none`}
+            aria-hidden={!open}
+            className={`absolute left-0 top-full h-[calc(100dvh-60px)] w-full overflow-y-auto transform transition-transform duration-300 ease-in-out md:static md:h-auto md:w-auto md:translate-x-0 md:transition-none md:overflow-visible mx-auto md:border-t-0 border-t border-logoblue bg-logoblue shadow-sm md:shadow-none ${
+              open ? "translate-x-0" : "-translate-x-full"
+            }`}
           >
-            <ul className="flex flex-col gap-0 p-0 items-end md:flex-row md:gap-8 md:pr-4 md:border-b-0 pr-4">
+            <ul className="flex flex-col gap-0 p-0 items-start md:flex-row md:gap-8 md:pr-4 md:border-b-0 pl-4">
               {content.links.map((link) => {
                 const fullHref = `/${locale}${link.href}`;
 
@@ -78,8 +61,8 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
                       onClick={() => setOpen(false)}
                       className={`
                         block px-3 py-6 md:py-0 text-lg md:text-sm
-                        transition-colors duration-140
-                        ${isActive(fullHref) ? "text-logoblue font-bold" : ""}
+                        transition-colors duration-140 text-white
+                        ${isActive(fullHref) ? "font-bold" : ""}
                       `}
                     >
                       {link.label[locale]}
@@ -87,32 +70,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
                   </li>
                 );
               })}
-              <li>
-                <Link
-                  href="/login"
-                  onClick={() => setOpen(false)}
-                  className="block px-3 py-6 md:py-0 text-lg md:text-sm transition-colors duration-140 text-logoblue"
-                >
-                  {content.dashboardLabel[locale]}
-                </Link>
-              </li>
-
-              <li className="block md:hidden">
-                <Link
-                  href={`/${locale}/kontakt`}
-                  onClick={() => setOpen(false)}
-                  className={`
-                    block px-3 py-6 md:py-0 text-lg md:text-sm
-                    transition-colors duration-140
-                    ${isActive(`/${locale}/kontakt`) ? "text-logoblue font-bold" : ""}
-                  `}
-                >
-                  {content.contactLabel[locale]}
-                </Link>
-              </li>
-              <li
-                className={`block md:hidden px-10 py-4 md:py-0 text-lg md:text-sm transition-colors duration-140 border-t border-logoblue`}
-              >
+              <li className={`block md:hidden px-10 py-4 md:py-0 text-lg md:text-sm transition-colors duration-140 border-t border-logoblue`}>
                 <LanguageSwitcher />
               </li>
             </ul>
@@ -122,10 +80,10 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
         <div className="relative justify-self-end hidden md:flex items-center gap-4">
           <LanguageSwitcher />
           <Link
-            href={`/${locale}/kontakt`}
-            className="text-white! font-bold flex items-center justify-center gap-4 bg-logoblue w-22.5 h-7.75 rounded-[26px] text-sm transition-colors duration-140"
+            href="/login"
+            className="text-logoblue flex items-center justify-center gap-4 bg-white w-22.5 h-7.75 rounded-[26px] text-sm transition-colors duration-140"
           >
-            {content.contactLabel[locale]}
+            {content.dashboardLabel[locale]}
           </Link>
         </div>
       </div>

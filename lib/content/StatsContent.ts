@@ -1,24 +1,33 @@
 export const statsContent = {
   stats: [
     {
-      value: 0, // placeholder — real value injected from DB query in page.tsx
+      icon: "star" as const,
+      value: 4.9,
+      decimals: 1,
+      suffix: "",
       label: {
-        en: "White goods installed",
-        no: "Hvitevarer installert",
+        en: "Google",
+        no: "Google",
       },
     },
     {
+      icon: "people" as const,
       value: 0, // placeholder — real value injected from DB query in page.tsx
+      decimals: 0,
+      suffix: "+",
       label: {
-        en: "Km driven",
-        no: "Km kjørt",
+        en: "Jobs completed",
+        no: "Oppdrag utført",
       },
     },
     {
+      icon: "wrench" as const,
       value: 0, // placeholder — real value injected from DB query in page.tsx
+      decimals: 0,
+      suffix: "+",
       label: {
-        en: "Orders completed",
-        no: "Ordrer fullført",
+        en: "Assemblies done",
+        no: "Monteringer gjort",
       },
     },
   ],

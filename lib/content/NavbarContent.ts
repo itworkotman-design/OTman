@@ -44,6 +44,14 @@ export const navbarContent = {
         no: "Blogg",
       },
     },
+    {
+      id: "contact",
+      href: "/kontakt",
+      label: {
+        en: "Contact",
+        no: "Kontakt",
+      },
+    },
   ],
   contactLabel: {
     en: "Contact",

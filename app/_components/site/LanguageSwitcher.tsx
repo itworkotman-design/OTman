@@ -16,14 +16,14 @@ export default function LanguageSwitcher() {
     <div className="flex md:text-sm font-light gap-10 md:gap-2">
       <Link
         href={getPath("en")}
-        className="py-1 rounded-lg text-black/50 hover:text-logoblue"
+        className="py-1 rounded-lg text-white/50 hover:text-logoblue"
       >
         EN
       </Link>
 
       <Link
         href={getPath("no")}
-        className="py-1 rounded-lg text-black/50 hover:text-logoblue"
+        className="py-1 rounded-lg text-white/50 hover:text-logoblue"
       >
         NO
       </Link>

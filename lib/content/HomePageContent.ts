@@ -1,56 +1,125 @@
+export type HomePageTestimonial = {
+  id: string;
+  rating: number;
+  text: string;
+  author: string;
+};
+
 export const homePageContent = {
   title: {
-    en: "Otman AS",
-    no: "Otman AS",
+    en: "What can we help you with today?",
+    no: "Hva skal vi hjelpe deg med i dag?",
   },
   subtitle: {
-    en: "Smart Transport. Simple Ordering.",
-    no: "Smart transport. Enkel bestilling.",
+    en: "Choose what you need help with, we'll take care of the rest.",
+    no: "Velg hva du trenger hjelp med, så ordner vi resten.",
   },
   introHeading: {
-    en: "Are you looking for a reliable transport partner?",
-    no: "Leter du etter en pålitelig transportpartner?",
+    en: "We deliver, carry in, assemble and move - hassle-free.",
+    no: "Vi leverer, bærer inn, monterer og flytter - uten styr.",
   },
   introText: {
-    en: "From small packages to large projects – we take on everything.",
-    no: "Fra små pakker til store prosjekter – vi tar på oss alt.",
+    en: "Otman makes everyday life easier for private individuals and businesses across Oslo and the Østlandet region. You choose the service. We take care of the rest.",
+    no: "Otman gjør hverdagen enklere for privatpersoner og bedrifter over hele Oslo og Østlandet. Du velger tjeneste. Vi tar oss av resten.",
+  },
+  aboutLinkText: {
+    en: "Read more about us",
+    no: "Les mer om oss",
+  },
+  aboutImageAlt: {
+    en: "Otman Transport crew carrying a delivery",
+    no: "Otman Transport-team som bærer en leveranse",
+  },
+  aboutImageSrc: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/OtmanAS-Delivery-Assembly-Oslo.jpg",
+  testimonialsHeading: {
+    en: "What our customers say",
+    no: "Det sier kundene våre",
+  },
+  // Populated at request time from the Google-reviews cache — see
+  // getCachedGoogleReviews() in lib/site/googleReviews.ts. Deliberately empty
+  // here: there is no static fallback, and the testimonials section is skipped
+  // entirely whenever this is empty (cron hasn't run yet, or the DB is down).
+  testimonials: [] as HomePageTestimonial[],
+  mapTitle: {
+    en: "Find us",
+    no: "Finn oss",
+  },
+  gallery: [
+    {
+      src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/B107A728-ADD0-4470-A944-E145AC8B5154.jpeg",
+      alt: {
+        en: "Otman AS at work",
+        no: "Otman AS i arbeid",
+      },
+      cropY: "40%",
+    },
+    {
+      src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/501F045B-C997-4CDF-919C-4F8E79102909.jpeg",
+      alt: {
+        en: "Otman AS at work",
+        no: "Otman AS i arbeid",
+      },
+      cropY: "60%",
+    },
+    {
+      src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/364DAFA5-04FE-4D6C-968D-C78CC61EEE01%281%29.jpg",
+      alt: {
+        en: "Otman AS at work",
+        no: "Otman AS i arbeid",
+      },
+      cropY: "75%",
+    },
+  ],
+  cta: {
+    title: {
+      en: "What do you need help with?",
+      no: "Hva trenger dere hjelp med?",
+    },
+    subtitle: {
+      en: "Tell us what you need - we'll take care of the rest",
+      no: "Fortell oss hva du trenger - vi ordner resten",
+    },
+    buttonText: {
+      en: "Book a service",
+      no: "Bestill tjeneste",
+    },
   },
   items: [
     {
-    title: {
+      title: {
         en: "Collection & Pickup",
         no: "Henting og innsamling",
       },
       svg: "Service logos-01.svg",
     },
     {
-    title: {
+      title: {
         en: "Package Delivery",
         no: "Pakkelevering",
       },
       svg: "Service logos-02.svg",
     },
     {
-    title: {
+      title: {
         en: "Moving & Relocation",
         no: "Flytting",
       },
       svg: "Service logos-03.svg",
     },
     {
-    title: {
+      title: {
         en: "Custom Transport",
         no: "Spesialtransport",
       },
       svg: "Service logos-04.svg",
     },
   ],
-  stats:[
+  stats: [
     {
-    title:{
-        en:"Newspapers delivered",
-        no:"Aviser levert",
-    }
-    }
-  ]
+      title: {
+        en: "Newspapers delivered",
+        no: "Aviser levert",
+      },
+    },
+  ],
 };
