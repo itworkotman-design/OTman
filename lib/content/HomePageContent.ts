@@ -1,3 +1,10 @@
+export type HomePageTestimonial = {
+  id: string;
+  rating: number;
+  text: string;
+  author: string;
+};
+
 export const homePageContent = {
   title: {
     en: "What can we\nhelp you with today?",
@@ -28,35 +35,11 @@ export const homePageContent = {
     en: "What our customers say",
     no: "Det sier kundene våre",
   },
-  testimonials: [
-    {
-      id: "review-1",
-      rating: 5,
-      text: {
-        en: "Punctual, efficient and incredibly friendly. Highly recommended!",
-        no: "Punktlige, effektive og utrolig hyggelige. Anbefales på det varmeste!",
-      },
-      author: "Anne K., Oslo",
-    },
-    {
-      id: "review-2",
-      rating: 5,
-      text: {
-        en: "Punctual, efficient and incredibly friendly. Highly recommended!",
-        no: "Punktlige, effektive og utrolig hyggelige. Anbefales på det varmeste!",
-      },
-      author: "Anne K., Oslo",
-    },
-    {
-      id: "review-3",
-      rating: 5,
-      text: {
-        en: "Punctual, efficient and incredibly friendly. Highly recommended!",
-        no: "Punktlige, effektive og utrolig hyggelige. Anbefales på det varmeste!",
-      },
-      author: "Anne K., Oslo",
-    },
-  ],
+  // Populated at request time from the Google-reviews cache — see
+  // getCachedGoogleReviews() in lib/site/googleReviews.ts. Deliberately empty
+  // here: there is no static fallback, and the testimonials section is skipped
+  // entirely whenever this is empty (cron hasn't run yet, or the DB is down).
+  testimonials: [] as HomePageTestimonial[],
   mapTitle: {
     en: "Find us",
     no: "Finn oss",

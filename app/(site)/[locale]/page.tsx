@@ -3,6 +3,7 @@ import HomePage from "@/app/_components/site/pageComponents/HomePage";
 import { homePageContent } from "@/lib/content/HomePageContent";
 import { statsContent } from "@/lib/content/StatsContent";
 import { getOrRefreshSiteStats, HISTORICAL_BASELINE } from "@/lib/site/siteStats";
+import { getCachedGoogleReviews } from "@/lib/site/googleReviews";
 import { buildAlternates } from "@/lib/site/seo";
 
 export const revalidate = 86400;
@@ -38,6 +39,23 @@ export default async function Page({
     // DB unavailable — page still renders using historical baseline only
   }
 
+  let googleReviews: Awaited<ReturnType<typeof getCachedGoogleReviews>> = [];
+  try {
+    googleReviews = await getCachedGoogleReviews(locale);
+  } catch {
+    // DB unavailable — testimonials section is skipped rather than shown empty
+  }
+
+  const dynamicHomePageContent = {
+    ...homePageContent,
+    testimonials: googleReviews.map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      text: review.text,
+      author: review.authorName,
+    })),
+  };
+
   const dynamicStatsContent = {
     stats: [
       statsContent.stats[0], // static Google rating — not sourced from the DB
@@ -52,5 +70,5 @@ export default async function Page({
     ],
   };
 
-  return <HomePage content={homePageContent} statsContent={dynamicStatsContent} locale={locale} />;
+  return <HomePage content={dynamicHomePageContent} statsContent={dynamicStatsContent} locale={locale} />;
 }

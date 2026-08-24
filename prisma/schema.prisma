@@ -784,6 +784,14 @@ model SiteStats {
   updatedAt         DateTime @updatedAt
 }
 
+model GoogleReviewsCache {
+  id            String   @id @default("main")
+  overallRating Float?
+  reviewCount   Int?
+  reviews       Json
+  updatedAt     DateTime @updatedAt
+}
+
 enum UserStatus {
   ACTIVE
   DISABLED

@@ -41,7 +41,7 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
   return (
     <>
       <header className="pt-12 pb-14 flex items-center justify-center gap-10">
-        <Image src="/Logo-Icon-Blue.svg" width={200} height={200} alt="Logo" loading="eager" className="h-[200] w-auto" />
+        <Image src="/Logo-Icon-Blue.svg" width={200} height={200} alt="Logo" loading="eager" className="h-[200] w-[200]" />
         <div>
           <h1 className="text-logoblue text-[48px] md:text-[48px] font-bold leading-14 text-center whitespace-pre-line text-left pb-4">
             {content.title[locale]}
@@ -71,20 +71,24 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
         </div>
       </section>
 
-      <section className="py-10">
-        <div className="mx-auto max-w-[1200] px-5">
-          <h2 className="mb-8 text-[24px] font-bold text-logoblue">{content.testimonialsHeading[locale]}</h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {content.testimonials.map((review) => (
-              <div key={review.id} className="rounded-2xl border border-linePrimary bg-white p-5 shadow-sm">
-                <StarRow rating={review.rating} />
-                <p className="mt-3 text-textcolor">&ldquo;{review.text[locale]}&rdquo;</p>
-                <p className="mt-3 text-sm text-textColorSecond">{review.author}</p>
-              </div>
-            ))}
+      {/* Skipped entirely when there are no Google reviews to show — no
+          placeholder copy, no empty heading. */}
+      {content.testimonials.length > 0 && (
+        <section className="py-10">
+          <div className="mx-auto max-w-[1200] px-5">
+            <h2 className="mb-8 text-[24px] font-bold text-logoblue">{content.testimonialsHeading[locale]}</h2>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {content.testimonials.map((review) => (
+                <div key={review.id} className="rounded-2xl border border-linePrimary bg-white p-5 shadow-sm">
+                  <StarRow rating={review.rating} />
+                  <p className="mt-3 text-textcolor">&ldquo;{review.text}&rdquo;</p>
+                  <p className="mt-3 text-sm text-textColorSecond">{review.author}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="py-10">
         <div className="mx-auto max-w-[1200] px-5">
@@ -95,7 +99,7 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
         </div>
       </section>
 
-      <section className="pb-16">
+      <section className="pb-10">
         <div className="mx-auto max-w-[1200] px-5">
           <div className="flex flex-col items-start gap-6 rounded-2xl bg-logoblue p-8 text-white md:flex-row md:items-center md:justify-between">
             <div>
@@ -109,12 +113,12 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
         </div>
       </section>
 
-      <section className="py-10">
+      <section className="pb-10">
         <div className="mx-auto max-w-[1200] px-5">
           <ImageCarousel
             images={content.gallery.map((image) => ({ src: image.src, alt: image.alt[locale] }))}
             autoplay
-            intervalSeconds={4}
+            intervalSeconds={3}
             frameClassName="aspect-[16/9] rounded-2xl bg-linePrimary/20"
           />
         </div>

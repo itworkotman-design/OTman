@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ServiceWindowItem } from "./ServiceWindowItem";
 import { ServiceModal } from "./ServiceModal";
 import type {
@@ -17,16 +16,11 @@ type ServiceWindowProps = {
   locale: Locale;
 };
 
-const NAV_MAP: Record<string, string> = {
-  "all-services": "tjenester",
-};
-
 export function ServiceWindow({
   title,
   items,
   locale,
 }: ServiceWindowProps) {
-  const router = useRouter();
   const isCarousel = items.length > 1;
   const badgeText = locale === "no" ? "Velg → " : "Select";
 
@@ -53,13 +47,11 @@ const localizedItems = useMemo(
   const [activeModal, setActiveModal] = useState<ServiceGroup | null>(null);
 
   const handleItemClick = (id: string) => {
-    const path = NAV_MAP[id];
-    if (path) {
-      router.push(`/${locale}/${path}`);
-    } else {
-      const service = items.find((item) => item.id === id) ?? null;
-      setActiveModal(service);
-    }
+    // First three items open item 0's modal; the fourth opens item 1's modal.
+    const idx = items.findIndex((item) => item.id === id);
+    if (idx === -1) return;
+    const modalItem = items[idx < 3 ? 0 : 1] ?? null;
+    setActiveModal(modalItem);
   };
 
   const isTeleportingRef = useRef(false);

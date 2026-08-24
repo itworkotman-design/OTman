@@ -48,7 +48,7 @@ export function ImageCarousel({
               type="button"
               aria-label="Previous slide"
               onClick={() => setIndex((i) => (i - 1 + total) % total)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 px-3 py-1 text-lg text-textcolor shadow"
+              className="absolute left-2 top-1/2 -translate-y-1/2  px-3 py-1 text-4xl text-white"
             >
               ‹
             </button>
@@ -56,7 +56,7 @@ export function ImageCarousel({
               type="button"
               aria-label="Next slide"
               onClick={() => setIndex((i) => (i + 1) % total)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 px-3 py-1 text-lg text-textcolor shadow"
+              className="absolute right-2 top-1/2 -translate-y-1/2  px-3 py-1 text-4xl text-white"
             >
               ›
             </button>
