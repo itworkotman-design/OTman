@@ -47,20 +47,20 @@ export const StatsDisplay = ({ content, locale }: StatsDisplayProps) => {
   const numberLocale = locale === "no" ? "nb-NO" : "en-US";
 
   return (
-    <section className="w-full py-6">
+    <section className="w-full md:py-6">
       <div className="mx-auto flex w-full max-w-200 flex-wrap items-center justify-center gap-x-10 gap-y-6">
         {content.stats.map((stat, i) => (
           <div key={i} className="flex items-center gap-3 text-logoblue">
             {stat.icon ? ICONS[stat.icon] : null}
             <div>
-              <p className="text-[22px] font-semibold leading-tight">
+              <p className="text-[18px] md:text-[22px] font-semibold leading-tight">
                 {stat.value.toLocaleString(numberLocale, {
                   minimumFractionDigits: stat.decimals ?? 0,
                   maximumFractionDigits: stat.decimals ?? 0,
                 })}
                 {stat.suffix ?? ""}
               </p>
-              <p className="text-[14px] font-semibold leading-tight text-textColorSecond">{stat.label[locale]}</p>
+              <p className="text-[12px] md:text-[14px] font-semibold leading-tight text-textColorSecond">{stat.label[locale]}</p>
             </div>
           </div>
         ))}

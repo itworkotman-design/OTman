@@ -7,8 +7,8 @@ export type HomePageTestimonial = {
 
 export const homePageContent = {
   title: {
-    en: "What can we\nhelp you with today?",
-    no: "Hva skal vi\nhjelpe deg med i dag?",
+    en: "What can we help you with today?",
+    no: "Hva skal vi hjelpe deg med i dag?",
   },
   subtitle: {
     en: "Choose what you need help with, we'll take care of the rest.",
