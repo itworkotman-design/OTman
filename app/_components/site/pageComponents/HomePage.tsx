@@ -116,7 +116,11 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
       <section className="pb-10">
         <div className="mx-auto max-w-[1200] px-5">
           <ImageCarousel
-            images={content.gallery.map((image) => ({ src: image.src, alt: image.alt[locale] }))}
+            images={content.gallery.map((image) => ({
+              src: image.src,
+              alt: image.alt[locale],
+              cropY: image.cropY,
+            }))}
             autoplay
             intervalSeconds={3}
             frameClassName="aspect-[16/9] rounded-2xl bg-linePrimary/20"

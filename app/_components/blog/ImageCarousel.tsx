@@ -7,6 +7,8 @@ export type CarouselImage = {
   src: string;
   alt: string;
   caption?: string;
+  /** Vertical crop position as a percentage string, e.g. "0%" (top), "50%" (center), "100%" (bottom). Defaults to "50%". */
+  cropY?: string;
 };
 
 type Props = {
@@ -40,7 +42,12 @@ export function ImageCarousel({
     <div>
       <div className={`relative overflow-hidden ${frameClassName}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={current.src} alt={current.alt} className="h-full w-full object-cover" />
+        <img
+          src={current.src}
+          alt={current.alt}
+          className="h-full w-full object-cover"
+          style={{ objectPosition: `center ${current.cropY ?? "50%"}` }}
+        />
 
         {total > 1 ? (
           <>

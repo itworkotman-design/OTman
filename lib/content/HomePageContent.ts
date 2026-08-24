@@ -48,23 +48,26 @@ export const homePageContent = {
     {
       src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/B107A728-ADD0-4470-A944-E145AC8B5154.jpeg",
       alt: {
-        en: "Otman Transport at work",
-        no: "Otman Transport i arbeid",
+        en: "Otman AS at work",
+        no: "Otman AS i arbeid",
       },
+      cropY: "40%",
     },
     {
       src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/501F045B-C997-4CDF-919C-4F8E79102909.jpeg",
       alt: {
-        en: "Otman Transport at work",
-        no: "Otman Transport i arbeid",
+        en: "Otman AS at work",
+        no: "Otman AS i arbeid",
       },
+      cropY: "60%",
     },
     {
       src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/364DAFA5-04FE-4D6C-968D-C78CC61EEE01%281%29.jpg",
       alt: {
-        en: "Otman Transport at work",
-        no: "Otman Transport i arbeid",
+        en: "Otman AS at work",
+        no: "Otman AS i arbeid",
       },
+      cropY: "75%",
     },
   ],
   cta: {
