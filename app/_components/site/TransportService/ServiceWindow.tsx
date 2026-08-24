@@ -200,56 +200,50 @@ const localizedItems = useMemo(
 
   return (
     <>
-      <section>
+      <section aria-label={title[locale]}>
         <div className="w-full">
-          <div className="p-6 rounded-4xl bg-logoblue">
-            <h2 className="pb-6 md:pb-0 text-center text-2xl font-bold text-white">
-              {title[locale]}
-            </h2>
-
-            <div className="md:hidden">
-              <div
-                ref={scrollerRef}
-                className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[calc(50%-144px)] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-                {loopItems.map((item, idx) => (
-                  <div key={`${item.title}-${idx}`} data-card className="shrink-0 snap-center">
-                    <ServiceWindowItem
-                      {...item}
-                      onClick={() => handleItemClick(item.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {isCarousel && (
-                <div className="flex items-center justify-center gap-2 pt-4">
-                  {localizedItems.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      aria-label={`Go to slide ${i + 1}`}
-                      onClick={() => scrollToLogical(i)}
-                      className={[
-                        "h-2 w-2 rounded-full transition",
-                        i === active ? "bg-white" : "bg-white/40 hover:bg-white/60",
-                      ].join(" ")}
-                    />
-                  ))}
+          <div className="md:hidden">
+            <div
+              ref={scrollerRef}
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[calc(50%-110px)] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {loopItems.map((item, idx) => (
+                <div key={`${item.title}-${idx}`} data-card className="shrink-0 snap-center">
+                  <ServiceWindowItem
+                    {...item}
+                    onClick={() => handleItemClick(item.id)}
+                  />
                 </div>
-              )}
-            </div>
-
-            <div className="mt-6 hidden md:flex md:justify-center md:gap-12">
-              {items.map((item) => (
-                <ServiceWindowItem
-                  key={item.id}
-                  title={item.title[locale]}
-                  svg={item.svg}
-                  onClick={() => handleItemClick(item.id)}
-                />
               ))}
             </div>
+
+            {isCarousel && (
+              <div className="flex items-center justify-center gap-2 pt-4">
+                {localizedItems.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    aria-label={`Go to slide ${i + 1}`}
+                    onClick={() => scrollToLogical(i)}
+                    className={[
+                      "h-2 w-2 rounded-full transition",
+                      i === active ? "bg-logoblue" : "bg-logoblue/30 hover:bg-logoblue/50",
+                    ].join(" ")}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="hidden md:flex md:flex-wrap md:justify-center md:gap-8">
+            {items.map((item) => (
+              <ServiceWindowItem
+                key={item.id}
+                title={item.title[locale]}
+                svg={item.svg}
+                onClick={() => handleItemClick(item.id)}
+              />
+            ))}
           </div>
         </div>
       </section>

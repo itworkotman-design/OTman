@@ -30,8 +30,8 @@ export const serviceWindowContent = {
     {
       id: "collection-pickup",
       title: {
-        en: "Collection and Pickup",
-        no: "Henting og oppsamling",
+        en: "Delivery",
+        no: "Levering",
       },
       svg: "/Service logos-01.svg",
       modalTitle: {
@@ -60,10 +60,10 @@ export const serviceWindowContent = {
     {
       id: "moving-relocation",
       title: {
-        en: "Moving and Relocation",
-        no: "Flytting og relokasjon",
+        en: "Delivery + Assembly",
+        no: "Levering + montering",
       },
-      svg: "/Service logos-03.svg",
+      svg: "/Service logos-02.svg",
       modalTitle: {
         en: "Moving and Relocation",
         no: "Flytting og relokasjon",
@@ -90,10 +90,10 @@ export const serviceWindowContent = {
     {
       id: "custom-transport",
       title: {
-        en: "Custom Transport",
-        no: "Spesialtransport",
+        en: "Assembly",
+        no: "Montering",
       },
-      svg: "/Service logos-04.svg",
+      svg: "/Service logos-03.svg",
       modalTitle: {
         en: "Custom Transport",
         no: "Spesialtransport",
@@ -120,10 +120,10 @@ export const serviceWindowContent = {
     {
       id: "all-services",
       title: {
-        en: "All Services",
-        no: "Alle tjenester",
+        en: "Moving",
+        no: "Flytting",
       },
-      svg: "/Service logos-People.svg",
+      svg: "/Service logos-04.svg",
       modalTitle: {
         en: "All Services",
         no: "Alle tjenester",

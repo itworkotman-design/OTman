@@ -40,9 +40,15 @@ export default async function Page({
 
   const dynamicStatsContent = {
     stats: [
-      { value: HISTORICAL_BASELINE.productsInstalled + liveStats.productsInstalled, label: statsContent.stats[0].label },
-      { value: HISTORICAL_BASELINE.kmDriven + liveStats.kmDriven,                   label: statsContent.stats[1].label },
-      { value: HISTORICAL_BASELINE.ordersCompleted + liveStats.ordersCompleted,     label: statsContent.stats[2].label },
+      statsContent.stats[0], // static Google rating — not sourced from the DB
+      {
+        ...statsContent.stats[1],
+        value: HISTORICAL_BASELINE.ordersCompleted + liveStats.ordersCompleted,
+      },
+      {
+        ...statsContent.stats[2],
+        value: HISTORICAL_BASELINE.productsInstalled + liveStats.productsInstalled,
+      },
     ],
   };
 
