@@ -67,7 +67,7 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
         <div className="mx-auto flex max-w-[1200] flex-col items-center gap-10 px-5 lg:flex-row">
           <div className="lg:flex-1">
             <h2 className="text-[18px] md:text-[22px]  font-bold text-logoblue md:text-[26px]">{content.introHeading[locale]}</h2>
-            <p className="text-[13px] md:text-[16px] mt-4 text-textColorSecond">{content.introText[locale]}</p>
+            <p className="text-[13px] md:text-[16px] mt-4 text-textColorSecond whitespace-pre-wrap">{content.introText[locale]}</p>
             <Link href={`/${locale}/om-oss`} className="mt-4 text-[13px] md:text-[16px] inline-block font-semibold text-logoblue hover:underline">
               {content.aboutLinkText[locale]} →
             </Link>
@@ -126,6 +126,9 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
 
       <section className="pb-6 md:pb-10">
         <div className="mx-auto max-w-[1200] px-5">
+          <div className="flex pb-4 md:pb-6">
+            <h3 className="mx-auto text-[14px] md:text-[22px]  font-bold text-logoblue">{content.extraHeading[locale]}</h3>
+          </div>
           <ImageCarousel
             images={content.gallery.map((image) => ({
               src: image.src,

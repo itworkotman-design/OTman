@@ -24,7 +24,7 @@ export const navbarContent = {
       id: "tjenester",
       href: "/tjenester",
       label: {
-        en: "Tjenester",
+        en: "Services",
         no: "Tjenester",
       },
     },

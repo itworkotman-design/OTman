@@ -25,6 +25,27 @@ export const AboutContent = {
     Selv om selskapet har utviklet seg, holder vi fortsatt fast ved verdiene som gjorde oss til det vi er i dag. Vi tror på langsiktige relasjoner, personlig oppfølging og et genuint engasjement for både ansatte og kunder. Det er disse prinsippene som fortsatt gjør at vi med stolthet kan kalle oss en familiebedrift.`,
   },
 
+  whatWeDoTitle: {
+    en: "What we do",
+    no: "Hva vi gjør",
+  },
+  whatWeDoText: {
+    en: ` For private customers, online stores and businesses. A transport partner that stays with you every step of the way.
+
+  OTMAN AS was built on one simple idea: Transport, assembly and moving services should be easy to book, safe to carry out and predictable from start to finish.
+  We help with everything from parcels, furniture and kitchens to appliances, electronics, pallets and complete household moves. We collect, deliver, carry items inside, assemble, disassemble and move – both locally and over longer distances throughout Norway.
+  With our own vehicles, experienced team and direct communication, we take responsibility every step of the way, from your first contact with us until the job is complete. You choose the service you need – we plan the rest and make sure everything arrives safely and is put in place.
+  
+  From a small parcel to a full moving load – OTMAN gets it safely into place.`,
+    no: ` For privatepersoner, nettbutikker og bedrifter. En transportpartner som følger deg hele veien.
+
+  OTMAN AS ble bygget på én enkel idé: Transport, montering og flytting skal være enkelt å bestille, trygt å gjennomføre og forutsigbart fra start til slutt.
+  Vi hjelper deg med alt fra pakker, møbler og kjøkken til hvitevarer, elektronikk, paller og komplette flyttelass. Vi henter, leverer, bærer inn, monterer, demonterer og flytter – både lokalt og over lengre avstander i Norge.
+  Med egne biler, erfarne medarbeidere og korte kommunikasjonslinjer tar vi ansvar hele veien, fra første kontakt til oppdraget er fullført. Du velger tjenesten du trenger – vi planlegger resten og sørger for at alt kommer trygt på plass.
+  
+  Fra liten pakke til stort flyttelass – OTMAN får det trygt på plass.`,
+  },
+
   teamTitle: {
     en: "Our Team",
     no: "Vårt team",

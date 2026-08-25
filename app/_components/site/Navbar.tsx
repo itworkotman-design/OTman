@@ -52,7 +52,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
           >
             <ul className="flex flex-col gap-0 p-0 items-start md:flex-row md:gap-8 md:pr-4 md:border-b-0 pl-4">
               {content.links.map((link) => {
-                const fullHref = `/${locale}${link.href}`;
+                const fullHref = link.href === "/" ? `/${locale}` : `/${locale}${link.href}`;
 
                 return (
                   <li key={link.id}>

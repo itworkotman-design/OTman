@@ -11,16 +11,24 @@ export const homePageContent = {
     no: "Hva skal vi hjelpe deg med i dag?",
   },
   subtitle: {
-    en: "Choose what you need help with, we'll take care of the rest.",
-    no: "Velg hva du trenger hjelp med, så ordner vi resten.",
+    en: "All the way there. All the way in. All taken care of.",
+    no: "Helt frem. Helt inn. Helt klart.",
   },
   introHeading: {
-    en: "We deliver, carry in, assemble and move - hassle-free.",
-    no: "Vi leverer, bærer inn, monterer og flytter - uten styr.",
+    en: "A transport partner that stays with you every step of the way.",
+    no: "En transportpartner som følger deg hele veien.",
   },
   introText: {
-    en: "Otman makes everyday life easier for private individuals and businesses across Oslo and the Østlandet region. You choose the service. We take care of the rest.",
-    no: "Otman gjør hverdagen enklere for privatpersoner og bedrifter over hele Oslo og Østlandet. Du velger tjeneste. Vi tar oss av resten.",
+    en: ` We don’t just deliver to your door. We get the job done.
+From pickup to delivery, carrying in and assembly – one booking, one point of contact, and one responsibility. For private customers and businesses, locally and over longer distances across Norway.
+All the way there. All the way in. All taken care of.`,
+    no: ` Vi leverer ikke bare til døren. Vi gjør jobben ferdig.
+Fra henting til levering, innbæring og montering – én bestilling, én kontakt og ett ansvar. For privatkunder og bedrifter, lokalt og over lengre avstander i Norge.
+Helt frem. Helt inn. Helt klart`,
+  },
+  extraHeading: {
+    en: `Different jobs require different solutions. OTMAN finds the right one for you.`,
+    no: `Ulike oppdrag krever ulike løsninger. OTMAN finner den rette for deg.`,
   },
   aboutLinkText: {
     en: "Read more about us",

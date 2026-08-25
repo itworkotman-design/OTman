@@ -34,10 +34,17 @@ export default function About({ content, locale }: PageTypes) {
       </section>
       <section>
         <div className=" my-20">
+          <h2 className="text-center text-4xl font-semibold text-logoblue mb-8 ">{content.whatWeDoTitle[locale]}</h2>
+          <p className="text-xl whitespace-pre-wrap">{content.whatWeDoText[locale]}</p>
+        </div>
+      </section>
+      <section>
+        <div className=" my-20">
           <h2 className="text-center text-4xl font-semibold text-logoblue mb-8 ">{content.historyTitle[locale]}</h2>
           <p className="text-xl whitespace-pre-wrap">{content.historyText[locale]}</p>
         </div>
       </section>
+
       <section>
         <div className="mx-auto px-6 my-20">
           <h2 className="text-center text-4xl font-semibold text-logoblue mb-8">{content.teamTitle[locale]}</h2>
