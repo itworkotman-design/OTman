@@ -52,8 +52,8 @@ const COLUMN_WIDTHS: Record<BookingArchiveColumnId, number> = {
   customerLabel: 140,
   orderNumber: 140,
   customerName: 180,
-  phone: 120,
-  pickupAddress: 220,
+  phone: 140,
+  pickupAddress: 260,
   extraPickupAddress: 220,
   deliveryAddress: 220,
   orderSummary: 340,
@@ -152,6 +152,13 @@ function Cell({
   );
 }
 
+function isCopyValueEmpty(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "number") return false;
+  const trimmed = value.trim();
+  return trimmed === "" || trimmed === "-";
+}
+
 function CopyButton({
   value,
   dataAttribute = "data-id-cell",
@@ -161,6 +168,8 @@ function CopyButton({
   dataAttribute?: string;
   ariaLabel?: string;
 }) {
+  if (isCopyValueEmpty(value)) return null;
+
   return (
     <button
       type="button"
@@ -626,6 +635,9 @@ export default function BookingArchiveTable({
                 if ((e.target as HTMLElement).closest('[data-alert-cell="true"]')) return;
                 if ((e.target as HTMLElement).closest('[data-id-cell="true"]')) return;
                 if ((e.target as HTMLElement).closest('[data-order-number-cell="true"]')) return;
+                if ((e.target as HTMLElement).closest('[data-phone-cell="true"]')) return;
+                if ((e.target as HTMLElement).closest('[data-pickup-address-cell="true"]')) return;
+                if ((e.target as HTMLElement).closest('[data-delivery-address-cell="true"]')) return;
                 onRowClick(order.id);
               }}
             >
@@ -689,13 +701,27 @@ export default function BookingArchiveTable({
                     </td>
                   ) : null}
                   {isColumnVisible("phone") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.phone)}</Cell>
+                    <td data-phone-cell="true" className="cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <Cell>{formatCell(order.phone)}</Cell>
+                        <CopyButton
+                          value={order.phone}
+                          dataAttribute="data-phone-cell"
+                          ariaLabel="Copy phone number"
+                        />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("pickupAddress") ? (
-                    <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.pickupAddress)}</Cell>
+                    <td data-pickup-address-cell="true" className="max-w-[260] cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <Cell>{formatCell(order.pickupAddress)}</Cell>
+                        <CopyButton
+                          value={order.pickupAddress}
+                          dataAttribute="data-pickup-address-cell"
+                          ariaLabel="Copy pickup address"
+                        />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("extraPickupAddress") ? (
@@ -704,8 +730,15 @@ export default function BookingArchiveTable({
                     </td>
                   ) : null}
                   {isColumnVisible("deliveryAddress") ? (
-                    <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.deliveryAddress)}</Cell>
+                    <td data-delivery-address-cell="true" className="max-w-[220] cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <Cell>{formatCell(order.deliveryAddress)}</Cell>
+                        <CopyButton
+                          value={order.deliveryAddress}
+                          dataAttribute="data-delivery-address-cell"
+                          ariaLabel="Copy delivery address"
+                        />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("orderSummary") ? (
@@ -819,8 +852,15 @@ export default function BookingArchiveTable({
                     </td>
                   ) : null}
                   {isColumnVisible("pickupAddress") ? (
-                    <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.pickupAddress)}</Cell>
+                    <td data-pickup-address-cell="true" className="max-w-[260] cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <Cell>{formatCell(order.pickupAddress)}</Cell>
+                        <CopyButton
+                          value={order.pickupAddress}
+                          dataAttribute="data-pickup-address-cell"
+                          ariaLabel="Copy pickup address"
+                        />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("extraPickupAddress") ? (
@@ -829,8 +869,15 @@ export default function BookingArchiveTable({
                     </td>
                   ) : null}
                   {isColumnVisible("deliveryAddress") ? (
-                    <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.deliveryAddress)}</Cell>
+                    <td data-delivery-address-cell="true" className="max-w-[220] cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <Cell>{formatCell(order.deliveryAddress)}</Cell>
+                        <CopyButton
+                          value={order.deliveryAddress}
+                          dataAttribute="data-delivery-address-cell"
+                          ariaLabel="Copy delivery address"
+                        />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("orderSummary") ? (
@@ -930,8 +977,15 @@ export default function BookingArchiveTable({
                     </td>
                   ) : null}
                   {isColumnVisible("phone") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.phone)}</Cell>
+                    <td data-phone-cell="true" className="cursor-text border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <div className="flex items-center justify-between gap-1">
+                        <Cell>{formatCell(order.phone)}</Cell>
+                        <CopyButton
+                          value={order.phone}
+                          dataAttribute="data-phone-cell"
+                          ariaLabel="Copy phone number"
+                        />
+                      </div>
                     </td>
                   ) : null}
                   {isColumnVisible("deliveryDate") ? (
