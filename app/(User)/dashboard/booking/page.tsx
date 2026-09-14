@@ -654,7 +654,7 @@ export default function BookingPage() {
 
       <ShiftLeaderBanner currentUserId={currentUser?.id} />
 
-      <div className="flex flex-col gap-3  padding-weird-landscape">
+      <div className="flex w-fit max-w-full flex-col items-stretch gap-3 padding-weird-landscape">
         <BookingFilters
           key={`${filterPanelVersion}:${access.lockedCreatedById ?? ""}:${access.lockedSubcontractorId ?? ""}`}
           initialApplied={appliedFilters}
@@ -669,37 +669,37 @@ export default function BookingPage() {
           displayedOrderCount={!loading && !error ? orders.length : undefined}
           locale={locale}
         />
+
+        {access.viewMode === "ADMIN" && (
+          <>
+            <BulkUpdateBar
+              selectedCount={selectedOrderIds.length}
+              subcontractors={subcontractors}
+              onApply={handleBulkApply}
+              onClear={() => setSelectedOrderIds([])}
+              loading={bulkLoading}
+              error={bulkError}
+              locale={locale}
+            />
+
+            <SelectionActionBar
+              key={appliedFilters.createdById || "all-stores"}
+              creators={allCreators}
+              selectedStoreId={appliedFilters.createdById || undefined}
+              selectedCount={selectedOrderIds.length}
+              locale={locale}
+              onSendEmail={handleSendSelectedEmail}
+              onSendGsm={() => handleSendSelectedToGsm()}
+              onCopySelected={handleCopySelected}
+              onExportExcel={handleExportSelected}
+              onManageColumns={() => setColumnModalOpen(true)}
+              loading={customerActionLoading}
+              error={customerActionError}
+              gsmDuplicateWarning={gsmDuplicateWarning}
+            />
+          </>
+        )}
       </div>
-
-      {access.viewMode === "ADMIN" && (
-        <div className="max-w-[1000]">
-          <BulkUpdateBar
-            selectedCount={selectedOrderIds.length}
-            subcontractors={subcontractors}
-            onApply={handleBulkApply}
-            onClear={() => setSelectedOrderIds([])}
-            loading={bulkLoading}
-            error={bulkError}
-            locale={locale}
-          />
-
-          <SelectionActionBar
-            key={appliedFilters.createdById || "all-stores"}
-            creators={allCreators}
-            selectedStoreId={appliedFilters.createdById || undefined}
-            selectedCount={selectedOrderIds.length}
-            locale={locale}
-            onSendEmail={handleSendSelectedEmail}
-            onSendGsm={() => handleSendSelectedToGsm()}
-            onCopySelected={handleCopySelected}
-            onExportExcel={handleExportSelected}
-            onManageColumns={() => setColumnModalOpen(true)}
-            loading={customerActionLoading}
-            error={customerActionError}
-            gsmDuplicateWarning={gsmDuplicateWarning}
-          />
-        </div>
-      )}
       <div className="min-w-0 w-full overflow-x-auto">
         <div className="min-w-0 w-full">
           <div className="relative my-4 flex items-center justify-between gap-2">

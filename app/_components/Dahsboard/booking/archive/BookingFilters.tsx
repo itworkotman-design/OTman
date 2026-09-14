@@ -49,16 +49,6 @@ type CalendarDay = {
 
 const MAX_ARCHIVE_ROWS_PER_PAGE = 10000;
 
-// Tailwind's JIT scanner needs literal class strings present in the source,
-// so the column count is looked up rather than interpolated into the class
-// name directly (`md:grid-cols-${n}` would never generate the utility).
-const TOP_FILTER_GRID_COLS_CLASS: Record<number, string> = {
-  1: "md:grid-cols-1",
-  2: "md:grid-cols-2",
-  3: "md:grid-cols-3",
-  4: "md:grid-cols-4",
-};
-
 const WEEKDAY_LABELS: Record<BookingUiLocale, string[]> = {
   en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   nb: ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"],
@@ -321,87 +311,91 @@ export default function BookingFilters({
     setDatePickerOpen(false);
   };
 
-  const visibleTopFilterCount =
-    1 +
-    (access.canFilterCreatedBy ? 1 : 0) +
-    (access.canFilterSubcontractor ? 1 : 0) +
-    (showPricelistFilter ? 1 : 0);
-  const topFilterGridClass =
-    TOP_FILTER_GRID_COLS_CLASS[visibleTopFilterCount] ?? TOP_FILTER_GRID_COLS_CLASS[2];
+  const showStore = access.canFilterCreatedBy;
+  const showPartner = access.canFilterSubcontractor;
+  const showPricelist = showPricelistFilter;
 
   return (
-    <section className="customContainer w-full max-w-[1300] padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[1000] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
+    <section className="customContainer padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
       <div>
-        <div className={`grid grid-cols-1 gap-3 ${topFilterGridClass}`}>
-          <Field label={t("Status")}>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput padding-weird-landscape text-weird-landscape w-full">
-              <option value="">{t("All statuses")}</option>
-              <option value="processing">{bookingStatusText(locale, "processing")}</option>
-              <option value="confirmed">{bookingStatusText(locale, "confirmed")}</option>
-              <option value="active">{bookingStatusText(locale, "active")}</option>
-              <option value="cancelled">{bookingStatusText(locale, "cancelled")}</option>
-              <option value="failed">{bookingStatusText(locale, "failed")}</option>
-              <option value="completed">{bookingStatusText(locale, "completed")}</option>
-              <option value="invoiced">{bookingStatusText(locale, "invoiced")}</option>
-              <option value="paid">{bookingStatusText(locale, "paid")}</option>
-            </select>
-          </Field>
-
-          {access.canFilterCreatedBy && (
-            <Field label={t("Store")}>
-              <select
-                value={createdById}
-                onChange={(e) => setCreatedById(e.target.value)}
-                className="customInput padding-weird-landscape text-weird-landscape w-full"
-              >
-                <option value="">{t("All stores")}</option>
-                <option value={NONE_FILTER_VALUE}>{t("No store")}</option>
-                {creators.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {/* Row 1: status + store / partner + pricelist */}
+          <div className={`grid grid-cols-1 gap-3 ${showStore ? "sm:grid-cols-2" : ""}`}>
+            <Field label={t("Status")}>
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput padding-weird-landscape text-weird-landscape w-full">
+                <option value="">{t("All statuses")}</option>
+                <option value="processing">{bookingStatusText(locale, "processing")}</option>
+                <option value="confirmed">{bookingStatusText(locale, "confirmed")}</option>
+                <option value="active">{bookingStatusText(locale, "active")}</option>
+                <option value="cancelled">{bookingStatusText(locale, "cancelled")}</option>
+                <option value="failed">{bookingStatusText(locale, "failed")}</option>
+                <option value="completed">{bookingStatusText(locale, "completed")}</option>
+                <option value="invoiced">{bookingStatusText(locale, "invoiced")}</option>
+                <option value="paid">{bookingStatusText(locale, "paid")}</option>
               </select>
             </Field>
+
+            {showStore && (
+              <Field label={t("Store")}>
+                <select
+                  value={createdById}
+                  onChange={(e) => setCreatedById(e.target.value)}
+                  className="customInput padding-weird-landscape text-weird-landscape w-full"
+                >
+                  <option value="">{t("All stores")}</option>
+                  <option value={NONE_FILTER_VALUE}>{t("No store")}</option>
+                  {creators.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+          </div>
+
+          {showPartner || showPricelist ? (
+            <div className={`grid grid-cols-1 gap-3 ${showPartner && showPricelist ? "sm:grid-cols-2" : ""}`}>
+              {showPartner && (
+                <Field label={t("Partner")}>
+                  <select
+                    value={subcontractorId}
+                    onChange={(e) => setSubcontractorId(e.target.value)}
+                    className="customInput padding-weird-landscape text-weird-landscape w-full"
+                  >
+                    <option value="">{t("All partners")}</option>
+                    <option value={NONE_FILTER_VALUE}>{t("No partner")}</option>
+                    {subcontractors.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
+              {showPricelist && (
+                <Field label={t("Pricelist")}>
+                  <select
+                    value={pricelistId}
+                    onChange={(e) => setPricelistId(e.target.value)}
+                    className="customInput padding-weird-landscape text-weird-landscape w-full"
+                  >
+                    <option value="">{t("All pricelists")}</option>
+                    {pricelists.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+            </div>
+          ) : (
+            <div />
           )}
 
-          {access.canFilterSubcontractor && (
-            <Field label={t("Partner")}>
-              <select
-                value={subcontractorId}
-                onChange={(e) => setSubcontractorId(e.target.value)}
-                className="customInput padding-weird-landscape text-weird-landscape w-full"
-              >
-                <option value="">{t("All partners")}</option>
-                <option value={NONE_FILTER_VALUE}>{t("No partner")}</option>
-                {subcontractors.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-
-          {showPricelistFilter && (
-            <Field label={t("Pricelist")}>
-              <select
-                value={pricelistId}
-                onChange={(e) => setPricelistId(e.target.value)}
-                className="customInput padding-weird-landscape text-weird-landscape w-full"
-              >
-                <option value="">{t("All pricelists")}</option>
-                {pricelists.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-        </div>
-
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+          {/* Row 2: dates / date quick-select buttons */}
           <Field label={t("Dates")} className="min-w-0">
             <div className="relative">
               <button
@@ -484,7 +478,7 @@ export default function BookingFilters({
             </div>
           </Field>
 
-          <div className="flex items-end gap-2 md:flex-nowrap">
+          <div className="flex flex-wrap items-end gap-2">
             <button type="button" onClick={setToday} className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape">
               {t("Today")}
             </button>
@@ -517,9 +511,8 @@ export default function BookingFilters({
               {locale === "nb" ? "Forrige måned" : "Last month"}
             </button>
           </div>
-        </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
+          {/* Row 3: search / orders per page */}
           <Field label={t("Search")}>
             <input
               value={search}
@@ -530,46 +523,47 @@ export default function BookingFilters({
           </Field>
 
           <Field label={t("Orders per page")}>
-            <div className="space-y-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={rowsPerPageInputValue}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") return;
-                  const n = Number(raw);
-                  if (!Number.isFinite(n)) return;
-                  setRowsPerPage(Math.max(1, Math.min(MAX_ARCHIVE_ROWS_PER_PAGE, Math.floor(n))));
-                }}
-                onBlur={(e) => {
-                  if (e.target.value === "") {
-                    setRowsPerPage(DEFAULT_BOOKING_ARCHIVE_FILTERS.rowsPerPage);
-                  }
-                }}
-                className="customInput w-full text-weird-landscape padding-weird-landscape"
-                placeholder={rowsPerPagePlaceholder}
-              />
-              <div className="flex flex-wrap gap-2 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
-                {[10, 25, 50, 100, 250].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => {
-                      setFromDate("");
-                      setToDate("");
-                      setRowsPerPage(n);
-                    }}
-                    className="customButtonDefault mx-auto h-8 px-2 text-xs text-weird-landscape padding-weird-landscape height-weird-landscape"
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={rowsPerPageInputValue}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") return;
+                const n = Number(raw);
+                if (!Number.isFinite(n)) return;
+                setRowsPerPage(Math.max(1, Math.min(MAX_ARCHIVE_ROWS_PER_PAGE, Math.floor(n))));
+              }}
+              onBlur={(e) => {
+                if (e.target.value === "") {
+                  setRowsPerPage(DEFAULT_BOOKING_ARCHIVE_FILTERS.rowsPerPage);
+                }
+              }}
+              className="customInput w-full text-weird-landscape padding-weird-landscape"
+              placeholder={rowsPerPagePlaceholder}
+            />
           </Field>
 
-          <div className="flex items-end justify-end gap-2">
+          {/* Row 4: (empty) / orders-per-page quick buttons + reset filters */}
+          <div />
+          <div className="flex flex-wrap items-center justify-between gap-2 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
+            <div className="flex flex-wrap gap-2 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
+              {[10, 25, 50, 100, 250].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => {
+                    setFromDate("");
+                    setToDate("");
+                    setRowsPerPage(n);
+                  }}
+                  className="customButtonDefault h-8 px-2 text-xs text-weird-landscape padding-weird-landscape height-weird-landscape"
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+
             <button
               type="button"
               onClick={handleReset}
@@ -580,8 +574,8 @@ export default function BookingFilters({
           </div>
         </div>
       </div>
-      <div className="mt-4 margin-weird-landscape">
-        {onDownloadSelectedTable ? (
+      {onDownloadSelectedTable ? (
+        <div className="mt-4 margin-weird-landscape">
           <button
             type="button"
             onClick={onDownloadSelectedTable}
@@ -590,11 +584,11 @@ export default function BookingFilters({
           >
             {downloadSelectedTableLabel ?? "Last ned valgte"}
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
-  
+
 }
 
 
