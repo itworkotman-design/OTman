@@ -702,7 +702,7 @@ export default function BookingPage() {
       </div>
       <div className="min-w-0 w-full overflow-x-auto">
         <div className="min-w-0 w-full">
-          <div className="relative my-4 flex items-center justify-between gap-2">
+          <div className="relative my-4 flex items-center gap-2">
             <div className="my-2 flex flex-col items-start gap-2">
               {access.viewMode !== "ADMIN" ? (
                 <div className="flex flex-wrap gap-2">
@@ -729,7 +729,7 @@ export default function BookingPage() {
             </div>
 
             {access.viewMode === "ADMIN" && (
-              <div className=" absolute left-56 items-start gap-1 w-60">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   className={`customButtonDefault${changeFlags.hasNewOrders || changeFlags.hasChangedOrders ? " bg-red-600! text-white! border-red-600!" : ""}`}
@@ -739,7 +739,7 @@ export default function BookingPage() {
                   {bookingText(locale, "Refresh")}
                 </button>
 
-                <span className={`text-xs font-medium pl-4 ${changeFlags.hasNewOrders || changeFlags.hasChangedOrders ? " text-red-600" : " text-textColorThird"}`}>
+                <span className={`text-xs font-medium ${changeFlags.hasNewOrders || changeFlags.hasChangedOrders ? " text-red-600" : " text-textColorThird"}`}>
                   {changeFlags.hasNewOrders && changeFlags.hasChangedOrders
                     ? `${bookingText(locale, "New order")} · ${bookingText(locale, "Order changed")}`
                     : changeFlags.hasNewOrders
