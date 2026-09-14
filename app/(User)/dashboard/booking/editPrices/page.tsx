@@ -215,14 +215,14 @@ function getDeliveryTypeXtraPlaceholder(key: ProductDeliveryType["key"]) {
   }
 }
 
+type ProductSettingFieldKey =
+  | "allowDeliveryTypes"
+  | "allowQuantity"
+  | "allowHoursInput"
+  | "autoXtraPerPallet";
+
 const PRODUCT_SETTING_FIELDS: Array<{
-  key: keyof Pick<
-    ProductSettingsDraft,
-    | "allowDeliveryTypes"
-    | "allowQuantity"
-    | "allowHoursInput"
-    | "autoXtraPerPallet"
-  >;
+  key: ProductSettingFieldKey;
   label: string;
 }> = [
   { key: "allowDeliveryTypes", label: "Delivery type selection" },
@@ -230,6 +230,25 @@ const PRODUCT_SETTING_FIELDS: Array<{
   { key: "allowHoursInput", label: "Hours input" },
   { key: "autoXtraPerPallet", label: "Automatic pallet XTRA" },
 ];
+
+// productType restricts which of these settings are relevant:
+// PHYSICAL has neither hours (that's LABOR-only) nor pallet auto-xtra (that's PALLET-only);
+// PALLET has no hours input; LABOR has no quantity or pallet auto-xtra.
+const HIDDEN_PRODUCT_SETTING_FIELDS_BY_TYPE: Record<
+  ProductSettingsDraft["productType"],
+  ProductSettingFieldKey[]
+> = {
+  PHYSICAL: ["allowHoursInput", "autoXtraPerPallet"],
+  PALLET: ["allowHoursInput"],
+  LABOR: ["allowQuantity", "autoXtraPerPallet"],
+};
+
+function getVisibleProductSettingFields(
+  productType: ProductSettingsDraft["productType"],
+) {
+  const hidden = HIDDEN_PRODUCT_SETTING_FIELDS_BY_TYPE[productType];
+  return PRODUCT_SETTING_FIELDS.filter(({ key }) => !hidden.includes(key));
+}
 
 const GLOBAL_FEATURE_FIELDS: Array<{
   key: keyof Pick<
@@ -535,21 +554,27 @@ export default function EditPricesPage() {
     if (!row) return;
 
     setEditingProductId(productId);
+    const productType = row.productType ?? "PHYSICAL";
+    const hiddenFields = HIDDEN_PRODUCT_SETTING_FIELDS_BY_TYPE[productType];
     setProductSettingsDraft({
-      ...buildProductSettingsDefaults(row.productType ?? "PHYSICAL"),
-      productType: row.productType ?? "PHYSICAL",
+      ...buildProductSettingsDefaults(productType),
+      productType,
       allowDeliveryTypes: row.allowDeliveryTypes ?? true,
-      allowQuantity: row.allowQuantity ?? true,
+      allowQuantity: hiddenFields.includes("allowQuantity")
+        ? false
+        : (row.allowQuantity ?? true),
       allowInstallOptions: row.allowInstallOptions ?? true,
       allowReturnOptions: row.allowReturnOptions ?? true,
       allowExtraServices: row.allowExtraServices ?? true,
       allowPeopleCount: false,
-      allowHoursInput: row.allowHoursInput ?? false,
+      allowHoursInput: hiddenFields.includes("allowHoursInput")
+        ? false
+        : (row.allowHoursInput ?? false),
       allowModelNumber: row.allowModelNumber ?? true,
-      autoXtraPerPallet:
-        row.autoXtraPerPallet ??
-        buildProductSettingsDefaults(row.productType ?? "PHYSICAL")
-          .autoXtraPerPallet,
+      autoXtraPerPallet: hiddenFields.includes("autoXtraPerPallet")
+        ? false
+        : (row.autoXtraPerPallet ??
+          buildProductSettingsDefaults(productType).autoXtraPerPallet),
       autoDeliveryPrice: normalizeProductAutoDeliveryPrice(
         row.autoDeliveryPrice,
       ),
@@ -3321,7 +3346,7 @@ export default function EditPricesPage() {
               </label>
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {PRODUCT_SETTING_FIELDS.map(({ key, label }) => (
+                {getVisibleProductSettingFields(productSettingsDraft.productType).map(({ key, label }) => (
                   <label
                     key={key}
                     className="flex items-center gap-2 customContainer"
