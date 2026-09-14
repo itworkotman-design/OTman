@@ -3324,75 +3324,77 @@ export default function EditPricesPage() {
             </div>
 
             <div className="space-y-4 overflow-y-auto pr-2">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-black/80">
-                  Product type
-                </span>
-                <select
-                  value={productSettingsDraft.productType}
-                  onChange={(e) =>
-                    setProductSettingsDraft(
-                      buildProductSettingsDefaults(
-                        e.target.value as "PHYSICAL" | "PALLET" | "LABOR",
-                      ),
-                    )
-                  }
-                  className="customInput w-full"
-                >
-                  <option value="PHYSICAL">Physical</option>
-                  <option value="PALLET">Pallet</option>
-                  <option value="LABOR">Labor</option>
-                </select>
-              </label>
-
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {getVisibleProductSettingFields(productSettingsDraft.productType).map(({ key, label }) => (
-                  <label
-                    key={key}
-                    className="flex items-center gap-2 customContainer"
+              <div className="customContainer space-y-4 p-3">
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-black/80">
+                    Product type
+                  </span>
+                  <select
+                    value={productSettingsDraft.productType}
+                    onChange={(e) =>
+                      setProductSettingsDraft(
+                        buildProductSettingsDefaults(
+                          e.target.value as "PHYSICAL" | "PALLET" | "LABOR",
+                        ),
+                      )
+                    }
+                    className="customInput w-full"
                   >
-                    <input
-                      type="checkbox"
-                      checked={productSettingsDraft[key]}
-                      onChange={(e) =>
-                        setProductSettingsDraft((current) =>
-                          current
-                            ? {
-                                ...current,
-                                [key]: e.target.checked,
-                              }
-                            : current,
-                        )
-                      }
-                      className="background h-4 w-4"
-                    />
-                    <span className="text-sm">{label}</span>
-                  </label>
-                ))}
-              </div>
+                    <option value="PHYSICAL">Physical</option>
+                    <option value="PALLET">Pallet</option>
+                    <option value="LABOR">Labor</option>
+                  </select>
+                </label>
 
-              {!productSettingsDraft.allowDeliveryTypes && (
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold text-black/60 uppercase tracking-wide">Features</div>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {GLOBAL_FEATURE_FIELDS.map(({ key, label }) => (
-                      <label key={key} className="flex items-center gap-2 customContainer">
-                        <input
-                          type="checkbox"
-                          checked={productSettingsDraft[key]}
-                          onChange={(e) =>
-                            setProductSettingsDraft((current) =>
-                              current ? { ...current, [key]: e.target.checked } : current,
-                            )
-                          }
-                          className="background h-4 w-4"
-                        />
-                        <span className="text-sm">{label}</span>
-                      </label>
-                    ))}
-                  </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {getVisibleProductSettingFields(productSettingsDraft.productType).map(({ key, label }) => (
+                    <label
+                      key={key}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={productSettingsDraft[key]}
+                        onChange={(e) =>
+                          setProductSettingsDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  [key]: e.target.checked,
+                                }
+                              : current,
+                          )
+                        }
+                        className="background h-4 w-4"
+                      />
+                      <span className="text-sm">{label}</span>
+                    </label>
+                  ))}
                 </div>
-              )}
+
+                {!productSettingsDraft.allowDeliveryTypes && (
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-black/60 uppercase tracking-wide">Features</div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {GLOBAL_FEATURE_FIELDS.map(({ key, label }) => (
+                        <label key={key} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={productSettingsDraft[key]}
+                            onChange={(e) =>
+                              setProductSettingsDraft((current) =>
+                                current ? { ...current, [key]: e.target.checked } : current,
+                              )
+                            }
+                            className="background h-4 w-4"
+                          />
+                          <span className="text-sm">{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <details className="customContainer p-3" open>
                 <summary className="cursor-pointer text-sm font-semibold text-black/80">
@@ -3492,18 +3494,21 @@ export default function EditPricesPage() {
                         (s) => s.displayOnDeliveryTypes.includes(deliveryType.key),
                       );
                       return (
-                        <div key={deliveryType.key} className={`customContainer p-3 space-y-3 transition-opacity${deliveryType.enabled ? "" : " opacity-40"}`}>
-                          <div className="flex items-center justify-between gap-2">
-                            <input
-                              type="text"
-                              value={deliveryType.label}
-                              onChange={(e) =>
-                                updateDeliveryType(deliveryType.key, { label: e.target.value })
-                              }
-                              className="customInput text-sm font-semibold"
-                              placeholder={getDeliveryTypeEditorTitle(deliveryType.key)}
-                            />
-                            <label className="flex shrink-0 items-center gap-2">
+                        <div key={deliveryType.key} className={`space-y-3 rounded-lg border border-black/10 p-4 transition-opacity${deliveryType.enabled ? "" : " opacity-40"}`}>
+                          <div className="flex items-end justify-between gap-2">
+                            <label className="block flex-1">
+                              <span className="mb-1 block text-xs font-medium text-black/70">Name</span>
+                              <input
+                                type="text"
+                                value={deliveryType.label}
+                                onChange={(e) =>
+                                  updateDeliveryType(deliveryType.key, { label: e.target.value })
+                                }
+                                className="customInput w-full text-sm font-semibold"
+                                placeholder={getDeliveryTypeEditorTitle(deliveryType.key)}
+                              />
+                            </label>
+                            <label className="flex shrink-0 items-center gap-2 pb-2">
                               <input
                                 type="checkbox"
                                 checked={deliveryType.enabled}
@@ -3523,61 +3528,76 @@ export default function EditPricesPage() {
                                 : "grid grid-cols-1 gap-2 sm:grid-cols-3"
                             }
                           >
-                            <input
-                              type="text"
-                              value={deliveryType.code}
-                              onChange={(e) =>
-                                updateDeliveryType(deliveryType.key, { code: e.target.value })
-                              }
-                              className="customInput w-full"
-                              placeholder="Code"
-                            />
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={deliveryType.price}
-                              onChange={(e) =>
-                                updateDeliveryType(deliveryType.key, { price: e.target.value })
-                              }
-                              className="customInput w-full"
-                              placeholder={getDeliveryTypePricePlaceholder(deliveryType.key)}
-                            />
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={deliveryType.subcontractorPrice}
-                              onChange={(e) =>
-                                updateDeliveryType(deliveryType.key, { subcontractorPrice: e.target.value })
-                              }
-                              className="customInput w-full"
-                              placeholder="Partner price"
-                            />
+                            <label className="block">
+                              <span className="mb-1 block text-xs font-medium text-black/70">Code</span>
+                              <input
+                                type="text"
+                                value={deliveryType.code}
+                                onChange={(e) =>
+                                  updateDeliveryType(deliveryType.key, { code: e.target.value })
+                                }
+                                className="customInput w-full"
+                                placeholder="Code"
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="mb-1 block text-xs font-medium text-black/70">Client price</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={deliveryType.price}
+                                onChange={(e) =>
+                                  updateDeliveryType(deliveryType.key, { price: e.target.value })
+                                }
+                                className="customInput w-full"
+                                placeholder={getDeliveryTypePricePlaceholder(deliveryType.key)}
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="mb-1 block text-xs font-medium text-black/70">Partner price</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={deliveryType.subcontractorPrice}
+                                onChange={(e) =>
+                                  updateDeliveryType(deliveryType.key, { subcontractorPrice: e.target.value })
+                                }
+                                className="customInput w-full"
+                                placeholder="Partner price"
+                              />
+                            </label>
                             {supportsXtraPrice(deliveryType.key) && (
                               <>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={deliveryType.xtraPrice}
-                                  onChange={(e) =>
-                                    updateDeliveryType(deliveryType.key, { xtraPrice: e.target.value })
-                                  }
-                                  className="customInput w-full"
-                                  placeholder={getDeliveryTypeXtraPlaceholder(deliveryType.key)}
-                                />
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={deliveryType.xtraSubcontractorPrice}
-                                  onChange={(e) =>
-                                    updateDeliveryType(deliveryType.key, { xtraSubcontractorPrice: e.target.value })
-                                  }
-                                  className="customInput w-full"
-                                  placeholder="XTRA partner price"
-                                />
+                                <label className="block">
+                                  <span className="mb-1 block text-xs font-medium text-black/70">XTRA client price</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={deliveryType.xtraPrice}
+                                    onChange={(e) =>
+                                      updateDeliveryType(deliveryType.key, { xtraPrice: e.target.value })
+                                    }
+                                    className="customInput w-full"
+                                    placeholder={getDeliveryTypeXtraPlaceholder(deliveryType.key)}
+                                  />
+                                </label>
+                                <label className="block">
+                                  <span className="mb-1 block text-xs font-medium text-black/70">XTRA partner price</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={deliveryType.xtraSubcontractorPrice}
+                                    onChange={(e) =>
+                                      updateDeliveryType(deliveryType.key, { xtraSubcontractorPrice: e.target.value })
+                                    }
+                                    className="customInput w-full"
+                                    placeholder="XTRA partner price"
+                                  />
+                                </label>
                               </>
                             )}
                           </div>
