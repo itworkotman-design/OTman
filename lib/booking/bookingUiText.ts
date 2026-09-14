@@ -16,6 +16,8 @@ const NB_TEXT: Record<string, string> = {
   "Scheduler orders": "Planlagte bestillinger",
   "All stores": "Alle butikker",
   "All partners": "Alle partnere",
+  "All pricelists": "Alle prislister",
+  Pricelist: "Prisliste",
   Alerts: "Varsler",
   "Attachments": "Vedlegg",
   "Booking system": "Bestillingssystem",

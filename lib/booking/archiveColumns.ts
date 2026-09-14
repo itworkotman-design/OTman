@@ -39,6 +39,7 @@ export type BookingArchiveColumnId =
   | "createdAt"
   | "updatedAt"
   | "dnbDiscount"
+  | "pricelist"
   | "priceExVat"
   | "priceSubcontractor"
   | "statusNotes"
@@ -51,6 +52,23 @@ export type BookingArchiveColumn = {
   exportHeader?: string;
   exportWidth?: number;
   getExportValue?: (row: OrderRow) => string | number | null;
+};
+
+// Historical orders may reference a pricelist the viewing user no longer has
+// access to — the column exists purely to identify/filter such orders, never
+// to grant access to the pricelist itself, so it's an opt-in addition on top
+// of the static per-viewMode arrays rather than a default entry in them (see
+// BookingArchiveColumnOptions below).
+export type BookingArchiveColumnOptions = {
+  includePricelist?: boolean;
+};
+
+const PRICELIST_COLUMN: BookingArchiveColumn = {
+  id: "pricelist",
+  label: "Pricelist",
+  exportHeader: "Pricelist",
+  exportWidth: 18,
+  getExportValue: (row) => formatCell(row.priceListName),
 };
 
 const LEGACY_SUMMARY_COLUMN_IDS = new Set([
@@ -360,6 +378,7 @@ const adminColumns: BookingArchiveColumn[] = [
     exportWidth: 18,
     getExportValue: (row) => formatDnbDiscount(getDnbDiscountArchiveAmount(row)),
   },
+  PRICELIST_COLUMN,
   {
     id: "priceExVat",
     label: "Price ex. VAT",
@@ -497,6 +516,7 @@ const subcontractorColumns: BookingArchiveColumn[] = [
     exportWidth: 20,
     getExportValue: (row) => formatDisplayDateTime(row.createdAt),
   },
+  PRICELIST_COLUMN,
   {
     id: "priceSubcontractor",
     label: "Partner price",
@@ -567,6 +587,7 @@ const orderCreatorColumns: BookingArchiveColumn[] = [
     exportWidth: 16,
     getExportValue: (row) => formatDisplayDate(row.deliveryDate),
   },
+  PRICELIST_COLUMN,
   {
     id: "priceExVat",
     label: "Price ex. VAT",
@@ -587,24 +608,30 @@ export const BOOKING_ARCHIVE_COLUMNS: Record<
 
 export function getBookingArchiveColumns(
   viewMode: BookingArchiveViewMode,
+  options?: BookingArchiveColumnOptions,
 ): BookingArchiveColumn[] {
-  return BOOKING_ARCHIVE_COLUMNS[viewMode];
+  const columns = BOOKING_ARCHIVE_COLUMNS[viewMode];
+  return options?.includePricelist
+    ? columns
+    : columns.filter((column) => column.id !== "pricelist");
 }
 
 export function getDefaultVisibleBookingArchiveColumns(
   viewMode: BookingArchiveViewMode,
+  options?: BookingArchiveColumnOptions,
 ): BookingArchiveColumnId[] {
-  return getBookingArchiveColumns(viewMode).map((column) => column.id);
+  return getBookingArchiveColumns(viewMode, options).map((column) => column.id);
 }
 
 export function sanitizeVisibleBookingArchiveColumns(
   viewMode: BookingArchiveViewMode,
   columnIds: string[],
+  options?: BookingArchiveColumnOptions,
 ): BookingArchiveColumnId[] {
   const normalizedColumnIds = columnIds.map((columnId) =>
     viewMode === "ADMIN" && columnId === "customerName" ? "createdBy" : columnId,
   );
-  const defaultColumnIds = getDefaultVisibleBookingArchiveColumns(viewMode);
+  const defaultColumnIds = getDefaultVisibleBookingArchiveColumns(viewMode, options);
   const validColumnIds = new Set(defaultColumnIds);
   const sanitized = new Set(
     normalizedColumnIds.filter((columnId): columnId is BookingArchiveColumnId =>
@@ -641,12 +668,13 @@ export function sanitizeVisibleBookingArchiveColumns(
 export function getBookingArchiveExportColumns(
   viewMode: BookingArchiveViewMode,
   visibleColumnIds: string[],
+  options?: BookingArchiveColumnOptions,
 ): BookingArchiveColumn[] {
   const visibleSet = new Set(
-    sanitizeVisibleBookingArchiveColumns(viewMode, visibleColumnIds),
+    sanitizeVisibleBookingArchiveColumns(viewMode, visibleColumnIds, options),
   );
 
-  return getBookingArchiveColumns(viewMode).filter(
+  return getBookingArchiveColumns(viewMode, options).filter(
     (column) => !!column.exportHeader && visibleSet.has(column.id),
   );
 }

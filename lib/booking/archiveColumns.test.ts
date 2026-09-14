@@ -5,6 +5,8 @@ import {
   getEffectiveArchiveSubcontractorTotal,
   getSelectedArchiveOrdersPriceTotal,
   getBookingArchiveColumns,
+  getBookingArchiveExportColumns,
+  getDefaultVisibleBookingArchiveColumns,
   getDnbDiscountArchiveAmount,
   sanitizeVisibleBookingArchiveColumns,
 } from "@/lib/booking/archiveColumns";
@@ -64,6 +66,8 @@ function buildOrderRow(overrides?: Partial<OrderRow>): OrderRow {
     createdBy: "",
     lastEditedBy: "",
     subcontractor: "",
+    priceListId: "",
+    priceListName: "",
     ...overrides,
   };
 }
@@ -369,5 +373,86 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
     expect(
       getSelectedArchiveOrdersPriceTotal(orders, ["order-2"], "SUBCONTRACTOR"),
     ).toBe(800);
+  });
+});
+
+describe("pricelist column (includePricelist option)", () => {
+  it("excludes the pricelist column by default for every view mode", () => {
+    expect(
+      getBookingArchiveColumns("ADMIN").map((column) => column.id),
+    ).not.toContain("pricelist");
+    expect(
+      getBookingArchiveColumns("SUBCONTRACTOR").map((column) => column.id),
+    ).not.toContain("pricelist");
+    expect(
+      getBookingArchiveColumns("ORDER_CREATOR").map((column) => column.id),
+    ).not.toContain("pricelist");
+  });
+
+  it("includes the pricelist column immediately before priceExVat for ADMIN when opted in", () => {
+    const ids = getBookingArchiveColumns("ADMIN", { includePricelist: true }).map(
+      (column) => column.id,
+    );
+    expect(ids.indexOf("pricelist")).toBe(ids.indexOf("priceExVat") - 1);
+  });
+
+  it("includes the pricelist column immediately before priceExVat for ORDER_CREATOR when opted in", () => {
+    const ids = getBookingArchiveColumns("ORDER_CREATOR", {
+      includePricelist: true,
+    }).map((column) => column.id);
+    expect(ids.indexOf("pricelist")).toBe(ids.indexOf("priceExVat") - 1);
+  });
+
+  it("includes the pricelist column immediately before priceSubcontractor for SUBCONTRACTOR when opted in", () => {
+    const ids = getBookingArchiveColumns("SUBCONTRACTOR", {
+      includePricelist: true,
+    }).map((column) => column.id);
+    expect(ids.indexOf("pricelist")).toBe(ids.indexOf("priceSubcontractor") - 1);
+  });
+
+  it("excludes the pricelist id from the default and sanitized visible columns by default", () => {
+    expect(getDefaultVisibleBookingArchiveColumns("ADMIN")).not.toContain(
+      "pricelist",
+    );
+    expect(
+      sanitizeVisibleBookingArchiveColumns("ADMIN", ["displayId", "pricelist"]),
+    ).not.toContain("pricelist");
+  });
+
+  it("includes the pricelist id in the default and sanitized visible columns when opted in", () => {
+    expect(
+      getDefaultVisibleBookingArchiveColumns("ADMIN", { includePricelist: true }),
+    ).toContain("pricelist");
+    expect(
+      sanitizeVisibleBookingArchiveColumns("ADMIN", ["displayId", "pricelist"], {
+        includePricelist: true,
+      }),
+    ).toContain("pricelist");
+  });
+
+  it("renders the pricelist name for export, falling back to a dash when empty", () => {
+    const withName = getBookingArchiveColumns("ADMIN", {
+      includePricelist: true,
+    }).find((column) => column.id === "pricelist");
+
+    expect(withName?.getExportValue?.(buildOrderRow({ priceListName: "Standard" }))).toBe(
+      "Standard",
+    );
+    expect(withName?.getExportValue?.(buildOrderRow({ priceListName: "" }))).toBe("-");
+  });
+
+  it("excludes the pricelist column from export columns unless opted in", () => {
+    const exportColumns = getBookingArchiveExportColumns("ADMIN", [
+      "displayId",
+      "pricelist",
+    ]);
+    expect(exportColumns.map((column) => column.id)).not.toContain("pricelist");
+
+    const exportColumnsIncluded = getBookingArchiveExportColumns(
+      "ADMIN",
+      ["displayId", "pricelist"],
+      { includePricelist: true },
+    );
+    expect(exportColumnsIncluded.map((column) => column.id)).toContain("pricelist");
   });
 });

@@ -13,6 +13,7 @@ export type BookingArchiveFilters = {
 
   subcontractorId: string;
   createdById: string;
+  pricelistId: string;
 
   page: number;
   rowsPerPage: number;
@@ -88,6 +89,8 @@ export type OrderRow = {
   createdBy: string;
   lastEditedBy: string;
   subcontractor: string;
+  priceListId: string;
+  priceListName: string;
 };
 
 export type OrderCalculatorItem = {

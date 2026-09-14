@@ -106,6 +106,7 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   unreadNotificationCount: true,
   priceExVat: true,
   priceSubcontractor: true,
+  priceListId: true,
   rabatt: true,
   dnbDiscount: true,
   leggTil: true,
@@ -825,6 +826,7 @@ export async function GET(req: Request) {
   );
   const subcontractorId = optionalString(searchParams.get("subcontractorId"));
   const createdById = optionalString(searchParams.get("createdById"));
+  const pricelistId = optionalString(searchParams.get("pricelistId"));
   const fromDate = optionalString(searchParams.get("fromDate"));
   const toDate = optionalString(searchParams.get("toDate"));
   const search = optionalString(searchParams.get("search"));
@@ -869,6 +871,10 @@ export async function GET(req: Request) {
     ];
   } else {
     where.subcontractorMembershipId = membership.id;
+  }
+
+  if (pricelistId) {
+    where.priceListId = pricelistId === NONE_FILTER_VALUE ? null : pricelistId;
   }
 
   if (status) {
@@ -1008,6 +1014,26 @@ export async function GET(req: Request) {
         getMembershipUserLabel(legacyCreatorMembership.user),
       ]),
   );
+
+  const priceListIds = Array.from(
+    new Set(
+      orders
+        .map((order) => order.priceListId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  );
+
+  const priceListNames = new Map(
+    priceListIds.length > 0
+      ? (
+          await prisma.priceList.findMany({
+            where: { id: { in: priceListIds } },
+            select: { id: true, name: true },
+          })
+        ).map((priceList) => [priceList.id, priceList.name])
+      : [],
+  );
+
   return NextResponse.json({
     ok: true,
     orders: orders.map((order) => {
@@ -1086,6 +1112,10 @@ export async function GET(req: Request) {
         unreadNotificationCount: isOrderCreator ? 0 : order.unreadNotificationCount,
         priceExVat: order.priceExVat,
         priceSubcontractor: order.priceSubcontractor,
+        priceListId: order.priceListId ?? "",
+        priceListName: order.priceListId
+          ? (priceListNames.get(order.priceListId) ?? "")
+          : "",
         pricingSnapshot: order.pricingSnapshot,
         rabatt: order.rabatt ?? "",
         dnbDiscount: order.dnbDiscount,

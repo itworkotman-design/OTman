@@ -68,9 +68,20 @@ export default function BookingPage() {
   const [columnModalOpen, setColumnModalOpen] = useState(false);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [pricelists, setPricelists] = useState<BookingArchiveOption[]>([]);
+  // ADMIN always sees the Pricelist column/filter; subcontractors and order
+  // creators see it only once their own visible orders actually span more
+  // than one distinct pricelist (never just because they're assigned to
+  // several) — see app/api/orders/pricelists/route.ts.
+  const showPricelistColumn =
+    access.viewMode === "ADMIN" || pricelists.length > 1;
   const [visibleColumnIds, setVisibleColumnIds] = useState<
     BookingArchiveColumnId[]
-  >(() => getDefaultVisibleBookingArchiveColumns(access.viewMode));
+  >(() =>
+    getDefaultVisibleBookingArchiveColumns(access.viewMode, {
+      includePricelist: showPricelistColumn,
+    }),
+  );
 
   const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>(
     [],
@@ -108,6 +119,7 @@ export default function BookingPage() {
       if (filters.subcontractorId)
         params.set("subcontractorId", filters.subcontractorId);
       if (filters.createdById) params.set("createdById", filters.createdById);
+      if (filters.pricelistId) params.set("pricelistId", filters.pricelistId);
       if (filters.fromDate) params.set("fromDate", filters.fromDate);
       if (filters.toDate) params.set("toDate", filters.toDate);
       if (filters.search) params.set("search", filters.search);
@@ -239,6 +251,35 @@ export default function BookingPage() {
       }
     } catch {
       setAllCreators([]);
+    }
+  }
+
+  // Scoped to the current user's own authorized orders (not their assigned
+  // pricelists, and not narrowed by the currently-applied Status/Store/
+  // Partner/date filters) — see app/api/orders/pricelists/route.ts. Fetched
+  // once, not re-fetched when other filters change, so the Pricelist
+  // column/filter's visibility doesn't flicker as the user filters.
+  async function loadPricelistOptions() {
+    try {
+      const res = await fetch("/api/orders/pricelists", {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.ok) {
+        setPricelists(
+          (data.pricelists ?? []).map(
+            (item: { id: string; name: string }) => ({
+              id: item.id,
+              label: item.name,
+            }),
+          ),
+        );
+      }
+    } catch {
+      setPricelists([]);
     }
   }
 
@@ -431,11 +472,16 @@ export default function BookingPage() {
       selectedIds: selectedOrderIds,
       viewMode: access.viewMode,
       visibleColumnIds,
+      includePricelistColumn: showPricelistColumn,
     });
   }
 
   useEffect(() => {
-    const defaultColumns = getDefaultVisibleBookingArchiveColumns(access.viewMode);
+    const columnOptions = { includePricelist: showPricelistColumn };
+    const defaultColumns = getDefaultVisibleBookingArchiveColumns(
+      access.viewMode,
+      columnOptions,
+    );
     const storageKey = getBookingArchiveVisibilityStorageKey(access.viewMode);
     const storedValue = window.localStorage.getItem(storageKey);
 
@@ -452,7 +498,11 @@ export default function BookingPage() {
           (columnId): columnId is string => typeof columnId === "string",
         );
         setVisibleColumnIds(
-          sanitizeVisibleBookingArchiveColumns(access.viewMode, storedColumnIds),
+          sanitizeVisibleBookingArchiveColumns(
+            access.viewMode,
+            storedColumnIds,
+            columnOptions,
+          ),
         );
         return;
       }
@@ -461,7 +511,7 @@ export default function BookingPage() {
     }
 
     setVisibleColumnIds(defaultColumns);
-  }, [access.viewMode]);
+  }, [access.viewMode, showPricelistColumn]);
 
   useEffect(() => {
     const storageKey = getBookingArchiveVisibilityStorageKey(access.viewMode);
@@ -472,6 +522,7 @@ export default function BookingPage() {
     void loadOrders(DEFAULT_BOOKING_ARCHIVE_FILTERS);
     void loadFilterOptions();
     void loadAllCreators();
+    void loadPricelistOptions();
     return () => {
       orderLoadAbortRef.current?.abort();
     };
@@ -560,12 +611,18 @@ export default function BookingPage() {
       }
 
       const next = [...prev, columnId];
-      return sanitizeVisibleBookingArchiveColumns(access.viewMode, next);
+      return sanitizeVisibleBookingArchiveColumns(access.viewMode, next, {
+        includePricelist: showPricelistColumn,
+      });
     });
   }
 
   function handleResetVisibleColumns() {
-    setVisibleColumnIds(getDefaultVisibleBookingArchiveColumns(access.viewMode));
+    setVisibleColumnIds(
+      getDefaultVisibleBookingArchiveColumns(access.viewMode, {
+        includePricelist: showPricelistColumn,
+      }),
+    );
   }
 
   const canSelectOrders =
@@ -604,6 +661,8 @@ export default function BookingPage() {
           access={access}
           subcontractors={subcontractors}
           creators={creators}
+          pricelists={pricelists}
+          showPricelistFilter={showPricelistColumn}
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}
@@ -719,6 +778,7 @@ export default function BookingPage() {
               onToggleOrder={handleToggleOrder}
               onToggleAllVisible={handleToggleAllVisible}
               visibleColumnIds={visibleColumnIds}
+              showPricelistColumn={showPricelistColumn}
               locale={locale}
             />
           )}
@@ -779,6 +839,7 @@ export default function BookingPage() {
         open={columnModalOpen}
         viewMode={access.viewMode}
         visibleColumnIds={visibleColumnIds}
+        showPricelistColumn={showPricelistColumn}
         onToggleColumn={handleToggleVisibleColumn}
         onReset={handleResetVisibleColumns}
         onClose={() => setColumnModalOpen(false)}

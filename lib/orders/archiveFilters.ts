@@ -8,6 +8,7 @@ export const DEFAULT_BOOKING_ARCHIVE_FILTERS: BookingArchiveFilters = {
   status: "",
   createdById: "",
   subcontractorId: "",
+  pricelistId: "",
   fromDate: "",
   toDate: "",
   search: "",

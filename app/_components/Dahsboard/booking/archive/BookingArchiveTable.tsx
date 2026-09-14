@@ -35,6 +35,7 @@ type BookingArchiveTableProps = {
   onToggleOrder?: (orderId: string) => void;
   onToggleAllVisible?: () => void;
   visibleColumnIds?: BookingArchiveColumnId[];
+  showPricelistColumn?: boolean;
   locale?: BookingUiLocale;
 };
 
@@ -65,6 +66,7 @@ const COLUMN_WIDTHS: Record<BookingArchiveColumnId, number> = {
   createdAt: 120,
   updatedAt: 230,
   dnbDiscount: 170,
+  pricelist: 160,
   priceExVat: 100,
   priceSubcontractor: 120,
   statusNotes: 220,
@@ -255,18 +257,20 @@ export default function BookingArchiveTable({
   onToggleOrder,
   onToggleAllVisible,
   visibleColumnIds,
+  showPricelistColumn = false,
   locale = "en",
 }: BookingArchiveTableProps) {
   const topScrollRef = useRef<HTMLDivElement | null>(null);
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const t = (text: string) => bookingText(locale, text);
+  const columnOptions = { includePricelist: showPricelistColumn };
   const resolvedVisibleColumnIds =
     visibleColumnIds && visibleColumnIds.length > 0
-      ? sanitizeVisibleBookingArchiveColumns(viewMode, visibleColumnIds)
-      : getDefaultVisibleBookingArchiveColumns(viewMode);
+      ? sanitizeVisibleBookingArchiveColumns(viewMode, visibleColumnIds, columnOptions)
+      : getDefaultVisibleBookingArchiveColumns(viewMode, columnOptions);
   const visibleColumnSet = new Set(resolvedVisibleColumnIds);
-  const visibleColumns = getBookingArchiveColumns(viewMode).filter((column) =>
-    visibleColumnSet.has(column.id),
+  const visibleColumns = getBookingArchiveColumns(viewMode, columnOptions).filter(
+    (column) => visibleColumnSet.has(column.id),
   );
   const tableWidth = visibleColumns.reduce(
     (totalWidth, column) => totalWidth + COLUMN_WIDTHS[column.id],
@@ -440,6 +444,11 @@ export default function BookingArchiveTable({
                     {t("DNB discount")}
                   </th>
                 ) : null}
+                {isColumnVisible("pricelist") ? (
+                  <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
+                    {t("Pricelist")}
+                  </th>
+                ) : null}
                 {isColumnVisible("priceExVat") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
                     {t("Price ex. VAT")}
@@ -536,6 +545,11 @@ export default function BookingArchiveTable({
                     {t("Created at")}
                   </th>
                 ) : null}
+                {isColumnVisible("pricelist") ? (
+                  <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
+                    {t("Pricelist")}
+                  </th>
+                ) : null}
                 {isColumnVisible("priceSubcontractor") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
                     {t("Partner price")}
@@ -585,6 +599,11 @@ export default function BookingArchiveTable({
                 {isColumnVisible("deliveryDate") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
                     {t("Delivery date")}
+                  </th>
+                ) : null}
+                {isColumnVisible("pricelist") ? (
+                  <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
+                    {t("Pricelist")}
                   </th>
                 ) : null}
                 {isColumnVisible("priceExVat") ? (
@@ -739,6 +758,11 @@ export default function BookingArchiveTable({
                       <Cell>{formatDnbDiscount(getDnbDiscountArchiveAmount(order))}</Cell>
                     </td>
                   ) : null}
+                  {isColumnVisible("pricelist") ? (
+                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <Cell>{formatCell(order.priceListName)}</Cell>
+                    </td>
+                  ) : null}
                   {isColumnVisible("priceExVat") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
                       <Cell>{formatMoney(getEffectiveArchiveCustomerTotal(order))}</Cell>
@@ -849,6 +873,11 @@ export default function BookingArchiveTable({
                       <Cell>{formatDisplayDateTime(order.createdAt)}</Cell>
                     </td>
                   ) : null}
+                  {isColumnVisible("pricelist") ? (
+                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <Cell>{formatCell(order.priceListName)}</Cell>
+                    </td>
+                  ) : null}
                   {isColumnVisible("priceSubcontractor") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
                       <Cell>{formatMoney(getEffectiveArchiveSubcontractorTotal(order))}</Cell>
@@ -908,6 +937,11 @@ export default function BookingArchiveTable({
                   {isColumnVisible("deliveryDate") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
                       <Cell>{formatDisplayDate(order.deliveryDate)}</Cell>
+                    </td>
+                  ) : null}
+                  {isColumnVisible("pricelist") ? (
+                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <Cell>{formatCell(order.priceListName)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("priceExVat") ? (

@@ -29,6 +29,8 @@ type Props = {
   };
   subcontractors: BookingArchiveOption[];
   creators: BookingArchiveOption[];
+  pricelists?: BookingArchiveOption[];
+  showPricelistFilter?: boolean;
   onApply: (filters: BookingArchiveFilters) => void;
   onReset: () => void;
   onRefresh?: () => void;
@@ -46,6 +48,16 @@ type CalendarDay = {
 };
 
 const MAX_ARCHIVE_ROWS_PER_PAGE = 10000;
+
+// Tailwind's JIT scanner needs literal class strings present in the source,
+// so the column count is looked up rather than interpolated into the class
+// name directly (`md:grid-cols-${n}` would never generate the utility).
+const TOP_FILTER_GRID_COLS_CLASS: Record<number, string> = {
+  1: "md:grid-cols-1",
+  2: "md:grid-cols-2",
+  3: "md:grid-cols-3",
+  4: "md:grid-cols-4",
+};
 
 const WEEKDAY_LABELS: Record<BookingUiLocale, string[]> = {
   en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -132,6 +144,8 @@ export default function BookingFilters({
   access,
   subcontractors,
   creators,
+  pricelists = [],
+  showPricelistFilter = false,
   onApply,
   onReset,
   onDownloadSelectedTable,
@@ -153,6 +167,7 @@ export default function BookingFilters({
   const [subcontractorId, setSubcontractorId] = useState(
     access.lockedSubcontractorId ?? initialApplied.subcontractorId,
   );
+  const [pricelistId, setPricelistId] = useState(initialApplied.pricelistId);
   const [fromDate, setFromDate] = useState(initialApplied.fromDate);
   const [toDate, setToDate] = useState(initialApplied.toDate);
   const [search, setSearch] = useState(initialApplied.search);
@@ -200,6 +215,7 @@ export default function BookingFilters({
         status,
         createdById: access.lockedCreatedById ?? createdById,
         subcontractorId: access.lockedSubcontractorId ?? subcontractorId,
+        pricelistId,
         fromDate,
         toDate,
         search,
@@ -214,6 +230,7 @@ export default function BookingFilters({
     access.lockedSubcontractorId,
     createdById,
     fromDate,
+    pricelistId,
     rowsPerPage,
     search,
     status,
@@ -231,6 +248,7 @@ export default function BookingFilters({
       access.lockedSubcontractorId ??
         DEFAULT_BOOKING_ARCHIVE_FILTERS.subcontractorId,
     );
+    setPricelistId(DEFAULT_BOOKING_ARCHIVE_FILTERS.pricelistId);
     setFromDate(DEFAULT_BOOKING_ARCHIVE_FILTERS.fromDate);
     setToDate(DEFAULT_BOOKING_ARCHIVE_FILTERS.toDate);
     setSearch(DEFAULT_BOOKING_ARCHIVE_FILTERS.search);
@@ -303,10 +321,18 @@ export default function BookingFilters({
     setDatePickerOpen(false);
   };
 
+  const visibleTopFilterCount =
+    1 +
+    (access.canFilterCreatedBy ? 1 : 0) +
+    (access.canFilterSubcontractor ? 1 : 0) +
+    (showPricelistFilter ? 1 : 0);
+  const topFilterGridClass =
+    TOP_FILTER_GRID_COLS_CLASS[visibleTopFilterCount] ?? TOP_FILTER_GRID_COLS_CLASS[2];
+
   return (
-    <section className="customContainer w-full max-w-[1000] padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[700] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
+    <section className="customContainer w-full max-w-[1300] padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:max-w-[1000] [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
       <div>
-        <div className={`grid grid-cols-1 gap-3 ${access.canFilterSubcontractor ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+        <div className={`grid grid-cols-1 gap-3 ${topFilterGridClass}`}>
           <Field label={t("Status")}>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput padding-weird-landscape text-weird-landscape w-full">
               <option value="">{t("All statuses")}</option>
@@ -349,6 +375,23 @@ export default function BookingFilters({
                 <option value="">{t("All partners")}</option>
                 <option value={NONE_FILTER_VALUE}>{t("No partner")}</option>
                 {subcontractors.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          {showPricelistFilter && (
+            <Field label={t("Pricelist")}>
+              <select
+                value={pricelistId}
+                onChange={(e) => setPricelistId(e.target.value)}
+                className="customInput padding-weird-landscape text-weird-landscape w-full"
+              >
+                <option value="">{t("All pricelists")}</option>
+                {pricelists.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
                   </option>

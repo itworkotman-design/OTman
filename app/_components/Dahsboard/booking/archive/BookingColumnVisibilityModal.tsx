@@ -12,6 +12,7 @@ type Props = {
   open: boolean;
   viewMode: BookingArchiveViewMode;
   visibleColumnIds: BookingArchiveColumnId[];
+  showPricelistColumn?: boolean;
   onToggleColumn: (columnId: BookingArchiveColumnId) => void;
   onReset: () => void;
   onClose: () => void;
@@ -21,11 +22,14 @@ export default function BookingColumnVisibilityModal({
   open,
   viewMode,
   visibleColumnIds,
+  showPricelistColumn = false,
   onToggleColumn,
   onReset,
   onClose,
 }: Props) {
-  const columns = getBookingArchiveColumns(viewMode);
+  const columns = getBookingArchiveColumns(viewMode, {
+    includePricelist: showPricelistColumn,
+  });
 
   useEffect(() => {
     if (!open) return;

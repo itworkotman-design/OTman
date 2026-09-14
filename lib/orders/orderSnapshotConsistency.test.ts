@@ -80,6 +80,8 @@ function buildOrderRow(overrides?: Partial<OrderRow>): OrderRow {
     createdBy: "",
     lastEditedBy: "",
     subcontractor: "",
+    priceListId: "",
+    priceListName: "",
     ...overrides,
   };
 }

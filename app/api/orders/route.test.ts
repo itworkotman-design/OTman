@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   membershipFindFirstMock: vi.fn(),
   membershipFindManyMock: vi.fn(),
   priceListFindFirstMock: vi.fn(),
+  priceListFindManyMock: vi.fn(),
   orderFindManyMock: vi.fn(),
   orderCreateMock: vi.fn(),
   orderNotificationFindFirstMock: vi.fn(),
@@ -81,6 +82,7 @@ vi.mock("@/lib/db", () => ({
     },
     priceList: {
       findFirst: mocks.priceListFindFirstMock,
+      findMany: mocks.priceListFindManyMock,
     },
     order: {
       findMany: mocks.orderFindManyMock,
@@ -135,6 +137,7 @@ describe("routes in /api/orders", () => {
     mocks.priceListFindFirstMock.mockResolvedValue({
       id: "selected-price-list",
     });
+    mocks.priceListFindManyMock.mockResolvedValue([]);
     mocks.orderNotificationFindFirstMock.mockResolvedValue(null);
     mocks.orderNotificationFindManyMock.mockResolvedValue([]);
     mocks.pendingFindManyMock.mockResolvedValue([]);
@@ -672,6 +675,271 @@ describe("routes in /api/orders", () => {
               createdByMembershipId: "store-membership",
             },
           ],
+        }),
+      }),
+    );
+  });
+
+  it("GET resolves the pricelist name for orders that reference one", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      companyId: "company-1",
+      role: "USER",
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        displayId: 20001,
+        status: "processing",
+        statusNotes: null,
+        deliveryDate: "2030-01-15",
+        timeWindow: "08-12",
+        customerLabel: "Acme",
+        customerName: "Alice",
+        orderNumber: "PO-1",
+        phone: "12345678",
+        email: null,
+        pickupAddress: "Pickup 1",
+        extraPickupAddress: [],
+        extraPickupContacts: null,
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        items: [],
+        productsSummary: "Van",
+        deliveryTypeSummary: "Standard",
+        servicesSummary: "Carry",
+        description: null,
+        cashierName: null,
+        cashierPhone: null,
+        customerComments: null,
+        driverInfo: null,
+        subcontractorMembershipId: null,
+        subcontractor: null,
+        driver: null,
+        createdAt: new Date("2030-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2030-01-02T00:00:00.000Z"),
+        lastInboundEmailAt: null,
+        lastOutboundEmailAt: null,
+        lastNotificationAt: null,
+        needsEmailAttention: false,
+        unreadInboundEmailCount: 0,
+        needsNotificationAttention: false,
+        unreadNotificationCount: 0,
+        priceExVat: 1000,
+        priceSubcontractor: 700,
+        priceListId: "price-list-1",
+        createdByMembershipId: "membership-1",
+        lastEditedByMembershipId: null,
+        customerMembershipId: "membership-1",
+        legacyWordpressAuthorId: null,
+        customerMembership: {
+          user: { username: "assigned-store", email: "store@example.com" },
+        },
+        createdByMembership: {
+          user: { username: "creator", email: "creator@example.com" },
+        },
+        lastEditedByMembership: null,
+      },
+    ]);
+    mocks.priceListFindManyMock.mockResolvedValue([
+      { id: "price-list-1", name: "Standard" },
+    ]);
+
+    const res = await GET(new Request("http://localhost/api/orders"));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      orders: [
+        expect.objectContaining({
+          id: "order-1",
+          priceListId: "price-list-1",
+          priceListName: "Standard",
+        }),
+      ],
+      page: 1,
+      rowsPerPage: 25,
+    });
+    expect(mocks.priceListFindManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["price-list-1"] } },
+      select: { id: true, name: true },
+    });
+  });
+
+  it("GET maps orders without a pricelist to empty id/name instead of crashing", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      companyId: "company-1",
+      role: "USER",
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        displayId: 20001,
+        status: "processing",
+        statusNotes: null,
+        deliveryDate: "2030-01-15",
+        timeWindow: "08-12",
+        customerLabel: "Acme",
+        customerName: "Alice",
+        orderNumber: "PO-1",
+        phone: "12345678",
+        email: null,
+        pickupAddress: "Pickup 1",
+        extraPickupAddress: [],
+        extraPickupContacts: null,
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        items: [],
+        productsSummary: "Van",
+        deliveryTypeSummary: "Standard",
+        servicesSummary: "Carry",
+        description: null,
+        cashierName: null,
+        cashierPhone: null,
+        customerComments: null,
+        driverInfo: null,
+        subcontractorMembershipId: null,
+        subcontractor: null,
+        driver: null,
+        createdAt: new Date("2030-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2030-01-02T00:00:00.000Z"),
+        lastInboundEmailAt: null,
+        lastOutboundEmailAt: null,
+        lastNotificationAt: null,
+        needsEmailAttention: false,
+        unreadInboundEmailCount: 0,
+        needsNotificationAttention: false,
+        unreadNotificationCount: 0,
+        priceExVat: 1000,
+        priceSubcontractor: 700,
+        priceListId: null,
+        createdByMembershipId: "membership-1",
+        lastEditedByMembershipId: null,
+        customerMembershipId: "membership-1",
+        legacyWordpressAuthorId: null,
+        customerMembership: {
+          user: { username: "assigned-store", email: "store@example.com" },
+        },
+        createdByMembership: {
+          user: { username: "creator", email: "creator@example.com" },
+        },
+        lastEditedByMembership: null,
+      },
+    ]);
+
+    const res = await GET(new Request("http://localhost/api/orders"));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      orders: [
+        expect.objectContaining({
+          id: "order-1",
+          priceListId: "",
+          priceListName: "",
+        }),
+      ],
+      page: 1,
+      rowsPerPage: 25,
+    });
+    expect(mocks.priceListFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("GET filters orders by the selected pricelist id", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "admin-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "admin-membership",
+      role: "ADMIN",
+      permissions: [],
+    });
+    mocks.orderFindManyMock.mockResolvedValue([]);
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/orders?pricelistId=price-list-1&page=1&rowsPerPage=10",
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          companyId: "company-1",
+          priceListId: "price-list-1",
+        }),
+      }),
+    );
+  });
+
+  it("GET filters orders with no pricelist assigned via the none sentinel", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "admin-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "admin-membership",
+      role: "ADMIN",
+      permissions: [],
+    });
+    mocks.orderFindManyMock.mockResolvedValue([]);
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/orders?pricelistId=__none__&page=1&rowsPerPage=10",
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          companyId: "company-1",
+          priceListId: null,
+        }),
+      }),
+    );
+  });
+
+  it("GET applies the pricelist filter for a subcontractor's own scoped orders too", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "sub-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "sub-membership",
+      role: "USER",
+      permissions: [],
+    });
+    mocks.canCreateOrdersMock.mockReturnValue(false);
+    mocks.orderFindManyMock.mockResolvedValue([]);
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/orders?pricelistId=price-list-1&page=1&rowsPerPage=10",
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          companyId: "company-1",
+          subcontractorMembershipId: "sub-membership",
+          priceListId: "price-list-1",
         }),
       }),
     );

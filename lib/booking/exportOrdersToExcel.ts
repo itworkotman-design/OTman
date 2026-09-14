@@ -26,16 +26,20 @@ async function writeOrdersWorkbook({
   rows,
   viewMode,
   visibleColumnIds,
+  includePricelistColumn = false,
   filename,
 }: {
   rows: OrderRow[];
   viewMode: BookingArchiveViewMode;
   visibleColumnIds: BookingArchiveColumnId[];
+  includePricelistColumn?: boolean;
   filename: string;
 }) {
   if (rows.length === 0) return;
 
-  const exportColumns = getBookingArchiveExportColumns(viewMode, visibleColumnIds);
+  const exportColumns = getBookingArchiveExportColumns(viewMode, visibleColumnIds, {
+    includePricelist: includePricelistColumn,
+  });
   if (exportColumns.length === 0) return;
 
   const workbook = new ExcelJS.Workbook();
@@ -132,11 +136,13 @@ export async function exportOrdersToExcel({
   selectedIds,
   viewMode,
   visibleColumnIds,
+  includePricelistColumn = false,
 }: {
   rows: OrderRow[];
   selectedIds: string[];
   viewMode: BookingArchiveViewMode;
   visibleColumnIds: BookingArchiveColumnId[];
+  includePricelistColumn?: boolean;
 }) {
   const selectedIdSet = new Set(selectedIds);
   const selected = rows.filter((row) => selectedIdSet.has(row.id));
@@ -145,6 +151,7 @@ export async function exportOrdersToExcel({
     rows: selected,
     viewMode,
     visibleColumnIds,
+    includePricelistColumn,
     filename: "orders.xlsx",
   });
 }
@@ -153,15 +160,18 @@ export async function exportVisibleOrdersToExcel({
   rows,
   viewMode,
   visibleColumnIds,
+  includePricelistColumn = false,
 }: {
   rows: OrderRow[];
   viewMode: BookingArchiveViewMode;
   visibleColumnIds: BookingArchiveColumnId[];
+  includePricelistColumn?: boolean;
 }) {
   await writeOrdersWorkbook({
     rows,
     viewMode,
     visibleColumnIds,
+    includePricelistColumn,
     filename: "ordre-tabell.xlsx",
   });
 }
