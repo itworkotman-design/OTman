@@ -70,6 +70,15 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
                   </li>
                 );
               })}
+              <li className="block md:hidden border-t border-logoblue">
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="block px-3 py-6 text-lg transition-colors duration-140 text-white"
+                >
+                  {content.dashboardLabel[locale]}
+                </Link>
+              </li>
               <li className={`block md:hidden px-10 py-4 md:py-0 text-lg md:text-sm transition-colors duration-140 border-t border-logoblue`}>
                 <LanguageSwitcher />
               </li>
