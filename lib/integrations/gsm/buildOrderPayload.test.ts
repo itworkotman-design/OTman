@@ -129,6 +129,7 @@ function buildOrderItem(overrides?: Partial<OrderItem>): OrderItem {
 describe("buildOrderPayload", () => {
   afterEach(() => {
     delete process.env.GSM_ACCOUNT_URL;
+    delete process.env.GOOGLE_REVIEW_QR_URL;
   });
 
   it("omits the pickup task when the order only has the pickup placeholder", () => {
@@ -583,5 +584,70 @@ describe("buildOrderPayload", () => {
     expect(payload.tasks_data[0]?.description).not.toContain(
       "WordPress order prices",
     );
+  });
+
+  it("adds the Google review QR metafield only to the delivery task, not pickup or return tasks", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+    process.env.GOOGLE_REVIEW_QR_URL = "https://otman.no/google-review-qr.png";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "Pickup 1",
+        deliveryAddress: "Delivery 1",
+        returnAddress: "Return 1",
+      }),
+    );
+
+    expect(payload.tasks_data.map((task) => task.address.raw_address)).toEqual([
+      "Pickup 1",
+      "Delivery 1",
+      "Return 1",
+    ]);
+    expect(payload.tasks_data[0]?.metafields?.["app:qr_link"]).toBeUndefined();
+    expect(payload.tasks_data[1]?.metafields?.["app:qr_link"]).toBe(
+      "https://otman.no/google-review-qr.png",
+    );
+    expect(payload.tasks_data[2]?.metafields?.["app:qr_link"]).toBeUndefined();
+  });
+
+  it("omits the Google review QR metafield entirely when GOOGLE_REVIEW_QR_URL is not configured", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+    delete process.env.GOOGLE_REVIEW_QR_URL;
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+      }),
+    );
+
+    expect(payload.tasks_data[0]?.metafields?.["app:qr_link"]).toBeUndefined();
+  });
+
+  it("does not add the Google review QR metafield when the delivery leg is a return pickup, not an actual delivery", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+    process.env.GOOGLE_REVIEW_QR_URL = "https://otman.no/google-review-qr.png";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+      items: [
+        buildOrderItem({
+          deliveryType: "Kun retur",
+          optionCode: "RETURNIN",
+          rawData: { deliveryType: "RETURN_ONLY" },
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data.map((task) => task.category)).toEqual([
+      "pick_up",
+    ]);
+    expect(payload.tasks_data[0]?.metafields?.["app:qr_link"]).toBeUndefined();
   });
 });

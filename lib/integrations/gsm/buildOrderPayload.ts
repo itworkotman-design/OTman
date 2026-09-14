@@ -360,13 +360,18 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
     "app:carnumber": order.licensePlate?.trim() || "-",
   };
 
-  const makeTask = (category: GsmTask["category"], rawAddress: string, contact?: GsmContact): GsmTask => ({
+  const makeTask = (
+    category: GsmTask["category"],
+    rawAddress: string,
+    contact?: GsmContact,
+    taskMetafields: Record<string, string> = metafields,
+  ): GsmTask => ({
     account,
     category,
     address: { raw_address: rawAddress },
     contact,
     description,
-    metafields,
+    metafields: taskMetafields,
     ...timeWindow,
   });
 
@@ -385,7 +390,14 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   }
 
   if (order.deliveryAddress?.trim()) {
-    tasks.push(makeTask(getDeliveryTaskCategory(order), order.deliveryAddress.trim(), customerContact));
+    const deliveryCategory = getDeliveryTaskCategory(order);
+    const googleReviewQrUrl = process.env.GOOGLE_REVIEW_QR_URL?.trim();
+    const deliveryMetafields =
+      googleReviewQrUrl && deliveryCategory !== "pick_up"
+        ? { ...metafields, "app:qr_link": googleReviewQrUrl }
+        : metafields;
+
+    tasks.push(makeTask(deliveryCategory, order.deliveryAddress.trim(), customerContact, deliveryMetafields));
   }
 
   if (order.returnAddress?.trim()) {
