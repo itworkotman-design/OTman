@@ -648,13 +648,13 @@ export default function BookingPage() {
 
   return (
     <div className="w-full">
-      <h1 className="mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl text-weird-landscape-large margin-weird-landscape">
+      <h1 className="mb-4 sm:mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl text-weird-landscape-large margin-weird-landscape">
         {bookingText(locale, "Booking orders")}
       </h1>
 
       <ShiftLeaderBanner currentUserId={currentUser?.id} />
 
-      <div className="flex w-fit max-w-full flex-col items-stretch gap-3 padding-weird-landscape">
+      <div className="flex w-full sm:w-fit max-w-full flex-col items-stretch gap-3 padding-weird-landscape">
         <BookingFilters
           key={`${filterPanelVersion}:${access.lockedCreatedById ?? ""}:${access.lockedSubcontractorId ?? ""}`}
           initialApplied={appliedFilters}

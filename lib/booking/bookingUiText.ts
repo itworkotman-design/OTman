@@ -35,6 +35,7 @@ const NB_TEXT: Record<string, string> = {
   "Choose receipt": "Velg kvittering",
   "Choose delivery type": "Velg leveringstype",
   Close: "Lukk",
+  Clear: "Tøm",
   "Clear dates": "Tøm datoer",
   "Clear selection": "Tøm utvalg",
   "Contact customer?": "Kontakt kunde?",

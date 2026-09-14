@@ -315,6 +315,24 @@ export default function BookingFilters({
   const showPartner = access.canFilterSubcontractor;
   const showPricelist = showPricelistFilter;
 
+  const dateQuickFilters = [
+    { key: "today", label: t("Today"), onClick: setToday },
+    { key: "tomorrow", label: t("Tomorrow"), onClick: setTomorrow },
+    { key: "thisWeek", label: t("This week"), onClick: setThisWeek },
+    { key: "thisMonth", label: t("This month"), onClick: setThisMonth },
+    {
+      key: "lastMonth",
+      label: locale === "nb" ? "Forrige måned" : "Last month",
+      onClick: setLastMonth,
+    },
+  ];
+
+  const setRowsPerPageQuick = (n: number) => {
+    setFromDate("");
+    setToDate("");
+    setRowsPerPage(n);
+  };
+
   return (
     <section className="customContainer padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
       <div>
@@ -478,38 +496,37 @@ export default function BookingFilters({
             </div>
           </Field>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <button type="button" onClick={setToday} className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape">
-              {t("Today")}
-            </button>
-            <button
-              type="button"
-              onClick={setTomorrow}
-              className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
-            >
-              {t("Tomorrow")}
-            </button>
-            <button
-              type="button"
-              onClick={setThisWeek}
-              className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
-            >
-              {t("This week")}
-            </button>
-            <button
-              type="button"
-              onClick={setThisMonth}
-              className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
-            >
-              {t("This month")}
-            </button>
-            <button
-              type="button"
-              onClick={setLastMonth}
-              className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
-            >
-              {locale === "nb" ? "Forrige måned" : "Last month"}
-            </button>
+          <div>
+            {/* Phone: 2-up grid so the 5 quick filters stretch evenly; the odd one out is centered on its own row */}
+            <div className="grid grid-cols-2 gap-2 sm:hidden">
+              {dateQuickFilters.map((filter, index) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={filter.onClick}
+                  className={`customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape ${
+                    index === dateQuickFilters.length - 1
+                      ? "col-span-2 w-[calc(50%-0.25rem)] justify-self-center"
+                      : "w-full"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="hidden flex-wrap items-end gap-2 sm:flex">
+              {dateQuickFilters.map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={filter.onClick}
+                  className="customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape"
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Row 3: search / orders per page */}
@@ -546,31 +563,64 @@ export default function BookingFilters({
 
           {/* Row 4: (empty) / orders-per-page quick buttons + reset filters */}
           <div />
-          <div className="flex flex-wrap items-center justify-between gap-2 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
-            <div className="flex flex-wrap gap-2 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
-              {[10, 25, 50, 100, 250].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => {
-                    setFromDate("");
-                    setToDate("");
-                    setRowsPerPage(n);
-                  }}
-                  className="customButtonDefault h-8 px-2 text-xs text-weird-landscape padding-weird-landscape height-weird-landscape"
-                >
-                  {n}
-                </button>
-              ))}
+          <div>
+            {/* Phone: 3-up then 2-up grid so the page-size buttons fill each row; Reset Filters centered below */}
+            <div className="flex flex-col gap-2 sm:hidden">
+              <div className="grid grid-cols-3 gap-2">
+                {[10, 25, 50].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRowsPerPageQuick(n)}
+                    className="customButtonDefault h-8 w-full px-2 text-xs text-weird-landscape padding-weird-landscape height-weird-landscape"
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[100, 250].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRowsPerPageQuick(n)}
+                    className="customButtonDefault h-8 w-full px-2 text-xs text-weird-landscape padding-weird-landscape height-weird-landscape"
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="customButtonEnabled h-10 w-full text-weird-landscape padding-weird-landscape height-weird-landscape"
+              >
+                {t("Reset Filters")}
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleReset}
-              className="customButtonEnabled h-10 text-weird-landscape padding-weird-landscape height-weird-landscape"
-            >
-              {t("Reset Filters")}
-            </button>
+            <div className="hidden items-center justify-between gap-2 sm:flex [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
+              <div className="flex flex-wrap gap-2 [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:gap-1">
+                {[10, 25, 50, 100, 250].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRowsPerPageQuick(n)}
+                    className="customButtonDefault h-8 px-2 text-xs text-weird-landscape padding-weird-landscape height-weird-landscape"
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleReset}
+                className="customButtonEnabled h-10 text-weird-landscape padding-weird-landscape height-weird-landscape"
+              >
+                {t("Reset Filters")}
+              </button>
+            </div>
           </div>
         </div>
       </div>
