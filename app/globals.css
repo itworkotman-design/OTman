@@ -210,7 +210,8 @@ p,
 ul,
 li,
 a,
-td {
+td,
+button {
   font-family:
     geist,
     Inter,

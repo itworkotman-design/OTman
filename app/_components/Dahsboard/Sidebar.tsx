@@ -74,6 +74,20 @@ const ICONS = {
     "m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2",
 };
 
+// Any of the three destinations grouped under the "All orders" dropdown —
+// shared by the dropdown's initial-open state (so a direct/deep link into
+// one of these lands with the dropdown already expanded) and by the
+// re-open-on-navigation check below.
+function isOrderRoutePath(path: string) {
+  return (
+    path === "/dashboard/booking" ||
+    path === "/dashboard/website-orders" ||
+    path.startsWith("/dashboard/website-orders/") ||
+    path === "/dashboard/scheduler-orders" ||
+    path.startsWith("/dashboard/scheduler-orders/")
+  );
+}
+
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenOpen }: Props) {
@@ -83,6 +97,8 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   const router = useRouter();
 
   const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [ordersOpen, setOrdersOpen] = useState(() => isOrderRoutePath(pathname));
+  const [prevOrdersPathname, setPrevOrdersPathname] = useState(pathname);
 
   useEffect(() => {
     if (!lockBodyScrollWhenOpen || !open) return;
@@ -111,6 +127,41 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   // it's a rarer sub-feature and NavbarBooking never showed it while
   // currentUser was still loading either.
   const showScheduler = Boolean(currentUser && getModuleAccess(currentUser, "SCHEDULER").enabled);
+
+  // The three "order list" destinations (main booking orders, website
+  // orders, scheduler orders) are gated independently per membership, so
+  // any subset can be available. They render as one "All orders" dropdown
+  // (in this fixed order) when 2+ are available, or as a single plain link
+  // with no dropdown chrome when only one is.
+  const orderNavEntries: { href: string; label: string; exact: boolean }[] = [
+    ...(showBooking ? [{ href: "/dashboard/booking", label: "Main orders", exact: true }] : []),
+    ...(showWebsiteOrders
+      ? [{
+          href: "/dashboard/website-orders",
+          label: locale === "nb" ? "Nettsidebestillinger" : "Website orders",
+          exact: false,
+        }]
+      : []),
+    ...(showScheduler
+      ? [{ href: "/dashboard/scheduler-orders", label: bookingText(locale, "Scheduler orders"), exact: false }]
+      : []),
+  ];
+
+  // Stay expanded for as long as we're on one of the grouped order pages —
+  // re-opens on navigating into one (covers both a fresh mount landing
+  // directly on one, via the lazy useState initializer above, and moving
+  // between shells that remount this component while staying inside the
+  // group) — but never auto-collapses, so an explicit manual close (the
+  // toggle below) is respected for as long as the pathname doesn't change.
+  // Adjusted during render (React's documented pattern for deriving state
+  // from a prop change) rather than in an effect, to avoid an extra
+  // post-paint render pass just to flip this open.
+  if (pathname !== prevOrdersPathname) {
+    setPrevOrdersPathname(pathname);
+    if (isOrderRoutePath(pathname)) {
+      setOrdersOpen(true);
+    }
+  }
 
   // Home/DashboardHome is its own controllable module (DASHBOARD) with 5
   // independently-toggleable sub-sections (booking overview, GDPR, etc, see
@@ -216,8 +267,13 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
         </div>
 
         <div className="px-4 padding-weird-landscape">
+          {/* min-h-8 matches the logo image's own h-8, so this row is
+              already at its final height before the logo/username finish
+              loading in (currentUser starts null — see useCurrentUser) —
+              without it, the image popping in later grows the row and
+              shoves every nav link below it up/down on every reload. */}
           <div className="mt-6 flex  border-lineSecondary px-2 py-1 pb-4 padding-weird-landscape">
-            <div className="mx-auto flex max-w-full flex-wrap items-center justify-center gap-2 text-center">
+            <div className="mx-auto flex min-h-8 max-w-full flex-wrap items-center justify-center gap-2 text-center">
               {currentUserLogoDisplayPath ? (
                 <img src={currentUserLogoDisplayPath} alt={`${currentUser?.username || currentUser?.email} logo`} className="h-8 w-8 shrink-0 object-contain" />
               ) : null}
@@ -253,20 +309,58 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
             </h1>
           )}
 
-          {/* Booking's own pages render directly as top-level nav buttons
-              (no more separate "Booking system" parent button/background),
-              gated per tier: everyone with Booking access sees "All
-              orders"; "Create order" only shows for those who can actually
-              create (Owner/Admin/Order creator, not Subcontractor); "Edit
-              prices" is Owner/Admin only (this is where the 4 admin buttons
-              come from, plus Scheduler orders when enabled); "Price lists"
-              is the read-only counterpart shown only to non-full-access
-              members with an assigned list. */}
+          {/* The order-list destinations (Main/Website/Scheduler orders)
+              collapse into a single "All orders" dropdown when 2+ are
+              available for this membership, or render as one plain link
+              (no dropdown chrome) when only one is — see orderNavEntries
+              above. Create order/Edit prices/Price lists stay separate,
+              gated per tier: "Create order" only for those who can
+              actually create (Owner/Admin/Order creator, not
+              Subcontractor); "Edit prices" is Owner/Admin only; "Price
+              lists" is the read-only counterpart shown only to
+              non-full-access members with an assigned list. */}
+          {orderNavEntries.length === 1 && (
+            <Link
+              href={orderNavEntries[0].href}
+              onClick={closeMobileDrawer}
+              className={bookingLinkClass(orderNavEntries[0].href, orderNavEntries[0].exact)}
+            >
+              {orderNavEntries[0].label}
+            </Link>
+          )}
+
+          {orderNavEntries.length > 1 && (
+            <>
+              {/* Reuses bookingLinkClass with a href that never matches so it
+                  always renders in the plain (non-active) state — keeps this
+                  toggle's font/color/spacing pixel-identical to every other
+                  sidebar link instead of a hand-rolled class list that could
+                  quietly drift out of sync. */}
+              <button
+                type="button"
+                onClick={() => setOrdersOpen((v) => !v)}
+                aria-expanded={ordersOpen}
+                className={`${bookingLinkClass("__all-orders-toggle__")} flex cursor-pointer items-center justify-between`}
+              >
+                <span>All orders</span>
+                <span>{ordersOpen ? "▾" : "▸"}</span>
+              </button>
+              {ordersOpen &&
+                orderNavEntries.map((entry) => (
+                  <Link
+                    key={entry.href}
+                    href={entry.href}
+                    onClick={closeMobileDrawer}
+                    className={`${bookingLinkClass(entry.href, entry.exact)} ml-3`}
+                  >
+                    {entry.label}
+                  </Link>
+                ))}
+            </>
+          )}
+
           {showBooking && (
             <>
-              <Link href="/dashboard/booking" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/booking", true)}>
-                All orders
-              </Link>
               {canCreateBooking && (
                 <Link href="/dashboard/booking/create" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/booking/create")}>
                   Create order
@@ -282,31 +376,7 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
                   Price lists
                 </Link>
               )}
-              {showScheduler && (
-                <Link href="/dashboard/scheduler-orders" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/scheduler-orders")}>
-                  Scheduler orders
-                </Link>
-              )}
             </>
-          )}
-
-          {/* Scheduler access doesn't require booking access — memberships can
-              have one without the other, so this can't just live in the
-              booking buttons above (that whole block is entirely absent
-              when showBooking is false). Mobile only, same reason as above. */}
-          {!showBooking && showScheduler && (
-            <Link href="/dashboard/scheduler-orders" onClick={closeMobileDrawer} className={`${linkClass("/dashboard/scheduler-orders")} lg:hidden`}>
-              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
-                <Icon path={ICONS.hours} />
-                Scheduler orders
-              </div>
-            </Link>
-          )}
-
-          {showWebsiteOrders && (
-            <Link href="/dashboard/website-orders" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/website-orders")}>
-              {locale === "nb" ? "Nettsidebestillinger" : "Website orders"}
-            </Link>
           )}
 
           {showOthersSection && (
