@@ -182,6 +182,28 @@ export function getEffectiveArchiveSubcontractorTotal(
   return Math.max(roundedTotal, getProtectedCancelledSubcontractorTotal(row));
 }
 
+// Selection summaries must key off viewMode, not just pull priceExVat off the
+// row — subcontractors are shown their own (priceSubcontractor-derived) total
+// in the table, and the selection sum has to match or it leaks the customer price.
+export function getSelectedArchiveOrdersPriceTotal(
+  orders: Array<
+    Pick<OrderRow, "id" | "status" | "priceExVat" | "priceSubcontractor" | "pricingSnapshot" | "rabatt" | "leggTil" | "subcontractorMinus" | "subcontractorPlus" | "calculatorItems">
+  >,
+  selectedOrderIds: string[],
+  viewMode: BookingArchiveViewMode,
+): number {
+  const selectedIdSet = new Set(selectedOrderIds);
+  const getTotal =
+    viewMode === "SUBCONTRACTOR"
+      ? getEffectiveArchiveSubcontractorTotal
+      : getEffectiveArchiveCustomerTotal;
+
+  return orders.reduce((sum, order) => {
+    if (!selectedIdSet.has(order.id)) return sum;
+    return sum + getTotal(order);
+  }, 0);
+}
+
 const adminColumns: BookingArchiveColumn[] = [
   {
     id: "displayId",

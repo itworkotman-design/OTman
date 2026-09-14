@@ -3,6 +3,7 @@ import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types
 import {
   getEffectiveArchiveCustomerTotal,
   getEffectiveArchiveSubcontractorTotal,
+  getSelectedArchiveOrdersPriceTotal,
   getBookingArchiveColumns,
   getDnbDiscountArchiveAmount,
   sanitizeVisibleBookingArchiveColumns,
@@ -343,5 +344,30 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
       subcontractorMinus: "600",
       subcontractorPlus: "",
     }))).toBe(0);
+  });
+
+  it("sums the selected-order price total using the subcontractor price for subcontractor rows, not the customer price", () => {
+    const orders = [
+      buildOrderRow({ id: "order-1", priceExVat: 1000, priceSubcontractor: 400 }),
+      buildOrderRow({ id: "order-2", priceExVat: 2000, priceSubcontractor: 800 }),
+    ];
+
+    expect(
+      getSelectedArchiveOrdersPriceTotal(orders, ["order-1", "order-2"], "SUBCONTRACTOR"),
+    ).toBe(1200);
+    expect(
+      getSelectedArchiveOrdersPriceTotal(orders, ["order-1", "order-2"], "ADMIN"),
+    ).toBe(3000);
+  });
+
+  it("only sums the price of orders that are actually selected", () => {
+    const orders = [
+      buildOrderRow({ id: "order-1", priceExVat: 1000, priceSubcontractor: 400 }),
+      buildOrderRow({ id: "order-2", priceExVat: 2000, priceSubcontractor: 800 }),
+    ];
+
+    expect(
+      getSelectedArchiveOrdersPriceTotal(orders, ["order-2"], "SUBCONTRACTOR"),
+    ).toBe(800);
   });
 });

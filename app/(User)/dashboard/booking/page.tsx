@@ -24,6 +24,7 @@ import { exportOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
 import {
   getDefaultVisibleBookingArchiveColumns,
   getBookingArchiveVisibilityStorageKey,
+  getSelectedArchiveOrdersPriceTotal,
   sanitizeVisibleBookingArchiveColumns,
   type BookingArchiveColumnId,
 } from "@/lib/booking/archiveColumns";
@@ -571,19 +572,22 @@ export default function BookingPage() {
     access.viewMode === "ADMIN" ||
     access.viewMode === "SUBCONTRACTOR" ||
     access.viewMode === "ORDER_CREATOR";
-  const selectedOrderIdSet = new Set(selectedOrderIds);
-  const selectedPriceExVatTotal = orders.reduce((sum, order) => {
-    if (!selectedOrderIdSet.has(order.id)) return sum;
-    if (typeof order.priceExVat !== "number") return sum;
-    return sum + order.priceExVat;
-  }, 0);
-  const selectedPriceExVatLabel = selectedPriceExVatTotal.toLocaleString(
+  const selectedPriceTotal = getSelectedArchiveOrdersPriceTotal(
+    orders,
+    selectedOrderIds,
+    access.viewMode,
+  );
+  const selectedPriceLabel = selectedPriceTotal.toLocaleString(
     "no-NO",
     {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     },
   );
+  const selectedPriceCaption =
+    access.viewMode === "SUBCONTRACTOR"
+      ? bookingText(locale, "Partner price")
+      : bookingText(locale, "Price ex. VAT");
 
   return (
     <div className="w-full">
@@ -660,7 +664,7 @@ export default function BookingPage() {
 
               <div className="text-sm text-textColorThird">
                 {canSelectOrders
-                  ? `${selectedOrderIds.length} ${bookingText(locale, "selected")} - ${bookingText(locale, "Price ex. VAT")}: NOK ${selectedPriceExVatLabel}`
+                  ? `${selectedOrderIds.length} ${bookingText(locale, "selected")} - ${selectedPriceCaption}: NOK ${selectedPriceLabel}`
                   : ""}
               </div>
             </div>
