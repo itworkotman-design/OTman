@@ -104,6 +104,45 @@ export function parseExtraPickups(value: unknown): ExtraPickupInput[] {
     .filter((pickup) => pickup.address.length > 0);
 }
 
+// Re-reads an order's own already-persisted extraPickupContacts JSON — the
+// server's own prior output, not client input — so it must NOT go through
+// parseExtraPickups, which deliberately nulls out customPickupAddressName/
+// Phone because it exists to strip a client's spoofed values. Used by the
+// order edit route to seed "no change" defaults for a PATCH that doesn't
+// touch extraPickups at all; going through parseExtraPickups there was
+// silently wiping every extra pickup's saved warehouse name/phone back to
+// null on any unrelated field edit, since that value gets written back
+// unconditionally on every PATCH.
+export function readStoredExtraPickups(value: unknown): ExtraPickupInput[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const candidate =
+        item && typeof item === "object" && !Array.isArray(item)
+          ? (item as Record<string, unknown>)
+          : null;
+
+      return {
+        address: typeof candidate?.address === "string" ? candidate.address : "",
+        phone: typeof candidate?.phone === "string" ? candidate.phone : "",
+        email: typeof candidate?.email === "string" ? candidate.email : "",
+        sendEmail: candidate?.sendEmail !== false,
+        customPickupAddressId:
+          typeof candidate?.customPickupAddressId === "string" ? candidate.customPickupAddressId : null,
+        customPickupAddressName:
+          typeof candidate?.customPickupAddressName === "string" ? candidate.customPickupAddressName : null,
+        customPickupAddressPhone:
+          typeof candidate?.customPickupAddressPhone === "string" ? candidate.customPickupAddressPhone : null,
+        latitude: typeof candidate?.latitude === "number" ? candidate.latitude : null,
+        longitude: typeof candidate?.longitude === "number" ? candidate.longitude : null,
+      };
+    })
+    .filter((pickup) => pickup.address.length > 0);
+}
+
 export function getExtraPickupValidation(
   pickup: Pick<ExtraPickupInput, "phone" | "email">,
 ): ExtraPickupValidation {

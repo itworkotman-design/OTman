@@ -9,6 +9,7 @@ import {
   getExtraPickupApiError,
   normalizeExtraPickups,
   parseExtraPickups,
+  readStoredExtraPickups,
 } from "@/lib/orders/extraPickups";
 import { resolveExtraPickupCustomAddresses } from "@/lib/orders/resolveExtraPickupCustomAddresses";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
@@ -685,7 +686,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     }
   }
 
-  const existingExtraPickups = normalizeExtraPickups(parseExtraPickups(existingOrder.extraPickupContacts));
+  const existingExtraPickups = normalizeExtraPickups(readStoredExtraPickups(existingOrder.extraPickupContacts));
   let extraPickups = body.extraPickups !== undefined ? normalizeExtraPickups(parsedBodyExtraPickups ?? []) : existingExtraPickups;
 
   if (body.extraPickups !== undefined) {

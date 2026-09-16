@@ -1,6 +1,7 @@
 // path: lib/integrations/gsm/buildOrderPayload.ts
 import type { Order, OrderItem } from "@prisma/client";
 import { buildLegacyOrderSummaryGroups, buildOrderSummaryGroups, formatOrderSummaryText } from "@/lib/orders/orderSummary";
+import { filterImpreciseAddressNotesForTask } from "@/lib/orders/addressPrecision";
 
 type GsmContact = {
   name?: string;
@@ -458,12 +459,16 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   const tasks: GsmTask[] = [];
   const pickupAddress = normalizePickupAddress(order.pickupAddress);
 
+  const pickupTaskDescription = filterImpreciseAddressNotesForTask(description, "pickupAddress");
+  const deliveryTaskDescription = filterImpreciseAddressNotesForTask(description, "deliveryAddress");
+  const returnTaskDescription = filterImpreciseAddressNotesForTask(description, "returnAddress");
+
   if (pickupAddress) {
     tasks.push(
       makeTask("pick_up", pickupAddress, {
         contact: cashierContact,
         location: toGsmLocation(order.pickupLatitude, order.pickupLongitude),
-        description: appendWarehouseContactNote(description, order.customPickupAddressName, order.customPickupAddressPhone),
+        description: appendWarehouseContactNote(pickupTaskDescription, order.customPickupAddressName, order.customPickupAddressPhone),
       }),
     );
   }
@@ -477,7 +482,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
           contact: cashierContact,
           location: toGsmLocation(coordinate?.latitude, coordinate?.longitude),
           description: appendWarehouseContactNote(
-            description,
+            pickupTaskDescription,
             coordinate?.customPickupAddressName,
             coordinate?.customPickupAddressPhone,
           ),
@@ -499,6 +504,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
         contact: customerContact,
         metafields: deliveryMetafields,
         location: toGsmLocation(order.deliveryLatitude, order.deliveryLongitude),
+        description: deliveryTaskDescription,
       }),
     );
   }
@@ -508,7 +514,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
       makeTask("drop_off", order.returnAddress.trim(), {
         contact: orderer,
         location: toGsmLocation(order.returnLatitude, order.returnLongitude),
-        description: appendWarehouseContactNote(description, order.customReturnAddressName, order.customReturnAddressPhone),
+        description: appendWarehouseContactNote(returnTaskDescription, order.customReturnAddressName, order.customReturnAddressPhone),
       }),
     );
   }

@@ -1279,6 +1279,70 @@ describe("routes in /api/orders/[orderId]", () => {
     );
   });
 
+  it("PATCH preserves an extra pickup's saved warehouse name/phone when the request doesn't touch extraPickups at all", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      user: { username: "admin", email: "admin@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      extraPickupAddress: ["Slependen 1, 1341 Slependen"],
+      extraPickupContacts: [
+        {
+          address: "Slependen 1, 1341 Slependen",
+          phone: "",
+          email: "",
+          sendEmail: true,
+          customPickupAddressId: "cpa-2",
+          customPickupAddressName: "Power Slependen",
+          customPickupAddressPhone: "22334455",
+          latitude: 59.85,
+          longitude: 10.45,
+        },
+      ],
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          licensePlate: "AB12345",
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.getVisibleCustomPickupAddressMock).not.toHaveBeenCalled();
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          extraPickupContacts: [
+            expect.objectContaining({
+              customPickupAddressId: "cpa-2",
+              customPickupAddressName: "Power Slependen",
+              customPickupAddressPhone: "22334455",
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
   it("PATCH rejects an extra pickup's saved address that isn't visible to the caller's store", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

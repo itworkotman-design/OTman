@@ -38,3 +38,48 @@ export function appendImpreciseAddressNote(
 
   return trimmedDescription ? `${trimmedDescription}\n${note}` : note;
 }
+
+// The labels appendImpreciseAddressNote can prefix a generated note with, in
+// every locale bookingText knows about — needed here since the note itself
+// carries no other marker of which address field it's about.
+const IMPRECISE_ADDRESS_FIELD_LABELS = {
+  pickupAddress: ["Pickup address", "Henteadresse"],
+  deliveryAddress: ["Delivery address", "Leveringsadresse"],
+  returnAddress: ["Return address", "Returadresse"],
+} as const;
+
+export type ImpreciseAddressField = keyof typeof IMPRECISE_ADDRESS_FIELD_LABELS;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// order.description is a single shared free-text box, so an
+// appendImpreciseAddressNote() call for one address field lands in the same
+// string used to build every GSM task's description — a "Delivery address:
+// ..." note would otherwise show up on the pickup and return tasks too, not
+// just the delivery one. Called once per task with that task's own field so
+// only its own note (if any) survives; any hand-typed text is left alone.
+export function filterImpreciseAddressNotesForTask(
+  description: string | null | undefined,
+  field: ImpreciseAddressField,
+): string {
+  const text = description ?? "";
+
+  if (!text) {
+    return text;
+  }
+
+  const otherLabels = Object.entries(IMPRECISE_ADDRESS_FIELD_LABELS)
+    .filter(([key]) => key !== field)
+    .flatMap(([, labels]) => labels);
+
+  const pattern = new RegExp(
+    `^(?:${otherLabels.map(escapeRegExp).join("|")}): exact address not found on map, customer entered ".*"$`,
+  );
+
+  return text
+    .split("\n")
+    .filter((line) => !pattern.test(line.trim()))
+    .join("\n");
+}

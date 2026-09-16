@@ -857,4 +857,25 @@ describe("buildOrderPayload", () => {
     expect(taskB?.description).not.toContain("Telefon lager:");
     expect(taskB?.description).not.toContain("Hentested:");
   });
+
+  it("only shows an imprecise-address note on the task for the address field it's actually about", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "Pickup 1",
+        deliveryAddress: "Delivery 1",
+        returnAddress: "Return 1",
+        description: 'Delivery address: exact address not found on map, customer entered "oslo s"',
+      }),
+    );
+
+    const pickupTask = payload.tasks_data.find((task) => task.address.raw_address === "Pickup 1");
+    const deliveryTask = payload.tasks_data.find((task) => task.address.raw_address === "Delivery 1");
+    const returnTask = payload.tasks_data.find((task) => task.address.raw_address === "Return 1");
+
+    expect(deliveryTask?.description).toContain("Delivery address: exact address not found");
+    expect(pickupTask?.description).not.toContain("Delivery address: exact address not found");
+    expect(returnTask?.description).not.toContain("Delivery address: exact address not found");
+  });
 });

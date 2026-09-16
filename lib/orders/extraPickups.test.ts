@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyExtraPickup, normalizeExtraPickups, parseExtraPickups } from "./extraPickups";
+import { createEmptyExtraPickup, normalizeExtraPickups, parseExtraPickups, readStoredExtraPickups } from "./extraPickups";
 
 describe("createEmptyExtraPickup", () => {
   it("has no saved-address reference by default", () => {
@@ -73,6 +73,31 @@ describe("parseExtraPickups", () => {
 
     expect(result[0].latitude).toBeNull();
     expect(result[0].longitude).toBeNull();
+  });
+});
+
+describe("readStoredExtraPickups", () => {
+  it("preserves a saved address's name and phone, unlike parseExtraPickups", () => {
+    const stored = [
+      {
+        address: "Store 2",
+        phone: "",
+        email: "",
+        sendEmail: true,
+        customPickupAddressId: "cpa-1",
+        customPickupAddressName: "Power Storo",
+        customPickupAddressPhone: "22334455",
+        latitude: 59.9,
+        longitude: 10.7,
+      },
+    ];
+
+    expect(readStoredExtraPickups(stored)).toEqual(stored);
+  });
+
+  it("returns an empty array for non-array or missing stored data", () => {
+    expect(readStoredExtraPickups(null)).toEqual([]);
+    expect(readStoredExtraPickups(undefined)).toEqual([]);
   });
 });
 
