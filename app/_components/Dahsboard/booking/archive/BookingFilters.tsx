@@ -348,8 +348,12 @@ export default function BookingFilters({
     <section className="customContainer padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
       <div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {/* Row 1: status + store / partner + pricelist */}
-          <div className={`grid grid-cols-1 gap-3 ${showStore ? "sm:grid-cols-2" : ""}`}>
+          {/* Row 1: status + pricelist + pickup address / partner + store */}
+          <div
+            className={`grid grid-cols-1 gap-3 ${
+              [showPricelist, showPickupAddress].filter(Boolean).length > 0 ? "sm:grid-cols-2" : ""
+            }`}
+          >
             <Field label={t("Status")}>
               <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput padding-weird-landscape text-weird-landscape w-full">
                 <option value="">{t("All statuses")}</option>
@@ -364,16 +368,32 @@ export default function BookingFilters({
               </select>
             </Field>
 
-            {showStore && (
-              <Field label={t("Store")}>
+            {showPricelist && (
+              <Field label={t("Pricelist")}>
                 <select
-                  value={createdById}
-                  onChange={(e) => setCreatedById(e.target.value)}
+                  value={pricelistId}
+                  onChange={(e) => setPricelistId(e.target.value)}
                   className="customInput padding-weird-landscape text-weird-landscape w-full"
                 >
-                  <option value="">{t("All stores")}</option>
-                  <option value={NONE_FILTER_VALUE}>{t("No store")}</option>
-                  {creators.map((item) => (
+                  <option value="">{t("All pricelists")}</option>
+                  {pricelists.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
+            {showPickupAddress && (
+              <Field label={t("Pickup address")}>
+                <select
+                  value={customPickupAddressId}
+                  onChange={(e) => setCustomPickupAddressId(e.target.value)}
+                  className="customInput padding-weird-landscape text-weird-landscape w-full"
+                >
+                  <option value="">{t("All pickup addresses")}</option>
+                  {pickupAddresses.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.label}
                     </option>
@@ -383,14 +403,8 @@ export default function BookingFilters({
             )}
           </div>
 
-          {showPartner || showPricelist || showPickupAddress ? (
-            <div
-              className={`grid grid-cols-1 gap-3 ${
-                [showPartner, showPricelist, showPickupAddress].filter(Boolean).length > 1
-                  ? "sm:grid-cols-2"
-                  : ""
-              }`}
-            >
+          {showPartner || showStore ? (
+            <div className={`grid grid-cols-1 gap-3 ${showPartner && showStore ? "sm:grid-cols-2" : ""}`}>
               {showPartner && (
                 <Field label={t("Partner")}>
                   <select
@@ -409,32 +423,16 @@ export default function BookingFilters({
                 </Field>
               )}
 
-              {showPricelist && (
-                <Field label={t("Pricelist")}>
+              {showStore && (
+                <Field label={t("Store")}>
                   <select
-                    value={pricelistId}
-                    onChange={(e) => setPricelistId(e.target.value)}
+                    value={createdById}
+                    onChange={(e) => setCreatedById(e.target.value)}
                     className="customInput padding-weird-landscape text-weird-landscape w-full"
                   >
-                    <option value="">{t("All pricelists")}</option>
-                    {pricelists.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-
-              {showPickupAddress && (
-                <Field label={t("Pickup address")}>
-                  <select
-                    value={customPickupAddressId}
-                    onChange={(e) => setCustomPickupAddressId(e.target.value)}
-                    className="customInput padding-weird-landscape text-weird-landscape w-full"
-                  >
-                    <option value="">{t("All pickup addresses")}</option>
-                    {pickupAddresses.map((item) => (
+                    <option value="">{t("All stores")}</option>
+                    <option value={NONE_FILTER_VALUE}>{t("No store")}</option>
+                    {creators.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.label}
                       </option>
@@ -507,7 +505,7 @@ export default function BookingFilters({
                                 key={day.iso}
                                 type="button"
                                 onClick={() => handleDaySelect(day.iso)}
-                                className={`h-10 rounded-md text-sm transition height-weird-landscape text-weird-landscape ${
+                                className={`h-10  rounded-md text-sm transition height-weird-landscape text-weird-landscape ${
                                   isBoundary || isPendingStart
                                     ? "bg-logoblue! text-white font-bold "
                                     : inRange
