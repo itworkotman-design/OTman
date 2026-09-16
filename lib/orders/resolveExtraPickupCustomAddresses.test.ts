@@ -28,7 +28,7 @@ describe("resolveExtraPickupCustomAddresses", () => {
       longitude: null,
     };
 
-    const result = await resolveExtraPickupCustomAddresses([pickup], "user-1");
+    const result = await resolveExtraPickupCustomAddresses([pickup], "user-1", "company-1");
 
     expect(result).toEqual({ extraPickups: [pickup], invalidPickupIndex: null });
     expect(mocks.getVisibleCustomPickupAddressMock).not.toHaveBeenCalled();
@@ -47,7 +47,7 @@ describe("resolveExtraPickupCustomAddresses", () => {
       longitude: 10.7,
     };
 
-    const result = await resolveExtraPickupCustomAddresses([pickup], "user-1");
+    const result = await resolveExtraPickupCustomAddresses([pickup], "user-1", "company-1");
 
     expect(result).toEqual({ extraPickups: [pickup], invalidPickupIndex: null });
     expect(mocks.getVisibleCustomPickupAddressMock).not.toHaveBeenCalled();
@@ -78,9 +78,10 @@ describe("resolveExtraPickupCustomAddresses", () => {
         },
       ],
       "user-1",
+      "company-1",
     );
 
-    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-1", "user-1");
+    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-1", "user-1", "company-1");
     expect(result).toEqual({
       extraPickups: [
         {
@@ -117,6 +118,7 @@ describe("resolveExtraPickupCustomAddresses", () => {
         },
       ],
       "user-1",
+      "company-1",
     );
 
     expect(result.invalidPickupIndex).toBe(0);

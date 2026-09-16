@@ -690,7 +690,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   let extraPickups = body.extraPickups !== undefined ? normalizeExtraPickups(parsedBodyExtraPickups ?? []) : existingExtraPickups;
 
   if (body.extraPickups !== undefined) {
-    const extraPickupResolution = await resolveExtraPickupCustomAddresses(extraPickups, session.userId);
+    const extraPickupResolution = await resolveExtraPickupCustomAddresses(extraPickups, session.userId, session.activeCompanyId);
 
     if (extraPickupResolution.invalidPickupIndex !== null) {
       return NextResponse.json(
@@ -723,6 +723,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       const customPickupAddress = await getVisibleCustomPickupAddress(
         requestedCustomPickupAddressId,
         session.userId,
+        session.activeCompanyId,
       );
 
       if (!customPickupAddress) {
@@ -764,6 +765,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       const customReturnAddress = await getVisibleCustomPickupAddress(
         requestedCustomReturnAddressId,
         session.userId,
+        session.activeCompanyId,
       );
 
       if (!customReturnAddress) {

@@ -616,6 +616,7 @@ export async function POST(req: Request) {
   const extraPickupResolution = await resolveExtraPickupCustomAddresses(
     normalizedExtraPickups,
     session.userId,
+    session.activeCompanyId,
   );
 
   if (extraPickupResolution.invalidPickupIndex !== null) {
@@ -731,6 +732,7 @@ export async function POST(req: Request) {
     const customPickupAddress = await getVisibleCustomPickupAddress(
       requestedCustomPickupAddressId,
       session.userId,
+      session.activeCompanyId,
     );
 
     if (!customPickupAddress) {
@@ -763,6 +765,7 @@ export async function POST(req: Request) {
     const customReturnAddress = await getVisibleCustomPickupAddress(
       requestedCustomReturnAddressId,
       session.userId,
+      session.activeCompanyId,
     );
 
     if (!customReturnAddress) {

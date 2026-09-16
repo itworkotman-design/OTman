@@ -108,6 +108,7 @@ describe("POST /api/route-distance", () => {
     expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith(
       "cpa-1",
       "user-1",
+      "company-1",
     );
     expect(mocks.getRouteDistanceMock).toHaveBeenCalledWith({
       pickupAddress: "Storo Storsenter 1, Oslo",
@@ -146,7 +147,7 @@ describe("POST /api/route-distance", () => {
       }),
     );
 
-    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-2", "user-1");
+    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-2", "user-1", "company-1");
     expect(mocks.getRouteDistanceMock).toHaveBeenCalledWith({
       pickupAddress: "Pickup 1",
       pickupCoordinate: undefined,

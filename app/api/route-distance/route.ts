@@ -57,6 +57,7 @@ export async function POST(req: Request) {
     const customPickupAddress = await getVisibleCustomPickupAddress(
       body.customPickupAddressId,
       session.userId,
+      session.activeCompanyId,
     );
 
     if (!customPickupAddress) {
@@ -87,6 +88,7 @@ export async function POST(req: Request) {
     const customReturnAddress = await getVisibleCustomPickupAddress(
       body.customReturnAddressId,
       session.userId,
+      session.activeCompanyId,
     );
 
     if (!customReturnAddress) {

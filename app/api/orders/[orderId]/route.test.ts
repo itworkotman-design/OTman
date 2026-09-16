@@ -1064,7 +1064,7 @@ describe("routes in /api/orders/[orderId]", () => {
       { params: Promise.resolve({ orderId: "order-1" }) },
     );
 
-    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-1", "user-1");
+    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-1", "user-1", "company-1");
     expect(res.status).toBe(200);
     expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1259,7 +1259,7 @@ describe("routes in /api/orders/[orderId]", () => {
       { params: Promise.resolve({ orderId: "order-1" }) },
     );
 
-    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-2", "user-1");
+    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-2", "user-1", "company-1");
     expect(res.status).toBe(200);
     expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -24,6 +24,7 @@ export type ExtraPickupResolutionResult = {
 export async function resolveExtraPickupCustomAddresses(
   extraPickups: ExtraPickupInput[],
   userId: string,
+  companyId: string,
 ): Promise<ExtraPickupResolutionResult> {
   const resolved: ExtraPickupInput[] = [];
 
@@ -36,7 +37,7 @@ export async function resolveExtraPickupCustomAddresses(
       continue;
     }
 
-    const customAddress = await getVisibleCustomPickupAddress(pickup.customPickupAddressId, userId);
+    const customAddress = await getVisibleCustomPickupAddress(pickup.customPickupAddressId, userId, companyId);
 
     if (!customAddress) {
       return { extraPickups: resolved, invalidPickupIndex: index };
