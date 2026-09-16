@@ -61,6 +61,8 @@ export type CreateOrderFields = {
   returnLatitude?: number | null;
   returnLongitude?: number | null;
   deliveryAddress: string | null;
+  deliveryLatitude?: number | null;
+  deliveryLongitude?: number | null;
   drivingDistance: string | null;
   customerName: string | null;
   phone: string | null;
@@ -247,6 +249,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       extraPickupAddress: fields.extraPickups.map((pickup) => pickup.address),
       extraPickupContacts: fields.extraPickups as unknown as Prisma.InputJsonValue,
       deliveryAddress: fields.deliveryAddress,
+      deliveryLatitude: fields.deliveryLatitude ?? null,
+      deliveryLongitude: fields.deliveryLongitude ?? null,
       returnAddress: fields.returnAddress,
       customReturnAddressId: fields.customReturnAddressId ?? null,
       customReturnAddressName: fields.customReturnAddressName ?? null,

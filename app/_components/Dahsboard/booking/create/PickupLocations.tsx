@@ -161,14 +161,14 @@ export function PickupLocations({
                     <PickupAddressCombobox
                       inputId={`extra-pickup-${pickup.id}-address`}
                       value={pickup.address}
-                      onChange={(value, wasSelected) =>
+                      onChange={(value, wasSelected, meta) =>
                         updatePickup(pickup.id, {
                           address: value,
                           addressSelected: Boolean(wasSelected),
                           customPickupAddressId: null,
                           customPickupAddressName: null,
-                          latitude: null,
-                          longitude: null,
+                          latitude: meta?.latitude ?? null,
+                          longitude: meta?.longitude ?? null,
                         })
                       }
                       customPickupAddressId={pickup.customPickupAddressId}

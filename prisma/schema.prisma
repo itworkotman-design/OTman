@@ -546,6 +546,8 @@ model Order {
   customReturnAddressName            String?
   returnLatitude                     Float?
   returnLongitude                    Float?
+  deliveryLatitude                   Float?
+  deliveryLongitude                  Float?
   gsmWebhookEvents                   GsmWebhookEvent[]
   company                            Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   customPickupAddress                CustomPickupAddress?      @relation("OrderCustomPickupAddress", fields: [customPickupAddressId], references: [id])

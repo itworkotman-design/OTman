@@ -53,6 +53,24 @@ describe("parseExtraPickups", () => {
 
     expect(result.map((pickup) => pickup.customPickupAddressId)).toEqual([null, null]);
   });
+
+  it("keeps a manually-entered pickup's own submitted coordinates when there is no saved-address id", () => {
+    const result = parseExtraPickups([
+      { address: "Store 2", latitude: 59.9, longitude: 10.7 },
+    ]);
+
+    expect(result[0].latitude).toBe(59.9);
+    expect(result[0].longitude).toBe(10.7);
+  });
+
+  it("drops out-of-range or non-numeric manually-submitted coordinates", () => {
+    const result = parseExtraPickups([
+      { address: "Store 2", latitude: 200, longitude: "not a number" },
+    ]);
+
+    expect(result[0].latitude).toBeNull();
+    expect(result[0].longitude).toBeNull();
+  });
 });
 
 describe("normalizeExtraPickups", () => {

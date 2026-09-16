@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
+import { retrieveAddressCoordinate } from "@/lib/orders/retrieveAddressCoordinate";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 export type AddressSuggestion = {
@@ -63,6 +64,10 @@ export default function AddressAutocompleteInput({
   const boxRef = useRef<HTMLDivElement | null>(null);
   const sessionTokenRef = useRef("");
   const [hasInteracted, setHasInteracted] = useState(false);
+  // Bumped on every selection and on every keystroke — a pending
+  // retrieveAddressCoordinate() response only gets applied if nothing else
+  // (a newer pick, or the user typing over the result) happened meanwhile.
+  const selectionTokenRef = useRef(0);
 
   useEffect(() => {
     if (value === query) {
@@ -87,9 +92,13 @@ export default function AddressAutocompleteInput({
   };
 
   const selectSuggestion = (suggestion: AddressSuggestion) => {
+    const sessionToken = sessionTokenRef.current;
+    const typedQuery = query;
+    const token = ++selectionTokenRef.current;
+
     onChange(suggestion.label, true, {
       featureType: suggestion.featureType,
-      typedQuery: query,
+      typedQuery,
       precise: suggestion.precise,
     });
     setQuery(suggestion.label);
@@ -98,6 +107,21 @@ export default function AddressAutocompleteInput({
     setHasInteracted(false);
     sessionTokenRef.current = "";
     inputRef.current?.blur();
+
+    // Backfills the coordinate once Mapbox's retrieve call resolves — never
+    // blocks committing the address text itself on this network round trip.
+    // Dropped if the user has since typed or picked something else.
+    retrieveAddressCoordinate(suggestion.id, sessionToken).then((coordinate) => {
+      if (!coordinate || selectionTokenRef.current !== token) return;
+
+      onChange(suggestion.label, true, {
+        featureType: suggestion.featureType,
+        typedQuery,
+        precise: suggestion.precise,
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+      });
+    });
   };
 
   useEffect(() => {
@@ -179,6 +203,7 @@ export default function AddressAutocompleteInput({
         value={query}
         onChange={(e) => {
           const next = e.target.value;
+          selectionTokenRef.current += 1;
           setHasInteracted(true);
           setQuery(next);
           onChange(next, false);

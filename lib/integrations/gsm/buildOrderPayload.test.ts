@@ -32,6 +32,8 @@ function buildOrder(overrides?: Partial<Order>): Order {
     extraPickupAddress: [],
     extraPickupContacts: null,
     deliveryAddress: "Delivery 1",
+    deliveryLatitude: null,
+    deliveryLongitude: null,
     returnAddress: null,
     drivingDistance: null,
     customerName: "Customer",
@@ -468,6 +470,113 @@ describe("buildOrderPayload", () => {
       "Delivery 1",
       "Return 1",
     ]);
+  });
+
+  it("includes a GSM location on the pickup and return tasks when coordinates are stored", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "Pickup 1",
+        pickupLatitude: 59.945,
+        pickupLongitude: 10.7669,
+        deliveryAddress: "Delivery 1",
+        returnAddress: "Return 1",
+        returnLatitude: 59.9,
+        returnLongitude: 10.7,
+      }),
+    );
+
+    const pickupTask = payload.tasks_data.find((task) => task.address.raw_address === "Pickup 1");
+    const deliveryTask = payload.tasks_data.find((task) => task.address.raw_address === "Delivery 1");
+    const returnTask = payload.tasks_data.find((task) => task.address.raw_address === "Return 1");
+
+    expect(pickupTask?.address.location).toEqual({ type: "Point", coordinates: [10.7669, 59.945] });
+    expect(returnTask?.address.location).toEqual({ type: "Point", coordinates: [10.7, 59.9] });
+    // No coordinate given for delivery in this fixture — must not fabricate one.
+    expect(deliveryTask?.address.location).toBeUndefined();
+  });
+
+  it("includes a GSM location on the delivery task when coordinates are stored", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "",
+        deliveryAddress: "Delivery 1",
+        deliveryLatitude: 59.91,
+        deliveryLongitude: 10.75,
+        returnAddress: null,
+      }),
+    );
+
+    const deliveryTask = payload.tasks_data.find((task) => task.address.raw_address === "Delivery 1");
+
+    expect(deliveryTask?.address.location).toEqual({ type: "Point", coordinates: [10.75, 59.91] });
+  });
+
+  it("omits the GSM location when pickup/return coordinates are not stored", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "Pickup 1",
+        pickupLatitude: null,
+        pickupLongitude: null,
+        deliveryAddress: "Delivery 1",
+        returnAddress: "Return 1",
+        returnLatitude: null,
+        returnLongitude: null,
+      }),
+    );
+
+    expect(payload.tasks_data.every((task) => task.address.location === undefined)).toBe(true);
+  });
+
+  it("includes a GSM location on extra pickup tasks using the matching extraPickupContacts entry", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "",
+        extraPickupAddress: ["Pickup A", "Pickup B"],
+        extraPickupContacts: [
+          { address: "Pickup A", latitude: 60.1, longitude: 11.1 },
+          { address: "Pickup B", latitude: null, longitude: null },
+        ],
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+    );
+
+    const taskA = payload.tasks_data.find((task) => task.address.raw_address === "Pickup A");
+    const taskB = payload.tasks_data.find((task) => task.address.raw_address === "Pickup B");
+
+    expect(taskA?.address.location).toEqual({ type: "Point", coordinates: [11.1, 60.1] });
+    expect(taskB?.address.location).toBeUndefined();
+  });
+
+  it("matches extraPickupContacts entries by index even when an earlier placeholder pickup is omitted", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "",
+        extraPickupAddress: ["No shop pickup address", "Pickup B"],
+        extraPickupContacts: [
+          { address: "No shop pickup address", latitude: null, longitude: null },
+          { address: "Pickup B", latitude: 60.2, longitude: 11.2 },
+        ],
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+    );
+
+    const taskB = payload.tasks_data.find((task) => task.address.raw_address === "Pickup B");
+
+    expect(taskB?.address.location).toEqual({ type: "Point", coordinates: [11.2, 60.2] });
   });
 
   it("uses canonical GSM text for return-to-store option codes", () => {

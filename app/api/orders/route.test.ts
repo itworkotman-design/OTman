@@ -1613,6 +1613,90 @@ describe("routes in /api/orders", () => {
     );
   });
 
+  it("POST keeps a manually-submitted pickup/return/delivery coordinate for a normal searched address", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          pickupAddress: "Some normal searched address",
+          pickupLatitude: 59.9,
+          pickupLongitude: 10.7,
+          returnAddress: "Some other searched address",
+          returnLatitude: 60.1,
+          returnLongitude: 11.1,
+          deliveryAddress: "Delivery address",
+          deliveryLatitude: 59.8,
+          deliveryLongitude: 10.6,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          pickupLatitude: 59.9,
+          pickupLongitude: 10.7,
+          returnLatitude: 60.1,
+          returnLongitude: 11.1,
+          deliveryLatitude: 59.8,
+          deliveryLongitude: 10.6,
+        }),
+      }),
+    );
+  });
+
+  it("POST drops an out-of-range manually-submitted coordinate", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          deliveryAddress: "Delivery address",
+          deliveryLatitude: 999,
+          deliveryLongitude: 10.6,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          deliveryLatitude: null,
+          deliveryLongitude: 10.6,
+        }),
+      }),
+    );
+  });
+
   it("POST stores an extra pickup's saved-address reference and its authoritative snapshot", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

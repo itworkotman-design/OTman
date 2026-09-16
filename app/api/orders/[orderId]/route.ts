@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
-import { optionalBoolean, optionalPriceNumber, optionalString, optionalStringArray, safeInteger, safeNumber } from "@/lib/orders/normalizeOrderInput";
+import { optionalBoolean, optionalCoordinate, optionalPriceNumber, optionalString, optionalStringArray, safeInteger, safeNumber } from "@/lib/orders/normalizeOrderInput";
 import { getOptionalEmailError, getOptionalPhoneError, normalizeOptionalEmail, normalizeOptionalPhone } from "@/lib/orders/contactValidation";
 import {
   getExtraPickupApiError,
@@ -738,8 +738,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     } else {
       resolvedCustomPickupAddressId = null;
       resolvedCustomPickupAddressName = null;
-      resolvedPickupLatitude = null;
-      resolvedPickupLongitude = null;
+      // Not a saved address — trust the client's own submitted coordinate
+      // (from Mapbox, via our retrieve proxy) the same way its address text
+      // already is, instead of discarding it.
+      resolvedPickupLatitude = optionalCoordinate(body.pickupLatitude, -90, 90);
+      resolvedPickupLongitude = optionalCoordinate(body.pickupLongitude, -180, 180);
     }
   }
 
@@ -773,8 +776,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     } else {
       resolvedCustomReturnAddressId = null;
       resolvedCustomReturnAddressName = null;
-      resolvedReturnLatitude = null;
-      resolvedReturnLongitude = null;
+      // Same as pickup: trust the client's own submitted coordinate for a
+      // manually-found return address instead of discarding it.
+      resolvedReturnLatitude = optionalCoordinate(body.returnLatitude, -90, 90);
+      resolvedReturnLongitude = optionalCoordinate(body.returnLongitude, -180, 180);
     }
   }
 
@@ -936,6 +941,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         extraPickupAddress: extraPickups.map((pickup) => pickup.address),
         extraPickupContacts: extraPickups as unknown as Prisma.InputJsonValue,
         deliveryAddress: optionalString(body.deliveryAddress),
+        deliveryLatitude: optionalCoordinate(body.deliveryLatitude, -90, 90),
+        deliveryLongitude: optionalCoordinate(body.deliveryLongitude, -180, 180),
         returnAddress: resolvedReturnAddress,
         customReturnAddressId: resolvedCustomReturnAddressId,
         customReturnAddressName: resolvedCustomReturnAddressName,

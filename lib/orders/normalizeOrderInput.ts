@@ -38,3 +38,14 @@ export function optionalPriceNumber(value: unknown): number | null {
   const parsed = Number(trimmed.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
 }
+
+// Best-effort latitude/longitude for a manually-entered address — unlike
+// lib/pickupAddresses/validateInput.ts (which rejects a saved-address save
+// outright with a typed error reason), an out-of-range or missing coordinate
+// here just means "send GSM the address text only, same as before", never a
+// reason to fail the order save.
+export function optionalCoordinate(value: unknown, min: number, max: number): number | null {
+  const num = typeof value === "string" ? Number(value) : value;
+  if (typeof num !== "number" || !Number.isFinite(num)) return null;
+  return num >= min && num <= max ? num : null;
+}

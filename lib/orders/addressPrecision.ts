@@ -2,6 +2,12 @@ export type AddressSelectionMeta = {
   featureType: string;
   typedQuery: string;
   precise?: boolean;
+  // Populated when a coordinate is known for the selected address — either a
+  // saved pickup/return location's own stored lat/lng, or one fetched from
+  // Mapbox's Search Box `/retrieve` for a freely-searched suggestion. Absent
+  // (not just null) when the caller never attempted to resolve one.
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 // `precise` comes from /api/address-search's isPreciseMatch: false for a

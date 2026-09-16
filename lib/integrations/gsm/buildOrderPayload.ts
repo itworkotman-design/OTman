@@ -8,10 +8,12 @@ type GsmContact = {
   phones?: string[];
 };
 
+type GsmLocation = { type: "Point"; coordinates: [number, number] };
+
 type GsmTask = {
   account: string;
   category: "pick_up" | "drop_off" | "assignment";
-  address: { raw_address: string };
+  address: { raw_address: string; location?: GsmLocation };
   contact?: GsmContact;
   description: string;
   complete_after?: string;
@@ -64,6 +66,45 @@ function normalizePickupAddress(value?: string | null) {
   }
 
   return normalized.toLocaleLowerCase() === NO_PICKUP_ADDRESS ? "" : normalized;
+}
+
+// Pins the task at an exact coordinate instead of leaving GSM to geocode
+// `raw_address` on its own — the two are sent together so the driver still
+// sees a readable address even where GSM's own geocoder would land somewhere
+// else entirely (the original motivation: a correct address text arriving in
+// the wrong city once GSM re-geocoded it).
+function toGsmLocation(latitude?: number | null, longitude?: number | null): GsmLocation | undefined {
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return undefined;
+  }
+
+  return { type: "Point", coordinates: [longitude, latitude] };
+}
+
+// extraPickupContacts stores the full ExtraPickupInput[] the order was
+// created/edited with, in the same order as extraPickupAddress — so a given
+// pickup's coordinates live at the same array index, not matched by address
+// text (which can repeat, e.g. two placeholder entries).
+function getExtraPickupCoordinates(
+  extraPickupContacts: unknown,
+  index: number,
+): { latitude: number | null; longitude: number | null } | null {
+  if (!Array.isArray(extraPickupContacts)) {
+    return null;
+  }
+
+  const entry = extraPickupContacts[index];
+
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return null;
+  }
+
+  const record = entry as Record<string, unknown>;
+
+  return {
+    latitude: typeof record.latitude === "number" ? record.latitude : null,
+    longitude: typeof record.longitude === "number" ? record.longitude : null,
+  };
 }
 
 function normalizeLiftForDescription(value?: string | null) {
@@ -363,15 +404,14 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   const makeTask = (
     category: GsmTask["category"],
     rawAddress: string,
-    contact?: GsmContact,
-    taskMetafields: Record<string, string> = metafields,
+    options: { contact?: GsmContact; metafields?: Record<string, string>; location?: GsmLocation } = {},
   ): GsmTask => ({
     account,
     category,
-    address: { raw_address: rawAddress },
-    contact,
+    address: options.location ? { raw_address: rawAddress, location: options.location } : { raw_address: rawAddress },
+    contact: options.contact,
     description,
-    metafields: taskMetafields,
+    metafields: options.metafields ?? metafields,
     ...timeWindow,
   });
 
@@ -379,13 +419,24 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   const pickupAddress = normalizePickupAddress(order.pickupAddress);
 
   if (pickupAddress) {
-    tasks.push(makeTask("pick_up", pickupAddress, cashierContact));
+    tasks.push(
+      makeTask("pick_up", pickupAddress, {
+        contact: cashierContact,
+        location: toGsmLocation(order.pickupLatitude, order.pickupLongitude),
+      }),
+    );
   }
 
-  for (const address of order.extraPickupAddress) {
+  for (const [index, address] of order.extraPickupAddress.entries()) {
     const value = normalizePickupAddress(address);
     if (value) {
-      tasks.push(makeTask("pick_up", value, cashierContact));
+      const coordinate = getExtraPickupCoordinates(order.extraPickupContacts, index);
+      tasks.push(
+        makeTask("pick_up", value, {
+          contact: cashierContact,
+          location: toGsmLocation(coordinate?.latitude, coordinate?.longitude),
+        }),
+      );
     }
   }
 
@@ -397,11 +448,22 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
         ? { ...metafields, "app:qr_link": googleReviewQrUrl }
         : metafields;
 
-    tasks.push(makeTask(deliveryCategory, order.deliveryAddress.trim(), customerContact, deliveryMetafields));
+    tasks.push(
+      makeTask(deliveryCategory, order.deliveryAddress.trim(), {
+        contact: customerContact,
+        metafields: deliveryMetafields,
+        location: toGsmLocation(order.deliveryLatitude, order.deliveryLongitude),
+      }),
+    );
   }
 
   if (order.returnAddress?.trim()) {
-    tasks.push(makeTask("drop_off", order.returnAddress.trim(), orderer));
+    tasks.push(
+      makeTask("drop_off", order.returnAddress.trim(), {
+        contact: orderer,
+        location: toGsmLocation(order.returnLatitude, order.returnLongitude),
+      }),
+    );
   }
 
   if (tasks.length === 0) {

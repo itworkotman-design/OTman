@@ -4,6 +4,7 @@ import {
   normalizeOptionalEmail,
   normalizeOptionalPhone,
 } from "@/lib/orders/contactValidation";
+import { optionalCoordinate } from "@/lib/orders/normalizeOrderInput";
 
 export type ExtraPickupInput = {
   address: string;
@@ -38,6 +39,8 @@ type ExtraPickupCandidate = {
   email?: unknown;
   sendEmail?: unknown;
   customPickupAddressId?: unknown;
+  latitude?: unknown;
+  longitude?: unknown;
 };
 
 export function createEmptyExtraPickup(): ExtraPickupInput {
@@ -65,6 +68,20 @@ export function parseExtraPickups(value: unknown): ExtraPickupInput[] {
           ? (item as ExtraPickupCandidate)
           : null;
 
+      // The name/coordinates are never trusted from the client when tied to
+      // a saved address — only the id survives parsing (see
+      // resolveExtraPickupCustomAddresses.ts, which re-derives the rest from
+      // the authoritative saved-address record server-side). A pickup with
+      // no saved-address id is a manually-found address instead, where the
+      // client's own submitted coordinate (from Mapbox, via our own retrieve
+      // proxy) is the only source of truth there is — kept if it's a
+      // plausible lat/lng, dropped otherwise.
+      const customPickupAddressId =
+        typeof candidate?.customPickupAddressId === "string" &&
+        candidate.customPickupAddressId.trim().length > 0
+          ? candidate.customPickupAddressId.trim()
+          : null;
+
       return {
         address:
           typeof candidate?.address === "string"
@@ -75,18 +92,10 @@ export function parseExtraPickups(value: unknown): ExtraPickupInput[] {
         email:
           typeof candidate?.email === "string" ? candidate.email.trim() : "",
         sendEmail: candidate?.sendEmail === false ? false : true,
-        // The name/coordinates are never trusted from the client — only the
-        // id survives parsing (see resolveExtraPickupCustomAddresses.ts,
-        // which re-derives the rest from the authoritative saved-address
-        // record server-side).
-        customPickupAddressId:
-          typeof candidate?.customPickupAddressId === "string" &&
-          candidate.customPickupAddressId.trim().length > 0
-            ? candidate.customPickupAddressId.trim()
-            : null,
+        customPickupAddressId,
         customPickupAddressName: null,
-        latitude: null,
-        longitude: null,
+        latitude: customPickupAddressId ? null : optionalCoordinate(candidate?.latitude, -90, 90),
+        longitude: customPickupAddressId ? null : optionalCoordinate(candidate?.longitude, -180, 180),
       };
     })
     .filter((pickup) => pickup.address.length > 0);

@@ -54,6 +54,8 @@ export type OrderFormPayload = {
 
   pickupAddress: string;
   customPickupAddressId: string | null;
+  pickupLatitude: number | null;
+  pickupLongitude: number | null;
   extraPickups: {
     address: string;
     phone: string;
@@ -66,8 +68,12 @@ export type OrderFormPayload = {
   }[];
   returnAddress: string;
   customReturnAddressId: string | null;
+  returnLatitude: number | null;
+  returnLongitude: number | null;
 
   deliveryAddress: string;
+  deliveryLatitude: number | null;
+  deliveryLongitude: number | null;
   drivingDistance: string;
 
   customerName: string;
@@ -438,6 +444,8 @@ export default function BookingEditor({
   // True only right after picking a street-level (not exact address) match
   // from the dropdown this session — drives the "not found on map" warning.
   const [deliveryAddressImprecise, setDeliveryAddressImprecise] = useState(false);
+  const [deliveryLatitude, setDeliveryLatitude] = useState<number | null>(initialValues?.deliveryLatitude ?? null);
+  const [deliveryLongitude, setDeliveryLongitude] = useState<number | null>(initialValues?.deliveryLongitude ?? null);
   const [drivingDistance, setDrivingDistance] = useState(initialValues?.drivingDistance ?? "");
   const [customerName, setCustomerName] = useState(initialValues?.customerName ?? "");
   const [phone, setPhone] = useState(initialValues?.phone ?? "");
@@ -479,6 +487,8 @@ export default function BookingEditor({
   const [customPickupAddressId, setCustomPickupAddressId] = useState<string | null>(
     initialValues?.customPickupAddressId ?? null,
   );
+  const [pickupLatitude, setPickupLatitude] = useState<number | null>(initialValues?.pickupLatitude ?? null);
+  const [pickupLongitude, setPickupLongitude] = useState<number | null>(initialValues?.pickupLongitude ?? null);
   const [extraPickups, setExtraPickups] = useState<ExtraPickupDraft[]>(
     initialValues?.extraPickups?.length
       ? initialValues.extraPickups.map((pickup, index) => ({
@@ -501,6 +511,8 @@ export default function BookingEditor({
   const [customReturnAddressId, setCustomReturnAddressId] = useState<string | null>(
     initialValues?.customReturnAddressId ?? null,
   );
+  const [returnLatitude, setReturnLatitude] = useState<number | null>(initialValues?.returnLatitude ?? null);
+  const [returnLongitude, setReturnLongitude] = useState<number | null>(initialValues?.returnLongitude ?? null);
   const [customTimeFrom, setCustomTimeFrom] = useState(initialTimeWindowState.customTimeFrom);
 
   const [customTimeTo, setCustomTimeTo] = useState(initialTimeWindowState.customTimeTo);
@@ -754,6 +766,8 @@ export default function BookingEditor({
     setExpressDelivery(initialValues.expressDelivery ?? false);
     setDeliveryAddress(initialValues.deliveryAddress ?? "");
     setDeliveryAddressSelected(Boolean(initialValues.deliveryAddress));
+    setDeliveryLatitude(initialValues.deliveryLatitude ?? null);
+    setDeliveryLongitude(initialValues.deliveryLongitude ?? null);
     setDrivingDistance(initialValues.drivingDistance ?? "");
     setCustomerName(initialValues.customerName ?? "");
     setPhone(initialValues.phone ?? "");
@@ -785,6 +799,8 @@ export default function BookingEditor({
     setCustomTimeContactNote(initialValues.customTimeContactNote ?? "");
     setPickupAddress(initialValues.pickupAddress ?? "");
     setPickupAddressSelected(Boolean(initialValues.pickupAddress));
+    setPickupLatitude(initialValues.pickupLatitude ?? null);
+    setPickupLongitude(initialValues.pickupLongitude ?? null);
     setExtraPickups(
       (initialValues.extraPickups ?? []).map((pickup, index) => ({
         id: `initial-${index}`,
@@ -801,6 +817,8 @@ export default function BookingEditor({
     );
     setReturnAddress(initialValues.returnAddress ?? "");
     setReturnAddressSelected(Boolean(initialValues.returnAddress));
+    setReturnLatitude(initialValues.returnLatitude ?? null);
+    setReturnLongitude(initialValues.returnLongitude ?? null);
     setCustomReturnAddressId(initialValues.customReturnAddressId ?? null);
     setCustomPickupAddressId(initialValues.customPickupAddressId ?? null);
     setCustomTimeFrom(nextTimeWindowState.customTimeFrom);
@@ -869,6 +887,8 @@ export default function BookingEditor({
     // Normal address search/typing and a custom pickup address are mutually
     // exclusive — falling back to the search field clears any custom pick.
     setCustomPickupAddressId(null);
+    setPickupLatitude(meta?.latitude ?? null);
+    setPickupLongitude(meta?.longitude ?? null);
 
     const imprecise = Boolean(wasSelected) && isStreetOnlyMatch(meta);
     setPickupAddressImprecise(imprecise);
@@ -890,6 +910,8 @@ export default function BookingEditor({
       setPickupAddressSelected(true);
       setPickupAddressImprecise(false);
       setCustomPickupAddressId(address.id);
+      setPickupLatitude(address.latitude);
+      setPickupLongitude(address.longitude);
     },
     [],
   );
@@ -897,6 +919,8 @@ export default function BookingEditor({
   const handleDeliveryAddressChange = useCallback((value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => {
     setDeliveryAddress(value);
     setDeliveryAddressSelected(Boolean(wasSelected));
+    setDeliveryLatitude(meta?.latitude ?? null);
+    setDeliveryLongitude(meta?.longitude ?? null);
 
     const imprecise = Boolean(wasSelected) && isStreetOnlyMatch(meta);
     setDeliveryAddressImprecise(imprecise);
@@ -912,6 +936,8 @@ export default function BookingEditor({
     // Same mutual-exclusivity as pickup: a fresh geocoded pick (or typed
     // text) is never a saved custom address.
     setCustomReturnAddressId(null);
+    setReturnLatitude(meta?.latitude ?? null);
+    setReturnLongitude(meta?.longitude ?? null);
 
     const imprecise = Boolean(wasSelected) && isStreetOnlyMatch(meta);
     setReturnAddressImprecise(imprecise);
@@ -933,6 +959,8 @@ export default function BookingEditor({
       setReturnAddressSelected(true);
       setReturnAddressImprecise(false);
       setCustomReturnAddressId(address.id);
+      setReturnLatitude(address.latitude);
+      setReturnLongitude(address.longitude);
     },
     [],
   );
@@ -2069,10 +2097,16 @@ export default function BookingEditor({
       customTimeContactNote: normalizedCustomTimeContactNote,
       pickupAddress,
       customPickupAddressId,
+      pickupLatitude,
+      pickupLongitude,
       extraPickups: normalizedExtraPickups,
       returnAddress,
       customReturnAddressId,
+      returnLatitude,
+      returnLongitude,
       deliveryAddress,
+      deliveryLatitude,
+      deliveryLongitude,
       drivingDistance,
 
       customerName,

@@ -5,6 +5,7 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canCreateOrders } from "@/lib/users/orderAccess";
 import {
   optionalBoolean,
+  optionalCoordinate,
   optionalPriceNumber,
   optionalString,
   optionalStringArray,
@@ -718,8 +719,12 @@ export async function POST(req: Request) {
   let pickupAddress = optionalString(body.pickupAddress);
   let customPickupAddressId: string | null = null;
   let customPickupAddressName: string | null = null;
-  let pickupLatitude: number | null = null;
-  let pickupLongitude: number | null = null;
+  // Trusts the client's own submitted coordinate (from Mapbox, via our
+  // retrieve proxy) for a manually-found address the same way its address
+  // text already is — overridden below with the authoritative record when
+  // this pickup is actually a saved custom address instead.
+  let pickupLatitude = optionalCoordinate(body.pickupLatitude, -90, 90);
+  let pickupLongitude = optionalCoordinate(body.pickupLongitude, -180, 180);
 
   if (requestedCustomPickupAddressId) {
     const customPickupAddress = await getVisibleCustomPickupAddress(
@@ -748,8 +753,8 @@ export async function POST(req: Request) {
   let returnAddress = optionalString(body.returnAddress);
   let customReturnAddressId: string | null = null;
   let customReturnAddressName: string | null = null;
-  let returnLatitude: number | null = null;
-  let returnLongitude: number | null = null;
+  let returnLatitude = optionalCoordinate(body.returnLatitude, -90, 90);
+  let returnLongitude = optionalCoordinate(body.returnLongitude, -180, 180);
 
   if (requestedCustomReturnAddressId) {
     const customReturnAddress = await getVisibleCustomPickupAddress(
@@ -806,6 +811,8 @@ export async function POST(req: Request) {
       returnLatitude,
       returnLongitude,
       deliveryAddress: optionalString(body.deliveryAddress),
+      deliveryLatitude: optionalCoordinate(body.deliveryLatitude, -90, 90),
+      deliveryLongitude: optionalCoordinate(body.deliveryLongitude, -180, 180),
       drivingDistance: optionalString(body.drivingDistance),
       customerName,
       phone,

@@ -7,6 +7,7 @@ import AddressAutocompleteInput, {
 import { ADDRESS_ICON_COMPONENTS, PinIcon, SearchIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
+import { retrieveAddressCoordinate } from "@/lib/orders/retrieveAddressCoordinate";
 import {
   ADDRESS_COLOR_CLASSES,
   DEFAULT_ADDRESS_COLOR,
@@ -261,6 +262,9 @@ export function PickupAddressCombobox({
   const [addressLoading, setAddressLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sessionTokenRef = useRef("");
+  // Bumped on every selection — a pending retrieveAddressCoordinate()
+  // response only gets applied if nothing else was picked meanwhile.
+  const selectionTokenRef = useRef(0);
 
   useEffect(() => {
     if (!allowSavedLocations) {
@@ -395,25 +399,53 @@ export function PickupAddressCombobox({
   }, [options, searchValue]);
 
   const selectOption = (option: CustomPickupAddressOption) => {
+    selectionTokenRef.current += 1;
+
     if (onSelectCustomPickupAddress) {
       onSelectCustomPickupAddress(option);
     } else {
       // No id-based callback to update — commit the saved location's
-      // address text directly, same as picking a geocoded suggestion.
-      onChange(option.address, true, { featureType: "address", typedQuery: searchValue, precise: true });
+      // address text directly, same as picking a geocoded suggestion. The
+      // option already carries its own stored coordinate, no retrieve needed.
+      onChange(option.address, true, {
+        featureType: "address",
+        typedQuery: searchValue,
+        precise: true,
+        latitude: option.latitude,
+        longitude: option.longitude,
+      });
     }
     collapse();
   };
 
   const selectSuggestion = (suggestion: AddressSuggestion) => {
+    const sessionToken = sessionTokenRef.current;
+    const typedQuery = searchValue;
+    const token = ++selectionTokenRef.current;
+
     onChange(suggestion.label, true, {
       featureType: suggestion.featureType,
-      typedQuery: searchValue,
+      typedQuery,
       precise: suggestion.precise,
     });
     onSelectCustomPickupAddress?.(null);
     sessionTokenRef.current = "";
     collapse();
+
+    // Backfills the coordinate once Mapbox's retrieve call resolves — never
+    // blocks committing the address text itself on this network round trip.
+    // Dropped if the user has since picked something else.
+    retrieveAddressCoordinate(suggestion.id, sessionToken).then((coordinate) => {
+      if (!coordinate || selectionTokenRef.current !== token) return;
+
+      onChange(suggestion.label, true, {
+        featureType: suggestion.featureType,
+        typedQuery,
+        precise: suggestion.precise,
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+      });
+    });
   };
 
   const precisionLabel = (suggestion: AddressSuggestion) =>

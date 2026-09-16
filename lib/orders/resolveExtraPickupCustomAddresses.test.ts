@@ -33,6 +33,24 @@ describe("resolveExtraPickupCustomAddresses", () => {
     expect(mocks.getVisibleCustomPickupAddressMock).not.toHaveBeenCalled();
   });
 
+  it("keeps a manually-found pickup's own coordinates instead of nulling them out", async () => {
+    const pickup = {
+      address: "Typed address",
+      phone: "",
+      email: "",
+      sendEmail: true,
+      customPickupAddressId: null,
+      customPickupAddressName: null,
+      latitude: 59.9,
+      longitude: 10.7,
+    };
+
+    const result = await resolveExtraPickupCustomAddresses([pickup], "user-1");
+
+    expect(result).toEqual({ extraPickups: [pickup], invalidPickupIndex: null });
+    expect(mocks.getVisibleCustomPickupAddressMock).not.toHaveBeenCalled();
+  });
+
   it("re-derives address/name/coordinates from the authoritative saved-address record", async () => {
     mocks.getVisibleCustomPickupAddressMock.mockResolvedValue({
       id: "cpa-1",
