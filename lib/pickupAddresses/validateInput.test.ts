@@ -19,7 +19,36 @@ describe("validateCustomPickupAddressInput", () => {
         longitude: 10.7669,
         icon: "storefront",
         color: "blue",
+        phone: null,
       },
+    });
+  });
+
+  it("accepts and normalizes a well-formed phone number", () => {
+    const result = validateCustomPickupAddressInput({
+      name: "Power Storo",
+      address: "Storo Storsenter 1, 0587 Oslo",
+      latitude: 59.945,
+      longitude: 10.7669,
+      phone: "22 33 44 55",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.phone).toBe("22334455");
+  });
+
+  it("rejects a malformed phone number", () => {
+    const result = validateCustomPickupAddressInput({
+      name: "Power Storo",
+      address: "Storo Storsenter 1, 0587 Oslo",
+      latitude: 59.945,
+      longitude: 10.7669,
+      phone: "call the front desk",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { reason: "INVALID_PHONE", message: expect.any(String) },
     });
   });
 

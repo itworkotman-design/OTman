@@ -28,6 +28,7 @@ export async function GET(
       longitude: true,
       icon: true,
       color: true,
+      phone: true,
       isActive: true,
       users: { select: { user: { select: { id: true, email: true, username: true } } } },
     },
@@ -101,6 +102,7 @@ export async function PATCH(
     longitude: validated.value.longitude,
     icon: validated.value.icon,
     color: validated.value.color,
+    phone: validated.value.phone,
   };
 
   if (typeof body.isActive === "boolean") {

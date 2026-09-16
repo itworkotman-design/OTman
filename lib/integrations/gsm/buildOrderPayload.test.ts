@@ -23,10 +23,12 @@ function buildOrder(overrides?: Partial<Order>): Order {
     pickupAddress: "Pickup 1",
     customPickupAddressId: null,
     customPickupAddressName: null,
+    customPickupAddressPhone: null,
     pickupLatitude: null,
     pickupLongitude: null,
     customReturnAddressId: null,
     customReturnAddressName: null,
+    customReturnAddressPhone: null,
     returnLatitude: null,
     returnLongitude: null,
     extraPickupAddress: [],
@@ -766,5 +768,67 @@ describe("buildOrderPayload", () => {
       "pick_up",
     ]);
     expect(payload.tasks_data[0]?.metafields?.["app:qr_link"]).toBeUndefined();
+  });
+
+  it("appends the warehouse phone to the pickup and return tasks, but not the delivery task", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "Pickup 1",
+        customPickupAddressId: "cpa-1",
+        customPickupAddressPhone: "22 33 44 55",
+        deliveryAddress: "Delivery 1",
+        returnAddress: "Return 1",
+        customReturnAddressId: "cpa-2",
+        customReturnAddressPhone: "+47 11 22 33 44",
+      }),
+    );
+
+    const pickupTask = payload.tasks_data.find((task) => task.address.raw_address === "Pickup 1");
+    const deliveryTask = payload.tasks_data.find((task) => task.address.raw_address === "Delivery 1");
+    const returnTask = payload.tasks_data.find((task) => task.address.raw_address === "Return 1");
+
+    expect(pickupTask?.description).toContain("Telefon lager: 22334455");
+    expect(returnTask?.description).toContain("Telefon lager: +4711223344");
+    expect(deliveryTask?.description).not.toContain("Telefon lager:");
+  });
+
+  it("does not append a warehouse phone line when the address wasn't a saved custom address", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "Pickup 1",
+        deliveryAddress: "Delivery 1",
+        returnAddress: "Return 1",
+      }),
+    );
+
+    expect(payload.tasks_data.every((task) => !task.description.includes("Telefon lager:"))).toBe(true);
+  });
+
+  it("appends the warehouse phone to an extra pickup task resolved from a saved custom address", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        pickupAddress: "",
+        extraPickupAddress: ["Pickup A", "Pickup B"],
+        extraPickupContacts: [
+          { address: "Pickup A", customPickupAddressPhone: "22334455" },
+          { address: "Pickup B", customPickupAddressPhone: null },
+        ],
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        servicesSummary: "",
+      }),
+    );
+
+    const taskA = payload.tasks_data.find((task) => task.address.raw_address === "Pickup A");
+    const taskB = payload.tasks_data.find((task) => task.address.raw_address === "Pickup B");
+
+    expect(taskA?.description).toContain("Telefon lager: 22334455");
+    expect(taskB?.description).not.toContain("Telefon lager:");
   });
 });

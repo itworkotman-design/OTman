@@ -711,6 +711,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   let resolvedPickupAddress = optionalString(body.pickupAddress);
   let resolvedCustomPickupAddressId: string | null | undefined;
   let resolvedCustomPickupAddressName: string | null | undefined;
+  let resolvedCustomPickupAddressPhone: string | null | undefined;
   let resolvedPickupLatitude: number | null | undefined;
   let resolvedPickupLongitude: number | null | undefined;
 
@@ -733,11 +734,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       resolvedPickupAddress = customPickupAddress.address;
       resolvedCustomPickupAddressId = customPickupAddress.id;
       resolvedCustomPickupAddressName = customPickupAddress.name;
+      resolvedCustomPickupAddressPhone = customPickupAddress.phone;
       resolvedPickupLatitude = customPickupAddress.latitude;
       resolvedPickupLongitude = customPickupAddress.longitude;
     } else {
       resolvedCustomPickupAddressId = null;
       resolvedCustomPickupAddressName = null;
+      resolvedCustomPickupAddressPhone = null;
       // Not a saved address — trust the client's own submitted coordinate
       // (from Mapbox, via our retrieve proxy) the same way its address text
       // already is, instead of discarding it.
@@ -749,6 +752,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   let resolvedReturnAddress = optionalString(body.returnAddress);
   let resolvedCustomReturnAddressId: string | null | undefined;
   let resolvedCustomReturnAddressName: string | null | undefined;
+  let resolvedCustomReturnAddressPhone: string | null | undefined;
   let resolvedReturnLatitude: number | null | undefined;
   let resolvedReturnLongitude: number | null | undefined;
 
@@ -771,11 +775,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       resolvedReturnAddress = customReturnAddress.address;
       resolvedCustomReturnAddressId = customReturnAddress.id;
       resolvedCustomReturnAddressName = customReturnAddress.name;
+      resolvedCustomReturnAddressPhone = customReturnAddress.phone;
       resolvedReturnLatitude = customReturnAddress.latitude;
       resolvedReturnLongitude = customReturnAddress.longitude;
     } else {
       resolvedCustomReturnAddressId = null;
       resolvedCustomReturnAddressName = null;
+      resolvedCustomReturnAddressPhone = null;
       // Same as pickup: trust the client's own submitted coordinate for a
       // manually-found return address instead of discarding it.
       resolvedReturnLatitude = optionalCoordinate(body.returnLatitude, -90, 90);
@@ -936,6 +942,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         pickupAddress: resolvedPickupAddress,
         customPickupAddressId: resolvedCustomPickupAddressId,
         customPickupAddressName: resolvedCustomPickupAddressName,
+        customPickupAddressPhone: resolvedCustomPickupAddressPhone,
         pickupLatitude: resolvedPickupLatitude,
         pickupLongitude: resolvedPickupLongitude,
         extraPickupAddress: extraPickups.map((pickup) => pickup.address),
@@ -946,6 +953,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         returnAddress: resolvedReturnAddress,
         customReturnAddressId: resolvedCustomReturnAddressId,
         customReturnAddressName: resolvedCustomReturnAddressName,
+        customReturnAddressPhone: resolvedCustomReturnAddressPhone,
         returnLatitude: resolvedReturnLatitude,
         returnLongitude: resolvedReturnLongitude,
         drivingDistance: optionalString(body.drivingDistance),

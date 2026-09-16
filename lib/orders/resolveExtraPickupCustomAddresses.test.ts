@@ -23,6 +23,7 @@ describe("resolveExtraPickupCustomAddresses", () => {
       sendEmail: true,
       customPickupAddressId: null,
       customPickupAddressName: null,
+      customPickupAddressPhone: null,
       latitude: null,
       longitude: null,
     };
@@ -41,6 +42,7 @@ describe("resolveExtraPickupCustomAddresses", () => {
       sendEmail: true,
       customPickupAddressId: null,
       customPickupAddressName: null,
+      customPickupAddressPhone: null,
       latitude: 59.9,
       longitude: 10.7,
     };
@@ -51,11 +53,12 @@ describe("resolveExtraPickupCustomAddresses", () => {
     expect(mocks.getVisibleCustomPickupAddressMock).not.toHaveBeenCalled();
   });
 
-  it("re-derives address/name/coordinates from the authoritative saved-address record", async () => {
+  it("re-derives address/name/phone/coordinates from the authoritative saved-address record", async () => {
     mocks.getVisibleCustomPickupAddressMock.mockResolvedValue({
       id: "cpa-1",
       name: "Power Storo",
       address: "Storo Storsenter 1, 0587 Oslo",
+      phone: "22334455",
       latitude: 59.945,
       longitude: 10.7669,
     });
@@ -69,6 +72,7 @@ describe("resolveExtraPickupCustomAddresses", () => {
           sendEmail: true,
           customPickupAddressId: "cpa-1",
           customPickupAddressName: "Spoofed name",
+          customPickupAddressPhone: "Spoofed phone",
           latitude: 1,
           longitude: 1,
         },
@@ -86,6 +90,7 @@ describe("resolveExtraPickupCustomAddresses", () => {
           sendEmail: true,
           customPickupAddressId: "cpa-1",
           customPickupAddressName: "Power Storo",
+          customPickupAddressPhone: "22334455",
           latitude: 59.945,
           longitude: 10.7669,
         },
@@ -106,6 +111,7 @@ describe("resolveExtraPickupCustomAddresses", () => {
           sendEmail: true,
           customPickupAddressId: "cpa-missing",
           customPickupAddressName: null,
+          customPickupAddressPhone: null,
           latitude: null,
           longitude: null,
         },

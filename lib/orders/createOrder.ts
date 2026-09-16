@@ -50,6 +50,7 @@ export type CreateOrderFields = {
   // current record, so they're authoritative and safe to persist as-is.
   customPickupAddressId?: string | null;
   customPickupAddressName?: string | null;
+  customPickupAddressPhone?: string | null;
   pickupLatitude?: number | null;
   pickupLongitude?: number | null;
   extraPickups: ExtraPickupInput[];
@@ -58,6 +59,7 @@ export type CreateOrderFields = {
   // above, but for the return address.
   customReturnAddressId?: string | null;
   customReturnAddressName?: string | null;
+  customReturnAddressPhone?: string | null;
   returnLatitude?: number | null;
   returnLongitude?: number | null;
   deliveryAddress: string | null;
@@ -244,6 +246,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       pickupAddress: fields.pickupAddress,
       customPickupAddressId: fields.customPickupAddressId ?? null,
       customPickupAddressName: fields.customPickupAddressName ?? null,
+      customPickupAddressPhone: fields.customPickupAddressPhone ?? null,
       pickupLatitude: fields.pickupLatitude ?? null,
       pickupLongitude: fields.pickupLongitude ?? null,
       extraPickupAddress: fields.extraPickups.map((pickup) => pickup.address),
@@ -254,6 +257,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       returnAddress: fields.returnAddress,
       customReturnAddressId: fields.customReturnAddressId ?? null,
       customReturnAddressName: fields.customReturnAddressName ?? null,
+      customReturnAddressPhone: fields.customReturnAddressPhone ?? null,
       returnLatitude: fields.returnLatitude ?? null,
       returnLongitude: fields.returnLongitude ?? null,
       drivingDistance: fields.drivingDistance,

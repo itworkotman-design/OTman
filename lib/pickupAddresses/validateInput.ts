@@ -6,6 +6,7 @@ import {
   type AddressColorKey,
   type AddressIconKey,
 } from "./addressAppearance";
+import { getOptionalPhoneError, normalizeOptionalPhone } from "@/lib/orders/contactValidation";
 
 export type CustomPickupAddressInput = {
   name: string;
@@ -14,6 +15,7 @@ export type CustomPickupAddressInput = {
   longitude: number;
   icon: AddressIconKey;
   color: AddressColorKey;
+  phone: string | null;
 };
 
 export type ValidationResult =
@@ -90,5 +92,16 @@ export function validateCustomPickupAddressInput(body: unknown): ValidationResul
   const icon = isAddressIconKey(input.icon) ? input.icon : DEFAULT_ADDRESS_ICON;
   const color = isAddressColorKey(input.color) ? input.color : DEFAULT_ADDRESS_COLOR;
 
-  return { ok: true, value: { name, address, latitude, longitude, icon, color } };
+  const phoneError = getOptionalPhoneError(input.phone);
+
+  if (phoneError) {
+    return {
+      ok: false,
+      error: { reason: "INVALID_PHONE", message: phoneError },
+    };
+  }
+
+  const phone = normalizeOptionalPhone(input.phone);
+
+  return { ok: true, value: { name, address, latitude, longitude, icon, color, phone } };
 }

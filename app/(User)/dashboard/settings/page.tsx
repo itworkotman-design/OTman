@@ -21,6 +21,7 @@ type PickupAddressRow = {
   id: string;
   name: string;
   address: string;
+  phone: string | null;
   latitude: number;
   longitude: number;
   icon: AddressIconKey;
@@ -85,6 +86,7 @@ function PickupAddressesSection() {
     const body = {
       name: data.name.trim(),
       address: data.address.trim(),
+      phone: data.phone.trim() || null,
       latitude: Number(data.latitude),
       longitude: Number(data.longitude),
       icon: data.icon,

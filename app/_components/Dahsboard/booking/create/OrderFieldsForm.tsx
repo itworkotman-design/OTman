@@ -160,6 +160,7 @@ type Props = {
     addressSelected: boolean;
     customPickupAddressId: string | null;
     customPickupAddressName: string | null;
+    customPickupAddressPhone: string | null;
     latitude: number | null;
     longitude: number | null;
   }[];
@@ -174,6 +175,7 @@ type Props = {
         addressSelected: boolean;
         customPickupAddressId: string | null;
         customPickupAddressName: string | null;
+        customPickupAddressPhone: string | null;
         latitude: number | null;
         longitude: number | null;
       }[]

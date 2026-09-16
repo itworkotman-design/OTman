@@ -11,6 +11,7 @@ import {
   type AddressColorKey,
   type AddressIconKey,
 } from "@/lib/pickupAddresses/addressAppearance";
+import { getOptionalPhoneError } from "@/lib/orders/contactValidation";
 
 export type PickupAddressUser = {
   id: string;
@@ -22,6 +23,7 @@ export type PickupAddressUser = {
 export type PickupAddressFormData = {
   name: string;
   address: string;
+  phone: string;
   latitude: string;
   longitude: string;
   icon: AddressIconKey;
@@ -33,6 +35,7 @@ export type PickupAddressDetail = {
   id: string;
   name: string;
   address: string;
+  phone: string | null;
   latitude: number;
   longitude: number;
   icon: AddressIconKey;
@@ -83,6 +86,7 @@ export default function PickupAddressModal({
   const [form, setForm] = useState<PickupAddressFormData>({
     name: "",
     address: "",
+    phone: "",
     latitude: "",
     longitude: "",
     icon: DEFAULT_ADDRESS_ICON,
@@ -104,6 +108,7 @@ export default function PickupAddressModal({
     setForm({
       name: editing?.name ?? "",
       address: editing?.address ?? "",
+      phone: editing?.phone ?? "",
       latitude: editing ? String(editing.latitude) : "",
       longitude: editing ? String(editing.longitude) : "",
       icon: editing?.icon ?? DEFAULT_ADDRESS_ICON,
@@ -157,6 +162,11 @@ export default function PickupAddressModal({
     }
     if (!form.address.trim()) {
       setError("Address is required.");
+      return;
+    }
+    const phoneError = getOptionalPhoneError(form.phone);
+    if (phoneError) {
+      setError(phoneError);
       return;
     }
     if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
@@ -249,6 +259,16 @@ export default function PickupAddressModal({
               value={form.address}
               onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
               placeholder="Human-readable street address"
+            />
+          </div>
+
+          <div>
+            <label className="block pb-1.5 text-sm font-semibold text-textcolor">Phone (optional)</label>
+            <input
+              className="customInput w-full"
+              value={form.phone}
+              onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+              placeholder="e.g. +47 22 33 44 55"
             />
           </div>
 

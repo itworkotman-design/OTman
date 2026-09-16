@@ -55,6 +55,7 @@ describe("GET /api/pickup-addresses/available", () => {
         longitude: 10.7669,
         icon: "storefront",
         color: "blue",
+        phone: "22334455",
       },
     ]);
 
@@ -64,7 +65,16 @@ describe("GET /api/pickup-addresses/available", () => {
     expect(mocks.findManyMock).toHaveBeenCalledWith({
       where: { isActive: true, users: { some: { userId: "user-1" } } },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, address: true, latitude: true, longitude: true, icon: true, color: true },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        latitude: true,
+        longitude: true,
+        icon: true,
+        color: true,
+        phone: true,
+      },
     });
     expect(response.status).toBe(200);
     expect(json).toEqual({
@@ -78,6 +88,7 @@ describe("GET /api/pickup-addresses/available", () => {
           longitude: 10.7669,
           icon: "storefront",
           color: "blue",
+          phone: "22334455",
         },
       ],
     });
@@ -113,7 +124,16 @@ describe("GET /api/pickup-addresses/available", () => {
     expect(mocks.findManyMock).toHaveBeenCalledWith({
       where: { isActive: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, address: true, latitude: true, longitude: true, icon: true, color: true },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        latitude: true,
+        longitude: true,
+        icon: true,
+        color: true,
+        phone: true,
+      },
     });
     expect(response.status).toBe(200);
     expect(json.pickupAddresses).toHaveLength(2);
@@ -129,7 +149,16 @@ describe("GET /api/pickup-addresses/available", () => {
     expect(mocks.findManyMock).toHaveBeenCalledWith({
       where: { isActive: true, users: { some: { userId: "user-1" } } },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, address: true, latitude: true, longitude: true, icon: true, color: true },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        latitude: true,
+        longitude: true,
+        icon: true,
+        color: true,
+        phone: true,
+      },
     });
   });
 });

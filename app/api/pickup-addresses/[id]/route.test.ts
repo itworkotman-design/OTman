@@ -193,6 +193,7 @@ describe("PATCH /api/pickup-addresses/[id]", () => {
         longitude: 2,
         icon: "storefront",
         color: "blue",
+        phone: null,
       },
     });
     expect(mocks.deleteManyMock).toHaveBeenCalledWith({ where: { customPickupAddressId: "cpa-1" } });
@@ -202,6 +203,31 @@ describe("PATCH /api/pickup-addresses/[id]", () => {
     expect(mocks.userUpdateManyMock).toHaveBeenCalledWith({
       where: { mainPickupAddressId: "cpa-1", id: { notIn: ["user-2"] } },
       data: { mainPickupAddressId: null },
+    });
+  });
+
+  it("updates the phone number", async () => {
+    mocks.requireFullAccessMembershipMock.mockResolvedValue({ ok: true, membership: { role: "OWNER" } });
+    mocks.updateMock.mockResolvedValue({ id: "cpa-1" });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/pickup-addresses/cpa-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: "Power Storo",
+          address: "Storo Storsenter 1",
+          latitude: 59.945,
+          longitude: 10.7669,
+          phone: "22 33 44 55",
+        }),
+      }),
+      ctx("cpa-1"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateMock).toHaveBeenCalledWith({
+      where: { id: "cpa-1" },
+      data: expect.objectContaining({ phone: "22334455" }),
     });
   });
 

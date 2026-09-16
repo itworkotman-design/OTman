@@ -20,6 +20,7 @@ export async function GET(req: Request) {
       longitude: true,
       icon: true,
       color: true,
+      phone: true,
       isActive: true,
       users: { select: { user: { select: { id: true, email: true, username: true } } } },
     },
@@ -35,6 +36,7 @@ export async function GET(req: Request) {
       longitude: address.longitude,
       icon: address.icon,
       color: address.color,
+      phone: address.phone,
       isActive: address.isActive,
       users: address.users.map((entry) => entry.user),
     })),
@@ -71,6 +73,7 @@ export async function POST(req: Request) {
       longitude: validated.value.longitude,
       icon: validated.value.icon,
       color: validated.value.color,
+      phone: validated.value.phone,
       ...(userIds.length > 0
         ? { users: { create: userIds.map((userId) => ({ userId })) } }
         : {}),

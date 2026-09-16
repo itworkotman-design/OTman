@@ -30,7 +30,16 @@ export async function GET(req: Request) {
       ? { isActive: true }
       : { isActive: true, users: { some: { userId: session.userId } } },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, address: true, latitude: true, longitude: true, icon: true, color: true },
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      latitude: true,
+      longitude: true,
+      icon: true,
+      color: true,
+      phone: true,
+    },
   });
 
   return NextResponse.json({ ok: true, pickupAddresses });

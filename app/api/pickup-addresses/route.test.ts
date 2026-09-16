@@ -132,6 +132,7 @@ describe("POST /api/pickup-addresses", () => {
         longitude: 10.7669,
         icon: "storefront",
         color: "blue",
+        phone: null,
         users: {
           create: [{ userId: "user-1" }, { userId: "user-2" }],
         },
@@ -139,5 +140,28 @@ describe("POST /api/pickup-addresses", () => {
     });
     const json = await response.json();
     expect(json).toEqual({ ok: true, pickupAddressId: "cpa-1" });
+  });
+
+  it("creates a pickup address with a phone number", async () => {
+    mocks.requireFullAccessMembershipMock.mockResolvedValue({ ok: true, membership: { role: "OWNER" } });
+    mocks.createMock.mockResolvedValue({ id: "cpa-1" });
+
+    const response = await POST(
+      new Request("http://localhost/api/pickup-addresses", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Power Storo",
+          address: "Storo Storsenter 1",
+          latitude: 59.945,
+          longitude: 10.7669,
+          phone: "22 33 44 55",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ phone: "22334455" }),
+    });
   });
 });

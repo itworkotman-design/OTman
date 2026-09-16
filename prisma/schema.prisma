@@ -100,6 +100,7 @@ model CustomPickupAddress {
   id        String   @id @default(cuid())
   name      String
   address   String
+  phone     String?
   latitude  Float
   longitude Float
   icon      String   @default("storefront")
@@ -540,10 +541,12 @@ model Order {
   recurringOrderOccurrenceDate       String?
   customPickupAddressId              String?
   customPickupAddressName            String?
+  customPickupAddressPhone           String?
   pickupLatitude                     Float?
   pickupLongitude                    Float?
   customReturnAddressId              String?
   customReturnAddressName            String?
+  customReturnAddressPhone           String?
   returnLatitude                     Float?
   returnLongitude                    Float?
   deliveryLatitude                   Float?

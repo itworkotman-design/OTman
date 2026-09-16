@@ -83,12 +83,13 @@ function toGsmLocation(latitude?: number | null, longitude?: number | null): Gsm
 
 // extraPickupContacts stores the full ExtraPickupInput[] the order was
 // created/edited with, in the same order as extraPickupAddress — so a given
-// pickup's coordinates live at the same array index, not matched by address
-// text (which can repeat, e.g. two placeholder entries).
+// pickup's coordinates (and, when it came from a saved warehouse address, its
+// phone) live at the same array index, not matched by address text (which
+// can repeat, e.g. two placeholder entries).
 function getExtraPickupCoordinates(
   extraPickupContacts: unknown,
   index: number,
-): { latitude: number | null; longitude: number | null } | null {
+): { latitude: number | null; longitude: number | null; customPickupAddressPhone: string | null } | null {
   if (!Array.isArray(extraPickupContacts)) {
     return null;
   }
@@ -104,7 +105,22 @@ function getExtraPickupCoordinates(
   return {
     latitude: typeof record.latitude === "number" ? record.latitude : null,
     longitude: typeof record.longitude === "number" ? record.longitude : null,
+    customPickupAddressPhone:
+      typeof record.customPickupAddressPhone === "string" ? record.customPickupAddressPhone : null,
   };
+}
+
+// Appends the saved warehouse's phone as its own description line, only when
+// the task's address actually came from a saved custom pickup/return address
+// with a phone on file — never for a manually-typed address.
+function appendWarehousePhoneNote(description: string, phone: string | null | undefined) {
+  const normalized = normalizePhone(phone);
+
+  if (!normalized) {
+    return description;
+  }
+
+  return [description, `Telefon lager: ${normalized}`].filter((value) => value.length > 0).join("\n\n");
 }
 
 function normalizeLiftForDescription(value?: string | null) {
@@ -404,13 +420,18 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   const makeTask = (
     category: GsmTask["category"],
     rawAddress: string,
-    options: { contact?: GsmContact; metafields?: Record<string, string>; location?: GsmLocation } = {},
+    options: {
+      contact?: GsmContact;
+      metafields?: Record<string, string>;
+      location?: GsmLocation;
+      description?: string;
+    } = {},
   ): GsmTask => ({
     account,
     category,
     address: options.location ? { raw_address: rawAddress, location: options.location } : { raw_address: rawAddress },
     contact: options.contact,
-    description,
+    description: options.description ?? description,
     metafields: options.metafields ?? metafields,
     ...timeWindow,
   });
@@ -423,6 +444,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
       makeTask("pick_up", pickupAddress, {
         contact: cashierContact,
         location: toGsmLocation(order.pickupLatitude, order.pickupLongitude),
+        description: appendWarehousePhoneNote(description, order.customPickupAddressPhone),
       }),
     );
   }
@@ -435,6 +457,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
         makeTask("pick_up", value, {
           contact: cashierContact,
           location: toGsmLocation(coordinate?.latitude, coordinate?.longitude),
+          description: appendWarehousePhoneNote(description, coordinate?.customPickupAddressPhone),
         }),
       );
     }
@@ -462,6 +485,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
       makeTask("drop_off", order.returnAddress.trim(), {
         contact: orderer,
         location: toGsmLocation(order.returnLatitude, order.returnLongitude),
+        description: appendWarehousePhoneNote(description, order.customReturnAddressPhone),
       }),
     );
   }

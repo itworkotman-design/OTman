@@ -21,6 +21,7 @@ export type ExtraPickupInput = {
   // of any lib/db.ts / Prisma dependency.)
   customPickupAddressId: string | null;
   customPickupAddressName: string | null;
+  customPickupAddressPhone: string | null;
   latitude: number | null;
   longitude: number | null;
 };
@@ -51,6 +52,7 @@ export function createEmptyExtraPickup(): ExtraPickupInput {
     sendEmail: true,
     customPickupAddressId: null,
     customPickupAddressName: null,
+    customPickupAddressPhone: null,
     latitude: null,
     longitude: null,
   };
@@ -94,6 +96,7 @@ export function parseExtraPickups(value: unknown): ExtraPickupInput[] {
         sendEmail: candidate?.sendEmail === false ? false : true,
         customPickupAddressId,
         customPickupAddressName: null,
+        customPickupAddressPhone: null,
         latitude: customPickupAddressId ? null : optionalCoordinate(candidate?.latitude, -90, 90),
         longitude: customPickupAddressId ? null : optionalCoordinate(candidate?.longitude, -180, 180),
       };
@@ -123,6 +126,7 @@ export function normalizeExtraPickups(
     sendEmail: pickup.sendEmail,
     customPickupAddressId: pickup.customPickupAddressId ?? null,
     customPickupAddressName: pickup.customPickupAddressName ?? null,
+    customPickupAddressPhone: pickup.customPickupAddressPhone ?? null,
     latitude: pickup.latitude ?? null,
     longitude: pickup.longitude ?? null,
   }));

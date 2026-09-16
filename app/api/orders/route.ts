@@ -719,6 +719,7 @@ export async function POST(req: Request) {
   let pickupAddress = optionalString(body.pickupAddress);
   let customPickupAddressId: string | null = null;
   let customPickupAddressName: string | null = null;
+  let customPickupAddressPhone: string | null = null;
   // Trusts the client's own submitted coordinate (from Mapbox, via our
   // retrieve proxy) for a manually-found address the same way its address
   // text already is — overridden below with the authoritative record when
@@ -745,6 +746,7 @@ export async function POST(req: Request) {
     pickupAddress = customPickupAddress.address;
     customPickupAddressId = customPickupAddress.id;
     customPickupAddressName = customPickupAddress.name;
+    customPickupAddressPhone = customPickupAddress.phone;
     pickupLatitude = customPickupAddress.latitude;
     pickupLongitude = customPickupAddress.longitude;
   }
@@ -753,6 +755,7 @@ export async function POST(req: Request) {
   let returnAddress = optionalString(body.returnAddress);
   let customReturnAddressId: string | null = null;
   let customReturnAddressName: string | null = null;
+  let customReturnAddressPhone: string | null = null;
   let returnLatitude = optionalCoordinate(body.returnLatitude, -90, 90);
   let returnLongitude = optionalCoordinate(body.returnLongitude, -180, 180);
 
@@ -772,6 +775,7 @@ export async function POST(req: Request) {
     returnAddress = customReturnAddress.address;
     customReturnAddressId = customReturnAddress.id;
     customReturnAddressName = customReturnAddress.name;
+    customReturnAddressPhone = customReturnAddress.phone;
     returnLatitude = customReturnAddress.latitude;
     returnLongitude = customReturnAddress.longitude;
   }
@@ -802,12 +806,14 @@ export async function POST(req: Request) {
       pickupAddress,
       customPickupAddressId,
       customPickupAddressName,
+      customPickupAddressPhone,
       pickupLatitude,
       pickupLongitude,
       extraPickups,
       returnAddress,
       customReturnAddressId,
       customReturnAddressName,
+      customReturnAddressPhone,
       returnLatitude,
       returnLongitude,
       deliveryAddress: optionalString(body.deliveryAddress),

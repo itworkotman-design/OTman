@@ -20,6 +20,7 @@ export type CustomPickupAddressOption = {
   id: string;
   name: string;
   address: string;
+  phone: string | null;
   latitude: number;
   longitude: number;
   icon: AddressIconKey;
@@ -61,6 +62,38 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
+function PhoneIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+// Small "this warehouse has a phone number on file" badge — shown next to a
+// saved location so the person creating the order doesn't need to look it up
+// elsewhere before calling ahead.
+function PhoneIndicator({ phone }: { phone: string }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-textColorSecond">
+      <PhoneIcon />
+      {phone}
+    </span>
+  );
+}
+
 function CheckIcon() {
   return (
     <svg
@@ -85,6 +118,7 @@ function SelectedAddressCard({
   id,
   title,
   subtitle,
+  phone,
   icon,
   colorClasses,
   open,
@@ -93,6 +127,7 @@ function SelectedAddressCard({
   id?: string;
   title: string;
   subtitle?: string;
+  phone?: string | null;
   icon: ReactNode;
   colorClasses: { bg: string; text: string };
   open: boolean;
@@ -113,6 +148,7 @@ function SelectedAddressCard({
         <span className="block truncate font-semibold text-black">{title}</span>
         {subtitle ? <span className="block truncate text-sm text-textColorSecond">{subtitle}</span> : null}
       </span>
+      {phone ? <PhoneIndicator phone={phone} /> : null}
       <ChevronIcon open={open} />
     </button>
   );
@@ -145,6 +181,7 @@ function SavedLocationRow({
         <span className="block truncate font-semibold text-black">{option.name}</span>
         <span className="block truncate text-sm text-textColorSecond">{option.address}</span>
       </span>
+      {option.phone ? <PhoneIndicator phone={option.phone} /> : null}
       {selected ? <CheckIcon /> : null}
     </button>
   );
@@ -520,6 +557,7 @@ export function PickupAddressCombobox({
             id={inputId}
             title={selected ? selected.name : value}
             subtitle={selected ? selected.address : undefined}
+            phone={selected?.phone}
             icon={<SelectedIcon />}
             colorClasses={selected ? ADDRESS_COLOR_CLASSES[selected.color] ?? ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR] : ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR]}
             open={expanded}

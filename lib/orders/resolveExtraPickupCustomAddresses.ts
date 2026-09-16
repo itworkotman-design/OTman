@@ -32,7 +32,7 @@ export async function resolveExtraPickupCustomAddresses(
       // Not a saved address — keep whatever coordinate parseExtraPickups
       // already validated from the client's own manual pick (Mapbox, via our
       // retrieve proxy), rather than discarding it.
-      resolved.push({ ...pickup, customPickupAddressName: null });
+      resolved.push({ ...pickup, customPickupAddressName: null, customPickupAddressPhone: null });
       continue;
     }
 
@@ -47,6 +47,7 @@ export async function resolveExtraPickupCustomAddresses(
       address: customAddress.address,
       customPickupAddressId: customAddress.id,
       customPickupAddressName: customAddress.name,
+      customPickupAddressPhone: customAddress.phone,
       latitude: customAddress.latitude,
       longitude: customAddress.longitude,
     });

@@ -63,6 +63,7 @@ export type OrderFormPayload = {
     sendEmail: boolean;
     customPickupAddressId: string | null;
     customPickupAddressName: string | null;
+    customPickupAddressPhone: string | null;
     latitude: number | null;
     longitude: number | null;
   }[];
@@ -500,6 +501,7 @@ export default function BookingEditor({
           addressSelected: true,
           customPickupAddressId: pickup.customPickupAddressId ?? null,
           customPickupAddressName: pickup.customPickupAddressName ?? null,
+          customPickupAddressPhone: pickup.customPickupAddressPhone ?? null,
           latitude: pickup.latitude ?? null,
           longitude: pickup.longitude ?? null,
         }))
@@ -811,6 +813,7 @@ export default function BookingEditor({
         addressSelected: true,
         customPickupAddressId: pickup.customPickupAddressId ?? null,
         customPickupAddressName: pickup.customPickupAddressName ?? null,
+        customPickupAddressPhone: pickup.customPickupAddressPhone ?? null,
         latitude: pickup.latitude ?? null,
         longitude: pickup.longitude ?? null,
       })),

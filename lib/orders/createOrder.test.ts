@@ -219,6 +219,7 @@ describe("createOrder pricing fallback", () => {
         pickupAddress: "Storo Storsenter 1, 0587 Oslo",
         customPickupAddressId: "cpa-1",
         customPickupAddressName: "Power Storo",
+        customPickupAddressPhone: "22334455",
         pickupLatitude: 59.945,
         pickupLongitude: 10.7669,
         priceExVat: 300,
@@ -230,6 +231,7 @@ describe("createOrder pricing fallback", () => {
     expect(createCallData.pickupAddress).toBe("Storo Storsenter 1, 0587 Oslo");
     expect(createCallData.customPickupAddressId).toBe("cpa-1");
     expect(createCallData.customPickupAddressName).toBe("Power Storo");
+    expect(createCallData.customPickupAddressPhone).toBe("22334455");
     expect(createCallData.pickupLatitude).toBe(59.945);
     expect(createCallData.pickupLongitude).toBe(10.7669);
   });
@@ -255,6 +257,7 @@ describe("createOrder pricing fallback", () => {
     expect(createCallData.pickupAddress).toBe("Some normal searched address");
     expect(createCallData.customPickupAddressId).toBeNull();
     expect(createCallData.customPickupAddressName).toBeNull();
+    expect(createCallData.customPickupAddressPhone).toBeNull();
     expect(createCallData.pickupLatitude).toBeNull();
     expect(createCallData.pickupLongitude).toBeNull();
   });

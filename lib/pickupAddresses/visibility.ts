@@ -4,6 +4,7 @@ export type VisibleCustomPickupAddress = {
   id: string;
   name: string;
   address: string;
+  phone: string | null;
   latitude: number;
   longitude: number;
 };
@@ -27,6 +28,7 @@ export async function getVisibleCustomPickupAddress(
       id: true,
       name: true,
       address: true,
+      phone: true,
       latitude: true,
       longitude: true,
     },
