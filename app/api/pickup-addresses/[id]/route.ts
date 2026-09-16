@@ -26,6 +26,8 @@ export async function GET(
       address: true,
       latitude: true,
       longitude: true,
+      icon: true,
+      color: true,
       isActive: true,
       users: { select: { user: { select: { id: true, email: true, username: true } } } },
     },
@@ -97,6 +99,8 @@ export async function PATCH(
     address: validated.value.address,
     latitude: validated.value.latitude,
     longitude: validated.value.longitude,
+    icon: validated.value.icon,
+    color: validated.value.color,
   };
 
   if (typeof body.isActive === "boolean") {

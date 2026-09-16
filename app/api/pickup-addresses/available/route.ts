@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const pickupAddresses = await prisma.customPickupAddress.findMany({
     where: { isActive: true, users: { some: { userId: session.userId } } },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, address: true, latitude: true, longitude: true },
+    select: { id: true, name: true, address: true, latitude: true, longitude: true, icon: true, color: true },
   });
 
   return NextResponse.json({ ok: true, pickupAddresses });

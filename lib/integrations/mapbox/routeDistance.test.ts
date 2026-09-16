@@ -215,4 +215,37 @@ describe("getRouteDistance", () => {
     // Extra pickup + delivery are geocoded (2 calls) + 1 directions call.
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it("skips geocoding the return stop when a return coordinate is supplied", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ features: [{ geometry: { coordinates: [1, 1] } }] }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ routes: [{ distance: 2000 }], code: "Ok" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    const result = await getRouteDistance({
+      pickupAddress: "Pickup 1",
+      deliveryAddress: "",
+      returnAddress: "Power Storo, Storo Storsenter",
+      returnCoordinate: { latitude: 59.945, longitude: 10.7669 },
+    });
+
+    // Only the pickup stop is geocoded (1 call) + 1 directions call.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toContain(
+      "/directions/v5/mapbox/driving/1,1;10.7669,59.945",
+    );
+    expect(result).toEqual({
+      distanceKm: "2.00",
+      stopAddresses: ["Pickup 1", "Power Storo, Storo Storsenter"],
+    });
+  });
 });

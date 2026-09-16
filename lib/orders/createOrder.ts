@@ -54,6 +54,12 @@ export type CreateOrderFields = {
   pickupLongitude?: number | null;
   extraPickups: ExtraPickupInput[];
   returnAddress: string | null;
+  // Same server-resolved-and-authoritative pattern as the pickup fields
+  // above, but for the return address.
+  customReturnAddressId?: string | null;
+  customReturnAddressName?: string | null;
+  returnLatitude?: number | null;
+  returnLongitude?: number | null;
   deliveryAddress: string | null;
   drivingDistance: string | null;
   customerName: string | null;
@@ -242,6 +248,10 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       extraPickupContacts: fields.extraPickups as unknown as Prisma.InputJsonValue,
       deliveryAddress: fields.deliveryAddress,
       returnAddress: fields.returnAddress,
+      customReturnAddressId: fields.customReturnAddressId ?? null,
+      customReturnAddressName: fields.customReturnAddressName ?? null,
+      returnLatitude: fields.returnLatitude ?? null,
+      returnLongitude: fields.returnLongitude ?? null,
       drivingDistance: fields.drivingDistance,
 
       phone: fields.phone,

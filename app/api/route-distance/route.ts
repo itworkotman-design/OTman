@@ -9,6 +9,7 @@ type RouteDistanceRequestBody = {
   extraPickupAddresses?: unknown;
   deliveryAddress?: unknown;
   returnAddress?: unknown;
+  customReturnAddressId?: unknown;
 };
 
 function toOptionalString(value: unknown) {
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
 
     const customPickupAddress = await getVisibleCustomPickupAddress(
       body.customPickupAddressId,
-      session.activeCompanyId,
+      session.userId,
     );
 
     if (!customPickupAddress) {
@@ -72,13 +73,44 @@ export async function POST(req: Request) {
     };
   }
 
+  let returnAddress = toOptionalString(body.returnAddress);
+  let returnCoordinate: { latitude: number; longitude: number } | undefined;
+
+  if (typeof body.customReturnAddressId === "string" && body.customReturnAddressId) {
+    if (!session.activeCompanyId) {
+      return NextResponse.json(
+        { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+        { status: 409 },
+      );
+    }
+
+    const customReturnAddress = await getVisibleCustomPickupAddress(
+      body.customReturnAddressId,
+      session.userId,
+    );
+
+    if (!customReturnAddress) {
+      return NextResponse.json(
+        { ok: false, reason: "RETURN_ADDRESS_NOT_AVAILABLE" },
+        { status: 403 },
+      );
+    }
+
+    returnAddress = customReturnAddress.address;
+    returnCoordinate = {
+      latitude: customReturnAddress.latitude,
+      longitude: customReturnAddress.longitude,
+    };
+  }
+
   try {
     const result = await getRouteDistance({
       pickupAddress,
       pickupCoordinate,
       extraPickupAddresses: toStringArray(body.extraPickupAddresses),
       deliveryAddress: toOptionalString(body.deliveryAddress),
-      returnAddress: toOptionalString(body.returnAddress),
+      returnAddress,
+      returnCoordinate,
     });
 
     return NextResponse.json({

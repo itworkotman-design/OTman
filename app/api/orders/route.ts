@@ -22,6 +22,7 @@ import {
   normalizeExtraPickups,
   parseExtraPickups,
 } from "@/lib/orders/extraPickups";
+import { resolveExtraPickupCustomAddresses } from "@/lib/orders/resolveExtraPickupCustomAddresses";
 import {
   normalizeSavedProductCard,
   type SavedProductCard,
@@ -610,7 +611,20 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const extraPickups = normalizeExtraPickups(parsedExtraPickups);
+  const normalizedExtraPickups = normalizeExtraPickups(parsedExtraPickups);
+  const extraPickupResolution = await resolveExtraPickupCustomAddresses(
+    normalizedExtraPickups,
+    session.userId,
+  );
+
+  if (extraPickupResolution.invalidPickupIndex !== null) {
+    return NextResponse.json(
+      { ok: false, reason: "PICKUP_ADDRESS_NOT_AVAILABLE" },
+      { status: 403 },
+    );
+  }
+
+  const extraPickups = extraPickupResolution.extraPickups;
   const submittedOrderNumber = optionalString(body.orderNumber);
 
   if (
@@ -730,6 +744,33 @@ export async function POST(req: Request) {
     pickupLongitude = customPickupAddress.longitude;
   }
 
+  const requestedCustomReturnAddressId = optionalString(body.customReturnAddressId);
+  let returnAddress = optionalString(body.returnAddress);
+  let customReturnAddressId: string | null = null;
+  let customReturnAddressName: string | null = null;
+  let returnLatitude: number | null = null;
+  let returnLongitude: number | null = null;
+
+  if (requestedCustomReturnAddressId) {
+    const customReturnAddress = await getVisibleCustomPickupAddress(
+      requestedCustomReturnAddressId,
+      session.userId,
+    );
+
+    if (!customReturnAddress) {
+      return NextResponse.json(
+        { ok: false, reason: "RETURN_ADDRESS_NOT_AVAILABLE" },
+        { status: 403 },
+      );
+    }
+
+    returnAddress = customReturnAddress.address;
+    customReturnAddressId = customReturnAddress.id;
+    customReturnAddressName = customReturnAddress.name;
+    returnLatitude = customReturnAddress.latitude;
+    returnLongitude = customReturnAddress.longitude;
+  }
+
   const order = await createOrder({
     companyId: session.activeCompanyId,
     membershipId: membership.id,
@@ -759,7 +800,11 @@ export async function POST(req: Request) {
       pickupLatitude,
       pickupLongitude,
       extraPickups,
-      returnAddress: optionalString(body.returnAddress),
+      returnAddress,
+      customReturnAddressId,
+      customReturnAddressName,
+      returnLatitude,
+      returnLongitude,
       deliveryAddress: optionalString(body.deliveryAddress),
       drivingDistance: optionalString(body.drivingDistance),
       customerName,

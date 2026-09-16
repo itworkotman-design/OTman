@@ -1,6 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ADDRESS_ICON_COMPONENTS } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
+import {
+  ADDRESS_COLOR_CLASSES,
+  ADDRESS_COLOR_KEYS,
+  ADDRESS_ICON_KEYS,
+  DEFAULT_ADDRESS_COLOR,
+  DEFAULT_ADDRESS_ICON,
+  type AddressColorKey,
+  type AddressIconKey,
+} from "@/lib/pickupAddresses/addressAppearance";
 
 export type PickupAddressUser = {
   id: string;
@@ -14,6 +24,8 @@ export type PickupAddressFormData = {
   address: string;
   latitude: string;
   longitude: string;
+  icon: AddressIconKey;
+  color: AddressColorKey;
   userIds: string[];
 };
 
@@ -23,6 +35,8 @@ export type PickupAddressDetail = {
   address: string;
   latitude: number;
   longitude: number;
+  icon: AddressIconKey;
+  color: AddressColorKey;
   isActive: boolean;
   users: PickupAddressUser[];
 };
@@ -71,6 +85,8 @@ export default function PickupAddressModal({
     address: "",
     latitude: "",
     longitude: "",
+    icon: DEFAULT_ADDRESS_ICON,
+    color: DEFAULT_ADDRESS_COLOR,
     userIds: [],
   });
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +106,8 @@ export default function PickupAddressModal({
       address: editing?.address ?? "",
       latitude: editing ? String(editing.latitude) : "",
       longitude: editing ? String(editing.longitude) : "",
+      icon: editing?.icon ?? DEFAULT_ADDRESS_ICON,
+      color: editing?.color ?? DEFAULT_ADDRESS_COLOR,
       userIds: editing?.users.map((u) => u.id) ?? [],
     });
 
@@ -254,6 +272,59 @@ export default function PickupAddressModal({
                 placeholder="10.7669"
                 inputMode="decimal"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block pb-1.5 text-sm font-semibold text-textcolor">Icon</label>
+              <div className="flex flex-wrap gap-2">
+                {ADDRESS_ICON_KEYS.map((key) => {
+                  const Icon = ADDRESS_ICON_COMPONENTS[key];
+                  const colorClasses = ADDRESS_COLOR_CLASSES[form.color];
+                  const isSelected = form.icon === key;
+
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-label={key}
+                      aria-pressed={isSelected}
+                      onClick={() => setForm((prev) => ({ ...prev, icon: key }))}
+                      className={`grid h-10 w-10 place-items-center rounded-lg border transition-colors ${
+                        isSelected
+                          ? `border-transparent ${colorClasses.bg} ${colorClasses.text}`
+                          : "border-black/10 text-textColorThird hover:border-black/20"
+                      }`}
+                    >
+                      <Icon />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block pb-1.5 text-sm font-semibold text-textcolor">Color</label>
+              <div className="flex flex-wrap gap-2">
+                {ADDRESS_COLOR_KEYS.map((key) => {
+                  const isSelected = form.color === key;
+
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-label={key}
+                      aria-pressed={isSelected}
+                      onClick={() => setForm((prev) => ({ ...prev, color: key }))}
+                      className={`h-10 w-10 rounded-lg border-2 transition-transform ${
+                        isSelected ? "scale-105 border-black/60" : "border-transparent hover:scale-105"
+                      }`}
+                      style={{ backgroundColor: ADDRESS_COLOR_CLASSES[key].swatch }}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
 

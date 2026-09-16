@@ -7,6 +7,9 @@ type RouteDistanceInput = {
   extraPickupAddresses?: string[] | null;
   deliveryAddress?: string | null;
   returnAddress?: string | null;
+  // Same idea as pickupCoordinate, but for a return stop resolved from a
+  // custom pickup address.
+  returnCoordinate?: { latitude: number; longitude: number } | null;
 };
 
 type Coordinate = [number, number];
@@ -98,7 +101,12 @@ function buildOrderedRouteStops(input: RouteDistanceInput): RouteStop[] {
   const returnStop = normalizeRouteAddress(input.returnAddress);
 
   if (returnStop) {
-    stops.push({ address: returnStop });
+    stops.push({
+      address: returnStop,
+      coordinate: input.returnCoordinate
+        ? [input.returnCoordinate.longitude, input.returnCoordinate.latitude]
+        : undefined,
+    });
   }
 
   return stops;

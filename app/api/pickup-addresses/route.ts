@@ -18,6 +18,8 @@ export async function GET(req: Request) {
       address: true,
       latitude: true,
       longitude: true,
+      icon: true,
+      color: true,
       isActive: true,
       users: { select: { user: { select: { id: true, email: true, username: true } } } },
     },
@@ -31,6 +33,8 @@ export async function GET(req: Request) {
       address: address.address,
       latitude: address.latitude,
       longitude: address.longitude,
+      icon: address.icon,
+      color: address.color,
       isActive: address.isActive,
       users: address.users.map((entry) => entry.user),
     })),
@@ -65,6 +69,8 @@ export async function POST(req: Request) {
       address: validated.value.address,
       latitude: validated.value.latitude,
       longitude: validated.value.longitude,
+      icon: validated.value.icon,
+      color: validated.value.color,
       ...(userIds.length > 0
         ? { users: { create: userIds.map((userId) => ({ userId })) } }
         : {}),

@@ -1613,6 +1613,106 @@ describe("routes in /api/orders", () => {
     );
   });
 
+  it("POST stores an extra pickup's saved-address reference and its authoritative snapshot", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue({
+      id: "cpa-2",
+      name: "Power Slependen",
+      address: "Slependen 1, 1341 Slependen",
+      latitude: 59.85,
+      longitude: 10.45,
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          extraPickups: [
+            {
+              address: "Some other address the client typed",
+              phone: "",
+              email: "",
+              sendEmail: true,
+              customPickupAddressId: "cpa-2",
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-2", "user-1");
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          extraPickupAddress: ["Slependen 1, 1341 Slependen"],
+          extraPickupContacts: [
+            expect.objectContaining({
+              address: "Slependen 1, 1341 Slependen",
+              customPickupAddressId: "cpa-2",
+              customPickupAddressName: "Power Slependen",
+              latitude: 59.85,
+              longitude: 10.45,
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("POST rejects an extra pickup's saved address that isn't visible to the caller's store", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          extraPickups: [
+            {
+              address: "Store 2",
+              phone: "",
+              email: "",
+              sendEmail: true,
+              customPickupAddressId: "cpa-unauthorized",
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "PICKUP_ADDRESS_NOT_AVAILABLE",
+    });
+    expect(mocks.orderCreateMock).not.toHaveBeenCalled();
+  });
+
   it("POST sends an internal notification email after a successful create", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

@@ -130,6 +130,8 @@ describe("POST /api/pickup-addresses", () => {
         address: "Storo Storsenter 1",
         latitude: 59.945,
         longitude: 10.7669,
+        icon: "storefront",
+        color: "blue",
         users: {
           create: [{ userId: "user-1" }, { userId: "user-2" }],
         },

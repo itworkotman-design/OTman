@@ -107,7 +107,7 @@ describe("POST /api/route-distance", () => {
 
     expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith(
       "cpa-1",
-      "company-1",
+      "user-1",
     );
     expect(mocks.getRouteDistanceMock).toHaveBeenCalledWith({
       pickupAddress: "Storo Storsenter 1, Oslo",
@@ -117,6 +117,70 @@ describe("POST /api/route-distance", () => {
       returnAddress: "",
     });
     expect(response.status).toBe(200);
+  });
+
+  it("resolves a custom return address server-side and passes its coordinate through", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue({
+      id: "cpa-2",
+      name: "Power Storo",
+      address: "Storo Storsenter 1, Oslo",
+      latitude: 59.945,
+      longitude: 10.7669,
+    });
+    mocks.getRouteDistanceMock.mockResolvedValue({
+      distanceKm: "5.00",
+      stopAddresses: ["Pickup 1", "Storo Storsenter 1, Oslo"],
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/route-distance", {
+        method: "POST",
+        body: JSON.stringify({
+          pickupAddress: "Pickup 1",
+          customReturnAddressId: "cpa-2",
+        }),
+      }),
+    );
+
+    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-2", "user-1");
+    expect(mocks.getRouteDistanceMock).toHaveBeenCalledWith({
+      pickupAddress: "Pickup 1",
+      pickupCoordinate: undefined,
+      extraPickupAddresses: [],
+      deliveryAddress: "",
+      returnAddress: "Storo Storsenter 1, Oslo",
+      returnCoordinate: { latitude: 59.945, longitude: 10.7669 },
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it("returns 403 when the custom return address isn't visible to the caller", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue(null);
+
+    const response = await POST(
+      new Request("http://localhost/api/route-distance", {
+        method: "POST",
+        body: JSON.stringify({
+          customReturnAddressId: "cpa-unauthorized",
+          pickupAddress: "Pickup 1",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      reason: "RETURN_ADDRESS_NOT_AVAILABLE",
+    });
+    expect(mocks.getRouteDistanceMock).not.toHaveBeenCalled();
   });
 
   it("returns 403 when the custom pickup address isn't visible to the caller's store", async () => {

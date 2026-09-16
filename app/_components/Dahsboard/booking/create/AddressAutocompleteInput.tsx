@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
@@ -23,6 +23,10 @@ type Props = {
   // When set, addresses are listed before businesses/POIs (Mapbox's own
   // relevance ranking is kept within each group).
   prioritizeAddresses?: boolean;
+  // A leading icon switches the field to the larger, rounded "elevated"
+  // style shared with the pickup address card — omit it to keep the
+  // compact default look (e.g. extra pickup rows).
+  icon?: ReactNode;
 };
 
 const FEATURE_TYPE_RANK: Record<string, number> = {
@@ -48,6 +52,7 @@ export default function AddressAutocompleteInput({
   inputId,
   locale,
   prioritizeAddresses = false,
+  icon,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -163,6 +168,11 @@ export default function AddressAutocompleteInput({
 
   return (
     <div className="relative w-full" ref={boxRef}>
+      {icon ? (
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-textColorThird">
+          {icon}
+        </span>
+      ) : null}
       <input
         id={inputId}
         ref={inputRef}
@@ -186,7 +196,11 @@ export default function AddressAutocompleteInput({
         }}
         disabled={disabled}
         placeholder={placeholder}
-        className="customInput bg-white w-full"
+        className={
+          icon
+            ? "w-full rounded-xl border border-lineSecondary bg-white py-3 pl-11 pr-4 outline-none focus:border-logoblue/50 disabled:opacity-60"
+            : "customInput bg-white w-full"
+        }
         autoComplete="off"
       />
 

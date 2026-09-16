@@ -102,14 +102,17 @@ model CustomPickupAddress {
   address   String
   latitude  Float
   longitude Float
+  icon      String   @default("storefront")
+  color     String   @default("blue")
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users           UserCustomPickupAddress[]
-  mainForUsers    User[]
-  mainForInvites  Invite[]
-  ordersUsingThis Order[]
+  users                     UserCustomPickupAddress[]
+  mainForUsers              User[]
+  mainForInvites            Invite[]
+  ordersUsingThis           Order[]                   @relation("OrderCustomPickupAddress")
+  ordersUsingThisForReturn  Order[]                   @relation("OrderCustomReturnAddress")
 
   @@index([isActive])
 }
@@ -539,9 +542,14 @@ model Order {
   customPickupAddressName            String?
   pickupLatitude                     Float?
   pickupLongitude                    Float?
+  customReturnAddressId              String?
+  customReturnAddressName            String?
+  returnLatitude                     Float?
+  returnLongitude                    Float?
   gsmWebhookEvents                   GsmWebhookEvent[]
   company                            Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  customPickupAddress                CustomPickupAddress?      @relation(fields: [customPickupAddressId], references: [id])
+  customPickupAddress                CustomPickupAddress?      @relation("OrderCustomPickupAddress", fields: [customPickupAddressId], references: [id])
+  customReturnAddress                CustomPickupAddress?      @relation("OrderCustomReturnAddress", fields: [customReturnAddressId], references: [id])
   createdByMembership                Membership                @relation("OrderCreatedByMembership", fields: [createdByMembershipId], references: [id])
   customerMembership                 Membership?               @relation(fields: [customerMembershipId], references: [id])
   lastEditedByMembership             Membership?               @relation("OrderLastEditedByMembership", fields: [lastEditedByMembershipId], references: [id])
@@ -595,6 +603,7 @@ model Order {
   @@index([status, paymentRequestSentAt])
   @@index([status, paymentReminderSentAt])
   @@index([customPickupAddressId])
+  @@index([customReturnAddressId])
 }
 
 model OrderEvent {

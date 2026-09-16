@@ -6,6 +6,7 @@ import {
   PickupAddressCombobox,
   type CustomPickupAddressOption,
 } from "@/app/_components/Dahsboard/booking/create/PickupAddressCombobox";
+import { PlusIcon, SearchIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import {
   createEmptyExtraPickup,
   getExtraPickupValidation,
@@ -90,6 +91,7 @@ export function PickupLocations({
         </label>
         {!disabled && onSelectCustomPickupAddress ? (
           <PickupAddressCombobox
+            inputId="order-pickup-address"
             value={mainAddress}
             onChange={handleMainChange}
             customPickupAddressId={customPickupAddressId}
@@ -107,6 +109,7 @@ export function PickupLocations({
             disabled={disabled}
             placeholder={t("Enter a location")}
             locale={locale}
+            icon={<SearchIcon />}
           />
         )}
         {mainAddressError ? (
@@ -125,10 +128,6 @@ export function PickupLocations({
 
       {!disabled && (
         <div>
-          <div className="flex items-center justify-between py-2">
-            <label className="font-bold">{t("Additional pickup locations")}</label>
-          </div>
-
           <div
             className={[
               additionalDisabled ? "pointer-events-none opacity-50" : "",
@@ -159,11 +158,39 @@ export function PickupLocations({
                   </div>
 
                   <div className="mb-3">
-                    <AddressAutocompleteInput
+                    <PickupAddressCombobox
                       inputId={`extra-pickup-${pickup.id}-address`}
                       value={pickup.address}
                       onChange={(value, wasSelected) =>
-                        updatePickup(pickup.id, { address: value, addressSelected: Boolean(wasSelected) })
+                        updatePickup(pickup.id, {
+                          address: value,
+                          addressSelected: Boolean(wasSelected),
+                          customPickupAddressId: null,
+                          customPickupAddressName: null,
+                          latitude: null,
+                          longitude: null,
+                        })
+                      }
+                      customPickupAddressId={pickup.customPickupAddressId}
+                      onSelectCustomPickupAddress={(option) =>
+                        updatePickup(
+                          pickup.id,
+                          option
+                            ? {
+                                address: option.address,
+                                addressSelected: true,
+                                customPickupAddressId: option.id,
+                                customPickupAddressName: option.name,
+                                latitude: option.latitude,
+                                longitude: option.longitude,
+                              }
+                            : {
+                                customPickupAddressId: null,
+                                customPickupAddressName: null,
+                                latitude: null,
+                                longitude: null,
+                              },
+                        )
                       }
                       placeholder={t("Enter a location")}
                       locale={locale}
@@ -246,8 +273,9 @@ export function PickupLocations({
               type="button"
               onClick={addPickup}
               disabled={additionalDisabled}
-              className="customButtonDefault h-10 w-full"
+              className="my-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-lineSecondary p-4 font-medium text-logoblue hover:border-logoblue/50 bg-logoblue/5 disabled:cursor-auto disabled:opacity-50"
             >
+              <PlusIcon />
               {t("Add additional pickup")}
             </button>
           </div>

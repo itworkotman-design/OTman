@@ -41,7 +41,15 @@ describe("GET /api/pickup-addresses/available", () => {
   it("only returns active addresses visible to the caller", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
     mocks.findManyMock.mockResolvedValue([
-      { id: "cpa-1", name: "Power Storo", address: "Storo Storsenter 1", latitude: 59.945, longitude: 10.7669 },
+      {
+        id: "cpa-1",
+        name: "Power Storo",
+        address: "Storo Storsenter 1",
+        latitude: 59.945,
+        longitude: 10.7669,
+        icon: "storefront",
+        color: "blue",
+      },
     ]);
 
     const response = await GET(new Request("http://localhost/api/pickup-addresses/available"));
@@ -50,13 +58,21 @@ describe("GET /api/pickup-addresses/available", () => {
     expect(mocks.findManyMock).toHaveBeenCalledWith({
       where: { isActive: true, users: { some: { userId: "user-1" } } },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, address: true, latitude: true, longitude: true },
+      select: { id: true, name: true, address: true, latitude: true, longitude: true, icon: true, color: true },
     });
     expect(response.status).toBe(200);
     expect(json).toEqual({
       ok: true,
       pickupAddresses: [
-        { id: "cpa-1", name: "Power Storo", address: "Storo Storsenter 1", latitude: 59.945, longitude: 10.7669 },
+        {
+          id: "cpa-1",
+          name: "Power Storo",
+          address: "Storo Storsenter 1",
+          latitude: 59.945,
+          longitude: 10.7669,
+          icon: "storefront",
+          color: "blue",
+        },
       ],
     });
   });

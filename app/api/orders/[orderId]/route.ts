@@ -5,7 +5,12 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
 import { optionalBoolean, optionalPriceNumber, optionalString, optionalStringArray, safeInteger, safeNumber } from "@/lib/orders/normalizeOrderInput";
 import { getOptionalEmailError, getOptionalPhoneError, normalizeOptionalEmail, normalizeOptionalPhone } from "@/lib/orders/contactValidation";
-import { getExtraPickupApiError, normalizeExtraPickups, parseExtraPickups } from "@/lib/orders/extraPickups";
+import {
+  getExtraPickupApiError,
+  normalizeExtraPickups,
+  parseExtraPickups,
+} from "@/lib/orders/extraPickups";
+import { resolveExtraPickupCustomAddresses } from "@/lib/orders/resolveExtraPickupCustomAddresses";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
@@ -426,6 +431,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
                 phone?: unknown;
                 email?: unknown;
                 sendEmail?: unknown;
+                customPickupAddressId?: unknown;
+                customPickupAddressName?: unknown;
+                latitude?: unknown;
+                longitude?: unknown;
               })
             : null;
 
@@ -434,6 +443,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
           phone: typeof candidate?.phone === "string" ? candidate.phone : "",
           email: typeof candidate?.email === "string" ? candidate.email : "",
           sendEmail: candidate?.sendEmail === false ? false : true,
+          customPickupAddressId: typeof candidate?.customPickupAddressId === "string" ? candidate.customPickupAddressId : null,
+          customPickupAddressName: typeof candidate?.customPickupAddressName === "string" ? candidate.customPickupAddressName : null,
+          latitude: typeof candidate?.latitude === "number" ? candidate.latitude : null,
+          longitude: typeof candidate?.longitude === "number" ? candidate.longitude : null,
         };
       }),
       deliveryAddress: order.deliveryAddress ?? "",
@@ -673,7 +686,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   }
 
   const existingExtraPickups = normalizeExtraPickups(parseExtraPickups(existingOrder.extraPickupContacts));
-  const extraPickups = body.extraPickups !== undefined ? normalizeExtraPickups(parsedBodyExtraPickups ?? []) : existingExtraPickups;
+  let extraPickups = body.extraPickups !== undefined ? normalizeExtraPickups(parsedBodyExtraPickups ?? []) : existingExtraPickups;
+
+  if (body.extraPickups !== undefined) {
+    const extraPickupResolution = await resolveExtraPickupCustomAddresses(extraPickups, session.userId);
+
+    if (extraPickupResolution.invalidPickupIndex !== null) {
+      return NextResponse.json(
+        { ok: false, reason: "PICKUP_ADDRESS_NOT_AVAILABLE" },
+        { status: 403 },
+      );
+    }
+
+    extraPickups = extraPickupResolution.extraPickups;
+  }
+
   const extraPickupContactsChanged = body.extraPickups !== undefined && JSON.stringify(extraPickups) !== JSON.stringify(existingExtraPickups);
   const isAdminOrOwner = membership.role === "OWNER" || membership.role === "ADMIN";
 
@@ -693,7 +720,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     if (requestedCustomPickupAddressId) {
       const customPickupAddress = await getVisibleCustomPickupAddress(
         requestedCustomPickupAddressId,
-        session.activeCompanyId,
+        session.userId,
       );
 
       if (!customPickupAddress) {
@@ -713,6 +740,41 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       resolvedCustomPickupAddressName = null;
       resolvedPickupLatitude = null;
       resolvedPickupLongitude = null;
+    }
+  }
+
+  let resolvedReturnAddress = optionalString(body.returnAddress);
+  let resolvedCustomReturnAddressId: string | null | undefined;
+  let resolvedCustomReturnAddressName: string | null | undefined;
+  let resolvedReturnLatitude: number | null | undefined;
+  let resolvedReturnLongitude: number | null | undefined;
+
+  if (Object.prototype.hasOwnProperty.call(body, "customReturnAddressId")) {
+    const requestedCustomReturnAddressId = optionalString(body.customReturnAddressId);
+
+    if (requestedCustomReturnAddressId) {
+      const customReturnAddress = await getVisibleCustomPickupAddress(
+        requestedCustomReturnAddressId,
+        session.userId,
+      );
+
+      if (!customReturnAddress) {
+        return NextResponse.json(
+          { ok: false, reason: "RETURN_ADDRESS_NOT_AVAILABLE" },
+          { status: 403 },
+        );
+      }
+
+      resolvedReturnAddress = customReturnAddress.address;
+      resolvedCustomReturnAddressId = customReturnAddress.id;
+      resolvedCustomReturnAddressName = customReturnAddress.name;
+      resolvedReturnLatitude = customReturnAddress.latitude;
+      resolvedReturnLongitude = customReturnAddress.longitude;
+    } else {
+      resolvedCustomReturnAddressId = null;
+      resolvedCustomReturnAddressName = null;
+      resolvedReturnLatitude = null;
+      resolvedReturnLongitude = null;
     }
   }
 
@@ -818,7 +880,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     pickupAddress: resolvedPickupAddress ?? existingOrder.pickupAddress,
     extraPickupAddress: body.extraPickups !== undefined ? extraPickups.map((pickup) => pickup.address) : existingOrder.extraPickupAddress,
     deliveryAddress: optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
-    returnAddress: optionalString(body.returnAddress) ?? existingOrder.returnAddress,
+    returnAddress: resolvedReturnAddress ?? existingOrder.returnAddress,
     drivingDistance: optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
     phone: phone ?? existingOrder.phone,
     phoneTwo: phoneTwo ?? existingOrder.phoneTwo,
@@ -874,7 +936,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         extraPickupAddress: extraPickups.map((pickup) => pickup.address),
         extraPickupContacts: extraPickups as unknown as Prisma.InputJsonValue,
         deliveryAddress: optionalString(body.deliveryAddress),
-        returnAddress: optionalString(body.returnAddress),
+        returnAddress: resolvedReturnAddress,
+        customReturnAddressId: resolvedCustomReturnAddressId,
+        customReturnAddressName: resolvedCustomReturnAddressName,
+        returnLatitude: resolvedReturnLatitude,
+        returnLongitude: resolvedReturnLongitude,
         drivingDistance: optionalString(body.drivingDistance),
 
         customerMembershipId: optionalString(body.customerMembershipId) || existingOrder.customerMembershipId,

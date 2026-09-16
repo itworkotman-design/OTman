@@ -1,8 +1,19 @@
+import {
+  DEFAULT_ADDRESS_COLOR,
+  DEFAULT_ADDRESS_ICON,
+  isAddressColorKey,
+  isAddressIconKey,
+  type AddressColorKey,
+  type AddressIconKey,
+} from "./addressAppearance";
+
 export type CustomPickupAddressInput = {
   name: string;
   address: string;
   latitude: number;
   longitude: number;
+  icon: AddressIconKey;
+  color: AddressColorKey;
 };
 
 export type ValidationResult =
@@ -73,5 +84,11 @@ export function validateCustomPickupAddressInput(body: unknown): ValidationResul
     };
   }
 
-  return { ok: true, value: { name, address, latitude, longitude } };
+  // Icon/color come from a fixed picker, not free text — an unrecognized
+  // value (bad request, stale client) just falls back to the default rather
+  // than failing the whole save.
+  const icon = isAddressIconKey(input.icon) ? input.icon : DEFAULT_ADDRESS_ICON;
+  const color = isAddressColorKey(input.color) ? input.color : DEFAULT_ADDRESS_COLOR;
+
+  return { ok: true, value: { name, address, latitude, longitude, icon, color } };
 }

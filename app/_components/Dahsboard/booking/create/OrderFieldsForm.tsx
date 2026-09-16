@@ -4,8 +4,9 @@ import React, { useRef, useState } from "react";
 import { OrderFields, shown, type HiddenMask } from "@/app/_components/Dahsboard/booking/create/orderFields";
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { UserOption } from "@/lib/users/types";
-import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
+import { PickupAddressCombobox } from "@/app/_components/Dahsboard/booking/create/PickupAddressCombobox";
 import OrderAttachmentsSection from "@/app/_components/Dahsboard/booking/create/OrderAttachmentsSection";
+import { RouteIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
 import { CUSTOM_DEVIATION_CODE, DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import {
@@ -157,6 +158,10 @@ type Props = {
     email: string;
     sendEmail: boolean;
     addressSelected: boolean;
+    customPickupAddressId: string | null;
+    customPickupAddressName: string | null;
+    latitude: number | null;
+    longitude: number | null;
   }[];
   setExtraPickups: React.Dispatch<
     React.SetStateAction<
@@ -167,12 +172,20 @@ type Props = {
         email: string;
         sendEmail: boolean;
         addressSelected: boolean;
+        customPickupAddressId: string | null;
+        customPickupAddressName: string | null;
+        latitude: number | null;
+        longitude: number | null;
       }[]
     >
   >;
   returnAddress: string;
   setReturnAddress: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
   returnAddressImprecise?: boolean;
+  customReturnAddressId?: string | null;
+  onSelectCustomReturnAddress?: (
+    address: { id: string; name: string; address: string; latitude: number; longitude: number } | null,
+  ) => void;
   shouldShowReturnAddress: boolean;
 
   customerLabel: string;
@@ -310,6 +323,8 @@ export default function OrderFieldsForm({
   returnAddress,
   setReturnAddress,
   returnAddressImprecise = false,
+  customReturnAddressId = null,
+  onSelectCustomReturnAddress,
   shouldShowReturnAddress,
   customerName,
   setCustomerName,
@@ -671,13 +686,14 @@ export default function OrderFieldsForm({
             {t("Delivery address")}
             {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
           </h1>
-          <AddressAutocompleteInput
+          <PickupAddressCombobox
             inputId="order-delivery-address"
             value={deliveryAddress}
             onChange={setDeliveryAddress}
             placeholder={t("Enter a location")}
             locale={locale}
             prioritizeAddresses
+            allowSavedLocations={false}
           />
           <FieldErrorMessage message={deliveryAddressError} />
           <ImpreciseAddressWarning show={deliveryAddressImprecise} locale={locale} />
@@ -685,10 +701,12 @@ export default function OrderFieldsForm({
           {shouldShowReturnAddress && (
             <>
               <h1 className="font-bold py-2">{t("Return address")}</h1>
-              <AddressAutocompleteInput
+              <PickupAddressCombobox
                 inputId="order-return-address"
                 value={returnAddress}
                 onChange={setReturnAddress}
+                customPickupAddressId={customReturnAddressId}
+                onSelectCustomPickupAddress={onSelectCustomReturnAddress}
                 placeholder={t("Enter a return location")}
                 locale={locale}
               />
@@ -702,7 +720,19 @@ export default function OrderFieldsForm({
       {shown(hidden, OrderFields.DrivingDistance) && (
         <>
           <h1 className="font-bold py-2">{t("Total driving distance")}</h1>
-          <input value={drivingDistance} onChange={(e) => setDrivingDistance(e.target.value)} className="customInput w-full" />
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-textColorThird">
+              <RouteIcon />
+            </span>
+            <input
+              value={drivingDistance}
+              onChange={(e) => setDrivingDistance(e.target.value)}
+              className="w-full rounded-xl border border-lineSecondary bg-white py-3 pl-11 pr-12 outline-none focus:border-logoblue/50"
+            />
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-textColorSecond">
+              km
+            </span>
+          </div>
         </>
       )}
 

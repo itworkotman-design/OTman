@@ -962,7 +962,7 @@ describe("routes in /api/orders/[orderId]", () => {
       { params: Promise.resolve({ orderId: "order-1" }) },
     );
 
-    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-1", "company-1");
+    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-1", "user-1");
     expect(res.status).toBe(200);
     expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1051,6 +1051,214 @@ describe("routes in /api/orders/[orderId]", () => {
         body: JSON.stringify({
           productCards: [{ cardId: 1, productId: "product-1" }],
           customPickupAddressId: "cpa-unauthorized",
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "PICKUP_ADDRESS_NOT_AVAILABLE",
+    });
+    expect(mocks.orderUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("PATCH resolves an extra pickup's saved address server-side and overrides the client-submitted address", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      user: { username: "admin", email: "admin@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      companyId: "company-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      productCardsSnapshot: [],
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      status: "processing",
+      statusNotes: "",
+      customerName: "",
+      deliveryDate: "",
+      timeWindow: "",
+      expressDelivery: false,
+      contactCustomerForCustomTimeWindow: false,
+      customTimeContactNote: null,
+      pickupAddress: "Some normal searched address",
+      customPickupAddressId: null,
+      customPickupAddressName: null,
+      pickupLatitude: null,
+      pickupLongitude: null,
+      extraPickupAddress: [],
+      deliveryAddress: "",
+      returnAddress: "",
+      drivingDistance: "",
+      phone: "",
+      phoneTwo: "",
+      email: "",
+      customerComments: "",
+      description: "",
+      productsSummary: "",
+      deliveryTypeSummary: "",
+      servicesSummary: "",
+      cashierName: "",
+      cashierPhone: "",
+      subcontractor: "",
+      driver: "",
+      secondDriver: "",
+      driverInfo: "",
+      licensePlate: "",
+      deviation: "",
+      feeExtraWork: false,
+      feeAddToOrder: false,
+      dontSendEmail: false,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      gsmLastTaskState: null,
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue({
+      id: "cpa-2",
+      name: "Power Slependen",
+      address: "Slependen 1, 1341 Slependen",
+      latitude: 59.85,
+      longitude: 10.45,
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          extraPickups: [
+            {
+              address: "Address the client tried to submit directly",
+              phone: "",
+              email: "",
+              sendEmail: true,
+              customPickupAddressId: "cpa-2",
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith("cpa-2", "user-1");
+    expect(res.status).toBe(200);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          extraPickupAddress: ["Slependen 1, 1341 Slependen"],
+          extraPickupContacts: [
+            expect.objectContaining({
+              address: "Slependen 1, 1341 Slependen",
+              customPickupAddressId: "cpa-2",
+              customPickupAddressName: "Power Slependen",
+              latitude: 59.85,
+              longitude: 10.45,
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("PATCH rejects an extra pickup's saved address that isn't visible to the caller's store", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      user: { username: "admin", email: "admin@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      companyId: "company-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      productCardsSnapshot: [],
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      status: "processing",
+      statusNotes: "",
+      customerName: "",
+      deliveryDate: "",
+      timeWindow: "",
+      expressDelivery: false,
+      contactCustomerForCustomTimeWindow: false,
+      customTimeContactNote: null,
+      pickupAddress: "Some normal searched address",
+      customPickupAddressId: null,
+      customPickupAddressName: null,
+      pickupLatitude: null,
+      pickupLongitude: null,
+      extraPickupAddress: [],
+      deliveryAddress: "",
+      returnAddress: "",
+      drivingDistance: "",
+      phone: "",
+      phoneTwo: "",
+      email: "",
+      customerComments: "",
+      description: "",
+      productsSummary: "",
+      deliveryTypeSummary: "",
+      servicesSummary: "",
+      cashierName: "",
+      cashierPhone: "",
+      subcontractor: "",
+      driver: "",
+      secondDriver: "",
+      driverInfo: "",
+      licensePlate: "",
+      deviation: "",
+      feeExtraWork: false,
+      feeAddToOrder: false,
+      dontSendEmail: false,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      gsmLastTaskState: null,
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue(null);
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          extraPickups: [
+            {
+              address: "Store 2",
+              phone: "",
+              email: "",
+              sendEmail: true,
+              customPickupAddressId: "cpa-unauthorized",
+            },
+          ],
         }),
       }),
       { params: Promise.resolve({ orderId: "order-1" }) },

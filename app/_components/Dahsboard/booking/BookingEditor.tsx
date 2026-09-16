@@ -59,8 +59,13 @@ export type OrderFormPayload = {
     phone: string;
     email: string;
     sendEmail: boolean;
+    customPickupAddressId: string | null;
+    customPickupAddressName: string | null;
+    latitude: number | null;
+    longitude: number | null;
   }[];
   returnAddress: string;
+  customReturnAddressId: string | null;
 
   deliveryAddress: string;
   drivingDistance: string;
@@ -483,12 +488,19 @@ export default function BookingEditor({
           email: pickup.email ?? "",
           sendEmail: pickup.sendEmail ?? true,
           addressSelected: true,
+          customPickupAddressId: pickup.customPickupAddressId ?? null,
+          customPickupAddressName: pickup.customPickupAddressName ?? null,
+          latitude: pickup.latitude ?? null,
+          longitude: pickup.longitude ?? null,
         }))
       : [],
   );
   const [returnAddress, setReturnAddress] = useState(initialValues?.returnAddress ?? "");
   const [returnAddressSelected, setReturnAddressSelected] = useState(Boolean(initialValues?.returnAddress));
   const [returnAddressImprecise, setReturnAddressImprecise] = useState(false);
+  const [customReturnAddressId, setCustomReturnAddressId] = useState<string | null>(
+    initialValues?.customReturnAddressId ?? null,
+  );
   const [customTimeFrom, setCustomTimeFrom] = useState(initialTimeWindowState.customTimeFrom);
 
   const [customTimeTo, setCustomTimeTo] = useState(initialTimeWindowState.customTimeTo);
@@ -781,10 +793,15 @@ export default function BookingEditor({
         email: pickup.email ?? "",
         sendEmail: pickup.sendEmail ?? true,
         addressSelected: true,
+        customPickupAddressId: pickup.customPickupAddressId ?? null,
+        customPickupAddressName: pickup.customPickupAddressName ?? null,
+        latitude: pickup.latitude ?? null,
+        longitude: pickup.longitude ?? null,
       })),
     );
     setReturnAddress(initialValues.returnAddress ?? "");
     setReturnAddressSelected(Boolean(initialValues.returnAddress));
+    setCustomReturnAddressId(initialValues.customReturnAddressId ?? null);
     setCustomPickupAddressId(initialValues.customPickupAddressId ?? null);
     setCustomTimeFrom(nextTimeWindowState.customTimeFrom);
     setCustomTimeTo(nextTimeWindowState.customTimeTo);
@@ -892,6 +909,9 @@ export default function BookingEditor({
     hasUserEditedReturnAddressRef.current = true;
     setReturnAddress(value);
     setReturnAddressSelected(Boolean(wasSelected));
+    // Same mutual-exclusivity as pickup: a fresh geocoded pick (or typed
+    // text) is never a saved custom address.
+    setCustomReturnAddressId(null);
 
     const imprecise = Boolean(wasSelected) && isStreetOnlyMatch(meta);
     setReturnAddressImprecise(imprecise);
@@ -899,6 +919,23 @@ export default function BookingEditor({
       setDescription((current) => appendImpreciseAddressNote(current, bookingText(locale, "Return address"), meta.typedQuery));
     }
   }, [locale]);
+
+  const handleSelectCustomReturnAddress = useCallback(
+    (address: { id: string; name: string; address: string; latitude: number; longitude: number } | null) => {
+      hasUserEditedReturnAddressRef.current = true;
+
+      if (!address) {
+        setCustomReturnAddressId(null);
+        return;
+      }
+
+      setReturnAddress(address.address);
+      setReturnAddressSelected(true);
+      setReturnAddressImprecise(false);
+      setCustomReturnAddressId(address.id);
+    },
+    [],
+  );
 
   const clearBothDiscountFields = useCallback(() => {
     setRabatt("");
@@ -1715,6 +1752,7 @@ export default function BookingEditor({
     if (shouldShowReturnAddress && (!isInitialSync || !hasUserEditedReturnAddressRef.current)) {
       setReturnAddress(selectedCustomerAddress);
       setReturnAddressSelected(true);
+      setCustomReturnAddressId(selectedCustomerOption.mainPickupAddress?.id ?? null);
     }
   }, [initialValues?.id, selectedCustomerAddress, selectedCustomerOption, shouldShowReturnAddress]);
 
@@ -1736,7 +1774,8 @@ export default function BookingEditor({
 
     setReturnAddress(selectedCustomerAddress);
     setReturnAddressSelected(true);
-  }, [initialValues?.id, selectedCustomerAddress, shouldShowReturnAddress]);
+    setCustomReturnAddressId(selectedCustomerOption?.mainPickupAddress?.id ?? null);
+  }, [initialValues?.id, selectedCustomerAddress, selectedCustomerOption, shouldShowReturnAddress]);
 
   useEffect(() => {
     if (!floorNo.trim() && lift) {
@@ -1766,6 +1805,7 @@ export default function BookingEditor({
       extraPickupAddresses,
       deliveryAddress: deliveryAddressSelected ? deliveryAddress : "",
       returnAddress: shouldShowReturnAddress && returnAddressSelected ? returnAddress : "",
+      customReturnAddressId: shouldShowReturnAddress && returnAddressSelected ? customReturnAddressId : null,
     };
 
     distanceRequestAbortRef.current?.abort();
@@ -1823,6 +1863,7 @@ export default function BookingEditor({
     };
   }, [
     customPickupAddressId,
+    customReturnAddressId,
     deliveryAddress,
     deliveryAddressSelected,
     extraPickups,
@@ -2030,6 +2071,7 @@ export default function BookingEditor({
       customPickupAddressId,
       extraPickups: normalizedExtraPickups,
       returnAddress,
+      customReturnAddressId,
       deliveryAddress,
       drivingDistance,
 
@@ -2281,6 +2323,8 @@ export default function BookingEditor({
             returnAddress={returnAddress}
             setReturnAddress={handleReturnAddressChange}
             returnAddressImprecise={returnAddressImprecise}
+            customReturnAddressId={customReturnAddressId}
+            onSelectCustomReturnAddress={handleSelectCustomReturnAddress}
             customTimeFrom={customTimeFrom}
             setCustomTimeFrom={setCustomTimeFrom}
             customTimeTo={customTimeTo}

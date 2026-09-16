@@ -17,8 +17,44 @@ describe("validateCustomPickupAddressInput", () => {
         address: "Storo Storsenter 1, 0587 Oslo",
         latitude: 59.945,
         longitude: 10.7669,
+        icon: "storefront",
+        color: "blue",
       },
     });
+  });
+
+  it("accepts an explicit icon and color from the curated list", () => {
+    const result = validateCustomPickupAddressInput({
+      name: "Power Storo",
+      address: "Storo Storsenter 1, 0587 Oslo",
+      latitude: 59.945,
+      longitude: 10.7669,
+      icon: "warehouse",
+      color: "green",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.icon).toBe("warehouse");
+      expect(result.value.color).toBe("green");
+    }
+  });
+
+  it("falls back to the default icon/color when given an unrecognized value", () => {
+    const result = validateCustomPickupAddressInput({
+      name: "Power Storo",
+      address: "Storo Storsenter 1, 0587 Oslo",
+      latitude: 59.945,
+      longitude: 10.7669,
+      icon: "<script>alert(1)</script>",
+      color: "not-a-real-color",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.icon).toBe("storefront");
+      expect(result.value.color).toBe("blue");
+    }
   });
 
   it("rejects a missing name", () => {

@@ -4,8 +4,16 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import AddressAutocompleteInput, {
   type AddressSuggestion,
 } from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
+import { ADDRESS_ICON_COMPONENTS, PinIcon, SearchIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
+import {
+  ADDRESS_COLOR_CLASSES,
+  DEFAULT_ADDRESS_COLOR,
+  DEFAULT_ADDRESS_ICON,
+  type AddressColorKey,
+  type AddressIconKey,
+} from "@/lib/pickupAddresses/addressAppearance";
 
 export type CustomPickupAddressOption = {
   id: string;
@@ -13,47 +21,22 @@ export type CustomPickupAddressOption = {
   address: string;
   latitude: number;
   longitude: number;
+  icon: AddressIconKey;
+  color: AddressColorKey;
 };
 
-function StorefrontIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5V9" />
-      <path d="M3.5 9h17l-.7 3.3a2 2 0 0 1-2 1.6 2 2 0 0 1-2-2 2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1-2 2 2 2 0 0 1-2-1.6z" />
-      <path d="M5 14v6h14v-6" />
-      <path d="M9.5 20v-4a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5v4" />
-    </svg>
-  );
-}
+const FEATURE_TYPE_RANK: Record<string, number> = {
+  address: 0,
+  poi: 1,
+};
 
-function PinIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
+function sortSuggestions(results: AddressSuggestion[], prioritizeAddresses: boolean) {
+  if (!prioritizeAddresses) {
+    return results;
+  }
+
+  return [...results].sort(
+    (a, b) => (FEATURE_TYPE_RANK[a.featureType] ?? 2) - (FEATURE_TYPE_RANK[b.featureType] ?? 2),
   );
 }
 
@@ -102,6 +85,7 @@ function SelectedAddressCard({
   title,
   subtitle,
   icon,
+  colorClasses,
   open,
   onClick,
 }: {
@@ -109,6 +93,7 @@ function SelectedAddressCard({
   title: string;
   subtitle?: string;
   icon: ReactNode;
+  colorClasses: { bg: string; text: string };
   open: boolean;
   onClick: () => void;
 }) {
@@ -120,7 +105,7 @@ function SelectedAddressCard({
       aria-expanded={open}
       className="flex w-full items-center gap-3 rounded-xl border border-lineSecondary bg-white px-4 py-3 text-left hover:border-logoblue/40"
     >
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-logoblue/10 text-logoblue">
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${colorClasses.bg} ${colorClasses.text}`}>
         {icon}
       </span>
       <span className="min-w-0 flex-1">
@@ -141,6 +126,9 @@ function SavedLocationRow({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const Icon = ADDRESS_ICON_COMPONENTS[option.icon] ?? ADDRESS_ICON_COMPONENTS[DEFAULT_ADDRESS_ICON];
+  const colorClasses = ADDRESS_COLOR_CLASSES[option.color] ?? ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR];
+
   return (
     <button
       type="button"
@@ -149,8 +137,8 @@ function SavedLocationRow({
         selected ? "bg-logoblue/10" : "hover:bg-black/5"
       }`}
     >
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-logoblue/10 text-logoblue">
-        <StorefrontIcon />
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${colorClasses.bg} ${colorClasses.text}`}>
+        <Icon />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold text-black">{option.name}</span>
@@ -158,6 +146,39 @@ function SavedLocationRow({
       </span>
       {selected ? <CheckIcon /> : null}
     </button>
+  );
+}
+
+function SearchField({
+  id,
+  value,
+  placeholder,
+  onChange,
+  onFocus,
+  className = "",
+}: {
+  id?: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  onFocus?: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={`relative ${className}`}>
+      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-textColorThird">
+        <SearchIcon />
+      </span>
+      <input
+        id={id}
+        className="w-full rounded-xl border border-lineSecondary bg-white py-3 pl-11 pr-4 outline-none focus:border-logoblue/50"
+        value={value}
+        placeholder={placeholder}
+        onFocus={onFocus}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete="off"
+      />
+    </div>
   );
 }
 
@@ -201,19 +222,35 @@ function SuggestionRow({
 // in one scrollable, absolutely-positioned panel (not two stacked dropdowns)
 // so opening it overlays the rest of the form instead of pushing it down.
 export function PickupAddressCombobox({
+  inputId,
   value,
   onChange,
   customPickupAddressId,
   onSelectCustomPickupAddress,
   placeholder,
   locale = "en",
+  prioritizeAddresses = false,
+  allowSavedLocations = true,
 }: {
+  inputId: string;
   value: string;
   onChange: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
   customPickupAddressId?: string | null;
-  onSelectCustomPickupAddress: (address: CustomPickupAddressOption | null) => void;
+  // Omit this when the caller has no id-based "main pickup address" concept
+  // to update (e.g. an extra pickup row) — picking a saved location then
+  // just commits its address text via onChange, same as a geocoded pick.
+  onSelectCustomPickupAddress?: (address: CustomPickupAddressOption | null) => void;
   placeholder?: string;
   locale?: BookingUiLocale;
+  // When set, geocoded addresses are listed before businesses/POIs (Mapbox's
+  // own relevance ranking is kept within each group) — mirrors
+  // AddressAutocompleteInput's own prop of the same name.
+  prioritizeAddresses?: boolean;
+  // Delivery addresses aren't saved pickup locations, but the field should
+  // still get the same "confirmed address" card + pin icon treatment as the
+  // saved-location fields — so this skips the saved-locations fetch/list
+  // rather than falling back to the plainer AddressAutocompleteInput.
+  allowSavedLocations?: boolean;
 }) {
   const t = (text: string) => bookingText(locale, text);
   const [options, setOptions] = useState<CustomPickupAddressOption[]>([]);
@@ -226,6 +263,11 @@ export function PickupAddressCombobox({
   const sessionTokenRef = useRef("");
 
   useEffect(() => {
+    if (!allowSavedLocations) {
+      setLoadingOptions(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function run() {
@@ -249,12 +291,22 @@ export function PickupAddressCombobox({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [allowSavedLocations]);
 
   const hasConfirmedAddress = value.trim().length > 0;
-  // With nothing confirmed yet there's no card to collapse into, so the
-  // search panel stays open regardless of the `expanded` toggle.
-  const panelVisible = !loadingOptions && options.length > 0 && (expanded || !hasConfirmedAddress);
+  // The search input itself (rendered below regardless of confirmation
+  // state) is the closed-state trigger — the results panel only follows
+  // `expanded`, so an empty field can still be closed without picking
+  // something. When saved locations are disabled there's nothing to list
+  // until a geocode search actually has something to show (or the field is
+  // already confirmed, which renders its own embedded search box) — otherwise
+  // focusing the empty field would pop an empty white panel.
+  const panelVisible =
+    !loadingOptions &&
+    expanded &&
+    (allowSavedLocations
+      ? options.length > 0
+      : hasConfirmedAddress || addressLoading || addressResults.length > 0 || searchValue.trim().length > 0);
 
   const collapse = () => {
     setExpanded(false);
@@ -312,7 +364,7 @@ export function PickupAddressCombobox({
           return;
         }
 
-        setAddressResults(data.results ?? []);
+        setAddressResults(sortSuggestions(data.results ?? [], prioritizeAddresses));
       } catch {
         setAddressResults([]);
       } finally {
@@ -324,12 +376,15 @@ export function PickupAddressCombobox({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [searchValue, panelVisible]);
+  }, [searchValue, panelVisible, prioritizeAddresses]);
 
   const selected = useMemo(
     () => (customPickupAddressId ? (options.find((o) => o.id === customPickupAddressId) ?? null) : null),
     [options, customPickupAddressId],
   );
+  const SelectedIcon = selected
+    ? (ADDRESS_ICON_COMPONENTS[selected.icon] ?? ADDRESS_ICON_COMPONENTS[DEFAULT_ADDRESS_ICON])
+    : PinIcon;
 
   const filteredOptions = useMemo(() => {
     const q = searchValue.trim().toLowerCase();
@@ -340,7 +395,13 @@ export function PickupAddressCombobox({
   }, [options, searchValue]);
 
   const selectOption = (option: CustomPickupAddressOption) => {
-    onSelectCustomPickupAddress(option);
+    if (onSelectCustomPickupAddress) {
+      onSelectCustomPickupAddress(option);
+    } else {
+      // No id-based callback to update — commit the saved location's
+      // address text directly, same as picking a geocoded suggestion.
+      onChange(option.address, true, { featureType: "address", typedQuery: searchValue, precise: true });
+    }
     collapse();
   };
 
@@ -350,7 +411,7 @@ export function PickupAddressCombobox({
       typedQuery: searchValue,
       precise: suggestion.precise,
     });
-    onSelectCustomPickupAddress(null);
+    onSelectCustomPickupAddress?.(null);
     sessionTokenRef.current = "";
     collapse();
   };
@@ -358,20 +419,29 @@ export function PickupAddressCombobox({
   const precisionLabel = (suggestion: AddressSuggestion) =>
     !suggestion.precise ? t("Approximate") : suggestion.featureType === "poi" ? t("Business") : t("Address");
 
-  if (loadingOptions || options.length === 0) {
+  if (allowSavedLocations && (loadingOptions || options.length === 0)) {
     return (
       <AddressAutocompleteInput
-        inputId="order-pickup-address"
+        inputId={inputId}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
         locale={locale}
+        icon={<SearchIcon />}
+        prioritizeAddresses={prioritizeAddresses}
       />
     );
   }
 
   const hasResults = filteredOptions.length > 0 || addressResults.length > 0;
   const showNoResults = !addressLoading && !hasResults && searchValue.trim().length > 0;
+  // "Search saved locations..." would be misleading once there are none to
+  // search (e.g. delivery addresses) — fall back to the caller's own
+  // placeholder, which now has to carry that meaning on its own since the
+  // "Choose a saved location..." hint line above the field is gone.
+  const searchPlaceholder = allowSavedLocations
+    ? t("Search saved locations or enter address...")
+    : (placeholder ?? t("Enter a location"));
 
   const resultsList = (
     <div className="max-h-72 overflow-auto">
@@ -412,44 +482,38 @@ export function PickupAddressCombobox({
 
   return (
     <div>
-      <p className="mb-2 mt-0.5 text-sm text-textColorSecond">
-        {t("Choose a saved location or enter another address")}
-      </p>
-
       <div ref={containerRef} className="relative">
         {hasConfirmedAddress ? (
           <SelectedAddressCard
-            id="order-pickup-address"
+            id={inputId}
             title={selected ? selected.name : value}
             subtitle={selected ? selected.address : undefined}
-            icon={selected ? <StorefrontIcon /> : <PinIcon />}
+            icon={<SelectedIcon />}
+            colorClasses={selected ? ADDRESS_COLOR_CLASSES[selected.color] ?? ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR] : ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR]}
             open={expanded}
             onClick={() => (expanded ? collapse() : setExpanded(true))}
           />
         ) : (
-          <input
-            id="order-pickup-address"
-            className="customInput w-full bg-white"
+          <SearchField
+            id={inputId}
             value={searchValue}
-            placeholder={t("Search saved locations or enter address...")}
+            placeholder={searchPlaceholder}
             onFocus={() => setExpanded(true)}
-            onChange={(e) => {
+            onChange={(next) => {
               setExpanded(true);
-              setSearchValue(e.target.value);
+              setSearchValue(next);
             }}
-            autoComplete="off"
           />
         )}
 
         {panelVisible ? (
           <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-xl border border-lineSecondary bg-white p-2 shadow-lg">
             {hasConfirmedAddress ? (
-              <input
-                className="customInput mb-2 w-full bg-white"
+              <SearchField
                 value={searchValue}
-                placeholder={t("Search saved locations or enter address...")}
-                onChange={(e) => setSearchValue(e.target.value)}
-                autoComplete="off"
+                placeholder={searchPlaceholder}
+                onChange={setSearchValue}
+                className="mb-2"
               />
             ) : null}
 

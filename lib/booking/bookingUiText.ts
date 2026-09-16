@@ -73,7 +73,6 @@ const NB_TEXT: Record<string, string> = {
   "Driver info": "Sjåførinfo",
   "All pickup addresses": "Alle hentesteder",
   "Enter a location": "Skriv inn adresse",
-  "Choose a saved location or enter another address": "Velg et lagret sted eller skriv inn en annen adresse",
   "Search saved locations or enter address...": "Søk lagrede steder eller skriv inn adresse...",
   "Saved locations": "Lagrede steder",
   "Enter a return location": "Skriv inn returadresse",

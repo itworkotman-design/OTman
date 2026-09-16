@@ -6,6 +6,14 @@ import PickupAddressModal, {
   type PickupAddressDetail,
   type PickupAddressFormData,
 } from "@/app/_components/Dahsboard/pickupAddresses/PickupAddressModal";
+import { ADDRESS_ICON_COMPONENTS } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
+import {
+  ADDRESS_COLOR_CLASSES,
+  DEFAULT_ADDRESS_COLOR,
+  DEFAULT_ADDRESS_ICON,
+  type AddressColorKey,
+  type AddressIconKey,
+} from "@/lib/pickupAddresses/addressAppearance";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { hasFullAccess } from "@/lib/users/access";
 
@@ -15,6 +23,8 @@ type PickupAddressRow = {
   address: string;
   latitude: number;
   longitude: number;
+  icon: AddressIconKey;
+  color: AddressColorKey;
   isActive: boolean;
   users: PickupAddressUser[];
 };
@@ -77,6 +87,8 @@ function PickupAddressesSection() {
       address: data.address.trim(),
       latitude: Number(data.latitude),
       longitude: Number(data.longitude),
+      icon: data.icon,
+      color: data.color,
       userIds: data.userIds,
     };
 
@@ -186,9 +198,20 @@ function PickupAddressesSection() {
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => (
+                rows.map((row) => {
+                  const Icon = ADDRESS_ICON_COMPONENTS[row.icon] ?? ADDRESS_ICON_COMPONENTS[DEFAULT_ADDRESS_ICON];
+                  const colorClasses = ADDRESS_COLOR_CLASSES[row.color] ?? ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR];
+
+                  return (
                   <tr key={row.id} className="border-b border-black/10 hover:bg-black/3">
-                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">{row.name}</td>
+                    <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
+                      <span className="flex items-center gap-2">
+                        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${colorClasses.bg} ${colorClasses.text}`}>
+                          <Icon />
+                        </span>
+                        {row.name}
+                      </span>
+                    </td>
                     <td className="border-r border-black/3 px-4 py-2 text-textColorThird">{row.address}</td>
                     <td className="border-r border-black/3 px-4 py-2 text-textColorThird">{row.latitude}</td>
                     <td className="border-r border-black/3 px-4 py-2 text-textColorThird">{row.longitude}</td>
@@ -231,7 +254,8 @@ function PickupAddressesSection() {
                       )}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

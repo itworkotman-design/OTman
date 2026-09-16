@@ -186,7 +186,14 @@ describe("PATCH /api/pickup-addresses/[id]", () => {
     expect(response.status).toBe(200);
     expect(mocks.updateMock).toHaveBeenCalledWith({
       where: { id: "cpa-1" },
-      data: { name: "Power Storo Updated", address: "New address", latitude: 1, longitude: 2 },
+      data: {
+        name: "Power Storo Updated",
+        address: "New address",
+        latitude: 1,
+        longitude: 2,
+        icon: "storefront",
+        color: "blue",
+      },
     });
     expect(mocks.deleteManyMock).toHaveBeenCalledWith({ where: { customPickupAddressId: "cpa-1" } });
     expect(mocks.createManyMock).toHaveBeenCalledWith({
