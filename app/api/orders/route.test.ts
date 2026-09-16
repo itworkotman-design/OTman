@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => ({
   pendingDeleteManyMock: vi.fn(),
   transactionMock: vi.fn(),
   queryRawMock: vi.fn(),
+  getVisibleCustomPickupAddressMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -72,6 +73,10 @@ vi.mock("@/lib/orders/orderNotificationEmail", () => ({
 
 vi.mock("@/lib/orders/orderNotifications", () => ({
   createOrderNotification: mocks.createOrderNotificationMock,
+}));
+
+vi.mock("@/lib/pickupAddresses/visibility", () => ({
+  getVisibleCustomPickupAddress: mocks.getVisibleCustomPickupAddressMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -945,6 +950,35 @@ describe("routes in /api/orders", () => {
     );
   });
 
+  it("GET filters orders by the selected custom pickup address id", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "admin-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "admin-membership",
+      role: "ADMIN",
+      permissions: [],
+    });
+    mocks.orderFindManyMock.mockResolvedValue([]);
+
+    const res = await GET(
+      new Request(
+        "http://localhost/api/orders?customPickupAddressId=cpa-1&page=1&rowsPerPage=10",
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          companyId: "company-1",
+          customPickupAddressId: "cpa-1",
+        }),
+      }),
+    );
+  });
+
   it("POST returns 400 when product cards are missing", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
@@ -1450,6 +1484,130 @@ describe("routes in /api/orders", () => {
         data: expect.objectContaining({
           contactCustomerForCustomTimeWindow: true,
           customTimeContactNote: "Call before confirming arrival window.",
+        }),
+      }),
+    );
+  });
+
+  it("POST stores a custom pickup address reference and its authoritative snapshot", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue({
+      id: "cpa-1",
+      name: "Power Storo",
+      address: "Storo Storsenter 1, 0587 Oslo",
+      latitude: 59.945,
+      longitude: 10.7669,
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          customPickupAddressId: "cpa-1",
+          // A manipulated client value here must be ignored — the server
+          // always re-resolves the authoritative address/coordinates by id.
+          pickupAddress: "Some other address the client typed",
+        }),
+      }),
+    );
+
+    expect(mocks.getVisibleCustomPickupAddressMock).toHaveBeenCalledWith(
+      "cpa-1",
+      "user-1",
+    );
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customPickupAddressId: "cpa-1",
+          customPickupAddressName: "Power Storo",
+          pickupAddress: "Storo Storsenter 1, 0587 Oslo",
+          pickupLatitude: 59.945,
+          pickupLongitude: 10.7669,
+        }),
+      }),
+    );
+  });
+
+  it("POST rejects a custom pickup address that isn't visible to the caller's store", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          customPickupAddressId: "cpa-unauthorized",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      reason: "PICKUP_ADDRESS_NOT_AVAILABLE",
+    });
+    expect(mocks.orderCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("POST leaves the custom pickup address reference and snapshot fields empty for a normal searched address", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          pickupAddress: "Some normal searched address",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.getVisibleCustomPickupAddressMock).not.toHaveBeenCalled();
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          customPickupAddressId: null,
+          customPickupAddressName: null,
+          pickupAddress: "Some normal searched address",
+          pickupLatitude: null,
+          pickupLongitude: null,
         }),
       }),
     );

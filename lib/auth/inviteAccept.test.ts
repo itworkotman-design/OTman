@@ -188,6 +188,7 @@ describe("acceptInvite", () => {
         usernameDisplayColor: true,
         priceListId: true,
         warehouseEmail: true,
+        mainPickupAddressId: true,
         permissions: {
           select: {
             permission: true,
@@ -282,6 +283,7 @@ describe("acceptInvite", () => {
         description: true,
         logoPath: true,
         usernameDisplayColor: true,
+        mainPickupAddressId: true,
       },
     });
 
@@ -298,6 +300,7 @@ describe("acceptInvite", () => {
         description: null,
         logoPath: null,
         usernameDisplayColor: null,
+        mainPickupAddressId: null,
         passwordHash: "password-hash",
         status: "ACTIVE",
       },
@@ -460,6 +463,7 @@ describe("acceptInvite", () => {
         description: undefined,
         logoPath: undefined,
         usernameDisplayColor: undefined,
+        mainPickupAddressId: undefined,
         passwordHash: "password-hash",
         status: "ACTIVE",
       },

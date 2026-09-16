@@ -1,11 +1,20 @@
 type RouteDistanceInput = {
   pickupAddress?: string | null;
+  // When set, the pickup stop uses this coordinate directly instead of being
+  // geocoded — the manually configured coordinate for a custom pickup
+  // address is authoritative and must not be replaced by a geocoding guess.
+  pickupCoordinate?: { latitude: number; longitude: number } | null;
   extraPickupAddresses?: string[] | null;
   deliveryAddress?: string | null;
   returnAddress?: string | null;
 };
 
 type Coordinate = [number, number];
+
+type RouteStop = {
+  address: string;
+  coordinate?: Coordinate;
+};
 
 type MapboxGeocodingFeature = {
   geometry?: {
@@ -59,15 +68,44 @@ function parseCoordinatePair(value: unknown): Coordinate | null {
     : null;
 }
 
+function buildOrderedRouteStops(input: RouteDistanceInput): RouteStop[] {
+  const stops: RouteStop[] = [];
+  const pickup = normalizeRouteAddress(input.pickupAddress);
+
+  if (pickup) {
+    stops.push({
+      address: pickup,
+      coordinate: input.pickupCoordinate
+        ? [input.pickupCoordinate.longitude, input.pickupCoordinate.latitude]
+        : undefined,
+    });
+  }
+
+  for (const extra of input.extraPickupAddresses ?? []) {
+    const normalized = normalizeRouteAddress(extra);
+
+    if (normalized) {
+      stops.push({ address: normalized });
+    }
+  }
+
+  const delivery = normalizeRouteAddress(input.deliveryAddress);
+
+  if (delivery) {
+    stops.push({ address: delivery });
+  }
+
+  const returnStop = normalizeRouteAddress(input.returnAddress);
+
+  if (returnStop) {
+    stops.push({ address: returnStop });
+  }
+
+  return stops;
+}
+
 export function buildOrderedRouteAddresses(input: RouteDistanceInput) {
-  return [
-    normalizeRouteAddress(input.pickupAddress),
-    ...(input.extraPickupAddresses ?? []).map((address) =>
-      normalizeRouteAddress(address),
-    ),
-    normalizeRouteAddress(input.deliveryAddress),
-    normalizeRouteAddress(input.returnAddress),
-  ].filter((address) => address.length > 0);
+  return buildOrderedRouteStops(input).map((stop) => stop.address);
 }
 
 async function geocodeAddress(
@@ -152,9 +190,9 @@ export async function getRouteDistance(
   input: RouteDistanceInput,
   signal?: AbortSignal,
 ): Promise<RouteDistanceResult | null> {
-  const stopAddresses = buildOrderedRouteAddresses(input);
+  const stops = buildOrderedRouteStops(input);
 
-  if (stopAddresses.length < 2) {
+  if (stops.length < 2) {
     return null;
   }
 
@@ -165,7 +203,11 @@ export async function getRouteDistance(
   }
 
   const coordinates = await Promise.all(
-    stopAddresses.map((address) => geocodeAddress(address, token, signal)),
+    stops.map((stop) =>
+      stop.coordinate
+        ? Promise.resolve(stop.coordinate)
+        : geocodeAddress(stop.address, token, signal),
+    ),
   );
   const distanceMeters = await getDirectionsDistanceMeters(
     coordinates,
@@ -175,6 +217,6 @@ export async function getRouteDistance(
 
   return {
     distanceKm: (distanceMeters / 1000).toFixed(2),
-    stopAddresses,
+    stopAddresses: stops.map((stop) => stop.address),
   };
 }

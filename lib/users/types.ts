@@ -27,6 +27,8 @@ export type MembershipUser = {
   logoPath: string | null;
   usernameDisplayColor: string | null;
   status: UserStatus;
+  mainPickupAddressId: string | null;
+  mainPickupAddress: { id: string; name: string; isActive: boolean } | null;
 };
 
 export type Membership = {
@@ -61,4 +63,11 @@ export type UserOption = {
   name: string;
   email: string;
   address?: string;
+  mainPickupAddress?: {
+    id: string;
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null;
 };

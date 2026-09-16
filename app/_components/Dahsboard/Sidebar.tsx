@@ -376,6 +376,11 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
                   Price lists
                 </Link>
               )}
+              {isBookingFullAccess && (
+                <Link href="/dashboard/settings" onClick={closeMobileDrawer} className={bookingLinkClass("/dashboard/settings")}>
+                  Settings
+                </Link>
+              )}
             </>
           )}
 

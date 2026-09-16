@@ -77,6 +77,10 @@ export async function GET(req: Request) {
           logoPath: true,
           usernameDisplayColor: true,
           status: true,
+          mainPickupAddressId: true,
+          mainPickupAddress: {
+            select: { id: true, name: true, isActive: true },
+          },
         },
       },
     },

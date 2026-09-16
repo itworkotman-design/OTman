@@ -49,6 +49,10 @@ export interface UserModalProps {
   initialValueWarehouseEmail?: string;
   initialValuePhoneNumber: string;
   initialValueAddress: string;
+  // Read-only: when set, the address field displays this address's name and
+  // can't be edited here — assignment happens on the pickup-addresses
+  // settings page, not in this modal.
+  initialValueMainPickupAddress?: { id: string; name: string; isActive: boolean } | null;
   initialValueDescription: string;
   initialValueLogoPath?: string | null;
   initialValueUsernameDisplayColor?: string | null;

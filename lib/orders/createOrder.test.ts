@@ -204,4 +204,58 @@ describe("createOrder pricing fallback", () => {
     expect(order.priceSubcontractor).toBe(900);
     expect(mocks.computeFullOrderTotalMock).not.toHaveBeenCalled();
   });
+
+  it("persists the custom pickup address reference and snapshot fields as given", async () => {
+    await createOrder({
+      companyId: "company-1",
+      membershipId: "membership-1",
+      orderNumber: null,
+      productCards: [],
+      priceListId: "price-list-1",
+      actor: { name: "Staff", email: "staff@example.com", source: "USER" },
+      companyOrderEmailsEnabled: false,
+      fields: {
+        ...baseFields(),
+        pickupAddress: "Storo Storsenter 1, 0587 Oslo",
+        customPickupAddressId: "cpa-1",
+        customPickupAddressName: "Power Storo",
+        pickupLatitude: 59.945,
+        pickupLongitude: 10.7669,
+        priceExVat: 300,
+        priceSubcontractor: 900,
+      },
+    });
+
+    const createCallData = mocks.orderCreateMock.mock.calls[0][0].data;
+    expect(createCallData.pickupAddress).toBe("Storo Storsenter 1, 0587 Oslo");
+    expect(createCallData.customPickupAddressId).toBe("cpa-1");
+    expect(createCallData.customPickupAddressName).toBe("Power Storo");
+    expect(createCallData.pickupLatitude).toBe(59.945);
+    expect(createCallData.pickupLongitude).toBe(10.7669);
+  });
+
+  it("leaves the custom pickup address reference and coordinates null for a normal address", async () => {
+    await createOrder({
+      companyId: "company-1",
+      membershipId: "membership-1",
+      orderNumber: null,
+      productCards: [],
+      priceListId: "price-list-1",
+      actor: { name: "Staff", email: "staff@example.com", source: "USER" },
+      companyOrderEmailsEnabled: false,
+      fields: {
+        ...baseFields(),
+        pickupAddress: "Some normal searched address",
+        priceExVat: 300,
+        priceSubcontractor: 900,
+      },
+    });
+
+    const createCallData = mocks.orderCreateMock.mock.calls[0][0].data;
+    expect(createCallData.pickupAddress).toBe("Some normal searched address");
+    expect(createCallData.customPickupAddressId).toBeNull();
+    expect(createCallData.customPickupAddressName).toBeNull();
+    expect(createCallData.pickupLatitude).toBeNull();
+    expect(createCallData.pickupLongitude).toBeNull();
+  });
 });

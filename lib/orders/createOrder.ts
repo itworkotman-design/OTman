@@ -45,6 +45,13 @@ export type CreateOrderFields = {
   contactCustomerForCustomTimeWindow: boolean;
   customTimeContactNote: string | null;
   pickupAddress: string | null;
+  // Set only when the pickup came from a custom pickup address; the route
+  // handler has already re-resolved these server-side against the address's
+  // current record, so they're authoritative and safe to persist as-is.
+  customPickupAddressId?: string | null;
+  customPickupAddressName?: string | null;
+  pickupLatitude?: number | null;
+  pickupLongitude?: number | null;
   extraPickups: ExtraPickupInput[];
   returnAddress: string | null;
   deliveryAddress: string | null;
@@ -227,6 +234,10 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       customTimeContactNote: fields.customTimeContactNote,
 
       pickupAddress: fields.pickupAddress,
+      customPickupAddressId: fields.customPickupAddressId ?? null,
+      customPickupAddressName: fields.customPickupAddressName ?? null,
+      pickupLatitude: fields.pickupLatitude ?? null,
+      pickupLongitude: fields.pickupLongitude ?? null,
       extraPickupAddress: fields.extraPickups.map((pickup) => pickup.address),
       extraPickupContacts: fields.extraPickups as unknown as Prisma.InputJsonValue,
       deliveryAddress: fields.deliveryAddress,

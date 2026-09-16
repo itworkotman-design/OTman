@@ -3,6 +3,10 @@
 import { useMemo } from "react";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import {
+  PickupAddressCombobox,
+  type CustomPickupAddressOption,
+} from "@/app/_components/Dahsboard/booking/create/PickupAddressCombobox";
+import {
   createEmptyExtraPickup,
   getExtraPickupValidation,
   type ExtraPickupInput,
@@ -22,6 +26,8 @@ export function PickupLocations({
   mainAddressError,
   mainAddressImprecise = false,
   onMainAddressChange,
+  customPickupAddressId,
+  onSelectCustomPickupAddress,
   pickups,
   onPickupsChange,
   locale = "en",
@@ -33,6 +39,8 @@ export function PickupLocations({
   mainAddressError?: string | null;
   mainAddressImprecise?: boolean;
   onMainAddressChange: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
+  customPickupAddressId?: string | null;
+  onSelectCustomPickupAddress?: (address: CustomPickupAddressOption | null) => void;
   pickups: Pickup[];
   onPickupsChange: (pickups: Pickup[]) => void;
   locale?: BookingUiLocale;
@@ -80,16 +88,27 @@ export function PickupLocations({
           {t("Pickup address")}
           {required ? <span className="text-red-600">*</span> : null}
         </label>
-        <AddressAutocompleteInput
-          inputId="order-pickup-address"
-          value={disabled ? (overrideValue ?? "") : mainAddress}
-          onChange={(value, wasSelected, meta) => {
-            if (!disabled) handleMainChange(value, wasSelected, meta);
-          }}
-          disabled={disabled}
-          placeholder={t("Enter a location")}
-          locale={locale}
-        />
+        {!disabled && onSelectCustomPickupAddress ? (
+          <PickupAddressCombobox
+            value={mainAddress}
+            onChange={handleMainChange}
+            customPickupAddressId={customPickupAddressId}
+            onSelectCustomPickupAddress={onSelectCustomPickupAddress}
+            placeholder={t("Enter a location")}
+            locale={locale}
+          />
+        ) : (
+          <AddressAutocompleteInput
+            inputId="order-pickup-address"
+            value={disabled ? (overrideValue ?? "") : mainAddress}
+            onChange={(value, wasSelected, meta) => {
+              if (!disabled) handleMainChange(value, wasSelected, meta);
+            }}
+            disabled={disabled}
+            placeholder={t("Enter a location")}
+            locale={locale}
+          />
+        )}
         {mainAddressError ? (
           <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {mainAddressError}

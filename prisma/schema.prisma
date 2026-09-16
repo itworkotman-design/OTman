@@ -22,57 +22,61 @@ model User {
   usernameDisplayColor  String?
   languagePreference    String?
   legacyWordpressUserId Int?                 @unique
+  mainPickupAddressId   String?
   authEvents            AuthEvent[]
   invitesSent           Invite[]             @relation("InviteCreatedBy")
   memberships           Membership[]
   resetTokens           PasswordResetToken[]
   sessions              Session[]
   blogPosts             BlogPost[]
+  mainPickupAddress     CustomPickupAddress? @relation(fields: [mainPickupAddressId], references: [id])
+  pickupAddresses       UserCustomPickupAddress[]
 
   @@index([status])
+  @@index([mainPickupAddressId])
 }
 
 model Company {
-  id                      String                   @id @default(cuid())
+  id                      String                       @id @default(cuid())
   name                    String
-  slug                    String?                  @unique
-  status                  CompanyStatus            @default(ACTIVE)
-  orderEmailsEnabled      Boolean                  @default(true)
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime                 @updatedAt
+  slug                    String?                      @unique
+  status                  CompanyStatus                @default(ACTIVE)
+  orderEmailsEnabled      Boolean                      @default(true)
+  createdAt               DateTime                     @default(now())
+  updatedAt               DateTime                     @updatedAt
   authEvents              AuthEvent[]
   invites                 Invite[]
   memberships             Membership[]
   orders                  Order[]
-  activeSessions          Session[]                @relation("SessionActiveCompany")
+  activeSessions          Session[]                    @relation("SessionActiveCompany")
   recurringOrderTemplates RecurringOrderTemplate[]
 
   @@index([status])
 }
 
 model Membership {
-  id                             String                   @id @default(cuid())
+  id                             String                       @id @default(cuid())
   userId                         String
   companyId                      String
   role                           Role
-  status                         MembershipStatus         @default(ACTIVE)
-  createdAt                      DateTime                 @default(now())
-  updatedAt                      DateTime                 @updatedAt
+  status                         MembershipStatus             @default(ACTIVE)
+  createdAt                      DateTime                     @default(now())
+  updatedAt                      DateTime                     @updatedAt
   warehouseEmail                 String?
-  legacyWordpressUserId          Int?                     @unique
-  company                        Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user                           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legacyWordpressUserId          Int?                         @unique
+  company                        Company                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                           User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   permissions                    MembershipPermission[]
   appAccess                      MembershipAppAccess[]
   dashboardSections              MembershipDashboardSection[]
   membershipPriceLists           MembershipPriceList[]
-  createdOrders                  Order[]                  @relation("OrderCreatedByMembership")
+  createdOrders                  Order[]                      @relation("OrderCreatedByMembership")
   orders                         Order[]
-  ordersLastEdited               Order[]                  @relation("OrderLastEditedByMembership")
-  sentOrderEmails                OrderEmailMessage[]      @relation("OrderEmailSentByMembership")
+  ordersLastEdited               Order[]                      @relation("OrderLastEditedByMembership")
+  sentOrderEmails                OrderEmailMessage[]          @relation("OrderEmailSentByMembership")
   orderEvents                    OrderEvent[]
-  resolvedOrderNotifications     OrderNotification[]      @relation("OrderNotificationResolvedByMembership")
-  createdRecurringOrderTemplates RecurringOrderTemplate[] @relation("RecurringOrderTemplateCreatedByMembership")
+  resolvedOrderNotifications     OrderNotification[]          @relation("OrderNotificationResolvedByMembership")
+  createdRecurringOrderTemplates RecurringOrderTemplate[]     @relation("RecurringOrderTemplateCreatedByMembership")
 
   @@unique([userId, companyId])
   @@index([companyId, status])
@@ -90,6 +94,37 @@ model MembershipPriceList {
   @@unique([membershipId, priceListId])
   @@index([membershipId])
   @@index([priceListId])
+}
+
+model CustomPickupAddress {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  latitude  Float
+  longitude Float
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users           UserCustomPickupAddress[]
+  mainForUsers    User[]
+  mainForInvites  Invite[]
+  ordersUsingThis Order[]
+
+  @@index([isActive])
+}
+
+model UserCustomPickupAddress {
+  id                    String              @id @default(cuid())
+  userId                String
+  customPickupAddressId String
+  createdAt             DateTime            @default(now())
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customPickupAddress   CustomPickupAddress @relation(fields: [customPickupAddressId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, customPickupAddressId])
+  @@index([userId])
+  @@index([customPickupAddressId])
 }
 
 model MembershipPermission {
@@ -136,18 +171,18 @@ model MembershipDashboardSection {
 }
 
 model Invite {
-  id                   String             @id @default(cuid())
+  id                   String               @id @default(cuid())
   companyId            String
   email                String
-  role                 Role               @default(USER)
-  status               InviteStatus       @default(PENDING)
-  tokenHash            String             @unique
+  role                 Role                 @default(USER)
+  status               InviteStatus         @default(PENDING)
+  tokenHash            String               @unique
   expiresAt            DateTime
   acceptedAt           DateTime?
   revokedAt            DateTime?
   createdByUserId      String?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
   description          String?
   phoneNumber          String?
   priceListId          String?
@@ -156,15 +191,18 @@ model Invite {
   address              String?
   logoPath             String?
   usernameDisplayColor String?
-  company              Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdByUser        User?              @relation("InviteCreatedBy", fields: [createdByUserId], references: [id])
-  priceList            PriceList?         @relation(fields: [priceListId], references: [id])
+  mainPickupAddressId  String?
+  company              Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUser        User?                @relation("InviteCreatedBy", fields: [createdByUserId], references: [id])
+  priceList            PriceList?           @relation(fields: [priceListId], references: [id])
+  mainPickupAddress    CustomPickupAddress? @relation(fields: [mainPickupAddressId], references: [id])
   permissions          InvitePermission[]
   appAccess            InviteAppAccess[]
 
   @@index([companyId, status])
   @@index([email, status])
   @@index([priceListId])
+  @@index([mainPickupAddressId])
 }
 
 model InvitePermission {
@@ -497,8 +535,13 @@ model Order {
   unreadNotificationCount            Int                       @default(0)
   recurringOrderTemplateId           String?
   recurringOrderOccurrenceDate       String?
+  customPickupAddressId              String?
+  customPickupAddressName            String?
+  pickupLatitude                     Float?
+  pickupLongitude                    Float?
   gsmWebhookEvents                   GsmWebhookEvent[]
   company                            Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customPickupAddress                CustomPickupAddress?      @relation(fields: [customPickupAddressId], references: [id])
   createdByMembership                Membership                @relation("OrderCreatedByMembership", fields: [createdByMembershipId], references: [id])
   customerMembership                 Membership?               @relation(fields: [customerMembershipId], references: [id])
   lastEditedByMembership             Membership?               @relation("OrderLastEditedByMembership", fields: [lastEditedByMembershipId], references: [id])
@@ -551,6 +594,7 @@ model Order {
   @@index([status, approvedAt])
   @@index([status, paymentRequestSentAt])
   @@index([status, paymentReminderSentAt])
+  @@index([customPickupAddressId])
 }
 
 model OrderEvent {
@@ -1174,15 +1218,15 @@ model ArchiveFolderDefaultRole {
 // this feature can stay "ungrouped" rather than requiring a data backfill;
 // new subfolders/items are required (at the API layer) to specify one.
 model ArchiveSection {
-  id             String              @id @default(cuid())
+  id             String                @id @default(cuid())
   companyId      String
   tenantId       String
   parentFolderId String
   name           String
   description    String?
-  order          Int                 @default(0)
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  order          Int                   @default(0)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
   folderCodes    ArchiveFolderCode[]
   itemCodes      ArchiveItemCode[]
   itemShortcuts  ArchiveItemShortcut[]
@@ -1304,15 +1348,15 @@ enum ArchiveContentSectionType {
 // they have no file content to restore, so they're still hard-deleted (see
 // deleteContentSection).
 model ArchiveItemContentSection {
-  id          String                    @id @default(cuid())
-  companyId   String
-  tenantId    String
-  itemId      String
-  type        ArchiveContentSectionType
-  position    Int?
-  deletedAt   DateTime?
-  createdAt   DateTime                  @default(now())
-  updatedAt   DateTime                  @updatedAt
+  id           String                    @id @default(cuid())
+  companyId    String
+  tenantId     String
+  itemId       String
+  type         ArchiveContentSectionType
+  position     Int?
+  deletedAt    DateTime?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
   textFields   ArchiveItemTextField[]
   fileLinks    ArchiveItemFileSection[]
   spreadsheet  ArchiveItemSpreadsheet?

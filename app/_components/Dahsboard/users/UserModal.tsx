@@ -96,6 +96,7 @@ export default function UserModal({
   initialValueWarehouseEmail,
   initialValuePhoneNumber,
   initialValueAddress,
+  initialValueMainPickupAddress,
   initialValueDescription,
   initialValueLogoPath,
   initialValueUsernameDisplayColor,
@@ -462,7 +463,18 @@ export default function UserModal({
 
               <div className="sm:col-span-2">
                 <label className="block pb-1.5 text-sm font-semibold text-textcolor">Address</label>
-                <AddressAutocompleteInput value={form.address} onChange={updateAddress} placeholder="Enter an address" disabled={!canEditTarget} />
+                {initialValueMainPickupAddress ? (
+                  <>
+                    <AddressAutocompleteInput value={initialValueMainPickupAddress.name} onChange={() => {}} disabled />
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {initialValueMainPickupAddress.isActive
+                        ? "Managed on the Pickup addresses settings page."
+                        : "Managed on the Pickup addresses settings page — this address is currently inactive."}
+                    </p>
+                  </>
+                ) : (
+                  <AddressAutocompleteInput value={form.address} onChange={updateAddress} placeholder="Enter an address" disabled={!canEditTarget} />
+                )}
               </div>
 
               <div className="sm:col-span-2">

@@ -27,6 +27,7 @@ import {
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { createOrder } from "@/lib/orders/createOrder";
+import { getVisibleCustomPickupAddress } from "@/lib/pickupAddresses/visibility";
 import {
   buildLegacyOrderSummaryGroups,
   buildOrderSummaryGroups,
@@ -699,6 +700,36 @@ export async function POST(req: Request) {
 
   const orderEmailsEnabled = membership.company?.orderEmailsEnabled !== false;
 
+  const requestedCustomPickupAddressId = optionalString(body.customPickupAddressId);
+  let pickupAddress = optionalString(body.pickupAddress);
+  let customPickupAddressId: string | null = null;
+  let customPickupAddressName: string | null = null;
+  let pickupLatitude: number | null = null;
+  let pickupLongitude: number | null = null;
+
+  if (requestedCustomPickupAddressId) {
+    const customPickupAddress = await getVisibleCustomPickupAddress(
+      requestedCustomPickupAddressId,
+      session.userId,
+    );
+
+    if (!customPickupAddress) {
+      return NextResponse.json(
+        { ok: false, reason: "PICKUP_ADDRESS_NOT_AVAILABLE" },
+        { status: 403 },
+      );
+    }
+
+    // The client-submitted pickupAddress/coordinates are never trusted for a
+    // custom pickup address — always re-derive the snapshot from the
+    // authoritative server-side record looked up above.
+    pickupAddress = customPickupAddress.address;
+    customPickupAddressId = customPickupAddress.id;
+    customPickupAddressName = customPickupAddress.name;
+    pickupLatitude = customPickupAddress.latitude;
+    pickupLongitude = customPickupAddress.longitude;
+  }
+
   const order = await createOrder({
     companyId: session.activeCompanyId,
     membershipId: membership.id,
@@ -722,7 +753,11 @@ export async function POST(req: Request) {
         body.contactCustomerForCustomTimeWindow,
       ),
       customTimeContactNote: optionalString(body.customTimeContactNote),
-      pickupAddress: optionalString(body.pickupAddress),
+      pickupAddress,
+      customPickupAddressId,
+      customPickupAddressName,
+      pickupLatitude,
+      pickupLongitude,
       extraPickups,
       returnAddress: optionalString(body.returnAddress),
       deliveryAddress: optionalString(body.deliveryAddress),
@@ -827,6 +862,9 @@ export async function GET(req: Request) {
   const subcontractorId = optionalString(searchParams.get("subcontractorId"));
   const createdById = optionalString(searchParams.get("createdById"));
   const pricelistId = optionalString(searchParams.get("pricelistId"));
+  const customPickupAddressId = optionalString(
+    searchParams.get("customPickupAddressId"),
+  );
   const fromDate = optionalString(searchParams.get("fromDate"));
   const toDate = optionalString(searchParams.get("toDate"));
   const search = optionalString(searchParams.get("search"));
@@ -875,6 +913,10 @@ export async function GET(req: Request) {
 
   if (pricelistId) {
     where.priceListId = pricelistId === NONE_FILTER_VALUE ? null : pricelistId;
+  }
+
+  if (customPickupAddressId) {
+    where.customPickupAddressId = customPickupAddressId;
   }
 
   if (status) {

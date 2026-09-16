@@ -53,6 +53,7 @@ export type OrderFormPayload = {
   customTimeContactNote: string;
 
   pickupAddress: string;
+  customPickupAddressId: string | null;
   extraPickups: {
     address: string;
     phone: string;
@@ -470,6 +471,9 @@ export default function BookingEditor({
   const [pickupAddress, setPickupAddress] = useState(initialValues?.pickupAddress ?? "");
   const [pickupAddressSelected, setPickupAddressSelected] = useState(Boolean(initialValues?.pickupAddress));
   const [pickupAddressImprecise, setPickupAddressImprecise] = useState(false);
+  const [customPickupAddressId, setCustomPickupAddressId] = useState<string | null>(
+    initialValues?.customPickupAddressId ?? null,
+  );
   const [extraPickups, setExtraPickups] = useState<ExtraPickupDraft[]>(
     initialValues?.extraPickups?.length
       ? initialValues.extraPickups.map((pickup, index) => ({
@@ -781,6 +785,7 @@ export default function BookingEditor({
     );
     setReturnAddress(initialValues.returnAddress ?? "");
     setReturnAddressSelected(Boolean(initialValues.returnAddress));
+    setCustomPickupAddressId(initialValues.customPickupAddressId ?? null);
     setCustomTimeFrom(nextTimeWindowState.customTimeFrom);
     setCustomTimeTo(nextTimeWindowState.customTimeTo);
     hasProcessedInitialReturnSyncRef.current = false;
@@ -844,6 +849,9 @@ export default function BookingEditor({
     hasUserEditedPickupAddressRef.current = true;
     setPickupAddress(value);
     setPickupAddressSelected(Boolean(wasSelected));
+    // Normal address search/typing and a custom pickup address are mutually
+    // exclusive — falling back to the search field clears any custom pick.
+    setCustomPickupAddressId(null);
 
     const imprecise = Boolean(wasSelected) && isStreetOnlyMatch(meta);
     setPickupAddressImprecise(imprecise);
@@ -851,6 +859,23 @@ export default function BookingEditor({
       setDescription((current) => appendImpreciseAddressNote(current, bookingText(locale, "Pickup address"), meta.typedQuery));
     }
   }, [locale]);
+
+  const handleSelectCustomPickupAddress = useCallback(
+    (address: { id: string; name: string; address: string; latitude: number; longitude: number } | null) => {
+      hasUserEditedPickupAddressRef.current = true;
+
+      if (!address) {
+        setCustomPickupAddressId(null);
+        return;
+      }
+
+      setPickupAddress(address.address);
+      setPickupAddressSelected(true);
+      setPickupAddressImprecise(false);
+      setCustomPickupAddressId(address.id);
+    },
+    [],
+  );
 
   const handleDeliveryAddressChange = useCallback((value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => {
     setDeliveryAddress(value);
@@ -1684,6 +1709,7 @@ export default function BookingEditor({
     if (!isInitialSync || !hasUserEditedPickupAddressRef.current) {
       setPickupAddress(selectedCustomerAddress);
       setPickupAddressSelected(true);
+      setCustomPickupAddressId(selectedCustomerOption.mainPickupAddress?.id ?? null);
     }
 
     if (shouldShowReturnAddress && (!isInitialSync || !hasUserEditedReturnAddressRef.current)) {
@@ -1733,6 +1759,10 @@ export default function BookingEditor({
       .filter((address) => address.trim().length > 0);
     const routeRequest = {
       pickupAddress: pickupAddressSelected ? pickupAddress : "",
+      // Lets the server resolve the pickup stop's coordinates directly from
+      // the custom pickup address record instead of re-geocoding its
+      // human-readable address — see lib/pickupAddresses/visibility.ts.
+      customPickupAddressId: pickupAddressSelected ? customPickupAddressId : null,
       extraPickupAddresses,
       deliveryAddress: deliveryAddressSelected ? deliveryAddress : "",
       returnAddress: shouldShowReturnAddress && returnAddressSelected ? returnAddress : "",
@@ -1792,6 +1822,7 @@ export default function BookingEditor({
       }
     };
   }, [
+    customPickupAddressId,
     deliveryAddress,
     deliveryAddressSelected,
     extraPickups,
@@ -1996,6 +2027,7 @@ export default function BookingEditor({
       contactCustomerForCustomTimeWindow: timeWindow === "custom" && contactCustomerForCustomTimeWindow,
       customTimeContactNote: normalizedCustomTimeContactNote,
       pickupAddress,
+      customPickupAddressId,
       extraPickups: normalizedExtraPickups,
       returnAddress,
       deliveryAddress,
@@ -2242,6 +2274,8 @@ export default function BookingEditor({
             pickupAddress={pickupAddress}
             setPickupAddress={handlePickupAddressChange}
             pickupAddressImprecise={pickupAddressImprecise}
+            customPickupAddressId={customPickupAddressId}
+            onSelectCustomPickupAddress={handleSelectCustomPickupAddress}
             extraPickups={extraPickups}
             setExtraPickups={setExtraPickups}
             returnAddress={returnAddress}

@@ -83,6 +83,7 @@ export default function BookingPage() {
     }),
   );
 
+  const [pickupAddresses, setPickupAddresses] = useState<BookingArchiveOption[]>([]);
   const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>(
     [],
   );
@@ -120,6 +121,8 @@ export default function BookingPage() {
         params.set("subcontractorId", filters.subcontractorId);
       if (filters.createdById) params.set("createdById", filters.createdById);
       if (filters.pricelistId) params.set("pricelistId", filters.pricelistId);
+      if (filters.customPickupAddressId)
+        params.set("customPickupAddressId", filters.customPickupAddressId);
       if (filters.fromDate) params.set("fromDate", filters.fromDate);
       if (filters.toDate) params.set("toDate", filters.toDate);
       if (filters.search) params.set("search", filters.search);
@@ -280,6 +283,32 @@ export default function BookingPage() {
       }
     } catch {
       setPricelists([]);
+    }
+  }
+
+  // Scoped to the caller's active store, same as the order-creation
+  // quick-select — see app/api/pickup-addresses/available/route.ts.
+  async function loadPickupAddressOptions() {
+    try {
+      const res = await fetch("/api/pickup-addresses/available", {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.ok) {
+        setPickupAddresses(
+          (data.pickupAddresses ?? []).map(
+            (item: { id: string; name: string }) => ({
+              id: item.id,
+              label: item.name,
+            }),
+          ),
+        );
+      }
+    } catch {
+      setPickupAddresses([]);
     }
   }
 
@@ -523,6 +552,7 @@ export default function BookingPage() {
     void loadFilterOptions();
     void loadAllCreators();
     void loadPricelistOptions();
+    void loadPickupAddressOptions();
     return () => {
       orderLoadAbortRef.current?.abort();
     };
@@ -663,6 +693,8 @@ export default function BookingPage() {
           creators={creators}
           pricelists={pricelists}
           showPricelistFilter={showPricelistColumn}
+          pickupAddresses={pickupAddresses}
+          showPickupAddressFilter={pickupAddresses.length > 0}
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}

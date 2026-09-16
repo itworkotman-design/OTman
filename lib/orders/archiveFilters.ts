@@ -9,6 +9,7 @@ export const DEFAULT_BOOKING_ARCHIVE_FILTERS: BookingArchiveFilters = {
   createdById: "",
   subcontractorId: "",
   pricelistId: "",
+  customPickupAddressId: "",
   fromDate: "",
   toDate: "",
   search: "",

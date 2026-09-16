@@ -383,6 +383,7 @@ export default function UserPage() {
           initialValueWarehouseEmail={selectedUser?.warehouseEmail ?? ""}
           initialValuePhoneNumber={selectedUser?.user.phoneNumber ?? ""}
           initialValueAddress={selectedUser?.user.address ?? ""}
+          initialValueMainPickupAddress={selectedUser?.user.mainPickupAddress ?? null}
           initialValueDescription={selectedUser?.user.description ?? ""}
           initialValueLogoPath={selectedUser?.user.logoPath ?? null}
           initialValueUsernameDisplayColor={

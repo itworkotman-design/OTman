@@ -27,6 +27,7 @@ import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { resolveOutdatedCapacityNotifications, resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
 import type { AppPermission } from "@/lib/users/types";
 import { ORDER_SLOT_LIMIT, countOrdersInDeliverySlot, isDeliverySlotOverCapacity } from "@/lib/orders/capacity";
+import { getVisibleCustomPickupAddress } from "@/lib/pickupAddresses/visibility";
 import {
   createCapacityAlert,
   createContactCustomerAlert,
@@ -310,6 +311,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       contactCustomerForCustomTimeWindow: true,
       customTimeContactNote: true,
       pickupAddress: true,
+      customPickupAddressId: true,
+      customPickupAddressName: true,
+      pickupLatitude: true,
+      pickupLongitude: true,
       extraPickupAddress: true,
       extraPickupContacts: true,
       legacyWordpressRawMeta: true,
@@ -411,6 +416,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       contactCustomerForCustomTimeWindow: order.contactCustomerForCustomTimeWindow,
       customTimeContactNote: order.customTimeContactNote ?? "",
       pickupAddress: order.pickupAddress ?? "",
+      customPickupAddressId: order.customPickupAddressId ?? null,
       extraPickupAddress: fallbackExtraPickupAddresses,
       extraPickups: extraPickupContacts.map((pickup) => {
         const candidate =
@@ -572,6 +578,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       contactCustomerForCustomTimeWindow: true,
       customTimeContactNote: true,
       pickupAddress: true,
+      customPickupAddressId: true,
+      customPickupAddressName: true,
+      pickupLatitude: true,
+      pickupLongitude: true,
       extraPickupAddress: true,
       extraPickupContacts: true,
       deliveryAddress: true,
@@ -666,6 +676,45 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const extraPickups = body.extraPickups !== undefined ? normalizeExtraPickups(parsedBodyExtraPickups ?? []) : existingExtraPickups;
   const extraPickupContactsChanged = body.extraPickups !== undefined && JSON.stringify(extraPickups) !== JSON.stringify(existingExtraPickups);
   const isAdminOrOwner = membership.role === "OWNER" || membership.role === "ADMIN";
+
+  // Undefined means "don't touch this column" (Prisma skips undefined
+  // fields in `update`) — only resolved to a real value (including an
+  // explicit null, for switching back to a normal searched address) when
+  // the request actually includes `customPickupAddressId`.
+  let resolvedPickupAddress = optionalString(body.pickupAddress);
+  let resolvedCustomPickupAddressId: string | null | undefined;
+  let resolvedCustomPickupAddressName: string | null | undefined;
+  let resolvedPickupLatitude: number | null | undefined;
+  let resolvedPickupLongitude: number | null | undefined;
+
+  if (Object.prototype.hasOwnProperty.call(body, "customPickupAddressId")) {
+    const requestedCustomPickupAddressId = optionalString(body.customPickupAddressId);
+
+    if (requestedCustomPickupAddressId) {
+      const customPickupAddress = await getVisibleCustomPickupAddress(
+        requestedCustomPickupAddressId,
+        session.activeCompanyId,
+      );
+
+      if (!customPickupAddress) {
+        return NextResponse.json(
+          { ok: false, reason: "PICKUP_ADDRESS_NOT_AVAILABLE" },
+          { status: 403 },
+        );
+      }
+
+      resolvedPickupAddress = customPickupAddress.address;
+      resolvedCustomPickupAddressId = customPickupAddress.id;
+      resolvedCustomPickupAddressName = customPickupAddress.name;
+      resolvedPickupLatitude = customPickupAddress.latitude;
+      resolvedPickupLongitude = customPickupAddress.longitude;
+    } else {
+      resolvedCustomPickupAddressId = null;
+      resolvedCustomPickupAddressName = null;
+      resolvedPickupLatitude = null;
+      resolvedPickupLongitude = null;
+    }
+  }
 
   const catalog = await getBookingCatalog(existingOrder.priceListId ?? membership.membershipPriceLists[0]?.priceListId ?? null);
   const pricingSource = applyOrderPricingSnapshot({
@@ -766,7 +815,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         ? existingOrder.contactCustomerForCustomTimeWindow
         : optionalBoolean(body.contactCustomerForCustomTimeWindow),
     customTimeContactNote: body.customTimeContactNote === undefined ? existingOrder.customTimeContactNote : optionalString(body.customTimeContactNote),
-    pickupAddress: optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
+    pickupAddress: resolvedPickupAddress ?? existingOrder.pickupAddress,
     extraPickupAddress: body.extraPickups !== undefined ? extraPickups.map((pickup) => pickup.address) : existingOrder.extraPickupAddress,
     deliveryAddress: optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
     returnAddress: optionalString(body.returnAddress) ?? existingOrder.returnAddress,
@@ -817,7 +866,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         contactCustomerForCustomTimeWindow: optionalBoolean(body.contactCustomerForCustomTimeWindow),
         customTimeContactNote: optionalString(body.customTimeContactNote),
 
-        pickupAddress: optionalString(body.pickupAddress),
+        pickupAddress: resolvedPickupAddress,
+        customPickupAddressId: resolvedCustomPickupAddressId,
+        customPickupAddressName: resolvedCustomPickupAddressName,
+        pickupLatitude: resolvedPickupLatitude,
+        pickupLongitude: resolvedPickupLongitude,
         extraPickupAddress: extraPickups.map((pickup) => pickup.address),
         extraPickupContacts: extraPickups as unknown as Prisma.InputJsonValue,
         deliveryAddress: optionalString(body.deliveryAddress),

@@ -130,4 +130,89 @@ describe("getRouteDistance", () => {
       "/directions/v5/mapbox/driving/10.1,59.1;10.2,59.2",
     );
   });
+
+  it("uses a supplied pickup coordinate directly instead of geocoding the pickup stop", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            features: [
+              {
+                geometry: {
+                  coordinates: [10.2, 59.2],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            routes: [
+              {
+                distance: 5000,
+              },
+            ],
+            code: "Ok",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    const result = await getRouteDistance({
+      pickupAddress: "Power Storo, Storo Storsenter",
+      pickupCoordinate: { latitude: 59.945, longitude: 10.7669 },
+      extraPickupAddresses: [],
+      deliveryAddress: "Delivery 1",
+      returnAddress: "",
+    });
+
+    // Only the dropoff stop is geocoded (1 call) + 1 directions call = 2 total,
+    // instead of the 2 geocoding + 1 directions calls used above.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/search/geocode/v6/forward");
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("Delivery");
+    expect(fetchMock.mock.calls[1]?.[0]).toContain(
+      "/directions/v5/mapbox/driving/10.7669,59.945;10.2,59.2",
+    );
+    expect(result).toEqual({
+      distanceKm: "5.00",
+      stopAddresses: ["Power Storo, Storo Storsenter", "Delivery 1"],
+    });
+  });
+
+  it("still geocodes delivery/return/extra-pickup stops when a pickup coordinate is supplied", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ features: [{ geometry: { coordinates: [1, 1] } }] }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ features: [{ geometry: { coordinates: [2, 2] } }] }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ routes: [{ distance: 1000 }], code: "Ok" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+
+    await getRouteDistance({
+      pickupAddress: "Power Storo",
+      pickupCoordinate: { latitude: 59.945, longitude: 10.7669 },
+      extraPickupAddresses: ["Extra stop"],
+      deliveryAddress: "Delivery 1",
+      returnAddress: "",
+    });
+
+    // Extra pickup + delivery are geocoded (2 calls) + 1 directions call.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });

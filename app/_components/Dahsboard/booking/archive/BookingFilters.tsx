@@ -31,6 +31,8 @@ type Props = {
   creators: BookingArchiveOption[];
   pricelists?: BookingArchiveOption[];
   showPricelistFilter?: boolean;
+  pickupAddresses?: BookingArchiveOption[];
+  showPickupAddressFilter?: boolean;
   onApply: (filters: BookingArchiveFilters) => void;
   onReset: () => void;
   onRefresh?: () => void;
@@ -136,6 +138,8 @@ export default function BookingFilters({
   creators,
   pricelists = [],
   showPricelistFilter = false,
+  pickupAddresses = [],
+  showPickupAddressFilter = false,
   onApply,
   onReset,
   onDownloadSelectedTable,
@@ -158,6 +162,9 @@ export default function BookingFilters({
     access.lockedSubcontractorId ?? initialApplied.subcontractorId,
   );
   const [pricelistId, setPricelistId] = useState(initialApplied.pricelistId);
+  const [customPickupAddressId, setCustomPickupAddressId] = useState(
+    initialApplied.customPickupAddressId,
+  );
   const [fromDate, setFromDate] = useState(initialApplied.fromDate);
   const [toDate, setToDate] = useState(initialApplied.toDate);
   const [search, setSearch] = useState(initialApplied.search);
@@ -206,6 +213,7 @@ export default function BookingFilters({
         createdById: access.lockedCreatedById ?? createdById,
         subcontractorId: access.lockedSubcontractorId ?? subcontractorId,
         pricelistId,
+        customPickupAddressId,
         fromDate,
         toDate,
         search,
@@ -219,6 +227,7 @@ export default function BookingFilters({
     access.lockedCreatedById,
     access.lockedSubcontractorId,
     createdById,
+    customPickupAddressId,
     fromDate,
     pricelistId,
     rowsPerPage,
@@ -239,6 +248,7 @@ export default function BookingFilters({
         DEFAULT_BOOKING_ARCHIVE_FILTERS.subcontractorId,
     );
     setPricelistId(DEFAULT_BOOKING_ARCHIVE_FILTERS.pricelistId);
+    setCustomPickupAddressId(DEFAULT_BOOKING_ARCHIVE_FILTERS.customPickupAddressId);
     setFromDate(DEFAULT_BOOKING_ARCHIVE_FILTERS.fromDate);
     setToDate(DEFAULT_BOOKING_ARCHIVE_FILTERS.toDate);
     setSearch(DEFAULT_BOOKING_ARCHIVE_FILTERS.search);
@@ -314,6 +324,7 @@ export default function BookingFilters({
   const showStore = access.canFilterCreatedBy;
   const showPartner = access.canFilterSubcontractor;
   const showPricelist = showPricelistFilter;
+  const showPickupAddress = showPickupAddressFilter;
 
   const dateQuickFilters = [
     { key: "today", label: t("Today"), onClick: setToday },
@@ -372,8 +383,14 @@ export default function BookingFilters({
             )}
           </div>
 
-          {showPartner || showPricelist ? (
-            <div className={`grid grid-cols-1 gap-3 ${showPartner && showPricelist ? "sm:grid-cols-2" : ""}`}>
+          {showPartner || showPricelist || showPickupAddress ? (
+            <div
+              className={`grid grid-cols-1 gap-3 ${
+                [showPartner, showPricelist, showPickupAddress].filter(Boolean).length > 1
+                  ? "sm:grid-cols-2"
+                  : ""
+              }`}
+            >
               {showPartner && (
                 <Field label={t("Partner")}>
                   <select
@@ -401,6 +418,23 @@ export default function BookingFilters({
                   >
                     <option value="">{t("All pricelists")}</option>
                     {pricelists.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
+              {showPickupAddress && (
+                <Field label={t("Pickup address")}>
+                  <select
+                    value={customPickupAddressId}
+                    onChange={(e) => setCustomPickupAddressId(e.target.value)}
+                    className="customInput padding-weird-landscape text-weird-landscape w-full"
+                  >
+                    <option value="">{t("All pickup addresses")}</option>
+                    {pickupAddresses.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.label}
                       </option>

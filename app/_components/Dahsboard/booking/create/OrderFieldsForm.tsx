@@ -146,6 +146,10 @@ type Props = {
   pickupAddress: string;
   setPickupAddress: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
   pickupAddressImprecise?: boolean;
+  customPickupAddressId?: string | null;
+  onSelectCustomPickupAddress?: (
+    address: { id: string; name: string; address: string; latitude: number; longitude: number } | null,
+  ) => void;
   extraPickups: {
     id: string;
     address: string;
@@ -299,6 +303,8 @@ export default function OrderFieldsForm({
   pickupAddress,
   setPickupAddress,
   pickupAddressImprecise = false,
+  customPickupAddressId = null,
+  onSelectCustomPickupAddress,
   extraPickups,
   setExtraPickups,
   returnAddress,
@@ -650,6 +656,8 @@ export default function OrderFieldsForm({
           mainAddressError={pickupAddressError}
           mainAddressImprecise={pickupAddressImprecise}
           onMainAddressChange={setPickupAddress}
+          customPickupAddressId={customPickupAddressId}
+          onSelectCustomPickupAddress={onSelectCustomPickupAddress}
           pickups={extraPickups}
           onPickupsChange={setExtraPickups}
           locale={locale}

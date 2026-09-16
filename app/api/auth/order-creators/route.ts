@@ -67,6 +67,16 @@ export async function GET(req: Request) {
           email: true,
           username: true,
           address: true,
+          mainPickupAddress: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              latitude: true,
+              longitude: true,
+              isActive: true,
+            },
+          },
         },
       },
       permissions: {
@@ -93,13 +103,34 @@ export async function GET(req: Request) {
       if (hasFullAccess(membership.role as Role)) return true;
       return isOrderCreatorAccess(permissions);
     })
-    .map((membership) => ({
-      id: membership.id,
-      name: getMembershipName(membership.user),
-      email: membership.user.email,
-      warehouseEmail: membership.warehouseEmail?.trim() || "",
-      address: membership.user.address?.trim() || "",
-    }))
+    .map((membership) => {
+      // An inactive main pickup address must not be usable as a default for
+      // new orders — fall back to the plain address exactly as if none were
+      // assigned.
+      const activeMainPickupAddress =
+        membership.user.mainPickupAddress?.isActive
+          ? membership.user.mainPickupAddress
+          : null;
+
+      return {
+        id: membership.id,
+        name: getMembershipName(membership.user),
+        email: membership.user.email,
+        warehouseEmail: membership.warehouseEmail?.trim() || "",
+        address: activeMainPickupAddress
+          ? activeMainPickupAddress.address
+          : membership.user.address?.trim() || "",
+        mainPickupAddress: activeMainPickupAddress
+          ? {
+              id: activeMainPickupAddress.id,
+              name: activeMainPickupAddress.name,
+              address: activeMainPickupAddress.address,
+              latitude: activeMainPickupAddress.latitude,
+              longitude: activeMainPickupAddress.longitude,
+            }
+          : null,
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return NextResponse.json({

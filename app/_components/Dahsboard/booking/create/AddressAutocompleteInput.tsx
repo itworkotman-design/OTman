@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
-type AddressSuggestion = {
+export type AddressSuggestion = {
   id: string;
   label: string;
   name: string;

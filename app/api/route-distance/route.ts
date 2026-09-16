@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getRouteDistance } from "@/lib/integrations/mapbox/routeDistance";
+import { getVisibleCustomPickupAddress } from "@/lib/pickupAddresses/visibility";
 
 type RouteDistanceRequestBody = {
   pickupAddress?: unknown;
+  customPickupAddressId?: unknown;
   extraPickupAddresses?: unknown;
   deliveryAddress?: unknown;
   returnAddress?: unknown;
@@ -40,9 +42,40 @@ export async function POST(req: Request) {
     );
   }
 
+  let pickupAddress = toOptionalString(body.pickupAddress);
+  let pickupCoordinate: { latitude: number; longitude: number } | undefined;
+
+  if (typeof body.customPickupAddressId === "string" && body.customPickupAddressId) {
+    if (!session.activeCompanyId) {
+      return NextResponse.json(
+        { ok: false, reason: "TENANT_SELECTION_REQUIRED" },
+        { status: 409 },
+      );
+    }
+
+    const customPickupAddress = await getVisibleCustomPickupAddress(
+      body.customPickupAddressId,
+      session.activeCompanyId,
+    );
+
+    if (!customPickupAddress) {
+      return NextResponse.json(
+        { ok: false, reason: "PICKUP_ADDRESS_NOT_AVAILABLE" },
+        { status: 403 },
+      );
+    }
+
+    pickupAddress = customPickupAddress.address;
+    pickupCoordinate = {
+      latitude: customPickupAddress.latitude,
+      longitude: customPickupAddress.longitude,
+    };
+  }
+
   try {
     const result = await getRouteDistance({
-      pickupAddress: toOptionalString(body.pickupAddress),
+      pickupAddress,
+      pickupCoordinate,
       extraPickupAddresses: toStringArray(body.extraPickupAddresses),
       deliveryAddress: toOptionalString(body.deliveryAddress),
       returnAddress: toOptionalString(body.returnAddress),

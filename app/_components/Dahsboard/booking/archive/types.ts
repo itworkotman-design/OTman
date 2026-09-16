@@ -14,6 +14,7 @@ export type BookingArchiveFilters = {
   subcontractorId: string;
   createdById: string;
   pricelistId: string;
+  customPickupAddressId: string;
 
   page: number;
   rowsPerPage: number;
