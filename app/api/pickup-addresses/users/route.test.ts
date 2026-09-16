@@ -37,16 +37,58 @@ describe("GET /api/pickup-addresses/users", () => {
     expect(response.status).toBe(403);
   });
 
-  it("lists active users by id/email/username along with their current main pickup address", async () => {
+  it("only returns users who hold order-creator booking access in at least one active membership", async () => {
     mocks.requireFullAccessMembershipMock.mockResolvedValue({ ok: true, membership: { role: "OWNER" } });
     mocks.findManyMock.mockResolvedValue([
       {
+        // Order creator: Booking enabled at Admin level, plain company role.
         id: "user-1",
-        email: "a@example.com",
-        username: "A",
+        email: "creator@example.com",
+        username: "Creator",
         mainPickupAddress: { id: "cpa-9", name: "Other Depot" },
+        memberships: [
+          {
+            role: "USER",
+            permissions: [{ permission: "BOOKING_VIEW" }, { permission: "BOOKING_CREATE" }],
+          },
+        ],
       },
-      { id: "user-2", email: "b@example.com", username: "B", mainPickupAddress: null },
+      {
+        // Subcontractor: Booking view-only, no create — must be excluded.
+        id: "user-2",
+        email: "subcontractor@example.com",
+        username: "Sub",
+        mainPickupAddress: null,
+        memberships: [{ role: "USER", permissions: [{ permission: "BOOKING_VIEW" }] }],
+      },
+      {
+        // No booking access at all — must be excluded.
+        id: "user-3",
+        email: "noaccess@example.com",
+        username: null,
+        mainPickupAddress: null,
+        memberships: [{ role: "USER", permissions: [] }],
+      },
+      {
+        // Full-access company Owner — already sees every address, so not an
+        // "order creator" assignment target — must be excluded.
+        id: "user-4",
+        email: "owner@example.com",
+        username: "Owner",
+        mainPickupAddress: null,
+        memberships: [{ role: "OWNER", permissions: [] }],
+      },
+      {
+        // Order creator via a second, non-active-first membership.
+        id: "user-5",
+        email: "multi@example.com",
+        username: null,
+        mainPickupAddress: null,
+        memberships: [
+          { role: "USER", permissions: [] },
+          { role: "USER", permissions: [{ permission: "BOOKING_VIEW" }, { permission: "BOOKING_CREATE" }] },
+        ],
+      },
     ]);
 
     const response = await GET(new Request("http://localhost/api/pickup-addresses/users"));
@@ -58,11 +100,16 @@ describe("GET /api/pickup-addresses/users", () => {
       users: [
         {
           id: "user-1",
-          email: "a@example.com",
-          username: "A",
+          email: "creator@example.com",
+          username: "Creator",
           mainPickupAddress: { id: "cpa-9", name: "Other Depot" },
         },
-        { id: "user-2", email: "b@example.com", username: "B", mainPickupAddress: null },
+        {
+          id: "user-5",
+          email: "multi@example.com",
+          username: null,
+          mainPickupAddress: null,
+        },
       ],
     });
     expect(mocks.findManyMock).toHaveBeenCalledWith({
@@ -73,6 +120,13 @@ describe("GET /api/pickup-addresses/users", () => {
         email: true,
         username: true,
         mainPickupAddress: { select: { id: true, name: true } },
+        memberships: {
+          where: { status: "ACTIVE" },
+          select: {
+            role: true,
+            permissions: { select: { permission: true } },
+          },
+        },
       },
     });
   });
