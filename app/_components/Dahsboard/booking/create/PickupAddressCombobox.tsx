@@ -514,21 +514,8 @@ export function PickupAddressCombobox({
 
   const resultsList = (
     <div className="max-h-72 overflow-auto">
-      {addressLoading ? <div className="px-2 py-2 text-sm text-textColorSecond">{t("Searching...")}</div> : null}
-
-      {!addressLoading && addressResults.length > 0
-        ? addressResults.map((suggestion) => (
-            <SuggestionRow
-              key={suggestion.id}
-              suggestion={suggestion}
-              precisionLabel={precisionLabel(suggestion)}
-              onSelect={() => selectSuggestion(suggestion)}
-            />
-          ))
-        : null}
-
       {filteredOptions.length > 0 ? (
-        <div className={addressResults.length > 0 ? "mt-2 border-t border-lineSecondary pt-2" : ""}>
+        <div>
           <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-textColorThird">
             {t("Saved locations")}
           </div>
@@ -538,6 +525,29 @@ export function PickupAddressCombobox({
               option={option}
               selected={option.id === customPickupAddressId}
               onSelect={() => selectOption(option)}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {addressLoading ? (
+        <div
+          className={`px-2 py-2 text-sm text-textColorSecond ${
+            filteredOptions.length > 0 ? "mt-2 border-t border-lineSecondary pt-2" : ""
+          }`}
+        >
+          {t("Searching...")}
+        </div>
+      ) : null}
+
+      {!addressLoading && addressResults.length > 0 ? (
+        <div className={filteredOptions.length > 0 ? "mt-2 border-t border-lineSecondary pt-2" : ""}>
+          {addressResults.map((suggestion) => (
+            <SuggestionRow
+              key={suggestion.id}
+              suggestion={suggestion}
+              precisionLabel={precisionLabel(suggestion)}
+              onSelect={() => selectSuggestion(suggestion)}
             />
           ))}
         </div>
