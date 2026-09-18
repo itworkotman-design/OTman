@@ -2,6 +2,44 @@
 
 import { useEffect, useRef } from "react";
 
+declare global {
+  interface Window {
+    __googleMapsInitCallback?: () => void;
+  }
+}
+
+// Module-level singleton: with `loading=async`, google.maps.importLibrary
+// only exists once the API calls back via the `callback` URL param — not
+// when the script's `load` event fires — so readiness is tracked via a
+// shared promise rather than by sniffing the script tag/window.google.
+let mapsLoadPromise: Promise<void> | null = null;
+
+function isGoogleMapsReady(): boolean {
+  // Cast locally to an optional shape: the ambient @types/google.maps
+  // declaration types `window.google` as always defined, which makes
+  // TS flag a direct existence check as a no-op.
+  const w = window as unknown as { google?: typeof google };
+  return typeof w.google?.maps?.importLibrary === "function";
+}
+
+function loadGoogleMaps(apiKey: string): Promise<void> {
+  if (isGoogleMapsReady()) return Promise.resolve();
+  if (mapsLoadPromise) return mapsLoadPromise;
+
+  mapsLoadPromise = new Promise<void>((resolve, reject) => {
+    window.__googleMapsInitCallback = resolve;
+
+    const script = document.createElement("script");
+    script.id = "google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=marker&loading=async&callback=__googleMapsInitCallback`;
+    script.async = true;
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    document.head.appendChild(script);
+  });
+
+  return mapsLoadPromise;
+}
+
 export default function GoogleMap() {
   const mapRef = useRef<HTMLDivElement>(null);
 
@@ -17,30 +55,9 @@ export default function GoogleMap() {
         return;
       }
 
-      const existingScript = document.getElementById("google-maps-script");
+      await loadGoogleMaps(apiKey);
 
-      if (!existingScript) {
-        // Case 1: script not in DOM yet — add it and wait for load
-        const script = document.createElement("script");
-        script.id = "google-maps-script";
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=marker`;
-        script.async = true;
-
-        await new Promise<void>((resolve, reject) => {
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error("Failed to load Google Maps"));
-          document.head.appendChild(script);
-        });
-      } else if (!window.google) {
-        // Case 2: script tag exists but hasn't finished loading yet
-        await new Promise<void>((resolve, reject) => {
-          existingScript.addEventListener("load", () => resolve(), { once: true });
-          existingScript.addEventListener("error", () => reject(new Error("Failed to load Google Maps")), { once: true });
-        });
-      }
-      // Case 3: window.google already exists — fall through immediately
-
-      if (cancelled || !mapRef.current || !window.google) return;
+      if (cancelled || !mapRef.current) return;
 
       const { Map } = (await google.maps.importLibrary("maps")) as google.maps.MapsLibrary;
       const { AdvancedMarkerElement, PinElement } =
@@ -71,7 +88,7 @@ export default function GoogleMap() {
         map,
         position: center,
         title: "Otman AS",
-        content: pin.element,
+        content: pin,
       });
     }
 

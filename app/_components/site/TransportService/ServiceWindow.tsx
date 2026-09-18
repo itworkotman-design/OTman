@@ -3,12 +3,101 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ServiceWindowItem } from "./ServiceWindowItem";
-import { ServiceModal } from "./ServiceModal";
+// Old single-page modal, kept commented out for reference while the
+// stepped/sectioned modal replacement is built. See BookingModal/.
+// import { ServiceModal } from "./ServiceModal";
+import { SteppedModal, type FinalStep, type StepSection } from "../BookingModal/SteppedModal";
 import type {
   Locale,
   LocalizedText,
   ServiceGroup,
 } from "@/lib/content/ServiceWindowContent";
+
+// Placeholder sections for the new stepped modal shell — real fields per
+// service (collection, transport, manpower, car rental) get migrated in
+// one at a time.
+function buildPlaceholderSections(locale: Locale): StepSection[] {
+  const continueLabel = locale === "no" ? "Fortsett" : "Continue";
+
+  return [
+    {
+      id: "placeholder-1",
+      title: locale === "no" ? "Trinn 1" : "Step 1",
+      description: locale === "no" ? "Første valg kommer her." : "The first choice will go here.",
+      render: ({ onComplete }) => (
+        <button
+          type="button"
+          onClick={onComplete}
+          className="inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+        >
+          {continueLabel}
+        </button>
+      ),
+    },
+    {
+      id: "placeholder-2",
+      title: locale === "no" ? "Trinn 2" : "Step 2",
+      description: locale === "no" ? "Flere detaljer kommer her." : "More details will go here.",
+      render: ({ onComplete }) => (
+        <button
+          type="button"
+          onClick={onComplete}
+          className="inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+        >
+          {continueLabel}
+        </button>
+      ),
+    },
+  ];
+}
+
+// Placeholder final step: a full review/payment page, not a stacked
+// section. Landing here fills the progress bar; the only way back to the
+// question sections is the explicit back action.
+function buildPlaceholderFinalStep(locale: Locale): FinalStep {
+  const backLabel = locale === "no" ? "Tilbake" : "Back";
+  const continueLabel = locale === "no" ? "Fortsett til betaling" : "Continue to payment";
+
+  return {
+    render: ({ onBack }) => (
+      <div className="flex flex-col gap-5">
+        <button
+          type="button"
+          onClick={onBack}
+          className="self-start flex items-center gap-1.5 text-sm font-semibold text-logoblue transition hover:opacity-70"
+        >
+          <span aria-hidden="true">←</span>
+          {backLabel}
+        </button>
+
+        <div>
+          <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
+            {locale === "no" ? "Oppsummering" : "Summary"}
+          </h4>
+          <p className="mt-1 text-center text-sm text-black/60">
+            {locale === "no" ? "Bestillingsoppsummeringen kommer her." : "The order summary will go here."}
+          </p>
+        </div>
+
+        <div>
+          <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
+            {locale === "no" ? "Dine opplysninger" : "Your details"}
+          </h4>
+          <p className="mt-1 text-center text-sm text-black/60">
+            {locale === "no" ? "Kontaktskjema og ekstra detaljer kommer her." : "Contact form and extra details will go here."}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="self-start inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+        >
+          {continueLabel}
+        </button>
+      </div>
+    ),
+  };
+}
 
 type ServiceWindowProps = {
   title: LocalizedText;
@@ -245,10 +334,21 @@ const localizedItems = useMemo(
         </div>
       </section>
 
+      {/* Old single-page modal, disabled pending the stepped/sectioned redesign.
       {activeModal && (
         <ServiceModal
           service={activeModal}
           locale={locale}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
+      */}
+
+      {activeModal && (
+        <SteppedModal
+          key={activeModal.id}
+          sections={buildPlaceholderSections(locale)}
+          finalStep={buildPlaceholderFinalStep(locale)}
           onClose={() => setActiveModal(null)}
         />
       )}
