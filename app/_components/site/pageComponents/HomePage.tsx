@@ -45,6 +45,7 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
           src="/Logo Icon.svg"
           alt=""
           aria-hidden="true"
+          loading="eager"
           width={1280}
           height={1280}
           className="pointer-events-none absolute -right-[900px] -top-[680px] -z-10 hidden w-[1600] max-w-none opacity-[0.22] md:block"
