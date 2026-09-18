@@ -9,8 +9,10 @@ import {
   WHITE_GOODS_ELECTRONICS_PRODUCTS,
   type WhiteGoodsOptionSeed,
 } from "@/lib/content/whiteGoodsElectronics";
+import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { ProductIcon } from "./productIcons";
+import { TruckIcon, WrenchIcon, GearIcon } from "./sectionIcons";
 
 // The DB-stored ProductOption/CatalogOption has no field distinguishing a
 // mutually-exclusive "type" choice (radio) from a stackable add-on
@@ -37,6 +39,62 @@ function money(value: string) {
   return Number.isFinite(n) ? `${n.toLocaleString("nb-NO")} kr` : value;
 }
 
+// One selectable row shared by every section below: an icon indicator
+// (filled circle for a single-select "radio" group, checkmark square for a
+// stackable "checkbox" one), a title + optional description on the left,
+// and a price (or "Included") on the right.
+function OptionRow({
+  variant,
+  selected,
+  title,
+  description,
+  price,
+  priceClassName,
+  onClick,
+}: {
+  variant: "radio" | "checkbox";
+  selected: boolean;
+  title: string;
+  description?: string;
+  price?: string;
+  priceClassName?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex w-full items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left transition",
+        selected ? "border-logoblue bg-logoblue/5" : "border-black/10 hover:border-black/20",
+      ].join(" ")}
+    >
+      <span className="flex items-start gap-3">
+        <span
+          className={[
+            "mt-0.5 grid h-4 w-4 shrink-0 place-items-center border-2",
+            variant === "radio" ? "rounded-full" : "rounded-sm",
+            selected ? "border-logoblue bg-logoblue" : "border-black/25 bg-white",
+          ].join(" ")}
+        >
+          {selected && variant === "checkbox" && (
+            <span className="text-[10px] leading-none text-white">✓</span>
+          )}
+        </span>
+        <span>
+          <span className="block text-sm font-semibold text-black/85">{title}</span>
+          {description && <span className="mt-0.5 block text-xs text-black/50">{description}</span>}
+        </span>
+      </span>
+      {price && (
+        <span className={["shrink-0 text-sm font-semibold", priceClassName ?? "text-black/70"].join(" ")}>
+          {price}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export function WhiteGoodsProductCard({
   locale,
   product,
@@ -58,8 +116,6 @@ export function WhiteGoodsProductCard({
     }
     return map;
   }, [seedProduct]);
-
-  const installOnlyEnabled = seedProduct?.deliveryTypes.installOnlyEnabled ?? false;
 
   const typeOptions = product.options.filter(
     (o) => o.active && seedByCode.get(o.code)?.exclusiveGroup === "type",
@@ -89,12 +145,11 @@ export function WhiteGoodsProductCard({
 
   const installSelected = value.selectedInstallOptionIds.length > 0;
   const deliveryType = value.deliveryType;
-  // Doorstep delivery has no install "type" choices at all in the source
-  // data; unpacking/dismantling/return are available directly (no
-  // installSelected gate applies since one can never be selected there).
-  const showTypeChoices =
-    (deliveryType === "INDOOR" || deliveryType === "INSTALL_ONLY") && typeOptions.length > 0;
   const showExtras = deliveryType !== "" && !installSelected;
+  const showReturn = !!returnOption && deliveryType !== "";
+
+  const firstStepPrice = getProductDeliveryType(product.deliveryTypes, "FIRST_STEP")?.price ?? "0";
+  const indoorPrice = getProductDeliveryType(product.deliveryTypes, "INDOOR")?.price ?? "0";
 
   function setDeliveryType(next: SavedProductCard["deliveryType"]) {
     onChange({
@@ -107,12 +162,23 @@ export function WhiteGoodsProductCard({
     });
   }
 
+  function clearInstallation() {
+    onChange({
+      ...value,
+      selectedInstallOptionIds: [],
+    });
+  }
+
   function selectType(optionId: string) {
     const stackableSelected = value.selectedInstallOptionIds.filter((id) =>
       stackableInstallOptions.some((o) => o.id === id),
     );
     onChange({
       ...value,
+      // Installation implies carry-in — picking an install type while
+      // doorstep delivery (or nothing) is selected switches delivery to
+      // carry-in instead of leaving an inconsistent combination.
+      deliveryType: "INDOOR",
       selectedInstallOptionIds: [optionId, ...stackableSelected],
     });
   }
@@ -153,10 +219,17 @@ export function WhiteGoodsProductCard({
 
   return (
     <div className="rounded-2xl border border-black/10 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
+      <div className="flex items-start gap-3">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-logoblue/10">
           <ProductIcon code={product.code} iconKey={product.iconKey} className="h-6 w-6 text-logoblue" />
-          <p className="text-sm font-semibold text-black/80">{productName}</p>
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-semibold text-black/90">
+            {t("Configure", "Konfigurer")} {productName}
+          </h3>
+          <p className="text-sm text-black/50">
+            {t("Choose your preferred services and options.", "Velg dine foretrukne tjenester og alternativer.")}
+          </p>
         </div>
         <button
           type="button"
@@ -168,129 +241,128 @@ export function WhiteGoodsProductCard({
         </button>
       </div>
 
-      <div className="mt-4 flex flex-col gap-4">
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-xs font-semibold uppercase tracking-wide text-black/50">
+      <div className="mt-4 flex flex-col gap-5">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-black/80">
+            <TruckIcon className="h-4 w-4 text-logoblue" />
             {t("Delivery", "Levering")}
-          </legend>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={deliveryType === "FIRST_STEP"}
-              onChange={() => setDeliveryType("FIRST_STEP")}
+          </div>
+          <div className="flex flex-col gap-2">
+            <OptionRow
+              variant="radio"
+              selected={deliveryType === "FIRST_STEP"}
+              title={t("Doorstep delivery", "Levering til ytterdør")}
+              description={t("We deliver to your doorstep.", "Vi leverer til din dør.")}
+              price={money(firstStepPrice)}
+              onClick={() => setDeliveryType("FIRST_STEP")}
             />
-            {t("Delivery to doorstep", "Levering til ytterdør")}
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={deliveryType === "INDOOR"}
-              onChange={() => setDeliveryType("INDOOR")}
+            <OptionRow
+              variant="radio"
+              selected={deliveryType === "INDOOR"}
+              title={t("Carry-in delivery", "Levering med innbæring")}
+              description={t(
+                "We deliver and carry the product inside your home.",
+                "Vi leverer og bærer varen inn i hjemmet ditt.",
+              )}
+              price={money(indoorPrice)}
+              onClick={() => setDeliveryType("INDOOR")}
             />
-            {t("Delivery with carry-in", "Levering med innbæring")}
-          </label>
-          {installOnlyEnabled && (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={deliveryType === "INSTALL_ONLY"}
-                onChange={() => setDeliveryType("INSTALL_ONLY")}
-              />
-              {t("Installation only", "Kun montering")}
-            </label>
-          )}
-        </fieldset>
+          </div>
+        </div>
 
-        {showTypeChoices && (
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-xs font-semibold uppercase tracking-wide text-black/50">
-              {t("Installation type", "Monteringstype")}
-            </legend>
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-black/80">
+            <WrenchIcon className="h-4 w-4 text-logoblue" />
+            {t("Installation", "Montering")}
+          </div>
+          <div className="flex flex-col gap-2">
+            <OptionRow
+              variant="radio"
+              selected={!installSelected}
+              title={t("No installation", "Ingen montering")}
+              description={t("You handle installation yourself.", "Du monterer selv.")}
+              price={t("Included", "Inkludert")}
+              priceClassName="text-logoblue"
+              onClick={clearInstallation}
+            />
             {typeOptions.map((option) => {
               const seed = seedByCode.get(option.code);
               return (
-                <label key={option.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      checked={value.selectedInstallOptionIds.includes(option.id)}
-                      onChange={() => selectType(option.id)}
-                    />
-                    {seed ? seedLabel(locale, seed) : option.label}
-                  </span>
-                  <span className="text-black/50">{money(option.customerPrice)}</span>
-                </label>
+                <OptionRow
+                  key={option.id}
+                  variant="radio"
+                  selected={value.selectedInstallOptionIds.includes(option.id)}
+                  title={seed ? seedLabel(locale, seed) : option.label}
+                  price={money(option.customerPrice)}
+                  onClick={() => selectType(option.id)}
+                />
               );
             })}
             {installSelected &&
               stackableInstallOptions.map((option) => {
                 const seed = seedByCode.get(option.code);
                 return (
-                  <label
+                  <OptionRow
                     key={option.id}
-                    className="ml-5 flex items-center justify-between gap-2 text-sm text-black/70"
-                  >
-                    <span className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={value.selectedInstallOptionIds.includes(option.id)}
-                        onChange={() => toggleStackableInstall(option.id)}
-                      />
-                      {seed ? seedLabel(locale, seed) : option.label}
-                    </span>
-                    <span className="text-black/50">{money(option.customerPrice)}</span>
-                  </label>
+                    variant="checkbox"
+                    selected={value.selectedInstallOptionIds.includes(option.id)}
+                    title={seed ? seedLabel(locale, seed) : option.label}
+                    price={money(option.customerPrice)}
+                    onClick={() => toggleStackableInstall(option.id)}
+                  />
                 );
               })}
-          </fieldset>
-        )}
+          </div>
+        </div>
 
-        {showExtras && (
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-xs font-semibold uppercase tracking-wide text-black/50">
-              {t("Add-ons", "Tilleggsvalg")}
-            </legend>
-            {unpackingOption && (
-              <label className="flex items-center justify-between gap-2 text-sm">
-                <span className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={value.selectedExtraOptionIds.includes(unpackingOption.id)}
-                    onChange={toggleUnpacking}
-                  />
-                  {t("Unpacking and disposal of packaging", "Utpakking og kasting av emballasje")}
-                </span>
-                <span className="text-black/50">{money(unpackingOption.customerPrice)}</span>
-              </label>
-            )}
-            {demontOption && (
-              <label className="flex items-center justify-between gap-2 text-sm">
-                <span className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={value.demontEnabled}
-                    onChange={() => onChange({ ...value, demontEnabled: !value.demontEnabled })}
-                  />
-                  {t("Dismantling old product", "Demontering av gammel vare")}
-                </span>
-                <span className="text-black/50">{money(demontOption.customerPrice)}</span>
-              </label>
-            )}
-          </fieldset>
-        )}
-
-        {returnOption && deliveryType !== "" && (
-          <label className="flex items-center justify-between gap-2 text-sm">
-            <span className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={value.selectedReturnOptionId === returnOption.id}
-                onChange={toggleReturn}
-              />
-              {t("Return old product for recycling", "Retur av gammel vare til gjenvinning")}
-            </span>
-            <span className="text-black/50">{money(returnOption.customerPrice)}</span>
-          </label>
+        {(showExtras || showReturn) && (
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-black/80">
+              <GearIcon className="h-4 w-4 text-logoblue" />
+              {t("Additional services", "Tilleggstjenester")}
+            </div>
+            <div className="flex flex-col gap-2">
+              {showExtras && unpackingOption && (
+                <OptionRow
+                  variant="checkbox"
+                  selected={value.selectedExtraOptionIds.includes(unpackingOption.id)}
+                  title={t("Unpack & remove packaging", "Utpakking og kasting av emballasje")}
+                  description={t(
+                    "We unpack the product and take the packaging with us.",
+                    "Vi pakker ut varen og tar med emballasjen.",
+                  )}
+                  price={money(unpackingOption.customerPrice)}
+                  onClick={toggleUnpacking}
+                />
+              )}
+              {showExtras && demontOption && (
+                <OptionRow
+                  variant="checkbox"
+                  selected={value.demontEnabled}
+                  title={t("Dismantle old product", "Demontering av gammel vare")}
+                  description={t(
+                    "We disconnect and remove your old product.",
+                    "Vi kobler fra og fjerner den gamle varen din.",
+                  )}
+                  price={money(demontOption.customerPrice)}
+                  onClick={() => onChange({ ...value, demontEnabled: !value.demontEnabled })}
+                />
+              )}
+              {showReturn && returnOption && (
+                <OptionRow
+                  variant="checkbox"
+                  selected={value.selectedReturnOptionId === returnOption.id}
+                  title={t("Return old product for recycling", "Retur av gammel vare til gjenvinning")}
+                  description={t(
+                    "We ensure it's recycled responsibly.",
+                    "Vi sørger for at den resirkuleres på en forsvarlig måte.",
+                  )}
+                  price={money(returnOption.customerPrice)}
+                  onClick={toggleReturn}
+                />
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

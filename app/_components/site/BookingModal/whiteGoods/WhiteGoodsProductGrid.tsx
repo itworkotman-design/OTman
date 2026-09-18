@@ -12,7 +12,7 @@ type Props = {
   onChangeQuantity: (productId: string, amount: number) => void;
 };
 
-function productLabel(locale: Locale, product: CatalogProduct) {
+export function productLabel(locale: Locale, product: CatalogProduct) {
   const seed = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((s) => s.code === product.code);
   if (!seed) return product.label;
   return locale === "no" ? seed.nameNo : seed.nameEn;

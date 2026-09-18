@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { SteppedModal, RevealSection, type FinalStep, type StepSection } from "../SteppedModal";
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
-import { WhiteGoodsProductGrid } from "./WhiteGoodsProductGrid";
+import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
+import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
 import { applyProductQuantity } from "./productQuantity";
+import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import {
@@ -176,6 +178,30 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     liftAvailable,
   ]);
 
+  const summaryProducts: OrderSummaryProduct[] = useMemo(() => {
+    return productCards
+      .map((card) => {
+        const product = catalogProducts.find((p) => p.id === card.productId);
+        if (!product) return null;
+        const breakdown = pricing.breakdowns.find((b) => b.cardId === card.cardId);
+        const lines = (breakdown?.lines ?? []).map((line) => ({
+          label: line.label,
+          price: line.lineTotal,
+          category: categorizeWhiteGoodsLineCode(line.code),
+        }));
+        return {
+          cardId: card.cardId,
+          name: productLabel(locale, product),
+          code: product.code,
+          iconKey: product.iconKey ?? null,
+          qty: card.amount,
+          total: lines.reduce((sum, line) => sum + line.price, 0),
+          lines,
+        };
+      })
+      .filter((p): p is OrderSummaryProduct => p !== null);
+  }, [productCards, catalogProducts, pricing, locale]);
+
   const canContinueProducts = productCards.some((c) => c.productId && c.deliveryType);
   const canContinueOrderDetails = !!pickupAddress.trim() && !!deliveryAddress.trim();
   const canContinueContact = !!name.trim() && !!phone.trim();
@@ -272,23 +298,33 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       id: "product-options",
       title: t("Product options", "Produktvalg"),
       render: ({ onComplete, onUncomplete }) => (
-        <div className="flex flex-col gap-4">
-          {productCards.map((card) => {
-            const product = catalogProducts.find((p) => p.id === card.productId);
-            if (!product) return null;
-            return (
-              <RevealSection key={card.cardId}>
-                <WhiteGoodsProductCard
-                  locale={locale}
-                  product={product}
-                  value={card}
-                  onChange={(next) => updateCard(card.cardId, next)}
-                  onRemove={() => setProductQuantity(product.id, 0)}
-                />
-              </RevealSection>
-            );
-          })}
-          <AutoAdvance ready={canContinueProducts} onReady={onComplete} onRetract={onUncomplete} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+          <div className="flex flex-col gap-4">
+            {productCards.map((card) => {
+              const product = catalogProducts.find((p) => p.id === card.productId);
+              if (!product) return null;
+              return (
+                <RevealSection key={card.cardId}>
+                  <WhiteGoodsProductCard
+                    locale={locale}
+                    product={product}
+                    value={card}
+                    onChange={(next) => updateCard(card.cardId, next)}
+                    onRemove={() => setProductQuantity(product.id, 0)}
+                  />
+                </RevealSection>
+              );
+            })}
+            <AutoAdvance ready={canContinueProducts} onReady={onComplete} onRetract={onUncomplete} />
+          </div>
+
+          <div className="lg:sticky lg:top-0 lg:self-start">
+            <WhiteGoodsOrderSummary
+              locale={locale}
+              products={summaryProducts}
+              totalIncVat={pricing.totals.totalIncVat}
+            />
+          </div>
         </div>
       ),
     },
