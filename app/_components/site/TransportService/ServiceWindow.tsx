@@ -12,7 +12,11 @@ import { WhiteGoodsBookingFlow } from "../BookingModal/whiteGoods/WhiteGoodsBook
 // The white-goods/electronics delivery+installation flow has a real,
 // data-backed implementation — every other tile still opens the generic
 // placeholder shell while its own fields get migrated in one at a time.
-const WHITE_GOODS_SERVICE_ID = "moving-relocation";
+// This belongs under "Levering" (Delivery) — the first three tiles share
+// items[0]'s modal (see handleItemClick below), so this also covers
+// "Delivery + Assembly" and "Assembly". Only "Flytting" (Moving, the 4th
+// tile, items[1]) still opens the placeholder.
+const WHITE_GOODS_SERVICE_ID = "collection-pickup";
 import type {
   Locale,
   LocalizedText,
