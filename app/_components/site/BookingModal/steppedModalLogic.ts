@@ -7,6 +7,14 @@ export function nextRevealedCount(currentRevealedCount: number, completedIndex: 
   return Math.min(Math.max(currentRevealedCount, proposed), totalSections);
 }
 
+// Hides every section after `fromIndex` again — used when a section whose
+// completion was condition-driven (not a one-off button click) stops being
+// satisfied, e.g. the user un-picks the product that had satisfied it.
+// Section `fromIndex` itself stays revealed; only what came after it goes.
+export function retractedRevealedCount(currentRevealedCount: number, fromIndex: number): number {
+  return Math.min(currentRevealedCount, fromIndex + 1);
+}
+
 // Percentage (0-100) the progress bar should fill for the given reveal
 // state. totalSections <= 0 is treated as "nothing to fill" rather than
 // dividing by zero.

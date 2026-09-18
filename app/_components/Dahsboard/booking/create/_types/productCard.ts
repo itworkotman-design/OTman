@@ -92,6 +92,8 @@ export type CatalogProduct = {
   deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
   options: CatalogOption[];
+  /** DB-stored icon key for the website's white-goods product grid; unused by the dashboard's own booking flow. */
+  iconKey?: string | null;
 };
 
 export type CatalogSpecialOption = {

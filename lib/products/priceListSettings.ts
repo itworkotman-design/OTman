@@ -17,6 +17,11 @@ export type PriceListSettings = {
   kmOver100: PriceListChargeSetting;
   extraWork: PriceListChargeSetting;
   addToOrder: PriceListChargeSetting;
+  // Per chargeable floor above the included level, when there's no lift.
+  // Optional/additive: only set by price lists that price floor access
+  // (currently just the website white-goods flow) — existing price lists
+  // simply never populate it.
+  floorSurcharge: PriceListChargeSetting;
   deviations: Record<string, PriceListChargeSetting>;
 };
 
@@ -75,6 +80,10 @@ export function createDefaultPriceListSettings(): PriceListSettings {
       "Gebyr for tillegg av bestilling",
       "99",
       "0",
+    ),
+    floorSurcharge: createDefaultChargeSetting(
+      "FLOOR_SURCHARGE",
+      "Floor surcharge per chargeable floor, no lift",
     ),
     deviations: Object.fromEntries(
       DEVIATION_FEE_OPTIONS.map((option) => [
@@ -190,6 +199,10 @@ export function normalizePriceListSettings(
     ),
     extraWork: normalizeChargeSetting(input?.extraWork, defaults.extraWork),
     addToOrder: normalizeChargeSetting(input?.addToOrder, defaults.addToOrder),
+    floorSurcharge: normalizeChargeSetting(
+      input?.floorSurcharge,
+      defaults.floorSurcharge,
+    ),
     deviations: normalizeDeviationSettings(
       input?.deviations,
       defaults.deviations,

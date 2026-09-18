@@ -48,6 +48,51 @@ describe("priceListSettings", () => {
     expect(settings.deviations.CANCELED?.price).toBe("590");
   });
 
+  it("defaults floorSurcharge to a zero-priced setting", () => {
+    const settings = createDefaultPriceListSettings();
+
+    expect(settings.floorSurcharge).toEqual(
+      expect.objectContaining({
+        code: "FLOOR_SURCHARGE",
+        price: "0",
+        subcontractorPrice: "0",
+      }),
+    );
+  });
+
+  it("normalizes a custom floorSurcharge setting", () => {
+    const settings = normalizePriceListSettings({
+      floorSurcharge: {
+        code: "FLOOR_SURCHARGE",
+        description: "Floor surcharge",
+        price: "71.208",
+        subcontractorPrice: "29.928",
+      },
+    });
+
+    expect(settings.floorSurcharge).toEqual(
+      expect.objectContaining({
+        price: "71.208",
+        subcontractorPrice: "29.928",
+      }),
+    );
+  });
+
+  it("round-trips floorSurcharge through price-list description storage", () => {
+    const settings = createDefaultPriceListSettings();
+    settings.floorSurcharge.price = "71.208";
+    settings.floorSurcharge.subcontractorPrice = "29.928";
+
+    const parsed = parsePriceListSettings(serializePriceListSettings(settings));
+
+    expect(parsed.floorSurcharge).toEqual(
+      expect.objectContaining({
+        price: "71.208",
+        subcontractorPrice: "29.928",
+      }),
+    );
+  });
+
   it("round-trips deviation settings through price-list description storage", () => {
     const settings = createDefaultPriceListSettings();
     settings.deviations.NOTHOME.price = "650";

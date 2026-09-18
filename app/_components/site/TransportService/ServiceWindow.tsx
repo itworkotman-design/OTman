@@ -7,6 +7,12 @@ import { ServiceWindowItem } from "./ServiceWindowItem";
 // stepped/sectioned modal replacement is built. See BookingModal/.
 // import { ServiceModal } from "./ServiceModal";
 import { SteppedModal, type FinalStep, type StepSection } from "../BookingModal/SteppedModal";
+import { WhiteGoodsBookingFlow } from "../BookingModal/whiteGoods/WhiteGoodsBookingFlow";
+
+// The white-goods/electronics delivery+installation flow has a real,
+// data-backed implementation — every other tile still opens the generic
+// placeholder shell while its own fields get migrated in one at a time.
+const WHITE_GOODS_SERVICE_ID = "moving-relocation";
 import type {
   Locale,
   LocalizedText,
@@ -344,7 +350,15 @@ const localizedItems = useMemo(
       )}
       */}
 
-      {activeModal && (
+      {activeModal && activeModal.id === WHITE_GOODS_SERVICE_ID && (
+        <WhiteGoodsBookingFlow
+          key={activeModal.id}
+          locale={locale}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
+
+      {activeModal && activeModal.id !== WHITE_GOODS_SERVICE_ID && (
         <SteppedModal
           key={activeModal.id}
           sections={buildPlaceholderSections(locale)}

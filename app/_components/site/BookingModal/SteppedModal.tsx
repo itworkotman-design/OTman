@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState, type ReactNode } from "react";
-import { nextRevealedCount, progressPercent } from "./steppedModalLogic";
+import { nextRevealedCount, progressPercent, retractedRevealedCount } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -10,6 +10,11 @@ export type StepSectionRenderProps = {
   // not active.
   isActive: boolean;
   onComplete: () => void;
+  // For sections whose completion is condition-driven rather than a one-off
+  // button click (see AutoAdvance in WhiteGoodsBookingFlow): call this when
+  // that condition stops being satisfied, to retract any sections revealed
+  // after it (and back out of the final step, if it was reached).
+  onUncomplete: () => void;
 };
 
 export type StepSection = {
@@ -39,7 +44,9 @@ type SteppedModalProps = {
 
 // Animates a freshly-revealed section in: height grows from 0 and the
 // content fades from 0% to 100% opacity, instead of snapping into place.
-function RevealSection({ children }: { children: ReactNode }) {
+// Exported so other reveal-on-mount cases (e.g. a product card added to a
+// list) can reuse the same animation instead of a second implementation.
+export function RevealSection({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -82,6 +89,11 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
     setRevealedCount((count) => nextRevealedCount(count, index, sections.length));
   };
 
+  const handleSectionUncomplete = (index: number) => {
+    setShowFinalStep(false);
+    setRevealedCount((count) => retractedRevealedCount(count, index));
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#091030]/45 px-4 py-6 backdrop-blur-sm">
       <div className="relative flex max-h-[92vh] w-full max-w-[864] flex-col overflow-hidden rounded-[32] bg-white shadow-[0_32px_100px_rgba(9,16,48,0.28)]">
@@ -117,6 +129,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
                     {section.render({
                       isActive: index === revealedCount - 1,
                       onComplete: () => handleSectionComplete(index),
+                      onUncomplete: () => handleSectionUncomplete(index),
                     })}
                   </div>
                 </div>

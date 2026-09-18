@@ -132,6 +132,7 @@ export async function getBookingCatalog(
       createDefaultProductAutoDeliveryPrice(),
     deliveryTypes: productConfigMap.get(product.id)?.deliveryTypes ?? [],
     customSections: productConfigMap.get(product.id)?.customSections ?? [],
+    iconKey: product.iconKey,
     options: product.options.map((option) => {
       const price = priceMap.get(option.id);
 
