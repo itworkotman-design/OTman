@@ -390,6 +390,7 @@ model Product {
   customSections      Json?
   deliveryTypes       Json?
   allowModelNumber    Boolean         @default(true)
+  iconKey             String?
   options             ProductOption[]
 }
 

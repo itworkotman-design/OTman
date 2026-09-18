@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextRevealedCount, progressPercent } from "./steppedModalLogic";
+import { nextRevealedCount, progressPercent, retractedRevealedCount } from "./steppedModalLogic";
 
 describe("nextRevealedCount", () => {
   it("reveals the next section when the current one completes", () => {
@@ -17,6 +17,21 @@ describe("nextRevealedCount", () => {
 
   it("stays put if the same section completes again without new sections after it", () => {
     expect(nextRevealedCount(4, 2, 4)).toBe(4);
+  });
+});
+
+describe("retractedRevealedCount", () => {
+  it("hides every section after the one that stopped being satisfied", () => {
+    expect(retractedRevealedCount(4, 1)).toBe(2);
+  });
+
+  it("is a no-op if nothing past that section was revealed yet", () => {
+    expect(retractedRevealedCount(2, 1)).toBe(2);
+    expect(retractedRevealedCount(1, 1)).toBe(1);
+  });
+
+  it("keeps the section itself visible, only retracting what comes after it", () => {
+    expect(retractedRevealedCount(5, 0)).toBe(1);
   });
 });
 

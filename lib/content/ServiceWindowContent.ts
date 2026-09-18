@@ -65,24 +65,24 @@ export const serviceWindowContent = {
       },
       svg: "/Service logos-02.svg",
       modalTitle: {
-        en: "Moving and Relocation",
-        no: "Flytting og relokasjon",
+        en: "White Goods & Electronics",
+        no: "Hvitevarer og elektronikk",
       },
       modalIntro: {
-        en: "We deliver, carry in, and assemble it for you.",
-        no: "Vi leverer, bærer inn og monterer for deg.",
+        en: "We deliver, carry in, and install your white goods and electronics.",
+        no: "Vi leverer, bærer inn og monterer hvitevarer og elektronikk for deg.",
       },
       formVariant: "transport",
       categories: [
         {
           id: "moving-relocation",
           title: {
-            en: "Moving and Relocation",
-            no: "Flytting og relokasjon",
+            en: "White Goods & Electronics",
+            no: "Hvitevarer og elektronikk",
           },
           description: {
-            en: "Home moves, office relocations, and multi-stop logistics.",
-            no: "Flytting av hjem, kontor og flerstopp logistikk.",
+            en: "Delivery and installation for appliances and electronics — dishwashers, washing machines, TVs, fridges, and more.",
+            no: "Levering og montering av hvitevarer og elektronikk — oppvaskmaskiner, vaskemaskiner, TV-er, kjøleskap og mer.",
           },
         },
       ],
