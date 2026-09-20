@@ -6,6 +6,8 @@ import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
 import { applyProductQuantity } from "./productQuantity";
+import { previewCardDeliveryOptions } from "./deliveryPricePreview";
+import { orderHasRequiredDelivery } from "./orderDeliveryRequirement";
 import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
@@ -202,7 +204,14 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       .filter((p): p is OrderSummaryProduct => p !== null);
   }, [productCards, catalogProducts, pricing, locale]);
 
-  const canContinueProducts = productCards.some((c) => c.productId && c.deliveryType);
+  // Every card is auto-assigned a delivery type the moment it's added (see
+  // applyProductQuantity), so this should never actually be false in
+  // practice — kept as an explicit guard (rather than trusting that
+  // invariant blindly) so a product can never slip through to submission
+  // with no delivery charge at all.
+  const hasConfiguredProduct = productCards.every((c) => !c.productId || c.deliveryType);
+  const hasRequiredDelivery = orderHasRequiredDelivery(productCards);
+  const canContinueProducts = productCards.length > 0 && hasConfiguredProduct && hasRequiredDelivery;
   const canContinueOrderDetails = !!pickupAddress.trim() && !!deliveryAddress.trim();
   const canContinueContact = !!name.trim() && !!phone.trim();
   const canSubmit = name.trim() && phone.trim() && !submitLoading;
@@ -309,12 +318,21 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                     locale={locale}
                     product={product}
                     value={card}
+                    deliveryPreview={previewCardDeliveryOptions(productCards, catalogProducts, card.cardId)}
                     onChange={(next) => updateCard(card.cardId, next)}
                     onRemove={() => setProductQuantity(product.id, 0)}
                   />
                 </RevealSection>
               );
             })}
+            {productCards.length > 0 && hasConfiguredProduct && !hasRequiredDelivery && (
+              <p className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
+                {t(
+                  "At least one item needs delivery (doorstep or carry-in) — installation only isn't enough on its own.",
+                  "Minst én vare må ha levering (til ytterdør eller med innbæring) — kun montering er ikke nok alene.",
+                )}
+              </p>
+            )}
             <AutoAdvance ready={canContinueProducts} onReady={onComplete} onRetract={onUncomplete} />
           </div>
 

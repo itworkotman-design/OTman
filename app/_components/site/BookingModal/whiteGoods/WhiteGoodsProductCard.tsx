@@ -9,10 +9,12 @@ import {
   WHITE_GOODS_ELECTRONICS_PRODUCTS,
   type WhiteGoodsOptionSeed,
 } from "@/lib/content/whiteGoodsElectronics";
-import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { ProductIcon } from "./productIcons";
 import { TruckIcon, WrenchIcon, GearIcon } from "./sectionIcons";
+import type { DeliveryOptionPreview } from "./deliveryPricePreview";
+import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
+import { DELIVERY_TYPES } from "@/lib/booking/constants";
 
 // The DB-stored ProductOption/CatalogOption has no field distinguishing a
 // mutually-exclusive "type" choice (radio) from a stackable add-on
@@ -26,6 +28,7 @@ type Props = {
   locale: Locale;
   product: CatalogProduct;
   value: SavedProductCard;
+  deliveryPreview: { firstStep: DeliveryOptionPreview; indoor: DeliveryOptionPreview };
   onChange: (next: SavedProductCard) => void;
   onRemove: () => void;
 };
@@ -42,7 +45,10 @@ function money(value: string) {
 // One selectable row shared by every section below: an icon indicator
 // (filled circle for a single-select "radio" group, checkmark square for a
 // stackable "checkbox" one), a title + optional description on the left,
-// and a price (or "Included") on the right.
+// and a price (or "Included") on the right. `bare` drops this row's own
+// border/rounding/background — used when a group of rows (a type option
+// plus the add-ons it unlocks) shares one outer bordered container instead,
+// so the group reads as a single card rather than several stacked ones.
 function OptionRow({
   variant,
   selected,
@@ -51,6 +57,7 @@ function OptionRow({
   price,
   priceClassName,
   onClick,
+  bare,
 }: {
   variant: "radio" | "checkbox";
   selected: boolean;
@@ -59,14 +66,17 @@ function OptionRow({
   price?: string;
   priceClassName?: string;
   onClick: () => void;
+  bare?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "flex w-full items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left transition",
-        selected ? "border-logoblue bg-logoblue/5" : "border-black/10 hover:border-black/20",
+        "flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition",
+        bare
+          ? (selected ? "bg-logoblue/5" : "hover:bg-black/2")
+          : ["rounded-xl border", selected ? "border-logoblue bg-logoblue/5" : "border-black/10 hover:border-black/20"].join(" "),
       ].join(" ")}
     >
       <span className="flex items-start gap-3">
@@ -99,6 +109,7 @@ export function WhiteGoodsProductCard({
   locale,
   product,
   value,
+  deliveryPreview,
   onChange,
   onRemove,
 }: Props) {
@@ -143,13 +154,18 @@ export function WhiteGoodsProductCard({
     (o) => seedByCode.get(o.code)?.category === "return",
   ) ?? null;
 
+  // "Installation only" (no delivery charge — the customer already has the
+  // item) is only offered for products that actually have something to
+  // install standalone (e.g. not Chest freezer, which has no install types).
+  const installOnlyAvailable = !!getProductDeliveryType(
+    product.deliveryTypes,
+    DELIVERY_TYPES.INSTALL_ONLY,
+  )?.enabled;
+
   const installSelected = value.selectedInstallOptionIds.length > 0;
   const deliveryType = value.deliveryType;
   const showExtras = deliveryType !== "" && !installSelected;
   const showReturn = !!returnOption && deliveryType !== "";
-
-  const firstStepPrice = getProductDeliveryType(product.deliveryTypes, "FIRST_STEP")?.price ?? "0";
-  const indoorPrice = getProductDeliveryType(product.deliveryTypes, "INDOOR")?.price ?? "0";
 
   function setDeliveryType(next: SavedProductCard["deliveryType"]) {
     onChange({
@@ -177,8 +193,10 @@ export function WhiteGoodsProductCard({
       ...value,
       // Installation implies carry-in — picking an install type while
       // doorstep delivery (or nothing) is selected switches delivery to
-      // carry-in instead of leaving an inconsistent combination.
-      deliveryType: "INDOOR",
+      // carry-in instead of leaving an inconsistent combination. Installation
+      // only stays as-is, since the customer already told us there's no
+      // delivery for this item.
+      deliveryType: value.deliveryType === "INSTALL_ONLY" ? "INSTALL_ONLY" : "INDOOR",
       selectedInstallOptionIds: [optionId, ...stackableSelected],
     });
   }
@@ -251,22 +269,44 @@ export function WhiteGoodsProductCard({
             <OptionRow
               variant="radio"
               selected={deliveryType === "FIRST_STEP"}
-              title={t("Doorstep delivery", "Levering til ytterdør")}
+              title={
+                deliveryPreview.firstStep.isExtra
+                  ? t("Extra delivery", "Ekstra levering")
+                  : t("Doorstep delivery", "Levering til ytterdør")
+              }
               description={t("We deliver to your doorstep.", "Vi leverer til din dør.")}
-              price={money(firstStepPrice)}
+              price={money(String(deliveryPreview.firstStep.price))}
               onClick={() => setDeliveryType("FIRST_STEP")}
             />
             <OptionRow
               variant="radio"
               selected={deliveryType === "INDOOR"}
-              title={t("Carry-in delivery", "Levering med innbæring")}
+              title={
+                deliveryPreview.indoor.isExtra
+                  ? t("Extra carry-in", "Ekstra innbæring")
+                  : t("Carry-in delivery", "Levering med innbæring")
+              }
               description={t(
                 "We deliver and carry the product inside your home.",
                 "Vi leverer og bærer varen inn i hjemmet ditt.",
               )}
-              price={money(indoorPrice)}
+              price={money(String(deliveryPreview.indoor.price))}
               onClick={() => setDeliveryType("INDOOR")}
             />
+            {installOnlyAvailable && (
+              <OptionRow
+                variant="radio"
+                selected={deliveryType === "INSTALL_ONLY"}
+                title={t("Installation only", "Kun montering")}
+                description={t(
+                  "You already have the item — we just install it.",
+                  "Du har allerede varen — vi monterer den bare.",
+                )}
+                price={t("Included", "Inkludert")}
+                priceClassName="text-logoblue"
+                onClick={() => setDeliveryType("INSTALL_ONLY")}
+              />
+            )}
           </div>
         </div>
 
@@ -287,31 +327,59 @@ export function WhiteGoodsProductCard({
             />
             {typeOptions.map((option) => {
               const seed = seedByCode.get(option.code);
-              return (
-                <OptionRow
-                  key={option.id}
-                  variant="radio"
-                  selected={value.selectedInstallOptionIds.includes(option.id)}
-                  title={seed ? seedLabel(locale, seed) : option.label}
-                  price={money(option.customerPrice)}
-                  onClick={() => selectType(option.id)}
-                />
-              );
-            })}
-            {installSelected &&
-              stackableInstallOptions.map((option) => {
-                const seed = seedByCode.get(option.code);
+              const isSelected = value.selectedInstallOptionIds.includes(option.id);
+              const nestedCheckboxes = isSelected ? stackableInstallOptions : [];
+
+              // A type with nothing unlocked renders as a normal standalone
+              // row, same as before. A SELECTED type that unlocks add-ons
+              // instead renders as one bordered card containing both the
+              // radio and its checkboxes (divided by hairlines, not separate
+              // boxes) — with several type options, appending every add-on
+              // after the whole radio list instead would make it ambiguous
+              // which type each checkbox belongs to.
+              if (nestedCheckboxes.length === 0) {
                 return (
                   <OptionRow
                     key={option.id}
-                    variant="checkbox"
-                    selected={value.selectedInstallOptionIds.includes(option.id)}
+                    variant="radio"
+                    selected={isSelected}
                     title={seed ? seedLabel(locale, seed) : option.label}
                     price={money(option.customerPrice)}
-                    onClick={() => toggleStackableInstall(option.id)}
+                    onClick={() => selectType(option.id)}
                   />
                 );
-              })}
+              }
+
+              return (
+                <div
+                  key={option.id}
+                  className="flex flex-col divide-y divide-logoblue/15 overflow-hidden rounded-xl border border-logoblue bg-logoblue/5"
+                >
+                  <OptionRow
+                    variant="radio"
+                    selected
+                    title={seed ? seedLabel(locale, seed) : option.label}
+                    price={money(option.customerPrice)}
+                    onClick={() => selectType(option.id)}
+                    bare
+                  />
+                  {nestedCheckboxes.map((stackOption) => {
+                    const stackSeed = seedByCode.get(stackOption.code);
+                    return (
+                      <OptionRow
+                        key={stackOption.id}
+                        variant="checkbox"
+                        selected={value.selectedInstallOptionIds.includes(stackOption.id)}
+                        title={stackSeed ? seedLabel(locale, stackSeed) : stackOption.label}
+                        price={money(stackOption.customerPrice)}
+                        onClick={() => toggleStackableInstall(stackOption.id)}
+                        bare
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         </div>
 

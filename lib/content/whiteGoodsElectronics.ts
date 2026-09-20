@@ -59,6 +59,13 @@ export type WhiteGoodsProductSeed = {
   options: WhiteGoodsOptionSeed[];
 };
 
+// The "xtra" prices below are what a delivery line is charged on instead
+// of its full price when this product isn't the one keeping the full
+// price in an order with multiple products (see getAutomaticXtraDeliveryCardIds
+// in lib/booking/pricing/sharedDeliveryLogic.ts, shared with the dashboard's
+// booking flow — the most-expensive selected delivery across the whole
+// order stays at full price; every other product's delivery is charged
+// this flat rate instead, regardless of which delivery type it uses).
 const STANDARD_DELIVERY_TYPES: WhiteGoodsDeliveryTypes = {
   firstStep: {
     customerPrice: 608.88,
@@ -69,7 +76,7 @@ const STANDARD_DELIVERY_TYPES: WhiteGoodsDeliveryTypes = {
   indoor: {
     customerPrice: 690.408,
     subcontractorPrice: 464.4,
-    xtraPrice: 236.328,
+    xtraPrice: 236.33,
     xtraSubcontractorPrice: 123.84,
   },
   installOnlyEnabled: true,
@@ -540,7 +547,7 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
       indoor: {
         customerPrice: 1341.6,
         subcontractorPrice: 825.6,
-        xtraPrice: 236.328,
+        xtraPrice: 236.33,
         xtraSubcontractorPrice: 123.84,
       },
       installOnlyEnabled: true,

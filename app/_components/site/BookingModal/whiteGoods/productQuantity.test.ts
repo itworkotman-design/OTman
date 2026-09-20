@@ -11,6 +11,25 @@ describe("applyProductQuantity", () => {
     expect(next[1]).toMatchObject({ cardId: 1, productId: "prod-1", amount: 2 });
   });
 
+  it("auto-selects the doorstep (FIRST_STEP) delivery type for the very first product added to an empty order", () => {
+    const next = applyProductQuantity([], "prod-1", 1, 0);
+
+    expect(next).toHaveLength(1);
+    expect(next[0]).toMatchObject({ productId: "prod-1", amount: 1, deliveryType: "FIRST_STEP" });
+  });
+
+  it("also auto-selects doorstep delivery for a second (and later) product added to a non-empty order", () => {
+    // Every product must land with a real delivery type from the moment
+    // it's added — never blank — so there's no way to complete an order
+    // with a product silently missing its delivery charge because its own
+    // buttons were never touched.
+    const first = { ...createEmptyProductCard(0), productId: "prod-1", amount: 1, deliveryType: "FIRST_STEP" as const };
+    const next = applyProductQuantity([first], "prod-2", 1, 1);
+
+    expect(next).toHaveLength(2);
+    expect(next[1]).toMatchObject({ productId: "prod-2", amount: 1, deliveryType: "FIRST_STEP" });
+  });
+
   it("updates the amount on the existing card for that product", () => {
     const cards = [{ ...createEmptyProductCard(0), productId: "prod-1", amount: 1 }];
     const next = applyProductQuantity(cards, "prod-1", 5, 1);

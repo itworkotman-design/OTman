@@ -546,6 +546,36 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
+  it("does not let a zero-priced install-only card steal main status from a real delivery card", () => {
+    // The website's white-goods catalog always prices INSTALL_ONLY at 0 (no
+    // separate dispatch cost — see whiteGoodsElectronics.ts), unlike the
+    // dashboard's default 590. "Install-only always wins main" made sense
+    // when it represented a real anchor-visit cost; it must not let a $0
+    // install-only item silently discount an unrelated real delivery.
+    const installOnlyProduct = buildProduct({
+      id: "install-only-product",
+      deliveryTypes: createDefaultProductDeliveryTypes().map((dt) =>
+        dt.key === DELIVERY_TYPES.INSTALL_ONLY ? { ...dt, price: "0", xtraPrice: "0" } : dt,
+      ),
+    });
+    const deliveredProduct = buildProduct({ id: "delivered-product" });
+
+    const result = buildProductBreakdowns(
+      [
+        buildCard({ cardId: 1, productId: "install-only-product", deliveryType: DELIVERY_TYPES.INSTALL_ONLY }),
+        buildCard({ cardId: 2, productId: "delivered-product", deliveryType: DELIVERY_TYPES.INDOOR }),
+      ],
+      [installOnlyProduct, deliveredProduct],
+      [],
+    );
+
+    expect(result[1]?.items[0]).toMatchObject({
+      kind: "deliveryType",
+      code: "INDOOR",
+      unitPrice: 669,
+    });
+  });
+
   it("zeros ALL base delivery prices over 100 km, including XTRA cards", () => {
     const cards = [
       buildCard({
@@ -1482,6 +1512,51 @@ describe("buildProductBreakdowns", () => {
         expect.objectContaining({
           kind: "productOption",
           productOptionId: "return-store",
+        }),
+      ]),
+    );
+  });
+
+  it("prices a per-product return option (as used by the website's white-goods catalog) even when catalogSpecialOptions has no matching entry", () => {
+    // The website's white-goods flow seeds "return old product for recycling"
+    // as a per-product ProductOption (priced differently per product, e.g.
+    // Side-by-side fridge), not as a global CatalogSpecialOption like the
+    // dashboard's own booking-create flow does. selectedReturnOptionId there
+    // holds a ProductOption id that will never be found in
+    // catalogSpecialOptions — the return line must still get priced.
+    const product = buildProduct({
+      allowReturnOptions: true,
+      options: [
+        {
+          id: "return-product-specific",
+          code: "RETURN_RECYCLE",
+          label: "Return old product for recycling",
+          description: "Return old product for recycling",
+          category: "return",
+          customerPrice: "258",
+          subcontractorPrice: "154.8",
+          effectiveCustomerPrice: "258",
+          active: true,
+        },
+      ],
+    });
+
+    const result = buildProductBreakdowns(
+      [
+        buildCard({
+          deliveryType: DELIVERY_TYPES.INDOOR,
+          selectedReturnOptionId: "return-product-specific",
+        }),
+      ],
+      [product],
+      [],
+    );
+
+    expect(result[0]?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "productOption",
+          productOptionId: "return-product-specific",
         }),
       ]),
     );
