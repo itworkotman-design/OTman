@@ -127,6 +127,21 @@ function getSharedDeliveryCandidate(
     };
   }
 
+  // A card that hasn't picked a delivery type yet still competes for
+  // "who keeps full price" — at a price of 0, so it never outranks a card
+  // with a real selection (an actual delivery line only ever gets charged
+  // once a real type is picked, in buildItemsForCard), but it still lets the
+  // OTHER cards' preview correctly show "extra" the moment this card exists,
+  // instead of waiting for this card's own buttons to be clicked.
+  if (card.deliveryType === "" && product.allowDeliveryTypes) {
+    return {
+      cardId: card.cardId,
+      index,
+      deliveryType: card.deliveryType,
+      standardPrice: 0,
+    };
+  }
+
   if (!supportsSharedAutoDeliveryPricing(product)) {
     return null;
   }
@@ -146,8 +161,19 @@ function getSharedDeliveryCandidate(
 function getMainSharedDeliveryCandidate(
   candidates: SharedDeliveryCandidate[],
 ) {
+  // An install-only visit represents a real, separate dispatch cost on
+  // price lists where it's actually priced (the dashboard's default 590) —
+  // it should never get discounted away just because another item in the
+  // order is nominally "pricier", so it unconditionally keeps the main/full
+  // price slot there. But price lists that price INSTALL_ONLY at 0 (the
+  // website's white-goods catalog — there's no separate visit cost, since
+  // installing something the customer already owns doesn't need transport)
+  // have nothing to protect: letting a $0 candidate claim "main" here would
+  // just wrongly discount whatever real delivery exists elsewhere in the
+  // order.
   const installOnlyCandidate = candidates.find(
-    (candidate) => candidate.deliveryType === DELIVERY_TYPES.INSTALL_ONLY,
+    (candidate) =>
+      candidate.deliveryType === DELIVERY_TYPES.INSTALL_ONLY && candidate.standardPrice > 0,
   );
 
   if (installOnlyCandidate) {

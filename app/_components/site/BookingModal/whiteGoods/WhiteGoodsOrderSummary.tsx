@@ -3,7 +3,7 @@
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { WhiteGoodsLineCategory } from "@/lib/content/whiteGoodsLineCategory";
 import { ProductIcon } from "./productIcons";
-import { CalculatorIcon, TruckIcon, WrenchIcon, GearIcon } from "./sectionIcons";
+import { TruckIcon, WrenchIcon, GearIcon } from "./sectionIcons";
 
 export type OrderSummaryLine = {
   label: string;

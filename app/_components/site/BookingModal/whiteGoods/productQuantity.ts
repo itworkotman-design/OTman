@@ -2,6 +2,7 @@ import {
   createEmptyProductCard,
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { DELIVERY_TYPES } from "@/lib/booking/constants";
 
 // Applies a quantity-stepper change from the product grid to the flat
 // productCards list: at most one card per product (unlike the dashboard's
@@ -23,7 +24,23 @@ export function applyProductQuantity(
   }
 
   if (index === -1) {
-    return [...cards, { ...createEmptyProductCard(newCardId), productId, amount: clamped }];
+    // Every product defaults to doorstep delivery (cheapest, listed first)
+    // the moment it's added — never left blank — so an order can never be
+    // completed with a product silently missing a delivery charge because
+    // its own buttons were never touched. It also means the first product
+    // immediately establishes the order's "full price" delivery reference,
+    // so later products preview the correct extra rate right away instead
+    // of only once their own delivery buttons get clicked (see
+    // getAutomaticXtraDeliveryCardIds).
+    return [
+      ...cards,
+      {
+        ...createEmptyProductCard(newCardId),
+        productId,
+        amount: clamped,
+        deliveryType: DELIVERY_TYPES.FIRST_STEP,
+      },
+    ];
   }
 
   return cards.map((card, i) => (i === index ? { ...card, amount: clamped } : card));

@@ -122,6 +122,23 @@ describe("WHITE_GOODS_ELECTRONICS_PRODUCTS", () => {
     }
   });
 
+  it("gives doorstep and carry-in distinct 'xtra' (2nd+ item) delivery prices, doorstep cheaper", () => {
+    // Source: "Otman_booking_upper_level_tree_v1_1.xlsx", "Rules & pricing" sheet,
+    // "Additional delivery item" row — doorstep (XTRALEVERING) 154.80/103.20,
+    // carry-in (XTRAINB) 236.33/123.84. These must never collapse to the same
+    // flat rate for both delivery types.
+    for (const product of WHITE_GOODS_ELECTRONICS_PRODUCTS) {
+      const { firstStep, indoor } = product.deliveryTypes;
+
+      expect(firstStep.xtraPrice, `${product.code} firstStep.xtraPrice`).toBeCloseTo(154.8, 3);
+      expect(firstStep.xtraSubcontractorPrice, `${product.code} firstStep.xtraSubcontractorPrice`).toBeCloseTo(103.2, 3);
+      expect(indoor.xtraPrice, `${product.code} indoor.xtraPrice`).toBeCloseTo(236.33, 3);
+      expect(indoor.xtraSubcontractorPrice, `${product.code} indoor.xtraSubcontractorPrice`).toBeCloseTo(123.84, 3);
+
+      expect(firstStep.xtraPrice, product.code).toBeLessThan(indoor.xtraPrice);
+    }
+  });
+
   it("no option has a negative price", () => {
     for (const product of WHITE_GOODS_ELECTRONICS_PRODUCTS) {
       for (const option of product.options) {

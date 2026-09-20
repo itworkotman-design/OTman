@@ -129,15 +129,36 @@ function getReturnInCardId(
   return primary.cardId;
 }
 
-function findSelectedReturnSpecialOption(catalogSpecialOptions: CatalogSpecialOption[], selectedReturnOptionId: string | null) {
+// Two different catalogs model "return" selection differently: the
+// dashboard's booking-create flow offers one global choice of return method
+// (RETURNSTORE/RETURNREC in catalogSpecialOptions, same price for every
+// product), while the website's white-goods catalog prices "return old
+// product for recycling" per product (e.g. Side-by-side fridge costs more to
+// return) as a plain ProductOption on the product itself. selectedReturnOptionId
+// can be either kind of id, so this checks catalogSpecialOptions first and
+// falls back to the product's own return-category option.
+function findSelectedReturnOption(
+  product: CatalogProduct,
+  catalogSpecialOptions: CatalogSpecialOption[],
+  selectedReturnOptionId: string | null,
+) {
   if (!selectedReturnOptionId) return null;
 
-  return catalogSpecialOptions.find((o) => o.active && o.type === "return" && o.id === selectedReturnOptionId) ?? null;
+  const specialOption = catalogSpecialOptions.find(
+    (o) => o.active && o.type === "return" && o.id === selectedReturnOptionId,
+  );
+  if (specialOption) return specialOption;
+
+  return (
+    product.options.find(
+      (o) => o.active && isReturnOption(o.category, o.code) && o.id === selectedReturnOptionId,
+    ) ?? null
+  );
 }
 
 function appendSelectedReturnOption(
   items: ProductCardLineItem[],
-  selectedReturn: CatalogSpecialOption,
+  selectedReturn: { id: string },
   amount: number,
   priceOverride?: number,
 ) {
@@ -488,7 +509,7 @@ function buildItemsForCard(
     }
 
     if (showReturnOptions && card.selectedReturnOptionId) {
-      const selectedReturn = findSelectedReturnSpecialOption(catalogSpecialOptions, card.selectedReturnOptionId);
+      const selectedReturn = findSelectedReturnOption(product, catalogSpecialOptions, card.selectedReturnOptionId);
 
       if (!selectedReturn) {
         return items;
@@ -570,7 +591,7 @@ function buildItemsForCard(
   }
 
   if (showReturnOptions && card.selectedReturnOptionId) {
-    const selectedReturn = findSelectedReturnSpecialOption(catalogSpecialOptions, card.selectedReturnOptionId);
+    const selectedReturn = findSelectedReturnOption(product, catalogSpecialOptions, card.selectedReturnOptionId);
 
     if (!selectedReturn) {
       return items;
