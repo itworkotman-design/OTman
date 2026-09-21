@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
 import {
   applyOrderPricingSnapshot,
   getSavedOrderPricingSnapshot,
@@ -15,7 +14,13 @@ import {
   buildOrderEventSnapshot,
 } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
-import { getWhiteGoodsPriceListId } from "@/lib/content/WhiteGoodsBookingConfig";
+import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
+import { findUnsellableProductIds } from "@/lib/content/mergeWebsiteCatalogs";
+import { findWebsiteCatalogByProductCode } from "@/lib/content/websiteCatalogs";
+import {
+  applyWebsiteAssemblyExtras,
+  buildWebsiteAssemblyExtraOrderItems,
+} from "@/lib/booking/pricing/websiteAssemblyExtras";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
 import {
@@ -65,6 +70,12 @@ function num(v: unknown): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+class UnsellableProductError extends Error {
+  constructor() {
+    super("Order contains a product that isn't sold on the website");
+  }
+}
+
 async function createWhiteGoodsOrder(
   body: RequestBody,
 ): Promise<{ orderId: string; displayId: number }> {
@@ -80,10 +91,18 @@ async function createWhiteGoodsOrder(
     throw new Error("Website membership not found or inactive");
   }
 
-  const priceListId = await getWhiteGoodsPriceListId();
-  const catalog = await getBookingCatalog(priceListId);
+  // Every seeded website price list merged into one catalog (fees and special
+  // options from the first list), so an order can mix products from several
+  // lists and still be priced by the one shared calculator. The order itself
+  // is filed under the first list.
+  const catalog = await getWebsiteOrderCatalog();
+  const priceListId = catalog.priceListId;
 
   const productCards = (body.productCards as SavedProductCard[] | undefined) ?? [];
+
+  if (findUnsellableProductIds(productCards, catalog.products).length > 0) {
+    throw new UnsellableProductError();
+  }
 
   const pricingSource = applyOrderPricingSnapshot({
     catalogProducts: catalog.products,
@@ -103,6 +122,7 @@ async function createWhiteGoodsOrder(
       pricingSource.catalogProducts,
       pricingSource.catalogSpecialOptions,
     ),
+    ...buildWebsiteAssemblyExtraOrderItems(productCards, pricingSource.catalogProducts),
   ];
 
   const summaries = buildOrderSummaries(
@@ -130,18 +150,22 @@ async function createWhiteGoodsOrder(
         .map((address) => ({ address }))
     : [];
 
-  const productBreakdowns = applyWhiteGoodsExtraUnitCharges(
-    buildProductBreakdowns(
+  const productBreakdowns = applyWebsiteAssemblyExtras(
+    applyWhiteGoodsExtraUnitCharges(
+      buildProductBreakdowns(
+        productCards,
+        pricingSource.catalogProducts,
+        pricingSource.catalogSpecialOptions,
+        {
+          zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistanceStr) > 100,
+        },
+      ),
       productCards,
       pricingSource.catalogProducts,
       pricingSource.catalogSpecialOptions,
-      {
-        zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistanceStr) > 100,
-      },
     ),
     productCards,
     pricingSource.catalogProducts,
-    pricingSource.catalogSpecialOptions,
   );
 
   const fullBreakdowns = buildWhiteGoodsCalculatorBreakdowns({
@@ -252,12 +276,23 @@ async function createWhiteGoodsOrder(
     }),
   });
 
+  const catalogLabels =
+    [
+      ...new Set(
+        productCards.flatMap((card) => {
+          const code = catalog.products.find((p) => p.id === card.productId)?.code;
+          const found = code ? findWebsiteCatalogByProductCode(code) : null;
+          return found ? [found.labelEn] : [];
+        }),
+      ),
+    ].join(" + ") || "Website";
+
   await createOrderNotification(prisma, {
     orderId: order.id,
     companyId: order.companyId,
     type: "MANUAL_REVIEW",
-    title: "WEBSITE ORDER - White goods / electronics",
-    message: `Order placed via the homepage white-goods flow. Customer: ${order.customerName ?? "—"}, Phone: ${order.phone ?? "—"}, Email: ${order.email ?? "—"}.`,
+    title: `WEBSITE ORDER - ${catalogLabels}`,
+    message: `Order placed via the homepage website order flow (${catalogLabels}). Customer: ${order.customerName ?? "—"}, Phone: ${order.phone ?? "—"}, Email: ${order.email ?? "—"}.`,
   });
 
   return { orderId: order.id, displayId: order.displayId };
@@ -314,6 +349,12 @@ export async function POST(req: Request) {
     const result = await createWhiteGoodsOrder(body);
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
+    if (err instanceof UnsellableProductError) {
+      return NextResponse.json(
+        { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "Unknown product" } },
+        { status: 422 },
+      );
+    }
     console.error("[white-goods-order] Order creation failed:", err);
     return NextResponse.json({ ok: false, reason: "ORDER_CREATION_FAILED" }, { status: 500 });
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import type { CatalogProduct } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { WHITE_GOODS_ELECTRONICS_PRODUCTS } from "@/lib/content/whiteGoodsElectronics";
+import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { ProductIcon } from "./productIcons";
 
@@ -13,7 +13,7 @@ type Props = {
 };
 
 export function productLabel(locale: Locale, product: CatalogProduct) {
-  const seed = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((s) => s.code === product.code);
+  const seed = findWebsiteProductSeed(product.code);
   if (!seed) return product.label;
   return locale === "no" ? seed.nameNo : seed.nameEn;
 }

@@ -1,4 +1,4 @@
-import { WHITE_GOODS_ELECTRONICS_PRODUCTS } from "./whiteGoodsElectronics";
+import { WEBSITE_CATALOGS } from "./websiteCatalogs";
 
 export type WhiteGoodsLineCategory = "delivery" | "install" | "other";
 
@@ -12,9 +12,11 @@ export function categorizeWhiteGoodsLineCode(code: string | undefined): WhiteGoo
   if (code === "FIRST_STEP" || code === "INDOOR" || code === "XTRA") return "delivery";
   if (!code) return "other";
 
-  for (const product of WHITE_GOODS_ELECTRONICS_PRODUCTS) {
-    const option = product.options.find((o) => o.code === code);
-    if (option) return option.category === "install" ? "install" : "other";
+  for (const catalog of WEBSITE_CATALOGS) {
+    for (const product of catalog.products) {
+      const option = product.options.find((o) => o.code === code);
+      if (option) return option.category === "install" ? "install" : "other";
+    }
   }
 
   return "other";

@@ -29,3 +29,11 @@ describe("categorizeWhiteGoodsLineCode: extra delivery", () => {
     expect(categorizeWhiteGoodsLineCode("XTRA")).toBe("delivery");
   });
 });
+
+describe("categorizeWhiteGoodsLineCode: furniture", () => {
+  it("treats furniture assembly options as install lines and furniture add-ons as other", () => {
+    expect(categorizeWhiteGoodsLineCode("ASM_SINGLE_BED_IKEA")).toBe("install");
+    expect(categorizeWhiteGoodsLineCode("DISMANTLE_DISPOSAL_SINGLE_BED")).toBe("other");
+    expect(categorizeWhiteGoodsLineCode("WALL_ANCHORING")).toBe("other");
+  });
+});
