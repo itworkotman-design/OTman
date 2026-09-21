@@ -27,3 +27,67 @@ export function isListConfigured(cards: SavedProductCard[], listProducts: Catalo
   const own = cardsForList(cards, listProducts);
   return own.length > 0 && own.every((card) => !!card.productId && !!card.deliveryType);
 }
+
+// Step readiness for a list's "choose products" and "product options" steps.
+//
+// A list with its own products is judged on them. A list that HAD products and
+// was later emptied (e.g. the only white good got unticked while furniture is
+// still on the order) must not hold the order back — otherwise its steps stop
+// counting as done and every step after them collapses, taking the other
+// list's selection with them. A list that never had products (just added) still
+// waits for its first one, and an order with nothing in it waits everywhere.
+export function isProductsStepReady({
+  ownCount,
+  orderCount,
+  wasPopulated,
+}: {
+  ownCount: number;
+  orderCount: number;
+  wasPopulated: boolean;
+}): boolean {
+  return ownCount > 0 || (wasPopulated && orderCount > 0);
+}
+
+export function isOptionsStepReady({
+  ownCount,
+  configured,
+  orderCount,
+  wasPopulated,
+}: {
+  ownCount: number;
+  configured: boolean;
+  orderCount: number;
+  wasPopulated: boolean;
+}): boolean {
+  return ownCount > 0 ? configured : wasPopulated && orderCount > 0;
+}
+
+// The list to show as "the one we started with" on the first step: the first
+// chosen list that still has products (so emptying white goods while furniture
+// remains makes furniture the start), else simply the first chosen list.
+export function highlightedStartList(
+  chosenCodes: string[],
+  cards: SavedProductCard[],
+  productsByList: Record<string, CatalogProduct[]>,
+): string | null {
+  const withProducts = chosenCodes.find((code) => cardsForList(cards, productsByList[code] ?? []).length > 0);
+  return withProducts ?? chosenCodes[0] ?? null;
+}
+
+// Chosen lists that had products but have none left while the order still has
+// products from another list. Those lists drop off the order entirely (their
+// steps and calculator column go with them), so unticking the last white good
+// leaves an order that is simply the furniture selection. An empty order has
+// nothing to fall back to, so nothing is removed then, and a list that never
+// had products (just added) is left waiting for its first.
+export function emptiedListCodes(
+  chosenCodes: string[],
+  populatedCodes: string[],
+  cards: SavedProductCard[],
+  productsByList: Record<string, CatalogProduct[]>,
+): string[] {
+  if (cards.length === 0) return [];
+  return chosenCodes.filter(
+    (code) => populatedCodes.includes(code) && cardsForList(cards, productsByList[code] ?? []).length === 0,
+  );
+}
