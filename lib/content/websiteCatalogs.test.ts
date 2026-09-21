@@ -25,6 +25,15 @@ describe("WEBSITE_CATALOGS", () => {
   });
 });
 
+describe("category icons", () => {
+  it("gives every catalog a general icon that is one of its own products", () => {
+    expect(WEBSITE_CATALOGS.map((c) => c.iconCode)).toEqual(["WG_WASHING_MACHINE", "FN_SOFA"]);
+    for (const catalog of WEBSITE_CATALOGS) {
+      expect(catalog.products.map((p) => p.code), catalog.priceListCode).toContain(catalog.iconCode);
+    }
+  });
+});
+
 describe("lookups", () => {
   it("finds the catalog, product seed and option seed for a product code across both catalogs", () => {
     expect(findWebsiteCatalogByProductCode("WG_DISHWASHER")?.priceListCode).toBe("WEBSITE_WHITE_GOODS");

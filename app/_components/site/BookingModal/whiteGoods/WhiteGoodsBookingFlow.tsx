@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SteppedModal, RevealSection, type FinalStep, type StepSection } from "../SteppedModal";
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
+import { WebsiteListTiles } from "./WebsiteListTiles";
 import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
 import { applyProductQuantity } from "./productQuantity";
 import { previewCardDeliveryOptions } from "./deliveryPricePreview";
@@ -20,7 +21,7 @@ import {
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { applyWhiteGoodsExtraUnitCharges } from "@/lib/booking/pricing/whiteGoodsExtraUnits";
 import { applyWebsiteAssemblyExtras } from "@/lib/booking/pricing/websiteAssemblyExtras";
-import { filterUnusedLists, type WebsiteListInfo } from "./websiteLists";
+import { cardsForList, filterUnusedLists, isListConfigured, removeListCards, type WebsiteListInfo } from "./websiteLists";
 import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
@@ -82,7 +83,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [loadingListCode, setLoadingListCode] = useState<string | null>(null);
   const [addListError, setAddListError] = useState<string | null>(null);
   const firstListCode = chosenListCodes[0] ?? null;
-  const addedListCodes = chosenListCodes.slice(1);
   const catalogProducts = useMemo(
     () => chosenListCodes.flatMap((code) => loadedProducts[code] ?? []),
     [chosenListCodes, loadedProducts],
@@ -179,10 +179,15 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     return true;
   }
 
+  // Takes an added list (and its products) back off the order. The starting
+  // list can't be removed — pick a different one on the first step instead.
+  function removeList(code: string) {
+    const listProducts = loadedProducts[code] ?? [];
+    setProductCards((cards) => removeListCards(cards, listProducts));
+    setChosenListCodes((codes) => codes.filter((c) => c !== code));
+  }
+
   const remainingLists = filterUnusedLists(availableLists, chosenListCodes);
-  const addedLists = addedListCodes
-    .map((code) => availableLists.find((l) => l.code === code))
-    .filter((l): l is WebsiteListInfo => !!l);
 
   function updateCard(cardId: number, next: SavedProductCard) {
     setProductCards((cards) => cards.map((c) => (c.cardId === cardId ? next : c)));
@@ -273,7 +278,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   // with no delivery charge at all.
   const hasConfiguredProduct = productCards.every((c) => !c.productId || c.deliveryType);
   const hasRequiredDelivery = orderHasRequiredDelivery(productCards);
-  const canContinueProducts = productCards.length > 0 && hasConfiguredProduct && hasRequiredDelivery;
   const canContinueOrderDetails = !!pickupAddress.trim() && !!deliveryAddress.trim();
   const canContinueContact = !!name.trim() && !!phone.trim();
   const canSubmit = name.trim() && phone.trim() && !submitLoading;
@@ -317,41 +321,20 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     }
   }
 
-  const sections: StepSection[] = [
-    {
-      id: "pickup-category",
-      title: t("What are we picking up?", "Hva skal vi hente?"),
-      render: ({ onComplete }) => (
-        <div className="flex flex-col items-center gap-2">
-          {catalogLoading && <p className="text-sm text-black/60">{t("Loading…", "Laster…")}</p>}
-          {catalogError && <p className="text-sm text-red-600">{catalogError}</p>}
-          <div className="flex flex-wrap justify-center gap-2">
-            {availableLists.map((list) => (
-              <button
-                key={list.code}
-                type="button"
-                disabled={loadingListCode !== null}
-                onClick={async () => {
-                  if (await selectStartList(list.code)) onComplete();
-                }}
-                className={[
-                  "rounded-full border px-4 py-2 text-sm font-medium transition disabled:opacity-50",
-                  firstListCode === list.code
-                    ? "border-logoblue bg-logoblue text-white"
-                    : "border-black/15 text-black/70 hover:border-logoblue/50",
-                ].join(" ")}
-              >
-                {loadingListCode === list.code ? t("Loading…", "Laster…") : t(list.labelEn, list.labelNo)}
-              </button>
-            ))}
-          </div>
-          {addListError && <p className="text-xs text-red-600">{addListError}</p>}
-        </div>
-      ),
-    },
-    {
-      id: "products",
-      title: t("Choose products", "Velg produkter"),
+  // Every list on the order gets its own "choose products" + "product options"
+  // steps, in the order they were added; "any other products?" follows the
+  // last one until every list is on the order. Steps reveal one after another,
+  // so a newly added list's steps slot in ahead of the question and the
+  // address/contact steps.
+  const listSections: StepSection[] = chosenListCodes.flatMap((code, index) => {
+    const info = availableLists.find((l) => l.code === code);
+    const listProducts = loadedProducts[code] ?? [];
+    const isLast = index === chosenListCodes.length - 1;
+    const suffix = index > 0 && info ? ` — ${t(info.labelEn, info.labelNo)}` : "";
+
+    const productsStep: StepSection = {
+      id: `products-${code}`,
+      title: t("Choose products", "Velg produkter") + suffix,
       render: ({ onComplete, onUncomplete }) => (
         <div className="flex flex-col gap-4">
           {catalogLoading && (
@@ -361,23 +344,38 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
 
           <WhiteGoodsProductGrid
             locale={locale}
-            products={firstListCode ? (loadedProducts[firstListCode] ?? []) : []}
+            products={listProducts}
             quantities={quantitiesByProductId}
             onChangeQuantity={setProductQuantity}
           />
 
-          <AutoAdvance ready={productCards.length > 0} onReady={onComplete} onRetract={onUncomplete} />
+          {index > 0 && (
+            <button
+              type="button"
+              onClick={() => removeList(code)}
+              className="self-center text-sm font-semibold text-logoblue transition hover:opacity-70"
+            >
+              {t("Not needed — remove this category", "Trengs ikke — fjern denne kategorien")}
+            </button>
+          )}
+
+          <AutoAdvance
+            ready={cardsForList(productCards, listProducts).length > 0}
+            onReady={onComplete}
+            onRetract={onUncomplete}
+          />
         </div>
       ),
-    },
-    {
-      id: "product-options",
-      title: t("Product options", "Produktvalg"),
+    };
+
+    const optionsStep: StepSection = {
+      id: `product-options-${code}`,
+      title: t("Product options", "Produktvalg") + suffix,
       render: ({ onComplete, onUncomplete }) => (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
           <div className="flex flex-col gap-4">
-            {productCards.map((card) => {
-              const product = catalogProducts.find((p) => p.id === card.productId);
+            {cardsForList(productCards, listProducts).map((card) => {
+              const product = listProducts.find((p) => p.id === card.productId);
               if (!product) return null;
               return (
                 <RevealSection key={card.cardId}>
@@ -392,7 +390,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                 </RevealSection>
               );
             })}
-            {productCards.length > 0 && hasConfiguredProduct && !hasRequiredDelivery && (
+            {isLast && productCards.length > 0 && hasConfiguredProduct && !hasRequiredDelivery && (
               <p className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
                 {t(
                   "At least one item needs delivery (doorstep or carry-in) — installation only isn't enough on its own.",
@@ -400,56 +398,16 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                 )}
               </p>
             )}
-            {productCards.length > 0 && (
-              <div className="flex flex-col gap-5 rounded-2xl border border-black/10 p-4">
-                {addedLists.map((list) => (
-                  <div key={list.code}>
-                    <h4 className="mb-3 text-sm font-semibold text-logoblue">
-                      {t(list.labelEn, list.labelNo)}
-                    </h4>
-                    <WhiteGoodsProductGrid
-                      locale={locale}
-                      products={loadedProducts[list.code] ?? []}
-                      quantities={quantitiesByProductId}
-                      onChangeQuantity={setProductQuantity}
-                    />
-                  </div>
-                ))}
-
-                {remainingLists.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold text-black/85">
-                      {t("Any other products you need added?", "Trenger du å legge til andre produkter?")}
-                    </p>
-                    <p className="mt-0.5 text-xs text-black/50">
-                      {t(
-                        "Pick another category — everything ends up in the same order.",
-                        "Velg en annen kategori — alt havner i samme bestilling.",
-                      )}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {remainingLists.map((list) => (
-                        <button
-                          key={list.code}
-                          type="button"
-                          disabled={loadingListCode !== null}
-                          onClick={() => addList(list.code)}
-                          className="rounded-full border border-black/15 px-4 py-2 text-sm font-medium text-black/70 transition hover:border-logoblue/50 disabled:opacity-50"
-                        >
-                          {loadingListCode === list.code
-                            ? t("Loading…", "Laster…")
-                            : `+ ${t(list.labelEn, list.labelNo)}`}
-                        </button>
-                      ))}
-                    </div>
-                    {addListError && <p className="mt-2 text-xs text-red-600">{addListError}</p>}
-                  </div>
-                )}
-              </div>
-            )}
-            <AutoAdvance ready={canContinueProducts} onReady={onComplete} onRetract={onUncomplete} />
+            <AutoAdvance
+              ready={isListConfigured(productCards, listProducts) && (!isLast || hasRequiredDelivery)}
+              onReady={onComplete}
+              onRetract={onUncomplete}
+            />
           </div>
 
+          {/* Every options step keeps its own calculator. It is sticky within
+              its step, so scrolling past one step hands over to the next
+              step's calculator instead of the column disappearing. */}
           <div className="lg:sticky lg:top-0 lg:self-start">
             <WhiteGoodsOrderSummary
               locale={locale}
@@ -459,7 +417,67 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           </div>
         </div>
       ),
+    };
+
+    return [productsStep, optionsStep];
+  });
+
+  const moreSections: StepSection[] =
+    chosenListCodes.length > 0 && remainingLists.length > 0
+      ? [
+          {
+            id: "more-products",
+            title: t("Any other products you need added?", "Trenger du å legge til andre produkter?"),
+            description: t(
+              "Pick another category — everything ends up in the same order.",
+              "Velg en annen kategori — alt havner i samme bestilling.",
+            ),
+            render: ({ onComplete }) => (
+              <div className="flex flex-col items-center gap-3">
+                <WebsiteListTiles
+                  locale={locale}
+                  lists={remainingLists}
+                  selectedCode={null}
+                  loadingCode={loadingListCode}
+                  onPick={(code) => addList(code)}
+                />
+                {addListError && <p className="text-xs text-red-600">{addListError}</p>}
+                <button
+                  type="button"
+                  onClick={onComplete}
+                  className="text-sm font-semibold text-logoblue transition hover:opacity-70"
+                >
+                  {t("No, that's all", "Nei, det er alt")}
+                </button>
+              </div>
+            ),
+          },
+        ]
+      : [];
+
+  const sections: StepSection[] = [
+    {
+      id: "pickup-category",
+      title: t("What are we picking up?", "Hva skal vi hente?"),
+      render: ({ onComplete }) => (
+        <div className="flex flex-col items-center gap-2">
+          {catalogLoading && <p className="text-sm text-black/60">{t("Loading…", "Laster…")}</p>}
+          {catalogError && <p className="text-sm text-red-600">{catalogError}</p>}
+          <WebsiteListTiles
+            locale={locale}
+            lists={availableLists}
+            selectedCode={firstListCode}
+            loadingCode={loadingListCode}
+            onPick={async (code) => {
+              if (await selectStartList(code)) onComplete();
+            }}
+          />
+          {addListError && <p className="text-xs text-red-600">{addListError}</p>}
+        </div>
+      ),
     },
+    ...listSections,
+    ...moreSections,
     {
       id: "order-details",
       title: t("Order details", "Ordredetaljer"),

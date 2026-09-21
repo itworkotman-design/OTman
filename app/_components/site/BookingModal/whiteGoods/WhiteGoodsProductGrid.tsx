@@ -20,7 +20,7 @@ export function productLabel(locale: Locale, product: CatalogProduct) {
 
 export function WhiteGoodsProductGrid({ locale, products, quantities, onChangeQuantity }: Props) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
       {products.map((product) => {
         const qty = quantities[product.id] ?? 0;
         const selected = qty > 0;
@@ -33,41 +33,37 @@ export function WhiteGoodsProductGrid({ locale, products, quantities, onChangeQu
               selected ? "border-logoblue bg-logoblue/5" : "border-black/10",
             ].join(" ")}
           >
-            <div className="relative">
+            {/* Icon on the left, quantity stepper on the right, so the stepper
+                doesn't take a row of its own. */}
+            <div className="flex items-center justify-between gap-2">
               <ProductIcon
                 code={product.code}
                 iconKey={product.iconKey}
-                className="h-8 w-8 text-logoblue"
+                className="h-8 w-8 shrink-0 text-logoblue"
               />
-              {selected && (
-                <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-logoblue text-[11px] font-semibold text-white">
-                  {qty}
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-label={locale === "no" ? "Reduser antall" : "Decrease quantity"}
+                  disabled={qty <= 0}
+                  onClick={() => onChangeQuantity(product.id, qty - 1)}
+                  className="grid h-7 w-7 place-items-center rounded-full border border-black/15 text-sm disabled:pointer-events-none disabled:opacity-30"
+                >
+                  −
+                </button>
+                <span className="min-w-4 text-center text-sm font-semibold">{qty}</span>
+                <button
+                  type="button"
+                  aria-label={locale === "no" ? "Øk antall" : "Increase quantity"}
+                  onClick={() => onChangeQuantity(product.id, qty + 1)}
+                  className="grid h-7 w-7 place-items-center rounded-full border border-black/15 text-sm"
+                >
+                  +
+                </button>
+              </div>
             </div>
 
             <p className="text-sm font-medium text-black/80">{productLabel(locale, product)}</p>
-
-            <div className="mt-auto flex items-center justify-between">
-              <button
-                type="button"
-                aria-label={locale === "no" ? "Reduser antall" : "Decrease quantity"}
-                disabled={qty <= 0}
-                onClick={() => onChangeQuantity(product.id, qty - 1)}
-                className="grid h-7 w-7 place-items-center rounded-full border border-black/15 text-sm disabled:pointer-events-none disabled:opacity-30"
-              >
-                −
-              </button>
-              <span className="text-sm font-semibold">{qty}</span>
-              <button
-                type="button"
-                aria-label={locale === "no" ? "Øk antall" : "Increase quantity"}
-                onClick={() => onChangeQuantity(product.id, qty + 1)}
-                className="grid h-7 w-7 place-items-center rounded-full border border-black/15 text-sm"
-              >
-                +
-              </button>
-            </div>
           </div>
         );
       })}

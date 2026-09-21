@@ -35,6 +35,7 @@ export async function GET(req: Request) {
         code: catalog.priceListCode,
         labelEn: catalog.labelEn,
         labelNo: catalog.labelNo,
+        iconCode: catalog.iconCode,
       })),
     },
     { status: 200 },

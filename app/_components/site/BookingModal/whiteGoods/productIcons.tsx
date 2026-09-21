@@ -1,28 +1,12 @@
-import type { SVGProps } from "react";
+import { Base, type IconProps } from "./iconBase";
+import { FURNITURE_ICONS } from "./furnitureIcons";
 import { resolveProductIconKey } from "./productIconKey";
 
 // Placeholder line-icon set for the white-goods product grid, keyed the
 // same way resolveProductIconKey derives keys from product codes. Simple
 // geometric stand-ins — swap individual entries here (or point
 // Product.iconKey at a new key) once real artwork exists, no other code
-// needs to change.
-type IconProps = SVGProps<SVGSVGElement>;
-
-function Base({ children, ...props }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      {children}
-    </svg>
-  );
-}
+// needs to change. Furniture's icons live in furnitureIcons.tsx.
 
 const DishwasherIcon = (props: IconProps) => (
   <Base {...props}>
@@ -170,6 +154,7 @@ const GenericProductIcon = (props: IconProps) => (
 );
 
 const PRODUCT_ICONS: Record<string, (props: IconProps) => React.JSX.Element> = {
+  ...FURNITURE_ICONS,
   dishwasher: DishwasherIcon,
   washing_machine: WashingMachineIcon,
   tumble_dryer: TumbleDryerIcon,
@@ -191,6 +176,11 @@ type ProductIconProps = IconProps & {
   code: string;
   iconKey?: string | null;
 };
+
+// True when the product has its own icon (not the generic placeholder).
+export function hasProductIcon(code: string, iconKey?: string | null): boolean {
+  return resolveProductIconKey(code, iconKey) in PRODUCT_ICONS;
+}
 
 export function ProductIcon({ code, iconKey, ...props }: ProductIconProps) {
   const key = resolveProductIconKey(code, iconKey);
