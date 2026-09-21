@@ -42,16 +42,6 @@ function nextCardId(cards: SavedProductCard[]) {
   return (cards.at(-1)?.cardId ?? -1) + 1;
 }
 
-// Only one category is wired up so far — a real catalog/pricing flow for
-// the others (furniture, pallets, ...) doesn't exist yet. Still shown as
-// its own required first step so the UI already matches the eventual
-// multi-category picker without a rework once those are added.
-const PICKUP_CATEGORIES = [
-  { id: "WHITE_GOODS", labelEn: "White goods / electronics", labelNo: "Hvitevarer / elektronikk" },
-] as const;
-
-type PickupCategoryId = (typeof PICKUP_CATEGORIES)[number]["id"];
-
 // Renders nothing — just watches `ready` and advances the section the
 // moment it flips true, so no section needs its own bottom "Continue"
 // button. If `ready` later flips back to false (e.g. the user un-picks the
@@ -81,16 +71,22 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const bookingLocale = toBookingLocale(locale);
 
-  // One product list per website price list. The first (white goods) is loaded
-  // up front; the others are fetched when the customer adds them via "any other
-  // products?". Their products are all priced together by the one calculator.
-  const [productsByList, setProductsByList] = useState<Record<string, CatalogProduct[]>>({});
-  const [firstListCode, setFirstListCode] = useState<string | null>(null);
+  // The customer starts with any website price list (first step) and can add
+  // the others afterwards ("any other products?"), in any order. `loadedProducts`
+  // caches every list fetched so far; `chosenListCodes` are the ones on this
+  // order (the first is the one they started with). Only chosen lists' products
+  // are priced, all together by the one calculator.
+  const [loadedProducts, setLoadedProducts] = useState<Record<string, CatalogProduct[]>>({});
+  const [chosenListCodes, setChosenListCodes] = useState<string[]>([]);
   const [availableLists, setAvailableLists] = useState<WebsiteListInfo[]>([]);
-  const [addedListCodes, setAddedListCodes] = useState<string[]>([]);
   const [loadingListCode, setLoadingListCode] = useState<string | null>(null);
   const [addListError, setAddListError] = useState<string | null>(null);
-  const catalogProducts = useMemo(() => Object.values(productsByList).flat(), [productsByList]);
+  const firstListCode = chosenListCodes[0] ?? null;
+  const addedListCodes = chosenListCodes.slice(1);
+  const catalogProducts = useMemo(
+    () => chosenListCodes.flatMap((code) => loadedProducts[code] ?? []),
+    [chosenListCodes, loadedProducts],
+  );
   const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<CatalogSpecialOption[]>([]);
   const [priceListSettings, setPriceListSettings] = useState<PriceListSettings>(
     createDefaultPriceListSettings(),
@@ -99,7 +95,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const [productCards, setProductCards] = useState<SavedProductCard[]>([]);
-  const [pickupCategory, setPickupCategory] = useState<PickupCategoryId | null>(null);
 
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -129,8 +124,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         const json = await res.json();
         if (cancelled) return;
         if (!json.ok) throw new Error(json.reason ?? "catalog fetch failed");
-        setProductsByList({ [json.priceListCode]: json.products });
-        setFirstListCode(json.priceListCode);
+        setLoadedProducts({ [json.priceListCode]: json.products });
         setAvailableLists(json.availableLists ?? []);
         setCatalogSpecialOptions(json.specialOptions);
         setPriceListSettings(json.priceListSettings);
@@ -149,24 +143,43 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function addList(code: string) {
+  // Fetches a list's products (once) and caches them. Returns false on failure.
+  async function loadList(code: string): Promise<boolean> {
+    if (loadedProducts[code]) return true;
     setLoadingListCode(code);
     setAddListError(null);
     try {
       const res = await fetch(`/api/site/white-goods-order/catalog?list=${encodeURIComponent(code)}`);
       const json = await res.json();
       if (!json.ok) throw new Error(json.reason ?? "catalog fetch failed");
-      setProductsByList((lists) => ({ ...lists, [code]: json.products }));
-      setAddedListCodes((codes) => (codes.includes(code) ? codes : [...codes, code]));
+      setLoadedProducts((lists) => ({ ...lists, [code]: json.products }));
+      return true;
     } catch {
       setAddListError(t("Could not load those products. Please try again.", "Kunne ikke laste produktene. Prøv igjen."));
+      return false;
     } finally {
       setLoadingListCode(null);
     }
   }
 
-  const usedListCodes = firstListCode ? [firstListCode, ...addedListCodes] : addedListCodes;
-  const remainingLists = filterUnusedLists(availableLists, usedListCodes);
+  // "Any other products?": adds another list to the order.
+  async function addList(code: string) {
+    if (!(await loadList(code))) return;
+    setChosenListCodes((codes) => (codes.includes(code) ? codes : [...codes, code]));
+  }
+
+  // First step: which list to start with. Changing it after products were
+  // already picked starts the order over with the new list.
+  async function selectStartList(code: string): Promise<boolean> {
+    if (!(await loadList(code))) return false;
+    if (chosenListCodes[0] !== code) {
+      setProductCards([]);
+      setChosenListCodes([code]);
+    }
+    return true;
+  }
+
+  const remainingLists = filterUnusedLists(availableLists, chosenListCodes);
   const addedLists = addedListCodes
     .map((code) => availableLists.find((l) => l.code === code))
     .filter((l): l is WebsiteListInfo => !!l);
@@ -309,25 +322,30 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       id: "pickup-category",
       title: t("What are we picking up?", "Hva skal vi hente?"),
       render: ({ onComplete }) => (
-        <div className="flex flex-wrap justify-center gap-2">
-          {PICKUP_CATEGORIES.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              onClick={() => {
-                setPickupCategory(category.id);
-                onComplete();
-              }}
-              className={[
-                "rounded-full border px-4 py-2 text-sm font-medium transition",
-                pickupCategory === category.id
-                  ? "border-logoblue bg-logoblue text-white"
-                  : "border-black/15 text-black/70 hover:border-logoblue/50",
-              ].join(" ")}
-            >
-              {t(category.labelEn, category.labelNo)}
-            </button>
-          ))}
+        <div className="flex flex-col items-center gap-2">
+          {catalogLoading && <p className="text-sm text-black/60">{t("Loading…", "Laster…")}</p>}
+          {catalogError && <p className="text-sm text-red-600">{catalogError}</p>}
+          <div className="flex flex-wrap justify-center gap-2">
+            {availableLists.map((list) => (
+              <button
+                key={list.code}
+                type="button"
+                disabled={loadingListCode !== null}
+                onClick={async () => {
+                  if (await selectStartList(list.code)) onComplete();
+                }}
+                className={[
+                  "rounded-full border px-4 py-2 text-sm font-medium transition disabled:opacity-50",
+                  firstListCode === list.code
+                    ? "border-logoblue bg-logoblue text-white"
+                    : "border-black/15 text-black/70 hover:border-logoblue/50",
+                ].join(" ")}
+              >
+                {loadingListCode === list.code ? t("Loading…", "Laster…") : t(list.labelEn, list.labelNo)}
+              </button>
+            ))}
+          </div>
+          {addListError && <p className="text-xs text-red-600">{addListError}</p>}
         </div>
       ),
     },
@@ -343,7 +361,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
 
           <WhiteGoodsProductGrid
             locale={locale}
-            products={firstListCode ? (productsByList[firstListCode] ?? []) : []}
+            products={firstListCode ? (loadedProducts[firstListCode] ?? []) : []}
             quantities={quantitiesByProductId}
             onChangeQuantity={setProductQuantity}
           />
@@ -391,7 +409,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                     </h4>
                     <WhiteGoodsProductGrid
                       locale={locale}
-                      products={productsByList[list.code] ?? []}
+                      products={loadedProducts[list.code] ?? []}
                       quantities={quantitiesByProductId}
                       onChangeQuantity={setProductQuantity}
                     />
