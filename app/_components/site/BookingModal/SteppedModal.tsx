@@ -107,6 +107,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
   const contentRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef(0);
   const holdTimerRef = useRef<number | undefined>(undefined);
+  const releaseTimerRef = useRef<number | undefined>(undefined);
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
@@ -117,6 +118,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
     return () => {
       observer.disconnect();
       window.clearTimeout(holdTimerRef.current);
+      window.clearTimeout(releaseTimerRef.current);
     };
   }, []);
 
@@ -125,17 +127,44 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
   const visibleSections = sections.slice(0, revealedCount);
   const structureKey = `${showFinalStep ? "final" : "steps"}:${visibleSections.map((section) => section.id).join("|")}`;
   const previousStructureKey = useRef(structureKey);
+  const previousRevealedCount = useRef(revealedCount);
   useLayoutEffect(() => {
+    const retracting = revealedCount < previousRevealedCount.current;
+    previousRevealedCount.current = revealedCount;
     if (previousStructureKey.current === structureKey) return;
     previousStructureKey.current = structureKey;
     const el = contentRef.current;
     if (!el || lastHeightRef.current === 0) return;
+    el.style.transition = "none";
     el.style.minHeight = `${lastHeightRef.current}px`;
     window.clearTimeout(holdTimerRef.current);
-    holdTimerRef.current = window.setTimeout(() => {
-      el.style.minHeight = "";
-    }, 450);
-  }, [structureKey]);
+    window.clearTimeout(releaseTimerRef.current);
+    const release = () => {
+      // Releasing the hold outright would snap the modal to its (possibly
+      // much shorter) natural height, e.g. after a section with many items is
+      // retracted. Measure the natural height and ease the min-height down.
+      const held = el.offsetHeight;
+      el.style.minHeight = "0px";
+      const natural = el.offsetHeight;
+      el.style.minHeight = `${held}px`;
+      if (natural >= held) {
+        el.style.minHeight = "";
+        return;
+      }
+      void el.offsetHeight;
+      el.style.transition = "min-height 300ms ease-in-out";
+      el.style.minHeight = `${natural}px`;
+      releaseTimerRef.current = window.setTimeout(() => {
+        el.style.minHeight = "";
+        el.style.transition = "";
+      }, 320);
+    };
+    // A retracted section is gone at once, so shrink right away. A newly added
+    // section starts collapsed and animates open, so keep holding the old
+    // height until it has.
+    if (retracting) release();
+    else holdTimerRef.current = window.setTimeout(release, 450);
+  }, [structureKey, revealedCount]);
   // +1 for the final review/payment step, so the bar only completes once
   // the user actually reaches it, not while the last question section is
   // still being answered.
