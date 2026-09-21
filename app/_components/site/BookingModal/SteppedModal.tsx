@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { nextRevealedCount, progressPercent, retractedRevealedCount } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
@@ -96,9 +96,46 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
     };
   }, []);
 
+  // Keeps the page from jumping when steps are swapped. Adding a category
+  // replaces the step you just clicked in with a new, initially collapsed one,
+  // so for a moment the content is shorter and the browser clamps the scroll
+  // position upward. Whenever the set of visible steps changes, the content
+  // height from just before the change is held as a min-height until the new
+  // step has animated open. (Height comes from a ResizeObserver, i.e. the last
+  // completed layout; the min-height is set before the browser lays out the
+  // shorter content.)
+  const contentRef = useRef<HTMLDivElement>(null);
+  const lastHeightRef = useRef(0);
+  const holdTimerRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      lastHeightRef.current = el.offsetHeight;
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(holdTimerRef.current);
+    };
+  }, []);
+
   const [revealedCount, setRevealedCount] = useState(1);
   const [showFinalStep, setShowFinalStep] = useState(false);
   const visibleSections = sections.slice(0, revealedCount);
+  const structureKey = `${showFinalStep ? "final" : "steps"}:${visibleSections.map((section) => section.id).join("|")}`;
+  const previousStructureKey = useRef(structureKey);
+  useLayoutEffect(() => {
+    if (previousStructureKey.current === structureKey) return;
+    previousStructureKey.current = structureKey;
+    const el = contentRef.current;
+    if (!el || lastHeightRef.current === 0) return;
+    el.style.minHeight = `${lastHeightRef.current}px`;
+    window.clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = window.setTimeout(() => {
+      el.style.minHeight = "";
+    }, 450);
+  }, [structureKey]);
   // +1 for the final review/payment step, so the bar only completes once
   // the user actually reaches it, not while the last question section is
   // still being answered.
@@ -137,6 +174,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8">
+          <div ref={contentRef}>
           {showFinalStep && finalStep.render({ onBack: () => setShowFinalStep(false) })}
 
           {/* Kept mounted (just hidden) rather than conditionally rendered,
@@ -158,6 +196,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
                 </div>
               </RevealSection>
             ))}
+          </div>
           </div>
         </div>
       </div>

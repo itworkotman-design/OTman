@@ -482,7 +482,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
               "Pick another category — everything ends up in the same order.",
               "Velg en annen kategori — alt havner i samme bestilling.",
             ),
-            render: ({ onComplete }) => (
+            render: ({ onComplete, onUncomplete }) => (
               <div className="flex flex-col items-center gap-3">
                 <WebsiteListTiles
                   locale={locale}
@@ -492,13 +492,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                   onPick={(code) => addList(code)}
                 />
                 {addListError && <p className="text-xs text-red-600">{addListError}</p>}
-                <button
-                  type="button"
-                  onClick={onComplete}
-                  className="text-sm font-semibold text-logoblue transition hover:opacity-70"
-                >
-                  {t("No, that's all", "Nei, det er alt")}
-                </button>
+                {/* Nothing to answer: the steps after this one simply appear below,
+                    like every other step, and adding a category is optional. */}
+                <AutoAdvance ready onReady={onComplete} onRetract={onUncomplete} />
               </div>
             ),
           },
