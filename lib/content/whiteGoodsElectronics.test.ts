@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  deliveryTypeAfterSelectingType,
   WHITE_GOODS_ELECTRONICS_PRODUCTS,
   type WhiteGoodsProductSeed,
 } from "./whiteGoodsElectronics";
@@ -120,6 +121,37 @@ describe("WHITE_GOODS_ELECTRONICS_PRODUCTS", () => {
         ).toBeCloseTo(expectedSubcontractor, 3);
       }
     }
+  });
+
+  it("Cooker's plug fitting is a standalone type choice, exclusive with the two install types", () => {
+    const cooker = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_COOKER")!;
+    const plug = cooker.options.find((o) => o.code === "COOKER_INSTALL_PLUG")!;
+
+    expect(plug.exclusiveGroup).toBe("type");
+    expect(plug.standaloneInstall).toBe(true);
+    expect(plug.customerPrice).toBeCloseTo(308.568, 3);
+    expect(typeOptions(cooker).map((o) => o.code)).toEqual([
+      "COOKER_CABLE_FITTED",
+      "COOKER_INCLUDING_PLUG",
+      "COOKER_INSTALL_PLUG",
+    ]);
+  });
+
+  it("deliveryTypeAfterSelectingType keeps the chosen delivery for standalone options, otherwise implies carry-in", () => {
+    const cooker = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_COOKER")!;
+    const plug = cooker.options.find((o) => o.code === "COOKER_INSTALL_PLUG")!;
+    const cable = cooker.options.find((o) => o.code === "COOKER_CABLE_FITTED")!;
+
+    // Plug only: the cooker is delivered but not installed, so delivery is untouched.
+    expect(deliveryTypeAfterSelectingType(plug, "FIRST_STEP")).toBe("FIRST_STEP");
+    expect(deliveryTypeAfterSelectingType(plug, "INDOOR")).toBe("INDOOR");
+    expect(deliveryTypeAfterSelectingType(plug, "INSTALL_ONLY")).toBe("INSTALL_ONLY");
+    expect(deliveryTypeAfterSelectingType(plug, "")).toBe("");
+
+    // Installing the cooker implies carry-in, except for installation only.
+    expect(deliveryTypeAfterSelectingType(cable, "FIRST_STEP")).toBe("INDOOR");
+    expect(deliveryTypeAfterSelectingType(cable, "")).toBe("INDOOR");
+    expect(deliveryTypeAfterSelectingType(cable, "INSTALL_ONLY")).toBe("INSTALL_ONLY");
   });
 
   it("gives doorstep and carry-in distinct 'xtra' (2nd+ item) delivery prices, doorstep cheaper", () => {

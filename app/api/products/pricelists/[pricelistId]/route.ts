@@ -142,6 +142,7 @@ export async function GET(
             optionCode: item.productOption.code,
             optionLabel: item.productOption.label,
             description: item.productOption.description,
+            descriptionEn: item.productOption.descriptionEn,
             category: item.productOption.category,
             sortOrder: item.productOption.sortOrder,
             customerPrice: centsToNokString(item.customerPriceCents),

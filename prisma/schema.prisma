@@ -400,6 +400,7 @@ model ProductOption {
   code           String
   label          String
   description    String?
+  descriptionEn  String?
   category       String?
   sortOrder      Int             @default(0)
   isActive       Boolean         @default(true)

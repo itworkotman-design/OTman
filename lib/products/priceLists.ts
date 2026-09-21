@@ -42,6 +42,7 @@ async function findPriceListById(
               code: true,
               label: true,
               description: true,
+              descriptionEn: true,
               category: true,
               sortOrder: true,
               product: {
