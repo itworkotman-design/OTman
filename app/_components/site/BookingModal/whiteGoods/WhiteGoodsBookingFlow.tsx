@@ -21,7 +21,17 @@ import {
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { applyWhiteGoodsExtraUnitCharges } from "@/lib/booking/pricing/whiteGoodsExtraUnits";
 import { applyWebsiteAssemblyExtras } from "@/lib/booking/pricing/websiteAssemblyExtras";
-import { cardsForList, filterUnusedLists, isListConfigured, removeListCards, type WebsiteListInfo } from "./websiteLists";
+import {
+  cardsForList,
+  emptiedListCodes,
+  filterUnusedLists,
+  highlightedStartList,
+  isListConfigured,
+  isOptionsStepReady,
+  isProductsStepReady,
+  removeListCards,
+  type WebsiteListInfo,
+} from "./websiteLists";
 import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
@@ -82,7 +92,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [availableLists, setAvailableLists] = useState<WebsiteListInfo[]>([]);
   const [loadingListCode, setLoadingListCode] = useState<string | null>(null);
   const [addListError, setAddListError] = useState<string | null>(null);
-  const firstListCode = chosenListCodes[0] ?? null;
+  // Lists that have had at least one product. An emptied one (its only product
+  // unticked while another list still has products) must not hold back the
+  // steps after it — see isProductsStepReady.
+  const [populatedListCodes, setPopulatedListCodes] = useState<string[]>([]);
   const catalogProducts = useMemo(
     () => chosenListCodes.flatMap((code) => loadedProducts[code] ?? []),
     [chosenListCodes, loadedProducts],
@@ -95,6 +108,25 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const [productCards, setProductCards] = useState<SavedProductCard[]>([]);
+
+  useEffect(() => {
+    setPopulatedListCodes((codes) => {
+      const next = chosenListCodes.filter(
+        (code) => codes.includes(code) || cardsForList(productCards, loadedProducts[code] ?? []).length > 0,
+      );
+      return next.length === codes.length && next.every((code, i) => code === codes[i]) ? codes : next;
+    });
+  }, [productCards, chosenListCodes, loadedProducts]);
+
+  // A list whose products were all unticked, while another list still has
+  // products, drops off the order entirely — steps and calculator column
+  // included — so the order just continues as the remaining selection.
+  useEffect(() => {
+    const emptied = emptiedListCodes(chosenListCodes, populatedListCodes, productCards, loadedProducts);
+    if (emptied.length === 0) return;
+    setChosenListCodes((codes) => codes.filter((code) => !emptied.includes(code)));
+    setPopulatedListCodes((codes) => codes.filter((code) => !emptied.includes(code)));
+  }, [productCards, chosenListCodes, populatedListCodes, loadedProducts]);
 
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -143,6 +175,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The start list shown on the first step: the first chosen list that still
+  // has products (emptying white goods while furniture remains makes furniture
+  // the start).
+  const firstListCode = highlightedStartList(chosenListCodes, productCards, loadedProducts);
+
   // Fetches a list's products (once) and caches them. Returns false on failure.
   async function loadList(code: string): Promise<boolean> {
     if (loadedProducts[code]) return true;
@@ -172,9 +209,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   // already picked starts the order over with the new list.
   async function selectStartList(code: string): Promise<boolean> {
     if (!(await loadList(code))) return false;
-    if (chosenListCodes[0] !== code) {
+    if (firstListCode !== code) {
       setProductCards([]);
       setChosenListCodes([code]);
+      setPopulatedListCodes([]);
     }
     return true;
   }
@@ -185,6 +223,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     const listProducts = loadedProducts[code] ?? [];
     setProductCards((cards) => removeListCards(cards, listProducts));
     setChosenListCodes((codes) => codes.filter((c) => c !== code));
+    setPopulatedListCodes((codes) => codes.filter((c) => c !== code));
   }
 
   const remainingLists = filterUnusedLists(availableLists, chosenListCodes);
@@ -360,7 +399,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           )}
 
           <AutoAdvance
-            ready={cardsForList(productCards, listProducts).length > 0}
+            ready={isProductsStepReady({
+              ownCount: cardsForList(productCards, listProducts).length,
+              orderCount: productCards.length,
+              wasPopulated: populatedListCodes.includes(code),
+            })}
             onReady={onComplete}
             onRetract={onUncomplete}
           />
@@ -399,7 +442,15 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
               </p>
             )}
             <AutoAdvance
-              ready={isListConfigured(productCards, listProducts) && (!isLast || hasRequiredDelivery)}
+              ready={
+                isOptionsStepReady({
+                  ownCount: cardsForList(productCards, listProducts).length,
+                  configured: isListConfigured(productCards, listProducts),
+                  orderCount: productCards.length,
+                  wasPopulated: populatedListCodes.includes(code),
+                }) &&
+                (!isLast || hasRequiredDelivery)
+              }
               onReady={onComplete}
               onRetract={onUncomplete}
             />
