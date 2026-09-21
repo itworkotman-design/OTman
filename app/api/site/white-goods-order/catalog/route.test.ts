@@ -71,6 +71,23 @@ describe("GET /api/site/white-goods-order/catalog", () => {
     expect(json.availableLists.map((l: { code: string }) => l.code)).toEqual(["WEBSITE_WHITE_GOODS"]);
   });
 
+  it("always takes the order-level fees and special options from the FIRST list, even when another list is requested", async () => {
+    mocks.getBookingCatalogMock.mockImplementation(async (priceListId: string) => ({
+      products: [
+        { id: "1", code: "WG_DISHWASHER", label: "Dishwasher", options: [] },
+        { id: "4", code: "FN_SOFA", label: "Sofa", options: [] },
+      ],
+      specialOptions: [{ id: `special-of-${priceListId}` }],
+      priceListSettings: { from: priceListId },
+    }));
+
+    const json = await (await get("?list=WEBSITE_FURNITURE")).json();
+
+    expect(json.products.map((p: { code: string }) => p.code)).toEqual(["FN_SOFA"]);
+    expect(json.priceListSettings).toEqual({ from: "price-list-wg" });
+    expect(json.specialOptions).toEqual([{ id: "special-of-price-list-wg" }]);
+  });
+
   it("returns 404 for a list that isn't a seeded website list", async () => {
     const res = await get("?list=DEFAULT");
 

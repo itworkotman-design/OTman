@@ -17,14 +17,20 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, reason: "UNKNOWN_LIST" }, { status: 404 });
   }
 
+  // The order-level fees and special options always come from the FIRST list
+  // (white goods), whichever list the customer starts with or adds — the same
+  // rule the order route applies when it merges the lists.
+  const firstCode = seeded[0]?.catalog.priceListCode;
+  const feesPart = !firstCode || firstCode === requested ? part : ((await getWebsiteCatalogPart(firstCode)) ?? part);
+
   return NextResponse.json(
     {
       ok: true,
       priceListCode: requested,
       priceListId: part.priceListId,
       products: part.products,
-      specialOptions: part.specialOptions,
-      priceListSettings: part.priceListSettings,
+      specialOptions: feesPart.specialOptions,
+      priceListSettings: feesPart.priceListSettings,
       availableLists: seeded.map(({ catalog }) => ({
         code: catalog.priceListCode,
         labelEn: catalog.labelEn,
