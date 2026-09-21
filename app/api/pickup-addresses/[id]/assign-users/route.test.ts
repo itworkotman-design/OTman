@@ -112,4 +112,46 @@ describe("PATCH /api/pickup-addresses/[id]/assign-users", () => {
       data: { mainPickupAddressId: null },
     });
   });
+
+  it("rejects making an address the main return for a user who cannot see it", async () => {
+    mocks.requireFullAccessMembershipMock.mockResolvedValue({ ok: true, membership: { role: "OWNER" } });
+    mocks.findUniqueMock.mockResolvedValue({ id: "cpa-1" });
+    mocks.findManyAssignmentsMock.mockResolvedValue([]);
+
+    const response = await PATCH(
+      new Request("http://localhost/api/pickup-addresses/cpa-1/assign-users", {
+        method: "PATCH",
+        body: JSON.stringify({ addReturnUserIds: ["user-unauthorized"] }),
+      }),
+      ctx("cpa-1"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.updateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("sets mainReturnAddressId for eligible users and clears it for removed ones", async () => {
+    mocks.requireFullAccessMembershipMock.mockResolvedValue({ ok: true, membership: { role: "OWNER" } });
+    mocks.findUniqueMock.mockResolvedValue({ id: "cpa-1" });
+    mocks.findManyAssignmentsMock.mockResolvedValue([{ userId: "user-1" }]);
+    mocks.updateManyMock.mockResolvedValue({ count: 1 });
+
+    const response = await PATCH(
+      new Request("http://localhost/api/pickup-addresses/cpa-1/assign-users", {
+        method: "PATCH",
+        body: JSON.stringify({ addReturnUserIds: ["user-1"], removeReturnUserIds: ["user-2"] }),
+      }),
+      ctx("cpa-1"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["user-1"] } },
+      data: { mainReturnAddressId: "cpa-1" },
+    });
+    expect(mocks.updateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["user-2"] }, mainReturnAddressId: "cpa-1" },
+      data: { mainReturnAddressId: null },
+    });
+  });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { dropUnchangedFields } from "@/lib/booking/dropUnchangedFields";
 import { useEffect, useMemo } from "react";
 import type { DeliveryType } from "@/lib/booking/pricing/types";
 import type {
@@ -373,10 +374,14 @@ export function ProductCardNew({
       nextValue.customSectionSelections = finalCustomSectionSelections;
     }
 
-    if (Object.keys(nextValue).length > 0) {
+    // Only push a real change — a no-op patch would create a new object every
+    // render and re-trigger this effect forever.
+    const changedValue = dropUnchangedFields(value, nextValue);
+
+    if (Object.keys(changedValue).length > 0) {
       onChange({
         ...value,
-        ...nextValue,
+        ...changedValue,
       });
     }
   }, [

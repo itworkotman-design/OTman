@@ -116,4 +116,72 @@ describe("GET /api/auth/order-creators", () => {
       expect.objectContaining({ address: "Some street 1", mainPickupAddress: null }),
     );
   });
+
+  it("exposes the user's active main return address for the order flow", async () => {
+    mocks.findManyMock.mockResolvedValue([
+      {
+        id: "membership-1",
+        role: "OWNER",
+        legacyWordpressUserId: null,
+        warehouseEmail: null,
+        user: {
+          email: "a@example.com",
+          username: "A",
+          address: "Some street 1",
+          mainPickupAddress: null,
+          mainReturnAddress: {
+            id: "ret-1",
+            name: "Gjenvinning Alna",
+            address: "Alna 1, Oslo",
+            latitude: 59.93,
+            longitude: 10.85,
+            isActive: true,
+          },
+        },
+        permissions: [],
+      },
+    ]);
+
+    const response = await GET(new Request("http://localhost/api/auth/order-creators"));
+    const json = await response.json();
+
+    expect(json.orderCreators[0].mainReturnAddress).toEqual({
+      id: "ret-1",
+      name: "Gjenvinning Alna",
+      address: "Alna 1, Oslo",
+      latitude: 59.93,
+      longitude: 10.85,
+    });
+  });
+
+  it("ignores an inactive main return address", async () => {
+    mocks.findManyMock.mockResolvedValue([
+      {
+        id: "membership-1",
+        role: "OWNER",
+        legacyWordpressUserId: null,
+        warehouseEmail: null,
+        user: {
+          email: "a@example.com",
+          username: "A",
+          address: "Some street 1",
+          mainPickupAddress: null,
+          mainReturnAddress: {
+            id: "ret-1",
+            name: "Gjenvinning Alna",
+            address: "Alna 1, Oslo",
+            latitude: 59.93,
+            longitude: 10.85,
+            isActive: false,
+          },
+        },
+        permissions: [],
+      },
+    ]);
+
+    const response = await GET(new Request("http://localhost/api/auth/order-creators"));
+    const json = await response.json();
+
+    expect(json.orderCreators[0].mainReturnAddress).toBeNull();
+  });
 });

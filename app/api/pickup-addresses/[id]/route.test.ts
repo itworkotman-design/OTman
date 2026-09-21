@@ -259,6 +259,30 @@ describe("PATCH /api/pickup-addresses/[id]", () => {
     });
   });
 
+  it("clears mainReturnAddressId for a user whose visibility is revoked", async () => {
+    mocks.requireFullAccessMembershipMock.mockResolvedValue({ ok: true, membership: { role: "OWNER" } });
+    mocks.updateMock.mockResolvedValue({ id: "cpa-1" });
+
+    await PATCH(
+      new Request("http://localhost/api/pickup-addresses/cpa-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: "Gjenvinning",
+          address: "Alna 1",
+          latitude: 59.9,
+          longitude: 10.8,
+          userIds: ["user-1"],
+        }),
+      }),
+      ctx("cpa-1"),
+    );
+
+    expect(mocks.userUpdateManyMock).toHaveBeenCalledWith({
+      where: { mainReturnAddressId: "cpa-1", id: { notIn: ["user-1"] } },
+      data: { mainReturnAddressId: null },
+    });
+  });
+
   it("does not touch mainPickupAddressId when userIds isn't part of the update", async () => {
     mocks.requireFullAccessMembershipMock.mockResolvedValue({ ok: true, membership: { role: "OWNER" } });
     mocks.updateMock.mockResolvedValue({ id: "cpa-1" });

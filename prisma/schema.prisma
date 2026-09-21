@@ -23,17 +23,20 @@ model User {
   languagePreference    String?
   legacyWordpressUserId Int?                 @unique
   mainPickupAddressId   String?
+  mainReturnAddressId   String?
   authEvents            AuthEvent[]
   invitesSent           Invite[]             @relation("InviteCreatedBy")
   memberships           Membership[]
   resetTokens           PasswordResetToken[]
   sessions              Session[]
   blogPosts             BlogPost[]
-  mainPickupAddress     CustomPickupAddress? @relation(fields: [mainPickupAddressId], references: [id])
+  mainPickupAddress     CustomPickupAddress? @relation("UserMainPickupAddress", fields: [mainPickupAddressId], references: [id])
+  mainReturnAddress     CustomPickupAddress? @relation("UserMainReturnAddress", fields: [mainReturnAddressId], references: [id])
   pickupAddresses       UserCustomPickupAddress[]
 
   @@index([status])
   @@index([mainPickupAddressId])
+  @@index([mainReturnAddressId])
 }
 
 model Company {
@@ -110,7 +113,8 @@ model CustomPickupAddress {
   updatedAt DateTime @updatedAt
 
   users                     UserCustomPickupAddress[]
-  mainForUsers              User[]
+  mainForUsers              User[]                    @relation("UserMainPickupAddress")
+  mainReturnForUsers        User[]                    @relation("UserMainReturnAddress")
   mainForInvites            Invite[]
   ordersUsingThis           Order[]                   @relation("OrderCustomPickupAddress")
   ordersUsingThisForReturn  Order[]                   @relation("OrderCustomReturnAddress")

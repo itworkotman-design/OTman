@@ -34,14 +34,19 @@ export async function PATCH(
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const addUserIds = toIdArray(body?.addUserIds);
   const removeUserIds = toIdArray(body?.removeUserIds);
+  // The same nomination, for the user's default return to gjenvinning address.
+  const addReturnUserIds = toIdArray(body?.addReturnUserIds);
+  const removeReturnUserIds = toIdArray(body?.removeReturnUserIds);
 
-  if (addUserIds.length > 0) {
+  const nominatedUserIds = [...new Set([...addUserIds, ...addReturnUserIds])];
+
+  if (nominatedUserIds.length > 0) {
     const assignments = await prisma.userCustomPickupAddress.findMany({
-      where: { customPickupAddressId: id, userId: { in: addUserIds } },
+      where: { customPickupAddressId: id, userId: { in: nominatedUserIds } },
       select: { userId: true },
     });
     const eligibleUserIds = new Set(assignments.map((a) => a.userId));
-    const ineligible = addUserIds.filter((userId) => !eligibleUserIds.has(userId));
+    const ineligible = nominatedUserIds.filter((userId) => !eligibleUserIds.has(userId));
 
     if (ineligible.length > 0) {
       return NextResponse.json(
@@ -49,7 +54,9 @@ export async function PATCH(
         { status: 400 },
       );
     }
+  }
 
+  if (addUserIds.length > 0) {
     await prisma.user.updateMany({
       where: { id: { in: addUserIds } },
       data: { mainPickupAddressId: id },
@@ -60,6 +67,20 @@ export async function PATCH(
     await prisma.user.updateMany({
       where: { id: { in: removeUserIds }, mainPickupAddressId: id },
       data: { mainPickupAddressId: null },
+    });
+  }
+
+  if (addReturnUserIds.length > 0) {
+    await prisma.user.updateMany({
+      where: { id: { in: addReturnUserIds } },
+      data: { mainReturnAddressId: id },
+    });
+  }
+
+  if (removeReturnUserIds.length > 0) {
+    await prisma.user.updateMany({
+      where: { id: { in: removeReturnUserIds }, mainReturnAddressId: id },
+      data: { mainReturnAddressId: null },
     });
   }
 

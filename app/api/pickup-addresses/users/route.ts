@@ -27,6 +27,7 @@ export async function GET(req: Request) {
       email: true,
       username: true,
       mainPickupAddress: { select: { id: true, name: true } },
+      mainReturnAddress: { select: { id: true, name: true } },
       memberships: {
         where: { status: "ACTIVE" },
         select: {
@@ -52,6 +53,7 @@ export async function GET(req: Request) {
       email: user.email,
       username: user.username,
       mainPickupAddress: user.mainPickupAddress,
+      mainReturnAddress: user.mainReturnAddress,
     }));
 
   return NextResponse.json({ ok: true, users: orderCreators });

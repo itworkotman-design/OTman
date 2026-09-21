@@ -132,6 +132,10 @@ export async function PATCH(
         where: { mainPickupAddressId: id, id: { notIn: userIds } },
         data: { mainPickupAddressId: null },
       });
+      await tx.user.updateMany({
+        where: { mainReturnAddressId: id, id: { notIn: userIds } },
+        data: { mainReturnAddressId: null },
+      });
     }
   });
 

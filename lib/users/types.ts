@@ -70,4 +70,14 @@ export type UserOption = {
     latitude: number;
     longitude: number;
   } | null;
+  // Global main return to gjenvinning; only set for stores (users with a
+  // main pickup address). Preferred over mainPickupAddress as the default
+  // return address.
+  mainReturnAddress?: {
+    id: string;
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null;
 };

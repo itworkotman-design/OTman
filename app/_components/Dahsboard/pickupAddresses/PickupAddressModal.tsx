@@ -18,6 +18,7 @@ export type PickupAddressUser = {
   email: string;
   username: string | null;
   mainPickupAddress?: { id: string; name: string } | null;
+  mainReturnAddress?: { id: string; name: string } | null;
 };
 
 export type PickupAddressFormData = {
@@ -97,6 +98,8 @@ export default function PickupAddressModal({
   const [saving, setSaving] = useState(false);
   const [pendingMainUserIds, setPendingMainUserIds] = useState<Set<string>>(new Set());
   const [initialMainUserIds, setInitialMainUserIds] = useState<Set<string>>(new Set());
+  const [pendingReturnUserIds, setPendingReturnUserIds] = useState<Set<string>>(new Set());
+  const [initialReturnUserIds, setInitialReturnUserIds] = useState<Set<string>>(new Set());
   const [mainConflicts, setMainConflicts] = useState<
     { userId: string; label: string; existingAddressName: string }[] | null
   >(null);
@@ -121,6 +124,12 @@ export default function PickupAddressModal({
     );
     setPendingMainUserIds(currentMainUserIds);
     setInitialMainUserIds(currentMainUserIds);
+
+    const currentReturnUserIds = new Set(
+      editing ? allUsers.filter((u) => u.mainReturnAddress?.id === editing.id).map((u) => u.id) : [],
+    );
+    setPendingReturnUserIds(currentReturnUserIds);
+    setInitialReturnUserIds(currentReturnUserIds);
     setMainConflicts(null);
   }, [isOpen, editing, allUsers]);
 
@@ -148,6 +157,15 @@ export default function PickupAddressModal({
       return next;
     });
     setMainConflicts(null);
+  };
+
+  const toggleReturnUser = (userId: string) => {
+    setPendingReturnUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
   };
 
   const handleSubmit = async () => {
@@ -194,17 +212,29 @@ export default function PickupAddressModal({
       const addUserIds = [...pendingMainUserIds].filter((id) => !initialMainUserIds.has(id));
       const removeUserIds = [...initialMainUserIds].filter((id) => !pendingMainUserIds.has(id));
 
-      if (addUserIds.length > 0 || removeUserIds.length > 0) {
+      // A user dropped from visibility above can't stay a main-return user
+      // (the server clears theirs on save), so never send them as an add.
+      const addReturnUserIds = [...pendingReturnUserIds].filter(
+        (id) => !initialReturnUserIds.has(id) && form.userIds.includes(id),
+      );
+      const removeReturnUserIds = [...initialReturnUserIds].filter((id) => !pendingReturnUserIds.has(id));
+
+      if (
+        addUserIds.length > 0 ||
+        removeUserIds.length > 0 ||
+        addReturnUserIds.length > 0 ||
+        removeReturnUserIds.length > 0
+      ) {
         const res = await fetch(`/api/pickup-addresses/${savedId}/assign-users`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ addUserIds, removeUserIds }),
+          body: JSON.stringify({ addUserIds, removeUserIds, addReturnUserIds, removeReturnUserIds }),
         });
         const data = await res.json().catch(() => null);
 
         if (!res.ok || !data?.ok) {
-          throw new Error(data?.message || "Failed to update main pickup address assignment");
+          throw new Error(data?.message || "Failed to update main pickup/return address assignment");
         }
       }
 
@@ -407,6 +437,51 @@ export default function PickupAddressModal({
                       {conflictingMain ? (
                         <span className="text-xs text-amber-600">
                           (currently main for {conflictingMain.name})
+                        </span>
+                      ) : null}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block pb-1.5 text-sm font-semibold text-textcolor">
+              Main return to gjenvinning for these users
+            </label>
+            <p className="mb-2 text-xs text-textColorThird">
+              Only users given visibility above are eligible. Selected users get this address pre-filled as
+              the return address when they book an order with a return option. Applied when you{" "}
+              {isCreateMode ? "create" : "save"} this address.
+            </p>
+            <div className="flex flex-wrap gap-2 rounded-xl border border-black/8 p-3">
+              {eligibleUsers.length === 0 ? (
+                <span className="text-sm text-textColorThird">
+                  No eligible users — give this address visibility to a user first.
+                </span>
+              ) : (
+                eligibleUsers.map((user) => {
+                  const otherReturn =
+                    user.mainReturnAddress && user.mainReturnAddress.id !== (editing?.id ?? null)
+                      ? user.mainReturnAddress
+                      : null;
+
+                  return (
+                    <label
+                      key={user.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-full border border-black/10 px-3 py-1.5 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={saving}
+                        checked={pendingReturnUserIds.has(user.id)}
+                        onChange={() => toggleReturnUser(user.id)}
+                      />
+                      {userLabel(user)}
+                      {otherReturn ? (
+                        <span className="text-xs text-amber-600">
+                          (currently main return for {otherReturn.name})
                         </span>
                       ) : null}
                     </label>

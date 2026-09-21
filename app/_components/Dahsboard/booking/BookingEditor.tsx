@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import OrderFieldsForm from "@/app/_components/Dahsboard/booking/create/OrderFieldsForm";
 import { loadUserOptions } from "@/lib/users/loadUserOptions";
+import { resolveDefaultReturnAddress } from "@/lib/booking/defaultReturnAddress";
 import { getCreateOrderViewConfig } from "@/lib/booking/createOrderView";
 import { SavedProductCard, createEmptyProductCard, normalizeSavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { CatalogProduct, CatalogSpecialOption } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
@@ -1508,6 +1509,7 @@ export default function BookingEditor({
   );
   const shouldShowReturnAddress = hasSelectedReturnOption;
   const hadVisibleReturnAddressRef = useRef(shouldShowReturnAddress);
+  const previousReturnDefaultIdRef = useRef<string | null>(null);
 
   const selectedSubcontractor = useMemo(() => subcontractorOptions.find((option) => option.id === subcontractorId), [subcontractorId, subcontractorOptions]);
   const selectedCustomerOption = useMemo(() => {
@@ -1522,6 +1524,22 @@ export default function BookingEditor({
     return changeCustomerOptions.find((option) => option.email === currentUser.email) ?? null;
   }, [changeCustomerOptions, currentUser?.email, customerMembershipId]);
   const selectedCustomerAddress = selectedCustomerOption?.address?.trim() ?? "";
+  // The user's main return address only applies to "Retur til gjenvinning";
+  // "Retur til butikk" (and no main return configured) returns to their own
+  // address.
+  const resolvedReturnDefault = useMemo(
+    () =>
+      resolveDefaultReturnAddress({
+        selectedReturnOptionCodes: productCards.flatMap((card) => {
+          const code = catalogSpecialOptions.find((option) => option.id === card.selectedReturnOptionId)?.code;
+          return code ? [code] : [];
+        }),
+        mainReturnAddress: selectedCustomerOption?.mainReturnAddress,
+        mainPickupAddress: selectedCustomerOption?.mainPickupAddress,
+        customerAddress: selectedCustomerAddress,
+      }),
+    [catalogSpecialOptions, productCards, selectedCustomerAddress, selectedCustomerOption],
+  );
   const finalTimeWindow = timeWindow === "custom" ? `${customTimeFrom}-${customTimeTo}` : timeWindow;
   useEffect(() => {
     const normalizedDeliveryDate = deliveryDate.trim();
@@ -1781,11 +1799,11 @@ export default function BookingEditor({
     }
 
     if (shouldShowReturnAddress && (!isInitialSync || !hasUserEditedReturnAddressRef.current)) {
-      setReturnAddress(selectedCustomerAddress);
+      setReturnAddress(resolvedReturnDefault.address);
       setReturnAddressSelected(true);
-      setCustomReturnAddressId(selectedCustomerOption.mainPickupAddress?.id ?? null);
+      setCustomReturnAddressId(resolvedReturnDefault.customAddressId);
     }
-  }, [initialValues?.id, selectedCustomerAddress, selectedCustomerOption, shouldShowReturnAddress]);
+  }, [initialValues?.id, selectedCustomerAddress, selectedCustomerOption, shouldShowReturnAddress, resolvedReturnDefault]);
 
   useEffect(() => {
     const hadVisibleReturnAddress = hadVisibleReturnAddressRef.current;
@@ -1799,14 +1817,21 @@ export default function BookingEditor({
       }
     }
 
-    if (!shouldShowReturnAddress || hadVisibleReturnAddress || hasUserEditedReturnAddressRef.current) {
+    // Re-apply the default when the return address first appears, and — for
+    // new orders only — when switching between return options changes which
+    // default applies (gjenvinning <-> butikk) before the user edits it.
+    const previousDefaultId = previousReturnDefaultIdRef.current;
+    previousReturnDefaultIdRef.current = resolvedReturnDefault.customAddressId;
+    const defaultChanged = !initialValues?.id && previousDefaultId !== resolvedReturnDefault.customAddressId;
+
+    if (!shouldShowReturnAddress || (hadVisibleReturnAddress && !defaultChanged) || hasUserEditedReturnAddressRef.current) {
       return;
     }
 
-    setReturnAddress(selectedCustomerAddress);
+    setReturnAddress(resolvedReturnDefault.address);
     setReturnAddressSelected(true);
-    setCustomReturnAddressId(selectedCustomerOption?.mainPickupAddress?.id ?? null);
-  }, [initialValues?.id, selectedCustomerAddress, selectedCustomerOption, shouldShowReturnAddress]);
+    setCustomReturnAddressId(resolvedReturnDefault.customAddressId);
+  }, [initialValues?.id, selectedCustomerAddress, selectedCustomerOption, shouldShowReturnAddress, resolvedReturnDefault]);
 
   useEffect(() => {
     if (!floorNo.trim() && lift) {

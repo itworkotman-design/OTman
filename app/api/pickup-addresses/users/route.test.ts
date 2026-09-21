@@ -120,6 +120,7 @@ describe("GET /api/pickup-addresses/users", () => {
         email: true,
         username: true,
         mainPickupAddress: { select: { id: true, name: true } },
+        mainReturnAddress: { select: { id: true, name: true } },
         memberships: {
           where: { status: "ACTIVE" },
           select: {
@@ -129,5 +130,24 @@ describe("GET /api/pickup-addresses/users", () => {
         },
       },
     });
+  });
+
+  it("includes each user's main return address", async () => {
+    mocks.requireFullAccessMembershipMock.mockResolvedValue({ ok: true, membership: { role: "OWNER" } });
+    mocks.findManyMock.mockResolvedValue([
+      {
+        id: "user-1",
+        email: "creator@example.com",
+        username: "Creator",
+        mainPickupAddress: null,
+        mainReturnAddress: { id: "ret-1", name: "Gjenvinning Alna" },
+        memberships: [{ role: "USER", permissions: [{ permission: "BOOKING_VIEW" }, { permission: "BOOKING_CREATE" }] }],
+      },
+    ]);
+
+    const response = await GET(new Request("http://localhost/api/pickup-addresses/users"));
+    const json = await response.json();
+
+    expect(json.users[0].mainReturnAddress).toEqual({ id: "ret-1", name: "Gjenvinning Alna" });
   });
 });

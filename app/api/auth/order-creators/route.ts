@@ -77,6 +77,16 @@ export async function GET(req: Request) {
               isActive: true,
             },
           },
+          mainReturnAddress: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              latitude: true,
+              longitude: true,
+              isActive: true,
+            },
+          },
         },
       },
       permissions: {
@@ -112,6 +122,13 @@ export async function GET(req: Request) {
           ? membership.user.mainPickupAddress
           : null;
 
+      // Same rule for the default return to gjenvinning address: an inactive
+      // one is ignored.
+      const activeMainReturnAddress =
+        membership.user.mainReturnAddress?.isActive
+          ? membership.user.mainReturnAddress
+          : null;
+
       return {
         id: membership.id,
         name: getMembershipName(membership.user),
@@ -127,6 +144,15 @@ export async function GET(req: Request) {
               address: activeMainPickupAddress.address,
               latitude: activeMainPickupAddress.latitude,
               longitude: activeMainPickupAddress.longitude,
+            }
+          : null,
+        mainReturnAddress: activeMainReturnAddress
+          ? {
+              id: activeMainReturnAddress.id,
+              name: activeMainReturnAddress.name,
+              address: activeMainReturnAddress.address,
+              latitude: activeMainReturnAddress.latitude,
+              longitude: activeMainReturnAddress.longitude,
             }
           : null,
       };
