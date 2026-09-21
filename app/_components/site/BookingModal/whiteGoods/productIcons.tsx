@@ -50,11 +50,15 @@ const OvenIcon = (props: IconProps) => (
 
 const HobIcon = (props: IconProps) => (
   <Base {...props}>
-    <rect x="3" y="6" width="18" height="12" rx="1.5" />
-    <circle cx="8.5" cy="10.5" r="2" />
-    <circle cx="15.5" cy="10.5" r="2" />
-    <circle cx="8.5" cy="15" r="1.3" />
-    <circle cx="15.5" cy="15" r="1.3" />
+    <rect x="2.5" y="5" width="19" height="14" rx="2" />
+    <circle cx="8" cy="9.6" r="2.3" />
+    <circle cx="8" cy="9.6" r="0.7" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="9.6" r="2.3" />
+    <circle cx="16" cy="9.6" r="0.7" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="14.8" r="2.3" />
+    <circle cx="8" cy="14.8" r="0.7" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="14.8" r="2.3" />
+    <circle cx="16" cy="14.8" r="0.7" fill="currentColor" stroke="none" />
   </Base>
 );
 
@@ -69,9 +73,9 @@ const CookerIcon = (props: IconProps) => (
 
 const ExtractorHoodIcon = (props: IconProps) => (
   <Base {...props}>
-    <path d="M4 8 L9 4 h6 l5 4" />
-    <rect x="4" y="8" width="16" height="3" rx="0.5" />
-    <line x1="12" y1="11" x2="12" y2="20" />
+    <rect x="9.5" y="2.5" width="5" height="6" />
+    <path d="M7.5 8.5h9l4 7h-17z" />
+    <path d="M8 18.5v2M12 18.5v2.5M16 18.5v2" />
   </Base>
 );
 

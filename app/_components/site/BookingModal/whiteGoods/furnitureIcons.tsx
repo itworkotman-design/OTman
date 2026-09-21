@@ -18,9 +18,15 @@ const BedIcon = (props: IconProps) => (
 
 const MattressIcon = (props: IconProps) => (
   <Base {...props}>
-    <rect x="3" y="7.5" width="18" height="9" rx="2.6" />
-    <rect x="5.6" y="9.7" width="12.8" height="4.6" rx="1.4" strokeWidth={1} strokeDasharray="1.6 1.6" />
-    <path d="M5 19h14" />
+    <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+    <rect x="8" y="4.5" width="8" height="15" rx="1.2" strokeWidth={1} strokeDasharray="1.8 1.6" />
+    <circle cx="10.5" cy="8" r="0.7" fill="currentColor" stroke="none" />
+    <circle cx="13.5" cy="8" r="0.7" fill="currentColor" stroke="none" />
+    <circle cx="10.5" cy="12" r="0.7" fill="currentColor" stroke="none" />
+    <circle cx="13.5" cy="12" r="0.7" fill="currentColor" stroke="none" />
+    <circle cx="10.5" cy="16" r="0.7" fill="currentColor" stroke="none" />
+    <circle cx="13.5" cy="16" r="0.7" fill="currentColor" stroke="none" />
+    <path d="M18 10.5h1.5v3H18" strokeWidth={1.2} />
   </Base>
 );
 
@@ -180,12 +186,12 @@ const SofaIcon = (props: IconProps) => (
 
 const SofaBedIcon = (props: IconProps) => (
   <Base {...props}>
-    <rect x="4.5" y="4.5" width="15" height="6" rx="2" />
-    <rect x="2.5" y="8.5" width="3.8" height="7.5" rx="1.6" />
-    <rect x="17.7" y="8.5" width="3.8" height="7.5" rx="1.6" />
-    <rect x="6.3" y="10.5" width="11.4" height="5.5" rx="1" />
-    <path d="M6 19.5h12" strokeDasharray="2 2" />
-    <path d="M5 16v1M19 16v1" />
+    <rect x="5" y="3" width="14" height="6" rx="2" />
+    <rect x="2.5" y="6.5" width="3.8" height="7" rx="1.6" />
+    <rect x="17.7" y="6.5" width="3.8" height="7" rx="1.6" />
+    <rect x="6.3" y="9" width="11.4" height="4.5" rx="1" />
+    <path d="M6 15.5h12l3 4.5H3z" />
+    <path d="M4.5 20v1.5M19.5 20v1.5" />
   </Base>
 );
 
