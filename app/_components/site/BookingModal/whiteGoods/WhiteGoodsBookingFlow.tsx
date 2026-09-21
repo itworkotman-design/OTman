@@ -428,7 +428,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                     value={card}
                     deliveryPreview={previewCardDeliveryOptions(productCards, catalogProducts, card.cardId)}
                     onChange={(next) => updateCard(card.cardId, next)}
-                    onQuantityChange={(amount) => setProductQuantity(product.id, amount)}
                   />
                 </RevealSection>
               );
