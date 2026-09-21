@@ -39,7 +39,6 @@ type Props = {
     indoor: DeliveryOptionPreview;
   };
   onChange: (next: SavedProductCard) => void;
-  onQuantityChange: (amount: number) => void;
 };
 
 function seedLabel(locale: Locale, seed: { labelEn: string; labelNo: string }) {
@@ -175,7 +174,6 @@ export function WhiteGoodsProductCard({
   value,
   deliveryPreview,
   onChange,
-  onQuantityChange,
 }: Props) {
   const [open, setOpen] = useState(true);
   const t = (en: string, no: string) => (locale === "no" ? no : en);
@@ -404,32 +402,18 @@ export function WhiteGoodsProductCard({
           />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold text-black/90">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-black/90">
             {productName}
+            {/* Quantity is changed in "Choose products" only; shown here
+                read-only so the card still says how many it is for. */}
+            {value.amount > 1 && (
+              <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-semibold text-logoblue">
+                {value.amount}×
+              </span>
+            )}
           </h3>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <div className="flex items-center rounded-full border border-black/10">
-            <button
-              type="button"
-              aria-label={t("Decrease quantity", "Reduser antall")}
-              onClick={() => onQuantityChange(value.amount - 1)}
-              className="grid h-8 w-8 place-items-center text-base text-black/60 hover:text-black"
-            >
-              −
-            </button>
-            <span className="min-w-6 text-center text-sm font-semibold">
-              {value.amount}
-            </span>
-            <button
-              type="button"
-              aria-label={t("Increase quantity", "Øk antall")}
-              onClick={() => onQuantityChange(value.amount + 1)}
-              className="grid h-8 w-8 place-items-center text-base text-black/60 hover:text-black"
-            >
-              +
-            </button>
-          </div>
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
