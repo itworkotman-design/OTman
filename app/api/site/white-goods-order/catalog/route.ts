@@ -1,36 +1,35 @@
 import { NextResponse } from "next/server";
-import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
-import { getWhiteGoodsPriceListId } from "@/lib/content/WhiteGoodsBookingConfig";
-import { WHITE_GOODS_ELECTRONICS_PRODUCTS } from "@/lib/content/whiteGoodsElectronics";
+import { getWebsiteCatalogPart, listSeededWebsiteCatalogs } from "@/lib/content/websiteOrderCatalog";
+import { WEBSITE_CATALOGS } from "@/lib/content/websiteCatalogs";
 
-// Public, unauthenticated catalog fetch scoped to exactly one price list
-// (the website white-goods catalog) — kept separate from the dashboard's
-// /api/booking/catalog (which gates public access behind a single shared
-// PUBLIC_CATALOG_PRICELIST_ID env var) so this flow doesn't need to share
-// that one-value slot with whatever other public price list may already use
-// it, and so that route stays untouched.
-const WHITE_GOODS_PRODUCT_CODES = new Set(
-  WHITE_GOODS_ELECTRONICS_PRODUCTS.map((p) => p.code),
-);
+// Public, unauthenticated catalog fetch for the website order flow, scoped to
+// exactly one website price list per request (`?list=<price list code>`,
+// default: the first, white goods) — kept separate from the dashboard's
+// /api/booking/catalog so this flow doesn't share anything with the internal
+// booking flow. Also reports which website lists are available (seeded) so the
+// UI can offer "any other products?" without hard-coding them.
+export async function GET(req: Request) {
+  const requested = new URL(req.url).searchParams.get("list") ?? WEBSITE_CATALOGS[0].priceListCode;
 
-export async function GET() {
-  const priceListId = await getWhiteGoodsPriceListId();
-  const catalog = await getBookingCatalog(priceListId);
+  const [seeded, part] = await Promise.all([listSeededWebsiteCatalogs(), getWebsiteCatalogPart(requested)]);
 
-  // getBookingCatalog returns every active Product regardless of price
-  // list — only option prices are price-list-scoped — so this filters down
-  // to just the white-goods catalog rather than leaking every dashboard
-  // product (at 0 kr, since they have no PriceListItem on this list).
-  const products = catalog.products.filter((product) =>
-    WHITE_GOODS_PRODUCT_CODES.has(product.code),
-  );
+  if (!part) {
+    return NextResponse.json({ ok: false, reason: "UNKNOWN_LIST" }, { status: 404 });
+  }
 
   return NextResponse.json(
     {
       ok: true,
-      priceListId,
-      ...catalog,
-      products,
+      priceListCode: requested,
+      priceListId: part.priceListId,
+      products: part.products,
+      specialOptions: part.specialOptions,
+      priceListSettings: part.priceListSettings,
+      availableLists: seeded.map(({ catalog }) => ({
+        code: catalog.priceListCode,
+        labelEn: catalog.labelEn,
+        labelNo: catalog.labelNo,
+      })),
     },
     { status: 200 },
   );

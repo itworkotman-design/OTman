@@ -19,6 +19,8 @@ import {
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { applyWhiteGoodsExtraUnitCharges } from "@/lib/booking/pricing/whiteGoodsExtraUnits";
+import { applyWebsiteAssemblyExtras } from "@/lib/booking/pricing/websiteAssemblyExtras";
+import { filterUnusedLists, type WebsiteListInfo } from "./websiteLists";
 import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
@@ -79,7 +81,16 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const bookingLocale = toBookingLocale(locale);
 
-  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  // One product list per website price list. The first (white goods) is loaded
+  // up front; the others are fetched when the customer adds them via "any other
+  // products?". Their products are all priced together by the one calculator.
+  const [productsByList, setProductsByList] = useState<Record<string, CatalogProduct[]>>({});
+  const [firstListCode, setFirstListCode] = useState<string | null>(null);
+  const [availableLists, setAvailableLists] = useState<WebsiteListInfo[]>([]);
+  const [addedListCodes, setAddedListCodes] = useState<string[]>([]);
+  const [loadingListCode, setLoadingListCode] = useState<string | null>(null);
+  const [addListError, setAddListError] = useState<string | null>(null);
+  const catalogProducts = useMemo(() => Object.values(productsByList).flat(), [productsByList]);
   const [catalogSpecialOptions, setCatalogSpecialOptions] = useState<CatalogSpecialOption[]>([]);
   const [priceListSettings, setPriceListSettings] = useState<PriceListSettings>(
     createDefaultPriceListSettings(),
@@ -118,7 +129,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         const json = await res.json();
         if (cancelled) return;
         if (!json.ok) throw new Error(json.reason ?? "catalog fetch failed");
-        setCatalogProducts(json.products);
+        setProductsByList({ [json.priceListCode]: json.products });
+        setFirstListCode(json.priceListCode);
+        setAvailableLists(json.availableLists ?? []);
         setCatalogSpecialOptions(json.specialOptions);
         setPriceListSettings(json.priceListSettings);
       } catch {
@@ -135,6 +148,28 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function addList(code: string) {
+    setLoadingListCode(code);
+    setAddListError(null);
+    try {
+      const res = await fetch(`/api/site/white-goods-order/catalog?list=${encodeURIComponent(code)}`);
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.reason ?? "catalog fetch failed");
+      setProductsByList((lists) => ({ ...lists, [code]: json.products }));
+      setAddedListCodes((codes) => (codes.includes(code) ? codes : [...codes, code]));
+    } catch {
+      setAddListError(t("Could not load those products. Please try again.", "Kunne ikke laste produktene. Prøv igjen."));
+    } finally {
+      setLoadingListCode(null);
+    }
+  }
+
+  const usedListCodes = firstListCode ? [firstListCode, ...addedListCodes] : addedListCodes;
+  const remainingLists = filterUnusedLists(availableLists, usedListCodes);
+  const addedLists = addedListCodes
+    .map((code) => availableLists.find((l) => l.code === code))
+    .filter((l): l is WebsiteListInfo => !!l);
 
   function updateCard(cardId: number, next: SavedProductCard) {
     setProductCards((cards) => cards.map((c) => (c.cardId === cardId ? next : c)));
@@ -157,11 +192,15 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   );
 
   const pricing = useMemo(() => {
-    const breakdowns = applyWhiteGoodsExtraUnitCharges(
-      buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions),
+    const breakdowns = applyWebsiteAssemblyExtras(
+      applyWhiteGoodsExtraUnitCharges(
+        buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions),
+        productCards,
+        catalogProducts,
+        catalogSpecialOptions,
+      ),
       productCards,
       catalogProducts,
-      catalogSpecialOptions,
     );
     const fullBreakdowns = buildWhiteGoodsCalculatorBreakdowns({
       productBreakdowns: breakdowns,
@@ -304,7 +343,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
 
           <WhiteGoodsProductGrid
             locale={locale}
-            products={catalogProducts}
+            products={firstListCode ? (productsByList[firstListCode] ?? []) : []}
             quantities={quantitiesByProductId}
             onChangeQuantity={setProductQuantity}
           />
@@ -342,6 +381,53 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                   "Minst én vare må ha levering (til ytterdør eller med innbæring) — kun montering er ikke nok alene.",
                 )}
               </p>
+            )}
+            {productCards.length > 0 && (
+              <div className="flex flex-col gap-5 rounded-2xl border border-black/10 p-4">
+                {addedLists.map((list) => (
+                  <div key={list.code}>
+                    <h4 className="mb-3 text-sm font-semibold text-logoblue">
+                      {t(list.labelEn, list.labelNo)}
+                    </h4>
+                    <WhiteGoodsProductGrid
+                      locale={locale}
+                      products={productsByList[list.code] ?? []}
+                      quantities={quantitiesByProductId}
+                      onChangeQuantity={setProductQuantity}
+                    />
+                  </div>
+                ))}
+
+                {remainingLists.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold text-black/85">
+                      {t("Any other products you need added?", "Trenger du å legge til andre produkter?")}
+                    </p>
+                    <p className="mt-0.5 text-xs text-black/50">
+                      {t(
+                        "Pick another category — everything ends up in the same order.",
+                        "Velg en annen kategori — alt havner i samme bestilling.",
+                      )}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {remainingLists.map((list) => (
+                        <button
+                          key={list.code}
+                          type="button"
+                          disabled={loadingListCode !== null}
+                          onClick={() => addList(list.code)}
+                          className="rounded-full border border-black/15 px-4 py-2 text-sm font-medium text-black/70 transition hover:border-logoblue/50 disabled:opacity-50"
+                        >
+                          {loadingListCode === list.code
+                            ? t("Loading…", "Laster…")
+                            : `+ ${t(list.labelEn, list.labelNo)}`}
+                        </button>
+                      ))}
+                    </div>
+                    {addListError && <p className="mt-2 text-xs text-red-600">{addListError}</p>}
+                  </div>
+                )}
+              </div>
             )}
             <AutoAdvance ready={canContinueProducts} onReady={onComplete} onRetract={onUncomplete} />
           </div>

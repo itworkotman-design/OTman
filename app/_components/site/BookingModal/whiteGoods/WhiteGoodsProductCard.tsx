@@ -2,14 +2,19 @@
 
 import { useMemo, useState } from "react";
 import type {
+  CatalogOption,
   CatalogProduct,
   SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { deliveryTypeAfterSelectingType } from "@/lib/content/whiteGoodsElectronics";
+import type { FurnitureOptionSeed } from "@/lib/content/furnitureCatalog";
+import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
+import { isAssemblyCompatibleExtraCode } from "@/lib/booking/pricing/websiteAssemblyExtras";
 import {
-  deliveryTypeAfterSelectingType,
-  WHITE_GOODS_ELECTRONICS_PRODUCTS,
-  type WhiteGoodsOptionSeed,
-} from "@/lib/content/whiteGoodsElectronics";
+  groupAssemblyOptions,
+  groupDismantlingOptions,
+  type DismantlingGroup,
+} from "./optionGroups";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { ProductIcon } from "./productIcons";
 import { buildCardSummaryChips } from "./cardSummaryChips";
@@ -19,8 +24,8 @@ import { DELIVERY_TYPES } from "@/lib/booking/constants";
 
 // The DB-stored ProductOption/CatalogOption has no field distinguishing a
 // mutually-exclusive "type" choice (radio) from a stackable add-on
-// (checkbox) — only the seed data module (WHITE_GOODS_ELECTRONICS_PRODUCTS)
-// carries that (exclusiveGroup). This component cross-references catalog
+// (checkbox) — only the website catalog seed data (white goods + furniture,
+// via findWebsiteProductSeed) carries that (exclusiveGroup). This component cross-references catalog
 // options by code against that same data purely for that metadata + the
 // bilingual labels, not for pricing (prices always come from the fetched
 // catalog).
@@ -58,6 +63,8 @@ function OptionRow({
   priceClassName,
   onClick,
   bare,
+  nested,
+  disabled,
 }: {
   variant: "radio" | "checkbox";
   selected: boolean;
@@ -69,14 +76,21 @@ function OptionRow({
   // Drops the row's own border/rounding/background — used when a type option
   // and the add-ons it unlocks share one outer bordered container.
   bare?: boolean;
+  // Indents a row that belongs to the row above it (a type's manufacturers).
+  nested?: boolean;
+  // Shown but not selectable (e.g. unpacking, included in assembly).
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
+      disabled={disabled}
       className={[
-        "flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition",
+        "flex w-full items-center justify-between gap-3 py-3 text-left transition",
+        nested ? "pl-11 pr-4" : "px-4",
+        disabled ? "cursor-default opacity-70" : "",
         bare
           ? selected
             ? "bg-logoblue/5"
@@ -167,14 +181,12 @@ export function WhiteGoodsProductCard({
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
   const seedProduct = useMemo(
-    () =>
-      WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === product.code) ??
-      null,
+    () => findWebsiteProductSeed(product.code),
     [product],
   );
 
   const seedByCode = useMemo(() => {
-    const map = new Map<string, WhiteGoodsOptionSeed>();
+    const map = new Map<string, FurnitureOptionSeed>();
     for (const option of seedProduct?.options ?? []) {
       map.set(option.code, option);
     }
@@ -226,6 +238,24 @@ export function WhiteGoodsProductCard({
   const deliveryType = value.deliveryType;
   const showExtras = deliveryType !== "" && !installSelected;
   const showReturn = !!returnOption && deliveryType !== "";
+
+  // Furniture: assembly is a type + manufacturer pick, dismantling comes as
+  // paired variants, and dismantling / wall anchoring stay available together
+  // with assembly (priced by applyWebsiteAssemblyExtras).
+  const isFurniture = product.code.startsWith("FN_");
+  const assemblyGroups = groupAssemblyOptions(
+    product.options,
+    seedByCode,
+    locale,
+  );
+  const dismantlingGroups = groupDismantlingOptions(product.options, locale);
+  const anchoringOption =
+    product.options.find((o) => o.active && o.code === "WALL_ANCHORING") ??
+    null;
+  const furnitureAddonsVisible =
+    isFurniture &&
+    deliveryType !== "" &&
+    (!!unpackingOption || dismantlingGroups.length > 0 || !!anchoringOption);
 
   function setDeliveryType(next: SavedProductCard["deliveryType"]) {
     onChange({
@@ -285,6 +315,32 @@ export function WhiteGoodsProductCard({
     });
   }
 
+  function toggleExtraOption(optionId: string) {
+    const has = value.selectedExtraOptionIds.includes(optionId);
+    onChange({
+      ...value,
+      selectedExtraOptionIds: has
+        ? value.selectedExtraOptionIds.filter((id) => id !== optionId)
+        : [...value.selectedExtraOptionIds, optionId],
+    });
+  }
+
+  // "For disposal" and "careful, for reuse" are alternatives for the same
+  // type: choosing one replaces the other, choosing it again clears it.
+  function selectDismantling(group: DismantlingGroup, option: CatalogOption) {
+    const counterpartId = [group.disposal, group.careful].find(
+      (o) => o && o.id !== option.id,
+    )?.id;
+    const has = value.selectedExtraOptionIds.includes(option.id);
+    const rest = value.selectedExtraOptionIds.filter(
+      (id) => id !== option.id && id !== counterpartId,
+    );
+    onChange({
+      ...value,
+      selectedExtraOptionIds: has ? rest : [...rest, option.id],
+    });
+  }
+
   function toggleReturn() {
     if (!returnOption) return;
     onChange({
@@ -316,6 +372,13 @@ export function WhiteGoodsProductCard({
           : 0) + (value.demontEnabled ? 1 : 0)
       : 0) +
     (showReturn && value.selectedReturnOptionId ? 1 : 0) +
+    (isFurniture
+      ? product.options.filter(
+          (o) =>
+            value.selectedExtraOptionIds.includes(o.id) &&
+            isAssemblyCompatibleExtraCode(o.code),
+        ).length
+      : 0) +
     value.selectedInstallOptionIds.filter((id) => id !== selectedTypeOption?.id)
       .length;
 
@@ -459,11 +522,22 @@ export function WhiteGoodsProductCard({
                   <OptionRow
                     variant="radio"
                     selected={deliveryType === "INSTALL_ONLY"}
-                    title={t("Installation only", "Kun montering")}
-                    description={t(
-                      "You already have the item — we just install it.",
-                      "Du har allerede varen — vi monterer den bare.",
-                    )}
+                    title={
+                      isFurniture
+                        ? t("Assembly only", "Kun montering")
+                        : t("Installation only", "Kun montering")
+                    }
+                    description={
+                      isFurniture
+                        ? t(
+                            "You already have the furniture — we just assemble it.",
+                            "Du har allerede møblene — vi monterer dem bare.",
+                          )
+                        : t(
+                            "You already have the item — we just install it.",
+                            "Du har allerede varen — vi monterer den bare.",
+                          )
+                    }
                     price={included}
                     priceClassName="text-logoblue"
                     onClick={() => setDeliveryType("INSTALL_ONLY")}
@@ -475,11 +549,22 @@ export function WhiteGoodsProductCard({
             <div>
               <SectionHeader
                 step={2}
-                title={t("Installation", "Montering")}
-                subtitle={t(
-                  "Should we install it for you?",
-                  "Skal vi montere den for deg?",
-                )}
+                title={
+                  isFurniture
+                    ? t("Assembly", "Montering")
+                    : t("Installation", "Montering")
+                }
+                subtitle={
+                  isFurniture
+                    ? t(
+                        "Should we assemble it for you?",
+                        "Skal vi montere den for deg?",
+                      )
+                    : t(
+                        "Should we install it for you?",
+                        "Skal vi montere den for deg?",
+                      )
+                }
               />
               <div className="flex flex-col gap-2">
                 <OptionRow
@@ -494,76 +579,142 @@ export function WhiteGoodsProductCard({
                   priceClassName="text-logoblue"
                   onClick={clearInstallation}
                 />
-                {typeOptions.map((option) => {
-                  const seed = seedByCode.get(option.code);
-                  const isSelected = value.selectedInstallOptionIds.includes(
-                    option.id,
-                  );
-                  const nestedCheckboxes = isSelected
-                    ? stackableInstallOptions
-                    : [];
+                {assemblyGroups.length > 0
+                  ? assemblyGroups.map((group) => {
+                      const hasSelection = group.options.some(({ option }) =>
+                        value.selectedInstallOptionIds.includes(option.id),
+                      );
 
-                  // A type with nothing unlocked is a normal standalone row. A
-                  // SELECTED type that unlocks add-ons renders as one bordered
-                  // card holding both the radio and its checkboxes (hairline
-                  // dividers) — with several types, listing every add-on after
-                  // the whole radio list would make it ambiguous which type
-                  // each checkbox belongs to.
-                  if (nestedCheckboxes.length === 0) {
-                    return (
-                      <OptionRow
-                        key={option.id}
-                        variant="radio"
-                        selected={isSelected}
-                        title={seed ? seedLabel(locale, seed) : option.label}
-                        price={money(option.customerPrice)}
-                        onClick={() => selectType(option.id)}
-                      />
-                    );
-                  }
-
-                  return (
-                    <div
-                      key={option.id}
-                      className="flex flex-col divide-y divide-logoblue/15 overflow-hidden rounded-xl border border-logoblue/30 bg-logoblue/5"
-                    >
-                      <OptionRow
-                        variant="radio"
-                        selected
-                        title={seed ? seedLabel(locale, seed) : option.label}
-                        price={money(option.customerPrice)}
-                        onClick={() => selectType(option.id)}
-                        bare
-                      />
-                      {nestedCheckboxes.map((stackOption) => {
-                        const stackSeed = seedByCode.get(stackOption.code);
+                      // A type nobody picked yet is one row (from-price); picking
+                      // it opens its manufacturers inside one shared container.
+                      if (!hasSelection) {
                         return (
                           <OptionRow
-                            key={stackOption.id}
-                            variant="checkbox"
-                            selected={value.selectedInstallOptionIds.includes(
-                              stackOption.id,
-                            )}
-                            title={
-                              stackSeed
-                                ? seedLabel(locale, stackSeed)
-                                : stackOption.label
-                            }
-                            price={money(stackOption.customerPrice)}
+                            key={group.key}
+                            variant="radio"
+                            selected={false}
+                            title={group.label}
+                            price={`${t("from", "fra")} ${money(String(group.fromPrice))}`}
                             onClick={() =>
-                              toggleStackableInstall(stackOption.id)
+                              selectType(group.options[0].option.id)
                             }
-                            bare
                           />
                         );
-                      })}
-                    </div>
-                  );
-                })}
+                      }
+
+                      return (
+                        <div
+                          key={group.key}
+                          className="flex flex-col divide-y divide-logoblue/15 overflow-hidden rounded-xl border border-logoblue/30 bg-logoblue/5"
+                        >
+                          <OptionRow
+                            variant="radio"
+                            selected
+                            title={group.label}
+                            description={t(
+                              "Choose the manufacturer:",
+                              "Velg produsent:",
+                            )}
+                            onClick={clearInstallation}
+                            bare
+                          />
+                          {group.options.map(
+                            ({ option, manufacturerLabel }) => (
+                              <OptionRow
+                                key={option.id}
+                                variant="radio"
+                                selected={value.selectedInstallOptionIds.includes(
+                                  option.id,
+                                )}
+                                title={manufacturerLabel}
+                                price={money(option.customerPrice)}
+                                onClick={() => selectType(option.id)}
+                                bare
+                                nested
+                              />
+                            ),
+                          )}
+                        </div>
+                      );
+                    })
+                  : typeOptions.map((option) => {
+                      const seed = seedByCode.get(option.code);
+                      const isSelected =
+                        value.selectedInstallOptionIds.includes(option.id);
+                      const nestedCheckboxes = isSelected
+                        ? stackableInstallOptions
+                        : [];
+
+                      // A type with nothing unlocked is a normal standalone row. A
+                      // SELECTED type that unlocks add-ons renders as one bordered
+                      // card holding both the radio and its checkboxes (hairline
+                      // dividers) — with several types, listing every add-on after
+                      // the whole radio list would make it ambiguous which type
+                      // each checkbox belongs to.
+                      if (nestedCheckboxes.length === 0) {
+                        return (
+                          <OptionRow
+                            key={option.id}
+                            variant="radio"
+                            selected={isSelected}
+                            title={
+                              seed ? seedLabel(locale, seed) : option.label
+                            }
+                            price={money(option.customerPrice)}
+                            onClick={() => selectType(option.id)}
+                          />
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={option.id}
+                          className="flex flex-col divide-y divide-logoblue/15 overflow-hidden rounded-xl border border-logoblue/30 bg-logoblue/5"
+                        >
+                          <OptionRow
+                            variant="radio"
+                            selected
+                            title={
+                              seed ? seedLabel(locale, seed) : option.label
+                            }
+                            price={money(option.customerPrice)}
+                            onClick={() => selectType(option.id)}
+                            bare
+                          />
+                          {nestedCheckboxes.map((stackOption) => {
+                            const stackSeed = seedByCode.get(stackOption.code);
+                            return (
+                              <OptionRow
+                                key={stackOption.id}
+                                variant="checkbox"
+                                selected={value.selectedInstallOptionIds.includes(
+                                  stackOption.id,
+                                )}
+                                title={
+                                  stackSeed
+                                    ? seedLabel(locale, stackSeed)
+                                    : stackOption.label
+                                }
+                                price={money(stackOption.customerPrice)}
+                                onClick={() =>
+                                  toggleStackableInstall(stackOption.id)
+                                }
+                                bare
+                              />
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                {seedProduct?.needsImplementation && (
+                  <div className="rounded-xl border border-dashed border-black/15 px-4 py-3 text-sm text-black/50">
+                    {seedLabel(locale, seedProduct.needsImplementation)}
+                  </div>
+                )}
               </div>
             </div>
 
-            {(showExtras || showReturn) && (
+            {(showExtras || showReturn || furnitureAddonsVisible) && (
               <div>
                 <SectionHeader
                   step={3}
@@ -592,6 +743,27 @@ export function WhiteGoodsProductCard({
                       onClick={toggleUnpacking}
                     />
                   )}
+                  {isFurniture &&
+                    !showExtras &&
+                    installSelected &&
+                    unpackingOption && (
+                      <OptionRow
+                        variant="checkbox"
+                        selected
+                        disabled
+                        title={t(
+                          "Unpack & remove packaging",
+                          "Utpakking og kasting av emballasje",
+                        )}
+                        description={t(
+                          "Included in the assembly.",
+                          "Inkludert i monteringen.",
+                        )}
+                        price={included}
+                        priceClassName="text-logoblue"
+                        onClick={() => {}}
+                      />
+                    )}
                   {showExtras && demontOption && (
                     <OptionRow
                       variant="checkbox"
@@ -611,6 +783,87 @@ export function WhiteGoodsProductCard({
                           demontEnabled: !value.demontEnabled,
                         })
                       }
+                    />
+                  )}
+                  {dismantlingGroups.length > 0 && furnitureAddonsVisible && (
+                    <div className="flex flex-col gap-2 rounded-xl border border-black/10 p-3">
+                      <div className="px-1">
+                        <div className="text-sm font-semibold text-black/85">
+                          {t(
+                            "Dismantle old furniture",
+                            "Demontering av gamle møbler",
+                          )}
+                        </div>
+                        <div className="text-xs text-black/50">
+                          {t(
+                            "Choose the type, and whether it is for disposal or careful for reuse.",
+                            "Velg type, og om den skal kastes eller demonteres forsiktig for gjenbruk.",
+                          )}
+                        </div>
+                      </div>
+                      {dismantlingGroups.map((group) => (
+                        <div
+                          key={group.key}
+                          className="flex flex-wrap items-center justify-between gap-2 px-1"
+                        >
+                          <span className="text-sm text-black/75">
+                            {group.label}
+                          </span>
+                          <span className="flex flex-wrap gap-2">
+                            {[
+                              {
+                                option: group.disposal,
+                                label: t("For disposal", "For avhending"),
+                              },
+                              {
+                                option: group.careful,
+                                label: t(
+                                  "Careful, for reuse",
+                                  "Forsiktig, for gjenbruk",
+                                ),
+                              },
+                            ].map(({ option, label }) => {
+                              if (!option) return null;
+                              const isSelected =
+                                value.selectedExtraOptionIds.includes(
+                                  option.id,
+                                );
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  aria-pressed={isSelected}
+                                  onClick={() =>
+                                    selectDismantling(group, option)
+                                  }
+                                  className={[
+                                    "whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition",
+                                    isSelected
+                                      ? "border-logoblue bg-logoblue text-white"
+                                      : "border-black/15 text-black/70 hover:border-logoblue/50",
+                                  ].join(" ")}
+                                >
+                                  {label} · {money(option.customerPrice)}
+                                </button>
+                              );
+                            })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {anchoringOption && furnitureAddonsVisible && (
+                    <OptionRow
+                      variant="checkbox"
+                      selected={value.selectedExtraOptionIds.includes(
+                        anchoringOption.id,
+                      )}
+                      title={t(
+                        "Wall anchoring / anti-tip securing",
+                        "Veggforankring / veltesikring",
+                      )}
+                      price={money(anchoringOption.customerPrice)}
+                      onClick={() => toggleExtraOption(anchoringOption.id)}
                     />
                   )}
                   {showReturn && returnOption && (
