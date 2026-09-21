@@ -10,6 +10,8 @@ export type WebsiteCatalog = {
   priceListCode: string;
   labelEn: string;
   labelNo: string;
+  /** Product whose icon stands for the whole category on the first step. */
+  iconCode: string;
   products: FurnitureProductSeed[];
 };
 
@@ -18,12 +20,14 @@ export const WEBSITE_CATALOGS: WebsiteCatalog[] = [
     priceListCode: WHITE_GOODS_PRICE_LIST_CODE,
     labelEn: "White goods / electronics",
     labelNo: "Hvitevarer / elektronikk",
+    iconCode: "WG_WASHING_MACHINE",
     products: WHITE_GOODS_ELECTRONICS_PRODUCTS,
   },
   {
     priceListCode: FURNITURE_PRICE_LIST_CODE,
     labelEn: "Furniture",
     labelNo: "Møbler",
+    iconCode: "FN_SOFA",
     products: FURNITURE_PRODUCTS,
   },
 ];

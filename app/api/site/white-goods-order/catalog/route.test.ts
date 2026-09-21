@@ -59,8 +59,13 @@ describe("GET /api/site/white-goods-order/catalog", () => {
     const json = await (await get()).json();
 
     expect(json.availableLists).toEqual([
-      { code: "WEBSITE_WHITE_GOODS", labelEn: "White goods / electronics", labelNo: "Hvitevarer / elektronikk" },
-      { code: "WEBSITE_FURNITURE", labelEn: "Furniture", labelNo: "Møbler" },
+      {
+        code: "WEBSITE_WHITE_GOODS",
+        labelEn: "White goods / electronics",
+        labelNo: "Hvitevarer / elektronikk",
+        iconCode: "WG_WASHING_MACHINE",
+      },
+      { code: "WEBSITE_FURNITURE", labelEn: "Furniture", labelNo: "Møbler", iconCode: "FN_SOFA" },
     ]);
   });
 
