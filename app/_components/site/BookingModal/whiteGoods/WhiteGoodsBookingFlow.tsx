@@ -7,6 +7,7 @@ import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
 import { applyProductQuantity } from "./productQuantity";
 import { previewCardDeliveryOptions } from "./deliveryPricePreview";
+import { sortSummaryLines } from "./orderSummaryLines";
 import { orderHasRequiredDelivery } from "./orderDeliveryRequirement";
 import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
@@ -17,6 +18,7 @@ import {
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
+import { applyWhiteGoodsExtraUnitCharges } from "@/lib/booking/pricing/whiteGoodsExtraUnits";
 import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
@@ -155,7 +157,12 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   );
 
   const pricing = useMemo(() => {
-    const breakdowns = buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions);
+    const breakdowns = applyWhiteGoodsExtraUnitCharges(
+      buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions),
+      productCards,
+      catalogProducts,
+      catalogSpecialOptions,
+    );
     const fullBreakdowns = buildWhiteGoodsCalculatorBreakdowns({
       productBreakdowns: breakdowns,
       priceListSettings: normalizedSettings,
@@ -186,11 +193,14 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         const product = catalogProducts.find((p) => p.id === card.productId);
         if (!product) return null;
         const breakdown = pricing.breakdowns.find((b) => b.cardId === card.cardId);
-        const lines = (breakdown?.lines ?? []).map((line) => ({
-          label: line.label,
-          price: line.lineTotal,
-          category: categorizeWhiteGoodsLineCode(line.code),
-        }));
+        const lines = sortSummaryLines(
+          (breakdown?.lines ?? []).map((line) => ({
+            label: line.label,
+            price: line.lineTotal,
+            qty: line.qty,
+            category: categorizeWhiteGoodsLineCode(line.code),
+          })),
+        );
         return {
           cardId: card.cardId,
           name: productLabel(locale, product),
@@ -307,7 +317,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       id: "product-options",
       title: t("Product options", "Produktvalg"),
       render: ({ onComplete, onUncomplete }) => (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
           <div className="flex flex-col gap-4">
             {productCards.map((card) => {
               const product = catalogProducts.find((p) => p.id === card.productId);
@@ -320,7 +330,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                     value={card}
                     deliveryPreview={previewCardDeliveryOptions(productCards, catalogProducts, card.cardId)}
                     onChange={(next) => updateCard(card.cardId, next)}
-                    onRemove={() => setProductQuantity(product.id, 0)}
+                    onQuantityChange={(amount) => setProductQuantity(product.id, amount)}
                   />
                 </RevealSection>
               );

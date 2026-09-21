@@ -104,6 +104,7 @@ export async function PATCH(
         optionCode: updated.productOption.code,
         optionLabel: updated.productOption.label,
         description: updated.productOption.description,
+        descriptionEn: updated.productOption.descriptionEn,
         category: updated.productOption.category,
         sortOrder: updated.productOption.sortOrder,
         customerPrice: centsToNokString(updated.customerPriceCents),

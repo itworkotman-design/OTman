@@ -18,6 +18,10 @@ import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { getWhiteGoodsPriceListId } from "@/lib/content/WhiteGoodsBookingConfig";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
+import {
+  applyWhiteGoodsExtraUnitCharges,
+  buildWhiteGoodsExtraUnitOrderItems,
+} from "@/lib/booking/pricing/whiteGoodsExtraUnits";
 import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
@@ -88,11 +92,18 @@ async function createWhiteGoodsOrder(
     pricingSnapshot: getSavedOrderPricingSnapshot(productCards),
   });
 
-  const builtItems = buildOrderItemsFromCards(
-    productCards,
-    pricingSource.catalogProducts,
-    pricingSource.catalogSpecialOptions,
-  );
+  const builtItems = [
+    ...buildOrderItemsFromCards(
+      productCards,
+      pricingSource.catalogProducts,
+      pricingSource.catalogSpecialOptions,
+    ),
+    ...buildWhiteGoodsExtraUnitOrderItems(
+      productCards,
+      pricingSource.catalogProducts,
+      pricingSource.catalogSpecialOptions,
+    ),
+  ];
 
   const summaries = buildOrderSummaries(
     productCards,
@@ -119,13 +130,18 @@ async function createWhiteGoodsOrder(
         .map((address) => ({ address }))
     : [];
 
-  const productBreakdowns = buildProductBreakdowns(
+  const productBreakdowns = applyWhiteGoodsExtraUnitCharges(
+    buildProductBreakdowns(
+      productCards,
+      pricingSource.catalogProducts,
+      pricingSource.catalogSpecialOptions,
+      {
+        zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistanceStr) > 100,
+      },
+    ),
     productCards,
     pricingSource.catalogProducts,
     pricingSource.catalogSpecialOptions,
-    {
-      zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistanceStr) > 100,
-    },
   );
 
   const fullBreakdowns = buildWhiteGoodsCalculatorBreakdowns({

@@ -23,3 +23,9 @@ describe("categorizeWhiteGoodsLineCode", () => {
     expect(categorizeWhiteGoodsLineCode(undefined)).toBe("other");
   });
 });
+
+describe("categorizeWhiteGoodsLineCode: extra delivery", () => {
+  it("treats the XTRA (extra delivery) code as a delivery line", () => {
+    expect(categorizeWhiteGoodsLineCode("XTRA")).toBe("delivery");
+  });
+});

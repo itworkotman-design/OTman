@@ -8,7 +8,8 @@ export type WhiteGoodsLineCategory = "delivery" | "install" | "other";
 // a code-only lookup across every product is enough without knowing which
 // product the line came from.
 export function categorizeWhiteGoodsLineCode(code: string | undefined): WhiteGoodsLineCategory {
-  if (code === "FIRST_STEP" || code === "INDOOR") return "delivery";
+  // XTRA is the extra-delivery line (each additional unit / later card).
+  if (code === "FIRST_STEP" || code === "INDOOR" || code === "XTRA") return "delivery";
   if (!code) return "other";
 
   for (const product of WHITE_GOODS_ELECTRONICS_PRODUCTS) {

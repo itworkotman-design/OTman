@@ -48,6 +48,10 @@ type SteppedModalProps = {
 // list) can reuse the same animation instead of a second implementation.
 export function RevealSection({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  // overflow-hidden is only needed while the height animates. Left on, it
+  // becomes the scroll container for any `position: sticky` descendant (e.g.
+  // the order summary), pinning it in place instead of following the scroll.
+  const [isSettled, setIsSettled] = useState(false);
 
   useEffect(() => {
     // Double RAF: first frame commits the closed (0fr/opacity-0) render,
@@ -60,8 +64,13 @@ export function RevealSection({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-      <div className="overflow-hidden">{children}</div>
+    <div
+      className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+      onTransitionEnd={(event) => {
+        if (event.target === event.currentTarget && isOpen) setIsSettled(true);
+      }}
+    >
+      <div className={isSettled ? "" : "overflow-hidden"}>{children}</div>
     </div>
   );
 }
@@ -72,6 +81,20 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // Lock page scroll while the modal is open so wheel/touch over the blurred
+  // backdrop doesn't scroll the page behind it. Locks <html>, not <body>:
+  // globals.css gives html its own `overflow-y: scroll`, which makes html the
+  // scroller (body's overflow no longer propagates to the viewport). Its
+  // `scrollbar-gutter: stable` keeps the layout from shifting when it locks.
+  useEffect(() => {
+    const root = document.documentElement;
+    const prevOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = prevOverflow;
+    };
+  }, []);
 
   const [revealedCount, setRevealedCount] = useState(1);
   const [showFinalStep, setShowFinalStep] = useState(false);
@@ -95,8 +118,8 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#091030]/45 px-4 py-6 backdrop-blur-sm">
-      <div className="relative flex max-h-[92vh] w-full max-w-[864] flex-col overflow-hidden rounded-[32] bg-white shadow-[0_32px_100px_rgba(9,16,48,0.28)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overscroll-contain bg-[#091030]/45 px-4 py-6 backdrop-blur-sm">
+      <div className="relative flex max-h-[92vh] w-full max-w-[1200px] flex-col overflow-hidden rounded-[32] bg-white shadow-[0_32px_100px_rgba(9,16,48,0.28)]">
         <div className="flex shrink-0 items-center justify-between px-5 py-3 sm:px-8">
           <Image src="/Otman Logo Horizontal Blue.svg" width={116} height={50} alt="Logo" className="h-[34] w-auto" />
           <button
@@ -113,7 +136,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
           <div className="h-full bg-logoblue transition-[width] duration-300 ease-out" style={{ width: `${fillPercent}%` }} />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8">
           {showFinalStep && finalStep.render({ onBack: () => setShowFinalStep(false) })}
 
           {/* Kept mounted (just hidden) rather than conditionally rendered,

@@ -20,6 +20,11 @@
 // alongside purely so a test can verify that identity against the source numbers,
 // catching transcription mistakes — it is not itself persisted anywhere.
 
+/** Website prices are seeded in steps of 5 kr (halves round up). */
+export function roundToNearest5(value: number): number {
+  return Math.round(value / 5) * 5;
+}
+
 export type Money = {
   customerPrice: number;
   subcontractorPrice: number;
@@ -46,7 +51,28 @@ export type WhiteGoodsOptionSeed = Money & {
   exclusiveGroup?: string;
   /** Source's "Delivery + installation" combined price, for type-choice options only. */
   combinedWithIndoorInstall?: Money;
+  /**
+   * Type option that doesn't install the appliance itself (e.g. just fitting
+   * a plug), so choosing it must not switch delivery to carry-in.
+   */
+  standaloneInstall?: boolean;
 };
+
+/**
+ * Picking an install type that installs the appliance implies carry-in, so
+ * doorstep delivery (or nothing) becomes carry-in. Installation only stays
+ * as-is (the customer already has the item), and standalone options like
+ * the cooker plug leave the chosen delivery untouched.
+ */
+export function deliveryTypeAfterSelectingType(
+  option: Pick<WhiteGoodsOptionSeed, "standaloneInstall">,
+  currentDeliveryType: string,
+): string {
+  if (option.standaloneInstall || currentDeliveryType === "INSTALL_ONLY") {
+    return currentDeliveryType;
+  }
+  return "INDOOR";
+}
 
 export type WhiteGoodsProductSeed = {
   code: string;
@@ -130,8 +156,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "DISHWASHER_STANDARD_WETROOM",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Standard / approved wet room",
-        labelNo: "Standard / godkjent våtrom",
+        labelEn: "Install – standard / approved wet room",
+        labelNo: "Montering – standard / godkjent våtrom",
         customerPrice: 2320.968,
         subcontractorPrice: 1032,
         combinedWithIndoorInstall: { customerPrice: 3011.376, subcontractorPrice: 1496.4 },
@@ -140,8 +166,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "DISHWASHER_INTEGRATED",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Integrated",
-        labelNo: "Integrert",
+        labelEn: "Install – integrated",
+        labelNo: "Montering – integrert",
         customerPrice: 2868.96,
         subcontractorPrice: 1341.6,
         combinedWithIndoorInstall: { customerPrice: 3559.368, subcontractorPrice: 1806 },
@@ -168,8 +194,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "WASHING_MACHINE_APPROVED_WETROOM",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Approved wet room",
-        labelNo: "Godkjent våtrom",
+        labelEn: "Install – approved wet room",
+        labelNo: "Montering – godkjent våtrom",
         customerPrice: 608.88,
         subcontractorPrice: 402.48,
         combinedWithIndoorInstall: { customerPrice: 1299.288, subcontractorPrice: 866.88 },
@@ -178,8 +204,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "WASHING_MACHINE_NON_APPROVED_WETROOM",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Non-approved wet room",
-        labelNo: "Ikke-godkjent våtrom",
+        labelEn: "Install – non-approved wet room",
+        labelNo: "Montering – ikke-godkjent våtrom",
         customerPrice: 2569.68,
         subcontractorPrice: 1135.2,
         combinedWithIndoorInstall: { customerPrice: 3260.088, subcontractorPrice: 1599.6 },
@@ -198,8 +224,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "TUMBLE_DRYER_STANDARD",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Standard",
-        labelNo: "Standard",
+        labelEn: "Install – standard",
+        labelNo: "Montering – standard",
         customerPrice: 453.048,
         subcontractorPrice: 206.4,
         combinedWithIndoorInstall: { customerPrice: 1143.456, subcontractorPrice: 670.8 },
@@ -234,8 +260,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "OVEN_INTEGRATED",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Integrated oven",
-        labelNo: "Integrert ovn",
+        labelEn: "Install integrated oven",
+        labelNo: "Montering av integrert ovn",
         customerPrice: 1237.368,
         subcontractorPrice: 402.48,
         combinedWithIndoorInstall: { customerPrice: 1927.776, subcontractorPrice: 866.88 },
@@ -254,8 +280,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "HOB_STANDARD",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Standard hob",
-        labelNo: "Standard platetopp",
+        labelEn: "Install standard hob",
+        labelNo: "Montering av standard platetopp",
         customerPrice: 1030.968,
         subcontractorPrice: 516,
         combinedWithIndoorInstall: { customerPrice: 1721.376, subcontractorPrice: 980.4 },
@@ -264,8 +290,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "HOB_WITH_EXTRACTOR",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Hob with extractor",
-        labelNo: "Platetopp med innebygd vifte",
+        labelEn: "Install hob with built-in extractor",
+        labelNo: "Montering av platetopp med innebygd vifte",
         customerPrice: 2578.968,
         subcontractorPrice: 1238.4,
         combinedWithIndoorInstall: { customerPrice: 3269.376, subcontractorPrice: 1702.8 },
@@ -292,8 +318,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "COOKER_CABLE_FITTED",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Cable already fitted",
-        labelNo: "Kabel allerede montert",
+        labelEn: "Install cooker – cable already fitted",
+        labelNo: "Montering av komfyr – kabel allerede montert",
         customerPrice: 453.048,
         subcontractorPrice: 237.36,
         combinedWithIndoorInstall: { customerPrice: 1143.456, subcontractorPrice: 701.76 },
@@ -302,8 +328,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "COOKER_INCLUDING_PLUG",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Including plug",
-        labelNo: "Inkludert støpsel",
+        labelEn: "Install cooker + fit plug",
+        labelNo: "Montering av komfyr + støpsel",
         customerPrice: 514.968,
         subcontractorPrice: 308.568,
         combinedWithIndoorInstall: { customerPrice: 1205.376, subcontractorPrice: 772.968 },
@@ -311,8 +337,10 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
       {
         code: "COOKER_INSTALL_PLUG",
         category: "install",
-        labelEn: "Install cooker plug",
-        labelNo: "Montering av støpsel til komfyr",
+        exclusiveGroup: "type",
+        standaloneInstall: true,
+        labelEn: "Fit plug only (cooker not installed)",
+        labelNo: "Kun montering av støpsel (komfyr monteres ikke)",
         customerPrice: 308.568,
         subcontractorPrice: 154.8,
       },
@@ -330,8 +358,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "EXTRACTOR_HOOD_STANDARD",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Standard",
-        labelNo: "Standard",
+        labelEn: "Install – standard",
+        labelNo: "Montering – standard",
         customerPrice: 1650.168,
         subcontractorPrice: 824.568,
         combinedWithIndoorInstall: { customerPrice: 2340.576, subcontractorPrice: 1288.968 },
@@ -340,8 +368,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "EXTRACTOR_HOOD_INTEGRATED",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Integrated",
-        labelNo: "Integrert",
+        labelEn: "Install – integrated",
+        labelNo: "Montering – integrert",
         customerPrice: 2062.968,
         subcontractorPrice: 1134.168,
         combinedWithIndoorInstall: { customerPrice: 2753.376, subcontractorPrice: 1598.568 },
@@ -372,8 +400,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "UPRIGHT_FREEZER_FREESTANDING",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Freestanding",
-        labelNo: "Frittstående",
+        labelEn: "Install – freestanding",
+        labelNo: "Montering – frittstående",
         customerPrice: 411.768,
         subcontractorPrice: 205.368,
         combinedWithIndoorInstall: { customerPrice: 1102.176, subcontractorPrice: 669.768 },
@@ -382,8 +410,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "UPRIGHT_FREEZER_INTEGRATED_FRONT_EXCLUDED",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Integrated (front panel excluded)",
-        labelNo: "Integrert (eksklusiv front)",
+        labelEn: "Install – integrated (front panel not included)",
+        labelNo: "Montering – integrert (front ikke inkludert)",
         customerPrice: 2062.968,
         subcontractorPrice: 1032,
         combinedWithIndoorInstall: { customerPrice: 2753.376, subcontractorPrice: 1496.4 },
@@ -426,8 +454,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "FRIDGE_FREEZER_FREESTANDING",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Freestanding",
-        labelNo: "Frittstående",
+        labelEn: "Install – freestanding",
+        labelNo: "Montering – frittstående",
         customerPrice: 411.768,
         subcontractorPrice: 205.368,
         combinedWithIndoorInstall: { customerPrice: 1102.176, subcontractorPrice: 669.768 },
@@ -436,8 +464,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "FRIDGE_FREEZER_INTEGRATED_FRONT_EXCLUDED",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Integrated (front panel excluded)",
-        labelNo: "Integrert (eksklusiv front)",
+        labelEn: "Install – integrated (front panel not included)",
+        labelNo: "Montering – integrert (front ikke inkludert)",
         customerPrice: 2062.968,
         subcontractorPrice: 1032,
         combinedWithIndoorInstall: { customerPrice: 2753.376, subcontractorPrice: 1496.4 },
@@ -480,8 +508,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "MICROWAVE_OVEN_INTEGRATED",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Integrated microwave",
-        labelNo: "Integrert mikrobølgeovn",
+        labelEn: "Install integrated microwave",
+        labelNo: "Montering av integrert mikrobølgeovn",
         customerPrice: 1340.568,
         subcontractorPrice: 618.168,
         combinedWithIndoorInstall: { customerPrice: 2030.976, subcontractorPrice: 1082.568 },
@@ -500,8 +528,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "WINE_COOLER_SMALL_INTEGRATED",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Small integrated wine cooler",
-        labelNo: "Lite integrert vinkjøleskap",
+        labelEn: "Install small integrated wine cooler",
+        labelNo: "Montering av lite integrert vinkjøleskap",
         customerPrice: 453.048,
         subcontractorPrice: 237.36,
         combinedWithIndoorInstall: { customerPrice: 1143.456, subcontractorPrice: 701.76 },
@@ -510,8 +538,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "WINE_COOLER_LARGE_INTEGRATED",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Large integrated wine cooler",
-        labelNo: "Stort integrert vinkjøleskap",
+        labelEn: "Install large integrated wine cooler",
+        labelNo: "Montering av stort integrert vinkjøleskap",
         customerPrice: 2062.968,
         subcontractorPrice: 1032,
         combinedWithIndoorInstall: { customerPrice: 2753.376, subcontractorPrice: 1496.4 },
@@ -557,8 +585,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "SIDE_BY_SIDE_FRIDGE_WITHOUT_WATER",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Without water connection",
-        labelNo: "Uten vanntilkobling",
+        labelEn: "Install – without water connection",
+        labelNo: "Montering – uten vanntilkobling",
         customerPrice: 514.968,
         subcontractorPrice: 256.968,
         combinedWithIndoorInstall: { customerPrice: 1856.568, subcontractorPrice: 1082.568 },
@@ -567,8 +595,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "SIDE_BY_SIDE_FRIDGE_APPROVED_WATER",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Approved water connection",
-        labelNo: "Godkjent vanntilkobling",
+        labelEn: "Install – with approved water connection",
+        labelNo: "Montering – med godkjent vanntilkobling",
         customerPrice: 2062.968,
         subcontractorPrice: 1186.8,
         combinedWithIndoorInstall: { customerPrice: 3404.568, subcontractorPrice: 2012.4 },
@@ -668,8 +696,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         code: "DRYING_CABINET_FREESTANDING",
         category: "install",
         exclusiveGroup: "type",
-        labelEn: "Freestanding",
-        labelNo: "Frittstående",
+        labelEn: "Install – freestanding",
+        labelNo: "Montering – frittstående",
         customerPrice: 411.768,
         subcontractorPrice: 205.368,
         combinedWithIndoorInstall: { customerPrice: 1102.176, subcontractorPrice: 669.768 },

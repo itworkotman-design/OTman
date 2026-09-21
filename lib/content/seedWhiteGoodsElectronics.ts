@@ -6,6 +6,7 @@ import {
 } from "@/lib/products/priceListSettings";
 import {
   WHITE_GOODS_ELECTRONICS_PRODUCTS,
+  roundToNearest5,
   WHITE_GOODS_ORDER_LEVEL_EXTRAS,
   type WhiteGoodsProductSeed,
 } from "@/lib/content/whiteGoodsElectronics";
@@ -20,10 +21,10 @@ function buildWhiteGoodsDeliveryTypesJson(product: WhiteGoodsProductSeed) {
       enabled: true,
       code: "FIRST_STEP",
       label: "Delivery to doorstep",
-      price: String(firstStep.customerPrice),
-      subcontractorPrice: String(firstStep.subcontractorPrice),
-      xtraPrice: String(firstStep.xtraPrice),
-      xtraSubcontractorPrice: String(firstStep.xtraSubcontractorPrice),
+      price: String(roundToNearest5(firstStep.customerPrice)),
+      subcontractorPrice: String(roundToNearest5(firstStep.subcontractorPrice)),
+      xtraPrice: String(roundToNearest5(firstStep.xtraPrice)),
+      xtraSubcontractorPrice: String(roundToNearest5(firstStep.xtraSubcontractorPrice)),
       allowInstallOptions: true,
       allowExtraServices: true,
       allowReturnOptions: true,
@@ -34,10 +35,10 @@ function buildWhiteGoodsDeliveryTypesJson(product: WhiteGoodsProductSeed) {
       enabled: true,
       code: "INDOOR",
       label: "Delivery with carry-in",
-      price: String(indoor.customerPrice),
-      subcontractorPrice: String(indoor.subcontractorPrice),
-      xtraPrice: String(indoor.xtraPrice),
-      xtraSubcontractorPrice: String(indoor.xtraSubcontractorPrice),
+      price: String(roundToNearest5(indoor.customerPrice)),
+      subcontractorPrice: String(roundToNearest5(indoor.subcontractorPrice)),
+      xtraPrice: String(roundToNearest5(indoor.xtraPrice)),
+      xtraSubcontractorPrice: String(roundToNearest5(indoor.xtraSubcontractorPrice)),
       allowInstallOptions: true,
       allowExtraServices: true,
       allowReturnOptions: true,
@@ -86,42 +87,32 @@ export async function seedWhiteGoodsElectronics() {
   settings.extraPickup = {
     code: WHITE_GOODS_ORDER_LEVEL_EXTRAS.extraPickup.code,
     description: "Additional pickup / pickup in another store",
-    price: String(WHITE_GOODS_ORDER_LEVEL_EXTRAS.extraPickup.customerPrice),
-    subcontractorPrice: String(
-      WHITE_GOODS_ORDER_LEVEL_EXTRAS.extraPickup.subcontractorPrice,
-    ),
+    price: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.extraPickup.customerPrice)),
+    subcontractorPrice: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.extraPickup.subcontractorPrice)),
   };
   settings.expressDelivery = {
     code: WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.code,
     description: "Express delivery under 24h",
-    price: String(WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.customerPrice),
-    subcontractorPrice: String(
-      WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.subcontractorPrice,
-    ),
+    price: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.customerPrice)),
+    subcontractorPrice: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.subcontractorPrice)),
   };
   settings.kmFrom21 = {
     code: WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmFrom21.code,
     description: "Per km when distance is over 20 km",
-    price: String(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmFrom21.customerPrice),
-    subcontractorPrice: String(
-      WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmFrom21.subcontractorPrice,
-    ),
+    price: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmFrom21.customerPrice)),
+    subcontractorPrice: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmFrom21.subcontractorPrice)),
   };
   settings.kmOver100 = {
     code: WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmOver100.code,
     description: "Per km when distance is over 100 km",
-    price: String(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmOver100.customerPrice),
-    subcontractorPrice: String(
-      WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmOver100.subcontractorPrice,
-    ),
+    price: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmOver100.customerPrice)),
+    subcontractorPrice: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmOver100.subcontractorPrice)),
   };
   settings.floorSurcharge = {
     code: WHITE_GOODS_ORDER_LEVEL_EXTRAS.floorSurcharge.code,
     description: "Floor surcharge per chargeable floor, no lift",
-    price: String(WHITE_GOODS_ORDER_LEVEL_EXTRAS.floorSurcharge.customerPrice),
-    subcontractorPrice: String(
-      WHITE_GOODS_ORDER_LEVEL_EXTRAS.floorSurcharge.subcontractorPrice,
-    ),
+    price: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.floorSurcharge.customerPrice)),
+    subcontractorPrice: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.floorSurcharge.subcontractorPrice)),
   };
 
   const whiteGoodsList = await prisma.priceList.upsert({
@@ -185,6 +176,8 @@ export async function seedWhiteGoodsElectronics() {
         },
         update: {
           label: optionSeed.labelEn,
+          description: optionSeed.labelNo,
+          descriptionEn: optionSeed.labelEn,
           category: optionSeed.category,
           sortOrder: index + 1,
         },
@@ -192,6 +185,8 @@ export async function seedWhiteGoodsElectronics() {
           productId: product.id,
           code: optionSeed.code,
           label: optionSeed.labelEn,
+          description: optionSeed.labelNo,
+          descriptionEn: optionSeed.labelEn,
           category: optionSeed.category,
           sortOrder: index + 1,
         },
@@ -205,18 +200,14 @@ export async function seedWhiteGoodsElectronics() {
           },
         },
         update: {
-          customerPriceCents: Math.round(optionSeed.customerPrice * 100),
-          subcontractorPriceCents: Math.round(
-            optionSeed.subcontractorPrice * 100,
-          ),
+          customerPriceCents: Math.round(roundToNearest5(optionSeed.customerPrice) * 100),
+          subcontractorPriceCents: Math.round(roundToNearest5(optionSeed.subcontractorPrice) * 100),
         },
         create: {
           priceListId: whiteGoodsList.id,
           productOptionId: option.id,
-          customerPriceCents: Math.round(optionSeed.customerPrice * 100),
-          subcontractorPriceCents: Math.round(
-            optionSeed.subcontractorPrice * 100,
-          ),
+          customerPriceCents: Math.round(roundToNearest5(optionSeed.customerPrice) * 100),
+          subcontractorPriceCents: Math.round(roundToNearest5(optionSeed.subcontractorPrice) * 100),
         },
       });
       optionsUpserted += 1;

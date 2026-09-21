@@ -23,6 +23,7 @@ import {
   type PriceListSettings,
 } from "@/lib/products/priceListSettings";
 import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
+import { hasEnglishDescriptionColumn } from "@/lib/products/englishDescription";
 
 type PriceListSummary = {
   id: string;
@@ -52,6 +53,7 @@ type PriceListItem = {
   optionCode: string;
   optionLabel?: string | null;
   description: string | null;
+  descriptionEn?: string | null;
   category?: string | null;
   sortOrder: number;
   customerPrice: string;
@@ -375,6 +377,7 @@ export default function EditPricesPage() {
   );
   const [priceLists, setPriceLists] = useState<PriceListSummary[]>([]);
   const [priceList, setPriceList] = useState<PriceListData | null>(null);
+  const showEnglishDescription = hasEnglishDescriptionColumn(priceList?.name);
   const [creatingPriceList, setCreatingPriceList] = useState(false);
   const [editingPriceListName, setEditingPriceListName] = useState("");
   const [editingPriceListSettings, setEditingPriceListSettings] = useState(false);
@@ -944,6 +947,7 @@ export default function EditPricesPage() {
       row.isActive !== original.isActive ||
       row.optionCode !== original.optionCode ||
       (row.description ?? "") !== (original.description ?? "") ||
+      (row.descriptionEn ?? "") !== (original.descriptionEn ?? "") ||
       (row.discountAmount ?? "") !== (original.discountAmount ?? "") ||
       (row.discountEndsAt ?? "") !== (original.discountEndsAt ?? "")
     );
@@ -1154,6 +1158,8 @@ export default function EditPricesPage() {
       isActive: row.isActive,
       optionCode: row.optionCode,
       description: row.description,
+      // Only website price lists edit this; leave other lists' rows untouched.
+      ...(showEnglishDescription ? { descriptionEn: row.descriptionEn } : {}),
       discountAmount: row.discountAmount,
       discountEndsAt: row.discountEndsAt,
       category: isReturn
@@ -1625,6 +1631,11 @@ export default function EditPricesPage() {
                     <th className="w-60 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Description
                     </th>
+                    {showEnglishDescription && (
+                      <th className="w-60 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                        Description (English)
+                      </th>
+                    )}
                     <th className="w-30 px-4 py-4 border bg-logoblue text-white font-semibold text-center">
                       Category
                     </th>
@@ -1727,6 +1738,20 @@ export default function EditPricesPage() {
                               }
                             />
                           </td>
+
+                          {showEnglishDescription && (
+                            <td>
+                              <input
+                                className="w-full py-2 px-2 hover:bg-black/2 focus:outline-none"
+                                value={item.descriptionEn ?? ""}
+                                onChange={(e) =>
+                                  updateRow(item.id, {
+                                    descriptionEn: e.target.value,
+                                  })
+                                }
+                              />
+                            </td>
+                          )}
 
                           <td>
                             <div className="flex items-center justify-center">

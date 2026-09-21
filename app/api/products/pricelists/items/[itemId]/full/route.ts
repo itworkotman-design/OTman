@@ -25,6 +25,7 @@ type Body = {
   optionCode?: string;
   optionLabel?: string;
   description?: string | null;
+  descriptionEn?: string | null;
   category?: string | null;
   productName?: string;
 
@@ -126,6 +127,7 @@ async function findPriceListItemById(
           code: true,
           label: true,
           description: true,
+          descriptionEn: true,
           category: true,
           sortOrder: true,
           product: {
@@ -279,6 +281,7 @@ export async function PATCH(
     code?: string;
     label?: string;
     description?: string | null;
+    descriptionEn?: string | null;
     category?: string | null;
     sortOrder?: number;
   } = {};
@@ -293,6 +296,10 @@ export async function PATCH(
 
   if (body.description !== undefined) {
     productOptionData.description = parseOptionalString(body.description);
+  }
+
+  if (body.descriptionEn !== undefined) {
+    productOptionData.descriptionEn = parseOptionalString(body.descriptionEn);
   }
 
   if (body.category !== undefined) {
@@ -587,6 +594,7 @@ export async function PATCH(
         optionCode: updated.productOption.code,
         optionLabel: updated.productOption.label,
         description: updated.productOption.description,
+        descriptionEn: updated.productOption.descriptionEn,
         category: updated.productOption.category,
         sortOrder: updated.productOption.sortOrder,
         customerPrice: centsToNokString(updated.customerPriceCents),
