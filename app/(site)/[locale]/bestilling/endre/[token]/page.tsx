@@ -42,7 +42,10 @@ export default async function OrderRequestChangePage({
   }
 
   const normalizedStatus = normalizeOrderStatus(order.status);
-  const eligible = ["rejected", "approved", "failed"].includes(normalizedStatus);
+  // "confirmed" (already paid) is eligible too — this page doubles as the
+  // customer's entry point to request items be added to a paid order; see
+  // app/api/public/orders/[token]/request-change/route.ts.
+  const eligible = ["rejected", "approved", "failed", "confirmed"].includes(normalizedStatus);
 
   return (
     <div className="py-16">

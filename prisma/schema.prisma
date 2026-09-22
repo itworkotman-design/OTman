@@ -538,6 +538,7 @@ model Order {
   gsmTasks                           OrderGsmTask[]
   items                              OrderItem[]
   notifications                      OrderNotification[]
+  payments                            OrderPayment[]
   recurringOrderOccurrence           RecurringOrderOccurrence?
   legacyWordpressOrderId             Int?                      @unique
   legacyWordpressAuthorId            Int?
@@ -590,6 +591,28 @@ model Order {
   @@index([status, paymentReminderSentAt])
   @@index([customPickupAddressId])
   @@index([customReturnAddressId])
+}
+
+// One row per completed Stripe charge on an order — an order can be paid in
+// more than one pass (the original total, then a later top-up once staff add
+// items to an already-paid order). Order.stripeAmountChargedCents/
+// stripePaymentIntentId/stripeCheckoutSessionId are kept in sync as a
+// convenience "latest/total" snapshot for existing readers, but this table is
+// the source of truth for "how much has actually been paid so far" and for
+// tracing any individual charge back to its Stripe session for support or
+// refunds. See docs/homepage-ordering-roadmap.md §4.
+model OrderPayment {
+  id                      String   @id @default(cuid())
+  orderId                 String
+  companyId               String
+  stripeCheckoutSessionId String   @unique
+  stripePaymentIntentId   String?
+  amountChargedCents      Int
+  createdAt               DateTime @default(now())
+  order                   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([companyId, createdAt])
 }
 
 model OrderEvent {

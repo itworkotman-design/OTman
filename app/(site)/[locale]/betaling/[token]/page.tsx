@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { getOrderByActionToken, isOrderPayable } from "@/lib/orders/publicOrderAccess";
-import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
+import { getOrderByActionToken, isOrderPayable, isTopUpPayable } from "@/lib/orders/publicOrderAccess";
+import { getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok } from "@/lib/orders/orderTotals";
+import { sumOrderPayments } from "@/lib/orders/orderPayments";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import OrderPaymentClient from "@/app/_components/site/pageComponents/OrderPaymentClient";
 
@@ -15,20 +16,26 @@ const TEXT = {
     notFound: "Fant ikke bestillingen. Sjekk lenken, eller ta kontakt med oss.",
     alreadyConfirmed: "Denne bestillingen er allerede betalt. Takk!",
     notPayable: "Denne bestillingen kan ikke betales akkurat nå. Ta kontakt med oss om du tror dette er feil.",
+    balanceDueNotice: "Bestillingen din er oppdatert med flere varer. Betal restbeløpet under for å bekrefte.",
     order: "Bestilling",
     delivery: "Leveringsdato",
     products: "Produkter",
     total: "Totalbeløp (inkl. MVA)",
+    amountPaid: "Betalt så langt",
+    remainingBalance: "Gjenstående beløp",
   },
   en: {
     heading: "Payment for your order",
     notFound: "We couldn't find that order. Check the link, or contact us.",
     alreadyConfirmed: "This order has already been paid. Thank you!",
     notPayable: "This order can't be paid right now. Contact us if you think this is a mistake.",
+    balanceDueNotice: "Your order was updated with more items. Pay the remaining balance below to confirm.",
     order: "Order",
     delivery: "Delivery date",
     products: "Products",
     total: "Total amount (incl. VAT)",
+    amountPaid: "Paid so far",
+    remainingBalance: "Remaining balance",
   },
 } as const;
 
@@ -57,6 +64,10 @@ export default async function OrderPaymentPage({
   const normalizedStatus = normalizeOrderStatus(order.status);
   const payable = isOrderPayable(order.status);
   const amountIncVat = getOrderChargeAmountIncVatNok(order);
+  const totalPaidCents = sumOrderPayments(order.payments);
+  const remainingBalanceIncVat = getOrderRemainingBalanceIncVatNok(order, totalPaidCents);
+  const isTopUp = isTopUpPayable(order.status, remainingBalanceIncVat);
+  const fmt = (n: number) => n.toLocaleString(locale === "no" ? "nb-NO" : "en-US");
 
   return (
     <div className="py-16">
@@ -84,11 +95,28 @@ export default async function OrderPaymentPage({
           ) : null}
           <div className="flex justify-between border-t border-gray-200 pt-2">
             <dt className="text-textColorThird">{t.total}</dt>
-            <dd className="font-semibold">NOK {amountIncVat.toLocaleString(locale === "no" ? "nb-NO" : "en-US")}</dd>
+            <dd className="font-semibold">NOK {fmt(amountIncVat)}</dd>
           </div>
+          {isTopUp && (
+            <>
+              <div className="flex justify-between">
+                <dt className="text-textColorThird">{t.amountPaid}</dt>
+                <dd className="font-medium">NOK {fmt(totalPaidCents / 100)}</dd>
+              </div>
+              <div className="flex justify-between border-t border-gray-200 pt-2">
+                <dt className="text-textColorThird">{t.remainingBalance}</dt>
+                <dd className="font-semibold">NOK {fmt(remainingBalanceIncVat)}</dd>
+              </div>
+            </>
+          )}
         </dl>
 
-        {normalizedStatus === "confirmed" ? (
+        {isTopUp ? (
+          <>
+            <p className="mt-6 text-sm text-textColorThird">{t.balanceDueNotice}</p>
+            <OrderPaymentClient token={token} locale={locale} payable resultParam={result ?? null} />
+          </>
+        ) : normalizedStatus === "confirmed" ? (
           <p className="mt-6 text-sm font-medium text-green-700">{t.alreadyConfirmed}</p>
         ) : !payable ? (
           <p className="mt-6 text-sm text-textColorThird">{t.notPayable}</p>

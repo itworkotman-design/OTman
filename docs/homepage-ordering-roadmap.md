@@ -469,6 +469,83 @@ nothing to attach to.
     (5) still flat brackets, not true inventory/room-based pricing
     (Option A/C) — future work once real job data exists to calibrate it.
 
+- **2026-09-22 — Step 4 (post-payment "add items") done.** Confirmed
+  scope up front via a clarifying question, since this is
+  payment-correctness-sensitive: chose a new `OrderPayment` ledger table
+  (full per-charge history) over accumulating a single scalar field, for
+  proper support/refund/audit traceability.
+  - **Design**: rather than building a whole new public multi-item picker,
+    reused what already existed almost everywhere — staff add the extra
+    item(s) to the order using the **existing internal order editor**
+    (verified it isn't blocked by order status — a `"confirmed"` order was
+    already freely editable there, zero changes needed); the customer's
+    entry point is the **existing "request change" page**, extended to work
+    post-payment; the **existing `betaling/[token]` payment page** gained a
+    new state — "confirmed, but there's an unpaid balance" — computed as
+    current order total minus the sum of every `OrderPayment` row.
+  - **Schema**: new `OrderPayment` model (id, orderId, companyId,
+    stripeCheckoutSessionId **unique** — this is the idempotency key,
+    stripePaymentIntentId, amountChargedCents, createdAt). `Order`'s existing
+    single-scalar payment fields are kept in sync as a "latest/total"
+    convenience snapshot for existing readers, but `OrderPayment` is now the
+    source of truth for "how much has actually been paid."
+  - **The landmine this caught**: the original webhook's idempotency check
+    was `if (order.status === "confirmed") return` — status-based. That
+    would have **silently dropped every top-up payment's webhook event**
+    (order already confirmed → early return, no OrderPayment row, no
+    accumulated total, no event log) — a real money-losing bug if shipped
+    as-is. Rewrote it keyed on the Stripe checkout session instead
+    (`recordOrderPayment`'s `P2002`-based idempotency), which correctly
+    handles the original payment, a top-up payment, and Stripe webhook
+    redelivery, all as the same code path.
+  - **Webhook** (`app/api/integrations/stripe/webhook/route.ts`, rewritten,
+    TDD'd): records the `OrderPayment`, recomputes the accumulated total,
+    confirms status only on the first payment, logs a status-changed event
+    (first) or action event (top-up) accordingly.
+  - **Checkout route** (rewritten, TDD'd): now charges the full total for a
+    normal payment or just the remaining balance
+    (`getOrderRemainingBalanceIncVatNok`, new, TDD'd) for a top-up, gated by
+    a new `isTopUpPayable` helper alongside the existing `isOrderPayable`.
+  - **Payment page**: new branch for "confirmed with an outstanding
+    balance" — shows amount paid / remaining balance / a pay button for just
+    the difference.
+  - **Request-change route + page** (`bestilling/endre/[token]`, TDD'd):
+    now reachable from `"confirmed"` too. Critically, accepting a request
+    from a confirmed order does **not** revert status to `"processing"`
+    (would misrepresent a paid order as unapproved) — stays confirmed, logs
+    an action event instead of a status-changed one.
+  - **Closed a gap this step's own design surfaced**: making the
+    request-change link reachable post-payment was pointless without a way
+    for the customer to *find* that link — a confirmed order sent no
+    customer-facing email at all before this (the gap flagged back in §4's
+    original notes). Added a 5th thing: an `order_confirmed` lifecycle email
+    (TDD'd), auto-sent by the webhook on the first confirmation only
+    (best-effort, never fails the webhook), containing the request-change
+    link. Also added a 4th lifecycle-email kind, `balance_due` (TDD'd), for
+    staff to manually notify a customer once they've added items to a paid
+    order — both wired into the dashboard's existing "Customer emails"
+    button group (`WebsiteOrdersActionBar.tsx`) and the generic
+    `LIFECYCLE_EMAIL_KINDS`-driven send route, so no separate endpoint work
+    was needed for either.
+  - Verified: 40 new/updated tests across 8 files (all TDD'd — including a
+    dedicated test proving the webhook accumulates rather than overwrites on
+    a top-up, and one proving the request-change route never reverts a
+    confirmed order's status), full `typecheck`/`lint`/`test` clean (1085
+    passing; same pre-existing unrelated failures, no new ones). Docs added
+    for the 4 files with the most complex new logic (`orderPayments.ts`,
+    the Stripe webhook, the checkout route, the request-change route).
+  - **Deliberately not done / known follow-ups**: (1) no structured
+    public item-editor — adding items is still staff-mediated via the
+    internal order editor, not a public UI; a real self-service item-adder
+    is future work if this staff-mediated flow proves too slow in practice;
+    (2) doc debt remains on `publicOrderAccess.ts`, `orderTotals.ts`,
+    `customerLifecycleEmails.ts`, `sendCustomerLifecycleEmail.ts`, the
+    `betaling`/`bestilling/endre` pages, and the dashboard action bar/page —
+    all touched this step but not all individually documented, given how
+    much surface area this step already covered; (3) no automated test
+    exists yet proving the *whole* multi-step flow end-to-end against a
+    real (non-mocked) database — each piece is unit-tested in isolation.
+
 ## 11. Suggested build order
 
 Roughly in dependency order — each phase either unblocks or de-risks the next:

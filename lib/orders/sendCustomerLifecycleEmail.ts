@@ -7,10 +7,18 @@ import {
   buildPaymentRequestEmail,
   buildRejectedEmail,
   buildPaymentTimeoutEmail,
+  buildBalanceDueEmail,
+  buildOrderConfirmedEmail,
   type LifecycleEmailOrder,
 } from "@/lib/orders/customerLifecycleEmails";
 
-export const LIFECYCLE_EMAIL_KINDS = ["payment_request", "rejected", "payment_timeout"] as const;
+export const LIFECYCLE_EMAIL_KINDS = [
+  "payment_request",
+  "rejected",
+  "payment_timeout",
+  "balance_due",
+  "order_confirmed",
+] as const;
 export type LifecycleEmailKind = (typeof LIFECYCLE_EMAIL_KINDS)[number];
 
 export type LifecycleEmailOrderInput = LifecycleEmailOrder & {
@@ -34,6 +42,8 @@ export type SendLifecycleEmailsSummary = {
 function buildEmailForKind(kind: LifecycleEmailKind, order: LifecycleEmailOrder) {
   if (kind === "payment_request") return buildPaymentRequestEmail(order);
   if (kind === "rejected") return buildRejectedEmail(order);
+  if (kind === "balance_due") return buildBalanceDueEmail(order);
+  if (kind === "order_confirmed") return buildOrderConfirmedEmail(order);
   return buildPaymentTimeoutEmail(order);
 }
 

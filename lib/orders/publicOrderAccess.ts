@@ -38,10 +38,24 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       actionToken: true,
       stripeCheckoutSessionId: true,
       stripePaymentIntentId: true,
+      payments: { select: { amountChargedCents: true } },
     },
   });
 }
 
 export function isOrderPayable(status: string | null | undefined): boolean {
   return PAYABLE_STATUSES.has(normalizeOrderStatus(status));
+}
+
+// A confirmed (already paid at least once) order can still owe more once
+// staff add items to it after the fact — see
+// docs/homepage-ordering-roadmap.md §4. `remainingBalanceIncVatNok` is the
+// caller's own getOrderRemainingBalanceIncVatNok(order, totalPaidCents)
+// result (lib/orders/orderTotals.ts) — kept as a parameter here rather than
+// computed internally so this function stays a plain status/number check.
+export function isTopUpPayable(
+  status: string | null | undefined,
+  remainingBalanceIncVatNok: number,
+): boolean {
+  return normalizeOrderStatus(status) === "confirmed" && remainingBalanceIncVatNok > 0;
 }
