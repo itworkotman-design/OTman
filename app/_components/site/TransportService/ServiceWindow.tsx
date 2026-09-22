@@ -9,6 +9,7 @@ import { ServiceWindowItem } from "./ServiceWindowItem";
 import { SteppedModal, type FinalStep, type StepSection } from "../BookingModal/SteppedModal";
 import { WhiteGoodsBookingFlow } from "../BookingModal/whiteGoods/WhiteGoodsBookingFlow";
 import { MovingRequestFlow } from "../BookingModal/moving/MovingRequestFlow";
+import { SpecialGoodsQuoteFlow } from "../BookingModal/specialGoods/SpecialGoodsQuoteFlow";
 
 // The white-goods/electronics delivery+installation flow has a real,
 // data-backed implementation. This belongs under "Levering" (Delivery) — the
@@ -24,6 +25,13 @@ const WHITE_GOODS_SERVICE_ID = "collection-pickup";
 // via ServiceWindowContent.ts would be cleaner; not done yet to keep this
 // change's footprint small — see docs/homepage-ordering-roadmap.md §6.
 const MOVING_SERVICE_ID = "moving-relocation";
+
+// 5th tile ("Spesialvarer"/Special goods) — added directly by index (see
+// handleItemClick) rather than through the same positional `idx < 3 ? 0 : 1`
+// scheme the first 4 tiles use, so it can't accidentally disturb any of
+// their existing routing. Its own id has no collision with any other tile's
+// id (unlike MOVING_SERVICE_ID above), so it's read directly.
+const SPECIAL_GOODS_SERVICE_ID = "special-goods-quote";
 import type {
   Locale,
   LocalizedText,
@@ -153,9 +161,16 @@ const localizedItems = useMemo(
   const [activeModal, setActiveModal] = useState<ServiceGroup | null>(null);
 
   const handleItemClick = (id: string) => {
-    // First three items open item 0's modal; the fourth opens item 1's modal.
     const idx = items.findIndex((item) => item.id === id);
     if (idx === -1) return;
+    // The 5th tile (Special goods) opens its own modal directly — added
+    // after the original 4-tile positional scheme below, kept separate so
+    // it can't disturb it.
+    if (id === SPECIAL_GOODS_SERVICE_ID) {
+      setActiveModal(items[idx] ?? null);
+      return;
+    }
+    // First three items open item 0's modal; the fourth opens item 1's modal.
     const modalItem = items[idx < 3 ? 0 : 1] ?? null;
     setActiveModal(modalItem);
   };
@@ -377,14 +392,25 @@ const localizedItems = useMemo(
         />
       )}
 
-      {activeModal && activeModal.id !== WHITE_GOODS_SERVICE_ID && activeModal.id !== MOVING_SERVICE_ID && (
-        <SteppedModal
+      {activeModal && activeModal.id === SPECIAL_GOODS_SERVICE_ID && (
+        <SpecialGoodsQuoteFlow
           key={activeModal.id}
-          sections={buildPlaceholderSections(locale)}
-          finalStep={buildPlaceholderFinalStep(locale)}
+          locale={locale}
           onClose={() => setActiveModal(null)}
         />
       )}
+
+      {activeModal &&
+        activeModal.id !== WHITE_GOODS_SERVICE_ID &&
+        activeModal.id !== MOVING_SERVICE_ID &&
+        activeModal.id !== SPECIAL_GOODS_SERVICE_ID && (
+          <SteppedModal
+            key={activeModal.id}
+            sections={buildPlaceholderSections(locale)}
+            finalStep={buildPlaceholderFinalStep(locale)}
+            onClose={() => setActiveModal(null)}
+          />
+        )}
     </>
   );
 }

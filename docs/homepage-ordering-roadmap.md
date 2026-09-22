@@ -610,6 +610,68 @@ nothing to attach to.
     for any future genuinely weight/dimension-*priced* (not just
     weight/dimension-*labeled*) category.
 
+- **2026-09-22 — "Andre varer"/"Spesialvarer" quote-by-photo flow done** —
+  the piece split out of step 5 for its own scoping, now built. Two
+  decisions confirmed up front, since this is the one genuinely new public
+  attack surface added across this whole roadmap (every other upload path in
+  this app — order attachments, blog images, archive docs — requires a
+  logged-in dashboard session; nothing existing was safe to copy):
+  1. **Build real public photo upload** (over a text-only, no-upload
+     alternative that would've reused Moving's flow exactly with zero new
+     security surface — the lower-risk option, not chosen).
+  2. **No CAPTCHA for now** — ships with honeypot + per-IP rate limiting +
+     real file-content validation as the defense layers; a CAPTCHA provider
+     needs a third-party account or (site key + secret key) neither of which
+     I can self-provision, so it's left as a clean follow-up rather than
+     blocking this step on setting one up.
+  - **New table**: `PendingQuoteAttachment` — same "upload before the parent
+    record exists" shape as the pre-existing `PendingOrderAttachment`
+    (staff-dashboard-only, keyed by an authenticated session id), but keyed
+    by a client-generated `quoteToken` instead, since an anonymous visitor
+    has no session to key by.
+  - **New upload route** (`app/api/site/special-goods-quote/upload/route.ts`,
+    TDD'd, 10 tests) layers, in order: a pre-body Content-Length check
+    (reused from the Archive package's own upload gate), a per-IP rate limit
+    (reusing the existing DB-backed login/password-reset limiter,
+    `lib/auth/rateLimit.ts` — the only per-IP limiter anywhere in this app;
+    every other public route only has a weak process-global counter), a
+    per-token photo cap (6), a post-buffer size re-check, and **real
+    magic-byte file-content validation** (`sniffImageMimeType`, TDD'd) — the
+    stored content type is always the sniffed value, never the client's
+    claimed (freely spoofable) `Content-Type` header, which is what every
+    other upload path in this app trusts blindly.
+  - **Submission route** (`app/api/site/special-goods-quote/route.ts`,
+    TDD'd, 9 tests): same unpriced-`Order`/quote-based shape as Moving, plus
+    a honeypot field (reusing the exact pattern already in
+    `app/api/public/vehicle-booking/route.ts`) and linking any uploaded
+    photos into real `OrderAttachment` rows via
+    `linkPendingQuoteAttachments` (mirrors the existing
+    `linkPendingAttachmentsForSessionId`).
+  - **UI** (`SpecialGoodsQuoteFlow.tsx`): a 5th homepage tile
+    ("Spesialvarer"). Mined the dead `ServiceModal.tsx`'s dimension-picker
+    UI a second time (first use was flagged as a candidate back in step 1),
+    now actually used for the item-dimensions section. Photos upload
+    immediately per-file (not batched at submit time), each removable
+    before final submission.
+  - **Wired in safely**: `ServiceWindow.tsx`'s existing 4-tile routing uses
+    fragile positional-index math (`items[idx < 3 ? 0 : 1]`, flagged as tech
+    debt back in step 3). Rather than extend that scheme to a 5th tile (real
+    risk of subtly breaking one of the first 4), added the 5th tile as an
+    explicit, separate special case keyed by its own index — verified by
+    inspection that none of tiles 0-3's routing changed.
+  - Verified: 28 new tests (upload route 10, submission route 9, the pure
+    `pendingQuoteAttachments.ts` module 9), full `typecheck`/`lint`/`test`
+    clean, 1117 passing (same pre-existing unrelated failures, no new ones).
+    Docs added for every new file.
+  - **Deliberately not done**: (1) CAPTCHA (see decision 2 above); (2) virus/
+    malware scanning of uploaded files — content-type sniffing confirms a
+    file is a real image, not that it's safe (out of scope for this pass,
+    worth flagging if this becomes a real product before launch); (3) no
+    automatic cleanup of orphaned `PendingQuoteAttachment` rows/S3 objects
+    for a visitor who uploads photos then abandons the form entirely — these
+    accumulate until a manual cleanup job exists (a cron similar to the
+    existing GDPR/retention sweeps would be the natural home).
+
 ## 11. Suggested build order
 
 Roughly in dependency order — each phase either unblocks or de-risks the next:

@@ -147,5 +147,35 @@ export const serviceWindowContent = {
         },
       ],
     },
+    {
+      id: "special-goods-quote",
+      title: {
+        en: "Special goods",
+        no: "Spesialvarer",
+      },
+      svg: "/Service logos-04.svg",
+      modalTitle: {
+        en: "Special / other goods",
+        no: "Spesial- / andre varer",
+      },
+      modalIntro: {
+        en: "Oversized or unusual item? Tell us about it and we'll send you a quote.",
+        no: "Har du en stor eller uvanlig gjenstand? Fortell oss om den, så sender vi deg et tilbud.",
+      },
+      formVariant: "transport",
+      categories: [
+        {
+          id: "special-goods-quote",
+          title: {
+            en: "Special / other goods",
+            no: "Spesial- / andre varer",
+          },
+          description: {
+            en: "Items that don't fit a standard category — described (with optional photos), then quoted by us.",
+            no: "Gjenstander som ikke passer inn i en standardkategori — beskriv den (med valgfrie bilder), så gir vi deg et tilbud.",
+          },
+        },
+      ],
+    },
   ] satisfies ServiceGroup[],
 };

@@ -792,6 +792,25 @@ model PendingOrderAttachment {
   @@index([sessionId, createdAt])
 }
 
+// Same "upload before the parent record exists" shape as
+// PendingOrderAttachment, but for the public special-goods quote-request
+// flow (see docs/homepage-ordering-roadmap.md §5): scoped by a
+// client-generated random token instead of an authenticated staff session
+// id, since there's no such session for an anonymous website visitor. Rows
+// matching a submitted quote's token are copied into real OrderAttachment
+// rows and deleted, mirroring linkPendingAttachmentsForSessionId.
+model PendingQuoteAttachment {
+  id          String   @id @default(cuid())
+  quoteToken  String
+  filename    String
+  mimeType    String?
+  sizeBytes   Int?
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  @@index([quoteToken, createdAt])
+}
+
 model CompanyOrderCounter {
   companyId  String   @id
   nextNumber Int
