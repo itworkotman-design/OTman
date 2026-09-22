@@ -329,42 +329,10 @@ model Service {
   categoryId   String
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-  requestItems RequestItem[]
   category     Category      @relation(fields: [categoryId], references: [id])
 
   @@index([categoryId])
   @@index([isActive, sortOrder])
-}
-
-model Request {
-  id            String        @id @default(cuid())
-  status        RequestStatus @default(NEW)
-  customerName  String
-  customerEmail String
-  customerPhone String?
-  message       String?
-  preferredFrom DateTime?
-  preferredTo   DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  items         RequestItem[]
-
-  @@index([status, createdAt])
-}
-
-model RequestItem {
-  id            String   @id @default(cuid())
-  requestId     String
-  serviceId     String?
-  titleSnapshot String
-  quantity      Int      @default(1)
-  notes         String?
-  createdAt     DateTime @default(now())
-  request       Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  service       Service? @relation(fields: [serviceId], references: [id])
-
-  @@index([requestId])
-  @@index([serviceId])
 }
 
 model Product {
@@ -952,13 +920,6 @@ enum ProductType {
 enum PricingMode {
   FIXED
   REQUEST
-}
-
-enum RequestStatus {
-  NEW
-  CONFIRMED
-  REJECTED
-  CANCELLED
 }
 
 enum OrderEventType {

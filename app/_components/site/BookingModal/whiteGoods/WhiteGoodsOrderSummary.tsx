@@ -4,6 +4,8 @@ import { Fragment } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { WhiteGoodsLineCategory } from "@/lib/content/whiteGoodsLineCategory";
 import { ProductIcon } from "./productIcons";
+import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import { CustomerTypeToggle } from "./CustomerTypeToggle";
 
 export type OrderSummaryLine = {
   label: string;
@@ -25,19 +27,35 @@ export type OrderSummaryProduct = {
 type Props = {
   locale: Locale;
   products: OrderSummaryProduct[];
+  totalExVat: number;
   totalIncVat: number;
+  customerType: CustomerType;
+  onCustomerTypeChange: (customerType: CustomerType) => void;
 };
 
 function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
 }
 
-export function WhiteGoodsOrderSummary({ locale, products, totalIncVat }: Props) {
+export function WhiteGoodsOrderSummary({
+  locale,
+  products,
+  totalExVat,
+  totalIncVat,
+  customerType,
+  onCustomerTypeChange,
+}: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
+  const vatDisplay = getVatDisplayTotal({ totalExVat, totalIncVat, customerType });
+  const secondaryLabel =
+    vatDisplay.primary === "incVat" ? t("ex. VAT", "eks. mva") : t("incl. VAT", "inkl. mva");
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-6">
-      <h3 className="flex items-center gap-2 text-lg font-semibold text-logoblue">{t("Order summary", "Ordreoppsummering")}</h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-logoblue">{t("Order summary", "Ordreoppsummering")}</h3>
+        <CustomerTypeToggle locale={locale} value={customerType} onChange={onCustomerTypeChange} />
+      </div>
 
       {products.length === 0 ? (
         <p className="mt-3 text-sm text-black/50">{t("Choose a product to see pricing here.", "Velg et produkt for å se pris her.")}</p>
@@ -93,9 +111,16 @@ export function WhiteGoodsOrderSummary({ locale, products, totalIncVat }: Props)
         </div>
       )}
 
-      <div className="mt-4 flex items-center justify-between border-t border-black/10 pt-3">
-        <span className="text-base font-semibold text-logoblue">{t("Total", "Totalt")}</span>
-        <span className="text-lg font-semibold text-logoblue">{formatKr(totalIncVat)}</span>
+      <div className="mt-4 border-t border-black/10 pt-3">
+        <div className="flex items-center justify-between">
+          <span className="text-base font-semibold text-logoblue">{t("Total", "Totalt")}</span>
+          <span className="text-lg font-semibold text-logoblue">{formatKr(vatDisplay.primaryAmount)}</span>
+        </div>
+        <div className="mt-0.5 flex items-center justify-end">
+          <span className="text-xs text-black/45">
+            {formatKr(vatDisplay.secondaryAmount)} {secondaryLabel}
+          </span>
+        </div>
       </div>
 
       <p className="mt-3 rounded-lg bg-logoblue/5 p-3 text-sm text-black/60">
