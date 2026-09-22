@@ -8,15 +8,22 @@ import { ServiceWindowItem } from "./ServiceWindowItem";
 // import { ServiceModal } from "./ServiceModal";
 import { SteppedModal, type FinalStep, type StepSection } from "../BookingModal/SteppedModal";
 import { WhiteGoodsBookingFlow } from "../BookingModal/whiteGoods/WhiteGoodsBookingFlow";
+import { MovingRequestFlow } from "../BookingModal/moving/MovingRequestFlow";
 
 // The white-goods/electronics delivery+installation flow has a real,
-// data-backed implementation — every other tile still opens the generic
-// placeholder shell while its own fields get migrated in one at a time.
-// This belongs under "Levering" (Delivery) — the first three tiles share
-// items[0]'s modal (see handleItemClick below), so this also covers
-// "Delivery + Assembly" and "Assembly". Only "Flytting" (Moving, the 4th
-// tile, items[1]) still opens the placeholder.
+// data-backed implementation. This belongs under "Levering" (Delivery) — the
+// first three tiles share items[0]'s modal (see handleItemClick below), so
+// this also covers "Delivery + Assembly" and "Assembly".
 const WHITE_GOODS_SERVICE_ID = "collection-pickup";
+
+// "Flytting" (Moving, the 4th tile) opens items[1]'s modal, not items[3]'s
+// own — see handleItemClick's `items[idx < 3 ? 0 : 1]`. items[1]'s own id
+// happens to be "moving-relocation" (its title/content describe an older,
+// unrelated "White Goods & Electronics" tile that's since been folded into
+// the white-goods flow above — only its id is actually read here). Renamed
+// via ServiceWindowContent.ts would be cleaner; not done yet to keep this
+// change's footprint small — see docs/homepage-ordering-roadmap.md §6.
+const MOVING_SERVICE_ID = "moving-relocation";
 import type {
   Locale,
   LocalizedText,
@@ -362,7 +369,15 @@ const localizedItems = useMemo(
         />
       )}
 
-      {activeModal && activeModal.id !== WHITE_GOODS_SERVICE_ID && (
+      {activeModal && activeModal.id === MOVING_SERVICE_ID && (
+        <MovingRequestFlow
+          key={activeModal.id}
+          locale={locale}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
+
+      {activeModal && activeModal.id !== WHITE_GOODS_SERVICE_ID && activeModal.id !== MOVING_SERVICE_ID && (
         <SteppedModal
           key={activeModal.id}
           sections={buildPlaceholderSections(locale)}
