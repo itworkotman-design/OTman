@@ -546,6 +546,70 @@ nothing to attach to.
     exists yet proving the *whole* multi-step flow end-to-end against a
     real (non-mocked) database — each piece is unit-tested in isolation.
 
+- **2026-09-22 — Step 5 (Pakke/pall) done — partial, "Andre varer"/
+  "Spesialvarer" and the generic weight/dimension pricing primitive
+  explicitly NOT built this step.** Investigated before building: found the
+  dead `ServiceModal.tsx`'s "collection-pickup" branch pointed at a
+  `TRANSPORT_PACKAGE_PRICELIST_ID` that **doesn't actually exist in the
+  local dev DB** (a dangling placeholder — verified directly against the
+  database, not assumed) — so there was no hidden real pricing data to
+  recover there, just a product-name list
+  (`transportPackageTypes`: Pose/Esker/Kolli/Halvpall/Pall/Konvolutt/
+  Ferskvarer-mat) and a reusable UI precedent.
+  - **Placement decision** (asked, since it's a real UX call): merge into
+    the existing White Goods/Furniture shared cart (matches the original
+    tree diagram) rather than give it its own tile like Moving. This meant
+    `WhiteGoodsProductCard.tsx`/`WEBSITE_CATALOGS` needed to actually support
+    a delivery-only product shape — confirmed furniture's own "Mattress"-style
+    entries (delivery type only, zero install options) already prove this
+    shape works in that exact pipeline, so **no `WhiteGoodsProductCard.tsx`
+    changes were needed at all** — this shipped as pure catalog-data
+    addition, the cheapest of every option considered.
+  - **New catalog**: `WEBSITE_PARCEL_PALLET` price list, 7 delivery-only
+    products (`lib/content/parcelPalletCatalog.ts`), registered in
+    `WEBSITE_CATALOGS` (now 3 catalogs, still offered white goods → furniture
+    → parcel/pallet). Seeded via `npm run seed:parcel-pallet-catalog` — same
+    "prices are placeholders" pattern as Moving/every prior step.
+  - **A second landmine caught before it shipped**: initially wrote a thin
+    wrapper around the existing `seedWebsiteCatalog()` (reusing it exactly
+    like furniture/white goods do) — but that function unconditionally
+    overwrites prices on every reseed (correct for furniture/white goods,
+    whose prices come from a spreadsheet). Since these are staff-entered
+    placeholders instead, that would have silently reset real prices back to
+    0 on any future reseed. Rather than duplicate the seeding logic (like
+    Moving's dedicated seed function did), extended `seedWebsiteCatalog()`
+    itself with an opt-in `preservePricesOnReseed` flag (default `false`,
+    furniture/white goods unaffected — their own tests still pass unchanged)
+    — **and while building the test for it, caught a second, non-obvious
+    part of the same landmine**: these delivery-only products have zero
+    `ProductOption`/`PriceListItem` rows at all (no install options to seed),
+    so their actual price lives entirely in `Product.deliveryTypes` JSON —
+    meaning protecting `PriceListItem` alone (as first implemented) would
+    have protected nothing real for this specific catalog. Fixed to also
+    exclude `deliveryTypes` from the product-level update when the flag is
+    set.
+  - Verified: 4 new/updated tests (seed wrapper, TDD'd) plus fixed 3
+    pre-existing `websiteCatalogs.test.ts` assertions that hardcoded "exactly
+    2 catalogs" (expected, correct breakage from adding a real 3rd one, not
+    a regression) — full `typecheck`/`lint`/`test` clean, 1089 passing.
+    Ran the seed against the local dev DB and confirmed the catalog is live.
+  - **Deliberately not done this step**: (1) "Andre varer" (other goods) and
+    "Spesialvarer" (special goods) — per §5's original plan these need a
+    quote-by-photo flow (S3 upload, a `pending_quote`-style order state, a
+    staff photo-review UI), which is new infrastructure with its own real
+    security/cost surface (public file uploads), not a small extension of
+    what exists — treating this as its own scoped step rather than folding
+    it in here; (2) the real `PALLET` per-quantity pricing discount (see the
+    "second landmine" note above) — "Pall"/"Halvpall" charge a flat rate per
+    unit today, not the internal dashboard's real 2nd-pallet-discount
+    behavior; (3) no generic `PricingMode` extension (`PER_KG`/`PER_M3`/
+    formula-based) was built — turned out unnecessary for this step, since
+    flat per-product catalog pricing (the same mechanism as everything else)
+    covered Pakke/pall's actual "how many of this flat-rate thing" need; a
+    real formula-based primitive is still not built and would still be needed
+    for any future genuinely weight/dimension-*priced* (not just
+    weight/dimension-*labeled*) category.
+
 ## 11. Suggested build order
 
 Roughly in dependency order — each phase either unblocks or de-risks the next:

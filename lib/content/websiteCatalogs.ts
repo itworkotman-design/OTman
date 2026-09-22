@@ -1,6 +1,11 @@
 import { FURNITURE_PRODUCTS, type FurnitureProductSeed } from "@/lib/content/furnitureCatalog";
-import { FURNITURE_PRICE_LIST_CODE, WHITE_GOODS_PRICE_LIST_CODE } from "@/lib/content/websitePriceListCodes";
+import {
+  FURNITURE_PRICE_LIST_CODE,
+  PARCEL_PALLET_PRICE_LIST_CODE,
+  WHITE_GOODS_PRICE_LIST_CODE,
+} from "@/lib/content/websitePriceListCodes";
 import { WHITE_GOODS_ELECTRONICS_PRODUCTS } from "@/lib/content/whiteGoodsElectronics";
+import { PARCEL_PALLET_PRODUCTS } from "@/lib/content/parcelPalletCatalog";
 
 // The price lists a website customer can order from, in the order they're
 // offered: the first one is chosen up front and supplies the order-level fees;
@@ -29,6 +34,13 @@ export const WEBSITE_CATALOGS: WebsiteCatalog[] = [
     labelNo: "Møbler",
     iconCode: "FN_SOFA",
     products: FURNITURE_PRODUCTS,
+  },
+  {
+    priceListCode: PARCEL_PALLET_PRICE_LIST_CODE,
+    labelEn: "Parcel / pallet",
+    labelNo: "Pakke / pall",
+    iconCode: "PKG_PALL",
+    products: PARCEL_PALLET_PRODUCTS,
   },
 ];
 
