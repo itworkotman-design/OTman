@@ -6,6 +6,8 @@ import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
 import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
+import { CustomerTypeToggle } from "./CustomerTypeToggle";
+import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
 import { applyProductQuantity } from "./productQuantity";
 import { previewCardDeliveryOptions } from "./deliveryPricePreview";
 import { sortSummaryLines } from "./orderSummaryLines";
@@ -144,6 +146,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [notes, setNotes] = useState("");
 
   const [submitLoading, setSubmitLoading] = useState(false);
+  // Display-only — decides which VAT total (incl. or ex.) is shown as the
+  // headline number vs. the smaller secondary one. Never affects pricing.
+  const [customerType, setCustomerType] = useState<CustomerType>("private");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<{ displayId: number } | null>(null);
 
@@ -282,6 +287,12 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     deliveryFloor,
     liftAvailable,
   ]);
+
+  const finalVatDisplay = getVatDisplayTotal({
+    totalExVat: pricing.totals.totalExVat,
+    totalIncVat: pricing.totals.totalIncVat,
+    customerType,
+  });
 
   const summaryProducts: OrderSummaryProduct[] = useMemo(() => {
     return productCards
@@ -462,7 +473,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             <WhiteGoodsOrderSummary
               locale={locale}
               products={summaryProducts}
+              totalExVat={pricing.totals.totalExVat}
               totalIncVat={pricing.totals.totalIncVat}
+              customerType={customerType}
+              onCustomerTypeChange={setCustomerType}
             />
           </div>
         </div>
@@ -703,19 +717,30 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           </button>
 
           <div>
-            <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
-              {t("Summary", "Oppsummering")}
-            </h4>
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
+                {t("Summary", "Oppsummering")}
+              </h4>
+              <CustomerTypeToggle locale={locale} value={customerType} onChange={setCustomerType} />
+            </div>
             <div className="mt-3 flex flex-col gap-1 text-sm">
-              <div className="flex justify-between">
-                <span>{t("Subtotal", "Delsum")}</span>
-                <span>{pricing.totals.subtotalExVat.toLocaleString("nb-NO")} kr</span>
+              <div
+                className={`flex justify-between ${
+                  finalVatDisplay.primary === "exVat" ? "font-semibold" : ""
+                }`}
+              >
+                <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
+                <span>{pricing.totals.totalExVat.toLocaleString("nb-NO")} kr</span>
               </div>
               <div className="flex justify-between">
                 <span>{t("VAT (25%)", "MVA (25%)")}</span>
                 <span>{pricing.totals.vat.toLocaleString("nb-NO")} kr</span>
               </div>
-              <div className="flex justify-between font-semibold">
+              <div
+                className={`flex justify-between ${
+                  finalVatDisplay.primary === "incVat" ? "font-semibold" : ""
+                }`}
+              >
                 <span>{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
                 <span>{pricing.totals.totalIncVat.toLocaleString("nb-NO")} kr</span>
               </div>
