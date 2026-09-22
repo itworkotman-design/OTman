@@ -77,7 +77,7 @@ export default function WebsiteOrdersPage() {
 
   async function requestLifecycleEmail(
     orderIds: string[],
-    kind: "payment_request" | "rejected" | "payment_timeout",
+    kind: "payment_request" | "rejected" | "payment_timeout" | "balance_due" | "order_confirmed",
   ): Promise<{ ok: boolean; reason?: string }> {
     try {
       const res = await fetch("/api/orders/send-lifecycle-email", {
@@ -179,7 +179,9 @@ export default function WebsiteOrdersPage() {
     }
   }
 
-  async function handleSendEmail(kind: "payment_request" | "rejected" | "payment_timeout"): Promise<boolean> {
+  async function handleSendEmail(
+    kind: "payment_request" | "rejected" | "payment_timeout" | "balance_due" | "order_confirmed",
+  ): Promise<boolean> {
     if (selectedOrderIds.length === 0) return false;
 
     try {

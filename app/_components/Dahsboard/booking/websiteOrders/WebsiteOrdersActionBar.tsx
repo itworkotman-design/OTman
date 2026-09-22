@@ -7,7 +7,9 @@ type Props = {
   selectedCount: number;
   onApprove: (sendEmail: boolean) => Promise<boolean>;
   onReject: (comment: string, sendEmail: boolean) => Promise<boolean>;
-  onSendEmail: (kind: "payment_request" | "rejected" | "payment_timeout") => Promise<boolean>;
+  onSendEmail: (
+    kind: "payment_request" | "rejected" | "payment_timeout" | "balance_due" | "order_confirmed",
+  ) => Promise<boolean>;
   onClear: () => void;
   loading?: boolean;
   error?: string;
@@ -31,6 +33,8 @@ const TEXT = {
     sendPaymentEmail: "Send payment email",
     sendRejectionEmail: "Send rejection email",
     sendReminderEmail: "Resend payment-reminder email",
+    sendBalanceDueEmail: "Send balance-due email",
+    resendConfirmedEmail: "Resend order-confirmed email",
     clear: "Clear selection",
     working: "Working...",
     commentRequired: "A comment is required to reject an order.",
@@ -52,6 +56,8 @@ const TEXT = {
     sendPaymentEmail: "Send betalings-e-post",
     sendRejectionEmail: "Send avvisnings-e-post",
     sendReminderEmail: "Send betalingspåminnelse på nytt",
+    sendBalanceDueEmail: "Send e-post om restbeløp",
+    resendConfirmedEmail: "Send bekreftelses-e-post på nytt",
     clear: "Tøm utvalg",
     working: "Arbeider...",
     commentRequired: "En kommentar er påkrevd for å avvise en bestilling.",
@@ -258,6 +264,24 @@ export default function WebsiteOrdersActionBar({
             className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
           >
             {t.sendReminderEmail}
+          </button>
+
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onSendEmail("balance_due")}
+            className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
+          >
+            {t.sendBalanceDueEmail}
+          </button>
+
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onSendEmail("order_confirmed")}
+            className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto!"
+          >
+            {t.resendConfirmedEmail}
           </button>
         </div>
       </div>

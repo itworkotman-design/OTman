@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOrderPricingSnapshot } from "@/lib/orders/orderTotals";
+import { buildOrderPricingSnapshot, getOrderRemainingBalanceIncVatNok } from "@/lib/orders/orderTotals";
 
 describe("buildOrderPricingSnapshot", () => {
   it("uses submitted totals as authoritative when line prices are partial", () => {
@@ -84,5 +84,31 @@ describe("buildOrderPricingSnapshot", () => {
     expect(snapshot.customer.totalExVat).toBe(300);
     expect(snapshot.subcontractor.subtotal).toBe(900);
     expect(snapshot.subcontractor.total).toBe(800);
+  });
+});
+
+describe("getOrderRemainingBalanceIncVatNok", () => {
+  const baseOrder = { priceExVat: 1000, rabatt: null, leggTil: null, pricingSnapshot: null };
+
+  it("returns the full incl.-VAT total when nothing has been paid yet", () => {
+    // 1000 ex VAT -> 1250 incl VAT.
+    expect(getOrderRemainingBalanceIncVatNok(baseOrder, 0)).toBe(1250);
+  });
+
+  it("subtracts what's already been paid", () => {
+    expect(getOrderRemainingBalanceIncVatNok(baseOrder, 50000)).toBe(750);
+  });
+
+  it("returns 0, never negative, once the order is fully paid or overpaid", () => {
+    expect(getOrderRemainingBalanceIncVatNok(baseOrder, 125000)).toBe(0);
+    expect(getOrderRemainingBalanceIncVatNok(baseOrder, 999999)).toBe(0);
+  });
+
+  it("uses the order's pricingSnapshot total when available, same as getOrderChargeAmountIncVatNok", () => {
+    const order = {
+      ...baseOrder,
+      pricingSnapshot: { customer: { totalIncVat: 2000 } },
+    };
+    expect(getOrderRemainingBalanceIncVatNok(order, 60000)).toBe(1400);
   });
 });

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getOrderByActionToken, isOrderPayable } from "@/lib/orders/publicOrderAccess";
-import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
+import { getOrderByActionToken, isOrderPayable, isTopUpPayable } from "@/lib/orders/publicOrderAccess";
+import { getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok } from "@/lib/orders/orderTotals";
+import { sumOrderPayments } from "@/lib/orders/orderPayments";
 import { getStripeClient, getOrderActionBaseUrl } from "@/lib/stripe/stripeClient";
 
 // Deliberately creates a brand-new Stripe Checkout Session on every call
@@ -9,6 +10,11 @@ import { getStripeClient, getOrderActionBaseUrl } from "@/lib/stripe/stripeClien
 // ~24h, but the order itself must stay payable for the full 3-day window —
 // so the session is disposable and only ever created just-in-time when the
 // customer is actually about to pay.
+//
+// Also handles a "top-up" checkout: a confirmed (already paid) order that
+// staff have since added items to. In that case the charge is the remaining
+// balance (order total minus everything already recorded in OrderPayment),
+// not the full total again — see docs/homepage-ordering-roadmap.md §4.
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const order = await getOrderByActionToken(token);
@@ -17,7 +23,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
-  if (!isOrderPayable(order.status)) {
+  const totalPaidCents = sumOrderPayments(order.payments);
+  const remainingBalanceIncVatNok = getOrderRemainingBalanceIncVatNok(order, totalPaidCents);
+  const isTopUp = isTopUpPayable(order.status, remainingBalanceIncVatNok);
+
+  if (!isOrderPayable(order.status) && !isTopUp) {
     return NextResponse.json({ ok: false, reason: "ORDER_NOT_PAYABLE" }, { status: 409 });
   }
 
@@ -25,7 +35,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     return NextResponse.json({ ok: false, reason: "MISSING_CUSTOMER_EMAIL" }, { status: 409 });
   }
 
-  const amountIncVatNok = getOrderChargeAmountIncVatNok(order);
+  const amountIncVatNok = isTopUp ? remainingBalanceIncVatNok : getOrderChargeAmountIncVatNok(order);
   const amountOre = Math.round(amountIncVatNok * 100);
 
   if (!Number.isFinite(amountOre) || amountOre <= 0) {
@@ -34,6 +44,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
   const baseUrl = getOrderActionBaseUrl();
   const stripe = getStripeClient();
+
+  const orderLabel = order.displayId ? `Otman bestilling #${order.displayId}` : "Otman bestilling";
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -45,7 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
           currency: "nok",
           unit_amount: amountOre,
           product_data: {
-            name: order.displayId ? `Otman bestilling #${order.displayId}` : "Otman bestilling",
+            name: isTopUp ? `${orderLabel} — tilleggsbetaling` : orderLabel,
             description: order.productsSummary ?? undefined,
           },
         },
@@ -56,6 +68,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     metadata: {
       orderId: order.id,
       actionToken: token,
+      // Not read by the webhook's own accounting (that's driven entirely by
+      // the OrderPayment ledger + order status, so it's correct either way)
+      // — kept for observability/debugging when looking at a session in the
+      // Stripe dashboard or an OrderEvent log.
+      chargeKind: isTopUp ? "topup" : "initial",
     },
   });
 

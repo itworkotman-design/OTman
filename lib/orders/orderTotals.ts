@@ -183,6 +183,24 @@ export function getOrderChargeAmountIncVatNok(order: {
   return roundNok(totalExVat * 1.25);
 }
 
+// What's still owed on an order that's already had one or more Stripe
+// charges recorded against it (see lib/orders/orderPayments.ts) — the full
+// order total minus everything paid so far, floored at 0 so an
+// over-payment/rounding edge case never produces a negative "amount owed".
+export function getOrderRemainingBalanceIncVatNok(
+  order: {
+    priceExVat: number;
+    rabatt: string | null | undefined;
+    leggTil: string | null | undefined;
+    pricingSnapshot: unknown;
+  },
+  totalPaidCents: number,
+): number {
+  const fullTotal = getOrderChargeAmountIncVatNok(order);
+  const alreadyPaid = totalPaidCents / 100;
+  return roundNok(Math.max(0, fullTotal - alreadyPaid));
+}
+
 function getSnapshotStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");

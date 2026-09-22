@@ -78,6 +78,32 @@ function orderReference(order: LifecycleEmailOrder) {
   return typeof order.displayId === "number" ? `#${order.displayId}` : "";
 }
 
+// Sent once, right after the first successful payment confirms an order.
+// There was previously no customer-facing email at all between submission
+// and approval/rejection/payment — this closes that gap, and specifically
+// gives the customer a durable link to request a change or addition later
+// (bestilling/endre/[token] is reachable from "confirmed" status — see
+// docs/homepage-ordering-roadmap.md §4), since no other email they'll have
+// received contains that link once they're this far along.
+export function buildOrderConfirmedEmail(order: LifecycleEmailOrder) {
+  const { requestChangeUrl } = buildOrderActionUrls(requireActionToken(order));
+  const reference = orderReference(order);
+
+  const subject = `Bestilling ${reference} er bekreftet — takk!`.trim();
+  const html = buildSimpleEmailShell(`
+    <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
+    <p style="margin:0 0 16px 0;">
+      Bestillingen din ${escapeHtml(reference)} er bekreftet og betalt. Takk for at du valgte Otman!
+    </p>
+    <p style="margin:0 0 16px 0;">
+      Trenger du å legge til noe eller gjøre en endring senere? Bruk lenken under.
+    </p>
+    <div style="margin:20px 0;">${buttonLink(requestChangeUrl, "Be om endring")}</div>
+  `);
+
+  return { subject, html };
+}
+
 export function buildPaymentRequestEmail(order: LifecycleEmailOrder) {
   const { payUrl } = buildOrderActionUrls(requireActionToken(order));
   const reference = orderReference(order);
@@ -112,6 +138,27 @@ export function buildRejectedEmail(order: LifecycleEmailOrder) {
       ${buttonLink(requestChangeUrl, "Be om endring")}
       ${buttonLink(cancelUrl, "Kanseller bestilling", "#b91c1c")}
     </div>
+  `);
+
+  return { subject, html };
+}
+
+// Sent when staff add items to an order that's already confirmed (paid) —
+// there's a remaining balance to collect. Deliberately doesn't state the
+// amount (same minimal-info pattern as buildPaymentRequestEmail): the exact
+// figure lives on the payment page itself, not duplicated into the email.
+export function buildBalanceDueEmail(order: LifecycleEmailOrder) {
+  const { payUrl } = buildOrderActionUrls(requireActionToken(order));
+  const reference = orderReference(order);
+
+  const subject = `Bestilling ${reference} er oppdatert — betal restbeløpet`.trim();
+  const html = buildSimpleEmailShell(`
+    <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
+    <p style="margin:0 0 16px 0;">
+      Bestillingen din ${escapeHtml(reference)} er oppdatert med flere varer. Betal restbeløpet via lenken under for å bekrefte.
+    </p>
+    <div style="margin:20px 0;">${buttonLink(payUrl, "Betal restbeløp")}</div>
+    <p style="margin:16px 0 0 0;">Har du spørsmål? Bare svar på denne e-posten.</p>
   `);
 
   return { subject, html };
