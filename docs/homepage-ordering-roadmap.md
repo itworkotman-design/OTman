@@ -391,6 +391,84 @@ nothing to attach to.
   Moving/Services/etc. get real pricing (later steps), they'll need the same
   `customerType` state + `getVatDisplayTotal` wiring, not a new mechanism.
 
+- **2026-09-22 — Step 3 (Moving) done — revised mid-step from Option B
+  (quote-only) to size-bracket priced, on your correction that Moving needed
+  real Stripe payment and pricing derived from space size.** What shipped:
+  - **Pricing**: a new `WEBSITE_MOVING` price list, one bare `Product`
+    (`MOVING_BY_SIZE`, all delivery-type/install-option/extras flags off) with
+    5 `ProductOption` rows, one per size bracket (`lib/content/movingCatalog.ts`).
+    Seeded via `npm run seed:moving-catalog` → `lib/content/seedMovingCatalog.ts`
+    (TDD'd). **Deliberately not `seedWebsiteCatalog.ts`** — that helper (and
+    the `WhiteGoodsProductSeed` shape it takes) always builds a
+    delivery+install+extras product, which doesn't fit a flat "pick one
+    bracket" price. **Deliberately not in `WEBSITE_CATALOGS`** either — that
+    registry is for catalogs that plug into the shared multi-select
+    product-card flow (white goods/furniture's "any other products?" step);
+    Moving isn't that, it has its own bespoke UI.
+  - **Prices are placeholders (0 kr), by design, per your architecture
+    choice** ("new Product in the catalog system" over hardcoding): staff set
+    real NOK figures via the existing `/dashboard/booking/editPrices` admin
+    (Owner/Admin-only, already supports creating/pricing any product with zero
+    deploys) — same as onboarding any other new product there. Re-running the
+    seed script is safe and won't overwrite whatever staff have since entered
+    — `PriceListItem` prices are only set on first `create`, never touched on
+    `update` (locked in with a test), unlike white-goods/furniture's reseed
+    behavior which *does* refresh prices from their spreadsheet source on
+    every run — deliberately different because Moving's source of truth is
+    the dashboard, not a spreadsheet. **This must happen before launch** — the
+    flow is fully functional but will show/charge 0 kr for every bracket
+    until someone does this.
+  - **Fetching**: a small dedicated public route,
+    `GET /api/site/moving-request/catalog` (TDD'd), backed by a shared
+    `lib/content/getMovingCatalog.ts` helper (also TDD'd) used by both that
+    route and the submission route's server-side price re-resolution — one
+    query, one source of truth. Deliberately not the generic
+    `/api/booking/catalog` (env-gated to exactly one public price list via
+    `PUBLIC_CATALOG_PRICELIST_ID`, already spoken for) or
+    `lib/booking/catalog/getBookingCatalog` (returns *every* active product
+    in the DB regardless of price list — the exact problem the
+    "Catalog not price-list-scoped" pattern already works around elsewhere;
+    querying this one price list's own items directly sidesteps it entirely).
+  - **Submission** (`POST /api/site/moving-request`, rewritten, TDD'd): the
+    client sends a `sizeOptionCode`; the route re-resolves its real price
+    server-side (never trusts a client-sent price), creates a **priced**
+    `Order` (`isWebsiteOrder: true`, real `priceExVat`/`priceSubcontractor`,
+    `status: "processing"`) + one `OrderItem`. No new `Order.status` value or
+    schema change.
+  - **Stripe**: no new payment code at all — `/api/public/orders/[token]/checkout`,
+    the webhook, and the whole approve → email → pay pipeline already work
+    generically for any priced, approved `isWebsiteOrder`. Getting a real
+    price onto the order (above) was the entire gap; a staff member still
+    approves before the customer gets a payment link, same gate as every
+    other website order.
+  - **UI** (`MovingRequestFlow.tsx`, rewritten): fetches live prices on open,
+    size brackets render as priced choice buttons instead of a plain
+    dropdown, and the final step reuses step 2's `CustomerTypeToggle`/
+    `getVatDisplayTotal` for a consistent Privat/Bedrift total display — this
+    also closes the "not yet done" item noted at the end of step 2's own log
+    entry.
+  - Wired into `ServiceWindow.tsx` via a `MOVING_SERVICE_ID` constant
+    alongside `WHITE_GOODS_SERVICE_ID`, replacing the dead placeholder branch
+    for that tile only.
+  - Verified: all new/updated tests pass (28 across 5 files — seed, catalog
+    helper, catalog route, submission route), full `typecheck`/`lint`/`test`
+    clean (same pre-existing unrelated failures, no new ones). Docs
+    added/updated for every new file plus `service-window.md`.
+  - **Deliberately not done / known follow-ups**: (1) real size-bracket
+    prices — see above, this is the one blocking item before launch; (2) no
+    distinct "pending quote"/"needs pricing" status or dashboard visual cue —
+    a 0-kr Moving order (before staff price it) looks identical to a normal
+    "processing" order today, so bulk-approve could in principle wave one
+    through unpriced; worth a small dashboard affordance
+    (flag `priceExVat === 0 && isWebsiteOrder`) if this becomes a real
+    footgun; (3) email required here, unlike `white-goods-order` (optional
+    there) — deliberate, this flow's only outcome is emailing a payment link;
+    (4) `ServiceWindowContent.ts`'s `items[1].id` being `"moving-relocation"`
+    while its own title/content describe an unrelated legacy tile is
+    confusing but left as-is (documented directly in `ServiceWindow.tsx`);
+    (5) still flat brackets, not true inventory/room-based pricing
+    (Option A/C) — future work once real job data exists to calibrate it.
+
 ## 11. Suggested build order
 
 Roughly in dependency order — each phase either unblocks or de-risks the next:
