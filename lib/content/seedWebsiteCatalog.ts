@@ -43,10 +43,18 @@ export async function seedWebsiteCatalog({
   priceListCode,
   priceListName,
   products,
+  preservePricesOnReseed = false,
 }: {
   priceListCode: string;
   priceListName: string;
   products: WhiteGoodsProductSeed[];
+  // White goods/furniture want the opposite of this (the default): their
+  // prices come from a spreadsheet and are meant to be refreshed by
+  // reseeding. A catalog whose prices are instead staff-entered via
+  // /dashboard/booking/editPrices (e.g. parcel/pallet — see
+  // seedParcelPalletCatalog.ts) must never have a reseed silently reset
+  // those back to this seed's own (placeholder) values.
+  preservePricesOnReseed?: boolean;
 }) {
   const description = serializePriceListSettings(buildPriceListSettings());
 
@@ -79,9 +87,15 @@ export async function seedWebsiteCatalog({
       deliveryTypes,
     };
 
+    // deliveryTypes carries prices (per-product, JSON — see
+    // Product.deliveryTypes), same as PriceListItem does for options below.
+    // A delivery-only product (no options — e.g. parcel/pallet) has NO
+    // PriceListItem rows at all, so this is the only place its price lives;
+    // must be excluded from the update just like PriceListItem prices are.
+    const { deliveryTypes: _deliveryTypes, ...productDataWithoutPrices } = productData;
     const product = await prisma.product.upsert({
       where: { code: productSeed.code },
-      update: productData,
+      update: preservePricesOnReseed ? productDataWithoutPrices : productData,
       create: { ...productData, code: productSeed.code },
     });
     productsUpserted += 1;
@@ -115,7 +129,7 @@ export async function seedWebsiteCatalog({
             productOptionId: option.id,
           },
         },
-        update: prices,
+        update: preservePricesOnReseed ? {} : prices,
         create: { ...prices, priceListId: priceList.id, productOptionId: option.id },
       });
       optionsUpserted += 1;

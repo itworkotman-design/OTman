@@ -9,8 +9,12 @@ import {
 } from "./websiteCatalogs";
 
 describe("WEBSITE_CATALOGS", () => {
-  it("offers white goods first, then furniture", () => {
-    expect(WEBSITE_CATALOGS.map((c) => c.priceListCode)).toEqual(["WEBSITE_WHITE_GOODS", "WEBSITE_FURNITURE"]);
+  it("offers white goods first, then furniture, then parcel/pallet", () => {
+    expect(WEBSITE_CATALOGS.map((c) => c.priceListCode)).toEqual([
+      "WEBSITE_WHITE_GOODS",
+      "WEBSITE_FURNITURE",
+      "WEBSITE_PARCEL_PALLET",
+    ]);
   });
 
   it("has bilingual labels and never lists the same product code in two catalogs", () => {
@@ -27,7 +31,7 @@ describe("WEBSITE_CATALOGS", () => {
 
 describe("category icons", () => {
   it("gives every catalog a general icon that is one of its own products", () => {
-    expect(WEBSITE_CATALOGS.map((c) => c.iconCode)).toEqual(["WG_WASHING_MACHINE", "FN_SOFA"]);
+    expect(WEBSITE_CATALOGS.map((c) => c.iconCode)).toEqual(["WG_WASHING_MACHINE", "FN_SOFA", "PKG_PALL"]);
     for (const catalog of WEBSITE_CATALOGS) {
       expect(catalog.products.map((p) => p.code), catalog.priceListCode).toContain(catalog.iconCode);
     }
@@ -35,9 +39,10 @@ describe("category icons", () => {
 });
 
 describe("lookups", () => {
-  it("finds the catalog, product seed and option seed for a product code across both catalogs", () => {
+  it("finds the catalog, product seed and option seed for a product code across all catalogs", () => {
     expect(findWebsiteCatalogByProductCode("WG_DISHWASHER")?.priceListCode).toBe("WEBSITE_WHITE_GOODS");
     expect(findWebsiteCatalogByProductCode("FN_SOFA")?.priceListCode).toBe("WEBSITE_FURNITURE");
+    expect(findWebsiteCatalogByProductCode("PKG_PALL")?.priceListCode).toBe("WEBSITE_PARCEL_PALLET");
     expect(findWebsiteProductSeed("FN_SOFA")?.nameNo).toBe("Sofa");
     expect(findWebsiteOptionSeed("FN_BED", "ASM_SINGLE_BED_IKEA")?.manufacturer).toBe("IKEA");
   });
@@ -50,14 +55,24 @@ describe("lookups", () => {
 
   it("gets a catalog by price list code", () => {
     expect(getWebsiteCatalog("WEBSITE_FURNITURE")?.products).toHaveLength(23);
+    expect(getWebsiteCatalog("WEBSITE_PARCEL_PALLET")?.products).toHaveLength(7);
     expect(getWebsiteCatalog("NOPE")).toBeNull();
   });
 });
 
 describe("remainingWebsiteCatalogs", () => {
   it("excludes the lists already used, keeping the original order", () => {
-    expect(remainingWebsiteCatalogs(["WEBSITE_WHITE_GOODS"]).map((c) => c.priceListCode)).toEqual(["WEBSITE_FURNITURE"]);
-    expect(remainingWebsiteCatalogs([]).map((c) => c.priceListCode)).toEqual(["WEBSITE_WHITE_GOODS", "WEBSITE_FURNITURE"]);
-    expect(remainingWebsiteCatalogs(["WEBSITE_WHITE_GOODS", "WEBSITE_FURNITURE"])).toEqual([]);
+    expect(remainingWebsiteCatalogs(["WEBSITE_WHITE_GOODS"]).map((c) => c.priceListCode)).toEqual([
+      "WEBSITE_FURNITURE",
+      "WEBSITE_PARCEL_PALLET",
+    ]);
+    expect(remainingWebsiteCatalogs([]).map((c) => c.priceListCode)).toEqual([
+      "WEBSITE_WHITE_GOODS",
+      "WEBSITE_FURNITURE",
+      "WEBSITE_PARCEL_PALLET",
+    ]);
+    expect(
+      remainingWebsiteCatalogs(["WEBSITE_WHITE_GOODS", "WEBSITE_FURNITURE", "WEBSITE_PARCEL_PALLET"]),
+    ).toEqual([]);
   });
 });
