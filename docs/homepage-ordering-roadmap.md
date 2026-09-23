@@ -672,6 +672,46 @@ nothing to attach to.
     accumulate until a manual cleanup job exists (a cron similar to the
     existing GDPR/retention sweeps would be the natural home).
 
+- **2026-09-23 — Step 6 (Services) done, without needing the business-content
+  decision §7 originally flagged as blocking.** Re-checked before starting:
+  `/tjenester`'s live content (`TjenesterContent.ts`'s `jobTypeOptions` —
+  electrician, carpenter, plumber, gardener, cleaner, IT, custom) is already
+  real, already-approved scope — the trades/staffing interpretation from §7,
+  not the "catalog-shaped" alternative. No new business input was needed;
+  building on what's already live was the right call, not a guess.
+  - **Change**: `POST /api/public/manpower` (TDD'd — a genuine red/green
+    cycle this time: an early version of the "order creation" test
+    coincidentally passed against the *old*, unmodified code because an
+    unrelated failure — missing email-provider config in the test env — also
+    happened to return the same 500 status; caught it and rewrote the test to
+    assert actual `Order` field values via mocked Prisma calls instead of just
+    a status code, which properly failed red before the implementation).
+    Used to only send a plain email to `bestilling@otman.no`; now creates an
+    unpriced `Order` (`isWebsiteOrder: true`, `priceExVat: 0`, `status:
+    "processing"`) instead — same shape as Moving/special-goods, lands in the
+    same dashboard review / staff-quote / Stripe pipeline every other website
+    order already uses, instead of only an inbox.
+  - **The live form's contract was deliberately left untouched** — same
+    field names, same validation, same error behavior, same rate limits.
+    Only what happens *after* validation passes changed, so `/tjenester`'s
+    already-approved UI needed zero changes.
+  - **One accepted tradeoff, documented rather than silently shipped**: the
+    live form only ever collects one freeform `contact` field (not split
+    phone/email like every newer flow this session built). Classified
+    heuristically (email-shaped → `Order.email`, else → `Order.phone`; the
+    raw value is always also kept in the description regardless) rather than
+    changing already-live copy to split the field. Consequence: `Order.email`
+    can end up null, meaning no automatic payment-link/lifecycle email for
+    that submission until staff manually add one — acceptable for a
+    trades/staffing lead that was always going to need a phone call to scope
+    the job anyway, but worth knowing about.
+  - Verified: 11 tests (TDD'd), full `typecheck`/`lint`/`test` clean, 1128
+    passing (same pre-existing unrelated failures, no new ones). Doc added.
+  - **Still not done**: turning this into a priced, instant-checkout flow —
+    correctly out of scope; trade/staffing jobs are inherently
+    quote-based (this is exactly what §7's original analysis concluded, now
+    confirmed rather than assumed).
+
 ## 11. Suggested build order
 
 Roughly in dependency order — each phase either unblocks or de-risks the next:

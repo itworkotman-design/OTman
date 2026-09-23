@@ -1,7 +1,32 @@
 import { NextResponse } from "next/server";
-import { sendEmail } from "@/lib/email/sendEmail";
+import { prisma } from "@/lib/db";
 import { checkRateLimit, incrementRateLimit } from "@/lib/auth/rateLimit";
+import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
+import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
+import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { TjenesterContent } from "@/lib/content/TjenesterContent";
+
+// "Services" (Tjenester) — trade/staffing outsourcing (electrician,
+// carpenter, plumber, gardener, cleaner, IT, custom), per the already-live
+// content in TjenesterContent.ts. This used to only send a plain email to
+// bestilling@otman.no; now it creates an unpriced Order (isWebsiteOrder:
+// true, priceExVat: 0, status: "processing") instead, landing it in the
+// same dashboard review / staff-quote / Stripe pipeline every other website
+// order uses (matching Moving and the special-goods quote flow before it).
+// See docs/homepage-ordering-roadmap.md §6.
+//
+// The live form's validation contract (field names, error behavior, rate
+// limits) is deliberately unchanged — only what happens after validation
+// passes is new, so the existing /tjenester UI needed no changes.
+//
+// The live form only ever collects one freeform "contact" field (not split
+// phone/email like every newer flow), so it's classified here rather than
+// requiring a UI change: if it looks like an email it becomes Order.email,
+// otherwise Order.phone. The raw value is also always kept in the
+// description for full fidelity either way. This means Order.email can be
+// null (no automatic payment-link/lifecycle emails until staff add one
+// manually) — an accepted tradeoff to avoid touching already-live copy; see
+// the roadmap doc's progress log for the full reasoning.
 
 const MANPOWER_IP_LIMIT = 5;
 const MANPOWER_WINDOW_MS = 10 * 60 * 1000;
@@ -22,15 +47,7 @@ function checkGlobalRateLimit(): "ok" | "minute" | "daily" {
 
 const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
 const LETTERS_NUMBERS_RE = /^[\p{L}\p{N}\s]+$/u;
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+const EMAIL_LIKE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function getClientIp(req: Request): string | null {
   const xff = req.headers.get("x-forwarded-for");
@@ -43,6 +60,81 @@ function getClientIp(req: Request): string | null {
 
 function badRequest(reason: string) {
   return NextResponse.json({ ok: false, reason }, { status: 400 });
+}
+
+function classifyContact(contact: string): { email: string | null; phone: string | null } {
+  return EMAIL_LIKE_RE.test(contact) ? { email: contact, phone: null } : { email: null, phone: contact };
+}
+
+async function createServiceRequestOrder(params: {
+  name: string;
+  contact: string;
+  jobTypeLabel: string;
+  description: string;
+}): Promise<{ orderId: string; displayId: number }> {
+  const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
+  if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
+
+  const membership = await prisma.membership.findUnique({
+    where: { id: membershipId },
+    select: { id: true, companyId: true, status: true },
+  });
+
+  if (!membership || membership.status !== "ACTIVE") {
+    throw new Error("Website membership not found or inactive");
+  }
+
+  const displayId = await reserveNextManualOrderNumber(membership.companyId);
+  const { email, phone } = classifyContact(params.contact);
+
+  const order = await prisma.order.create({
+    data: {
+      companyId: membership.companyId,
+      createdByMembershipId: membership.id,
+      customerMembershipId: membership.id,
+      displayId,
+      status: "processing",
+      isWebsiteOrder: true,
+      customerName: params.name,
+      phone,
+      email,
+      description: [
+        `Service: ${params.jobTypeLabel}`,
+        `Contact info as provided: ${params.contact}`,
+        params.description,
+      ].join("\n\n"),
+      productsSummary: `Service request (${params.jobTypeLabel})`,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+    },
+  });
+
+  await createOrderCreatedEvent(prisma, {
+    orderId: order.id,
+    companyId: order.companyId,
+    actor: { membershipId: membership.id, name: "website", email: "website", source: "USER" },
+    snapshot: buildOrderEventSnapshot({
+      displayId: order.displayId,
+      status: order.status ?? null,
+      customerName: params.name,
+      phone,
+      email,
+      description: order.description,
+      priceExVat: order.priceExVat,
+      priceSubcontractor: order.priceSubcontractor,
+      productsSummary: order.productsSummary,
+    }),
+  });
+
+  await createOrderNotification(prisma, {
+    orderId: order.id,
+    companyId: order.companyId,
+    type: "MANUAL_REVIEW",
+    title: `WEBSITE ORDER - Service request (${params.jobTypeLabel})`,
+    message: `Service request placed via /tjenester — needs a manual quote before it can be approved. Customer: ${params.name}, Contact: ${params.contact}.`,
+  });
+
+  return { orderId: order.id, displayId: order.displayId };
 }
 
 export async function POST(req: Request) {
@@ -104,29 +196,21 @@ export async function POST(req: Request) {
     await incrementRateLimit({ key: `manpower:ip:${ip}`, windowMs: MANPOWER_WINDOW_MS });
   }
 
+  const jobTypeOption = TjenesterContent.jobTypeOptions.find((o) => o.value === jobTypeTrimmed);
+  const jobTypeLabel = jobTypeTrimmed === "custom"
+    ? `${jobTypeOption?.label.en ?? "Custom service"} — ${customServiceTrimmed}`
+    : (jobTypeOption?.label.en ?? jobTypeTrimmed);
+
   try {
-    const jobTypeOption = TjenesterContent.jobTypeOptions.find((o) => o.value === jobTypeTrimmed);
-    const jobTypeLabel = jobTypeTrimmed === "custom"
-      ? `${jobTypeOption?.label.no ?? "Egendefinert tjeneste"} — ${escapeHtml(customServiceTrimmed)}`
-      : escapeHtml(jobTypeOption?.label.no ?? jobTypeTrimmed);
-
-    await sendEmail({
-      to: { email: "bestilling@otman.no", name: "Otman AS" },
-      subject: `Website tjenester inquiry: ${escapeHtml(nameTrimmed)}`,
-      html: `
-        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">
-          <p><strong>Name:</strong> ${escapeHtml(nameTrimmed)}</p>
-          <p><strong>Contact:</strong> ${escapeHtml(contactTrimmed)}</p>
-          <p><strong>Service type:</strong> ${jobTypeLabel}</p>
-          <p><strong>Description:</strong></p>
-          <p style="white-space:pre-wrap;">${escapeHtml(descriptionTrimmed)}</p>
-        </div>
-      `,
+    const result = await createServiceRequestOrder({
+      name: nameTrimmed,
+      contact: contactTrimmed,
+      jobTypeLabel,
+      description: descriptionTrimmed,
     });
-
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...result });
   } catch (err) {
-    console.error("Manpower form send failed:", err);
-    return NextResponse.json({ ok: false, reason: "Failed to send" }, { status: 500 });
+    console.error("[manpower] Order creation failed:", err);
+    return NextResponse.json({ ok: false, reason: "ORDER_CREATION_FAILED" }, { status: 500 });
   }
 }
