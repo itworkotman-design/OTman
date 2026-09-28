@@ -15,16 +15,47 @@ export function retractedRevealedCount(currentRevealedCount: number, fromIndex: 
   return Math.min(currentRevealedCount, fromIndex + 1);
 }
 
-// What the modal's content-height hold should do when the set of visible steps
-// changes. A retracted step is gone at once, so the hold ends right away — unless
-// a hold from an earlier reveal is still pending (a new step is still animating
-// open, and it can retract the steps after it the moment it mounts); ending that
-// hold early would shrink the content and clamp the scroll position upward.
-export type HeightHoldAction = "hold-then-release" | "release-now" | "keep-holding";
+// The sections currently on screen (revealed and not hidden).
+export function shownSectionIds(sections: { id: string; hidden?: boolean }[]): string[] {
+  return sections.filter((section) => !section.hidden).map((section) => section.id);
+}
 
-export function heightHoldAction({ retracting, holdPending }: { retracting: boolean; holdPending: boolean }): HeightHoldAction {
-  if (!retracting) return "hold-then-release";
-  return holdPending ? "keep-holding" : "release-now";
+export type SectionStructure = { ids: string[]; showFinalStep: boolean };
+
+// True when the layout gained something: a section appeared (revealed or
+// un-hidden), or the final step was entered/left, which swaps the whole body.
+export function structureGainedSections(previous: SectionStructure, next: SectionStructure): boolean {
+  if (previous.showFinalStep !== next.showFinalStep) return true;
+  return next.ids.some((id) => !previous.ids.includes(id));
+}
+
+// What the modal's content-height hold should do when the layout changes. A
+// newly added section starts collapsed and animates open (often while it
+// replaces another), so the old height is held until it has. Sections that only
+// leave fade and collapse on their own, so there is nothing to hold — except
+// that a hold from an earlier addition may still be pending (the new section can
+// retract the ones after it the moment it mounts); ending that hold early would
+// shrink the content and clamp the scroll position upward.
+export type HeightHoldAction = "hold-then-release" | "keep-holding" | "none";
+
+export function heightHoldAction({ gained, holdPending }: { gained: boolean; holdPending: boolean }): HeightHoldAction {
+  if (gained) return "hold-then-release";
+  return holdPending ? "keep-holding" : "none";
+}
+
+// Items to render so that ones which just left the list can still animate out:
+// the current items, plus each previous item that is gone, kept right after the
+// item that preceded it (or first). Present items use their current version.
+export function withExitingItems<T extends { key: string }>(previous: T[], current: T[]): T[] {
+  const currentKeys = new Set(current.map((item) => item.key));
+  const merged = [...current];
+  previous.forEach((item, index) => {
+    if (currentKeys.has(item.key)) return;
+    const before = previous[index - 1];
+    const at = before ? merged.findIndex((m) => m.key === before.key) : -1;
+    merged.splice(at + 1, 0, item);
+  });
+  return merged;
 }
 
 // Percentage (0-100) the progress bar should fill for the given reveal

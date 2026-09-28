@@ -1,25 +1,87 @@
 import { describe, expect, it } from "vitest";
-import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount } from "./steppedModalLogic";
+import {
+  heightHoldAction,
+  nextRevealedCount,
+  progressPercent,
+  retractedRevealedCount,
+  shownSectionIds,
+  structureGainedSections,
+  withExitingItems,
+} from "./steppedModalLogic";
 
-describe("heightHoldAction", () => {
-  it("holds the old height while a newly revealed section animates open", () => {
-    expect(heightHoldAction({ retracting: false, holdPending: false })).toBe("hold-then-release");
+describe("shownSectionIds", () => {
+  it("lists the sections on screen and leaves out hidden ones", () => {
+    expect(shownSectionIds([{ id: "a" }, { id: "b", hidden: true }, { id: "c" }])).toEqual(["a", "c"]);
+  });
+});
+
+describe("structureGainedSections", () => {
+  const base = { ids: ["a", "b"], showFinalStep: false };
+
+  it("is true when a section appears, e.g. revealed or un-hidden", () => {
+    expect(structureGainedSections(base, { ids: ["a", "b", "c"], showFinalStep: false })).toBe(true);
+    expect(structureGainedSections(base, { ids: ["a", "c"], showFinalStep: false })).toBe(true);
   });
 
-  it("shrinks right away when sections are retracted and nothing is being held", () => {
-    expect(heightHoldAction({ retracting: true, holdPending: false })).toBe("release-now");
+  it("is false when sections only leave", () => {
+    expect(structureGainedSections(base, { ids: ["a"], showFinalStep: false })).toBe(false);
+    expect(structureGainedSections(base, { ids: [], showFinalStep: false })).toBe(false);
+  });
+
+  it("is true when the final step is entered or left, since the whole body swaps", () => {
+    expect(structureGainedSections(base, { ids: ["a", "b"], showFinalStep: true })).toBe(true);
+    expect(structureGainedSections({ ...base, showFinalStep: true }, base)).toBe(true);
+  });
+});
+
+describe("heightHoldAction", () => {
+  it("holds the old height while a newly added section animates open", () => {
+    expect(heightHoldAction({ gained: true, holdPending: false })).toBe("hold-then-release");
+  });
+
+  // Sections that only leave fade and collapse on their own, so the height
+  // doesn't need holding.
+  it("does nothing when sections only leave and no hold is running", () => {
+    expect(heightHoldAction({ gained: false, holdPending: false })).toBe("none");
   });
 
   // Adding a category swaps the "any other products?" step for a new, collapsed
   // one, whose auto-advance immediately retracts the steps after it. That
-  // retraction must not cut the hold short, or the scroll position clamps
-  // upward to the new section's top edge.
-  it("keeps holding when a retraction lands while a reveal's hold is still pending", () => {
-    expect(heightHoldAction({ retracting: true, holdPending: true })).toBe("keep-holding");
+  // must not cut the hold short, or the scroll position clamps upward to the
+  // new section's top edge.
+  it("keeps holding when sections leave while an earlier hold is still pending", () => {
+    expect(heightHoldAction({ gained: false, holdPending: true })).toBe("keep-holding");
   });
 
-  it("restarts the hold when another reveal lands during a pending hold", () => {
-    expect(heightHoldAction({ retracting: false, holdPending: true })).toBe("hold-then-release");
+  it("restarts the hold when another section is added during a pending hold", () => {
+    expect(heightHoldAction({ gained: true, holdPending: true })).toBe("hold-then-release");
+  });
+});
+
+describe("withExitingItems", () => {
+  const item = (key: string) => ({ key });
+  const keys = (items: { key: string }[]) => items.map((i) => i.key);
+
+  it("returns the current items when nothing left", () => {
+    expect(keys(withExitingItems([item("a"), item("b")], [item("a"), item("b")]))).toEqual(["a", "b"]);
+  });
+
+  it("keeps an item that left in its old position so it can animate out", () => {
+    expect(keys(withExitingItems([item("a"), item("b"), item("c")], [item("a"), item("c")]))).toEqual(["a", "b", "c"]);
+    expect(keys(withExitingItems([item("a"), item("b")], [item("b")]))).toEqual(["a", "b"]);
+  });
+
+  it("keeps several consecutive leavers in order", () => {
+    expect(keys(withExitingItems([item("a"), item("b"), item("c"), item("d")], [item("a"), item("d")]))).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("puts a leaver after the item it followed when that item was replaced", () => {
+    expect(keys(withExitingItems([item("a"), item("more")], [item("a"), item("newProducts")]))).toEqual(["a", "more", "newProducts"]);
+  });
+
+  it("uses the current version of items that are still present", () => {
+    const next = { key: "a", v: 2 };
+    expect(withExitingItems([{ key: "a", v: 1 }], [next])[0]).toBe(next);
   });
 });
 

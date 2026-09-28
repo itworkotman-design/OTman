@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount } from "./steppedModalLogic";
+import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -21,6 +21,10 @@ export type StepSection = {
   id: string;
   title: string;
   description?: string;
+  // Takes the section off the screen while it stays mounted, so it still counts
+  // as a step and its auto-advance keeps working (the steps after it depend on
+  // that), e.g. an options step whose list has no products left.
+  hidden?: boolean;
   render: (props: StepSectionRenderProps) => ReactNode;
 };
 
@@ -42,35 +46,112 @@ type SteppedModalProps = {
   onClose: () => void;
 };
 
-// Animates a freshly-revealed section in: height grows from 0 and the
-// content fades from 0% to 100% opacity, instead of snapping into place.
-// Exported so other reveal-on-mount cases (e.g. a product card added to a
+const TRANSITION_MS = 300;
+
+// Animates a section in and out: on mount its height grows from 0 and the
+// content fades from 0% to 100% opacity instead of snapping into place, and
+// while `collapsed` (hidden, or on its way out of a list) it shrinks and fades
+// back the same way. Exported so other cases (e.g. a product card added to a
 // list) can reuse the same animation instead of a second implementation.
-export function RevealSection({ children }: { children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
+//
+// `spacing` (px) is the gap below the section. It lives inside the animated
+// box, so it collapses with it instead of leaving a stray gap behind.
+export function RevealSection({
+  children,
+  collapsed = false,
+  spacing = 0,
+}: {
+  children: ReactNode;
+  collapsed?: boolean;
+  spacing?: number;
+}) {
+  const [isMounted, setIsMounted] = useState(false);
   // overflow-hidden is only needed while the height animates. Left on, it
   // becomes the scroll container for any `position: sticky` descendant (e.g.
   // the order summary), pinning it in place instead of following the scroll.
   const [isSettled, setIsSettled] = useState(false);
+  const isOpen = isMounted && !collapsed;
 
   useEffect(() => {
     // Double RAF: first frame commits the closed (0fr/opacity-0) render,
     // second frame has layout, so the transition to open actually animates
     // instead of starting already at its end state.
     let rafId = requestAnimationFrame(() => {
-      rafId = requestAnimationFrame(() => setIsOpen(true));
+      rafId = requestAnimationFrame(() => setIsMounted(true));
     });
     return () => cancelAnimationFrame(rafId);
   }, []);
 
   return (
     <div
-      className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+      className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"}`}
+      // A collapsed section is off screen but stays mounted; keep it out of the
+      // tab order and away from pointer events until it opens again.
+      inert={!isOpen}
       onTransitionEnd={(event) => {
-        if (event.target === event.currentTarget && isOpen) setIsSettled(true);
+        if (event.target === event.currentTarget) setIsSettled(isOpen);
       }}
     >
-      <div className={isSettled ? "" : "overflow-hidden"}>{children}</div>
+      <div className={isOpen && isSettled ? "" : "min-h-0 overflow-hidden"}>
+        <div style={spacing ? { paddingBottom: spacing } : undefined}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+export type AnimatedStackItem = { key: string; node: ReactNode; hidden?: boolean };
+
+// A vertical stack whose items animate in when added, out when removed, and
+// collapse/expand when hidden/un-hidden. A removed item is kept (as last
+// rendered) for the length of its exit animation, then dropped.
+export function AnimatedStack({ items, gap, className = "" }: { items: AnimatedStackItem[]; gap: number; className?: string }) {
+  // What is rendered: the current items plus the ones still animating out.
+  // Derived from the previous render's items while rendering (React's
+  // "adjust state on prop change" pattern), so a removed item is never missing
+  // from the DOM even for a frame.
+  const [previousItems, setPreviousItems] = useState(items);
+  const [displayed, setDisplayed] = useState(items);
+  if (previousItems !== items) {
+    setPreviousItems(items);
+    setDisplayed(withExitingItems(displayed, items));
+  }
+
+  const currentKeys = new Set(items.map((item) => item.key));
+  const exitTimers = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    for (const key of currentKeys) {
+      window.clearTimeout(exitTimers.current.get(key));
+      exitTimers.current.delete(key);
+    }
+    for (const { key } of displayed) {
+      if (currentKeys.has(key) || exitTimers.current.has(key)) continue;
+      exitTimers.current.set(
+        key,
+        window.setTimeout(() => {
+          exitTimers.current.delete(key);
+          setDisplayed((shown) => shown.filter((item) => item.key !== key));
+        }, TRANSITION_MS),
+      );
+    }
+  });
+
+  useEffect(() => {
+    const timers = exitTimers.current;
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
+    };
+  }, []);
+
+  // The last item's spacing is cancelled out, so the stack has no trailing gap.
+  return (
+    <div className={className} style={{ marginBottom: -gap }}>
+      {displayed.map((item) => (
+        <RevealSection key={item.key} collapsed={!!item.hidden || !currentKeys.has(item.key)} spacing={gap}>
+          {item.node}
+        </RevealSection>
+      ))}
     </div>
   );
 }
@@ -127,18 +208,20 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
   const [revealedCount, setRevealedCount] = useState(1);
   const [showFinalStep, setShowFinalStep] = useState(false);
   const visibleSections = sections.slice(0, revealedCount);
-  const structureKey = `${showFinalStep ? "final" : "steps"}:${visibleSections.map((section) => section.id).join("|")}`;
+  const shownIds = shownSectionIds(visibleSections);
+  const structureKey = `${showFinalStep ? "final" : "steps"}:${shownIds.join("|")}`;
+  const previousStructure = useRef<SectionStructure>({ ids: shownIds, showFinalStep });
   const previousStructureKey = useRef(structureKey);
-  const previousRevealedCount = useRef(revealedCount);
   useLayoutEffect(() => {
-    const retracting = revealedCount < previousRevealedCount.current;
-    previousRevealedCount.current = revealedCount;
     if (previousStructureKey.current === structureKey) return;
     previousStructureKey.current = structureKey;
+    const next: SectionStructure = { ids: shownIds, showFinalStep };
+    const gained = structureGainedSections(previousStructure.current, next);
+    previousStructure.current = next;
     const el = contentRef.current;
     if (!el || lastHeightRef.current === 0) return;
-    const action = heightHoldAction({ retracting, holdPending: holdPendingRef.current });
-    if (action === "keep-holding") return;
+    const action = heightHoldAction({ gained, holdPending: holdPendingRef.current });
+    if (action !== "hold-then-release") return;
     el.style.transition = "none";
     el.style.minHeight = `${lastHeightRef.current}px`;
     window.clearTimeout(holdTimerRef.current);
@@ -163,20 +246,15 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
         el.style.transition = "";
       }, 320);
     };
-    // A retracted section is gone at once, so shrink right away. A newly added
-    // section starts collapsed and animates open, so keep holding the old
-    // height until it has.
-    if (action === "release-now") {
+    // A newly added section starts collapsed and animates open, so keep holding
+    // the old height until it has.
+    holdPendingRef.current = true;
+    holdTimerRef.current = window.setTimeout(() => {
       holdPendingRef.current = false;
       release();
-    } else {
-      holdPendingRef.current = true;
-      holdTimerRef.current = window.setTimeout(() => {
-        holdPendingRef.current = false;
-        release();
-      }, 450);
-    }
-  }, [structureKey, revealedCount]);
+    }, 450);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [structureKey]);
   // +1 for the final review/payment step, so the bar only completes once
   // the user actually reaches it, not while the last question section is
   // still being answered.
@@ -221,22 +299,28 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
           {/* Kept mounted (just hidden) rather than conditionally rendered,
               so RevealSection's per-section reveal state survives toggling
               the final step back and forth instead of replaying on remount. */}
-          <div className={showFinalStep ? "hidden" : "flex flex-col gap-6"}>
-            {visibleSections.map((section, index) => (
-              <RevealSection key={section.id}>
-                <div>
-                  <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
-                  {section.description && <p className="mt-1 text-center text-sm text-black/60">{section.description}</p>}
-                  <div className="mt-4">
-                    {section.render({
-                      isActive: index === revealedCount - 1,
-                      onComplete: () => handleSectionComplete(index),
-                      onUncomplete: () => handleSectionUncomplete(index),
-                    })}
+          <div className={showFinalStep ? "hidden" : ""}>
+            <AnimatedStack
+              gap={24}
+              className="flex flex-col"
+              items={visibleSections.map((section, index) => ({
+                key: section.id,
+                hidden: section.hidden,
+                node: (
+                  <div>
+                    <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
+                    {section.description && <p className="mt-1 text-center text-sm text-black/60">{section.description}</p>}
+                    <div className="mt-4">
+                      {section.render({
+                        isActive: index === revealedCount - 1,
+                        onComplete: () => handleSectionComplete(index),
+                        onUncomplete: () => handleSectionUncomplete(index),
+                      })}
+                    </div>
                   </div>
-                </div>
-              </RevealSection>
-            ))}
+                ),
+              }))}
+            />
           </div>
           </div>
         </div>

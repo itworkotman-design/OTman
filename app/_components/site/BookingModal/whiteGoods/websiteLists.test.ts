@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   cardsForList,
-  emptiedListCodes,
   filterUnusedLists,
   highlightedStartList,
   isListConfigured,
@@ -122,24 +121,5 @@ describe("highlightedStartList", () => {
   it("falls back to the first chosen list when nothing is picked, and null when nothing is chosen", () => {
     expect(highlightedStartList(["wg", "fn"], [], productsByList)).toBe("wg");
     expect(highlightedStartList([], [], productsByList)).toBeNull();
-  });
-});
-
-describe("emptiedListCodes", () => {
-  const productsByList = { wg: [{ id: "a" }], fn: [{ id: "b" }] } as unknown as Record<string, CatalogProduct[]>;
-  const makeCard = (cardId: number, productId: string) => ({ ...createEmptyProductCard(cardId), productId }) as SavedProductCard;
-
-  it("lists a populated list whose products were all removed while another list still has products", () => {
-    expect(emptiedListCodes(["wg", "fn"], ["wg", "fn"], [makeCard(1, "b")], productsByList)).toEqual(["wg"]);
-    expect(emptiedListCodes(["wg", "fn"], ["wg", "fn"], [makeCard(0, "a")], productsByList)).toEqual(["fn"]);
-  });
-
-  it("leaves a list that still has products, and a newly added list that never had any", () => {
-    expect(emptiedListCodes(["wg", "fn"], ["wg", "fn"], [makeCard(0, "a"), makeCard(1, "b")], productsByList)).toEqual([]);
-    expect(emptiedListCodes(["wg", "fn"], ["wg"], [makeCard(0, "a")], productsByList)).toEqual([]);
-  });
-
-  it("removes nothing when the whole order is empty — there is no list to fall back to", () => {
-    expect(emptiedListCodes(["wg", "fn"], ["wg", "fn"], [], productsByList)).toEqual([]);
   });
 });
