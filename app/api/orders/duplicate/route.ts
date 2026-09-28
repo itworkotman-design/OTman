@@ -151,10 +151,29 @@ export async function POST(req: Request) {
             sourceOrder.contactCustomerForCustomTimeWindow,
           customTimeContactNote: sourceOrder.customTimeContactNote,
 
+          // Saved locations, coordinates and extra-pickup contacts are copied
+          // with the address text — otherwise the copy loses the exact GSM
+          // location and any warehouse name/phone.
           pickupAddress: sourceOrder.pickupAddress,
+          customPickupAddressId: sourceOrder.customPickupAddressId,
+          customPickupAddressName: sourceOrder.customPickupAddressName,
+          customPickupAddressPhone: sourceOrder.customPickupAddressPhone,
+          pickupLatitude: sourceOrder.pickupLatitude,
+          pickupLongitude: sourceOrder.pickupLongitude,
           extraPickupAddress: sourceOrder.extraPickupAddress,
+          extraPickupContacts:
+            sourceOrder.extraPickupContacts === null
+              ? undefined
+              : (sourceOrder.extraPickupContacts as Prisma.InputJsonValue),
           deliveryAddress: sourceOrder.deliveryAddress,
+          deliveryLatitude: sourceOrder.deliveryLatitude,
+          deliveryLongitude: sourceOrder.deliveryLongitude,
           returnAddress: sourceOrder.returnAddress,
+          customReturnAddressId: sourceOrder.customReturnAddressId,
+          customReturnAddressName: sourceOrder.customReturnAddressName,
+          customReturnAddressPhone: sourceOrder.customReturnAddressPhone,
+          returnLatitude: sourceOrder.returnLatitude,
+          returnLongitude: sourceOrder.returnLongitude,
           drivingDistance: sourceOrder.drivingDistance,
 
           phone: sourceOrder.phone,

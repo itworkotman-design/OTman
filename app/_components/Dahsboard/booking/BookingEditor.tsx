@@ -35,6 +35,9 @@ import { applyOrderPricingSnapshot, buildOrderPricingSnapshot, getSavedOrderPric
 import { calculateCurrentTotalsWithFrozenExternalLines } from "@/lib/booking/pricing/frozenOrderPricing";
 import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
 import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
+import { isNoPickupAddress, resolvePickupForSubmit, restorePickupAfterUnlock } from "@/lib/orders/noPickupAddress";
+import { shouldApplyCustomerPickup } from "@/lib/orders/customerPickupSync";
+import { resolveReturnForSubmit } from "@/lib/orders/resolveReturnForSubmit";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { appendImpreciseAddressNote, isStreetOnlyMatch, type AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 import { shouldClearWordpressImportReadOnly } from "@/lib/booking/wordpressReadOnlyCleanup";
@@ -532,7 +535,7 @@ export default function BookingEditor({
   const hasProcessedInitialAdjustmentsSyncRef = useRef(false);
   const hasUserEditedPickupAddressRef = useRef(false);
   const hasUserEditedReturnAddressRef = useRef(false);
-  const lastUnlockedPickupAddressRef = useRef(initialValues?.pickupAddress ?? "");
+  const lastUnlockedPickupAddressRef = useRef(isNoPickupAddress(initialValues?.pickupAddress) ? "" : (initialValues?.pickupAddress ?? ""));
   const pricingResultRef = useRef<ReturnType<typeof calculateBookingPricing> | null>(null);
   const [capacityWarning, setCapacityWarning] = useState<CapacityWarningState>(null);
   const [capacityWarningLoading, setCapacityWarningLoading] = useState(false);
@@ -1649,7 +1652,10 @@ export default function BookingEditor({
           : requiresTimeWindow && timeWindow === "custom" && (!customTimeFrom || !customTimeTo)
             ? t("Custom time requires both from and to")
             : null,
-      pickupAddress: requiresPickupAddress && !pickupAddress.trim() ? t("Pickup address is required.") : null,
+      pickupAddress:
+        requiresPickupAddress && (!pickupAddress.trim() || (!shouldLockPickupAddress && isNoPickupAddress(pickupAddress)))
+          ? t("Pickup address is required.")
+          : null,
       deliveryAddress: requiresDeliveryAddress && !deliveryAddress.trim() ? t("Delivery address is required.") : null,
       returnAddress: requiresReturnAddress && !returnAddress.trim() ? t("Return address is required.") : null,
       customerPhone: (phoneError ? t(phoneError) : null) ?? (requiresCustomerPhone && !normalizedPhone ? t("Customer phone is required") : null),
@@ -1680,6 +1686,7 @@ export default function BookingEditor({
       requiresReturnAddress,
       requiresTimeWindow,
       returnAddress,
+      shouldLockPickupAddress,
       timeWindow,
       t,
     ],
@@ -1792,7 +1799,13 @@ export default function BookingEditor({
     // address in the field while this fetch was still in flight — don't
     // clobber it. Explicit customer switches (isInitialSync === false)
     // are a deliberate user action and should still overwrite.
-    if (!isInitialSync || !hasUserEditedPickupAddressRef.current) {
+    if (
+      shouldApplyCustomerPickup({
+        isInitialSync,
+        hasUserEditedPickup: hasUserEditedPickupAddressRef.current,
+        customerAddress: selectedCustomerAddress,
+      })
+    ) {
       setPickupAddress(selectedCustomerAddress);
       setPickupAddressSelected(true);
       setCustomPickupAddressId(selectedCustomerOption.mainPickupAddress?.id ?? null);
@@ -2047,11 +2060,13 @@ export default function BookingEditor({
   }, [existingOrderId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    // Must come first: returning before this lets the browser submit the form
+    // natively, which reloads the page and wipes everything entered.
+    e.preventDefault();
     if (isOrderCreator && capacityWarning?.isHardLimitReached) {
       setSubmitError(capacityWarning.message);
       return;
     }
-    e.preventDefault();
     setSubmitError("");
     if (saving) return;
     if (attachmentsUploading) {
@@ -2123,15 +2138,21 @@ export default function BookingEditor({
       expressDelivery,
       contactCustomerForCustomTimeWindow: timeWindow === "custom" && contactCustomerForCustomTimeWindow,
       customTimeContactNote: normalizedCustomTimeContactNote,
-      pickupAddress,
-      customPickupAddressId,
-      pickupLatitude,
-      pickupLongitude,
+      ...resolvePickupForSubmit({
+        locked: shouldLockPickupAddress,
+        pickupAddress,
+        customPickupAddressId,
+        pickupLatitude,
+        pickupLongitude,
+      }),
       extraPickups: normalizedExtraPickups,
-      returnAddress,
-      customReturnAddressId,
-      returnLatitude,
-      returnLongitude,
+      ...resolveReturnForSubmit({
+        shown: shouldShowReturnAddress,
+        returnAddress,
+        customReturnAddressId,
+        returnLatitude,
+        returnLongitude,
+      }),
       deliveryAddress,
       deliveryLatitude,
       deliveryLongitude,
@@ -2267,7 +2288,9 @@ export default function BookingEditor({
       return;
     }
 
-    setPickupAddress((current) => (current === "No shop pickup address" ? lastUnlockedPickupAddressRef.current || selectedCustomerAddress : current));
+    setPickupAddress((current) =>
+      restorePickupAfterUnlock({ current, lastUnlocked: lastUnlockedPickupAddressRef.current, customerAddress: selectedCustomerAddress }),
+    );
   }, [selectedCustomerAddress, shouldLockPickupAddress]);
 
   const customDeviationDefaultPrice = parsePriceSetting(

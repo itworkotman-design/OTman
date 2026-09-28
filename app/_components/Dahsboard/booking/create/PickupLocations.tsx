@@ -29,6 +29,7 @@ export function PickupLocations({
   onMainAddressChange,
   customPickupAddressId,
   onSelectCustomPickupAddress,
+  canClearMainAddress = false,
   pickups,
   onPickupsChange,
   locale = "en",
@@ -42,6 +43,9 @@ export function PickupLocations({
   onMainAddressChange: (value: string, wasSelected?: boolean, meta?: AddressSelectionMeta) => void;
   customPickupAddressId?: string | null;
   onSelectCustomPickupAddress?: (address: CustomPickupAddressOption | null) => void;
+  // Shows a remove button on the confirmed main pickup, for admins who need
+  // to leave an order without any pickup (e.g. a direct-to-customer delivery).
+  canClearMainAddress?: boolean;
   pickups: Pickup[];
   onPickupsChange: (pickups: Pickup[]) => void;
   locale?: BookingUiLocale;
@@ -96,6 +100,7 @@ export function PickupLocations({
             onChange={handleMainChange}
             customPickupAddressId={customPickupAddressId}
             onSelectCustomPickupAddress={onSelectCustomPickupAddress}
+            onClear={canClearMainAddress ? () => handleMainChange("", false) : undefined}
             placeholder={t("Enter a location")}
             locale={locale}
           />

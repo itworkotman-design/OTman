@@ -265,6 +265,8 @@ export function PickupAddressCombobox({
   onChange,
   customPickupAddressId,
   onSelectCustomPickupAddress,
+  onClear,
+  clearLabel = "Remove pickup address",
   placeholder,
   locale = "en",
   prioritizeAddresses = false,
@@ -278,6 +280,11 @@ export function PickupAddressCombobox({
   // to update (e.g. an extra pickup row) — picking a saved location then
   // just commits its address text via onChange, same as a geocoded pick.
   onSelectCustomPickupAddress?: (address: CustomPickupAddressOption | null) => void;
+  // When set, a confirmed address gets a remove button that calls this —
+  // callers only pass it for users who may leave the field empty.
+  onClear?: () => void;
+  // English UI text (translated via bookingText) for the remove button.
+  clearLabel?: string;
   placeholder?: string;
   locale?: BookingUiLocale;
   // When set, geocoded addresses are listed before businesses/POIs (Mapbox's
@@ -563,16 +570,34 @@ export function PickupAddressCombobox({
     <div>
       <div ref={containerRef} className="relative">
         {hasConfirmedAddress ? (
-          <SelectedAddressCard
-            id={inputId}
-            title={selected ? selected.name : value}
-            subtitle={selected ? selected.address : undefined}
-            phone={selected?.phone}
-            icon={<SelectedIcon />}
-            colorClasses={selected ? ADDRESS_COLOR_CLASSES[selected.color] ?? ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR] : ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR]}
-            open={expanded}
-            onClick={() => (expanded ? collapse() : setExpanded(true))}
-          />
+          <div className="flex items-stretch gap-2">
+            <div className="min-w-0 flex-1">
+              <SelectedAddressCard
+                id={inputId}
+                title={selected ? selected.name : value}
+                subtitle={selected ? selected.address : undefined}
+                phone={selected?.phone}
+                icon={<SelectedIcon />}
+                colorClasses={selected ? ADDRESS_COLOR_CLASSES[selected.color] ?? ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR] : ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR]}
+                open={expanded}
+                onClick={() => (expanded ? collapse() : setExpanded(true))}
+              />
+            </div>
+            {onClear ? (
+              <button
+                type="button"
+                onClick={() => {
+                  collapse();
+                  onClear();
+                }}
+                aria-label={t(clearLabel)}
+                title={t(clearLabel)}
+                className="grid w-12 shrink-0 cursor-pointer place-items-center rounded-xl border border-lineSecondary bg-white text-xl text-textColorSecond hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
         ) : (
           <SearchField
             id={inputId}

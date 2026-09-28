@@ -6,6 +6,7 @@ import { matchesRecurrence } from "@/lib/orders/recurringOrders/occurrenceDates"
 import { createOrder, type CreateOrderFields } from "@/lib/orders/createOrder";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { ExtraPickupInput } from "@/lib/orders/extraPickups";
+import { isNoPickupAddress } from "@/lib/orders/noPickupAddress";
 
 // A crashed run can leave an occurrence stuck at PENDING forever if we never
 // retry it — this window bounds how long we treat a PENDING row as "another
@@ -131,6 +132,82 @@ function buildFieldsFromOrderDefaults(
   };
 }
 
+type SavedLocation = {
+  id: string;
+  name: string;
+  address: string;
+  phone: string | null;
+  latitude: number;
+  longitude: number;
+};
+
+// Pickup/return addresses picked from a saved location keep pointing at it,
+// and every other address keeps the coordinate it was submitted with —
+// without these GSM re-geocodes the address text, which is what the pinned
+// coordinates exist to avoid. A saved location is re-resolved from its
+// current record (never trusting the template's copy of its name/phone/
+// coordinates); if it has since been deactivated the stored text and
+// coordinates are used as-is.
+async function resolveAddressFields(orderDefaults: unknown): Promise<
+  Pick<
+    CreateOrderFields,
+    | "pickupAddress"
+    | "customPickupAddressId"
+    | "customPickupAddressName"
+    | "customPickupAddressPhone"
+    | "pickupLatitude"
+    | "pickupLongitude"
+    | "returnAddress"
+    | "customReturnAddressId"
+    | "customReturnAddressName"
+    | "customReturnAddressPhone"
+    | "returnLatitude"
+    | "returnLongitude"
+    | "deliveryLatitude"
+    | "deliveryLongitude"
+  >
+> {
+  const defaults = (orderDefaults ?? {}) as Record<string, unknown>;
+  const asString = (value: unknown): string | null =>
+    typeof value === "string" && value.trim() ? value.trim() : null;
+  const asCoordinate = (value: unknown): number | null =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+
+  const findSavedLocation = async (id: string | null): Promise<SavedLocation | null> =>
+    id
+      ? prisma.customPickupAddress.findFirst({
+          where: { id, isActive: true },
+          select: { id: true, name: true, address: true, phone: true, latitude: true, longitude: true },
+        })
+      : null;
+
+  const pickupText = asString(defaults.pickupAddress);
+  const pickupLocation = isNoPickupAddress(pickupText)
+    ? null
+    : await findSavedLocation(asString(defaults.customPickupAddressId));
+  const hasPickup = !isNoPickupAddress(pickupText);
+
+  const returnText = asString(defaults.returnAddress);
+  const returnLocation = returnText ? await findSavedLocation(asString(defaults.customReturnAddressId)) : null;
+
+  return {
+    pickupAddress: pickupLocation?.address ?? pickupText,
+    customPickupAddressId: pickupLocation?.id ?? null,
+    customPickupAddressName: pickupLocation?.name ?? null,
+    customPickupAddressPhone: pickupLocation?.phone ?? null,
+    pickupLatitude: pickupLocation ? pickupLocation.latitude : hasPickup ? asCoordinate(defaults.pickupLatitude) : null,
+    pickupLongitude: pickupLocation ? pickupLocation.longitude : hasPickup ? asCoordinate(defaults.pickupLongitude) : null,
+    returnAddress: returnLocation?.address ?? returnText,
+    customReturnAddressId: returnLocation?.id ?? null,
+    customReturnAddressName: returnLocation?.name ?? null,
+    customReturnAddressPhone: returnLocation?.phone ?? null,
+    returnLatitude: returnLocation ? returnLocation.latitude : returnText ? asCoordinate(defaults.returnLatitude) : null,
+    returnLongitude: returnLocation ? returnLocation.longitude : returnText ? asCoordinate(defaults.returnLongitude) : null,
+    deliveryLatitude: asCoordinate(defaults.deliveryLatitude),
+    deliveryLongitude: asCoordinate(defaults.deliveryLongitude),
+  };
+}
+
 type OccurrenceOutcome = "created" | "skipped" | "failed";
 
 async function attemptOccurrence(
@@ -200,7 +277,7 @@ async function attemptOccurrence(
       companyOrderEmailsEnabled: template.company.orderEmailsEnabled,
       recurringOrderTemplateId: template.id,
       recurringOrderOccurrenceDate: occurrenceDate,
-      fields,
+      fields: { ...fields, ...(await resolveAddressFields(template.orderDefaults)) },
     });
 
     await prisma.recurringOrderOccurrence.update({

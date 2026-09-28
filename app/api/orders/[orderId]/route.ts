@@ -34,6 +34,8 @@ import { resolveOutdatedCapacityNotifications, resolveAllOrderNotifications } fr
 import type { AppPermission } from "@/lib/users/types";
 import { ORDER_SLOT_LIMIT, countOrdersInDeliverySlot, isDeliverySlotOverCapacity } from "@/lib/orders/capacity";
 import { getVisibleCustomPickupAddress } from "@/lib/pickupAddresses/visibility";
+import { isNoPickupAddress } from "@/lib/orders/noPickupAddress";
+import { findForbiddenAddressRemoval, isPickupLockedForCards } from "@/lib/orders/addressRemovalAccess";
 import {
   createCapacityAlert,
   createContactCustomerAlert,
@@ -61,6 +63,14 @@ type ProductChangeValue = {
   label: string;
   value: string;
 };
+
+// The value a text field will have after this PATCH: a field missing from the
+// request keeps its stored value, one submitted empty is cleared (matching what
+// the update writes). Used for the history snapshot, notification email and
+// capacity/GSM sync so a cleared field isn't reported as unchanged.
+function patchedString(raw: unknown, existing: string | null) {
+  return raw === undefined ? existing : optionalString(raw);
+}
 
 function formatList(values: string[]) {
   return values.length > 0 ? values.join(", ") : "-";
@@ -325,7 +335,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       extraPickupContacts: true,
       legacyWordpressRawMeta: true,
       deliveryAddress: true,
+      deliveryLatitude: true,
+      deliveryLongitude: true,
       returnAddress: true,
+      customReturnAddressId: true,
+      returnLatitude: true,
+      returnLongitude: true,
       drivingDistance: true,
       customerName: true,
       customerLabel: true,
@@ -423,6 +438,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       customTimeContactNote: order.customTimeContactNote ?? "",
       pickupAddress: order.pickupAddress ?? "",
       customPickupAddressId: order.customPickupAddressId ?? null,
+      // The editor sends these back on save — without them a save would
+      // overwrite the stored coordinates and saved return location with null.
+      pickupLatitude: order.pickupLatitude ?? null,
+      pickupLongitude: order.pickupLongitude ?? null,
       extraPickupAddress: fallbackExtraPickupAddresses,
       extraPickups: extraPickupContacts.map((pickup) => {
         const candidate =
@@ -451,7 +470,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
         };
       }),
       deliveryAddress: order.deliveryAddress ?? "",
+      deliveryLatitude: order.deliveryLatitude ?? null,
+      deliveryLongitude: order.deliveryLongitude ?? null,
       returnAddress: order.returnAddress ?? "",
+      customReturnAddressId: order.customReturnAddressId ?? null,
+      returnLatitude: order.returnLatitude ?? null,
+      returnLongitude: order.returnLongitude ?? null,
       drivingDistance: order.drivingDistance ?? "",
       legacyWordpressDrivingDistance: order.legacyWordpressOrderId
         ? (typeof wordpressRawMeta.total_km === "string" ? wordpressRawMeta.total_km : typeof wordpressRawMeta.driving_distance === "string" ? wordpressRawMeta.driving_distance : null)
@@ -705,6 +729,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const extraPickupContactsChanged = body.extraPickups !== undefined && JSON.stringify(extraPickups) !== JSON.stringify(existingExtraPickups);
   const isAdminOrOwner = membership.role === "OWNER" || membership.role === "ADMIN";
 
+  if (
+    findForbiddenAddressRemoval({
+      isAdmin: isAdminOrOwner,
+      pickupLocked: isPickupLockedForCards(productCards),
+      submitted: { pickupAddress: body.pickupAddress, deliveryAddress: body.deliveryAddress },
+      existing: { pickupAddress: existingOrder.pickupAddress, deliveryAddress: existingOrder.deliveryAddress },
+    })
+  ) {
+    return NextResponse.json({ ok: false, reason: "ADDRESS_REMOVAL_ADMIN_ONLY", message: "Only admins can remove the pickup or delivery address." }, { status: 403 });
+  }
+
   // Undefined means "don't touch this column" (Prisma skips undefined
   // fields in `update`) — only resolved to a real value (including an
   // explicit null, for switching back to a normal searched address) when
@@ -717,7 +752,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   let resolvedPickupLongitude: number | null | undefined;
 
   if (Object.prototype.hasOwnProperty.call(body, "customPickupAddressId")) {
-    const requestedCustomPickupAddressId = optionalString(body.customPickupAddressId);
+    // An order that needs no pickup (install/return only) must never carry a
+    // saved pickup location, even if the client still submits a stale id —
+    // otherwise the id would re-fill the address and GSM would dispatch the
+    // driver to that store.
+    const hasNoPickup = typeof body.pickupAddress === "string" && isNoPickupAddress(body.pickupAddress);
+    const requestedCustomPickupAddressId = hasNoPickup ? null : optionalString(body.customPickupAddressId);
 
     if (requestedCustomPickupAddressId) {
       const customPickupAddress = await getVisibleCustomPickupAddress(
@@ -746,8 +786,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       // Not a saved address — trust the client's own submitted coordinate
       // (from Mapbox, via our retrieve proxy) the same way its address text
       // already is, instead of discarding it.
-      resolvedPickupLatitude = optionalCoordinate(body.pickupLatitude, -90, 90);
-      resolvedPickupLongitude = optionalCoordinate(body.pickupLongitude, -180, 180);
+      resolvedPickupLatitude = hasNoPickup ? null : optionalCoordinate(body.pickupLatitude, -90, 90);
+      resolvedPickupLongitude = hasNoPickup ? null : optionalCoordinate(body.pickupLongitude, -180, 180);
     }
   }
 
@@ -759,7 +799,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   let resolvedReturnLongitude: number | null | undefined;
 
   if (Object.prototype.hasOwnProperty.call(body, "customReturnAddressId")) {
-    const requestedCustomReturnAddressId = optionalString(body.customReturnAddressId);
+    // A blank return address must never carry a saved return location — the
+    // id would otherwise re-fill it and GSM would create a return task.
+    const hasNoReturn = typeof body.returnAddress === "string" && !body.returnAddress.trim();
+    const requestedCustomReturnAddressId = hasNoReturn ? null : optionalString(body.customReturnAddressId);
 
     if (requestedCustomReturnAddressId) {
       const customReturnAddress = await getVisibleCustomPickupAddress(
@@ -787,10 +830,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       resolvedCustomReturnAddressPhone = null;
       // Same as pickup: trust the client's own submitted coordinate for a
       // manually-found return address instead of discarding it.
-      resolvedReturnLatitude = optionalCoordinate(body.returnLatitude, -90, 90);
-      resolvedReturnLongitude = optionalCoordinate(body.returnLongitude, -180, 180);
+      resolvedReturnLatitude = hasNoReturn ? null : optionalCoordinate(body.returnLatitude, -90, 90);
+      resolvedReturnLongitude = hasNoReturn ? null : optionalCoordinate(body.returnLongitude, -180, 180);
     }
   }
+
+  // A field that was submitted empty means "cleared" — only a field missing
+  // from the request keeps its stored value. Used for the history snapshot and
+  // notification email so a removed address shows up as a change.
+  const nextPickupAddress = resolvedPickupAddress ?? (body.pickupAddress === undefined ? existingOrder.pickupAddress : null);
+  const nextDeliveryAddress =
+    optionalString(body.deliveryAddress) ?? (body.deliveryAddress === undefined ? existingOrder.deliveryAddress : null);
+  const nextReturnAddress = resolvedReturnAddress ?? (body.returnAddress === undefined ? existingOrder.returnAddress : null);
 
   const catalog = await getBookingCatalog(existingOrder.priceListId ?? membership.membershipPriceLists[0]?.priceListId ?? null);
   const pricingSource = applyOrderPricingSnapshot({
@@ -812,7 +863,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const nextStatus = optionalString(body.status) ?? existingOrder.status;
   const normalizedNextStatus = normalizeOrderStatus(nextStatus);
   const normalizedExistingStatus = normalizeOrderStatus(existingOrder.status);
-  const nextStatusNotes = optionalString(body.statusNotes) ?? existingOrder.statusNotes;
+  const nextStatusNotes = patchedString(body.statusNotes, existingOrder.statusNotes);
 
   if (
     (normalizedNextStatus === "approved" || normalizedNextStatus === "rejected") &&
@@ -878,40 +929,40 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const previousSnapshot = buildOrderEventSnapshot(existingOrder);
   const nextSnapshot = buildOrderEventSnapshot({
     displayId: existingOrder.displayId,
-    orderNumber: optionalString(body.orderNumber) ?? existingOrder.orderNumber,
+    orderNumber: patchedString(body.orderNumber, existingOrder.orderNumber),
     status: nextStatus,
-    statusNotes: optionalString(body.statusNotes) ?? existingOrder.statusNotes,
+    statusNotes: patchedString(body.statusNotes, existingOrder.statusNotes),
     customerLabel: optionalString(body.customerLabel) ?? existingOrder.customerLabel,
-    customerName: optionalString(body.customerName) ?? existingOrder.customerName,
-    deliveryDate: optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
-    timeWindow: optionalString(body.timeWindow) ?? existingOrder.timeWindow,
+    customerName: patchedString(body.customerName, existingOrder.customerName),
+    deliveryDate: patchedString(body.deliveryDate, existingOrder.deliveryDate),
+    timeWindow: patchedString(body.timeWindow, existingOrder.timeWindow),
     expressDelivery: body.expressDelivery === undefined ? existingOrder.expressDelivery : optionalBoolean(body.expressDelivery),
     contactCustomerForCustomTimeWindow:
       body.contactCustomerForCustomTimeWindow === undefined
         ? existingOrder.contactCustomerForCustomTimeWindow
         : optionalBoolean(body.contactCustomerForCustomTimeWindow),
     customTimeContactNote: body.customTimeContactNote === undefined ? existingOrder.customTimeContactNote : optionalString(body.customTimeContactNote),
-    pickupAddress: resolvedPickupAddress ?? existingOrder.pickupAddress,
+    pickupAddress: nextPickupAddress,
     extraPickupAddress: body.extraPickups !== undefined ? extraPickups.map((pickup) => pickup.address) : existingOrder.extraPickupAddress,
-    deliveryAddress: optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
-    returnAddress: resolvedReturnAddress ?? existingOrder.returnAddress,
-    drivingDistance: optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
-    phone: phone ?? existingOrder.phone,
-    phoneTwo: phoneTwo ?? existingOrder.phoneTwo,
-    email: email ?? existingOrder.email,
-    customerComments: optionalString(body.customerComments) ?? existingOrder.customerComments,
-    description: optionalString(body.description) ?? existingOrder.description,
+    deliveryAddress: nextDeliveryAddress,
+    returnAddress: nextReturnAddress,
+    drivingDistance: patchedString(body.drivingDistance, existingOrder.drivingDistance),
+    phone: body.phone === undefined ? existingOrder.phone : phone,
+    phoneTwo: body.phoneTwo === undefined ? existingOrder.phoneTwo : phoneTwo,
+    email: body.email === undefined ? existingOrder.email : email,
+    customerComments: patchedString(body.customerComments, existingOrder.customerComments),
+    description: patchedString(body.description, existingOrder.description),
     productsSummary: summaries.productsSummary,
     deliveryTypeSummary: summaries.deliveryTypeSummary,
     servicesSummary: summaries.servicesSummary,
-    cashierName: optionalString(body.cashierName) ?? existingOrder.cashierName,
-    cashierPhone: cashierPhone ?? existingOrder.cashierPhone,
-    subcontractor: optionalString(body.subcontractor) ?? existingOrder.subcontractor,
-    driver: optionalString(body.driver) ?? existingOrder.driver,
-    secondDriver: optionalString(body.secondDriver) ?? existingOrder.secondDriver,
-    driverInfo: optionalString(body.driverInfo) ?? existingOrder.driverInfo,
-    licensePlate: optionalString(body.licensePlate) ?? existingOrder.licensePlate,
-    deviation: optionalString(body.deviation) ?? existingOrder.deviation,
+    cashierName: patchedString(body.cashierName, existingOrder.cashierName),
+    cashierPhone: body.cashierPhone === undefined ? existingOrder.cashierPhone : cashierPhone,
+    subcontractor: patchedString(body.subcontractor, existingOrder.subcontractor),
+    driver: patchedString(body.driver, existingOrder.driver),
+    secondDriver: patchedString(body.secondDriver, existingOrder.secondDriver),
+    driverInfo: patchedString(body.driverInfo, existingOrder.driverInfo),
+    licensePlate: patchedString(body.licensePlate, existingOrder.licensePlate),
+    deviation: patchedString(body.deviation, existingOrder.deviation),
     feeExtraWork: optionalBoolean(body.feeExtraWork),
     extraWorkMinutes: optionalBoolean(body.feeExtraWork) ? safeInteger(body.extraWorkMinutes) : 0,
     feeAddToOrder: optionalBoolean(body.feeAddToOrder),
@@ -1091,23 +1142,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       const notificationOrder = {
         id: orderId,
         displayId: existingOrder.displayId,
-        orderNumber: optionalString(body.orderNumber) || existingOrder.orderNumber,
+        orderNumber: patchedString(body.orderNumber, existingOrder.orderNumber),
         customerLabel: optionalString(body.customerLabel) || existingOrder.customerLabel,
-        deliveryDate: optionalString(body.deliveryDate) ?? existingOrder.deliveryDate,
-        pickupAddress: optionalString(body.pickupAddress) ?? existingOrder.pickupAddress,
+        deliveryDate: patchedString(body.deliveryDate, existingOrder.deliveryDate),
+        pickupAddress: nextPickupAddress,
         extraPickupAddress: extraPickups.map((pickup) => pickup.address),
-        deliveryAddress: optionalString(body.deliveryAddress) ?? existingOrder.deliveryAddress,
-        returnAddress: optionalString(body.returnAddress) ?? existingOrder.returnAddress,
-        drivingDistance: optionalString(body.drivingDistance) ?? existingOrder.drivingDistance,
-        timeWindow: optionalString(body.timeWindow) ?? existingOrder.timeWindow,
+        deliveryAddress: nextDeliveryAddress,
+        returnAddress: nextReturnAddress,
+        drivingDistance: patchedString(body.drivingDistance, existingOrder.drivingDistance),
+        timeWindow: patchedString(body.timeWindow, existingOrder.timeWindow),
         expressDelivery: body.expressDelivery === undefined ? existingOrder.expressDelivery : optionalBoolean(body.expressDelivery),
-        description: optionalString(body.description) ?? existingOrder.description,
-        customerName: optionalString(body.customerName) ?? existingOrder.customerName,
+        description: patchedString(body.description, existingOrder.description),
+        customerName: patchedString(body.customerName, existingOrder.customerName),
         email,
         phone,
         floorNo: optionalString(body.floorNo),
         lift: optionalString(body.lift),
-        cashierName: optionalString(body.cashierName) ?? existingOrder.cashierName,
+        cashierName: patchedString(body.cashierName, existingOrder.cashierName),
         cashierPhone,
         status: optionalString(body.status) ?? existingOrder.status,
         createdAt: existingOrder.createdAt,
@@ -1172,8 +1223,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     await createNoSubcontractorAlert(prisma, { orderId, companyId: existingOrder.companyId });
   }
 
-  const nextDeliveryDate = optionalString(body.deliveryDate) ?? existingOrder.deliveryDate;
-  const nextTimeWindow = optionalString(body.timeWindow) ?? existingOrder.timeWindow;
+  const nextDeliveryDate = patchedString(body.deliveryDate, existingOrder.deliveryDate);
+  const nextTimeWindow = patchedString(body.timeWindow, existingOrder.timeWindow);
   const nextContactCustomer =
     body.contactCustomerForCustomTimeWindow === undefined
       ? existingOrder.contactCustomerForCustomTimeWindow

@@ -675,6 +675,9 @@ export default function OrderFieldsForm({
           onMainAddressChange={setPickupAddress}
           customPickupAddressId={customPickupAddressId}
           onSelectCustomPickupAddress={onSelectCustomPickupAddress}
+          // allowIncompleteRequiredFields is the OWNER/ADMIN flag — only they
+          // may leave an order without a pickup address.
+          canClearMainAddress={allowIncompleteRequiredFields}
           pickups={extraPickups}
           onPickupsChange={setExtraPickups}
           locale={locale}
@@ -692,6 +695,8 @@ export default function OrderFieldsForm({
             inputId="order-delivery-address"
             value={deliveryAddress}
             onChange={setDeliveryAddress}
+            onClear={allowIncompleteRequiredFields ? () => setDeliveryAddress("", false) : undefined}
+            clearLabel="Remove delivery address"
             placeholder={t("Enter a location")}
             locale={locale}
             prioritizeAddresses
@@ -709,6 +714,8 @@ export default function OrderFieldsForm({
                 onChange={setReturnAddress}
                 customPickupAddressId={customReturnAddressId}
                 onSelectCustomPickupAddress={onSelectCustomReturnAddress}
+                onClear={allowIncompleteRequiredFields ? () => setReturnAddress("", false) : undefined}
+                clearLabel="Remove return address"
                 placeholder={t("Enter a return location")}
                 locale={locale}
               />

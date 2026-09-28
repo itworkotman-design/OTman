@@ -73,6 +73,8 @@ export default function PickupAddressModal({
   onClose,
   onSave,
   onUsersChanged,
+  onToggleActive,
+  togglingActive = false,
   editing,
   allUsers,
 }: {
@@ -80,6 +82,10 @@ export default function PickupAddressModal({
   onClose: () => void;
   onSave: (data: PickupAddressFormData) => Promise<string>;
   onUsersChanged?: () => void;
+  // Activate/deactivate lives here instead of as a row action on the settings
+  // page — omitted in create mode, where there's nothing yet to deactivate.
+  onToggleActive?: (address: PickupAddressDetail) => void;
+  togglingActive?: boolean;
   editing: PickupAddressDetail | null;
   allUsers: PickupAddressUser[];
 }) {
@@ -512,24 +518,41 @@ export default function PickupAddressModal({
           </div>
         ) : null}
 
-        <div className="mt-7 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="customButtonDefault">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={saving}
-            className="rounded-full bg-logoblue px-5.5 py-2.5 text-sm font-bold text-white shadow-[0_2px_8px_rgba(39,48,151,.25)] hover:opacity-90 disabled:opacity-50"
-          >
-            {saving
-              ? "Saving..."
-              : mainConflicts && mainConflicts.length > 0
-                ? "Confirm & continue"
-                : isCreateMode
-                  ? "Create"
-                  : "Save changes"}
-          </button>
+        <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
+          {!isCreateMode && editing && onToggleActive ? (
+            <button
+              type="button"
+              disabled={togglingActive || saving}
+              onClick={() => onToggleActive(editing)}
+              className={`customButtonDefault text-sm ${
+                editing.isActive ? "bg-red-600! text-white! hover:bg-red-700!" : ""
+              }`}
+            >
+              {togglingActive ? "..." : editing.isActive ? "Deactivate" : "Reactivate"}
+            </button>
+          ) : (
+            <span />
+          )}
+
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} className="customButtonDefault">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={saving}
+              className="rounded-full bg-logoblue px-5.5 py-2.5 text-sm font-bold text-white shadow-[0_2px_8px_rgba(39,48,151,.25)] hover:opacity-90 disabled:opacity-50"
+            >
+              {saving
+                ? "Saving..."
+                : mainConflicts && mainConflicts.length > 0
+                  ? "Confirm & continue"
+                  : isCreateMode
+                    ? "Create"
+                    : "Save changes"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

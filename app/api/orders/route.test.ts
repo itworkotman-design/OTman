@@ -1575,6 +1575,160 @@ describe("routes in /api/orders", () => {
     expect(mocks.orderCreateMock).not.toHaveBeenCalled();
   });
 
+  it("POST ignores a leftover custom pickup address id when the order has no pickup (install/return only)", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue({
+      id: "cpa-1",
+      name: "Power Storo",
+      address: "Storo Storsenter 1, 0587 Oslo",
+      latitude: 59.945,
+      longitude: 10.7669,
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1", deliveryType: "INSTALL_ONLY" }],
+          orderNumber: "PO-1",
+          customPickupAddressId: "cpa-1",
+          pickupAddress: "No shop pickup address",
+          pickupLatitude: 59.945,
+          pickupLongitude: 10.7669,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.getVisibleCustomPickupAddressMock).not.toHaveBeenCalled();
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          pickupAddress: "No shop pickup address",
+          customPickupAddressId: null,
+          customPickupAddressName: null,
+          pickupLatitude: null,
+          pickupLongitude: null,
+        }),
+      }),
+    );
+  });
+
+  it("POST rejects a blank pickup or delivery address from a non-admin", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    for (const body of [{ pickupAddress: "", deliveryAddress: "Delivery 1" }, { pickupAddress: "Pickup 1", deliveryAddress: "" }]) {
+      const res = await POST(
+        new Request("http://localhost/api/orders", {
+          method: "POST",
+          body: JSON.stringify({ productCards: [{ cardId: 1, productId: "product-1" }], orderNumber: "PO-1", ...body }),
+        }),
+      );
+
+      expect(res.status).toBe(403);
+      await expect(res.json()).resolves.toMatchObject({ ok: false, reason: "ADDRESS_REMOVAL_ADMIN_ONLY" });
+    }
+
+    expect(mocks.orderCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("POST allows an admin to create an order with no pickup or delivery address", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "admin", email: "admin@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          pickupAddress: "",
+          deliveryAddress: "",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+  });
+
+  it("POST ignores a leftover custom return address id when the return address is empty", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.getVisibleCustomPickupAddressMock.mockResolvedValue({
+      id: "cra-1",
+      name: "Power Retur",
+      address: "Retur Storo, 0587 Oslo",
+      latitude: 59.9,
+      longitude: 10.7,
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          customReturnAddressId: "cra-1",
+          returnAddress: "",
+          returnLatitude: 59.9,
+          returnLongitude: 10.7,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.getVisibleCustomPickupAddressMock).not.toHaveBeenCalled();
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          returnAddress: null,
+          customReturnAddressId: null,
+          customReturnAddressName: null,
+          returnLatitude: null,
+          returnLongitude: null,
+        }),
+      }),
+    );
+  });
+
   it("POST leaves the custom pickup address reference and snapshot fields empty for a normal searched address", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

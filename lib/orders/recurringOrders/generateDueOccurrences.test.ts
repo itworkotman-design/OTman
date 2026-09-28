@@ -7,11 +7,13 @@ const mocks = vi.hoisted(() => ({
   occurrenceCreateMock: vi.fn(),
   occurrenceUpdateMock: vi.fn(),
   createOrderMock: vi.fn(),
+  customAddressFindFirstMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     recurringOrderTemplate: { findMany: mocks.templateFindManyMock },
+    customPickupAddress: { findFirst: mocks.customAddressFindFirstMock },
     recurringOrderOccurrence: {
       findUnique: mocks.occurrenceFindUniqueMock,
       create: mocks.occurrenceCreateMock,
@@ -85,6 +87,126 @@ describe("generateDueOccurrences", () => {
     expect(mocks.occurrenceUpdateMock).toHaveBeenCalledWith({
       where: { templateId_occurrenceDate: { templateId: "template-1", occurrenceDate: "2026-07-06" } },
       data: expect.objectContaining({ status: "CREATED", orderId: "order-1" }),
+    });
+  });
+
+  describe("saved locations and coordinates from the template", () => {
+    function templateWithAddresses(extra: Record<string, unknown>) {
+      return baseTemplate({
+        orderDefaults: {
+          productCards: [{ cardId: 1 }],
+          customerMembershipId: "customer-membership-1",
+          customerLabel: "Customer",
+          ...extra,
+        },
+      });
+    }
+
+    async function generate(template: ReturnType<typeof baseTemplate>) {
+      mocks.templateFindManyMock.mockResolvedValue([template]);
+      mocks.occurrenceFindUniqueMock.mockResolvedValue(null);
+      mocks.occurrenceCreateMock.mockResolvedValue({});
+      await generateDueOccurrences();
+
+      return mocks.createOrderMock.mock.calls[0][0].fields;
+    }
+
+    it("keeps the coordinates of manually-found pickup, delivery and return addresses", async () => {
+      const fields = await generate(
+        templateWithAddresses({
+          pickupAddress: "Pickup 1",
+          pickupLatitude: 59.9,
+          pickupLongitude: 10.7,
+          deliveryAddress: "Delivery 1",
+          deliveryLatitude: 59.8,
+          deliveryLongitude: 10.6,
+          returnAddress: "Return 1",
+          returnLatitude: 59.7,
+          returnLongitude: 10.5,
+        }),
+      );
+
+      expect(fields).toMatchObject({
+        pickupLatitude: 59.9,
+        pickupLongitude: 10.7,
+        deliveryLatitude: 59.8,
+        deliveryLongitude: 10.6,
+        returnLatitude: 59.7,
+        returnLongitude: 10.5,
+      });
+      expect(mocks.customAddressFindFirstMock).not.toHaveBeenCalled();
+    });
+
+    it("re-resolves saved pickup and return locations from the current record", async () => {
+      mocks.customAddressFindFirstMock.mockImplementation(async ({ where }: { where: { id: string } }) =>
+        where.id === "cpa-1"
+          ? { id: "cpa-1", name: "Power Storo", address: "Storo 1, Oslo", phone: "99999999", latitude: 59.945, longitude: 10.767 }
+          : { id: "cra-1", name: "Power Retur", address: "Retur 2, Oslo", phone: null, latitude: 59.5, longitude: 10.4 },
+      );
+
+      const fields = await generate(
+        templateWithAddresses({
+          pickupAddress: "Stale text",
+          customPickupAddressId: "cpa-1",
+          returnAddress: "Stale return",
+          customReturnAddressId: "cra-1",
+        }),
+      );
+
+      expect(fields).toMatchObject({
+        pickupAddress: "Storo 1, Oslo",
+        customPickupAddressId: "cpa-1",
+        customPickupAddressName: "Power Storo",
+        customPickupAddressPhone: "99999999",
+        pickupLatitude: 59.945,
+        pickupLongitude: 10.767,
+        returnAddress: "Retur 2, Oslo",
+        customReturnAddressId: "cra-1",
+        customReturnAddressName: "Power Retur",
+        customReturnAddressPhone: null,
+        returnLatitude: 59.5,
+        returnLongitude: 10.4,
+      });
+    });
+
+    it("falls back to the stored text and coordinates when a saved location is no longer active", async () => {
+      mocks.customAddressFindFirstMock.mockResolvedValue(null);
+
+      const fields = await generate(
+        templateWithAddresses({
+          pickupAddress: "Storo 1, Oslo",
+          customPickupAddressId: "cpa-1",
+          pickupLatitude: 59.945,
+          pickupLongitude: 10.767,
+        }),
+      );
+
+      expect(fields).toMatchObject({
+        pickupAddress: "Storo 1, Oslo",
+        customPickupAddressId: null,
+        customPickupAddressName: null,
+        pickupLatitude: 59.945,
+        pickupLongitude: 10.767,
+      });
+    });
+
+    it("never attaches a saved location or coordinates to an order with no pickup", async () => {
+      const fields = await generate(
+        templateWithAddresses({
+          pickupAddress: "No shop pickup address",
+          customPickupAddressId: "cpa-1",
+          pickupLatitude: 59.945,
+          pickupLongitude: 10.767,
+        }),
+      );
+
+      expect(mocks.customAddressFindFirstMock).not.toHaveBeenCalled();
+      expect(fields).toMatchObject({
+        pickupAddress: "No shop pickup address",
+        customPickupAddressId: null,
+        pickupLatitude: null,
+        pickupLongitude: null,
+      });
     });
   });
 

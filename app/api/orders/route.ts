@@ -30,6 +30,8 @@ import {
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { createOrder } from "@/lib/orders/createOrder";
 import { getVisibleCustomPickupAddress } from "@/lib/pickupAddresses/visibility";
+import { isNoPickupAddress } from "@/lib/orders/noPickupAddress";
+import { findForbiddenAddressRemoval, isPickupLockedForCards } from "@/lib/orders/addressRemovalAccess";
 import {
   buildLegacyOrderSummaryGroups,
   buildOrderSummaryGroups,
@@ -646,6 +648,19 @@ export async function POST(req: Request) {
 
   const isAdminOrOwner =
     membership.role === "OWNER" || membership.role === "ADMIN";
+  if (
+    findForbiddenAddressRemoval({
+      isAdmin: isAdminOrOwner,
+      pickupLocked: isPickupLockedForCards(productCards),
+      submitted: { pickupAddress: body.pickupAddress, deliveryAddress: body.deliveryAddress },
+    })
+  ) {
+    return NextResponse.json(
+      { ok: false, reason: "ADDRESS_REMOVAL_ADMIN_ONLY", message: "Only admins can remove the pickup or delivery address." },
+      { status: 403 },
+    );
+  }
+
   const dnbDiscount = isAdminOrOwner && optionalBoolean(body.dnbDiscount);
 
   const customerMembershipId =
@@ -716,7 +731,12 @@ export async function POST(req: Request) {
 
   const orderEmailsEnabled = membership.company?.orderEmailsEnabled !== false;
 
-  const requestedCustomPickupAddressId = optionalString(body.customPickupAddressId);
+  // An order that needs no pickup (install/return only) must never carry a
+  // saved pickup location, even if the client still submits a stale id —
+  // otherwise the id below would re-fill the address and GSM would dispatch
+  // the driver to that store.
+  const hasNoPickup = typeof body.pickupAddress === "string" && isNoPickupAddress(body.pickupAddress);
+  const requestedCustomPickupAddressId = hasNoPickup ? null : optionalString(body.customPickupAddressId);
   let pickupAddress = optionalString(body.pickupAddress);
   let customPickupAddressId: string | null = null;
   let customPickupAddressName: string | null = null;
@@ -725,8 +745,8 @@ export async function POST(req: Request) {
   // retrieve proxy) for a manually-found address the same way its address
   // text already is — overridden below with the authoritative record when
   // this pickup is actually a saved custom address instead.
-  let pickupLatitude = optionalCoordinate(body.pickupLatitude, -90, 90);
-  let pickupLongitude = optionalCoordinate(body.pickupLongitude, -180, 180);
+  let pickupLatitude = hasNoPickup ? null : optionalCoordinate(body.pickupLatitude, -90, 90);
+  let pickupLongitude = hasNoPickup ? null : optionalCoordinate(body.pickupLongitude, -180, 180);
 
   if (requestedCustomPickupAddressId) {
     const customPickupAddress = await getVisibleCustomPickupAddress(
@@ -753,13 +773,16 @@ export async function POST(req: Request) {
     pickupLongitude = customPickupAddress.longitude;
   }
 
-  const requestedCustomReturnAddressId = optionalString(body.customReturnAddressId);
+  // A blank return address must never carry a saved return location — the id
+  // below would otherwise re-fill it and GSM would create a return task.
+  const hasNoReturn = typeof body.returnAddress === "string" && !body.returnAddress.trim();
+  const requestedCustomReturnAddressId = hasNoReturn ? null : optionalString(body.customReturnAddressId);
   let returnAddress = optionalString(body.returnAddress);
   let customReturnAddressId: string | null = null;
   let customReturnAddressName: string | null = null;
   let customReturnAddressPhone: string | null = null;
-  let returnLatitude = optionalCoordinate(body.returnLatitude, -90, 90);
-  let returnLongitude = optionalCoordinate(body.returnLongitude, -180, 180);
+  let returnLatitude = hasNoReturn ? null : optionalCoordinate(body.returnLatitude, -90, 90);
+  let returnLongitude = hasNoReturn ? null : optionalCoordinate(body.returnLongitude, -180, 180);
 
   if (requestedCustomReturnAddressId) {
     const customReturnAddress = await getVisibleCustomPickupAddress(

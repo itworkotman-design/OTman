@@ -138,9 +138,23 @@ function PickupAddressesSection() {
       }
 
       await loadPickupAddresses();
+      setOpen(false);
+      setEditing(null);
     } finally {
       setTogglingId(null);
     }
+  };
+
+  // Users who have this row as their main pickup or main return address —
+  // sourced from the same `users` list the modal uses for its "Main pickup/
+  // return address for these users" sections, so the two stay in sync.
+  const mainAddressLabel = (row: PickupAddressRow) => {
+    const entries = [
+      ...users.filter((u) => u.mainPickupAddress?.id === row.id).map((u) => `${userLabel(u)} (pickup)`),
+      ...users.filter((u) => u.mainReturnAddress?.id === row.id).map((u) => `${userLabel(u)} (return)`),
+    ];
+
+    return entries.length > 0 ? entries.join(", ") : "-";
   };
 
   return (
@@ -153,6 +167,8 @@ function PickupAddressesSection() {
         }}
         onSave={handleSave}
         onUsersChanged={loadUsers}
+        onToggleActive={handleToggleActive}
+        togglingActive={editing ? togglingId === editing.id : false}
         editing={editing}
         allUsers={users}
       />
@@ -179,17 +195,17 @@ function PickupAddressesSection() {
       ) : error ? (
         <div className="py-6 text-red-600">{error}</div>
       ) : (
-        <div className="mb-6 overflow-hidden rounded-[20px] border border-black/8">
+        <div className="mb-6 overflow-x-auto rounded-[20px] border border-black/8">
           <table className="w-full">
             <thead>
               <tr className="border-b border-black/8 bg-black/3 text-left text-textColorSecond">
                 <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Name</th>
                 <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Address</th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Latitude</th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Longitude</th>
+                <th className="hidden whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium lg:table-cell">Latitude</th>
+                <th className="hidden whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium lg:table-cell">Longitude</th>
                 <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Users</th>
-                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Status</th>
-                <th className="whitespace-nowrap px-4 py-3 font-medium" />
+                <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Main address</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -203,9 +219,21 @@ function PickupAddressesSection() {
                 rows.map((row) => {
                   const Icon = ADDRESS_ICON_COMPONENTS[row.icon] ?? ADDRESS_ICON_COMPONENTS[DEFAULT_ADDRESS_ICON];
                   const colorClasses = ADDRESS_COLOR_CLASSES[row.color] ?? ADDRESS_COLOR_CLASSES[DEFAULT_ADDRESS_COLOR];
+                  const mainAddress = mainAddressLabel(row);
 
                   return (
-                  <tr key={row.id} className="border-b border-black/10 hover:bg-black/3">
+                  <tr
+                    key={row.id}
+                    className={`border-b border-black/10 hover:bg-black/3 ${canManage ? "cursor-pointer" : ""}`}
+                    onClick={
+                      canManage
+                        ? () => {
+                            setEditing(row);
+                            setOpen(true);
+                          }
+                        : undefined
+                    }
+                  >
                     <td className="border-r border-black/3 px-4 py-2 font-semibold text-textColorThird">
                       <span className="flex items-center gap-2">
                         <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${colorClasses.bg} ${colorClasses.text}`}>
@@ -214,13 +242,18 @@ function PickupAddressesSection() {
                         {row.name}
                       </span>
                     </td>
-                    <td className="border-r border-black/3 px-4 py-2 text-textColorThird">{row.address}</td>
-                    <td className="border-r border-black/3 px-4 py-2 text-textColorThird">{row.latitude}</td>
-                    <td className="border-r border-black/3 px-4 py-2 text-textColorThird">{row.longitude}</td>
-                    <td className="border-r border-black/3 px-4 py-2 text-textColorThird">
-                      {row.users.length === 0 ? "-" : row.users.map(userLabel).join(", ")}
+                    <td className="max-w-60 truncate border-r border-black/3 px-4 py-2 text-textColorThird" title={row.address}>
+                      {row.address}
                     </td>
-                    <td className="border-r border-black/3 px-4 py-2">
+                    <td className="hidden border-r border-black/3 px-4 py-2 text-textColorThird lg:table-cell">{row.latitude}</td>
+                    <td className="hidden border-r border-black/3 px-4 py-2 text-textColorThird lg:table-cell">{row.longitude}</td>
+                    <td className="whitespace-nowrap border-r border-black/3 px-4 py-2 text-textColorThird">
+                      {row.users.length} user{row.users.length === 1 ? "" : "s"}
+                    </td>
+                    <td className="max-w-55 truncate border-r border-black/3 px-4 py-2 text-textColorThird" title={mainAddress}>
+                      {mainAddress}
+                    </td>
+                    <td className="px-4 py-2">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-bold ${
                           row.isActive ? "bg-emerald-100 text-emerald-800" : "bg-black/10 text-textColorThird"
@@ -228,32 +261,6 @@ function PickupAddressesSection() {
                       >
                         {row.isActive ? "Active" : "Inactive"}
                       </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      {canManage && (
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            className="customButtonDefault text-sm"
-                            onClick={() => {
-                              setEditing(row);
-                              setOpen(true);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            disabled={togglingId === row.id}
-                            className={`customButtonDefault text-sm ${
-                              row.isActive ? "bg-red-600! text-white! hover:bg-red-700!" : ""
-                            }`}
-                            onClick={() => handleToggleActive(row)}
-                          >
-                            {togglingId === row.id ? "..." : row.isActive ? "Deactivate" : "Reactivate"}
-                          </button>
-                        </div>
-                      )}
                     </td>
                   </tr>
                   );
