@@ -15,6 +15,18 @@ export function retractedRevealedCount(currentRevealedCount: number, fromIndex: 
   return Math.min(currentRevealedCount, fromIndex + 1);
 }
 
+// What the modal's content-height hold should do when the set of visible steps
+// changes. A retracted step is gone at once, so the hold ends right away — unless
+// a hold from an earlier reveal is still pending (a new step is still animating
+// open, and it can retract the steps after it the moment it mounts); ending that
+// hold early would shrink the content and clamp the scroll position upward.
+export type HeightHoldAction = "hold-then-release" | "release-now" | "keep-holding";
+
+export function heightHoldAction({ retracting, holdPending }: { retracting: boolean; holdPending: boolean }): HeightHoldAction {
+  if (!retracting) return "hold-then-release";
+  return holdPending ? "keep-holding" : "release-now";
+}
+
 // Percentage (0-100) the progress bar should fill for the given reveal
 // state. totalSections <= 0 is treated as "nothing to fill" rather than
 // dividing by zero.

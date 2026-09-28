@@ -400,22 +400,23 @@ export function WhiteGoodsProductCard({
   });
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-4">
-      <div className="flex items-start gap-3">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-logoblue/10">
+    <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
+      {/* Solid blue title band, so a stack of cards is easy to count. */}
+      <div className="flex items-center gap-3 bg-logoblue px-4 py-3">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15">
           <ProductIcon
             code={product.code}
             iconKey={product.iconKey}
-            className="h-6 w-6 text-logoblue"
+            className="h-6 w-6 text-white"
           />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-2 text-base font-semibold text-black/90">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-white">
             {productName}
             {/* Quantity is changed in "Choose products" only; shown here
                 read-only so the card still says how many it is for. */}
             {value.amount > 1 && (
-              <span className="rounded-full bg-logoblue/10 px-2 py-0.5 text-xs font-semibold text-logoblue">
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold text-white">
                 {value.amount}×
               </span>
             )}
@@ -427,7 +428,7 @@ export function WhiteGoodsProductCard({
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-label={open ? t("Collapse", "Skjul") : t("Expand", "Vis")}
-            className="grid h-8 w-8 place-items-center text-black/40 hover:text-black/70"
+            className="grid h-8 w-8 place-items-center text-white/70 hover:text-white"
           >
             <svg
               viewBox="0 0 24 24"
@@ -448,7 +449,8 @@ export function WhiteGoodsProductCard({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="p-4">
+      <div className="flex flex-wrap gap-1.5">
         {chips.map((chip) => (
           <span
             key={chip}
@@ -881,6 +883,7 @@ export function WhiteGoodsProductCard({
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
