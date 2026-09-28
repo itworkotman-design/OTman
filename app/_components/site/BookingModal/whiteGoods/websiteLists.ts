@@ -78,6 +78,38 @@ export function isOptionsStepReady({
   return ownCount > 0 ? configured : wasPopulated && orderCount > 0;
 }
 
+// Readiness of one list's "product options" step, judged on that list's own
+// cards only. Size-priced items on ANOTHER list (a freshly picked Other
+// furniture with no size/weight yet) must not count: this step's readiness
+// flipping false retracts every step after it, which would collapse the very
+// step the customer is filling in.
+//
+// isLast / hasRequiredDelivery: only the last list's step also demands that the
+// order as a whole has an item with delivery.
+export function isListOptionsStepReady({
+  cards,
+  listProducts,
+  wasPopulated,
+  isLast,
+  hasRequiredDelivery,
+}: {
+  cards: SavedProductCard[];
+  listProducts: CatalogProduct[];
+  wasPopulated: boolean;
+  isLast: boolean;
+  hasRequiredDelivery: boolean;
+}): boolean {
+  return (
+    isOptionsStepReady({
+      ownCount: cardsForList(cards, listProducts).length,
+      configured: isListConfigured(cards, listProducts),
+      orderCount: cards.length,
+      wasPopulated,
+    }) &&
+    (!isLast || hasRequiredDelivery)
+  );
+}
+
 // The list to show as "the one we started with" on the first step: the first
 // chosen list that still has products (so emptying white goods while furniture
 // remains makes furniture the start), else simply the first chosen list.

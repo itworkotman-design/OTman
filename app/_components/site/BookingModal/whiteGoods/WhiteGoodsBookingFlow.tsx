@@ -41,8 +41,7 @@ import {
   cardsForList,
   filterUnusedLists,
   highlightedStartList,
-  isListConfigured,
-  isOptionsStepReady,
+  isListOptionsStepReady,
   isProductsStepReady,
   removeListCards,
   type WebsiteListInfo,
@@ -529,16 +528,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
               </p>
             )}
             <AutoAdvance
-              ready={
-                isOptionsStepReady({
-                  ownCount: cardsForList(productCards, listProducts).length,
-                  configured: isListConfigured(productCards, listProducts),
-                  orderCount: productCards.length,
-                  wasPopulated: populatedListCodes.includes(code),
-                }) &&
-                (!isLast || hasRequiredDelivery) &&
-                sizeBracketsComplete
-              }
+              ready={isListOptionsStepReady({
+                cards: productCards,
+                listProducts,
+                wasPopulated: populatedListCodes.includes(code),
+                isLast,
+                hasRequiredDelivery,
+              })}
               onReady={onComplete}
               onRetract={onUncomplete}
             />

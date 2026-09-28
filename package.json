@@ -24,6 +24,7 @@
     "seed:furniture-catalog": "tsx scripts/seed-furniture-catalog.ts",
     "seed:moving-catalog": "tsx scripts/seed-moving-catalog.ts",
     "seed:parcel-pallet-catalog": "tsx scripts/seed-parcel-pallet-catalog.ts",
+    "seed:white-goods-catalog:prod": "tsx scripts/seed-white-goods-catalog.production.ts",
     "seed:furniture-catalog:prod": "tsx scripts/seed-furniture-catalog.production.ts",
     "seed:moving-catalog:prod": "tsx scripts/seed-moving-catalog.production.ts",
     "seed:parcel-pallet-catalog:prod": "tsx scripts/seed-parcel-pallet-catalog.production.ts"
