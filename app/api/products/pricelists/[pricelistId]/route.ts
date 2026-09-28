@@ -3,6 +3,7 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { requireFullAccessMembership } from "@/lib/products/pricelistAccess";
 import { getPriceListById } from "@/lib/products/priceLists";
 import { getProductConfigMap } from "@/lib/products/productConfig";
+import { getDeliveryOnlyProducts } from "@/lib/products/deliveryOnlyProducts";
 import { prisma } from "@/lib/db";
 import {
   getEffectivePrice,
@@ -110,6 +111,8 @@ export async function GET(
     priceList.items.map((item) => item.productOption.product.id),
   );
 
+  const deliveryOnlyProducts = await getDeliveryOnlyProducts(priceList.id);
+
   return NextResponse.json(
     {
       ok: true,
@@ -120,8 +123,9 @@ export async function GET(
         description: priceList.description,
         settings: parsePriceListSettings(priceList.description),
         isActive: priceList.isActive,
+        deliveryOnlyProducts,
 
-        items: priceList.items.map((item) => {
+        items:priceList.items.map((item) => {
           const product = item.productOption.product;
           const productConfig = productConfigMap.get(product.id);
           const effectiveCustomerPriceCents = getEffectivePrice({

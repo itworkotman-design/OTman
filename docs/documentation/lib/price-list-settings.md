@@ -13,7 +13,7 @@ Stores global price-list charges inside the `PriceList.description` settings blo
 | Function | Description |
 | --- | --- |
 | `createDefaultChargeSetting` | Creates a default global charge setting with code, description, customer price, and subcontractor price. |
-| `createDefaultPriceListSettings` | Builds default global price-list settings, including all deviation codes from the shared deviation-fee catalog. |
+| `createDefaultPriceListSettings` | Builds default global price-list settings, including all deviation codes from the shared deviation-fee catalog. `deliveryOnly` defaults to `false` (a delivery-only list's products are priced by delivery type only — see `lib/products/deliveryOnlyProducts.ts`). |
 | `toTextString` | Normalizes text fields with a fallback. |
 | `toPriceString` | Normalizes numeric price input into a non-negative string. |
 | `normalizeChargeSetting` | Normalizes one global charge setting against its defaults. |

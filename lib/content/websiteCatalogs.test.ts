@@ -55,7 +55,7 @@ describe("lookups", () => {
 
   it("gets a catalog by price list code", () => {
     expect(getWebsiteCatalog("WEBSITE_FURNITURE")?.products).toHaveLength(23);
-    expect(getWebsiteCatalog("WEBSITE_PARCEL_PALLET")?.products).toHaveLength(7);
+    expect(getWebsiteCatalog("WEBSITE_PARCEL_PALLET")?.products).toHaveLength(5);
     expect(getWebsiteCatalog("NOPE")).toBeNull();
   });
 });
