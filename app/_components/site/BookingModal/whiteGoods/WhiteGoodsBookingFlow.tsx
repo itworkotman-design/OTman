@@ -1,14 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SteppedModal, RevealSection, type FinalStep, type StepSection } from "../SteppedModal";
+import { SteppedModal, AnimatedStack, type FinalStep, type StepSection } from "../SteppedModal";
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { CustomerTypeStep } from "./CustomerTypeStep";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
 import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
 import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
-import { applyProductQuantity } from "./productQuantity";
+import {
+  addAnotherProductCard,
+  applyProductQuantity,
+  getProductQuantities,
+  nextCardId,
+  removeProductCard,
+} from "./productQuantity";
 import { getCalculatorProductName } from "./productDisplayName";
 import {
   applyItemName,
@@ -33,7 +39,6 @@ import { applyWhiteGoodsExtraUnitCharges } from "@/lib/booking/pricing/whiteGood
 import { applyWebsiteAssemblyExtras } from "@/lib/booking/pricing/websiteAssemblyExtras";
 import {
   cardsForList,
-  emptiedListCodes,
   filterUnusedLists,
   highlightedStartList,
   isListConfigured,
@@ -44,7 +49,11 @@ import {
 } from "./websiteLists";
 import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
-import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
+import {
+  findCardsWithSizeBracketProblems,
+  findSizePricedCardsMissingName,
+  isSizePricedProduct,
+} from "@/lib/booking/pricing/sizeBrackets";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import {
   createDefaultPriceListSettings,
@@ -61,10 +70,6 @@ type Props = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const toBookingLocale = (l: Locale): BookingUiLocale => (l === "no" ? "nb" : "en");
-
-function nextCardId(cards: SavedProductCard[]) {
-  return (cards.at(-1)?.cardId ?? -1) + 1;
-}
 
 // Renders nothing — just watches `ready` and advances the section the
 // moment it flips true, so no section needs its own bottom "Continue"
@@ -130,16 +135,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       return next.length === codes.length && next.every((code, i) => code === codes[i]) ? codes : next;
     });
   }, [productCards, chosenListCodes, loadedProducts]);
-
-  // A list whose products were all unticked, while another list still has
-  // products, drops off the order entirely — steps and calculator column
-  // included — so the order just continues as the remaining selection.
-  useEffect(() => {
-    const emptied = emptiedListCodes(chosenListCodes, populatedListCodes, productCards, loadedProducts);
-    if (emptied.length === 0) return;
-    setChosenListCodes((codes) => codes.filter((code) => !emptied.includes(code)));
-    setPopulatedListCodes((codes) => codes.filter((code) => !emptied.includes(code)));
-  }, [productCards, chosenListCodes, populatedListCodes, loadedProducts]);
 
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -270,13 +265,14 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     setProductCards((cards) => applySizeDimension(cards, product, axis, valueCm));
   }
 
-  const quantitiesByProductId = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const card of productCards) {
-      if (card.productId) map[card.productId] = card.amount;
-    }
-    return map;
-  }, [productCards]);
+  function addAnotherCard(productId: string) {
+    setProductCards((cards) => addAnotherProductCard(cards, productId, nextCardId(cards)));
+  }
+  function removeCard(cardId: number) {
+    setProductCards((cards) => removeProductCard(cards, cardId));
+  }
+
+  const quantitiesByProductId = useMemo(() => getProductQuantities(productCards), [productCards]);
 
   const normalizedSettings = useMemo(
     () => normalizePriceListSettings(priceListSettings),
@@ -338,10 +334,17 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             category: categorizeWhiteGoodsLineCode(line.code),
           })),
         );
+        const siblings = productCards.filter((c) => c.productId === card.productId);
+        const baseName = getCalculatorProductName({
+          product,
+          itemName: card.modelNumber,
+          label: productLabel(locale, product),
+        });
         return {
           cardId: card.cardId,
           // Other furniture is titled with the customer's own name ("A.M: Fish").
-          name: getCalculatorProductName({ product, itemName: card.modelNumber, label: productLabel(locale, product) }),
+          // A product split into several cards is numbered so they can be told apart.
+          name: siblings.length > 1 ? `${baseName} #${siblings.indexOf(card) + 1}` : baseName,
           code: product.code,
           iconKey: product.iconKey ?? null,
           qty: card.amount,
@@ -477,24 +480,46 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     const optionsStep: StepSection = {
       id: `product-options-${code}`,
       title: t("Product options", "Produktvalg") + suffix,
+      // Nothing to configure once every product of the list is unticked.
+      hidden: cardsForList(productCards, listProducts).length === 0,
       render: ({ onComplete, onUncomplete }) => (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
           <div className="flex flex-col gap-4">
-            {cardsForList(productCards, listProducts).map((card) => {
-              const product = listProducts.find((p) => p.id === card.productId);
-              if (!product) return null;
-              return (
-                <RevealSection key={card.cardId}>
-                  <WhiteGoodsProductCard
-                    locale={locale}
-                    product={product}
-                    value={card}
-                    deliveryPreview={previewCardDeliveryOptions(productCards, catalogProducts, card.cardId)}
-                    onChange={(next) => updateCard(card.cardId, next)}
-                  />
-                </RevealSection>
-              );
-            })}
+            <AnimatedStack
+              gap={16}
+              items={cardsForList(productCards, listProducts).flatMap((card) => {
+                const product = listProducts.find((p) => p.id === card.productId);
+                if (!product) return [];
+                // Cards of one product sit next to each other (see
+                // addAnotherProductCard). Size-priced products (Other furniture)
+                // are configured in their grid tile, one per product, so they
+                // can't be split.
+                const siblings = productCards.filter((c) => c.productId === card.productId);
+                const isSplit = siblings.length > 1;
+                const isLastOfProduct = siblings.at(-1)?.cardId === card.cardId;
+                return [
+                  {
+                    key: String(card.cardId),
+                    node: (
+                      <WhiteGoodsProductCard
+                        locale={locale}
+                        product={product}
+                        value={card}
+                        deliveryPreview={previewCardDeliveryOptions(productCards, catalogProducts, card.cardId)}
+                        onChange={(next) => updateCard(card.cardId, next)}
+                        variantNumber={isSplit ? siblings.indexOf(card) + 1 : undefined}
+                        onRemove={isSplit ? () => removeCard(card.cardId) : undefined}
+                        onAddAnother={
+                          isLastOfProduct && !isSizePricedProduct(product)
+                            ? () => addAnotherCard(product.id)
+                            : undefined
+                        }
+                      />
+                    ),
+                  },
+                ];
+              })}
+            />
             {isLast && productCards.length > 0 && hasConfiguredProduct && !hasRequiredDelivery && (
               <p className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
                 {t(

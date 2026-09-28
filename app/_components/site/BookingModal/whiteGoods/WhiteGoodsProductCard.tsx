@@ -40,6 +40,13 @@ type Props = {
     indoor: DeliveryOptionPreview;
   };
   onChange: (next: SavedProductCard) => void;
+  // The customer can split one product into several differently-configured
+  // cards. `variantNumber` (1-based) is set only while the product has more
+  // than one card; `onRemove` drops this one; `onAddAnother` is passed to the
+  // product's last card only, and renders the "add another" strip below it.
+  variantNumber?: number;
+  onRemove?: () => void;
+  onAddAnother?: () => void;
 };
 
 function seedLabel(locale: Locale, seed: { labelEn: string; labelNo: string }) {
@@ -175,6 +182,9 @@ export function WhiteGoodsProductCard({
   value,
   deliveryPreview,
   onChange,
+  variantNumber,
+  onRemove,
+  onAddAnother,
 }: Props) {
   const [open, setOpen] = useState(true);
   const t = (en: string, no: string) => (locale === "no" ? no : en);
@@ -413,6 +423,11 @@ export function WhiteGoodsProductCard({
         <div className="min-w-0 flex-1">
           <h3 className="flex items-center gap-2 text-base font-semibold text-white">
             {productName}
+            {variantNumber !== undefined && (
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold text-white">
+                #{variantNumber}
+              </span>
+            )}
             {/* Quantity is changed in "Choose products" only; shown here
                 read-only so the card still says how many it is for. */}
             {value.amount > 1 && (
@@ -423,6 +438,15 @@ export function WhiteGoodsProductCard({
           </h3>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="rounded-full px-2.5 py-1 text-xs font-semibold text-white/80 transition hover:bg-white/15 hover:text-white"
+            >
+              {t("Remove", "Fjern")}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
@@ -780,70 +804,92 @@ export function WhiteGoodsProductCard({
                     />
                   )}
                   {dismantlingGroups.length > 0 && furnitureAddonsVisible && (
-                    <div className="flex flex-col gap-2 rounded-xl border border-black/10 p-3">
-                      <div className="px-1">
+                    <div className="overflow-hidden rounded-xl border border-black/10">
+                      <div className="border-b border-black/10 bg-black/2 px-4 py-3">
                         <div className="text-sm font-semibold text-black/85">
                           {t(
                             "Dismantle old furniture",
                             "Demontering av gamle møbler",
                           )}
                         </div>
-                        <div className="text-xs text-black/50">
+                        <div className="mt-0.5 text-xs text-black/50">
                           {t(
-                            "Choose the type, and whether it is for disposal or careful for reuse.",
-                            "Velg type, og om den skal kastes eller demonteres forsiktig for gjenbruk.",
+                            "For disposal is quick removal. For reuse keeps the parts intact for reassembly.",
+                            "For avhending er rask fjerning. For gjenbruk tas delene vare på for montering.",
                           )}
                         </div>
                       </div>
-                      {dismantlingGroups.map((group) => (
-                        <div
-                          key={group.key}
-                          className="flex flex-wrap items-center justify-between gap-2 px-1"
-                        >
-                          <span className="text-sm text-black/75">
-                            {group.label}
-                          </span>
-                          <span className="flex flex-wrap gap-2">
-                            {[
-                              {
-                                option: group.disposal,
-                                label: t("For disposal", "For avhending"),
-                              },
-                              {
-                                option: group.careful,
-                                label: t(
-                                  "Careful, for reuse",
-                                  "Forsiktig, for gjenbruk",
-                                ),
-                              },
-                            ].map(({ option, label }) => {
-                              if (!option) return null;
-                              const isSelected =
-                                value.selectedExtraOptionIds.includes(
-                                  option.id,
-                                );
-                              return (
-                                <button
-                                  key={option.id}
-                                  type="button"
-                                  aria-pressed={isSelected}
-                                  onClick={() =>
-                                    selectDismantling(group, option)
-                                  }
-                                  className={[
-                                    "whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition",
-                                    isSelected
-                                      ? "border-logoblue bg-logoblue text-white"
-                                      : "border-black/15 text-black/70 hover:border-logoblue/50",
-                                  ].join(" ")}
-                                >
-                                  {label} · {money(option.customerPrice)}
-                                </button>
-                              );
-                            })}
-                          </span>
-                        </div>
-                      ))}
+                      <div className="flex flex-col divide-y divide-black/10">
+                        {dismantlingGroups.map((group) => {
+                          const groupSelected = [
+                            group.disposal,
+                            group.careful,
+                          ].some(
+                            (o) =>
+                              !!o &&
+                              value.selectedExtraOptionIds.includes(o.id),
+                          );
+                          return (
+                            <div
+                              key={group.key}
+                              className={[
+                                "flex flex-col gap-2 px-4 py-3 transition sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+                                groupSelected ? "bg-logoblue/5" : "",
+                              ].join(" ")}
+                            >
+                              <span className="text-sm font-semibold text-black/85">
+                                {group.label}
+                              </span>
+                              <span className="grid grid-cols-2 gap-2 sm:w-80 sm:shrink-0">
+                                {[
+                                  {
+                                    option: group.disposal,
+                                    label: t("For disposal", "For avhending"),
+                                  },
+                                  {
+                                    option: group.careful,
+                                    label: t("For reuse", "For gjenbruk"),
+                                  },
+                                ].map(({ option, label }) => {
+                                  if (!option) return null;
+                                  const isSelected =
+                                    value.selectedExtraOptionIds.includes(
+                                      option.id,
+                                    );
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      aria-pressed={isSelected}
+                                      onClick={() =>
+                                        selectDismantling(group, option)
+                                      }
+                                      className={[
+                                        "flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition",
+                                        isSelected
+                                          ? "border-logoblue bg-logoblue text-white"
+                                          : "border-black/15 bg-white text-black/80 hover:border-logoblue/50",
+                                      ].join(" ")}
+                                    >
+                                      <span className="flex items-center justify-between gap-2 text-xs font-semibold">
+                                        <span>{label}</span>
+                                        {isSelected && (
+                                          <span className="text-[11px] leading-none">
+                                            ✓
+                                          </span>
+                                        )}
+                                      </span>
+                                      <span className="whitespace-nowrap text-sm font-semibold">
+                                        {money(option.customerPrice)}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                   {anchoringOption && furnitureAddonsVisible && (
@@ -885,6 +931,21 @@ export function WhiteGoodsProductCard({
         </div>
       </div>
       </div>
+      {onAddAnother && (
+        <button
+          type="button"
+          onClick={onAddAnother}
+          className="flex w-full items-center justify-center gap-2 border-t border-dashed border-logoblue/30 bg-logoblue/5 px-4 py-3 text-sm font-semibold text-logoblue transition hover:bg-logoblue/10"
+        >
+          <span aria-hidden="true" className="text-base leading-none">
+            +
+          </span>
+          {t(
+            `Add another ${productName} with different options`,
+            `Legg til en ny ${productName} med andre valg`,
+          )}
+        </button>
+      )}
     </div>
   );
 }

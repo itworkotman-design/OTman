@@ -89,21 +89,3 @@ export function highlightedStartList(
   const withProducts = chosenCodes.find((code) => cardsForList(cards, productsByList[code] ?? []).length > 0);
   return withProducts ?? chosenCodes[0] ?? null;
 }
-
-// Chosen lists that had products but have none left while the order still has
-// products from another list. Those lists drop off the order entirely (their
-// steps and calculator column go with them), so unticking the last white good
-// leaves an order that is simply the furniture selection. An empty order has
-// nothing to fall back to, so nothing is removed then, and a list that never
-// had products (just added) is left waiting for its first.
-export function emptiedListCodes(
-  chosenCodes: string[],
-  populatedCodes: string[],
-  cards: SavedProductCard[],
-  productsByList: Record<string, CatalogProduct[]>,
-): string[] {
-  if (cards.length === 0) return [];
-  return chosenCodes.filter(
-    (code) => populatedCodes.includes(code) && cardsForList(cards, productsByList[code] ?? []).length === 0,
-  );
-}
