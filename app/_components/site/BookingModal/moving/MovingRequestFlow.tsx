@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SteppedModal, type FinalStep, type StepSection } from "../SteppedModal";
-import { CustomerTypeToggle } from "../whiteGoods/CustomerTypeToggle";
+import { CustomerTypeStep } from "../whiteGoods/CustomerTypeStep";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import { transportTimeWindows } from "@/lib/content/TransportRequestConfig";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
@@ -63,16 +63,24 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [customerType, setCustomerType] = useState<CustomerType>("private");
+  // Set once by the very first step ("customer-type", below) so the
+  // size-tile prices shown on the very next step are already in the right
+  // VAT mode — no toggle to change it again later, since asking twice
+  // would be redundant. Still display-only (never affects actual pricing).
+  // Starts `null` (unanswered) rather than defaulting to "private" so the
+  // first step's tiles open with neither one highlighted —
+  // getVatDisplayTotal already treats "private" as its own default
+  // whenever this is null.
+  const [customerType, setCustomerType] = useState<CustomerType | null>(null);
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitResult, setSubmitResult] = useState<{ displayId: number } | null>(null);
+  const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
   const selectedOption = catalogOptions.find((o) => o.code === sizeOptionCode) ?? null;
   const totalExVat = selectedOption ? selectedOption.customerPriceCents / 100 : 0;
   const totalIncVat = totalExVat * 1.25;
-  const vatDisplay = getVatDisplayTotal({ totalExVat, totalIncVat, customerType });
+  const vatDisplay = getVatDisplayTotal({ totalExVat, totalIncVat, customerType: customerType ?? undefined });
 
   const canContinueDetails = !!pickupAddress.trim() && !!deliveryAddress.trim() && !!sizeOptionCode;
   const canContinueTiming = !!preferredDate && !!timeWindow;
@@ -109,7 +117,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
         );
         return;
       }
-      setSubmitResult({ displayId: data.displayId });
+      setSubmitResult({ orderNumber: data.orderNumber ?? String(data.displayId) });
     } catch {
       setSubmitError(t("Something went wrong. Please try again.", "Noe gikk galt. Prøv igjen."));
     } finally {
@@ -118,6 +126,20 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   }
 
   const sections: StepSection[] = [
+    {
+      id: "customer-type",
+      title: t("Are you ordering as a private person or a business?", "Bestiller du som privatperson eller bedrift?"),
+      render: ({ onComplete }) => (
+        <CustomerTypeStep
+          locale={locale}
+          value={customerType}
+          onPick={(next) => {
+            setCustomerType(next);
+            onComplete();
+          }}
+        />
+      ),
+    },
     {
       id: "move-details",
       title: t("Where are you moving?", "Hvor skal du flytte?"),
@@ -138,12 +160,9 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             placeholder={t("Moving to (address)", "Flytter til (adresse)")}
           />
 
-          <div className="flex items-center justify-between gap-3 pt-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-black/40">
-              {t("Approximate size", "Omtrentlig størrelse")}
-            </p>
-            <CustomerTypeToggle locale={locale} value={customerType} onChange={setCustomerType} />
-          </div>
+          <p className="pt-1 text-xs font-semibold uppercase tracking-[0.18em] text-black/40">
+            {t("Approximate size", "Omtrentlig størrelse")}
+          </p>
 
           {catalogLoading && <p className="text-sm text-black/50">{t("Loading pricing…", "Laster priser…")}</p>}
           {catalogError && <p className="text-sm text-red-600">{catalogError}</p>}
@@ -154,7 +173,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
               const optionVat = getVatDisplayTotal({
                 totalExVat: option.customerPriceCents / 100,
                 totalIncVat: (option.customerPriceCents / 100) * 1.25,
-                customerType,
+                customerType: customerType ?? undefined,
               });
               return (
                 <button
@@ -283,8 +302,8 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           <h4 className="text-lg font-semibold text-logoblue">{t("Request received!", "Forespørsel mottatt!")}</h4>
           <p className="text-sm text-black/60">
             {t(
-              `Request #${submitResult.displayId} is with us — once it's approved we'll email you a link to pay and confirm.`,
-              `Forespørsel #${submitResult.displayId} er mottatt — når den er godkjent sender vi deg en lenke for betaling og bekreftelse på e-post.`,
+              `Request #${submitResult.orderNumber} is with us — once it's approved we'll email you a link to pay and confirm.`,
+              `Forespørsel #${submitResult.orderNumber} er mottatt — når den er godkjent sender vi deg en lenke for betaling og bekreftelse på e-post.`,
             )}
           </p>
         </div>
@@ -300,12 +319,9 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           </button>
 
           <div>
-            <div className="flex items-center justify-between gap-3">
-              <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
-                {t("Summary", "Oppsummering")}
-              </h4>
-              <CustomerTypeToggle locale={locale} value={customerType} onChange={setCustomerType} />
-            </div>
+            <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
+              {t("Summary", "Oppsummering")}
+            </h4>
             <div className="mt-3 flex flex-col gap-1 text-sm text-black/70">
               <div className="flex justify-between gap-4">
                 <span>{t("From", "Fra")}</span>

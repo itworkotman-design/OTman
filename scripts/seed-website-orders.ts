@@ -1,4 +1,4 @@
-import "./_loadDevEnv";
+import "./_loadLocalSeedEnv";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/db";
 import { reserveNextManualOrderNumber } from "../lib/orders/orderNumber";

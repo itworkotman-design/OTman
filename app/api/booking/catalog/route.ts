@@ -183,6 +183,11 @@ export async function GET(req: Request) {
         subcontractorPrice: string;
         effectiveCustomerPrice: string;
         active: boolean;
+        pricingMode: "FIXED" | "REQUEST" | "PER_KG" | "PER_M3";
+        customerRatePerUnitCents: number | null;
+        subcontractorRatePerUnitCents: number | null;
+        customerMaxChargeCents: number | null;
+        subcontractorMaxChargeCents: number | null;
       }>;
     }
   >();
@@ -245,6 +250,11 @@ export async function GET(req: Request) {
         subcontractorPrice: centsToNokString(subcontractorPriceCents),
         effectiveCustomerPrice: centsToNokString(effectiveCustomerPriceCents),
         active: option.isActive,
+        pricingMode: option.pricingMode,
+        customerRatePerUnitCents: priceItem?.customerRatePerUnitCents ?? null,
+        subcontractorRatePerUnitCents: priceItem?.subcontractorRatePerUnitCents ?? null,
+        customerMaxChargeCents: priceItem?.customerMaxChargeCents ?? null,
+        subcontractorMaxChargeCents: priceItem?.subcontractorMaxChargeCents ?? null,
       });
     }
   }

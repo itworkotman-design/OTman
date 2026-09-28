@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { unlink } from "fs/promises";
 import path from "path";
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 type S3Config = {
@@ -28,6 +28,7 @@ type AttachmentAccessUrls = {
 };
 
 const S3_STORAGE_PREFIX = "s3://";
+const TEMP_KEY_PREFIX = "tmp";
 const DEFAULT_SIGNED_URL_TTL_SECONDS = 60 * 5;
 
 let cachedS3Client: S3Client | null = null;
@@ -166,9 +167,32 @@ export async function uploadAttachmentBufferToS3(params: {
   filename: string;
   contentType?: string | null;
 }): Promise<StoredAttachment> {
+  return putAttachmentBuffer({ ...params, keyPrefix: "orders" });
+}
+
+// Staging area for public, unauthenticated uploads that aren't attached to an
+// order yet (special-goods quote photos). Lives under tmp/ in the SAME bucket
+// so one S3 lifecycle rule ("expire objects with prefix tmp/ after 1 day")
+// mops up anything never promoted — see promoteTempAttachmentToOrders.
+export async function uploadTempAttachmentBufferToS3(params: {
+  bytes: Buffer;
+  scope: string;
+  filename: string;
+  contentType?: string | null;
+}): Promise<StoredAttachment> {
+  return putAttachmentBuffer({ ...params, keyPrefix: TEMP_KEY_PREFIX });
+}
+
+async function putAttachmentBuffer(params: {
+  bytes: Buffer;
+  scope: string;
+  filename: string;
+  contentType?: string | null;
+  keyPrefix: string;
+}): Promise<StoredAttachment> {
   const config = getRequiredS3Config();
   const client = getS3Client(config);
-  const key = `orders/${params.scope}/${Date.now()}-${randomUUID()}-${sanitizeFilename(
+  const key = `${params.keyPrefix}/${params.scope}/${Date.now()}-${randomUUID()}-${sanitizeFilename(
     params.filename,
   )}`;
 
@@ -185,6 +209,46 @@ export async function uploadAttachmentBufferToS3(params: {
     key,
     storagePath: toS3StoragePath(key),
   };
+}
+
+// tmp/<rest> -> orders/<rest>; null for any key that isn't a real tmp/ object.
+export function tempKeyToOrderKey(key: string): string | null {
+  if (!key.startsWith(`${TEMP_KEY_PREFIX}/`)) return null;
+
+  const rest = key.slice(TEMP_KEY_PREFIX.length + 1);
+  return rest.length > 0 ? `orders/${rest}` : null;
+}
+
+// Moves a staged tmp/ object to its permanent orders/ key (copy, then delete)
+// and returns the new storage path. A failed copy throws and leaves the tmp
+// object untouched. A failed delete after a good copy is swallowed: the file
+// is safely at its final key and the tmp/ lifecycle rule removes the leftover.
+export async function promoteTempAttachmentToOrders(storagePath: string): Promise<string> {
+  const tempKey = parseS3StoragePath(storagePath);
+  const orderKey = tempKey ? tempKeyToOrderKey(tempKey) : null;
+
+  if (!tempKey || !orderKey) {
+    throw new Error(`Not a temp S3 attachment path: ${storagePath}`);
+  }
+
+  const config = getRequiredS3Config();
+  const client = getS3Client(config);
+
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: config.bucket,
+      Key: orderKey,
+      CopySource: `${config.bucket}/${encodeURIComponent(tempKey).replace(/%2F/g, "/")}`,
+    }),
+  );
+
+  try {
+    await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: tempKey }));
+  } catch {
+    // leftover tmp/ object; the lifecycle rule expires it
+  }
+
+  return toS3StoragePath(orderKey);
 }
 
 export async function downloadAttachmentFromS3(

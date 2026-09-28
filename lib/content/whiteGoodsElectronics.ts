@@ -37,7 +37,9 @@ export type WhiteGoodsDeliveryTypes = {
   installOnlyEnabled: boolean;
 };
 
-export type WhiteGoodsOptionCategory = "install" | "extra" | "return";
+// size_volume / size_weight: volume (m³) and weight (kg) brackets for products
+// priced by size — see lib/booking/pricing/sizeBrackets.ts.
+export type WhiteGoodsOptionCategory = "install" | "extra" | "return" | "size_volume" | "size_weight";
 
 export type WhiteGoodsOptionSeed = Money & {
   code: string;
@@ -56,6 +58,12 @@ export type WhiteGoodsOptionSeed = Money & {
    * a plug), so choosing it must not switch delivery to carry-in.
    */
   standaloneInstall?: boolean;
+  /**
+   * Price is entered by staff in /dashboard/booking/editPrices, not sourced from
+   * a spreadsheet: a reseed creates the option with this (placeholder) price but
+   * never overwrites a price that already exists.
+   */
+  staffPriced?: boolean;
 };
 
 /**

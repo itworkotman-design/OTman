@@ -1,4 +1,5 @@
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
 
 // A website price list the order flow can offer, as returned by the catalog
 // API's availableLists.
@@ -25,7 +26,14 @@ export function removeListCards(cards: SavedProductCard[], listProducts: Catalog
 // products has a delivery type (each is given one the moment it's added).
 export function isListConfigured(cards: SavedProductCard[], listProducts: CatalogProduct[]): boolean {
   const own = cardsForList(cards, listProducts);
-  return own.length > 0 && own.every((card) => !!card.productId && !!card.deliveryType);
+  // Size-priced products (Other furniture) also need their size and weight
+  // chosen, and a name saying what the item is, before the step counts as done.
+  return (
+    own.length > 0 &&
+    own.every((card) => !!card.productId && !!card.deliveryType) &&
+    findCardsWithSizeBracketProblems(own, listProducts).length === 0 &&
+    findSizePricedCardsMissingName(own, listProducts).length === 0
+  );
 }
 
 // Step readiness for a list's "choose products" and "product options" steps.
@@ -36,16 +44,24 @@ export function isListConfigured(cards: SavedProductCard[], listProducts: Catalo
 // counting as done and every step after them collapses, taking the other
 // list's selection with them. A list that never had products (just added) still
 // waits for its first one, and an order with nothing in it waits everywhere.
+//
+// sizeBracketsComplete: false while a size-priced product on this list (Other
+// furniture) still has no volume/weight chosen — its tile asks for them, and
+// the step only finishes (moving on to the options) once they are. Omitted for
+// lists that have nothing to choose.
 export function isProductsStepReady({
   ownCount,
   orderCount,
   wasPopulated,
+  sizeBracketsComplete = true,
 }: {
   ownCount: number;
   orderCount: number;
   wasPopulated: boolean;
+  sizeBracketsComplete?: boolean;
 }): boolean {
-  return ownCount > 0 || (wasPopulated && orderCount > 0);
+  if (ownCount > 0) return sizeBracketsComplete;
+  return wasPopulated && orderCount > 0;
 }
 
 export function isOptionsStepReady({

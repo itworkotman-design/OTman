@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
-import { sendEmail } from "@/lib/email/sendEmail";
-import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
+import { sendGmailEmail } from "@/lib/email/sendGmailEmail";
+import { formatGmailSenderName, getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
+import { htmlToText } from "@/lib/email/htmlToText";
 import { createOrderActionEvent, type OrderEventActor } from "@/lib/orders/orderEvents";
 import { buildReplyToAddress, createOrderEmailThreadToken } from "@/lib/orders/orderEmail";
 import {
@@ -9,6 +10,7 @@ import {
   buildPaymentTimeoutEmail,
   buildBalanceDueEmail,
   buildOrderConfirmedEmail,
+  buildOrderReceivedEmail,
   type LifecycleEmailOrder,
 } from "@/lib/orders/customerLifecycleEmails";
 
@@ -18,8 +20,16 @@ export const LIFECYCLE_EMAIL_KINDS = [
   "payment_timeout",
   "balance_due",
   "order_confirmed",
+  "order_received",
 ] as const;
 export type LifecycleEmailKind = (typeof LIFECYCLE_EMAIL_KINDS)[number];
+
+// order_received goes out at submission, before staff approve/reject mint an
+// actionToken, and contains no action links — every other kind builds links
+// from the token and must not send without one.
+export function lifecycleKindRequiresActionToken(kind: LifecycleEmailKind): boolean {
+  return kind !== "order_received";
+}
 
 export type LifecycleEmailOrderInput = LifecycleEmailOrder & {
   companyId: string;
@@ -44,14 +54,19 @@ function buildEmailForKind(kind: LifecycleEmailKind, order: LifecycleEmailOrder)
   if (kind === "rejected") return buildRejectedEmail(order);
   if (kind === "balance_due") return buildBalanceDueEmail(order);
   if (kind === "order_confirmed") return buildOrderConfirmedEmail(order);
+  if (kind === "order_received") return buildOrderReceivedEmail(order);
   return buildPaymentTimeoutEmail(order);
 }
 
-// Shared by the manual "send lifecycle email" API route and the automatic
-// payment-timeout sweep, so both paths log the same OrderEvent / OrderEmailMessage
-// trail regardless of who (or what) triggered the send. Also threads every
-// lifecycle email into the order's Email Center conversation (same Reply-To
-// scheme as admin-composed emails) so a customer reply lands back in the app.
+// Shared by the manual "send lifecycle email" API route, the automatic
+// payment-timeout sweep, the Stripe webhook and the order-received email, so
+// every path logs the same OrderEvent / OrderEmailMessage trail. Sends through
+// the company Gmail account (Gmail API, "send as" the company address) — the
+// same transport and Reply-To thread scheme as admin-composed Email Center
+// messages — so a customer reply lands back on the order and Gmail sync
+// recognises the message (source GMAIL + Gmail ids) instead of duplicating it.
+// Orders are sent one after another: each send does its own Gmail profile /
+// send-as lookups, and a bulk approve should not fire N of them at once.
 export async function sendLifecycleEmailsForOrders(params: {
   orders: LifecycleEmailOrderInput[];
   kind: LifecycleEmailKind;
@@ -59,69 +74,85 @@ export async function sendLifecycleEmailsForOrders(params: {
 }): Promise<SendLifecycleEmailsSummary> {
   const { orders, kind, actor } = params;
   const sentAt = new Date();
-  const fromEmail = process.env.BREVO_SENDER_EMAIL || getGmailSendAsEmail();
-  const fromName = process.env.BREVO_SENDER_NAME || "Otman";
+  const fromEmail = getGmailSendAsEmail();
+  const fromName = formatGmailSenderName();
 
-  const results = await Promise.allSettled(
-    orders.map(async (order) => {
-      if (!order.actionToken) {
-        throw new Error(`Order ${order.id} has no actionToken`);
-      }
+  const results: PromiseSettledResult<void>[] = [];
+  for (const order of orders) {
+    try {
+      await sendOne(order);
+      results.push({ status: "fulfilled", value: undefined });
+    } catch (reason) {
+      results.push({ status: "rejected", reason });
+    }
+  }
 
-      if (!order.email) {
-        throw new Error(`Order ${order.id} has no customer email`);
-      }
+  async function sendOne(order: LifecycleEmailOrderInput) {
+    if (lifecycleKindRequiresActionToken(kind) && !order.actionToken) {
+      throw new Error(`Order ${order.id} has no actionToken`);
+    }
 
-      const { subject, html } = buildEmailForKind(kind, order);
-      const threadToken = order.emailThreadToken || createOrderEmailThreadToken();
-      const recipientName = order.customerName ?? order.customerLabel ?? undefined;
+    if (!order.email) {
+      throw new Error(`Order ${order.id} has no customer email`);
+    }
 
-      await sendEmail({
-        to: { email: order.email, name: recipientName },
-        subject,
-        html,
-        replyTo: { email: buildReplyToAddress(threadToken) },
-      });
+    const { subject, html } = buildEmailForKind(kind, order);
+    const threadToken = order.emailThreadToken || createOrderEmailThreadToken();
+    const recipientName = order.customerName ?? order.customerLabel ?? undefined;
 
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          lastEditedByMembershipId: actor.membershipId ?? null,
-          lastOutboundEmailAt: sentAt,
-          ...(order.emailThreadToken ? {} : { emailThreadToken: threadToken }),
-          ...(kind === "payment_request" && !order.paymentRequestSentAt ? { paymentRequestSentAt: sentAt } : {}),
-          ...(kind === "payment_timeout" ? { paymentReminderSentAt: sentAt } : {}),
-        },
-      });
+    const sendResult = await sendGmailEmail({
+      to: { email: order.email, name: recipientName },
+      threadToken,
+      subject,
+      html,
+      text: htmlToText(html),
+      replyTo: buildReplyToAddress(threadToken),
+      orderId: order.id,
+      orderNumber: order.orderNumber ?? null,
+      direction: "outbound",
+    });
 
-      await prisma.orderEmailMessage.create({
-        data: {
-          orderId: order.id,
-          companyId: order.companyId,
-          direction: "OUTBOUND",
-          status: "SENT",
-          source: "APP",
-          sentByMembershipId: actor.membershipId ?? null,
-          subject,
-          bodyHtml: html,
-          fromEmail,
-          fromName,
-          toEmail: order.email,
-          toName: recipientName ?? null,
-          sentAt,
-        },
-      });
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        lastEditedByMembershipId: actor.membershipId ?? null,
+        lastOutboundEmailAt: sentAt,
+        ...(order.emailThreadToken ? {} : { emailThreadToken: threadToken }),
+        ...(kind === "payment_request" && !order.paymentRequestSentAt ? { paymentRequestSentAt: sentAt } : {}),
+        ...(kind === "payment_timeout" ? { paymentReminderSentAt: sentAt } : {}),
+      },
+    });
 
-      await createOrderActionEvent(prisma, {
+    await prisma.orderEmailMessage.create({
+      data: {
         orderId: order.id,
         companyId: order.companyId,
-        actor,
-        title: `Sent ${kind} email`,
-        details: [`Recipient: ${order.email}`],
-        createdAt: sentAt,
-      });
-    }),
-  );
+        direction: "OUTBOUND",
+        status: sendResult.syncWarning ? "SENT_WITH_SYNC_WARNING" : "SENT",
+        source: "GMAIL",
+        sentByMembershipId: actor.membershipId ?? null,
+        externalMessageId: sendResult.messageId,
+        gmailMessageId: sendResult.gmailMessageId,
+        gmailThreadId: sendResult.gmailThreadId,
+        subject,
+        bodyHtml: html,
+        fromEmail,
+        fromName,
+        toEmail: order.email,
+        toName: recipientName ?? null,
+        sentAt,
+      },
+    });
+
+    await createOrderActionEvent(prisma, {
+      orderId: order.id,
+      companyId: order.companyId,
+      actor,
+      title: `Sent ${kind} email`,
+      details: [`Recipient: ${order.email}`],
+      createdAt: sentAt,
+    });
+  }
 
   const failedEntries = orders
     .map((order, index) => ({ order, result: results[index] }))

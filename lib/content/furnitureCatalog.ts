@@ -3,6 +3,7 @@ import type {
   WhiteGoodsProductSeed,
 } from "@/lib/content/whiteGoodsElectronics";
 import { FURNITURE_PRODUCTS_DATA } from "@/lib/content/furnitureCatalogData";
+import { OTHER_FURNITURE_PRODUCT_CODE, OTHER_FURNITURE_SIZE_OPTIONS } from "@/lib/content/otherFurnitureSizeOptions";
 
 // Website furniture catalog ("WEBSITE_FURNITURE" price list). Source:
 // "Otman_furniture_product_options_2026_FINAL(2).xlsx". The product/option data
@@ -46,4 +47,10 @@ export type FurnitureProductSeed = Omit<WhiteGoodsProductSeed, "options"> & {
   needsImplementation?: { labelEn: string; labelNo: string };
 };
 
-export const FURNITURE_PRODUCTS: FurnitureProductSeed[] = FURNITURE_PRODUCTS_DATA;
+// "Other furniture" additionally gets its volume/weight size brackets (kept out
+// of the generated data file — see otherFurnitureSizeOptions.ts).
+export const FURNITURE_PRODUCTS: FurnitureProductSeed[] = FURNITURE_PRODUCTS_DATA.map((product) =>
+  product.code === OTHER_FURNITURE_PRODUCT_CODE
+    ? { ...product, options: [...product.options, ...OTHER_FURNITURE_SIZE_OPTIONS] }
+    : product,
+);

@@ -3,7 +3,14 @@ import { prisma } from "@/lib/db";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
-import { isValidQuoteToken, linkPendingQuoteAttachments } from "@/lib/orders/pendingQuoteAttachments";
+import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
+import { sendOrderReceivedEmail } from "@/lib/orders/sendOrderReceivedEmail";
+import { promoteTempAttachmentToOrders } from "@/lib/orders/orderAttachmentStorage";
+import {
+  isValidQuoteToken,
+  linkPendingQuoteAttachments,
+  promotePendingQuoteAttachments,
+} from "@/lib/orders/pendingQuoteAttachments";
 import {
   validateEmailField,
   validatePhoneField,
@@ -42,7 +49,7 @@ function str(v: unknown): string | null {
   return s || null;
 }
 
-async function createSpecialGoodsQuote(body: RequestBody): Promise<{ orderId: string; displayId: number }> {
+async function createSpecialGoodsQuote(body: RequestBody): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
   if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
 
@@ -55,7 +62,19 @@ async function createSpecialGoodsQuote(body: RequestBody): Promise<{ orderId: st
     throw new Error("Website membership not found or inactive");
   }
 
+  // Photos are staged under tmp/ (auto-expiring) until now. Move them to their
+  // permanent keys BEFORE the order exists, so a failed copy aborts the
+  // submission cleanly (nothing created, no order number burned) and a retry
+  // just picks up where this left off.
+  const quoteToken = str(body.quoteToken);
+  const hasQuoteToken = !!quoteToken && isValidQuoteToken(quoteToken);
+  if (hasQuoteToken) {
+    await promotePendingQuoteAttachments(prisma, { quoteToken, promote: promoteTempAttachmentToOrders });
+  }
+
   const displayId = await reserveNextManualOrderNumber(membership.companyId);
+  // The random number customers see; displayId stays internal/sequential.
+  const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
   const dimensionParts = [str(body.sizeW), str(body.sizeH), str(body.sizeL)].filter(Boolean);
   const descriptionParts = [
@@ -72,6 +91,7 @@ async function createSpecialGoodsQuote(body: RequestBody): Promise<{ orderId: st
       createdByMembershipId: membership.id,
       customerMembershipId: membership.id,
       displayId,
+      orderNumber,
       status: "processing",
       isWebsiteOrder: true,
       pickupAddress: str(body.pickupAddress),
@@ -88,11 +108,9 @@ async function createSpecialGoodsQuote(body: RequestBody): Promise<{ orderId: st
     },
   });
 
-  const quoteToken = str(body.quoteToken);
-  const linkedPhotoCount =
-    quoteToken && isValidQuoteToken(quoteToken)
-      ? await linkPendingQuoteAttachments(prisma, { orderId: order.id, quoteToken })
-      : 0;
+  const linkedPhotoCount = hasQuoteToken
+    ? await linkPendingQuoteAttachments(prisma, { orderId: order.id, quoteToken })
+    : 0;
 
   await createOrderCreatedEvent(prisma, {
     orderId: order.id,
@@ -123,7 +141,10 @@ async function createSpecialGoodsQuote(body: RequestBody): Promise<{ orderId: st
     message: `Special-goods quote request placed via the homepage${linkedPhotoCount > 0 ? ` with ${linkedPhotoCount} photo(s)` : ""} — needs a manual quote before it can be approved. Customer: ${order.customerName ?? "—"}, Phone: ${order.phone ?? "—"}, Email: ${order.email ?? "—"}.`,
   });
 
-  return { orderId: order.id, displayId: order.displayId };
+  // Best-effort (never throws) — the order is already saved.
+  await sendOrderReceivedEmail(order);
+
+  return { orderId: order.id, displayId: order.displayId, orderNumber: order.orderNumber };
 }
 
 export async function POST(req: Request) {

@@ -22,6 +22,7 @@ import {
   showsInstallOptions,
   showsExtraCheckboxes,
 } from "@/lib/booking/pricing/rules";
+import { resolveSizeBracketCharge, splitSizeBracketOptionIds } from "@/lib/booking/pricing/sizeBrackets";
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
@@ -572,14 +573,31 @@ function buildItemsForCard(
     }
   }
 
+  // Size brackets (volume / weight) ride along in selectedExtraOptionIds but
+  // are priced independently of the extras gate, and only the pricier of the
+  // two is charged — see lib/booking/pricing/sizeBrackets.ts.
+  const { sizeIds, otherIds } = splitSizeBracketOptionIds(product, card.selectedExtraOptionIds);
+
   if (showExtras) {
-    for (const id of card.selectedExtraOptionIds) {
+    for (const id of otherIds) {
       items.push({
         kind: "productOption",
         productOptionId: id,
         qty: amount,
       });
     }
+  }
+
+  const { chargeableId } = resolveSizeBracketCharge(product, sizeIds);
+  for (const id of sizeIds) {
+    items.push({
+      kind: "productOption",
+      productOptionId: id,
+      qty: amount,
+      // The waived bracket stays on the order (staff/drivers need the real
+      // weight and volume) but carries no price.
+      ...(id === chargeableId ? {} : { priceOverride: 0, subcontractorPriceOverride: 0 }),
+    });
   }
 
   if (showDemont && !installSelected && card.demontEnabled && demontOption) {

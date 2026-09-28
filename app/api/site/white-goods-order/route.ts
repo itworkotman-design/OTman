@@ -14,8 +14,12 @@ import {
   buildOrderEventSnapshot,
 } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
+import { sendOrderReceivedEmail } from "@/lib/orders/sendOrderReceivedEmail";
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { findUnsellableProductIds } from "@/lib/content/mergeWebsiteCatalogs";
+import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName, isSizePricedProduct } from "@/lib/booking/pricing/sizeBrackets";
+import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeDimensions";
 import { findWebsiteCatalogByProductCode } from "@/lib/content/websiteCatalogs";
 import {
   applyWebsiteAssemblyExtras,
@@ -76,9 +80,21 @@ class UnsellableProductError extends Error {
   }
 }
 
+class ItemNameError extends Error {
+  constructor() {
+    super("A size-priced product needs a short, plain-text name saying what the item is");
+  }
+}
+
+class SizeBracketSelectionError extends Error {
+  constructor() {
+    super("A product priced by size needs exactly one volume and one weight bracket");
+  }
+}
+
 async function createWhiteGoodsOrder(
   body: RequestBody,
-): Promise<{ orderId: string; displayId: number }> {
+): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
   if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
 
@@ -98,11 +114,38 @@ async function createWhiteGoodsOrder(
   const catalog = await getWebsiteOrderCatalog();
   const priceListId = catalog.priceListId;
 
-  const productCards = (body.productCards as SavedProductCard[] | undefined) ?? [];
+  const submittedCards = (body.productCards as SavedProductCard[] | undefined) ?? [];
 
-  if (findUnsellableProductIds(productCards, catalog.products).length > 0) {
+  if (findUnsellableProductIds(submittedCards, catalog.products).length > 0) {
     throw new UnsellableProductError();
   }
+
+  // Products priced by size (Other furniture): the volume bracket is DERIVED
+  // here from the customer's width/height/length — a bracket sent by the client
+  // is never trusted (small bracket + big dimensions would dodge the charge).
+  let productCards = applyDimensionDerivedVolumeBrackets(submittedCards, catalog.products);
+
+  // ...and each such card must end up with exactly one volume and one weight
+  // bracket, otherwise the surcharge could be dodged by simply not choosing.
+  if (findCardsWithSizeBracketProblems(productCards, catalog.products).length > 0) {
+    throw new SizeBracketSelectionError();
+  }
+
+  // ...and say what the item is: a short name in the same plain-text rules as
+  // every other public free-text field. Stored trimmed.
+  if (findSizePricedCardsMissingName(productCards, catalog.products).length > 0) {
+    throw new ItemNameError();
+  }
+  for (const card of productCards) {
+    const product = catalog.products.find((p) => p.id === card.productId);
+    if (product && isSizePricedProduct(product) && validateTextField(card.modelNumber)) {
+      throw new ItemNameError();
+    }
+  }
+  productCards = productCards.map((card) => {
+    const product = catalog.products.find((p) => p.id === card.productId);
+    return product && isSizePricedProduct(product) ? { ...card, modelNumber: card.modelNumber.trim() } : card;
+  });
 
   const pricingSource = applyOrderPricingSnapshot({
     catalogProducts: catalog.products,
@@ -195,6 +238,8 @@ async function createWhiteGoodsOrder(
   });
 
   const displayId = await reserveNextManualOrderNumber(membership.companyId);
+  // The random number customers see; displayId stays internal/sequential.
+  const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
   const floorNoteParts = [
     pickupFloor > 0 ? `Pickup floor: ${pickupFloor}` : null,
@@ -209,6 +254,7 @@ async function createWhiteGoodsOrder(
       customerMembershipId: membership.id,
       priceListId,
       displayId,
+      orderNumber,
       status: "processing",
       isWebsiteOrder: true,
       pickupAddress: str(body.pickupAddress),
@@ -295,7 +341,10 @@ async function createWhiteGoodsOrder(
     message: `Order placed via the homepage website order flow (${catalogLabels}). Customer: ${order.customerName ?? "—"}, Phone: ${order.phone ?? "—"}, Email: ${order.email ?? "—"}.`,
   });
 
-  return { orderId: order.id, displayId: order.displayId };
+  // Best-effort (never throws) — the order is already saved.
+  await sendOrderReceivedEmail(order);
+
+  return { orderId: order.id, displayId: order.displayId, orderNumber: order.orderNumber };
 }
 
 export async function POST(req: Request) {
@@ -320,8 +369,14 @@ export async function POST(req: Request) {
   const phoneErr = validatePhoneField(s(body.phone));
   if (phoneErr) errors.phone = phoneErr;
 
-  const emailErr = validateEmailField(s(body.email));
-  if (emailErr) errors.email = emailErr;
+  // Mandatory: the order-received confirmation and the later payment link
+  // are emailed, so an order without an address can never be completed.
+  if (!str(body.email)) {
+    errors.email = "Required";
+  } else {
+    const emailErr = validateEmailField(s(body.email));
+    if (emailErr) errors.email = emailErr;
+  }
 
   const textFields = ["pickupAddress", "deliveryAddress", "name", "timeWindow", "notes"];
   for (const field of textFields) {
@@ -352,6 +407,22 @@ export async function POST(req: Request) {
     if (err instanceof UnsellableProductError) {
       return NextResponse.json(
         { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "Unknown product" } },
+        { status: 422 },
+      );
+    }
+    if (err instanceof ItemNameError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "VALIDATION_FAILED",
+          errors: { productCards: "Say what the item is (a short name, up to 80 characters, no special characters)" },
+        },
+        { status: 422 },
+      );
+    }
+    if (err instanceof SizeBracketSelectionError) {
+      return NextResponse.json(
+        { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "Choose the size (width, height, length) and weight of the item" } },
         { status: 422 },
       );
     }

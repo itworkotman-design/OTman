@@ -3,7 +3,12 @@ import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { canEditOrders } from "@/lib/users/orderAccess";
 import type { AppPermission } from "@/lib/users/types";
-import { LIFECYCLE_EMAIL_KINDS, sendLifecycleEmailsForOrders, type LifecycleEmailKind } from "@/lib/orders/sendCustomerLifecycleEmail";
+import {
+  LIFECYCLE_EMAIL_KINDS,
+  lifecycleKindRequiresActionToken,
+  sendLifecycleEmailsForOrders,
+  type LifecycleEmailKind,
+} from "@/lib/orders/sendCustomerLifecycleEmail";
 
 const VALID_KINDS = LIFECYCLE_EMAIL_KINDS;
 
@@ -66,6 +71,7 @@ export async function POST(req: Request) {
     select: {
       id: true,
       displayId: true,
+      orderNumber: true,
       customerName: true,
       customerLabel: true,
       statusNotes: true,
@@ -80,7 +86,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: "NO_ORDERS_FOUND" }, { status: 404 });
   }
 
-  const missingToken = orders.filter((order) => !order.actionToken);
+  const missingToken = lifecycleKindRequiresActionToken(normalizedKind)
+    ? orders.filter((order) => !order.actionToken)
+    : [];
   if (missingToken.length > 0) {
     return NextResponse.json(
       { ok: false, reason: "MISSING_ACTION_TOKEN", orderIds: missingToken.map((o) => o.id) },

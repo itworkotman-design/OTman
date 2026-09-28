@@ -5,6 +5,9 @@ import { getOrderActionBaseUrl } from "@/lib/stripe/stripeClient";
 export type LifecycleEmailOrder = {
   id: string;
   displayId: number | null;
+  // The random public number customers see (Order.orderNumber). Older orders
+  // may not have one — those fall back to the internal displayId.
+  orderNumber?: string | null;
   customerName: string | null;
   customerLabel: string | null;
   statusNotes: string | null;
@@ -75,6 +78,8 @@ function customerGreetingName(order: LifecycleEmailOrder) {
 }
 
 function orderReference(order: LifecycleEmailOrder) {
+  const orderNumber = order.orderNumber?.trim();
+  if (orderNumber) return `#${orderNumber}`;
   return typeof order.displayId === "number" ? `#${order.displayId}` : "";
 }
 
@@ -179,6 +184,31 @@ export function buildPaymentTimeoutEmail(order: LifecycleEmailOrder) {
       ${buttonLink(requestChangeUrl, "Be om endring")}
       ${buttonLink(cancelUrl, "Kanseller bestilling", "#b91c1c")}
     </div>
+  `);
+
+  return { subject, html };
+}
+
+// Sent right after a customer submits a website order, before staff have
+// reviewed it. Deliberately has no action links: no actionToken exists yet
+// (it's minted on approve/reject), and the cancel / request-change pages
+// reject orders that are still "processing" anyway. A reply is the customer's
+// way to reach us — Reply-To is the order's Email Center thread, so it lands
+// on the order. Works for priced and quote-only flows alike, hence the
+// generic "approved / priced, then you get a payment link" wording.
+export function buildOrderReceivedEmail(order: LifecycleEmailOrder) {
+  const reference = orderReference(order);
+
+  const subject = `Vi har mottatt bestillingen din ${reference}`.trim();
+  const html = buildSimpleEmailShell(`
+    <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
+    <p style="margin:0 0 16px 0;">
+      Takk for bestillingen! Vi har mottatt ${reference ? `bestilling ${escapeHtml(reference)}` : "bestillingen din"} og går gjennom den nå.
+    </p>
+    <p style="margin:0 0 16px 0;">
+      Du får en ny e-post fra oss så snart bestillingen er godkjent, med en lenke for å betale og bekrefte.
+    </p>
+    <p style="margin:16px 0 0 0;">Har du spørsmål eller vil du endre noe? Bare svar på denne e-posten.</p>
   `);
 
   return { subject, html };

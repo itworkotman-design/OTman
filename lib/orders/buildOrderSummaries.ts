@@ -5,6 +5,8 @@ import type {
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
+import { isSizePricedProduct, splitSizeBracketOptionIds } from "@/lib/booking/pricing/sizeBrackets";
+import { calculateVolumeM3, isCompleteDimensions } from "@/lib/booking/pricing/sizeDimensions";
 
 type Result = {
   productsSummary: string;
@@ -72,7 +74,12 @@ export function buildOrderSummaries(
     const product = catalogProducts.find((p) => p.id === card.productId);
     const count = getCardCount(card, product);
 
-    incrementLabelCount(productNames, product?.label, count);
+    // A size-priced catch-all product ("Other furniture") is named with what
+    // the customer said it is, so the summary shows e.g. "Other furniture
+    // (Grandfather clock)" — staff and drivers need to know what it is.
+    const itemName =
+      product && isSizePricedProduct(product) && typeof card.modelNumber === "string" ? card.modelNumber.trim() : "";
+    incrementLabelCount(productNames, itemName ? `${product?.label} (${itemName})` : product?.label, count);
 
     if (product?.allowDeliveryTypes && card.deliveryType) {
       incrementLabelCount(
@@ -90,8 +97,25 @@ export function buildOrderSummaries(
       }
     }
 
+    // Size brackets (volume / weight) are always listed — staff and drivers
+    // need the real size and weight — independent of the extras gate.
+    const { sizeIds, otherIds } = product
+      ? splitSizeBracketOptionIds(product, card.selectedExtraOptionIds)
+      : { sizeIds: [] as string[], otherIds: card.selectedExtraOptionIds };
+
+    if (isCompleteDimensions(card.sizeDimensionsCm)) {
+      const { widthCm, heightCm, lengthCm } = card.sizeDimensionsCm;
+      const volume = Number(calculateVolumeM3(card.sizeDimensionsCm).toFixed(3));
+      services.push(`${widthCm} × ${heightCm} × ${lengthCm} cm (${volume} m³)`);
+    }
+
+    for (const optionId of sizeIds) {
+      const text = getOptionText(product?.options.find((o) => o.id === optionId));
+      if (text) services.push(text);
+    }
+
     if (product?.allowExtraServices && card.selectedInstallOptionIds.length === 0) {
-      for (const optionId of card.selectedExtraOptionIds) {
+      for (const optionId of otherIds) {
         const productOption = product?.options.find((o) => o.id === optionId);
         const specialOption = catalogSpecialOptions.find(
           (o) => o.id === optionId,

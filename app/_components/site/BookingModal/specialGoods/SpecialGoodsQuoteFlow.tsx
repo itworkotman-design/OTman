@@ -18,9 +18,13 @@ type Props = {
 // for staff to quote manually — same approve/reject/Stripe pipeline every
 // other website order uses. See docs/homepage-ordering-roadmap.md §5.
 //
-// Photos upload immediately on selection (not held client-side until
-// submit) to app/api/site/special-goods-quote/upload/route.ts, grouped by a
-// client-generated quoteToken; linked to the real Order on final submit.
+// Photos are held client-side (as plain File objects — nothing touches the
+// network) until the final "Request a quote" submit, at which point they're
+// uploaded to app/api/site/special-goods-quote/upload/route.ts, grouped by a
+// client-generated quoteToken, then linked to the real Order. Deliberately
+// NOT uploaded as each photo is picked: someone who selects photos and then
+// abandons the form never writes anything to S3/the DB at all — no orphaned
+// files, no cleanup job needed for that case.
 const METER_OPTIONS = Array.from({ length: 11 }, (_, i) => i);
 const CM_OPTIONS = [0, 20, 40, 60, 80];
 const WEIGHT_OPTIONS = ["Under 10 kg", "Under 30 kg", "Under 50 kg", "Under 100 kg", "Over 100 kg"];
@@ -34,7 +38,12 @@ function generateQuoteToken() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-type UploadedPhoto = { id: string; filename: string };
+// Not-yet-uploaded — held in memory only, keyed by a local id so a photo can
+// be removed from the list before it's ever sent anywhere.
+type PendingPhoto = { localId: string; file: File };
+
+const ACCEPTED_PHOTO_EXTENSION = /\.(jpe?g|png|webp|heic|heif)$/i;
+const ACCEPTED_PHOTO_TYPE = /^image\/(jpeg|png|webp|heic|heif)$/i;
 
 function DimensionSelect({
   label,
@@ -96,8 +105,7 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
   const [weight, setWeight] = useState("");
   const [units, setUnits] = useState("");
 
-  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [photos, setPhotos] = useState<PendingPhoto[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [pickupAddress, setPickupAddress] = useState("");
@@ -112,51 +120,60 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitResult, setSubmitResult] = useState<{ displayId: number } | null>(null);
+  const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
-  async function handleFilesSelected(files: FileList | null) {
+  function handleFilesSelected(files: FileList | null) {
     if (!files || files.length === 0) return;
     setUploadError(null);
     const remaining = MAX_QUOTE_PHOTOS - photos.length;
-    const toUpload = Array.from(files).slice(0, Math.max(0, remaining));
-    if (toUpload.length < files.length) {
+    // Advisory only (the server sniffs the real bytes); catches a wrong file
+    // at pick time instead of as a failed upload at submit. Some browsers
+    // report an empty type for .heic, hence the extension fallback.
+    const images = Array.from(files).filter((f) => ACCEPTED_PHOTO_EXTENSION.test(f.name) || ACCEPTED_PHOTO_TYPE.test(f.type));
+    const picked = images.slice(0, Math.max(0, remaining));
+    if (images.length < files.length) {
+      setUploadError(
+        t(
+          "Only photos are accepted (JPEG, PNG, WebP or HEIC).",
+          "Kun bilder er tillatt (JPEG, PNG, WebP eller HEIC).",
+        ),
+      );
+    } else if (picked.length < images.length) {
       setUploadError(t(`You can add up to ${MAX_QUOTE_PHOTOS} photos.`, `Du kan legge ved opptil ${MAX_QUOTE_PHOTOS} bilder.`));
     }
 
-    setUploading(true);
-    for (const file of toUpload) {
+    // Nothing is uploaded here — just held in memory until final submit.
+    setPhotos((prev) => [...prev, ...picked.map((file) => ({ localId: crypto.randomUUID(), file }))]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removePhoto(localId: string) {
+    // Purely local — nothing was ever sent anywhere for this photo yet.
+    setPhotos((prev) => prev.filter((p) => p.localId !== localId));
+  }
+
+  // Uploads every picked photo, in order, under the shared quoteToken —
+  // called only once, right before the order itself is created. Returns
+  // false (and leaves submitError set) if any photo fails, so a partial set
+  // of photos never gets silently attached to the order.
+  async function uploadPhotosBeforeSubmit(): Promise<boolean> {
+    for (const photo of photos) {
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", photo.file);
       form.append("quoteToken", quoteToken);
       try {
         const res = await fetch("/api/site/special-goods-quote/upload", { method: "POST", body: form });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          setUploadError(t("Could not upload one of the photos. Please try again.", "Kunne ikke laste opp ett av bildene. Prøv igjen."));
-          continue;
+          setSubmitError(t("Could not upload one of the photos. Please try again.", "Kunne ikke laste opp ett av bildene. Prøv igjen."));
+          return false;
         }
-        setPhotos((prev) => [...prev, { id: data.id, filename: data.filename }]);
       } catch {
-        setUploadError(t("Could not upload one of the photos. Please try again.", "Kunne ikke laste opp ett av bildene. Prøv igjen."));
+        setSubmitError(t("Could not upload one of the photos. Please try again.", "Kunne ikke laste opp ett av bildene. Prøv igjen."));
+        return false;
       }
     }
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  async function removePhoto(id: string) {
-    setPhotos((prev) => prev.filter((p) => p.id !== id));
-    try {
-      await fetch("/api/site/special-goods-quote/upload", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, quoteToken }),
-      });
-    } catch {
-      // The photo is already removed from the UI; a failed server-side
-      // delete just leaves an orphaned pending row, not a customer-facing
-      // problem worth surfacing.
-    }
+    return true;
   }
 
   const canContinueDetails = !!description.trim();
@@ -170,6 +187,15 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
   async function handleSubmit() {
     setSubmitLoading(true);
     setSubmitError(null);
+
+    if (photos.length > 0) {
+      const uploaded = await uploadPhotosBeforeSubmit();
+      if (!uploaded) {
+        setSubmitLoading(false);
+        return;
+      }
+    }
+
     try {
       const res = await fetch("/api/site/special-goods-quote", {
         method: "POST",
@@ -198,7 +224,7 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
         setSubmitError(t("Something went wrong. Please try again.", "Noe gikk galt. Prøv igjen."));
         return;
       }
-      setSubmitResult({ displayId: data.displayId });
+      setSubmitResult({ orderNumber: data.orderNumber ?? String(data.displayId) });
     } catch {
       setSubmitError(t("Something went wrong. Please try again.", "Noe gikk galt. Prøv igjen."));
     } finally {
@@ -269,7 +295,7 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
             multiple
             className="hidden"
             onChange={(e) => handleFilesSelected(e.target.files)}
@@ -277,20 +303,23 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || photos.length >= MAX_QUOTE_PHOTOS}
+            disabled={photos.length >= MAX_QUOTE_PHOTOS}
             className="self-start rounded-full customContainer bg-white px-5 py-2.5 text-sm font-semibold text-logoblue transition hover:bg-logoblue/5 disabled:pointer-events-none disabled:opacity-40"
           >
-            {uploading ? t("Uploading…", "Laster opp…") : t("Add photos", "Legg til bilder")}
+            {t("Add photos", "Legg til bilder")}
           </button>
+          <p className="text-xs text-black/40">
+            {t("Photos are only sent when you submit your request.", "Bilder sendes først når du sender inn forespørselen.")}
+          </p>
           {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
           {photos.length > 0 && (
             <ul className="flex flex-col gap-1.5">
               {photos.map((photo) => (
-                <li key={photo.id} className="flex items-center justify-between gap-2 rounded-lg border border-black/10 px-3 py-2 text-sm">
-                  <span className="min-w-0 truncate text-black/70">{photo.filename}</span>
+                <li key={photo.localId} className="flex items-center justify-between gap-2 rounded-lg border border-black/10 px-3 py-2 text-sm">
+                  <span className="min-w-0 truncate text-black/70">{photo.file.name}</span>
                   <button
                     type="button"
-                    onClick={() => removePhoto(photo.id)}
+                    onClick={() => removePhoto(photo.localId)}
                     className="shrink-0 text-black/40 transition hover:text-red-500"
                     aria-label={t("Remove", "Fjern")}
                   >
@@ -415,8 +444,8 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
           <h4 className="text-lg font-semibold text-logoblue">{t("Request received!", "Forespørsel mottatt!")}</h4>
           <p className="text-sm text-black/60">
             {t(
-              `Request #${submitResult.displayId} is with us — we'll email you a quote shortly.`,
-              `Forespørsel #${submitResult.displayId} er mottatt — vi sender deg et tilbud på e-post om kort tid.`,
+              `Request #${submitResult.orderNumber} is with us — we'll email you a quote shortly.`,
+              `Forespørsel #${submitResult.orderNumber} er mottatt — vi sender deg et tilbud på e-post om kort tid.`,
             )}
           </p>
         </div>

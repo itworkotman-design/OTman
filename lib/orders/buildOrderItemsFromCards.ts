@@ -25,6 +25,7 @@ import {
   normalizedUpper,
 } from "@/lib/booking/pricing/rules";
 import { computeLineKey } from "@/lib/booking/pricing/lineKey";
+import { resolveSizeBracketCharge, splitSizeBracketOptionIds } from "@/lib/booking/pricing/sizeBrackets";
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
@@ -581,8 +582,14 @@ export function buildOrderItemsFromCards(
     }
     }
 
+    // Size brackets (volume / weight) ride along in selectedExtraOptionIds but
+    // are handled separately below, independent of the extras gate.
+    const { sizeIds: sizeBracketIds, otherIds: ordinaryExtraIds } = product
+      ? splitSizeBracketOptionIds(product, card.selectedExtraOptionIds)
+      : { sizeIds: [] as string[], otherIds: card.selectedExtraOptionIds };
+
     if (product?.allowExtraServices && !installSelected) {
-      for (const optionId of card.selectedExtraOptionIds) {
+      for (const optionId of ordinaryExtraIds) {
         const productOption =
           product?.options.find((o) => o.id === optionId) ?? null;
         const specialOption =
@@ -607,6 +614,34 @@ export function buildOrderItemsFromCards(
           subcontractorPriceCents: option
             ? decimalStringToCents(option.subcontractorPrice)
             : null,
+          rawData: option ?? undefined,
+        });
+      }
+    }
+
+    // Both brackets stay on the order (staff and drivers need the real
+    // weight and volume); only the pricier one is charged — the same choice
+    // fromProductCards makes, via lib/booking/pricing/sizeBrackets.ts.
+    if (product && sizeBracketIds.length > 0) {
+      const { chargeableId } = resolveSizeBracketCharge(product, sizeBracketIds);
+
+      for (const optionId of sizeBracketIds) {
+        const option = product.options.find((o) => o.id === optionId) ?? null;
+        const charged = optionId === chargeableId;
+
+        items.push({
+          cardId: card.cardId,
+          productId: card.productId ?? null,
+          productCode: product.code ?? null,
+          productName: product.label ?? null,
+          deliveryType: deliveryTypeLabel,
+          itemType: "EXTRA_OPTION",
+          optionId,
+          optionCode: option?.code ?? null,
+          optionLabel: option?.label ?? null,
+          quantity: amount,
+          customerPriceCents: option ? (charged ? decimalStringToCents(getEffectiveCustomerPrice(option)) : 0) : null,
+          subcontractorPriceCents: option ? (charged ? decimalStringToCents(option.subcontractorPrice) : 0) : null,
           rawData: option ?? undefined,
         });
       }

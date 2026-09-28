@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FURNITURE_PRODUCTS, FURNITURE_PRICE_LIST_CODE } from "./furnitureCatalog";
 import { WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
+import { VOLUME_BRACKET_MAX_M3 } from "@/lib/booking/pricing/sizeDimensions";
 
 // Source: "Otman_furniture_product_options_2026_FINAL(2).xlsx". The catalog
 // data file is generated from it (scripts/generate-furniture-catalog-data.ts);
@@ -150,7 +151,8 @@ describe("add-ons", () => {
 describe("Other furniture", () => {
   it("is a real product with delivery, unpacking and return, but no assembly — flagged as needing implementation", () => {
     const other = byCode("FN_OTHER_FURNITURE");
-    expect(other.options.map((o) => o.code).sort()).toEqual(["RETURN_RECYCLING", "UNPACKING"]);
+    // (plus the size brackets — see "Other furniture size brackets" below)
+    expect(other.options.filter((o) => !o.category.startsWith("size_")).map((o) => o.code).sort()).toEqual(["RETURN_RECYCLING", "UNPACKING"]);
     expect(other.deliveryTypes.installOnlyEnabled).toBe(false);
     expect(other.needsImplementation).toEqual({
       labelEn: "Assembly — needs implementation",
@@ -160,6 +162,71 @@ describe("Other furniture", () => {
 
   it("no other product is flagged", () => {
     expect(FURNITURE_PRODUCTS.filter((p) => p.needsImplementation).map((p) => p.code)).toEqual(["FN_OTHER_FURNITURE"]);
+  });
+});
+
+describe("Other furniture size brackets", () => {
+  const sizeOptions = (productCode: string, category: string) =>
+    byCode(productCode).options.filter((o) => o.category === category);
+
+  it("offers 5 volume (m³) and 5 weight (kg) brackets, each a radio group", () => {
+    const volume = sizeOptions("FN_OTHER_FURNITURE", "size_volume");
+    const weight = sizeOptions("FN_OTHER_FURNITURE", "size_weight");
+
+    expect(volume.map((o) => o.code)).toEqual(["OF_VOL_1", "OF_VOL_2", "OF_VOL_3", "OF_VOL_4", "OF_VOL_5"]);
+    expect(weight.map((o) => o.code)).toEqual(["OF_WT_1", "OF_WT_2", "OF_WT_3", "OF_WT_4", "OF_WT_5"]);
+    expect(volume.every((o) => o.exclusiveGroup === "size_volume")).toBe(true);
+    expect(weight.every((o) => o.exclusiveGroup === "size_weight")).toBe(true);
+  });
+
+  it("labels each volume bracket with exactly the limit the pricing code uses to place a volume in it", () => {
+    for (const o of sizeOptions("FN_OTHER_FURNITURE", "size_volume")) {
+      const labelled = Number(o.labelEn.match(/[\d.]+/)?.[0]);
+      expect(labelled, o.code).toBe(VOLUME_BRACKET_MAX_M3[o.code]);
+    }
+  });
+
+  it("labels every bracket in both languages with its unit", () => {
+    expect(sizeOptions("FN_OTHER_FURNITURE", "size_volume")).toHaveLength(5);
+    expect(sizeOptions("FN_OTHER_FURNITURE", "size_weight")).toHaveLength(5);
+    for (const o of sizeOptions("FN_OTHER_FURNITURE", "size_volume")) {
+      expect(o.labelEn).toMatch(/m³/);
+      expect(o.labelNo).toMatch(/m³/);
+    }
+    for (const o of sizeOptions("FN_OTHER_FURNITURE", "size_weight")) {
+      expect(o.labelEn).toMatch(/kg/);
+      expect(o.labelNo).toMatch(/kg/);
+    }
+  });
+
+  it("orders brackets from smallest to largest (labels get bigger)", () => {
+    const numbers = (category: string) =>
+      sizeOptions("FN_OTHER_FURNITURE", category).map((o) => Number(o.labelEn.match(/[\d.]+/)?.[0]));
+
+    for (const category of ["size_volume", "size_weight"]) {
+      const values = numbers(category);
+      expect(values).toHaveLength(5);
+      expect(values.every(Number.isFinite)).toBe(true);
+      expect(values).toEqual([...values].sort((a, b) => a - b));
+    }
+  });
+
+  it("ships priced at 0 kr and flagged staff-priced, so a reseed never wipes prices staff have entered", () => {
+    const options = [...sizeOptions("FN_OTHER_FURNITURE", "size_volume"), ...sizeOptions("FN_OTHER_FURNITURE", "size_weight")];
+
+    expect(options).toHaveLength(10);
+    expect(options.every((o) => o.customerPrice === 0 && o.subcontractorPrice === 0)).toBe(true);
+    expect(options.every((o) => o.staffPriced === true)).toBe(true);
+  });
+
+  it("keeps the flat delivery prices — the size charge is added on top", () => {
+    expect(byCode("FN_OTHER_FURNITURE").deliveryTypes.firstStep.customerPrice).toBe(608.88);
+    expect(byCode("FN_OTHER_FURNITURE").deliveryTypes.indoor.customerPrice).toBe(690.408);
+  });
+
+  it("no other furniture product has size brackets", () => {
+    const others = FURNITURE_PRODUCTS.filter((p) => p.code !== "FN_OTHER_FURNITURE");
+    expect(others.some((p) => p.options.some((o) => o.category.startsWith("size_")))).toBe(false);
   });
 });
 

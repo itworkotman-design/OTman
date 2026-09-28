@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./_loadLocalSeedEnv";
 import { prisma } from "../lib/db";
 import { seedMovingCatalog } from "../lib/content/seedMovingCatalog";
 

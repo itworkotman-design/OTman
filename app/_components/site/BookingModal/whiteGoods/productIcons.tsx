@@ -1,12 +1,14 @@
 import { Base, type IconProps } from "./iconBase";
 import { FURNITURE_ICONS } from "./furnitureIcons";
+import { PARCEL_PALLET_ICONS } from "./parcelPalletIcons";
 import { resolveProductIconKey } from "./productIconKey";
 
 // Placeholder line-icon set for the white-goods product grid, keyed the
 // same way resolveProductIconKey derives keys from product codes. Simple
 // geometric stand-ins — swap individual entries here (or point
 // Product.iconKey at a new key) once real artwork exists, no other code
-// needs to change. Furniture's icons live in furnitureIcons.tsx.
+// needs to change. Furniture's icons live in furnitureIcons.tsx, parcel/
+// pallet's in parcelPalletIcons.tsx.
 
 const DishwasherIcon = (props: IconProps) => (
   <Base {...props}>
@@ -159,6 +161,7 @@ const GenericProductIcon = (props: IconProps) => (
 
 const PRODUCT_ICONS: Record<string, (props: IconProps) => React.JSX.Element> = {
   ...FURNITURE_ICONS,
+  ...PARCEL_PALLET_ICONS,
   dishwasher: DishwasherIcon,
   washing_machine: WashingMachineIcon,
   tumble_dryer: TumbleDryerIcon,

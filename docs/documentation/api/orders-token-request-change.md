@@ -2,9 +2,12 @@
 
 ## Purpose
 Public endpoint backing `bestilling/endre/[token]` — a free-text message
-box, not structured editing (see `docs/homepage-ordering-roadmap.md` §4 for
-why: this stayed intentionally simple, staff add any agreed items via the
-existing internal order editor rather than a new public item-picker UI).
+box for anything the structured editor doesn't cover. A `"confirmed"`
+order with catalog-priced items also gets a structured, self-service
+alternative for the narrow case of "change delivery type/addons on an
+existing product" — see `orders-token-edit-items.md` — but adding a new
+product, or any other kind of change, still comes through here and stays
+staff-mediated.
 
 Eligible from `"rejected"`/`"approved"`/`"failed"` (the original behavior:
 reverts status to `"processing"` so staff re-review before the customer can

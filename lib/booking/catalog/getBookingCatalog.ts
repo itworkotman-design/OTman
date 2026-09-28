@@ -63,6 +63,10 @@ export async function getBookingCatalog(
           productOptionId: true,
           customerPriceCents: true,
           subcontractorPriceCents: true,
+          customerRatePerUnitCents: true,
+          subcontractorRatePerUnitCents: true,
+          customerMaxChargeCents: true,
+          subcontractorMaxChargeCents: true,
         },
       })
     : [];
@@ -87,6 +91,10 @@ export async function getBookingCatalog(
       {
         customerPriceCents: item.customerPriceCents,
         subcontractorPriceCents: item.subcontractorPriceCents,
+        customerRatePerUnitCents: item.customerRatePerUnitCents,
+        subcontractorRatePerUnitCents: item.subcontractorRatePerUnitCents,
+        customerMaxChargeCents: item.customerMaxChargeCents,
+        subcontractorMaxChargeCents: item.subcontractorMaxChargeCents,
       },
     ]),
   );
@@ -148,6 +156,11 @@ export async function getBookingCatalog(
         ),
         effectiveCustomerPrice: centsToDecimalString(price?.customerPriceCents),
         active: option.isActive,
+        pricingMode: option.pricingMode,
+        customerRatePerUnitCents: price?.customerRatePerUnitCents ?? null,
+        subcontractorRatePerUnitCents: price?.subcontractorRatePerUnitCents ?? null,
+        customerMaxChargeCents: price?.customerMaxChargeCents ?? null,
+        subcontractorMaxChargeCents: price?.subcontractorMaxChargeCents ?? null,
       };
     }),
   }));
