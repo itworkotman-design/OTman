@@ -58,75 +58,45 @@ export const serviceWindowContent = {
       ],
     },
     {
-      id: "moving-relocation",
+      id: "services",
       title: {
-        en: "Delivery + Assembly",
-        no: "Levering + montering",
+        en: "Services",
+        no: "Tjenester",
       },
       svg: "/Service logos-02.svg",
       modalTitle: {
-        en: "White Goods & Electronics",
-        no: "Hvitevarer og elektronikk",
+        en: "Services",
+        no: "Tjenester",
       },
       modalIntro: {
-        en: "We deliver, carry in, and install your white goods and electronics.",
-        no: "Vi leverer, bærer inn og monterer hvitevarer og elektronikk for deg.",
+        en: "Assembly, installation, and other services for your home.",
+        no: "Montering, installasjon og andre tjenester for hjemmet ditt.",
       },
       formVariant: "transport",
       categories: [
         {
-          id: "moving-relocation",
+          id: "services",
           title: {
-            en: "White Goods & Electronics",
-            no: "Hvitevarer og elektronikk",
+            en: "Services",
+            no: "Tjenester",
           },
           description: {
-            en: "Delivery and installation for appliances and electronics — dishwashers, washing machines, TVs, fridges, and more.",
-            no: "Levering og montering av hvitevarer og elektronikk — oppvaskmaskiner, vaskemaskiner, TV-er, kjøleskap og mer.",
+            en: "Assembly and installation of what you already have at home.",
+            no: "Montering og installasjon av det du allerede har hjemme.",
           },
         },
       ],
     },
     {
-      id: "custom-transport",
-      title: {
-        en: "Assembly",
-        no: "Montering",
-      },
-      svg: "/Service logos-03.svg",
-      modalTitle: {
-        en: "Custom Transport",
-        no: "Spesialtransport",
-      },
-      modalIntro: {
-        en: "We assemble what you already have at home.",
-        no: "Vi monterer det du allerede har hjemme.",
-      },
-      formVariant: "transport",
-      categories: [
-        {
-          id: "custom-transport",
-          title: {
-            en: "Custom Transport",
-            no: "Spesialtransport",
-          },
-          description: {
-            en: "Tailored transport for oversized, fragile, or unusual cargo.",
-            no: "Skreddersydd transport for stort, skjort eller krevende gods.",
-          },
-        },
-      ],
-    },
-    {
-      id: "all-services",
+      id: "moving",
       title: {
         en: "Moving",
         no: "Flytting",
       },
       svg: "/Service logos-04.svg",
       modalTitle: {
-        en: "All Services",
-        no: "Alle tjenester",
+        en: "Moving",
+        no: "Flytting",
       },
       modalIntro: {
         en: "We help you with all or part of your move.",
@@ -143,36 +113,6 @@ export const serviceWindowContent = {
           description: {
             en: "Crew support for heavy goods, staging, and structured loading.",
             no: "Mannskap til tunge varer, klargjoring og effektiv lasting.",
-          },
-        },
-      ],
-    },
-    {
-      id: "special-goods-quote",
-      title: {
-        en: "Special goods",
-        no: "Spesialvarer",
-      },
-      svg: "/Service logos-04.svg",
-      modalTitle: {
-        en: "Special / other goods",
-        no: "Spesial- / andre varer",
-      },
-      modalIntro: {
-        en: "Oversized or unusual item? Tell us about it and we'll send you a quote.",
-        no: "Har du en stor eller uvanlig gjenstand? Fortell oss om den, så sender vi deg et tilbud.",
-      },
-      formVariant: "transport",
-      categories: [
-        {
-          id: "special-goods-quote",
-          title: {
-            en: "Special / other goods",
-            no: "Spesial- / andre varer",
-          },
-          description: {
-            en: "Items that don't fit a standard category — described (with optional photos), then quoted by us.",
-            no: "Gjenstander som ikke passer inn i en standardkategori — beskriv den (med valgfrie bilder), så gir vi deg et tilbud.",
           },
         },
       ],

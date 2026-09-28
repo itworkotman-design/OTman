@@ -9,29 +9,7 @@ import { ServiceWindowItem } from "./ServiceWindowItem";
 import { SteppedModal, type FinalStep, type StepSection } from "../BookingModal/SteppedModal";
 import { WhiteGoodsBookingFlow } from "../BookingModal/whiteGoods/WhiteGoodsBookingFlow";
 import { MovingRequestFlow } from "../BookingModal/moving/MovingRequestFlow";
-import { SpecialGoodsQuoteFlow } from "../BookingModal/specialGoods/SpecialGoodsQuoteFlow";
-
-// The white-goods/electronics delivery+installation flow has a real,
-// data-backed implementation. This belongs under "Levering" (Delivery) — the
-// first three tiles share items[0]'s modal (see handleItemClick below), so
-// this also covers "Delivery + Assembly" and "Assembly".
-const WHITE_GOODS_SERVICE_ID = "collection-pickup";
-
-// "Flytting" (Moving, the 4th tile) opens items[1]'s modal, not items[3]'s
-// own — see handleItemClick's `items[idx < 3 ? 0 : 1]`. items[1]'s own id
-// happens to be "moving-relocation" (its title/content describe an older,
-// unrelated "White Goods & Electronics" tile that's since been folded into
-// the white-goods flow above — only its id is actually read here). Renamed
-// via ServiceWindowContent.ts would be cleaner; not done yet to keep this
-// change's footprint small — see docs/homepage-ordering-roadmap.md §6.
-const MOVING_SERVICE_ID = "moving-relocation";
-
-// 5th tile ("Spesialvarer"/Special goods) — added directly by index (see
-// handleItemClick) rather than through the same positional `idx < 3 ? 0 : 1`
-// scheme the first 4 tiles use, so it can't accidentally disturb any of
-// their existing routing. Its own id has no collision with any other tile's
-// id (unlike MOVING_SERVICE_ID above), so it's read directly.
-const SPECIAL_GOODS_SERVICE_ID = "special-goods-quote";
+import { serviceModalKind } from "./serviceModalRouting";
 import type {
   Locale,
   LocalizedText,
@@ -159,20 +137,10 @@ const localizedItems = useMemo(
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
   const [activeModal, setActiveModal] = useState<ServiceGroup | null>(null);
+  const modalKind = activeModal ? serviceModalKind(activeModal.id) : null;
 
   const handleItemClick = (id: string) => {
-    const idx = items.findIndex((item) => item.id === id);
-    if (idx === -1) return;
-    // The 5th tile (Special goods) opens its own modal directly — added
-    // after the original 4-tile positional scheme below, kept separate so
-    // it can't disturb it.
-    if (id === SPECIAL_GOODS_SERVICE_ID) {
-      setActiveModal(items[idx] ?? null);
-      return;
-    }
-    // First three items open item 0's modal; the fourth opens item 1's modal.
-    const modalItem = items[idx < 3 ? 0 : 1] ?? null;
-    setActiveModal(modalItem);
+    setActiveModal(items.find((item) => item.id === id) ?? null);
   };
 
   const isTeleportingRef = useRef(false);
@@ -376,7 +344,7 @@ const localizedItems = useMemo(
       )}
       */}
 
-      {activeModal && activeModal.id === WHITE_GOODS_SERVICE_ID && (
+      {activeModal && modalKind === "white-goods" && (
         <WhiteGoodsBookingFlow
           key={activeModal.id}
           locale={locale}
@@ -384,7 +352,7 @@ const localizedItems = useMemo(
         />
       )}
 
-      {activeModal && activeModal.id === MOVING_SERVICE_ID && (
+      {activeModal && modalKind === "moving" && (
         <MovingRequestFlow
           key={activeModal.id}
           locale={locale}
@@ -392,25 +360,14 @@ const localizedItems = useMemo(
         />
       )}
 
-      {activeModal && activeModal.id === SPECIAL_GOODS_SERVICE_ID && (
-        <SpecialGoodsQuoteFlow
+      {activeModal && modalKind === "placeholder" && (
+        <SteppedModal
           key={activeModal.id}
-          locale={locale}
+          sections={buildPlaceholderSections(locale)}
+          finalStep={buildPlaceholderFinalStep(locale)}
           onClose={() => setActiveModal(null)}
         />
       )}
-
-      {activeModal &&
-        activeModal.id !== WHITE_GOODS_SERVICE_ID &&
-        activeModal.id !== MOVING_SERVICE_ID &&
-        activeModal.id !== SPECIAL_GOODS_SERVICE_ID && (
-          <SteppedModal
-            key={activeModal.id}
-            sections={buildPlaceholderSections(locale)}
-            finalStep={buildPlaceholderFinalStep(locale)}
-            onClose={() => setActiveModal(null)}
-          />
-        )}
     </>
   );
 }
