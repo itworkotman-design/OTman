@@ -4,6 +4,7 @@ import {
   filterUnusedLists,
   highlightedStartList,
   isListConfigured,
+  isListOptionsStepReady,
   isOptionsStepReady,
   isProductsStepReady,
   removeListCards,
@@ -106,6 +107,54 @@ describe("list step readiness (a list emptied later must not collapse the order)
     expect(isOptionsStepReady({ ownCount: 0, configured: false, orderCount: 3, wasPopulated: true })).toBe(true);
     expect(isOptionsStepReady({ ownCount: 0, configured: false, orderCount: 3, wasPopulated: false })).toBe(false);
     expect(isOptionsStepReady({ ownCount: 0, configured: false, orderCount: 0, wasPopulated: true })).toBe(false);
+  });
+});
+
+describe("isListOptionsStepReady (an unfinished size-priced item on another list must not retract this list's step)", () => {
+  const whiteGoods = [{ id: "wm", options: [] }] as unknown as CatalogProduct[];
+  const furniture = [
+    {
+      id: "other",
+      options: [
+        { id: "v1", category: "size_volume", active: true, customerPrice: "0" },
+        { id: "w1", category: "size_weight", active: true, customerPrice: "0" },
+      ],
+    },
+  ] as unknown as CatalogProduct[];
+  const card = (cardId: number, productId: string) =>
+    ({ ...createEmptyProductCard(cardId), productId, deliveryType: "FIRST_STEP" }) as SavedProductCard;
+
+  it("stays ready when the white-goods list is done but a just-added Other furniture has no size/weight yet", () => {
+    const cards = [card(0, "wm"), card(1, "other")];
+    expect(
+      isListOptionsStepReady({
+        cards,
+        listProducts: whiteGoods,
+        wasPopulated: true,
+        isLast: false,
+        hasRequiredDelivery: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("still waits on its own unfinished size-priced item", () => {
+    const cards = [card(0, "wm"), card(1, "other")];
+    expect(
+      isListOptionsStepReady({
+        cards,
+        listProducts: furniture,
+        wasPopulated: true,
+        isLast: true,
+        hasRequiredDelivery: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("the last list also needs an item with delivery", () => {
+    const cards = [card(0, "wm")];
+    const args = { cards, listProducts: whiteGoods, wasPopulated: true, isLast: true };
+    expect(isListOptionsStepReady({ ...args, hasRequiredDelivery: false })).toBe(false);
+    expect(isListOptionsStepReady({ ...args, hasRequiredDelivery: true })).toBe(true);
   });
 });
 
