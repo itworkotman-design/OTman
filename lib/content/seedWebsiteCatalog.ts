@@ -10,9 +10,10 @@ import {
 } from "@/lib/content/whiteGoodsElectronics";
 import { buildDeliveryTypesJson } from "@/lib/content/websiteDeliveryTypes";
 
-function buildPriceListSettings() {
+function buildPriceListSettings(deliveryOnly: boolean) {
   const extras = WHITE_GOODS_ORDER_LEVEL_EXTRAS;
   const settings = createDefaultPriceListSettings();
+  settings.deliveryOnly = deliveryOnly;
   const setting = (
     extra: { code: string; customerPrice: number; subcontractorPrice: number },
     description: string,
@@ -44,10 +45,15 @@ export async function seedWebsiteCatalog({
   priceListName,
   products,
   preservePricesOnReseed = false,
+  deliveryOnly = false,
 }: {
   priceListCode: string;
   priceListName: string;
   products: WhiteGoodsProductSeed[];
+  // A delivery-only catalog (e.g. parcel/pallet): its products have no
+  // options, and the editor adds new ones the same way — see
+  // PriceListSettings.deliveryOnly.
+  deliveryOnly?: boolean;
   // White goods/furniture want the opposite of this (the default): their
   // prices come from a spreadsheet and are meant to be refreshed by
   // reseeding. A catalog whose prices are instead staff-entered via
@@ -56,7 +62,7 @@ export async function seedWebsiteCatalog({
   // those back to this seed's own (placeholder) values.
   preservePricesOnReseed?: boolean;
 }) {
-  const description = serializePriceListSettings(buildPriceListSettings());
+  const description = serializePriceListSettings(buildPriceListSettings(deliveryOnly));
 
   const priceList = await prisma.priceList.upsert({
     where: { code: priceListCode },
@@ -99,6 +105,16 @@ export async function seedWebsiteCatalog({
       create: { ...productData, code: productSeed.code },
     });
     productsUpserted += 1;
+
+    // With no options there's no PriceListItem to tie the product to this
+    // list, so link it explicitly (the editor lists it from this link).
+    if (productSeed.options.length === 0) {
+      await prisma.priceListProduct.upsert({
+        where: { priceListId_productId: { priceListId: priceList.id, productId: product.id } },
+        update: {},
+        create: { priceListId: priceList.id, productId: product.id },
+      });
+    }
 
     for (const [index, optionSeed] of productSeed.options.entries()) {
       const optionData = {

@@ -93,6 +93,28 @@ describe("priceListSettings", () => {
     );
   });
 
+  it("is not delivery-only by default", () => {
+    expect(createDefaultPriceListSettings().deliveryOnly).toBe(false);
+    expect(normalizePriceListSettings({}).deliveryOnly).toBe(false);
+    expect(normalizePriceListSettings(null).deliveryOnly).toBe(false);
+    // A price list stored before the flag existed has no such key.
+    expect(parsePriceListSettings(null).deliveryOnly).toBe(false);
+  });
+
+  it("only treats a real boolean true as delivery-only", () => {
+    expect(normalizePriceListSettings({ deliveryOnly: true }).deliveryOnly).toBe(true);
+    expect(
+      normalizePriceListSettings({ deliveryOnly: "true" as unknown as boolean }).deliveryOnly,
+    ).toBe(false);
+  });
+
+  it("round-trips deliveryOnly through price-list description storage", () => {
+    const settings = createDefaultPriceListSettings();
+    settings.deliveryOnly = true;
+
+    expect(parsePriceListSettings(serializePriceListSettings(settings)).deliveryOnly).toBe(true);
+  });
+
   it("round-trips deviation settings through price-list description storage", () => {
     const settings = createDefaultPriceListSettings();
     settings.deviations.NOTHOME.price = "650";

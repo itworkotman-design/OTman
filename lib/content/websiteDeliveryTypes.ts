@@ -4,7 +4,7 @@ import { roundToNearest5, type WhiteGoodsProductSeed } from "@/lib/content/white
 // The Product.deliveryTypes JSON a website catalog product is seeded with
 // (prices rounded to 5 kr). Pure — no database — so tests can build the same
 // catalog product the seed writes.
-export function buildDeliveryTypesJson(product: WhiteGoodsProductSeed) {
+export function buildDeliveryTypesJson(product: Pick<WhiteGoodsProductSeed, "deliveryTypes">) {
   const { firstStep, indoor, installOnlyEnabled } = product.deliveryTypes;
 
   return [

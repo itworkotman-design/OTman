@@ -24,6 +24,12 @@ import {
 } from "@/lib/products/priceListSettings";
 import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import { hasEnglishDescriptionColumn } from "@/lib/products/englishDescription";
+import WebsitePriceListMenu from "@/app/_components/Dahsboard/booking/WebsitePriceListMenu";
+import type { DeliveryOnlyProduct } from "@/lib/products/deliveryOnlyProducts";
+import {
+  isWebsitePriceList,
+  splitWebsitePriceLists,
+} from "@/lib/products/websitePriceLists";
 
 type PriceListSummary = {
   id: string;
@@ -94,6 +100,7 @@ type PriceListData = {
   isActive: boolean;
   items: PriceListItem[];
   specialOptions: PriceListItem[];
+  deliveryOnlyProducts?: DeliveryOnlyProduct[];
 };
 
 type ProductSettingsDraft = {
@@ -385,6 +392,17 @@ export default function EditPricesPage() {
     useState<PriceListSettings>(createDefaultPriceListSettings());
   const [savingPriceListSettings, setSavingPriceListSettings] = useState(false);
   const [rows, setRows] = useState<EditableRow[]>([]);
+  // Delivery-only products (no options, so no rows above) — see
+  // lib/products/deliveryOnlyProducts.ts.
+  const [deliveryOnlyProducts, setDeliveryOnlyProducts] = useState<
+    DeliveryOnlyProduct[]
+  >([]);
+  const [deliveryOnlyNameDrafts, setDeliveryOnlyNameDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [deliveryOnlyStatus, setDeliveryOnlyStatus] = useState<
+    Record<string, { saving?: boolean; saved?: boolean; error?: string | null }>
+  >({});
   const [originalRows, setOriginalRows] = useState<
     Record<string, PriceListItem>
   >({});
@@ -463,6 +481,7 @@ export default function EditPricesPage() {
         setPriceList(null);
         setPriceListSettingsDraft(createDefaultPriceListSettings());
         setRows([]);
+        setDeliveryOnlyProducts([]);
         setOriginalRows({});
         return;
       }
@@ -483,11 +502,15 @@ export default function EditPricesPage() {
           setPriceList(null);
           setPriceListSettingsDraft(createDefaultPriceListSettings());
           setRows([]);
+          setDeliveryOnlyProducts([]);
           setOriginalRows({});
           return;
         }
 
         setPriceList(data.priceList);
+        setDeliveryOnlyProducts(data.priceList.deliveryOnlyProducts ?? []);
+        setDeliveryOnlyNameDrafts({});
+        setDeliveryOnlyStatus({});
         setPriceListSettingsDraft(
           normalizePriceListSettings(data.priceList.settings),
         );
@@ -513,6 +536,7 @@ export default function EditPricesPage() {
         setPriceList(null);
         setPriceListSettingsDraft(createDefaultPriceListSettings());
         setRows([]);
+        setDeliveryOnlyProducts([]);
         setOriginalRows({});
       } finally {
         setLoading(false);
@@ -553,7 +577,9 @@ export default function EditPricesPage() {
   }
 
   function openProductSettings(productId: string) {
-    const row = rows.find((item) => item.productId === productId);
+    const row =
+      rows.find((item) => item.productId === productId) ??
+      deliveryOnlyProducts.find((item) => item.productId === productId);
     if (!row) return;
 
     setEditingProductId(productId);
@@ -587,6 +613,65 @@ export default function EditPricesPage() {
     setProductSettingsError(null);
   }
 
+  function updateDeliveryOnlyStatus(
+    productId: string,
+    patch: { saving?: boolean; saved?: boolean; error?: string | null },
+  ) {
+    setDeliveryOnlyStatus((current) => ({ ...current, [productId]: patch }));
+  }
+
+  // Only the name is edited inline; everything else (delivery-type prices…)
+  // goes through the settings modal. Both save via the same settings route.
+  async function saveDeliveryOnlyName(productId: string) {
+    const name = deliveryOnlyNameDrafts[productId]?.trim();
+    if (!priceList || name === undefined) return;
+
+    if (!name) {
+      updateDeliveryOnlyStatus(productId, { error: "Name is required" });
+      return;
+    }
+
+    try {
+      updateDeliveryOnlyStatus(productId, { saving: true });
+
+      const res = await fetch(
+        `/api/products/pricelists/${priceList.id}/products/${productId}/settings`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        updateDeliveryOnlyStatus(productId, {
+          error: data.reason ?? "Failed to update product",
+        });
+        return;
+      }
+
+      setDeliveryOnlyProducts((current) =>
+        current.map((item) =>
+          item.productId === productId ? { ...item, productName: name } : item,
+        ),
+      );
+      setDeliveryOnlyNameDrafts((current) => {
+        const next = { ...current };
+        delete next[productId];
+        return next;
+      });
+      updateDeliveryOnlyStatus(productId, { saved: true });
+
+      setTimeout(() => {
+        setDeliveryOnlyStatus((current) => ({ ...current, [productId]: {} }));
+      }, 1800);
+    } catch {
+      updateDeliveryOnlyStatus(productId, { error: "Something went wrong" });
+    }
+  }
+
   function closeProductSettings() {
     setEditingProductId(null);
     setProductSettingsDraft(null);
@@ -596,8 +681,11 @@ export default function EditPricesPage() {
   async function saveProductSettings() {
     if (!editingProductId || !productSettingsDraft) return;
 
+    const isOptionless = deliveryOnlyProducts.some(
+      (item) => item.productId === editingProductId,
+    );
     const row = rows.find((item) => item.productId === editingProductId);
-    if (!row) {
+    if (!row && !isOptionless) {
       setProductSettingsError("Could not find a row for this product");
       return;
     }
@@ -605,6 +693,47 @@ export default function EditPricesPage() {
     try {
       setSavingProductSettings(true);
       setProductSettingsError(null);
+
+      if (isOptionless && priceList) {
+        const res = await fetch(
+          `/api/products/pricelists/${priceList.id}/products/${editingProductId}/settings`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...productSettingsDraft,
+              allowPeopleCount: false,
+              deliveryTypes: normalizeProductDeliveryTypes(
+                productSettingsDraft.deliveryTypes,
+              ),
+              customSections: normalizeProductCustomSections(
+                productSettingsDraft.customSections,
+              ),
+            }),
+          },
+        );
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          setProductSettingsError(
+            data.reason ?? "Failed to update product settings",
+          );
+          return;
+        }
+
+        setDeliveryOnlyProducts((current) =>
+          current.map((item) =>
+            item.productId === editingProductId && data.product
+              ? { ...item, ...data.product, productId: item.productId }
+              : item,
+          ),
+        );
+        closeProductSettings();
+        return;
+      }
+
+      if (!row) return;
 
       const res = await fetch(
         `/api/products/pricelists/items/${row.id}/full`,
@@ -965,7 +1094,7 @@ export default function EditPricesPage() {
   }
 
   function updatePriceListChargeSetting(
-    key: Exclude<keyof PriceListSettings, "deviations">,
+    key: Exclude<keyof PriceListSettings, "deviations" | "deliveryOnly">,
     field: "code" | "description" | "price" | "subcontractorPrice",
     value: string,
   ) {
@@ -1445,6 +1574,11 @@ export default function EditPricesPage() {
       return;
     }
 
+    if (data.deliveryOnlyProduct) {
+      setDeliveryOnlyProducts((prev) => [...prev, data.deliveryOnlyProduct]);
+      return;
+    }
+
     const newItem = data.item;
 
     setRows((prev) => [...prev, newItem]);
@@ -1522,12 +1656,21 @@ export default function EditPricesPage() {
     () =>
       editingProductId
         ? groupedProducts.find((group) => group.productId === editingProductId) ??
+          deliveryOnlyProducts.find(
+            (product) => product.productId === editingProductId,
+          ) ??
           null
         : null,
-    [editingProductId, groupedProducts],
+    [editingProductId, groupedProducts, deliveryOnlyProducts],
   );
 
   const hasAutomaticXtra = missingAutomaticXtraKinds.length === 0;
+  const deliveryOnlyList = priceList?.settings.deliveryOnly ?? false;
+  const groupedPriceLists = splitWebsitePriceLists(priceLists);
+  const activeWebsitePriceListId =
+    activePriceListSummary && isWebsitePriceList(activePriceListSummary.name)
+      ? activePriceListSummary.id
+      : null;
 
   if (loading) {
     return (
@@ -1558,7 +1701,7 @@ export default function EditPricesPage() {
 
         <div id="activeTab" className="w-full">
           <div className="max-w-[900] mx-auto flex justify-center items-center gap-3 mb-6 flex-wrap">
-            {priceLists.map((item) => {
+            {groupedPriceLists.regular.map((item) => {
               const isActive = activePriceListSummary?.id === item.id;
 
               return (
@@ -1568,7 +1711,7 @@ export default function EditPricesPage() {
                   onClick={() => setSelectedPriceListId(item.id)}
                   className={`customButtonDefault ${
                     isActive
-                      ? "bg-logoblue text-white!"
+                      ? "bg-logoblue text-white! hover:text-logoblue!"
                       : "bg-white text-logoblue"
                   }`}
                 >
@@ -1576,6 +1719,14 @@ export default function EditPricesPage() {
                 </button>
               );
             })}
+
+            {groupedPriceLists.website.length > 0 && (
+              <WebsitePriceListMenu
+                priceLists={groupedPriceLists.website}
+                activeId={activeWebsitePriceListId}
+                onSelect={setSelectedPriceListId}
+              />
+            )}
 
             <button
               type="button"
@@ -1605,20 +1756,26 @@ export default function EditPricesPage() {
 
         <div className="lg:pl-[50] lg:pr-[200] space-y-12">
           <section>
-            <div className="mb-4 flex flex-col items-start gap-3">
-              <h2 className="text-xl font-bold text-logoblue">
-                Product Options
-              </h2>
-              <button
-                type="button"
-                onClick={addProduct}
-                className="customButtonEnabled"
-              >
-                Add Product
-              </button>
-            </div>
+            {!deliveryOnlyList && (
+              <div className="mb-4 flex flex-col items-start gap-3">
+                <h2 className="text-xl font-bold text-logoblue">
+                  Product Options
+                </h2>
+                <button
+                  type="button"
+                  onClick={addProduct}
+                  className="customButtonEnabled"
+                >
+                  Add Product
+                </button>
+              </div>
+            )}
 
-            <div className="w-full overflow-x-scroll scrollbar-always [-webkit-overflow-scrolling:touch]">
+            <div
+              className={`w-full overflow-x-scroll scrollbar-always [-webkit-overflow-scrolling:touch]${
+                deliveryOnlyList && groupedProducts.length === 0 ? " hidden" : ""
+              }`}
+            >
               <table className="min-w-full table-fixed border border-black/10">
                 <thead className="bg-gray-100">
                   <tr className="text-left">
@@ -1902,6 +2059,146 @@ export default function EditPricesPage() {
                 })}
               </table>
             </div>
+
+            {(deliveryOnlyList || deliveryOnlyProducts.length > 0) && (
+              <div className={deliveryOnlyList ? "" : "mt-10"}>
+                <div className="mb-4 flex flex-col items-start gap-3">
+                  <h2 className="text-xl font-bold text-logoblue">
+                    Delivery-only products
+                  </h2>
+                  <p className="text-sm text-black/60">
+                    These products have no options — their prices are the
+                    delivery type prices in Edit settings.
+                  </p>
+                  {deliveryOnlyList && (
+                    <button
+                      type="button"
+                      onClick={addProduct}
+                      className="customButtonEnabled"
+                    >
+                      Add Product
+                    </button>
+                  )}
+                </div>
+
+                <div className="w-full overflow-x-scroll scrollbar-always [-webkit-overflow-scrolling:touch]">
+                  <table className="w-full border border-black/10">
+                    <thead className="bg-gray-100">
+                      <tr className="text-left">
+                        <th className="px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                          Product
+                        </th>
+                        <th className="px-1 py-4 border bg-logoblue text-white font-semibold text-center">
+                          Code
+                        </th>
+                        {/* w-full: the one column that takes the leftover width; the others stay content-sized. */}
+                        <th className="w-full px-4 py-4 border bg-logoblue text-white font-semibold text-center">
+                          Delivery types (customer / partner)
+                        </th>
+                        <th className="w-50 min-w-50 px-4 py-4 border-l border-black/10 bg-white text-logoBlue font-semibold text-center">
+                          Update
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deliveryOnlyProducts.map((product) => {
+                        const draft = deliveryOnlyNameDrafts[product.productId];
+                        const status = deliveryOnlyStatus[product.productId];
+                        const dirty =
+                          draft !== undefined &&
+                          draft.trim() !== product.productName;
+
+                        return (
+                          <tr
+                            key={product.productId}
+                            className="group relative align-middle [&>td:not(:last-child)]:border-b-2 [&>td:not(:last-child)]:border-logoblue/50"
+                          >
+                            <td className="border-r border-logoblue/50 font-medium align-center">
+                              <div className="flex flex-col gap-3 p-3">
+                                {/* The invisible copy of the name sizes the cell, so the
+                                    column is as wide as its longest name + 4px each side. */}
+                                <div className="relative">
+                                  <span
+                                    aria-hidden
+                                    className="invisible block whitespace-pre px-1 py-1"
+                                  >
+                                    {(draft ?? product.productName) || " "}
+                                  </span>
+                                  <input
+                                    className="absolute inset-0 w-full text-center px-1 py-1 rounded focus:outline-none hover:bg-black/5"
+                                    value={draft ?? product.productName}
+                                    onChange={(e) =>
+                                      setDeliveryOnlyNameDrafts((current) => ({
+                                        ...current,
+                                        [product.productId]: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openProductSettings(product.productId)
+                                  }
+                                  className="customButtonDefault text-xs"
+                                >
+                                  Edit settings
+                                </button>
+                              </div>
+                            </td>
+
+                            <td className="px-1 text-center text-sm whitespace-nowrap">
+                              {product.productCode}
+                            </td>
+
+                            <td className="p-3 text-sm whitespace-nowrap">
+                              {product.deliveryTypes
+                                .filter((type) => type.enabled)
+                                .map((type) => (
+                                  <div key={type.key}>
+                                    {type.label}: {type.price} /{" "}
+                                    {type.subcontractorPrice ?? "0"} kr
+                                  </div>
+                                ))}
+                            </td>
+
+                            <td className="align-middle border-l border-logoblue/20">
+                              <div className="flex items-center gap-2 relative">
+                                {dirty && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      saveDeliveryOnlyName(product.productId)
+                                    }
+                                    disabled={status?.saving}
+                                    className="customButtonEnabled"
+                                  >
+                                    {status?.saving ? "Saving..." : "Update"}
+                                  </button>
+                                )}
+
+                                {!dirty && status?.saved && (
+                                  <span className="text-sm text-green-600 font-medium">
+                                    Saved
+                                  </span>
+                                )}
+
+                                {status?.error && (
+                                  <span className="text-sm text-red-600 font-medium">
+                                    {status.error}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </section>
 
           <section className="mt-10">
@@ -2629,6 +2926,27 @@ export default function EditPricesPage() {
                   />
                 </label>
 
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={priceListSettingsDraft.deliveryOnly}
+                    onChange={(e) =>
+                      setPriceListSettingsDraft((current) => ({
+                        ...current,
+                        deliveryOnly: e.target.checked,
+                      }))
+                    }
+                    className="background mt-0.5 h-4 w-4"
+                  />
+                  <span className="text-sm">
+                    Delivery only
+                    <span className="block text-xs text-black/60">
+                      Products in this pricelist are priced by delivery type
+                      only — no install options. Add Product then creates a
+                      delivery-type product instead of an option.
+                    </span>
+                  </span>
+                </label>
               </div>
 
               <div className="space-y-3 rounded-lg border border-black/10 p-4">

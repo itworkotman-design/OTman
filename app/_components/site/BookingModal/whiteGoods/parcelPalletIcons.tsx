@@ -38,14 +38,6 @@ const BoxesIcon = (props: IconProps) => (
   </Base>
 );
 
-const ParcelIcon = (props: IconProps) => (
-  <Base {...props}>
-    <rect x="4" y="6" width="16" height="14" rx="1.5" />
-    <path d="M4 13h16M12 6v14" />
-    <rect x="14.5" y="8.5" width="4" height="3" rx="0.5" strokeWidth={1} />
-  </Base>
-);
-
 // Half-pallet and pallet now share the exact same source viewBox (62x61,
 // hence the same transform/scale/strokeWidth below) — the "half" vs "full"
 // distinction is drawn INTO the artwork itself (2 support feet vs 3 feet +
@@ -81,19 +73,10 @@ const EnvelopeIcon = (props: IconProps) => (
   </Base>
 );
 
-const PerishablesIcon = (props: IconProps) => (
-  <Base {...props}>
-    <rect x="4" y="6" width="16" height="13" rx="1.5" />
-    <path d="M12 9v7M9.5 10.5l5 4M14.5 10.5l-5 4" />
-  </Base>
-);
-
 export const PARCEL_PALLET_ICONS: Record<string, (props: IconProps) => React.JSX.Element> = {
+  pkg_konvolutt: EnvelopeIcon,
   pkg_pose: BagIcon,
   pkg_esker: BoxesIcon,
-  pkg_kolli: ParcelIcon,
   pkg_halvpall: HalfPalletIcon,
   pkg_pall: PalletIcon,
-  pkg_konvolutt: EnvelopeIcon,
-  pkg_ferskvarer: PerishablesIcon,
 };

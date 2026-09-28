@@ -13,5 +13,6 @@ export function seedParcelPalletCatalog() {
     // from a spreadsheet — they're staff-entered placeholders (see
     // parcelPalletCatalog.ts). A reseed must never reset them.
     preservePricesOnReseed: true,
+    deliveryOnly: true,
   });
 }

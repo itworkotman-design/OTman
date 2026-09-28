@@ -22,6 +22,11 @@ export type PriceListSettings = {
   // (currently just the website white-goods flow) — existing price lists
   // simply never populate it.
   floorSurcharge: PriceListChargeSetting;
+  // A delivery-only list (e.g. website parcel/pallet) holds products that are
+  // priced purely by their delivery types — no install options. The editor
+  // then adds products without an option row, linked via PriceListProduct.
+  // Off by default; a list stored before this existed has no such key.
+  deliveryOnly: boolean;
   deviations: Record<string, PriceListChargeSetting>;
 };
 
@@ -85,6 +90,7 @@ export function createDefaultPriceListSettings(): PriceListSettings {
       "FLOOR_SURCHARGE",
       "Floor surcharge per chargeable floor, no lift",
     ),
+    deliveryOnly: false,
     deviations: Object.fromEntries(
       DEVIATION_FEE_OPTIONS.map((option) => [
         option.code,
@@ -203,6 +209,7 @@ export function normalizePriceListSettings(
       input?.floorSurcharge,
       defaults.floorSurcharge,
     ),
+    deliveryOnly: input?.deliveryOnly === true,
     deviations: normalizeDeviationSettings(
       input?.deviations,
       defaults.deviations,
