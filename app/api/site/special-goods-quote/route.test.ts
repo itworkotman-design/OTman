@@ -1,20 +1,54 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  linkPendingQuoteAttachmentsMock: vi.fn(),
+  promotePendingQuoteAttachmentsMock: vi.fn(),
+  membershipFindUnique: vi.fn(),
+  orderCreate: vi.fn(),
+  reserveNextManualOrderNumberMock: vi.fn(),
+  sendOrderReceivedEmailMock: vi.fn(),
+  reservePublicOrderNumberMock: vi.fn(),
+  createOrderCreatedEventMock: vi.fn(),
+  createOrderNotificationMock: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
-    membership: { findUnique: vi.fn() },
+    membership: { findUnique: mocks.membershipFindUnique },
+    order: { create: mocks.orderCreate },
   },
 }));
 
-const mocks = vi.hoisted(() => ({
-  linkPendingQuoteAttachmentsMock: vi.fn(),
+vi.mock("@/lib/orders/sendOrderReceivedEmail", () => ({
+  sendOrderReceivedEmail: mocks.sendOrderReceivedEmailMock,
+}));
+
+vi.mock("@/lib/orders/orderEvents", () => ({
+  createOrderCreatedEvent: mocks.createOrderCreatedEventMock,
+  buildOrderEventSnapshot: (snapshot: unknown) => snapshot,
+}));
+
+vi.mock("@/lib/orders/orderNotifications", () => ({
+  createOrderNotification: mocks.createOrderNotificationMock,
+}));
+
+vi.mock("@/lib/orders/publicOrderNumber", () => ({
+  reservePublicOrderNumber: mocks.reservePublicOrderNumberMock,
+}));
+
+vi.mock("@/lib/orders/orderNumber", () => ({
+  reserveNextManualOrderNumber: mocks.reserveNextManualOrderNumberMock,
 }));
 
 vi.mock("@/lib/orders/pendingQuoteAttachments", async () => {
   const actual = await vi.importActual<typeof import("@/lib/orders/pendingQuoteAttachments")>(
     "@/lib/orders/pendingQuoteAttachments",
   );
-  return { ...actual, linkPendingQuoteAttachments: mocks.linkPendingQuoteAttachmentsMock };
+  return {
+    ...actual,
+    linkPendingQuoteAttachments: mocks.linkPendingQuoteAttachmentsMock,
+    promotePendingQuoteAttachments: mocks.promotePendingQuoteAttachmentsMock,
+  };
 });
 
 async function freshPOST() {
@@ -118,5 +152,42 @@ describe("POST /api/site/special-goods-quote", () => {
     await POST(jsonRequest(validBody));
     const res = await POST(jsonRequest(validBody));
     expect(res.status).toBe(429);
+  });
+
+  it("sends the customer an order-received email once the order (and its photos) are saved", async () => {
+    process.env.WEBSITE_MEMBERSHIP_ID = "m1";
+    mocks.membershipFindUnique.mockResolvedValue({ id: "m1", companyId: "c1", status: "ACTIVE" });
+    mocks.reserveNextManualOrderNumberMock.mockResolvedValue(7);
+    mocks.reservePublicOrderNumberMock.mockResolvedValue("K7MQ4XZ2");
+    mocks.promotePendingQuoteAttachmentsMock.mockResolvedValue(1);
+    mocks.linkPendingQuoteAttachmentsMock.mockResolvedValue(1);
+    mocks.orderCreate.mockResolvedValue({ id: "order1", companyId: "c1", displayId: 7, orderNumber: "K7MQ4XZ2", status: "processing", email: "customer@example.com" });
+
+    const res = await post(validBody);
+    delete process.env.WEBSITE_MEMBERSHIP_ID;
+
+    expect(res.status).toBe(200);
+    // Customers see the random public number, not the sequential displayId.
+    await expect(res.json()).resolves.toMatchObject({ ok: true, orderNumber: "K7MQ4XZ2" });
+    expect(mocks.orderCreate.mock.calls[0][0].data).toMatchObject({ displayId: 7, orderNumber: "K7MQ4XZ2" });
+    expect(mocks.sendOrderReceivedEmailMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order1", email: "customer@example.com" }));
+  });
+
+  it("promotes the photos out of tmp/ BEFORE creating the order, and creates no order if that fails", async () => {
+    process.env.WEBSITE_MEMBERSHIP_ID = "m1";
+    mocks.membershipFindUnique.mockResolvedValue({ id: "m1", companyId: "c1", status: "ACTIVE" });
+    mocks.reserveNextManualOrderNumberMock.mockResolvedValue(1);
+    mocks.promotePendingQuoteAttachmentsMock.mockRejectedValue(new Error("copy failed"));
+
+    const res = await post(validBody);
+    delete process.env.WEBSITE_MEMBERSHIP_ID;
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({ ok: false, reason: "ORDER_CREATION_FAILED" });
+    expect(mocks.promotePendingQuoteAttachmentsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ quoteToken: VALID_TOKEN }),
+    );
+    expect(mocks.orderCreate).not.toHaveBeenCalled();
   });
 });

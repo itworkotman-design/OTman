@@ -3,12 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { SteppedModal, RevealSection, type FinalStep, type StepSection } from "../SteppedModal";
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
+import { CustomerTypeStep } from "./CustomerTypeStep";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
 import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
-import { CustomerTypeToggle } from "./CustomerTypeToggle";
 import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
 import { applyProductQuantity } from "./productQuantity";
+import { getCalculatorProductName } from "./productDisplayName";
+import {
+  applyItemName,
+  applySizeBracketSelection,
+  applySizeDimension,
+  getSelectedSizeOptionIds,
+  getSizeDimensions,
+} from "./sizeBracketSelection";
 import { previewCardDeliveryOptions } from "./deliveryPricePreview";
 import { sortSummaryLines } from "./orderSummaryLines";
 import { orderHasRequiredDelivery } from "./orderDeliveryRequirement";
@@ -36,6 +44,7 @@ import {
 } from "./websiteLists";
 import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
+import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import {
   createDefaultPriceListSettings,
@@ -48,6 +57,8 @@ type Props = {
   locale: Locale;
   onClose: () => void;
 };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const toBookingLocale = (l: Locale): BookingUiLocale => (l === "no" ? "nb" : "en");
 
@@ -146,11 +157,17 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [notes, setNotes] = useState("");
 
   const [submitLoading, setSubmitLoading] = useState(false);
-  // Display-only — decides which VAT total (incl. or ex.) is shown as the
-  // headline number vs. the smaller secondary one. Never affects pricing.
-  const [customerType, setCustomerType] = useState<CustomerType>("private");
+  // Set once by the very first step ("customer-type", below) — no toggle
+  // to change it again later, since asking twice would be redundant. Still
+  // display-only — decides which VAT total (incl. or ex.) is shown as the
+  // headline number vs. the smaller secondary one, never affects actual
+  // pricing. Starts `null` (unanswered) rather than defaulting to "private"
+  // so the first step's tiles open with neither one highlighted —
+  // getVatDisplayTotal already treats "private" as its own default
+  // whenever this is null.
+  const [customerType, setCustomerType] = useState<CustomerType | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitResult, setSubmitResult] = useState<{ displayId: number } | null>(null);
+  const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -239,6 +256,19 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   function setProductQuantity(productId: string, amount: number) {
     setProductCards((cards) => applyProductQuantity(cards, productId, amount, nextCardId(cards)));
   }
+  // Volume / weight for size-priced products (Other furniture), chosen in the
+  // product tile itself.
+  function selectSizeBracket(product: CatalogProduct, optionId: string) {
+    setProductCards((cards) => applySizeBracketSelection(cards, product, optionId));
+  }
+  // What the size-priced item is (Other furniture), in the customer's words.
+  function changeItemName(product: CatalogProduct, name: string) {
+    setProductCards((cards) => applyItemName(cards, product, name));
+  }
+  // Width / height / length: the volume bracket is calculated from them.
+  function selectSizeDimension(product: CatalogProduct, axis: "widthCm" | "heightCm" | "lengthCm", valueCm: number) {
+    setProductCards((cards) => applySizeDimension(cards, product, axis, valueCm));
+  }
 
   const quantitiesByProductId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -291,7 +321,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const finalVatDisplay = getVatDisplayTotal({
     totalExVat: pricing.totals.totalExVat,
     totalIncVat: pricing.totals.totalIncVat,
-    customerType,
+    customerType: customerType ?? undefined,
   });
 
   const summaryProducts: OrderSummaryProduct[] = useMemo(() => {
@@ -310,7 +340,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         );
         return {
           cardId: card.cardId,
-          name: productLabel(locale, product),
+          // Other furniture is titled with the customer's own name ("A.M: Fish").
+          name: getCalculatorProductName({ product, itemName: card.modelNumber, label: productLabel(locale, product) }),
           code: product.code,
           iconKey: product.iconKey ?? null,
           qty: card.amount,
@@ -327,10 +358,18 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   // invariant blindly) so a product can never slip through to submission
   // with no delivery charge at all.
   const hasConfiguredProduct = productCards.every((c) => !c.productId || c.deliveryType);
+  // Size-priced products (Other furniture) also need a volume and a weight
+  // bracket chosen — the server rejects an order without them.
+  const sizeBracketsComplete =
+    findCardsWithSizeBracketProblems(productCards, catalogProducts).length === 0 &&
+    findSizePricedCardsMissingName(productCards, catalogProducts).length === 0;
   const hasRequiredDelivery = orderHasRequiredDelivery(productCards);
   const canContinueOrderDetails = !!pickupAddress.trim() && !!deliveryAddress.trim();
-  const canContinueContact = !!name.trim() && !!phone.trim();
-  const canSubmit = name.trim() && phone.trim() && !submitLoading;
+  // Email is mandatory: the order-received confirmation and the payment link
+  // are emailed, so an order without one could never be completed.
+  const emailValid = EMAIL_RE.test(email.trim());
+  const canContinueContact = !!name.trim() && !!phone.trim() && emailValid;
+  const canSubmit = name.trim() && phone.trim() && emailValid && sizeBracketsComplete && !submitLoading;
 
   async function handleSubmit() {
     setSubmitLoading(true);
@@ -363,7 +402,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         );
         return;
       }
-      setSubmitResult({ displayId: json.displayId });
+      setSubmitResult({ orderNumber: json.orderNumber ?? String(json.displayId) });
     } catch {
       setSubmitError(t("Something went wrong. Please try again.", "Noe gikk galt. Prøv igjen."));
     } finally {
@@ -397,6 +436,14 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             products={listProducts}
             quantities={quantitiesByProductId}
             onChangeQuantity={setProductQuantity}
+            sizeSelections={Object.fromEntries(listProducts.map((p) => [p.id, getSelectedSizeOptionIds(productCards, p)]))}
+            onSelectSizeBracket={selectSizeBracket}
+            sizeDimensions={Object.fromEntries(listProducts.map((p) => [p.id, getSizeDimensions(productCards, p)]))}
+            onSelectSizeDimension={selectSizeDimension}
+            itemNames={Object.fromEntries(
+              listProducts.map((p) => [p.id, productCards.find((c) => c.productId === p.id)?.modelNumber ?? ""]),
+            )}
+            onChangeItemName={changeItemName}
           />
 
           {index > 0 && (
@@ -414,6 +461,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
               ownCount: cardsForList(productCards, listProducts).length,
               orderCount: productCards.length,
               wasPopulated: populatedListCodes.includes(code),
+              // Other furniture: this step only finishes once its tile has a
+              // name, a size and a weight, then moves on to the options.
+              sizeBracketsComplete:
+                findCardsWithSizeBracketProblems(cardsForList(productCards, listProducts), listProducts).length === 0 &&
+                findSizePricedCardsMissingName(cardsForList(productCards, listProducts), listProducts).length === 0,
             })}
             onReady={onComplete}
             onRetract={onUncomplete}
@@ -459,7 +511,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                   orderCount: productCards.length,
                   wasPopulated: populatedListCodes.includes(code),
                 }) &&
-                (!isLast || hasRequiredDelivery)
+                (!isLast || hasRequiredDelivery) &&
+                sizeBracketsComplete
               }
               onReady={onComplete}
               onRetract={onUncomplete}
@@ -475,8 +528,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
               products={summaryProducts}
               totalExVat={pricing.totals.totalExVat}
               totalIncVat={pricing.totals.totalIncVat}
-              customerType={customerType}
-              onCustomerTypeChange={setCustomerType}
+              customerType={customerType ?? "private"}
             />
           </div>
         </div>
@@ -516,6 +568,20 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       : [];
 
   const sections: StepSection[] = [
+    {
+      id: "customer-type",
+      title: t("Are you ordering as a private person or a business?", "Bestiller du som privatperson eller bedrift?"),
+      render: ({ onComplete }) => (
+        <CustomerTypeStep
+          locale={locale}
+          value={customerType}
+          onPick={(next) => {
+            setCustomerType(next);
+            onComplete();
+          }}
+        />
+      ),
+    },
     {
       id: "pickup-category",
       title: t("What are we picking up?", "Hva skal vi hente?"),
@@ -670,6 +736,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             {t("Email", "E-post")}
             <input
               type="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="h-10 rounded-lg border border-black/15 px-2"
@@ -700,8 +767,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           </h4>
           <p className="text-sm text-black/60">
             {t(
-              `Order #${submitResult.displayId} is pending approval. We'll email you a payment link once it's confirmed.`,
-              `Bestilling #${submitResult.displayId} venter på godkjenning. Vi sender deg en betalingslenke på e-post når den er bekreftet.`,
+              `Order #${submitResult.orderNumber} is pending approval. We'll email you a payment link once it's confirmed.`,
+              `Bestilling #${submitResult.orderNumber} venter på godkjenning. Vi sender deg en betalingslenke på e-post når den er bekreftet.`,
             )}
           </p>
         </div>
@@ -717,12 +784,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           </button>
 
           <div>
-            <div className="flex items-center justify-between gap-3">
-              <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
-                {t("Summary", "Oppsummering")}
-              </h4>
-              <CustomerTypeToggle locale={locale} value={customerType} onChange={setCustomerType} />
-            </div>
+            <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
+              {t("Summary", "Oppsummering")}
+            </h4>
             <div className="mt-3 flex flex-col gap-1 text-sm">
               <div
                 className={`flex justify-between ${

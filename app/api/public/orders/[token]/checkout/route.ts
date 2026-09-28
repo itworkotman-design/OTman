@@ -45,7 +45,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const baseUrl = getOrderActionBaseUrl();
   const stripe = getStripeClient();
 
-  const orderLabel = order.displayId ? `Otman bestilling #${order.displayId}` : "Otman bestilling";
+  // Same number the customer sees in every email and on the order pages.
+  const orderReference = order.orderNumber?.trim() || order.displayId;
+  const orderLabel = orderReference ? `Otman bestilling #${orderReference}` : "Otman bestilling";
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",

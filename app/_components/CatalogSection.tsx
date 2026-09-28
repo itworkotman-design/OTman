@@ -1,6 +1,7 @@
+import type { $Enums } from "@prisma/client";
 import { getPublicCatalog } from "@/lib/catalog";
 
-function formatPriceNok(args: { pricingMode: "FIXED" | "REQUEST"; priceCents: number | null }) {
+function formatPriceNok(args: { pricingMode: $Enums.PricingMode; priceCents: number | null }) {
     if (args.pricingMode === "REQUEST") return "Price on request";
     if (args.priceCents == null) return "Price on request";
     const nok = (args.priceCents / 100).toFixed(2);

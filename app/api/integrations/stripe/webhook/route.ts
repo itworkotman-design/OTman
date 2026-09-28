@@ -20,6 +20,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       companyId: true,
       status: true,
       displayId: true,
+      orderNumber: true,
       customerName: true,
       customerLabel: true,
       statusNotes: true,

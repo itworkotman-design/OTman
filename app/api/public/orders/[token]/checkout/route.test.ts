@@ -71,6 +71,16 @@ describe("POST /api/public/orders/[token]/checkout", () => {
     expect(createArgs.metadata.chargeKind).toBe("initial");
   });
 
+  it("labels the Stripe charge with the public order number, and falls back to displayId for older orders", async () => {
+    mocks.getOrderByActionTokenMock.mockResolvedValue({ ...baseOrder, orderNumber: "K7MQ4XZ2", status: "approved" });
+    await call();
+    expect(mocks.checkoutSessionsCreateMock.mock.calls[0][0].line_items[0].price_data.product_data.name).toBe("Otman bestilling #K7MQ4XZ2");
+
+    mocks.getOrderByActionTokenMock.mockResolvedValue({ ...baseOrder, orderNumber: null, status: "approved" });
+    await call();
+    expect(mocks.checkoutSessionsCreateMock.mock.calls[1][0].line_items[0].price_data.product_data.name).toBe("Otman bestilling #42");
+  });
+
   it("rejects a confirmed order that has nothing left to pay", async () => {
     mocks.getOrderByActionTokenMock.mockResolvedValue({
       ...baseOrder,

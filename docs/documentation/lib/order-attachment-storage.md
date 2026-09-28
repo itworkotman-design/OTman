@@ -20,3 +20,12 @@ Centralizes S3-backed order attachment storage. The helper detects whether S3 st
 | `deleteAttachmentFromS3` | Deletes an S3-backed attachment object when its app record is removed. |
 | `getSignedAttachmentUrl` | Builds a short-lived signed S3 URL for inline open or forced download access. |
 | `getAttachmentAccessUrls` | Returns the correct open and download URLs for an attachment, using signed URLs for both S3-backed open and download links and route URLs otherwise. |
+
+## Temp staging (added 2026-09-28)
+- `uploadTempAttachmentBufferToS3` — same as `uploadAttachmentBufferToS3` but
+  keys under `tmp/` (expired by an S3 lifecycle rule) instead of `orders/`.
+- `tempKeyToOrderKey(key)` — `tmp/<rest>` → `orders/<rest>`, `null` otherwise.
+- `promoteTempAttachmentToOrders(storagePath)` — CopyObject to the `orders/`
+  key, then delete the tmp object (delete failure is swallowed; lifecycle rule
+  removes it). Returns the new `s3://` path; throws on a failed copy or a
+  non-tmp path.

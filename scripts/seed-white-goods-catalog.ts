@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./_loadLocalSeedEnv";
 import { prisma } from "../lib/db";
 import { seedWhiteGoodsElectronics } from "../lib/content/seedWhiteGoodsElectronics";
 

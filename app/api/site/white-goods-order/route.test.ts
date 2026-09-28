@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // request-level validation and rate limiting, which run before any of that
 // pipeline is touched.
 
+vi.mock("@/lib/orders/sendOrderReceivedEmail", () => ({ sendOrderReceivedEmail: vi.fn() }));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     membership: { findUnique: vi.fn() },
@@ -73,6 +75,16 @@ describe("POST /api/site/white-goods-order", () => {
     const json = await res.json();
     expect(json.ok).toBe(false);
     expect(json.errors.phone).toBeDefined();
+  });
+
+  it("returns 422 when the email is missing — the customer's confirmation and payment link go there, so it is mandatory", async () => {
+    for (const email of ["", "   ", undefined]) {
+      const res = await post({ ...validBody, email });
+
+      expect(res.status).toBe(422);
+      const json = await res.json();
+      expect(json.errors.email).toBe("Required");
+    }
   });
 
   it("returns 422 with an email error for a malformed email", async () => {

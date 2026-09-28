@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { checkRateLimit, incrementRateLimit } from "@/lib/auth/rateLimit";
-import { deleteAttachmentFile, uploadAttachmentBufferToS3 } from "@/lib/orders/orderAttachmentStorage";
+import { uploadTempAttachmentBufferToS3 } from "@/lib/orders/orderAttachmentStorage";
 import { requestTooLargeByContentLength } from "@/lib/docArchive/uploadGate";
 import { MAX_QUOTE_PHOTOS, MAX_QUOTE_PHOTO_SIZE_BYTES, isValidQuoteToken, sniffImageMimeType } from "@/lib/orders/pendingQuoteAttachments";
 
@@ -18,9 +18,19 @@ import { MAX_QUOTE_PHOTOS, MAX_QUOTE_PHOTO_SIZE_BYTES, isValidQuoteToken, sniffI
 // per-IP rate limit, a pre-body Content-Length check, a per-token photo cap,
 // and real magic-byte file-content validation (every OTHER upload path in
 // this app only checks the spoofable browser-supplied Content-Type).
+//
+// The client only calls this at final submit time, not as each photo is
+// picked (see SpecialGoodsQuoteFlow.tsx) — so there's no DELETE here for
+// "remove a photo I already uploaded": removing one client-side before
+// submitting never touched this endpoint at all. This also means an
+// abandoned form never writes anything to S3/the DB in the first place,
+// which is the whole point (no cron needed to clean up orphaned uploads from
+// someone who picks photos then never submits).
 
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const RATE_LIMIT_PER_IP = 20; // generous relative to the 6-photo cap, allows retries
+const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 1 day
+// Matches MAX_QUOTE_PHOTOS exactly — one IP gets at most one quote's worth
+// of photos per day, across any number of quote requests.
+const RATE_LIMIT_PER_IP = MAX_QUOTE_PHOTOS;
 
 function getClientIp(req: Request): string {
   const xff = req.headers.get("x-forwarded-for");
@@ -80,7 +90,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: "INVALID_FILE_TYPE" }, { status: 400 });
   }
 
-  const uploaded = await uploadAttachmentBufferToS3({
+  const uploaded = await uploadTempAttachmentBufferToS3({
     bytes,
     scope: `quote-requests/${quoteToken}`,
     filename: file.name,
@@ -100,30 +110,4 @@ export async function POST(req: Request) {
   await incrementRateLimit({ key: rateLimitKey, windowMs: RATE_LIMIT_WINDOW_MS });
 
   return NextResponse.json({ ok: true, id: attachment.id, filename: file.name });
-}
-
-export async function DELETE(req: Request) {
-  const body = await req.json().catch(() => null);
-  const id = typeof body?.id === "string" ? body.id : "";
-  const quoteToken = typeof body?.quoteToken === "string" ? body.quoteToken : "";
-
-  if (!isValidQuoteToken(quoteToken) || !id) {
-    return NextResponse.json({ ok: false, reason: "INVALID_REQUEST" }, { status: 400 });
-  }
-
-  // Scoped by matching BOTH id and quoteToken — the token is this flow's
-  // only notion of "ownership" (there's no real auth for an anonymous
-  // visitor), so this is what stops one visitor deleting another's upload.
-  const attachment = await prisma.pendingQuoteAttachment.findFirst({
-    where: { id, quoteToken },
-  });
-
-  if (!attachment) {
-    return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
-  }
-
-  await deleteAttachmentFile(attachment.storagePath);
-  await prisma.pendingQuoteAttachment.delete({ where: { id } });
-
-  return NextResponse.json({ ok: true });
 }

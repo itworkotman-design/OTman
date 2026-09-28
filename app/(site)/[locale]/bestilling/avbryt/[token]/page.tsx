@@ -50,9 +50,9 @@ export default async function OrderCancelPage({
     <div className="py-16">
       <h1 className="text-xl font-semibold">{t.heading}</h1>
       <div className="mt-6 max-w-md rounded-lg border border-gray-200 p-6">
-        {order.displayId ? (
+        {order.orderNumber || order.displayId ? (
           <p className="text-sm text-textColorThird">
-            {t.order} #{order.displayId}
+            {t.order} #{order.orderNumber || order.displayId}
           </p>
         ) : null}
 

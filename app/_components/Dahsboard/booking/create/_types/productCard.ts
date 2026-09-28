@@ -1,5 +1,6 @@
 import type { DeliveryType } from "@/lib/booking/pricing/types";
 import type { OrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
+import type { SizeDimensionsCm } from "@/lib/booking/pricing/sizeDimensions";
 import type { ProductCustomSection } from "@/lib/products/customSections";
 import type { ProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import {
@@ -54,6 +55,10 @@ export type SavedProductCard = {
   etterQty: number;
 
   customSectionSelections: ProductCardCustomSectionSelection[];
+  // Size-priced products (Other furniture): the width/height/length the
+  // customer chose. The volume bracket is derived from these (server-side too) —
+  // see lib/booking/pricing/sizeDimensions.ts.
+  sizeDimensionsCm?: Partial<SizeDimensionsCm> | null;
   pricingSnapshot?: OrderPricingSnapshot | null;
   wordpressImportReadOnly?: WordpressImportReadOnlySnapshot | null;
   nulledLineKeysForCustomer?: string[];
@@ -70,6 +75,16 @@ export type CatalogOption = {
   subcontractorPrice: string;
   effectiveCustomerPrice: string;
   active: boolean;
+  // Weight/dimension pricing primitive (see
+  // lib/booking/pricing/weightDimensionPricing.ts) — optional, present only
+  // when the option's pricingMode isn't the default "FIXED". Not yet acted
+  // on by any pricing/UI code; exposed here so a future consumer has it
+  // available without another catalog-shape change.
+  pricingMode?: "FIXED" | "REQUEST" | "PER_KG" | "PER_M3";
+  customerRatePerUnitCents?: number | null;
+  subcontractorRatePerUnitCents?: number | null;
+  customerMaxChargeCents?: number | null;
+  subcontractorMaxChargeCents?: number | null;
 };
 
 export type CatalogProduct = {

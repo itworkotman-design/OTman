@@ -129,7 +129,7 @@ export async function seedWebsiteCatalog({
             productOptionId: option.id,
           },
         },
-        update: preservePricesOnReseed ? {} : prices,
+        update: preservePricesOnReseed || optionSeed.staffPriced ? {} : prices,
         create: { ...prices, priceListId: priceList.id, productOptionId: option.id },
       });
       optionsUpserted += 1;

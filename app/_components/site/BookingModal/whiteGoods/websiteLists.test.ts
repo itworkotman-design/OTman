@@ -53,11 +53,37 @@ describe("per-list card helpers", () => {
     expect(isListConfigured(cards, products)).toBe(false); // card 2 has no delivery type
     expect(isListConfigured([card(0, "a"), card(3, "b", "INDOOR")], products)).toBe(true);
   });
+
+  it("isListConfigured also needs a volume and a weight bracket on size-priced products (Other furniture)", () => {
+    const sized = [
+      {
+        id: "s",
+        options: [
+          { id: "v1", category: "size_volume", active: true, customerPrice: "0" },
+          { id: "w1", category: "size_weight", active: true, customerPrice: "0" },
+        ],
+      },
+    ] as unknown as CatalogProduct[];
+    const sizedCard = (selectedExtraOptionIds: string[]) => ({ ...card(0, "s"), selectedExtraOptionIds }) as SavedProductCard;
+
+    expect(isListConfigured([sizedCard([])], sized)).toBe(false);
+    expect(isListConfigured([sizedCard(["v1"])], sized)).toBe(false);
+    expect(isListConfigured([sizedCard(["v1", "w1"])], sized)).toBe(false); // still no name for the item
+    expect(isListConfigured([{ ...sizedCard(["v1", "w1"]), modelNumber: "Piano" }], sized)).toBe(true);
+  });
 });
 
 describe("list step readiness (a list emptied later must not collapse the order)", () => {
   it("products step: ready with its own products", () => {
     expect(isProductsStepReady({ ownCount: 2, orderCount: 3, wasPopulated: true })).toBe(true);
+  });
+
+  it("products step: a list with size-priced products waits until every one has its volume and weight chosen", () => {
+    expect(isProductsStepReady({ ownCount: 1, orderCount: 1, wasPopulated: false, sizeBracketsComplete: false })).toBe(false);
+    expect(isProductsStepReady({ ownCount: 1, orderCount: 1, wasPopulated: true, sizeBracketsComplete: false })).toBe(false);
+    expect(isProductsStepReady({ ownCount: 1, orderCount: 1, wasPopulated: false, sizeBracketsComplete: true })).toBe(true);
+    // omitted = nothing to choose (ordinary lists)
+    expect(isProductsStepReady({ ownCount: 1, orderCount: 1, wasPopulated: false })).toBe(true);
   });
 
   it("products step: a list that had products and was emptied is NOT holding the order back while other lists have products", () => {

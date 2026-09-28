@@ -10,6 +10,7 @@ import { deliveryTypeAfterSelectingType } from "@/lib/content/whiteGoodsElectron
 import type { FurnitureOptionSeed } from "@/lib/content/furnitureCatalog";
 import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
 import { isAssemblyCompatibleExtraCode } from "@/lib/booking/pricing/websiteAssemblyExtras";
+import { isSizeBracketCategory } from "@/lib/booking/pricing/sizeBrackets";
 import {
   groupAssemblyOptions,
   groupDismantlingOptions,
@@ -216,6 +217,11 @@ export function WhiteGoodsProductCard({
     return true;
   });
 
+  // Size-priced products (Other furniture) get their volume and weight chosen in
+  // the "Choose products" tile (WhiteGoodsProductGrid). They live in
+  // selectedExtraOptionIds, so changing delivery type below must not clear them.
+  const sizeOptionIds = product.options.filter((o) => isSizeBracketCategory(o.category)).map((o) => o.id);
+
   const unpackingOption =
     product.options.find((o) => o.code === "UNPACKING") ?? null;
   const demontOption = product.options.find((o) => o.code === "DEMONT") ?? null;
@@ -260,7 +266,9 @@ export function WhiteGoodsProductCard({
       ...value,
       deliveryType: next,
       selectedInstallOptionIds: [],
-      selectedExtraOptionIds: [],
+      // Changing delivery clears the add-ons, but the item's size/weight
+      // describe the item itself and must survive.
+      selectedExtraOptionIds: value.selectedExtraOptionIds.filter((id) => sizeOptionIds.includes(id)),
       selectedReturnOptionId: null,
       demontEnabled: false,
     });

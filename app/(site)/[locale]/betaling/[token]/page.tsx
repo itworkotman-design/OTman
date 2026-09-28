@@ -75,10 +75,10 @@ export default async function OrderPaymentPage({
 
       <div className="mt-6 max-w-md rounded-lg border border-gray-200 p-6">
         <dl className="space-y-2 text-sm">
-          {order.displayId ? (
+          {order.orderNumber || order.displayId ? (
             <div className="flex justify-between">
               <dt className="text-textColorThird">{t.order}</dt>
-              <dd className="font-medium">#{order.displayId}</dd>
+              <dd className="font-medium">#{order.orderNumber || order.displayId}</dd>
             </div>
           ) : null}
           {order.deliveryDate ? (

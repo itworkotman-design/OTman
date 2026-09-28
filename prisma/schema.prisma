@@ -8,24 +8,24 @@ datasource db {
 }
 
 model User {
-  id                    String               @id @default(cuid())
-  email                 String               @unique
+  id                    String                    @id @default(cuid())
+  email                 String                    @unique
   passwordHash          String
-  status                UserStatus           @default(ACTIVE)
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  status                UserStatus                @default(ACTIVE)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
   description           String?
   phoneNumber           String?
-  username              String?              @unique
+  username              String?                   @unique
   address               String?
   logoPath              String?
   usernameDisplayColor  String?
   languagePreference    String?
-  legacyWordpressUserId Int?                 @unique
+  legacyWordpressUserId Int?                      @unique
   mainPickupAddressId   String?
   mainReturnAddressId   String?
   authEvents            AuthEvent[]
-  invitesSent           Invite[]             @relation("InviteCreatedBy")
+  invitesSent           Invite[]                  @relation("InviteCreatedBy")
   memberships           Membership[]
   resetTokens           PasswordResetToken[]
   sessions              Session[]
@@ -40,18 +40,18 @@ model User {
 }
 
 model Company {
-  id                      String                       @id @default(cuid())
+  id                      String                   @id @default(cuid())
   name                    String
-  slug                    String?                      @unique
-  status                  CompanyStatus                @default(ACTIVE)
-  orderEmailsEnabled      Boolean                      @default(true)
-  createdAt               DateTime                     @default(now())
-  updatedAt               DateTime                     @updatedAt
+  slug                    String?                  @unique
+  status                  CompanyStatus            @default(ACTIVE)
+  orderEmailsEnabled      Boolean                  @default(true)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
   authEvents              AuthEvent[]
   invites                 Invite[]
   memberships             Membership[]
   orders                  Order[]
-  activeSessions          Session[]                    @relation("SessionActiveCompany")
+  activeSessions          Session[]                @relation("SessionActiveCompany")
   recurringOrderTemplates RecurringOrderTemplate[]
 
   @@index([status])
@@ -319,17 +319,17 @@ model Category {
 }
 
 model Service {
-  id           String        @id @default(cuid())
-  title        String
-  description  String
-  pricingMode  PricingMode   @default(FIXED)
-  priceCents   Int?
-  isActive     Boolean       @default(true)
-  sortOrder    Int           @default(0)
-  categoryId   String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  category     Category      @relation(fields: [categoryId], references: [id])
+  id          String      @id @default(cuid())
+  title       String
+  description String
+  pricingMode PricingMode @default(FIXED)
+  priceCents  Int?
+  isActive    Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  categoryId  String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  category    Category    @relation(fields: [categoryId], references: [id])
 
   @@index([categoryId])
   @@index([isActive, sortOrder])
@@ -374,6 +374,10 @@ model ProductOption {
   isActive       Boolean         @default(true)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  // FIXED (every option today) = the existing flat-price behavior, entirely
+  // unchanged. PER_KG/PER_M3 = weight/dimension pricing primitive — see
+  // PricingMode's own comment and lib/booking/pricing/weightDimensionPricing.ts.
+  pricingMode    PricingMode     @default(FIXED)
   priceListItems PriceListItem[]
   product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -382,18 +386,27 @@ model ProductOption {
 }
 
 model PriceListItem {
-  id                      String        @id @default(cuid())
-  priceListId             String
-  customerPriceCents      Int
-  subcontractorPriceCents Int
-  isActive                Boolean       @default(true)
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  productOptionId         String
-  discountAmountCents     Int?
-  discountEndsAt          DateTime?
-  priceList               PriceList     @relation(fields: [priceListId], references: [id], onDelete: Cascade)
-  productOption           ProductOption @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
+  id                            String        @id @default(cuid())
+  priceListId                   String
+  customerPriceCents            Int
+  subcontractorPriceCents       Int
+  isActive                      Boolean       @default(true)
+  createdAt                     DateTime      @default(now())
+  updatedAt                     DateTime      @updatedAt
+  productOptionId               String
+  discountAmountCents           Int?
+  discountEndsAt                DateTime?
+  // Only meaningful when the option's ProductOption.pricingMode isn't
+  // FIXED — see lib/booking/pricing/weightDimensionPricing.ts.
+  // customerPriceCents/subcontractorPriceCents above double as the
+  // base/minimum charge in that case; these are the per-kg/per-m³ rate
+  // added on top, and the optional ceiling.
+  customerRatePerUnitCents      Int?
+  subcontractorRatePerUnitCents Int?
+  customerMaxChargeCents        Int?
+  subcontractorMaxChargeCents   Int?
+  priceList                     PriceList     @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  productOption                 ProductOption @relation(fields: [productOptionId], references: [id], onDelete: Cascade)
 
   @@unique([priceListId, productOptionId])
   @@index([priceListId, isActive])
@@ -538,7 +551,7 @@ model Order {
   gsmTasks                           OrderGsmTask[]
   items                              OrderItem[]
   notifications                      OrderNotification[]
-  payments                            OrderPayment[]
+  payments                           OrderPayment[]
   recurringOrderOccurrence           RecurringOrderOccurrence?
   legacyWordpressOrderId             Int?                      @unique
   legacyWordpressAuthorId            Int?
@@ -962,6 +975,18 @@ enum ProductType {
 enum PricingMode {
   FIXED
   REQUEST
+  // Weight/dimension-based pricing primitive — see
+  // lib/booking/pricing/weightDimensionPricing.ts for the calculation
+  // engine. A ProductOption in one of these modes prices as
+  // PriceListItem.customerPriceCents (base/minimum charge) +
+  // customerRatePerUnitCents × quantity (kg or m³), optionally clamped by
+  // customerMaxChargeCents. Schema + engine only for now — not yet wired
+  // into the shared per-card pricing loop (lib/booking/pricing/
+  // fromProductCards.ts) or any customer-facing UI, since no product uses
+  // it yet; see docs/homepage-ordering-roadmap.md §5 for the integration
+  // point once a real one does.
+  PER_KG
+  PER_M3
 }
 
 enum OrderEventType {

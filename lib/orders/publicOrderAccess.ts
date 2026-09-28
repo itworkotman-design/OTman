@@ -22,6 +22,7 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       id: true,
       companyId: true,
       displayId: true,
+      orderNumber: true,
       status: true,
       customerName: true,
       customerLabel: true,
@@ -32,9 +33,25 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       deliveryAddress: true,
       productsSummary: true,
       priceExVat: true,
+      priceSubcontractor: true,
       rabatt: true,
       leggTil: true,
+      subcontractorMinus: true,
+      subcontractorPlus: true,
       pricingSnapshot: true,
+      productCardsSnapshot: true,
+      priceListId: true,
+      // Order-level pricing context — needed to re-run the exact same
+      // pricing pipeline the order was originally priced with (see
+      // app/api/public/orders/[token]/edit-items/route.ts), so a "Forgot
+      // something?" edit changes only what the customer actually touched
+      // (delivery type/addons per product), not e.g. re-deriving express
+      // delivery from whatever "now" happens to be at edit time.
+      drivingDistance: true,
+      expressDelivery: true,
+      floorNo: true,
+      lift: true,
+      extraPickupAddress: true,
       actionToken: true,
       stripeCheckoutSessionId: true,
       stripePaymentIntentId: true,

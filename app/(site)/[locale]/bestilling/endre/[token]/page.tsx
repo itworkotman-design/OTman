@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getOrderByActionToken } from "@/lib/orders/publicOrderAccess";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import OrderRequestChangeClient from "@/app/_components/site/pageComponents/OrderRequestChangeClient";
+import OrderItemEditorClient from "@/app/_components/site/pageComponents/OrderItemEditorClient";
 
 export const metadata: Metadata = {
   title: "Be om endring | Otman AS",
@@ -51,16 +52,23 @@ export default async function OrderRequestChangePage({
     <div className="py-16">
       <h1 className="text-xl font-semibold">{t.heading}</h1>
       <div className="mt-6 max-w-md rounded-lg border border-gray-200 p-6">
-        {order.displayId ? (
+        {order.orderNumber || order.displayId ? (
           <p className="text-sm text-textColorThird">
-            {t.order} #{order.displayId}
+            {t.order} #{order.orderNumber || order.displayId}
           </p>
         ) : null}
 
         {!eligible ? (
           <p className="mt-4 text-sm text-textColorThird">{t.notEligible}</p>
         ) : (
-          <OrderRequestChangeClient token={token} locale={locale} />
+          <>
+            {/* Self-service reconfiguration of already-ordered items (delivery
+                type/addons only, auto-priced) — only offered once an order is
+                actually paid; before that, staff still handle changes via the
+                free-text request below. */}
+            {normalizedStatus === "confirmed" && <OrderItemEditorClient token={token} locale={locale} />}
+            <OrderRequestChangeClient token={token} locale={locale} />
+          </>
         )}
       </div>
     </div>

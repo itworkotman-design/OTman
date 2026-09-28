@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { isValidQuoteToken, linkPendingQuoteAttachments, sniffImageMimeType } from "./pendingQuoteAttachments";
+import {
+  cleanupExpiredPendingQuoteAttachments,
+  isValidQuoteToken,
+  linkPendingQuoteAttachments,
+  promotePendingQuoteAttachments,
+  sniffImageMimeType,
+} from "./pendingQuoteAttachments";
 
 describe("isValidQuoteToken", () => {
   it("accepts a standard UUID (what crypto.randomUUID() produces client-side)", () => {
@@ -40,6 +46,37 @@ describe("sniffImageMimeType", () => {
     expect(sniffImageMimeType(bytes)).toBe("image/webp");
   });
 
+  it("recognizes iPhone HEIC photos by their ISO-BMFF ftyp brand", () => {
+    for (const brand of ["heic", "heix", "hevc", "hevx", "heim", "heis"]) {
+      const bytes = bytesFrom([
+        0x00, 0x00, 0x00, 0x18, // box size
+        0x66, 0x74, 0x79, 0x70, // ftyp
+        ...Array.from(brand, (c) => c.charCodeAt(0)),
+      ]);
+      expect(sniffImageMimeType(bytes)).toBe("image/heic");
+    }
+  });
+
+  it("recognizes HEIF photos (mif1/msf1 brands) from Android and other phones", () => {
+    for (const brand of ["mif1", "msf1"]) {
+      const bytes = bytesFrom([
+        0x00, 0x00, 0x00, 0x18,
+        0x66, 0x74, 0x79, 0x70,
+        ...Array.from(brand, (c) => c.charCodeAt(0)),
+      ]);
+      expect(sniffImageMimeType(bytes)).toBe("image/heif");
+    }
+  });
+
+  it("rejects other ISO-BMFF files (e.g. an MP4 video, brand isom) even though they share the ftyp box", () => {
+    const bytes = bytesFrom([
+      0x00, 0x00, 0x00, 0x18,
+      0x66, 0x74, 0x79, 0x70,
+      0x69, 0x73, 0x6f, 0x6d, // isom
+    ]);
+    expect(sniffImageMimeType(bytes)).toBeNull();
+  });
+
   it("rejects a file whose bytes don't match any known image signature — even if it claims to be one", () => {
     // e.g. a renamed .exe or .html file with a spoofed Content-Type/filename.
     expect(sniffImageMimeType(bytesFrom([0x4d, 0x5a, 0x90, 0x00]))).toBeNull(); // MZ = Windows executable
@@ -49,6 +86,117 @@ describe("sniffImageMimeType", () => {
   it("rejects a too-short/empty buffer instead of throwing", () => {
     expect(sniffImageMimeType(bytesFrom([]))).toBeNull();
     expect(sniffImageMimeType(bytesFrom([0xff]))).toBeNull();
+  });
+});
+
+describe("promotePendingQuoteAttachments", () => {
+  function makeClient(rows: { id: string; storagePath: string }[]) {
+    return {
+      pendingQuoteAttachment: {
+        findMany: vi.fn().mockResolvedValue(rows),
+        update: vi.fn().mockResolvedValue({}),
+      },
+    };
+  }
+
+  it("moves every tmp/ row to its final path and records the new path on the row", async () => {
+    const client = makeClient([
+      { id: "a", storagePath: "s3://tmp/quote-requests/tok/a.jpg" },
+      { id: "b", storagePath: "s3://tmp/quote-requests/tok/b.jpg" },
+    ]);
+    const promote = vi.fn(async (p: string) => p.replace("s3://tmp/", "s3://orders/"));
+
+    const count = await promotePendingQuoteAttachments(client as never, { quoteToken: "tok", promote });
+
+    expect(count).toBe(2);
+    expect(promote).toHaveBeenCalledTimes(2);
+    expect(client.pendingQuoteAttachment.update).toHaveBeenCalledWith({
+      where: { id: "a" },
+      data: { storagePath: "s3://orders/quote-requests/tok/a.jpg" },
+    });
+    expect(client.pendingQuoteAttachment.update).toHaveBeenCalledWith({
+      where: { id: "b" },
+      data: { storagePath: "s3://orders/quote-requests/tok/b.jpg" },
+    });
+  });
+
+  it("skips rows already promoted by an earlier, partially-failed attempt (retry-safe)", async () => {
+    const client = makeClient([
+      { id: "a", storagePath: "s3://orders/quote-requests/tok/a.jpg" },
+      { id: "b", storagePath: "s3://tmp/quote-requests/tok/b.jpg" },
+    ]);
+    const promote = vi.fn(async (p: string) => p.replace("s3://tmp/", "s3://orders/"));
+
+    await promotePendingQuoteAttachments(client as never, { quoteToken: "tok", promote });
+
+    expect(promote).toHaveBeenCalledTimes(1);
+    expect(promote).toHaveBeenCalledWith("s3://tmp/quote-requests/tok/b.jpg");
+  });
+
+  it("propagates a failed move so the caller can abort before creating the order", async () => {
+    const client = makeClient([{ id: "a", storagePath: "s3://tmp/quote-requests/tok/a.jpg" }]);
+    const promote = vi.fn().mockRejectedValue(new Error("copy failed"));
+
+    await expect(promotePendingQuoteAttachments(client as never, { quoteToken: "tok", promote })).rejects.toThrow(
+      "copy failed",
+    );
+    expect(client.pendingQuoteAttachment.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("cleanupExpiredPendingQuoteAttachments", () => {
+  const now = new Date("2026-09-28T12:00:00Z");
+
+  function makeClient(rows: { id: string; storagePath: string }[], referencedPaths: string[] = []) {
+    return {
+      pendingQuoteAttachment: {
+        findMany: vi.fn().mockResolvedValue(rows),
+        deleteMany: vi.fn().mockResolvedValue({ count: rows.length }),
+      },
+      orderAttachment: {
+        findFirst: vi.fn(async ({ where }: { where: { storagePath: string } }) =>
+          referencedPaths.includes(where.storagePath) ? { id: "oa" } : null,
+        ),
+      },
+    };
+  }
+
+  it("selects only rows older than the cutoff, deletes their files and then the rows", async () => {
+    const client = makeClient([{ id: "a", storagePath: "s3://tmp/quote-requests/tok/a.jpg" }]);
+    const deleteFile = vi.fn().mockResolvedValue(undefined);
+
+    const result = await cleanupExpiredPendingQuoteAttachments(client as never, { now, maxAgeMs: 24 * 3600_000, deleteFile });
+
+    expect(client.pendingQuoteAttachment.findMany).toHaveBeenCalledWith({
+      where: { createdAt: { lt: new Date("2026-09-27T12:00:00Z") } },
+      take: expect.any(Number),
+    });
+    expect(deleteFile).toHaveBeenCalledWith("s3://tmp/quote-requests/tok/a.jpg");
+    expect(client.pendingQuoteAttachment.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["a"] } } });
+    expect(result).toEqual({ scanned: 1, filesDeleted: 1, rowsDeleted: 1 });
+  });
+
+  it("never deletes the file of a row whose path an OrderAttachment already references (crash between link steps)", async () => {
+    const client = makeClient([{ id: "a", storagePath: "s3://orders/quote-requests/tok/a.jpg" }], [
+      "s3://orders/quote-requests/tok/a.jpg",
+    ]);
+    const deleteFile = vi.fn();
+
+    const result = await cleanupExpiredPendingQuoteAttachments(client as never, { now, maxAgeMs: 24 * 3600_000, deleteFile });
+
+    expect(deleteFile).not.toHaveBeenCalled();
+    expect(client.pendingQuoteAttachment.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["a"] } } });
+    expect(result).toEqual({ scanned: 1, filesDeleted: 0, rowsDeleted: 1 });
+  });
+
+  it("does nothing when there are no expired rows", async () => {
+    const client = makeClient([]);
+    const deleteFile = vi.fn();
+
+    const result = await cleanupExpiredPendingQuoteAttachments(client as never, { now, maxAgeMs: 24 * 3600_000, deleteFile });
+
+    expect(client.pendingQuoteAttachment.deleteMany).not.toHaveBeenCalled();
+    expect(result).toEqual({ scanned: 0, filesDeleted: 0, rowsDeleted: 0 });
   });
 });
 

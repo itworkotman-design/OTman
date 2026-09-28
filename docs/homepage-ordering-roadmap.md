@@ -712,29 +712,307 @@ nothing to attach to.
     quote-based (this is exactly what §7's original analysis concluded, now
     confirmed rather than assumed).
 
-## 11. Suggested build order
+- **2026-09-23 — Three follow-up requests from a single review pass, done in
+  size order: special-goods upload hardening, a generic weight/dimension
+  pricing primitive, and a customer-facing "Forgot something?" order
+  editor.**
+  - **Special-goods photo upload** (`app/api/site/special-goods-quote/upload/route.ts`):
+    cap dropped from 6 to 5 (`MAX_QUOTE_PHOTOS`), and the per-IP rate limit
+    changed from a rolling count to exactly 5 uploads per IP per 24h
+    (`RATE_LIMIT_PER_IP = MAX_QUOTE_PHOTOS`, `RATE_LIMIT_WINDOW_MS = 1 day`)
+    — one IP gets at most one quote's worth of photos per day, across any
+    number of quote submissions. Upload timing changed from "on file pick"
+    to "on checkout": `SpecialGoodsQuoteFlow.tsx` now holds picked files as
+    local `File` objects and only POSTs them (sequentially) at the start of
+    `handleSubmit()`, so an abandoned form never leaves orphaned images in
+    S3. The `DELETE` endpoint (for removing an already-uploaded photo) was
+    removed entirely — removing a photo is now just a local array filter,
+    since nothing's uploaded yet. No CAPTCHA — still an explicit, accepted
+    gap (needs a third-party account this session can't self-provision);
+    defended by the honeypot + the new tighter rate limit + real
+    file-content validation instead. No virus/malware scanning either,
+    same reasoning as before.
+  - **Weight/dimension pricing primitive** (§5) — see the dedicated entry
+    below; schema + calculation engine + catalog exposure only, not wired
+    into the shared pricing loop yet (no real consuming product exists to
+    validate against).
+  - **"Forgot something?" customer-facing order editor** — the real
+    resolution of the §11b "No structured public item-editor" gap, built
+    narrower than a full add-items UI on purpose. A customer on an
+    already-confirmed (paid) website order can now reconfigure an existing
+    product's delivery type and addons (never add/remove a product, swap
+    which product a card is, or change quantity) directly from
+    `bestilling/endre/[token]`, with no staff approval step, and pay any
+    price increase themselves via the existing top-up flow at
+    `betaling/[token]`. This is safe to auto-price/auto-charge (unlike a
+    general add-items picker) specifically because it can only ever select
+    among already-known catalog prices for products already in the order —
+    `lib/orders/validateOrderItemEdits.ts` enforces that boundary
+    server-side, not just as a UI restriction, so a hand-crafted request
+    against the API is checked the same way. A change that would *decrease*
+    the total is rejected outright (`422 WOULD_DECREASE_PRICE`) — refunding
+    a partial payment is a different, unbuilt feature.
+    - New: `app/api/public/orders/[token]/edit-items/route.ts` (`GET` +
+      `POST`, re-runs the exact same pricing pipeline
+      `white-goods-order/route.ts` uses, against the submitted cards, with
+      the order's own preserved delivery-distance/express/floor/lift
+      context — the customer isn't resubmitting addresses here),
+      `lib/orders/validateOrderItemEdits.ts`, and the client component
+      `app/_components/site/pageComponents/OrderItemEditorClient.tsx`
+      (reuses `WhiteGoodsProductCard` for the actual option-picking UI,
+      quantity shown read-only). `getOrderByActionToken`'s `select` was
+      extended (additively) with the order-level pricing context this
+      needs. A successful update logs an `OrderUpdatedEvent` and raises a
+      `MANUAL_REVIEW` notification so staff see it happened.
+    - Verified end-to-end against the real local dev DB and dev server (no
+      browser-automation tool was available in this environment, so this
+      was curl-driven against the actual routes/DB rather than
+      click-tested in a UI): created a real confirmed order with a real
+      seeded catalog product, called `GET` (returned the order's cards +
+      live catalog), called `POST` with a pricier delivery type (correct
+      delta computed and persisted — `OrderItem` rows replaced, order
+      totals updated, event + staff notification created), confirmed
+      `betaling/[token]` picked up the new remaining balance through the
+      existing top-up flow unmodified, then confirmed a decrease attempt
+      on the same order was rejected with `WOULD_DECREASE_PRICE` and did
+      not touch the DB. Test order deleted afterward. The component's own
+      rendering/interaction was not verified in an actual browser — worth
+      a manual pass before relying on this in production.
+    - Also incidentally applied a pre-existing, unrelated pending migration
+      (`20260921120000_add_product_option_description_en`) that had never
+      been applied to the local dev DB, blocking the above verification —
+      unrelated drift from before this session, not a product of this
+      work.
+  - Verified: `validateOrderItemEdits.test.ts` (7 tests) +
+    `edit-items/route.test.ts` (14 tests: 5 `GET`, 9 `POST`, pricing
+    pipeline mocked — see the file's own comment for why) all TDD'd and
+    passing; special-goods upload route/component tests updated in place
+    (8 tests). Full `typecheck`/`lint`/`test` clean — same 4 pre-existing,
+    unrelated failures (missing `ARCHIVE_DATABASE_URL` in the test env for
+    3 archive-integration suites, one unrelated flaky membership-role
+    test), no new failures. Docs added for all new files.
 
-Roughly in dependency order — each phase either unblocks or de-risks the next:
+- **2026-09-23 — Booking modal UI polish: Privat/Bedrift moved to be the
+  first question (not a mid-flow toggle), local dev DB fully seeded, and
+  real Pakke/pall icons.** No code-level TDD here — these are pure UI/UX
+  fixes with no new business logic, following the same no-test convention
+  already established for this component tree (`SteppedModal`,
+  `WhiteGoodsBookingFlow`, `MovingRequestFlow`, etc. have none).
+  - **Privat/Bedrift as the first question**: new `CustomerTypeStep.tsx`
+    (shared between `WhiteGoodsBookingFlow` and `MovingRequestFlow`) is now
+    each flow's literal first `StepSection`, so the choice is made before
+    any price is shown rather than defaulting silently to "private" and
+    being discoverable only via a toggle later. The old `CustomerTypeToggle`
+    — previously duplicated in three places per flow (a mid-step header, the
+    calculator sidebar, the final summary) — is now gone entirely: once
+    asked as the first question, re-asking it next to the calculator read as
+    asking the same question twice, so `WhiteGoodsOrderSummary`'s
+    `onCustomerTypeChange` prop and both flows' final-step toggles were
+    removed, and the now-fully-unused `CustomerTypeToggle.tsx` was deleted.
+    The `customer-type` state itself starts `null` (unanswered) rather than
+    defaulting to `"private"`, so neither tile is pre-highlighted before the
+    customer actually picks one.
+  - **Selected-state color**: `CustomerTypeStep`'s tiles now highlight
+    `border-logoblue`/`bg-logoblue/5`/`text-logoblue` when picked, matching
+    `WebsiteListTiles`' existing selected-tile style (the product-category
+    picker), instead of having no selected-state affordance at all.
+  - **Local dev DB was missing 3 of 4 website catalogs** — only white goods
+    had ever been seeded locally, so the modal's "what are we picking up?"
+    step only ever showed one category tile. Ran
+    `seed:furniture-catalog`/`seed:parcel-pallet-catalog`/`seed:moving-catalog`
+    against it (all three, `preservePricesOnReseed`-safe, idempotent); all
+    four catalogs are now live locally. Not a code change — a one-time local
+    environment gap, unrelated to any bug in the seed scripts themselves.
+    (Also had to apply one unrelated already-committed-but-never-applied
+    migration, `20260921120000_add_product_option_description_en`, found
+    blocking this — pre-existing drift from before this session, not a
+    product of this work.)
+  - **Pakke/pall product icons**: `parcelPalletIcons.tsx` (new) gives each
+    of the 7 parcel/pallet products (Pose/Esker/Kolli/Halvpall/Pall/
+    Konvolutt/Ferskvarer) its own icon, wired into the shared `ProductIcon`
+    lookup the same way furniture's icons are. Several rounds of revision
+    landed on: Esker using Lucide's "package" glyph (MIT-licensed), and
+    Halvpall/Pall using donated custom artwork sharing one viewBox — the
+    "half" vs "full" distinction is drawn *into* the artwork itself (2
+    support feet vs 3 feet + a center support) rather than by scaling one
+    silhouette smaller, which is what made early attempts hard to tell
+    apart and inconsistent in both line weight and apparent size next to
+    the rest of the icon set. Every icon here — donated or hand-drawn —
+    now shares one rule with every other icon in `productIcons.tsx`/
+    `furnitureIcons.tsx`: a 24x24 canvas via the shared `Base` wrapper (or
+    an inner `<g>` transform scaling non-native coordinates into that same
+    canvas), ~20-unit content, 1.5 stroke.
 
-1. **Cleanup** (§3): decide the fate of `ServiceModal.tsx` and `Request`/`RequestItem`;
-   fix `service-window.md`. Low effort, removes ambiguity for everything after.
-2. **Privat/Bedrift toggle** (§2): the diagram calls this done for the live flow but
-   it isn't — small, contained, and every pricing-display decision downstream (VAT
-   primary/secondary) depends on it existing first.
-3. **Moving, Option B (quote-based)** (§6): fastest path to a real, non-placeholder
-   4th homepage tile; reuses 100% of the existing approve/pay/dispatch/email
-   pipeline; needs the `pending_quote` status from §10.
-4. **Post-payment "add items" flow** (§4): high value per the original ask, but
-   sequence it after the pipeline is proven stable on more order types, since it
-   touches the payment/event plumbing directly.
-5. **Weight/dimension pricing primitive** (§5): once built, unlocks Pakke/pall, Andre
-   varer, and an upgrade path from Moving-Option-B toward Option A/C.
-6. **Services scoping decision, then build** (§7): needs a content decision from the
-   business side before any code; likely small once decided.
-7. **Accessories / extra services / insurance** (§9): mechanical additions once a
-   pricing primitive exists for the categories that need them.
-8. **Rental expansion** (§8): lowest urgency unless equipment rental is a near-term
-   business priority.
+- **2026-09-28 — Order-received confirmation email done** (the gap flagged in
+  §4/§10: customers heard nothing between submitting and staff approve/reject).
+  New `order_received` lifecycle kind, sent by the three homepage order routes
+  (white goods/furniture/parcel-pallet, Moving, special goods) via
+  `lib/orders/sendOrderReceivedEmail.ts`. `/tjenester` manpower is deliberately
+  out of scope. Decisions made along the way:
+  - **Email is mandatory** on all three flows (white goods was optional; Moving
+    and special goods already required it). Server 422 + the white-goods form
+    won't advance without a valid address. If a send still fails (Gmail down),
+    staff get a "Order-received email NOT sent" notification on the order.
+  - **Sent through the company Gmail** (Gmail API, send-as
+    `GMAIL_SEND_AS_EMAIL`) — same transport and Reply-To thread scheme as the
+    Email Center. This moved **all** lifecycle emails (payment request, rejected,
+    reminder, confirmed, balance due) off Brevo, not just this one. Messages are
+    stored `source: GMAIL` with Gmail ids so Gmail sync dedupes them, and the
+    `ORDER_CONVERSATION_BACKUP_EMAIL` BCC now applies to them too. Sends are
+    sequential (one Gmail profile/send-as lookup per send).
+  - **Customer-facing order number is random**, not the sequential id: 8 chars,
+    vowel-free, no look-alikes (`lib/orders/publicOrderNumber.ts`), stored in the
+    existing `Order.orderNumber` (no migration; uniqueness checked in code).
+    Used in all lifecycle emails, the Stripe charge label, the pay/change/cancel
+    pages and the confirmation screens. `displayId` stays the shared sequential
+    per-company counter for staff. Older orders without one fall back to
+    `#displayId`.
+  - The email has **no action links**: no `actionToken` exists until
+    approve/reject, and cancel/request-change reject "processing" orders, so it
+    tells the customer to reply (Reply-To is the order's Email Center thread).
+    Norwegian only, like the other lifecycle emails.
+  - Not done: a dashboard "resend received email" button (the lifecycle route
+    accepts the kind); route-level success tests for white goods/Moving (only
+    typecheck covers their new calls); showing `orderNumber` prominently in the
+    dashboard order modal header (it is in the list/search already).
+
+- **2026-09-28 — Furniture "Andre møbler" (Other furniture) priced by volume and weight.**
+  Decisions: price = the **higher of** the volume-bracket and weight-bracket
+  price, **added on top of** the existing flat delivery price; the customer
+  **picks brackets** (no free-form dimensions); prices ship as **0 kr
+  placeholders** for staff. Implemented as ordinary `ProductOption`s in two new
+  categories (`size_volume` / `size_weight`) so staff price them per price list in
+  `editPrices` — no schema change, and the earlier PER_KG/PER_M3 primitive stays
+  unused (brackets were the simpler fit). One rule module
+  (`lib/booking/pricing/sizeBrackets.ts`) is applied identically in both pricing
+  engines (`fromProductCards` totals and `buildOrderItemsFromCards` stored items),
+  so they can't disagree; the lesser bracket stays on the order at 0 kr so
+  staff/drivers still see the real size and weight. Server rejects an order (and a
+  customer edit) that skips or duplicates a bracket. Chosen in the "Choose products"
+  tile itself: selecting Other furniture grows its tile to the full row with the
+  volume and weight choices, and the step only completes (moving on to the
+  install/extras options) once both are picked. **Update (same day):** the volume is
+  no longer a bracket the customer picks — they choose width / height / length from
+  preset dropdowns (placeholders: 20–250 cm) and the m³ is calculated live and
+  mapped to a volume bracket; the server re-derives that bracket from the
+  dimensions (`lib/booking/pricing/sizeDimensions.ts`) and never trusts a
+  client-sent one. The bracket limits (max m³ each) live in code; staff still set
+  the prices. The dimensions are stored on the card and listed in the order
+  summary. The tile also has a mandatory **"What is it?"** name (max 80 chars,
+  same character rules as other public text) kept in the card's existing
+  `modelNumber`, shown as "Other furniture (Grandfather clock)" in the products
+  summary; enforced server-side on order creation and on customer edits. The calculator
+  titles the product with it as "A.M: <name>" (A.M = Andre møbler).
+  `staffPriced` options are never overwritten by a furniture reseed.
+  - **Before launch:** run `npm run seed:furniture-catalog` (local) / after deploying
+    `npm run seed:furniture-catalog:prod` (production; see
+    `docs/documentation/scripts/seed-scripts.md` — seed scripts are now split into
+    local-only and explicit production variants), then set the real
+    bracket boundaries (labels) and prices in `editPrices`. The 5+5 boundaries
+    in the seed are placeholders; larger than the top bracket = no bracket = not
+    bookable (a manual quote).
+  - Not done: optional width/height/length inputs for staff to verify the size
+    (the customer picks brackets only); route-level tests for the customer UI
+    (no component tests exist for this tree — covered by the pure gate tests);
+    the unrelated "Assembly — needs implementation" note is unchanged.
+
+## 11. Build order — status as of 2026-09-23
+
+1. ✅ **Cleanup** (§3) — done 2026-09-22.
+2. ✅ **Privat/Bedrift toggle** (§2) — done 2026-09-22.
+3. ✅ **Moving, quote-based** (§6) — done 2026-09-22, later upgraded same-day
+   to real size-bracket pricing + Stripe (see progress log).
+4. ✅ **Post-payment "add items" flow** (§4) — done 2026-09-22.
+5. ✅ **Pakke/pall** (§5, partial) + ✅ **"Andre varer"/"Spesialvarer"
+   quote-by-photo flow** (split out of §5) — both done 2026-09-22.
+6. ✅ **Services** (§7) — done 2026-09-23, without needing the business-content
+   decision originally thought to block it (built on already-live content).
+7. ⏸️ **Accessories / extra services / insurance** (§9) — **on hold** per
+   explicit user decision 2026-09-23: needs real business content (what
+   extras/insurance tiers exist, at what prices) this session has no way to
+   invent. Revisit when that's available.
+8. ⏸️ **Rental expansion** (§8) — **on hold**, same reason: no equipment
+   list/pricing exists anywhere to build from beyond vehicles (already live).
+9. ✅ **Special-goods upload hardening + weight/dimension pricing primitive
+   + "Forgot something?" order editor** — three follow-up requests, done
+   2026-09-23 (see progress log).
+
+**What's actually left from steps 1-6 and 9 is captured in §11b below** —
+this build order is fully worked through; §11b is the real remaining-work
+list.
+
+## 11b. What's left (as of 2026-09-23, steps 7-8 on hold)
+
+Pulled directly from each step's own "deliberately not done" notes above —
+nothing new, just gathered in one place.
+
+### Blocks real launch
+- **Real NOK prices for Moving's 5 size brackets and the 7 Pakke/pall
+  products** — both seeded at 0 kr placeholder, by design (see their own
+  progress-log entries for why). Set via `/dashboard/booking/editPrices`
+  (Owner/Admin). Both flows are fully functional otherwise — this is a data
+  problem, not a code problem.
+
+### Real gaps worth planning for, not yet built
+- **No "needs pricing" visual cue in the dashboard.** An unpriced Moving/
+  Pakke-pall order (before someone sets its price) looks identical to a
+  normal `"processing"` order in the website-orders list — a bulk-approve
+  click could in principle wave one through before it's priced. Low risk at
+  today's volume; worth a small dashboard flag
+  (`priceExVat === 0 && isWebsiteOrder`) if it becomes a real problem.
+- ~~No structured public item-editor~~ — **done 2026-09-23**, see progress
+  log below. A confirmed order's existing products can now have their
+  delivery type/addons reconfigured directly by the customer
+  (`bestilling/endre/[token]`'s "Forgot something?" section), auto-priced
+  and self-service, with the price difference paid via the existing top-up
+  flow. Adding a genuinely *new* product to a paid order is still
+  staff-mediated (via the existing internal order editor) — that's a
+  deliberate, unchanged scope boundary, not a gap.
+- **The real `PALLET` per-quantity pricing discount isn't modeled on the
+  website.** "Pall"/"Halvpall" charge a flat rate per unit; the internal
+  dashboard's real behavior (a discounted rate for the 2nd+ pallet) isn't
+  replicated there yet.
+- ~~No generic weight/dimension pricing primitive~~ — **done 2026-09-23**,
+  see progress log below (`PricingMode.PER_KG`/`PER_M3`,
+  `lib/booking/pricing/weightDimensionPricing.ts`). Schema + calculation
+  engine + catalog exposure only — **still not wired into**
+  `fromProductCards.ts`'s shared pricing loop, any customer-facing quantity
+  UI, or the `editPrices` admin UI (no way to configure a real option into
+  one of these modes without a direct DB write/script yet). Deliberate:
+  wiring the shared, business-critical pricing loop with no real consumer to
+  validate against was judged not worth the regression risk. Do this once a
+  real product needs it.
+- **No CAPTCHA** on the special-goods photo upload (explicit choice — needs
+  a third-party account I can't self-provision). Defended by honeypot +
+  per-IP rate limiting (tightened 2026-09-23 to exactly 5/day, matching the
+  5-photo cap) + real file-content validation only.
+- **No virus/malware scanning** of uploaded photos — content-sniffing
+  confirms a file is really an image, not that it's safe.
+- ~~No cleanup job~~ — **done 2026-09-28**: photos are staged under `tmp/` and promoted to `orders/` when the order is created; leftovers expire via an S3 lifecycle rule on `tmp/` (**must be configured in AWS**) plus `app/api/cron/quote-photo-cleanup` (**must be scheduled**). Original note:
+  Meaningfully smaller risk after 2026-09-23 (upload now happens at
+  checkout, not on file pick, so a form abandoned before submitting leaves
+  nothing in S3 at all) but not zero — a visitor who reaches checkout, has
+  photos uploaded, then never completes payment still leaves orphaned rows/
+  objects behind. A cron like the existing GDPR/retention sweeps would be
+  the natural home.
+
+### Documentation debt
+Several files were touched during the post-payment "add items" step but not
+individually documented, given how much ground that step covered:
+`publicOrderAccess.ts`, `orderTotals.ts`, `customerLifecycleEmails.ts`,
+`sendCustomerLifecycleEmail.ts`, the `betaling`/`bestilling/endre` pages, and
+the dashboard action bar/page.
+
+### Smaller, lower-priority cleanups
+- `ServiceWindowContent.ts`'s `items[1].id` being `"moving-relocation"` while
+  its own title/content describe an unrelated legacy tile — confusing but
+  harmless; documented in `ServiceWindow.tsx` directly, left as-is to avoid
+  touching more than necessary.
+- Moving is still flat size-bracket pricing, not true inventory/room-based
+  pricing (the roadmap's original "Option A/C" evolution) — would need real
+  job data to calibrate against first anyway.
+- No end-to-end test exercises the *whole* multi-step add-items flow against
+  a real (non-mocked) database — every piece is unit-tested in isolation.
 
 ---
 

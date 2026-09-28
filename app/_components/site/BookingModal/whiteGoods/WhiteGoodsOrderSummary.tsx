@@ -5,7 +5,6 @@ import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { WhiteGoodsLineCategory } from "@/lib/content/whiteGoodsLineCategory";
 import { ProductIcon } from "./productIcons";
 import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
-import { CustomerTypeToggle } from "./CustomerTypeToggle";
 
 export type OrderSummaryLine = {
   label: string;
@@ -29,8 +28,9 @@ type Props = {
   products: OrderSummaryProduct[];
   totalExVat: number;
   totalIncVat: number;
+  // Answered once as the modal's first step (CustomerTypeStep) — no toggle
+  // here anymore, just used to pick which VAT total leads.
   customerType: CustomerType;
-  onCustomerTypeChange: (customerType: CustomerType) => void;
 };
 
 function formatKr(n: number) {
@@ -43,7 +43,6 @@ export function WhiteGoodsOrderSummary({
   totalExVat,
   totalIncVat,
   customerType,
-  onCustomerTypeChange,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const vatDisplay = getVatDisplayTotal({ totalExVat, totalIncVat, customerType });
@@ -52,10 +51,7 @@ export function WhiteGoodsOrderSummary({
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-lg font-semibold text-logoblue">{t("Order summary", "Ordreoppsummering")}</h3>
-        <CustomerTypeToggle locale={locale} value={customerType} onChange={onCustomerTypeChange} />
-      </div>
+      <h3 className="flex items-center gap-2 text-lg font-semibold text-logoblue">{t("Order summary", "Ordreoppsummering")}</h3>
 
       {products.length === 0 ? (
         <p className="mt-3 text-sm text-black/50">{t("Choose a product to see pricing here.", "Velg et produkt for å se pris her.")}</p>

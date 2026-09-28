@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
+import { sendOrderReceivedEmail } from "@/lib/orders/sendOrderReceivedEmail";
 import { findMovingSizeOption, getMovingCatalog } from "@/lib/content/getMovingCatalog";
 import {
   validateEmailField,
@@ -55,7 +57,7 @@ class CatalogNotSeededError extends Error {
 async function createMovingRequest(
   body: RequestBody,
   sizeOption: { code: string; labelEn: string; customerPriceCents: number; subcontractorPriceCents: number },
-): Promise<{ orderId: string; displayId: number }> {
+): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
   if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
 
@@ -69,6 +71,8 @@ async function createMovingRequest(
   }
 
   const displayId = await reserveNextManualOrderNumber(membership.companyId);
+  // The random number customers see; displayId stays internal/sequential.
+  const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
   const descriptionParts = [`Approximate size: ${sizeOption.labelEn}`, str(body.notes)].filter(Boolean);
 
@@ -78,6 +82,7 @@ async function createMovingRequest(
       createdByMembershipId: membership.id,
       customerMembershipId: membership.id,
       displayId,
+      orderNumber,
       status: "processing",
       isWebsiteOrder: true,
       pickupAddress: str(body.pickupAddress),
@@ -138,7 +143,10 @@ async function createMovingRequest(
     message: `Moving request placed via the homepage. Customer: ${order.customerName ?? "—"}, Phone: ${order.phone ?? "—"}, Email: ${order.email ?? "—"}.`,
   });
 
-  return { orderId: order.id, displayId: order.displayId };
+  // Best-effort (never throws) — the order is already saved.
+  await sendOrderReceivedEmail(order);
+
+  return { orderId: order.id, displayId: order.displayId, orderNumber: order.orderNumber };
 }
 
 export async function POST(req: Request) {

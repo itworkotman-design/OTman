@@ -9,13 +9,16 @@ The homepage "Flytting" (Moving) tile's real flow, replacing the placeholder
 — price comes from a flat size-bracket lookup
 (`GET /api/site/moving-request/catalog`, `lib/content/getMovingCatalog.ts`),
 not the shared `calculateBookingPricing` engine. Reuses the Privat/Bedrift
-`CustomerTypeToggle`/`getVatDisplayTotal` from the white-goods flow (see
+`CustomerTypeStep`/`getVatDisplayTotal` from the white-goods flow (see
 `docs/homepage-ordering-roadmap.md` §2) for consistent totals display.
 Submits to `POST /api/site/moving-request`.
 
 ## Functions
 ### `MovingRequestFlow({ locale, onClose })`
-Three sections (move details incl. addresses + size-bracket picker with live
-prices, timing, contact details) plus a final review/submit step showing the
-selected bracket's total. Copy makes clear the price is based on the
-self-reported size and gets confirmed on staff review, not literally instant.
+Four sections — Privat/Bedrift (`CustomerTypeStep`, asked first and only
+once, so the size-tier tile prices shown on the very next step are already
+in the right VAT mode), move details (addresses + size-bracket picker with
+live prices), timing, contact details — plus a final review/submit step
+showing the selected bracket's total. Copy makes clear the price is based
+on the self-reported size and gets confirmed on staff review, not
+literally instant.
