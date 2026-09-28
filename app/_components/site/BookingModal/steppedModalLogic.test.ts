@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { nextRevealedCount, progressPercent, retractedRevealedCount } from "./steppedModalLogic";
+import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount } from "./steppedModalLogic";
+
+describe("heightHoldAction", () => {
+  it("holds the old height while a newly revealed section animates open", () => {
+    expect(heightHoldAction({ retracting: false, holdPending: false })).toBe("hold-then-release");
+  });
+
+  it("shrinks right away when sections are retracted and nothing is being held", () => {
+    expect(heightHoldAction({ retracting: true, holdPending: false })).toBe("release-now");
+  });
+
+  // Adding a category swaps the "any other products?" step for a new, collapsed
+  // one, whose auto-advance immediately retracts the steps after it. That
+  // retraction must not cut the hold short, or the scroll position clamps
+  // upward to the new section's top edge.
+  it("keeps holding when a retraction lands while a reveal's hold is still pending", () => {
+    expect(heightHoldAction({ retracting: true, holdPending: true })).toBe("keep-holding");
+  });
+
+  it("restarts the hold when another reveal lands during a pending hold", () => {
+    expect(heightHoldAction({ retracting: false, holdPending: true })).toBe("hold-then-release");
+  });
+});
 
 describe("nextRevealedCount", () => {
   it("reveals the next section when the current one completes", () => {

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { nextRevealedCount, progressPercent, retractedRevealedCount } from "./steppedModalLogic";
+import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -107,6 +107,8 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
   const contentRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef(0);
   const holdTimerRef = useRef<number | undefined>(undefined);
+  // True from when a reveal starts holding the height until that hold is released.
+  const holdPendingRef = useRef(false);
   const releaseTimerRef = useRef<number | undefined>(undefined);
   useEffect(() => {
     const el = contentRef.current;
@@ -135,6 +137,8 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
     previousStructureKey.current = structureKey;
     const el = contentRef.current;
     if (!el || lastHeightRef.current === 0) return;
+    const action = heightHoldAction({ retracting, holdPending: holdPendingRef.current });
+    if (action === "keep-holding") return;
     el.style.transition = "none";
     el.style.minHeight = `${lastHeightRef.current}px`;
     window.clearTimeout(holdTimerRef.current);
@@ -162,8 +166,16 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
     // A retracted section is gone at once, so shrink right away. A newly added
     // section starts collapsed and animates open, so keep holding the old
     // height until it has.
-    if (retracting) release();
-    else holdTimerRef.current = window.setTimeout(release, 450);
+    if (action === "release-now") {
+      holdPendingRef.current = false;
+      release();
+    } else {
+      holdPendingRef.current = true;
+      holdTimerRef.current = window.setTimeout(() => {
+        holdPendingRef.current = false;
+        release();
+      }, 450);
+    }
   }, [structureKey, revealedCount]);
   // +1 for the final review/payment step, so the bar only completes once
   // the user actually reaches it, not while the last question section is
