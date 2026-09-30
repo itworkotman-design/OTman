@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCardSummaryChips } from "./cardSummaryChips";
+import { buildCardSummaryChips, formatSizeInfoChip } from "./cardSummaryChips";
 
 describe("buildCardSummaryChips", () => {
   it("summarizes delivery, installation and add-on count (no)", () => {
@@ -48,5 +48,53 @@ describe("buildCardSummaryChips", () => {
         addonCount: 0,
       }),
     ).toEqual(["Levering: Ytterdør"]);
+  });
+
+  it("leads with the max-weight/dimensions chip when the product has one (pakke/pall)", () => {
+    expect(
+      buildCardSummaryChips({
+        locale: "no",
+        deliveryType: "FIRST_STEP",
+        installLabel: null,
+        showInstallChip: false,
+        addonCount: 0,
+        sizeInfo: { maxWeightKg: 15, dimensionsCm: { w: 20, h: 30, d: 40 } },
+      }),
+    ).toEqual(["Opptil 15 kg · 20×30×40 cm", "Levering: Ytterdør"]);
+  });
+
+  it("omits the size chip when the product has no sizeInfo", () => {
+    expect(
+      buildCardSummaryChips({
+        locale: "en",
+        deliveryType: "FIRST_STEP",
+        installLabel: null,
+        showInstallChip: false,
+        addonCount: 0,
+      }),
+    ).toEqual(["Delivery: Doorstep"]);
+  });
+});
+
+describe("formatSizeInfoChip", () => {
+  it("formats weight and dimensions (no)", () => {
+    expect(
+      formatSizeInfoChip("no", { maxWeightKg: 15, dimensionsCm: { w: 20, h: 30, d: 40 } }),
+    ).toBe("Opptil 15 kg · 20×30×40 cm");
+  });
+
+  it("formats weight and dimensions (en)", () => {
+    expect(
+      formatSizeInfoChip("en", { maxWeightKg: 50, dimensionsCm: { w: 50, h: 50, d: 50 } }),
+    ).toBe("Up to 50 kg · 50×50×50 cm");
+  });
+
+  it("formats weight alone when there are no dimensions (half-pallet/pallet)", () => {
+    expect(formatSizeInfoChip("no", { maxWeightKg: 100 })).toBe("Opptil 100 kg");
+    expect(formatSizeInfoChip("en", { maxWeightKg: 500 })).toBe("Up to 500 kg");
+  });
+
+  it("returns null when there is no size info", () => {
+    expect(formatSizeInfoChip("no", null)).toBeNull();
   });
 });

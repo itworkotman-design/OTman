@@ -91,6 +91,12 @@ export type WhiteGoodsProductSeed = {
   iconKey?: string;
   deliveryTypes: WhiteGoodsDeliveryTypes;
   options: WhiteGoodsOptionSeed[];
+  /**
+   * Static max-weight/dimensions spec shown as a summary pill on the product
+   * card (parcel/pallet catalog only — e.g. "Opptil 15 kg · 20×30×40 cm").
+   * Display-only, not used for pricing.
+   */
+  sizeInfo?: { maxWeightKg: number; dimensionsCm?: { w: number; h: number; d: number } };
 };
 
 // The "xtra" prices below are what a delivery line is charged on instead

@@ -46,6 +46,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     sortOrder: 2,
     deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
     options: [],
+    sizeInfo: { maxWeightKg: 15, dimensionsCm: { w: 20, h: 30, d: 40 } },
   },
   {
     code: "PKG_ESKER",
@@ -54,6 +55,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     sortOrder: 3,
     deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
     options: [],
+    sizeInfo: { maxWeightKg: 50, dimensionsCm: { w: 50, h: 50, d: 50 } },
   },
   {
     code: "PKG_HALVPALL",
@@ -62,6 +64,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     sortOrder: 4,
     deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
     options: [],
+    sizeInfo: { maxWeightKg: 100 },
   },
   {
     code: "PKG_PALL",
@@ -70,5 +73,6 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     sortOrder: 5,
     deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
     options: [],
+    sizeInfo: { maxWeightKg: 500 },
   },
 ];
