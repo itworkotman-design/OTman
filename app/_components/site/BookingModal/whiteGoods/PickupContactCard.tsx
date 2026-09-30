@@ -1,0 +1,229 @@
+"use client";
+
+import { useState } from "react";
+import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
+import { BuildingIcon, PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
+import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
+import type { Locale } from "@/lib/content/ServiceWindowContent";
+import { PersonIcon, PhoneIcon } from "./orderDetailsIcons";
+import { AddressLabel, FieldLabel, fieldClass } from "./formFieldStyles";
+import { FloorLiftField } from "./floorLiftField";
+import type { PickupSource } from "./PickupSourceStep";
+
+type Props = {
+  locale: Locale;
+  bookingLocale: BookingUiLocale;
+  // Always set by the time this step is reached — it follows the required
+  // pickup-source step.
+  pickupSource: PickupSource;
+  // The store's or business's name — same field either way, just relabeled.
+  pickupPlaceName: string;
+  setPickupPlaceName: (value: string) => void;
+  pickupAddress: string;
+  setPickupAddress: (value: string) => void;
+  // Reflects the pickup-source answer above so the field reads less
+  // generically (e.g. "Store address" vs. "Their address").
+  pickupAddressPlaceholder: string;
+  // A store pickup skips the floor/lift question — a store always has
+  // loading access, so there's nothing useful to ask (only shown for
+  // private/business, derived from pickupSource below).
+  pickupFloor: number;
+  setPickupFloor: (value: number) => void;
+  pickupLiftAvailable: boolean;
+  setPickupLiftAvailable: (value: boolean) => void;
+  pickupContactName: string;
+  setPickupContactName: (value: string) => void;
+  pickupContactPhone: string;
+  setPickupContactPhone: (value: string) => void;
+  // Placeholder for now — just the checkbox, defaulted on. The behavior for
+  // an order with several pickup locations doesn't exist yet.
+  allProductsPickedUpHere: boolean;
+  setAllProductsPickedUpHere: (value: boolean) => void;
+};
+
+export function PickupContactCard({
+  locale,
+  bookingLocale,
+  pickupSource,
+  pickupPlaceName,
+  setPickupPlaceName,
+  pickupAddress,
+  setPickupAddress,
+  pickupAddressPlaceholder,
+  pickupFloor,
+  setPickupFloor,
+  pickupLiftAvailable,
+  setPickupLiftAvailable,
+  pickupContactName,
+  setPickupContactName,
+  pickupContactPhone,
+  setPickupContactPhone,
+  allProductsPickedUpHere,
+  setAllProductsPickedUpHere,
+}: Props) {
+  const t = (en: string, no: string) => (locale === "no" ? no : en);
+
+  const showPlaceName = pickupSource === "store" || pickupSource === "business";
+  const showContactPerson = pickupSource === "private" || pickupSource === "business";
+  const showPickupFloor = pickupSource !== "store";
+
+  // Every field here is required (given the pickup source) — a field only
+  // glows red once the visitor has left it (blurred) still empty, not while
+  // they're still typing into it for the first time.
+  const [touched, setTouched] = useState({
+    placeName: false,
+    address: false,
+    contactName: false,
+    contactPhone: false,
+  });
+  const markTouched = (field: keyof typeof touched) => setTouched((prev) => ({ ...prev, [field]: true }));
+
+  const placeNameError = showPlaceName && touched.placeName && !pickupPlaceName.trim();
+  const addressError = touched.address && !pickupAddress.trim();
+  const contactNameError = showContactPerson && touched.contactName && !pickupContactName.trim();
+  const contactPhoneError = showContactPerson && touched.contactPhone && !pickupContactPhone.trim();
+
+  const placeNameLabel = pickupSource === "store" ? t("Store name", "Butikknavn") : t("Business name", "Firmanavn");
+  const placeNamePlaceholder =
+    pickupSource === "store" ? t("e.g. Power Grünerløkka", "f.eks. Power Grünerløkka") : t("e.g. Acme AS", "f.eks. Acme AS");
+
+  const title =
+    pickupSource === "store"
+      ? t("What's the store called?", "Hva heter butikken?")
+      : pickupSource === "business"
+        ? t("Tell us about the business", "Fortell oss om bedriften")
+        : t("Who's our contact for the pickup?", "Hvem er kontaktpersonen for hentingen?");
+
+  const subtitle =
+    pickupSource === "store"
+      ? t("So our driver knows exactly where to go.", "Slik at sjåføren vår vet nøyaktig hvor de skal.")
+      : t(
+          "Someone we can reach if the driver needs to call ahead.",
+          "Noen vi kan nå hvis sjåføren må ringe på forhånd.",
+        );
+
+  return (
+    <div
+      className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6"
+      // Moving on from the whole card (not just one field) — focus leaving
+      // it entirely — flags every required field at once, so a visitor who
+      // skips straight past an empty one without ever focusing it still
+      // sees it glow red.
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setTouched({ placeName: true, address: true, contactName: true, contactPhone: true });
+        }
+      }}
+    >
+      <div className="mb-5 flex items-start gap-3">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-black/5 text-logoblue">
+          <PersonIcon className="h-5 w-5" />
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-black/85">{title}</h3>
+          <p className="text-sm text-black/50">{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {showPlaceName && (
+          <label className="block">
+            <FieldLabel icon={<BuildingIcon />}>{placeNameLabel}</FieldLabel>
+            <input
+              type="text"
+              value={pickupPlaceName}
+              onChange={(e) => setPickupPlaceName(e.target.value)}
+              onBlur={() => markTouched("placeName")}
+              placeholder={placeNamePlaceholder}
+              className={fieldClass(placeNameError)}
+            />
+          </label>
+        )}
+
+        <div>
+          <AddressLabel>{t("Pickup address", "Hentested")}</AddressLabel>
+          <AddressAutocompleteInput
+            value={pickupAddress}
+            onChange={(v) => setPickupAddress(v)}
+            onBlur={() => markTouched("address")}
+            hasError={addressError}
+            locale={bookingLocale}
+            placeholder={pickupAddressPlaceholder}
+            icon={<PinIcon />}
+          />
+        </div>
+
+        {showPickupFloor && (
+          <FloorLiftField
+            locale={locale}
+            label={t("Pickup floor", "Etasje ved henting")}
+            floorValue={pickupFloor}
+            onFloorChange={setPickupFloor}
+            liftChecked={pickupLiftAvailable}
+            onLiftChange={setPickupLiftAvailable}
+          />
+        )}
+
+        {showContactPerson && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="block">
+              <FieldLabel icon={<PersonIcon className="h-4 w-4" />}>{t("Contact person", "Kontaktperson")}</FieldLabel>
+              <input
+                type="text"
+                value={pickupContactName}
+                onChange={(e) => setPickupContactName(e.target.value)}
+                onBlur={() => markTouched("contactName")}
+                placeholder={t("Full name", "Fullt navn")}
+                className={fieldClass(contactNameError)}
+              />
+            </label>
+            <label className="block">
+              <FieldLabel icon={<PhoneIcon className="h-4 w-4" />}>{t("Phone", "Telefon")}</FieldLabel>
+              <input
+                type="tel"
+                value={pickupContactPhone}
+                onChange={(e) => setPickupContactPhone(e.target.value)}
+                onBlur={() => markTouched("contactPhone")}
+                placeholder={t("e.g. 412 34 567", "f.eks. 412 34 567")}
+                className={fieldClass(contactPhoneError)}
+              />
+            </label>
+          </div>
+        )}
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={allProductsPickedUpHere}
+            onChange={(e) => setAllProductsPickedUpHere(e.target.checked)}
+            className="h-4 w-4"
+          />
+          <span className="font-medium text-black/75">
+            {t("All products are picked up here", "Alle varene hentes her")}
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+// Whether this step's required fields are filled, given the pickup source —
+// used to gate auto-advance the same way every other required step does.
+export function isPickupContactStepReady(params: {
+  pickupSource: PickupSource | null;
+  pickupPlaceName: string;
+  pickupAddress: string;
+  pickupContactName: string;
+  pickupContactPhone: string;
+}): boolean {
+  const { pickupSource, pickupPlaceName, pickupAddress, pickupContactName, pickupContactPhone } = params;
+  if (!pickupSource) return false;
+  if (!pickupAddress.trim()) return false;
+
+  const placeNameOk = pickupSource === "private" || pickupPlaceName.trim().length > 0;
+  const contactOk =
+    pickupSource === "store" ||
+    (pickupContactName.trim().length > 0 && pickupContactPhone.trim().length > 0);
+
+  return placeNameOk && contactOk;
+}

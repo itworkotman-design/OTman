@@ -258,8 +258,15 @@ async function createWhiteGoodsOrder(
   // The random number customers see; displayId stays internal/sequential.
   const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
+  const pickupPlaceNameStr = str(body.pickupPlaceName);
+  const pickupContactNameStr = str(body.pickupContactName);
+  const pickupContactPhoneStr = str(body.pickupContactPhone);
+
   const floorNoteParts = [
     pickupSourceLabel(body.pickupSource) ? `Picking up from: ${pickupSourceLabel(body.pickupSource)}` : null,
+    pickupPlaceNameStr ? `Store/business name: ${pickupPlaceNameStr}` : null,
+    pickupContactNameStr ? `Pickup contact: ${pickupContactNameStr}` : null,
+    pickupContactPhoneStr ? `Pickup contact phone: ${pickupContactPhoneStr}` : null,
     !isStorePickup && pickupFloor > 0 ? `Pickup floor: ${pickupFloor}` : null,
     deliveryFloor > 0 ? `Delivery floor: ${deliveryFloor}` : null,
     !isStorePickup ? `Lift available at pickup: ${pickupLiftAvailable ? "yes" : "no"}` : null,
@@ -399,7 +406,7 @@ export async function POST(req: Request) {
     if (emailErr) errors.email = emailErr;
   }
 
-  const textFields = ["pickupAddress", "deliveryAddress", "name", "timeWindow", "notes"];
+  const textFields = ["pickupAddress", "deliveryAddress", "name", "timeWindow", "notes", "pickupPlaceName", "pickupContactName"];
   for (const field of textFields) {
     if (field in body && !(field in errors)) {
       const err = validateTextField(s(body[field]));
@@ -409,7 +416,22 @@ export async function POST(req: Request) {
 
   if (!str(body.pickupAddress)) errors.pickupAddress = "Required";
   if (!str(body.deliveryAddress)) errors.deliveryAddress = "Required";
-  if (!pickupSourceLabel(body.pickupSource)) errors.pickupSource = "Required";
+  const pickupSourceValue = pickupSourceLabel(body.pickupSource) ? String(body.pickupSource) : null;
+  if (!pickupSourceValue) errors.pickupSource = "Required";
+  // Which pickup-contact fields are required depends on the pickup source
+  // (see PickupContactCard/isPickupContactStepReady on the client).
+  if (pickupSourceValue === "store" || pickupSourceValue === "business") {
+    if (!str(body.pickupPlaceName)) errors.pickupPlaceName = "Required";
+  }
+  if (pickupSourceValue === "private" || pickupSourceValue === "business") {
+    if (!str(body.pickupContactName)) errors.pickupContactName = "Required";
+    if (!str(body.pickupContactPhone)) {
+      errors.pickupContactPhone = "Required";
+    } else {
+      const contactPhoneErr = validatePhoneField(s(body.pickupContactPhone));
+      if (contactPhoneErr) errors.pickupContactPhone = contactPhoneErr;
+    }
+  }
   if (!str(body.name)) errors.name = "Required";
   if (!Array.isArray(body.productCards) || body.productCards.length === 0) {
     errors.productCards = "At least one product is required";

@@ -77,3 +77,20 @@ export function QuestionMarkIcon(props: IconProps) {
     </Base>
   );
 }
+
+export function PersonIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20c1.2-4 4.2-6 7.5-6s6.3 2 7.5 6" />
+    </Base>
+  );
+}
+
+export function PhoneIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 5 5l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 5 6.1 1.5 1.5 0 0 1 6.5 3.5Z" />
+    </Base>
+  );
+}
