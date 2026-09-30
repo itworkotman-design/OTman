@@ -5,6 +5,7 @@ import { SteppedModal, AnimatedStack, type FinalStep, type StepSection } from ".
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { CustomerTypeStep } from "./CustomerTypeStep";
 import { PickupSourceStep, pickupAddressPlaceholder, type PickupSource } from "./PickupSourceStep";
+import { PickupContactCard, isPickupContactStepReady } from "./PickupContactCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
 import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
@@ -170,6 +171,14 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   // business) — asked right before the address fields it gives context to.
   // Informational for staff/drivers, not used in pricing.
   const [pickupSource, setPickupSource] = useState<PickupSource | null>(null);
+  // The store/business name and a contact person — which of these apply
+  // depends on pickupSource (see PickupContactCard).
+  const [pickupPlaceName, setPickupPlaceName] = useState("");
+  const [pickupContactName, setPickupContactName] = useState("");
+  const [pickupContactPhone, setPickupContactPhone] = useState("");
+  // Placeholder for now — no branching behavior yet for an order whose
+  // items come from more than one pickup location.
+  const [allProductsPickedUpHere, setAllProductsPickedUpHere] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
@@ -426,7 +435,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     findCardsWithSizeBracketProblems(productCards, catalogProducts).length === 0 &&
     findSizePricedCardsMissingName(productCards, catalogProducts).length === 0;
   const hasRequiredDelivery = orderHasRequiredDelivery(productCards);
-  const canContinueOrderDetails = !!pickupAddress.trim() && !!deliveryAddress.trim();
+  // Pickup address is required earlier, in the pickup-contact step.
+  const canContinueOrderDetails = !!deliveryAddress.trim();
   // Email is mandatory: the order-received confirmation and the payment link
   // are emailed, so an order without one could never be completed.
   const emailValid = EMAIL_RE.test(email.trim());
@@ -443,6 +453,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         body: JSON.stringify({
           productCards,
           pickupSource,
+          pickupPlaceName,
+          pickupContactName,
+          pickupContactPhone,
           pickupAddress,
           deliveryAddress,
           pickupFloor,
@@ -701,6 +714,46 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       ),
     },
     {
+      id: "pickup-contact",
+      title: t("Pickup contact", "Kontakt ved henting"),
+      render: ({ onComplete, onUncomplete }) =>
+        pickupSource ? (
+          <div className="flex flex-col gap-4">
+            <PickupContactCard
+              locale={locale}
+              bookingLocale={bookingLocale}
+              pickupSource={pickupSource}
+              pickupPlaceName={pickupPlaceName}
+              setPickupPlaceName={setPickupPlaceName}
+              pickupAddress={pickupAddress}
+              setPickupAddress={setPickupAddress}
+              pickupAddressPlaceholder={pickupAddressPlaceholder(locale, pickupSource)}
+              pickupFloor={pickupFloor}
+              setPickupFloor={setPickupFloor}
+              pickupLiftAvailable={pickupLiftAvailable}
+              setPickupLiftAvailable={setPickupLiftAvailable}
+              pickupContactName={pickupContactName}
+              setPickupContactName={setPickupContactName}
+              pickupContactPhone={pickupContactPhone}
+              setPickupContactPhone={setPickupContactPhone}
+              allProductsPickedUpHere={allProductsPickedUpHere}
+              setAllProductsPickedUpHere={setAllProductsPickedUpHere}
+            />
+            <AutoAdvance
+              ready={isPickupContactStepReady({
+                pickupSource,
+                pickupPlaceName,
+                pickupAddress,
+                pickupContactName,
+                pickupContactPhone,
+              })}
+              onReady={onComplete}
+              onRetract={onUncomplete}
+            />
+          </div>
+        ) : null,
+    },
+    {
       id: "order-details",
       title: t("Order details", "Ordredetaljer"),
       render: ({ onComplete, onUncomplete }) => (
@@ -708,19 +761,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           <OrderDetailsCard
             locale={locale}
             bookingLocale={bookingLocale}
-            pickupAddress={pickupAddress}
-            setPickupAddress={setPickupAddress}
-            pickupAddressPlaceholder={pickupAddressPlaceholder(locale, pickupSource)}
-            // A store always has loading access — no pickup floor/lift to ask about.
-            showPickupFloor={pickupSource !== "store"}
             deliveryAddress={deliveryAddress}
             setDeliveryAddress={setDeliveryAddress}
-            pickupFloor={pickupFloor}
-            setPickupFloor={setPickupFloor}
             deliveryFloor={deliveryFloor}
             setDeliveryFloor={setDeliveryFloor}
-            pickupLiftAvailable={pickupLiftAvailable}
-            setPickupLiftAvailable={setPickupLiftAvailable}
             deliveryLiftAvailable={deliveryLiftAvailable}
             setDeliveryLiftAvailable={setDeliveryLiftAvailable}
             preferredDate={preferredDate}

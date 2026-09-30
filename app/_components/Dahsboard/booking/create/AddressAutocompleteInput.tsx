@@ -28,6 +28,10 @@ type Props = {
   // style shared with the pickup address card — omit it to keep the
   // compact default look (e.g. extra pickup rows).
   icon?: ReactNode;
+  // Red border/ring for a required field left empty — the caller decides
+  // when that's true (e.g. touched + still blank) and passes it in.
+  hasError?: boolean;
+  onBlur?: () => void;
 };
 
 const FEATURE_TYPE_RANK: Record<string, number> = {
@@ -54,6 +58,8 @@ export default function AddressAutocompleteInput({
   locale,
   prioritizeAddresses = false,
   icon,
+  hasError = false,
+  onBlur,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -219,11 +225,15 @@ export default function AddressAutocompleteInput({
             setHasInteracted(true);
           }
         }}
+        onBlur={onBlur}
         disabled={disabled}
         placeholder={placeholder}
         className={
           icon
-            ? "w-full rounded-xl border border-lineSecondary bg-white py-3 pl-11 pr-4 outline-none focus:border-logoblue/50 disabled:opacity-60"
+            ? [
+                "w-full rounded-xl border bg-white py-3 pl-11 pr-4 outline-none disabled:opacity-60",
+                hasError ? "border-red-400 ring-2 ring-red-100 focus:border-red-400" : "border-lineSecondary focus:border-logoblue/50",
+              ].join(" ")
             : "customInput bg-white w-full"
         }
         autoComplete="off"

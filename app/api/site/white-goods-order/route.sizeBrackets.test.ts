@@ -59,6 +59,7 @@ const baseCard = {
 const DIMENSIONS = { widthCm: 100, heightCm: 50, lengthCm: 50 };
 const validBody = {
   pickupSource: "store",
+  pickupPlaceName: "Elkjøp Lillestrøm",
   pickupAddress: "Storgata 1, Oslo",
   deliveryAddress: "Storgata 2, Oslo",
   name: "Test Customer",

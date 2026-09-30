@@ -41,6 +41,7 @@ async function post(body: unknown) {
 const validBody = {
   productCards: [{ cardId: 0, productId: "product-1" }],
   pickupSource: "store",
+  pickupPlaceName: "Elkjøp Lillestrøm",
   pickupAddress: "Storgata 1, Oslo",
   deliveryAddress: "Storgata 2, Oslo",
   name: "Test Customer",
@@ -112,6 +113,70 @@ describe("POST /api/site/white-goods-order", () => {
       const json = await res.json();
       expect(json.errors.pickupSource).toBe("Required");
     }
+  });
+
+  it("requires a place name for a store pickup", async () => {
+    const res = await post({ ...validBody, pickupSource: "store", pickupPlaceName: "" });
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.pickupPlaceName).toBe("Required");
+    expect(json.errors.pickupContactName).toBeUndefined();
+    expect(json.errors.pickupContactPhone).toBeUndefined();
+  });
+
+  it("requires a contact name and phone, but no place name, for a private-individual pickup", async () => {
+    const res = await post({
+      ...validBody,
+      pickupSource: "private",
+      pickupPlaceName: "",
+      pickupContactName: "",
+      pickupContactPhone: "",
+    });
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.pickupPlaceName).toBeUndefined();
+    expect(json.errors.pickupContactName).toBe("Required");
+    expect(json.errors.pickupContactPhone).toBe("Required");
+  });
+
+  it("requires a place name, a contact name, and a phone for a business pickup", async () => {
+    const res = await post({
+      ...validBody,
+      pickupSource: "business",
+      pickupPlaceName: "",
+      pickupContactName: "",
+      pickupContactPhone: "",
+    });
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.pickupPlaceName).toBe("Required");
+    expect(json.errors.pickupContactName).toBe("Required");
+    expect(json.errors.pickupContactPhone).toBe("Required");
+  });
+
+  it("raises no pickup-contact errors for a fully filled-in business pickup", async () => {
+    // Paired with a deliberately invalid email so the request still fails
+    // validation (every other test in this file relies on that — order
+    // creation itself isn't mocked deep enough to succeed here) without
+    // this one reaching past the validation layer.
+    const res = await post({
+      ...validBody,
+      email: "not-an-email",
+      pickupSource: "business",
+      pickupPlaceName: "Acme AS",
+      pickupContactName: "Kari Nordmann",
+      pickupContactPhone: "+47 987 65 432",
+    });
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.email).toBeDefined();
+    expect(json.errors.pickupPlaceName).toBeUndefined();
+    expect(json.errors.pickupContactName).toBeUndefined();
+    expect(json.errors.pickupContactPhone).toBeUndefined();
   });
 
   it("returns 422 when no product cards are provided", async () => {
