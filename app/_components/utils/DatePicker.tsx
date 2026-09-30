@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { addMonths, buildCalendarDays, startOfMonth } from "@/lib/dates/calendarGrid";
-import { parseIsoDate } from "@/lib/dates/isoDate";
+import { addMonths, buildCalendarDays, resolveVisibleMonth, startOfMonth } from "@/lib/dates/calendarGrid";
+import { compareIsoDate, parseIsoDate } from "@/lib/dates/isoDate";
 
 type DatePickerLocale = "en" | "no";
 
@@ -16,6 +16,14 @@ type Props = {
   // its text inputs (e.g. `inputClass`) to match surrounding fields.
   className?: string;
   disabled?: boolean;
+  // ISO yyyy-mm-dd — days before this are shown greyed-out and unselectable.
+  minDate?: string;
+  // Date.getDay() values (0 = Sunday … 6 = Saturday) that are always
+  // greyed-out and unselectable — e.g. [0] to turn off Sunday delivery.
+  blockedWeekdays?: number[];
+  // Extra per-date predicate for greying out/blocking individual days on
+  // top of minDate/blockedWeekdays — e.g. public holidays.
+  isDateBlocked?: (iso: string) => boolean;
 };
 
 const WEEKDAY_LABELS: Record<DatePickerLocale, string[]> = {
@@ -48,10 +56,23 @@ export default function DatePicker({
   placeholder,
   className = "h-11 w-full rounded-xl border border-black/10 bg-white px-3.5 text-sm text-black/85 outline-none transition",
   disabled = false,
+  minDate,
+  blockedWeekdays = [],
+  isDateBlocked,
 }: Props) {
+  const isDaySelectable = (iso: string): boolean => {
+    if (minDate && compareIsoDate(iso, minDate) < 0) return false;
+    if (blockedWeekdays.length > 0) {
+      const date = parseIsoDate(iso);
+      if (date && blockedWeekdays.includes(date.getDay())) return false;
+    }
+    if (isDateBlocked?.(iso)) return false;
+    return true;
+  };
+
   const [open, setOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() => {
-    return startOfMonth(parseIsoDate(value) ?? new Date());
+    return resolveVisibleMonth(parseIsoDate(value) ?? new Date(), isDaySelectable);
   });
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +92,7 @@ export default function DatePicker({
   const handleToggle = () => {
     if (disabled) return;
     if (!open) {
-      setVisibleMonth(startOfMonth(parseIsoDate(value) ?? new Date()));
+      setVisibleMonth(resolveVisibleMonth(parseIsoDate(value) ?? new Date(), isDaySelectable));
     }
     setOpen((current) => !current);
   };
@@ -82,6 +103,8 @@ export default function DatePicker({
   };
 
   const displayValue = formatDisplayDate(value, locale);
+  const minMonth = minDate ? startOfMonth(parseIsoDate(minDate) ?? new Date()) : null;
+  const canGoToPreviousMonth = !minMonth || startOfMonth(addMonths(visibleMonth, -1)) >= minMonth;
 
   return (
     <div ref={containerRef} className="relative">
@@ -102,7 +125,8 @@ export default function DatePicker({
             <button
               type="button"
               onClick={() => setVisibleMonth((current) => addMonths(current, -1))}
-              className="grid h-8 w-8 place-items-center rounded-md text-black/50 hover:bg-black/5"
+              disabled={!canGoToPreviousMonth}
+              className="grid h-8 w-8 place-items-center rounded-md text-black/50 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
               aria-label={locale === "no" ? "Forrige måned" : "Previous month"}
             >
               ‹
@@ -131,18 +155,26 @@ export default function DatePicker({
           <div className="grid grid-cols-7 gap-1">
             {buildCalendarDays(visibleMonth).map((day) => {
               const isSelected = day.iso === value;
+              const isHoliday = Boolean(isDateBlocked?.(day.iso));
+              const isDisabled = !isDaySelectable(day.iso);
 
               return (
                 <button
                   key={day.iso}
                   type="button"
                   onClick={() => handleDaySelect(day.iso)}
-                  className={`h-9 rounded-md text-sm transition ${
+                  disabled={isDisabled}
+                  title={isHoliday ? (locale === "no" ? "Rød dag" : "Public holiday") : undefined}
+                  className={`h-9 rounded-md text-sm transition disabled:cursor-not-allowed disabled:hover:bg-transparent ${
                     isSelected
                       ? "bg-logoblue! font-bold text-white"
-                      : day.inCurrentMonth
-                        ? "hover:bg-black/5"
-                        : "text-neutral-300 hover:bg-black/5"
+                      : isHoliday
+                        ? "bg-red-50 text-red-300 disabled:bg-red-50"
+                        : day.inCurrentMonth
+                          ? isDisabled
+                            ? "text-neutral-200 hover:bg-black/5"
+                            : "hover:bg-black/5"
+                          : "text-neutral-300 hover:bg-black/5"
                   }`}
                 >
                   {day.dayOfMonth}

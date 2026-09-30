@@ -21,6 +21,7 @@ import {
 } from "@/lib/booking/pricing/orderCalculatorExtras";
 import { OrderFields, shown, type HiddenMask } from "@/app/_components/Dahsboard/booking/create/orderFields";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
+import { PRESET_TIME_WINDOWS } from "@/lib/booking/timeWindows";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import type { AppPermission, UserOption } from "@/lib/users/types";
 import {
@@ -180,7 +181,6 @@ type CapacityWarningState = {
   message: string;
 } | null;
 
-const PRESET_TIME_WINDOWS = ["10:00-16:00", "16:00-21:00"] as const;
 const EMPTY_FIELD_ERRORS: FieldErrorMap = {
   orderNumber: null,
   deliveryDate: null,
