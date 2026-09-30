@@ -299,10 +299,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       deliveryFloor,
       liftAvailable,
     });
-    const priceLookup = buildPriceLookup(catalogProducts, catalogSpecialOptions);
+    const priceLookup = buildPriceLookup(catalogProducts, catalogSpecialOptions, { locale });
     return calculateBookingPricing({ productBreakdowns: fullBreakdowns, priceLookup });
   }, [
     productCards,
+    locale,
     catalogProducts,
     catalogSpecialOptions,
     normalizedSettings,
