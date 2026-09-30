@@ -29,23 +29,35 @@ export function TimeWindowField({ locale, value, onChange }: Props) {
     onChange(buildTimeWindowValue(merged));
   };
 
+  const options: { id: string; label: string }[] = [
+    ...PRESET_TIME_WINDOWS.map((preset) => ({ id: preset, label: preset })),
+    { id: "custom", label: t("Specific time", "Spesifikt tidspunkt") },
+  ];
+
   return (
     <div className="flex flex-col gap-3">
-      <select
-        value={selection.selectedTimeWindow}
-        onChange={(e) =>
-          updateSelection({ selectedTimeWindow: e.target.value, customTimeFrom: "", customTimeTo: "" })
-        }
-        className={inputClass}
-      >
-        <option value="">{t("Choose", "Velg")}</option>
-        {PRESET_TIME_WINDOWS.map((preset) => (
-          <option key={preset} value={preset}>
-            {preset}
-          </option>
-        ))}
-        <option value="custom">{t("Request a specific time", "Be om et spesifikt tidspunkt")}</option>
-      </select>
+      <div role="group" aria-label={t("Time window", "Tidsvindu")} className="grid grid-cols-3 gap-2">
+        {options.map((option) => {
+          const selected = selection.selectedTimeWindow === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() =>
+                updateSelection({ selectedTimeWindow: option.id, customTimeFrom: "", customTimeTo: "" })
+              }
+              className={`h-11 rounded-xl border px-2 text-sm font-medium transition ${
+                selected
+                  ? "border-logoblue bg-logoblue text-white shadow-sm"
+                  : "border-black/10 bg-white text-black/75 hover:border-logoblue/40 hover:text-black"
+              }`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
 
       {selection.selectedTimeWindow === "custom" && (
         <div className="grid grid-cols-2 gap-3">
