@@ -94,3 +94,21 @@ export function PhoneIcon(props: IconProps) {
     </Base>
   );
 }
+
+export function MailIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m4 6.5 8 6 8-6" />
+    </Base>
+  );
+}
+
+export function MessageIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M4 5h16v11H8l-4 4V5Z" />
+      <path d="M8 9h8M8 12.5h5" />
+    </Base>
+  );
+}

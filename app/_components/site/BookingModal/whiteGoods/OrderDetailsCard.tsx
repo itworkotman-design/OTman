@@ -19,7 +19,9 @@ type Props = {
   // are collected earlier, in the pickup-contact step — this card only asks
   // about delivery.
   deliveryAddress: string;
-  setDeliveryAddress: (value: string) => void;
+  // wasSelected: whether the text was actually picked from the address
+  // suggestions (vs. free-typed) — see AddressAutocompleteInput.
+  setDeliveryAddress: (value: string, wasSelected?: boolean) => void;
   deliveryFloor: number;
   setDeliveryFloor: (value: number) => void;
   deliveryLiftAvailable: boolean;
@@ -76,7 +78,7 @@ export function OrderDetailsCard({
           <AddressLabel>{t("Delivery address", "Leveringsadresse")}</AddressLabel>
           <AddressAutocompleteInput
             value={deliveryAddress}
-            onChange={(v) => setDeliveryAddress(v)}
+            onChange={setDeliveryAddress}
             locale={bookingLocale}
             placeholder={t("Your address", "Din adresse")}
             icon={<PinIcon />}
