@@ -8,8 +8,17 @@ import { PickupSourceStep, pickupAddressPlaceholder, type PickupSource } from ".
 import { PickupContactCard, isPickupContactStepReady } from "./PickupContactCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
-import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
-import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import {
+  WhiteGoodsOrderSummary,
+  type OrderSummaryExtraLine,
+  type OrderSummaryProduct,
+} from "./WhiteGoodsOrderSummary";
+import {
+  getVatBreakdown,
+  getVatDisplayAmount,
+  getVatDisplayTotal,
+  type CustomerType,
+} from "@/lib/booking/pricing/vatDisplayTotal";
 import {
   addAnotherProductCard,
   applyProductQuantity,
@@ -49,6 +58,7 @@ import {
   type WebsiteListInfo,
 } from "./websiteLists";
 import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
+import { parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import {
   findCardsWithSizeBracketProblems,
@@ -382,11 +392,34 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     deliveryLiftAvailable,
   ]);
 
+  // pricing.totals.totalExVat is the sum of the raw, unmodified line prices
+  // — which, per the shared catalog convention, IS the client (VAT-inclusive)
+  // total. Its engine-internal name doesn't change here; only how the
+  // website displays it does.
   const finalVatDisplay = getVatDisplayTotal({
-    totalExVat: pricing.totals.totalExVat,
-    totalIncVat: pricing.totals.totalIncVat,
+    total: pricing.totals.totalExVat,
     customerType: customerType ?? undefined,
   });
+  const finalVatBreakdown = getVatBreakdown(pricing.totals.totalExVat);
+
+  // Charges not tied to a specific product card (floor surcharge,
+  // long-distance delivery, …) — see buildWhiteGoodsCalculatorBreakdowns.
+  const orderExtraLines: OrderSummaryExtraLine[] = useMemo(() => {
+    const extrasBreakdown = pricing.breakdowns.find((b) => b.isOrderExtras);
+    return (extrasBreakdown?.lines ?? []).map((line) => ({
+      label: line.label,
+      price: line.lineTotal,
+      qty: line.qty,
+    }));
+  }, [pricing]);
+
+  // Converted here (rather than in FloorLiftField) since this is the one
+  // place in the tree that already holds customerType — the badge itself
+  // just renders whatever amount it's given.
+  const floorSurchargePerFloor = getVatDisplayAmount(
+    parsePriceSetting(normalizedSettings.floorSurcharge.price),
+    customerType ?? "private",
+  );
 
   const summaryProducts: OrderSummaryProduct[] = useMemo(() => {
     return productCards
@@ -509,6 +542,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
 
           <WhiteGoodsProductGrid
             locale={locale}
+            customerType={customerType ?? "private"}
             products={listProducts}
             quantities={quantitiesByProductId}
             onChangeQuantity={setProductQuantity}
@@ -576,6 +610,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                     node: (
                       <WhiteGoodsProductCard
                         locale={locale}
+                        customerType={customerType ?? "private"}
                         product={product}
                         value={card}
                         deliveryPreview={previewCardDeliveryOptions(productCards, catalogProducts, card.cardId)}
@@ -621,8 +656,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             <WhiteGoodsOrderSummary
               locale={locale}
               products={summaryProducts}
-              totalExVat={pricing.totals.totalExVat}
-              totalIncVat={pricing.totals.totalIncVat}
+              orderExtras={orderExtraLines}
+              total={pricing.totals.totalExVat}
               customerType={customerType ?? "private"}
             />
           </div>
@@ -773,6 +808,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             setTimeWindow={setTimeWindow}
             drivingDistance={drivingDistance}
             drivingDistanceLoading={drivingDistanceLoading}
+            floorSurchargePerFloor={floorSurchargePerFloor}
           />
 
           <AutoAdvance ready={canContinueOrderDetails} onReady={onComplete} onRetract={onUncomplete} />
@@ -864,11 +900,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                 }`}
               >
                 <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
-                <span>{pricing.totals.totalExVat.toLocaleString("nb-NO")} kr</span>
+                <span>{finalVatBreakdown.exVat.toLocaleString("nb-NO")} kr</span>
               </div>
               <div className="flex justify-between">
                 <span>{t("VAT (25%)", "MVA (25%)")}</span>
-                <span>{pricing.totals.vat.toLocaleString("nb-NO")} kr</span>
+                <span>{finalVatBreakdown.vat.toLocaleString("nb-NO")} kr</span>
               </div>
               <div
                 className={`flex justify-between ${
@@ -876,7 +912,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                 }`}
               >
                 <span>{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
-                <span>{pricing.totals.totalIncVat.toLocaleString("nb-NO")} kr</span>
+                <span>{finalVatBreakdown.incVat.toLocaleString("nb-NO")} kr</span>
               </div>
             </div>
           </div>

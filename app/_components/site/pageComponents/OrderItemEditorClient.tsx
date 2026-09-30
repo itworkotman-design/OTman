@@ -197,6 +197,11 @@ export default function OrderItemEditorClient({ token, locale }: Props) {
             <WhiteGoodsProductCard
               key={card.cardId}
               locale={locale}
+              // This screen has no stored customerType for the order being
+              // edited — "private" shows each option's catalog price
+              // unchanged (see getVatDisplayAmount), matching what the
+              // customer saw when they originally placed the order.
+              customerType="private"
               product={product}
               value={card}
               deliveryPreview={previewCardDeliveryOptions(cards, data.catalogProducts, card.cardId)}

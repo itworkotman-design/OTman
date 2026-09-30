@@ -78,9 +78,10 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
   const selectedOption = catalogOptions.find((o) => o.code === sizeOptionCode) ?? null;
-  const totalExVat = selectedOption ? selectedOption.customerPriceCents / 100 : 0;
-  const totalIncVat = totalExVat * 1.25;
-  const vatDisplay = getVatDisplayTotal({ totalExVat, totalIncVat, customerType: customerType ?? undefined });
+  // customerPriceCents is the catalog price, stored/entered as what the
+  // client actually pays (VAT-inclusive) — see getVatDisplayTotal.
+  const clientTotal = selectedOption ? selectedOption.customerPriceCents / 100 : 0;
+  const vatDisplay = getVatDisplayTotal({ total: clientTotal, customerType: customerType ?? undefined });
 
   const canContinueDetails = !!pickupAddress.trim() && !!deliveryAddress.trim() && !!sizeOptionCode;
   const canContinueTiming = !!preferredDate && !!timeWindow;
@@ -171,8 +172,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             {catalogOptions.map((option) => {
               const active = sizeOptionCode === option.code;
               const optionVat = getVatDisplayTotal({
-                totalExVat: option.customerPriceCents / 100,
-                totalIncVat: (option.customerPriceCents / 100) * 1.25,
+                total: option.customerPriceCents / 100,
                 customerType: customerType ?? undefined,
               });
               return (
