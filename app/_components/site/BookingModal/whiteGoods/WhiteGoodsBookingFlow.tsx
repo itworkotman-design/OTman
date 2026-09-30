@@ -6,6 +6,7 @@ import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { CustomerTypeStep } from "./CustomerTypeStep";
 import { PickupSourceStep, pickupAddressPlaceholder, type PickupSource } from "./PickupSourceStep";
 import { PickupContactCard, isPickupContactStepReady } from "./PickupContactCard";
+import { ContactDetailsCard } from "./ContactDetailsCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
 import {
@@ -147,8 +148,23 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     });
   }, [productCards, chosenListCodes, loadedProducts]);
 
-  const [pickupAddress, setPickupAddress] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [pickupAddress, setPickupAddressRaw] = useState("");
+  const [deliveryAddress, setDeliveryAddressRaw] = useState("");
+  // Whether the current address text was actually picked from the Mapbox
+  // suggestions (vs. free-typed and never confirmed) — reset to false on
+  // every keystroke by AddressAutocompleteInput's own onChange. Gates the
+  // driving-distance lookup below so an unconfirmed address never quietly
+  // gets geocoded and priced.
+  const [pickupAddressSelected, setPickupAddressSelected] = useState(false);
+  const [deliveryAddressSelected, setDeliveryAddressSelected] = useState(false);
+  const setPickupAddress = (value: string, wasSelected?: boolean) => {
+    setPickupAddressRaw(value);
+    setPickupAddressSelected(Boolean(wasSelected));
+  };
+  const setDeliveryAddress = (value: string, wasSelected?: boolean) => {
+    setDeliveryAddressRaw(value);
+    setDeliveryAddressSelected(Boolean(wasSelected));
+  };
   const [pickupFloor, setPickupFloor] = useState(0);
   const [deliveryFloor, setDeliveryFloor] = useState(0);
   // Tracked separately — the pickup and delivery locations aren't
@@ -193,13 +209,15 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
   // Driving distance is never typed by the customer — it's calculated from
-  // the pickup/delivery addresses via Mapbox once both are filled in (same
-  // debounced pattern the old ServiceModal used).
+  // the pickup/delivery addresses via Mapbox once both are filled in AND
+  // actually picked from the suggestions (same debounced pattern the old
+  // ServiceModal used). A free-typed address that was never selected must
+  // not silently get geocoded and priced.
   useEffect(() => {
     const pickup = pickupAddress.trim();
     const delivery = deliveryAddress.trim();
 
-    if (!pickup || !delivery) {
+    if (!pickup || !delivery || !pickupAddressSelected || !deliveryAddressSelected) {
       setDrivingDistance("");
       setDrivingDistanceLoading(false);
       return;
@@ -231,7 +249,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [pickupAddress, deliveryAddress]);
+  }, [pickupAddress, deliveryAddress, pickupAddressSelected, deliveryAddressSelected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -762,6 +780,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
               setPickupPlaceName={setPickupPlaceName}
               pickupAddress={pickupAddress}
               setPickupAddress={setPickupAddress}
+              pickupAddressSelected={pickupAddressSelected}
               pickupAddressPlaceholder={pickupAddressPlaceholder(locale, pickupSource)}
               pickupFloor={pickupFloor}
               setPickupFloor={setPickupFloor}
@@ -779,6 +798,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                 pickupSource,
                 pickupPlaceName,
                 pickupAddress,
+                pickupAddressSelected,
                 pickupContactName,
                 pickupContactPhone,
               })}
@@ -820,43 +840,17 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       title: t("Your details", "Dine opplysninger"),
       render: ({ onComplete, onUncomplete }) => (
         <div className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm">
-            {t("Name / company", "Navn / firma")}
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="h-10 rounded-lg border border-black/15 px-2"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {t("Phone", "Telefon")}
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="h-10 rounded-lg border border-black/15 px-2"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {t("Email", "E-post")}
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-10 rounded-lg border border-black/15 px-2"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            {t("Additional information", "Tilleggsinformasjon")}
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="rounded-lg border border-black/15 px-2 py-1.5"
-            />
-          </label>
+          <ContactDetailsCard
+            locale={locale}
+            name={name}
+            setName={setName}
+            phone={phone}
+            setPhone={setPhone}
+            email={email}
+            setEmail={setEmail}
+            notes={notes}
+            setNotes={setNotes}
+          />
 
           <AutoAdvance ready={canContinueContact} onReady={onComplete} onRetract={onUncomplete} />
         </div>

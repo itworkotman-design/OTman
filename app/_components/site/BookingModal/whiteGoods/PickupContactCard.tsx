@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
+import PickupAddressAutocomplete from "./PickupAddressAutocomplete";
 import { BuildingIcon, PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
@@ -20,7 +20,13 @@ type Props = {
   pickupPlaceName: string;
   setPickupPlaceName: (value: string) => void;
   pickupAddress: string;
-  setPickupAddress: (value: string) => void;
+  // wasSelected: whether the text was actually picked from the address
+  // suggestions (vs. free-typed) — see AddressAutocompleteInput.
+  setPickupAddress: (value: string, wasSelected?: boolean) => void;
+  // Whether pickupAddress was actually picked from the suggestions — a
+  // free-typed address that was never selected isn't good enough to advance
+  // (see isPickupContactStepReady).
+  pickupAddressSelected: boolean;
   // Reflects the pickup-source answer above so the field reads less
   // generically (e.g. "Store address" vs. "Their address").
   pickupAddressPlaceholder: string;
@@ -49,6 +55,7 @@ export function PickupContactCard({
   setPickupPlaceName,
   pickupAddress,
   setPickupAddress,
+  pickupAddressSelected,
   pickupAddressPlaceholder,
   pickupFloor,
   setPickupFloor,
@@ -79,7 +86,12 @@ export function PickupContactCard({
   const markTouched = (field: keyof typeof touched) => setTouched((prev) => ({ ...prev, [field]: true }));
 
   const placeNameError = showPlaceName && touched.placeName && !pickupPlaceName.trim();
-  const addressError = touched.address && !pickupAddress.trim();
+  const addressMissing = touched.address && !pickupAddress.trim();
+  // Typed but never picked from the suggestions — same red state as an
+  // empty field, plus a hint below explaining why (see
+  // isPickupContactStepReady, which blocks advancing either way).
+  const addressNotSelected = touched.address && !!pickupAddress.trim() && !pickupAddressSelected;
+  const addressError = addressMissing || addressNotSelected;
   const contactNameError = showContactPerson && touched.contactName && !pickupContactName.trim();
   const contactPhoneError = showContactPerson && touched.contactPhone && !pickupContactPhone.trim();
 
@@ -142,15 +154,23 @@ export function PickupContactCard({
 
         <div>
           <AddressLabel>{t("Pickup address", "Hentested")}</AddressLabel>
-          <AddressAutocompleteInput
+          <PickupAddressAutocomplete
             value={pickupAddress}
-            onChange={(v) => setPickupAddress(v)}
+            onChange={setPickupAddress}
             onBlur={() => markTouched("address")}
             hasError={addressError}
             locale={bookingLocale}
             placeholder={pickupAddressPlaceholder}
             icon={<PinIcon />}
           />
+          {addressNotSelected && (
+            <p className="mt-1.5 text-xs text-red-500">
+              {t(
+                "Please choose an address from the suggestions.",
+                "Velg en adresse fra forslagene.",
+              )}
+            </p>
+          )}
         </div>
 
         {showPickupFloor && (
@@ -213,12 +233,22 @@ export function isPickupContactStepReady(params: {
   pickupSource: PickupSource | null;
   pickupPlaceName: string;
   pickupAddress: string;
+  // A free-typed address that was never picked from the suggestions isn't
+  // good enough to advance on — see AddressAutocompleteInput.
+  pickupAddressSelected: boolean;
   pickupContactName: string;
   pickupContactPhone: string;
 }): boolean {
-  const { pickupSource, pickupPlaceName, pickupAddress, pickupContactName, pickupContactPhone } = params;
+  const {
+    pickupSource,
+    pickupPlaceName,
+    pickupAddress,
+    pickupAddressSelected,
+    pickupContactName,
+    pickupContactPhone,
+  } = params;
   if (!pickupSource) return false;
-  if (!pickupAddress.trim()) return false;
+  if (!pickupAddress.trim() || !pickupAddressSelected) return false;
 
   const placeNameOk = pickupSource === "private" || pickupPlaceName.trim().length > 0;
   const contactOk =
