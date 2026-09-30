@@ -916,6 +916,93 @@ nothing to attach to.
     (no component tests exist for this tree — covered by the pure gate tests);
     the unrelated "Assembly — needs implementation" note is unchanged.
 
+- **2026-09-30 — "All products are picked up here" checkbox on the white-goods
+  flow now actually does something** (previously a stub — see
+  `PickupContactCard.tsx`'s old comment). Unchecking it asks which of the
+  order's products come from this address (checklist, hidden when there's
+  only one product to begin with — nothing to choose); whatever's left
+  unclaimed gets an identical "pickup location 2" card (source tile + address
+  + contact + its own checklist, scoped to just what's left), repeating until
+  every product has a location, then the flow moves on to Order details.
+  Scope confirmed up front via two clarifying questions: product-level (not
+  per-card) assignment, and front-end-flow-only — no `OrderItem`-to-pickup-
+  location schema change, since there's no other consumer for that structure
+  yet (extra locations' addresses still feed pricing/`extraPickupAddress` the
+  same way a single extra address always has; which products go where is
+  folded into the order's free-text description for staff, not structured
+  queryable data).
+  - **The one genuinely tricky part**: order-details/contact must not
+    disappear if the customer already filled them in, then goes back and
+    splits the pickup — but *should* still collapse if toggled before
+    reaching them (or while they're still blank), same as any other
+    AutoAdvance retraction. Solved without special-casing the retraction
+    call itself: the new locations render *inside* the existing
+    "pickup-contact" step (an `AnimatedStack` of `ExtraPickupLocationCard`s
+    stacked below the first location's card) rather than as new top-level
+    `StepSection`s, so the section array's length/order never changes and
+    nothing shifts position. That step's own `AutoAdvance.onRetract` only
+    calls `onUncomplete()` when order-details/contact are still blank
+    (`hasEnteredOrderOrContactDetails`, new); when they already have
+    something, retraction is suppressed and `canContinueContact`/`canSubmit`
+    instead gate on `allPickupLocationsReady` — so the final review step
+    becomes (and stays) unreachable until every location resolves again,
+    without ever hiding what was already typed.
+  - New pure-logic module `pickupLocations.ts` (TDD'd, 22 tests) holds the
+    claim/remaining-pool math and `syncPickupLocations`, which grows/trims
+    the extra-locations array to match how many are actually needed —
+    careful to stop looking ahead the first time it hits a location that
+    hasn't claimed anything yet, otherwise it would keep pre-emptively
+    spawning further empty locations one step ahead of user input.
+  - Server (`app/api/site/white-goods-order/route.ts`) gained a new
+    `extraPickupLocations` request field (parsed by the new
+    `lib/orders/websiteExtraPickupLocations.ts`, TDD'd, 9 tests) carrying
+    each extra location's full contact info and claimed product names — used
+    to derive `extraPickupsForPricing` (falls back to the older, address-only
+    `extraPickupAddresses` if absent) and to append human-readable
+    "Pickup location N (address, source, contact) — picking up: X, Y" lines
+    to the order's internal description. No new validation was added for
+    extra locations' own required fields — the client already gates
+    submission on `allPickupLocationsReady` before this payload is even
+    sent, consistent with the "front-end flow only" scope decision.
+  - Verified: 31 new tests (22 + 9) all TDD'd (written and confirmed failing
+    before the implementation), full `typecheck`/`lint`/`test` clean — same
+    4 pre-existing, unrelated failures (missing `ARCHIVE_DATABASE_URL` for 3
+    archive-integration suites, one flaky membership-role test), confirmed
+    present without this change too via `git stash`. No browser-automation
+    tool was available in this environment, so the multi-location UI itself
+    was not click-tested — worth a manual pass before relying on it.
+  - **Deliberately not done**: no `OrderItem`/pickup-location schema link
+    (see scope decision above — flag as its own follow-up if staff need
+    structured per-item pickup data, e.g. for GSM dispatch or reporting, not
+    just a readable note); no dashboard visibility beyond the description
+    text; no doc added for `WhiteGoodsBookingFlow.tsx` itself (pre-existing
+    doc gap per §3d, unchanged by this step).
+  - **Same day, follow-up refinements from review feedback**: (1) assignment
+    switched from per-**product** to per-**card** — a product split into
+    several independently-configured cards (`addAnotherProductCard`) now
+    shows as separate checklist entries ("Tumble dryer #1"/"#2", matching the
+    order summary's own naming, plus a "(×N)" suffix when a single card's own
+    quantity is more than one) instead of one entry that silently didn't
+    update when a duplicate card was added — `pickupLocations.ts`'s pool
+    functions (`orderedCardIds`, `claimedCardIds`, etc.) now operate on
+    `cardId: number` throughout, not `productId: string`. (2) Checklist rows
+    now show each product's `ProductIcon`, same as the product grid's tiles,
+    instead of a bare checkbox + text label. (3) Once the order spans more
+    than one website-list category (e.g. white goods + furniture), the
+    checklist groups items under a category header per list (new
+    `groupByCategory`, generic first-seen-order grouping) — a single-category
+    order still renders one flat, unlabeled list. (4) The second-and-later
+    locations' checkbox copy changed from the ambiguous "All these products
+    are picked up here" to "All the remaining products are picked up here",
+    naming what pool it actually refers to. Added `pickup-contact-card.md`
+    (the card had grown enough new logic to be worth documenting, reversing
+    this step's earlier call to leave it undocumented) and updated
+    `website-pickup-locations.md`/`extra-pickup-location-card.md` for the
+    renamed types. Verified: rewrote `pickupLocations.test.ts` first (TDD —
+    confirmed red against the old string-based implementation), 25 tests
+    passing (up from 22), full `typecheck`/`lint`/`test` clean, no new
+    failures. Still not click-tested in a real browser.
+
 ## 11. Build order — status as of 2026-09-23
 
 1. ✅ **Cleanup** (§3) — done 2026-09-22.

@@ -8,7 +8,16 @@ import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { PersonIcon, PhoneIcon } from "./orderDetailsIcons";
 import { AddressLabel, FieldLabel, fieldClass } from "./formFieldStyles";
 import { FloorLiftField } from "./floorLiftField";
+import { ProductIcon } from "./productIcons";
 import type { PickupSource } from "./PickupSourceStep";
+
+// One product card offerable to a pickup location's checklist — see
+// pickupLocations.ts's per-card (not per-product) assignment.
+export type PickupProductChoice = { cardId: number; name: string; code: string; iconKey: string | null };
+// Checklist items grouped by price-list category (e.g. white goods vs.
+// furniture) — `label` is null when there's nothing worth grouping by
+// (a single category on the order), in which case the checklist renders flat.
+export type PickupProductPoolSection = { label: string | null; items: PickupProductChoice[] };
 
 type Props = {
   locale: Locale;
@@ -41,10 +50,19 @@ type Props = {
   setPickupContactName: (value: string) => void;
   pickupContactPhone: string;
   setPickupContactPhone: (value: string) => void;
-  // Placeholder for now — just the checkbox, defaulted on. The behavior for
-  // an order with several pickup locations doesn't exist yet.
-  allProductsPickedUpHere: boolean;
-  setAllProductsPickedUpHere: (value: boolean) => void;
+  // The other product cards on the order this location could claim, grouped
+  // by category — omitted (or one card or fewer total) when there's nothing
+  // to choose between, which hides the checkbox and checklist below
+  // entirely. See pickupLocations.ts.
+  productPoolSections?: PickupProductPoolSection[];
+  allRemainingHere: boolean;
+  setAllRemainingHere: (value: boolean) => void;
+  selectedCardIds: number[];
+  setSelectedCardIds: (ids: number[]) => void;
+  // "All products are picked up here" for the first location, "All the
+  // remaining products are picked up here" for the ones after (whose pool
+  // is already just whatever earlier locations left unclaimed).
+  allRemainingLabel: string;
 };
 
 export function PickupContactCard({
@@ -65,8 +83,12 @@ export function PickupContactCard({
   setPickupContactName,
   pickupContactPhone,
   setPickupContactPhone,
-  allProductsPickedUpHere,
-  setAllProductsPickedUpHere,
+  productPoolSections,
+  allRemainingHere,
+  setAllRemainingHere,
+  selectedCardIds,
+  setSelectedCardIds,
+  allRemainingLabel,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
@@ -211,17 +233,58 @@ export function PickupContactCard({
           </div>
         )}
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={allProductsPickedUpHere}
-            onChange={(e) => setAllProductsPickedUpHere(e.target.checked)}
-            className="h-4 w-4"
-          />
-          <span className="font-medium text-black/75">
-            {t("All products are picked up here", "Alle varene hentes her")}
-          </span>
-        </label>
+        {productPoolSections && productPoolSections.reduce((n, s) => n + s.items.length, 0) > 1 && (
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={allRemainingHere}
+                onChange={(e) => setAllRemainingHere(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <span className="font-medium text-black/75">{allRemainingLabel}</span>
+            </label>
+
+            {!allRemainingHere && (
+              <div className="flex flex-col gap-3 rounded-xl border border-black/10 bg-black/2 p-3">
+                <p className="text-xs font-medium text-black/50">
+                  {t("Which of these are picked up here?", "Hvilke av disse hentes her?")}
+                </p>
+                {productPoolSections.map((section, i) => (
+                  <div key={section.label ?? i} className="flex flex-col gap-1.5">
+                    {section.label && (
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-black/40">{section.label}</p>
+                    )}
+                    {section.items.map((item) => {
+                      const checked = selectedCardIds.includes(item.cardId);
+                      return (
+                        <label key={item.cardId} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              setSelectedCardIds(
+                                e.target.checked
+                                  ? [...selectedCardIds, item.cardId]
+                                  : selectedCardIds.filter((id) => id !== item.cardId),
+                              )
+                            }
+                            className="h-4 w-4 shrink-0"
+                          />
+                          <ProductIcon code={item.code} iconKey={item.iconKey} className="h-5 w-5 shrink-0 text-logoblue" />
+                          <span>{item.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))}
+                {selectedCardIds.length === 0 && (
+                  <p className="text-xs text-black/40">{t("Choose at least one.", "Velg minst én.")}</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
