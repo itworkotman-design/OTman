@@ -41,6 +41,7 @@ import {
   validateTextField,
 } from "@/lib/orders/websiteOrderValidation";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { buildMultiPickupDescriptionLines, parseExtraPickupLocations } from "@/lib/orders/websiteExtraPickupLocations";
 
 // Independent from transport-request's rate limiter by design — a separate
 // public order-creation flow gets its own budget rather than sharing state
@@ -203,11 +204,19 @@ async function createWhiteGoodsOrder(
   const deliveryFloor = num(body.deliveryFloor);
   const pickupLiftAvailable = isStorePickup ? true : body.pickupLiftAvailable === true;
   const deliveryLiftAvailable = body.deliveryLiftAvailable === true;
-  const extraPickupsForPricing = Array.isArray(body.extraPickupAddresses)
-    ? (body.extraPickupAddresses as unknown[])
-        .filter((a): a is string => typeof a === "string" && a.trim().length > 0)
-        .map((address) => ({ address }))
-    : [];
+  // The homepage flow lets a customer split their order across several
+  // pickup addresses (see pickupLocations.ts on the client) — extraPickupLocations
+  // carries those in full (address, contact, which products); the older,
+  // address-only extraPickupAddresses stays supported as a fallback.
+  const extraPickupLocations = parseExtraPickupLocations(body.extraPickupLocations);
+  const extraPickupsForPricing =
+    extraPickupLocations.length > 0
+      ? extraPickupLocations.map((loc) => ({ address: loc.address as string }))
+      : Array.isArray(body.extraPickupAddresses)
+        ? (body.extraPickupAddresses as unknown[])
+            .filter((a): a is string => typeof a === "string" && a.trim().length > 0)
+            .map((address) => ({ address }))
+        : [];
 
   const productBreakdowns = applyWebsiteAssemblyExtras(
     applyWhiteGoodsExtraUnitCharges(
@@ -273,6 +282,16 @@ async function createWhiteGoodsOrder(
     `Lift available at delivery: ${deliveryLiftAvailable ? "yes" : "no"}`,
   ].filter(Boolean);
 
+  // Only non-empty once the order was actually split across more than one
+  // pickup address — see websiteExtraPickupLocations.ts.
+  const multiPickupNoteParts = buildMultiPickupDescriptionLines({
+    firstLocationAddress: str(body.pickupAddress),
+    firstLocationProductNames: Array.isArray(body.pickupProductNames)
+      ? (body.pickupProductNames as unknown[]).filter((n): n is string => typeof n === "string" && n.trim().length > 0)
+      : [],
+    extraLocations: extraPickupLocations,
+  });
+
   const order = await prisma.order.create({
     data: {
       companyId: membership.companyId,
@@ -297,7 +316,7 @@ async function createWhiteGoodsOrder(
       // Legacy single field (see edit-items re-pricing) — "yes" only when
       // neither end would incur a floor surcharge, the safer combined value.
       lift: pickupLiftAvailable && deliveryLiftAvailable ? "yes" : "no",
-      description: [str(body.notes), floorNoteParts.join(", ")]
+      description: [str(body.notes), floorNoteParts.join(", "), multiPickupNoteParts.join("\n")]
         .filter(Boolean)
         .join("\n\n"),
       priceExVat: Math.round(pricingResult.totals.totalExVat),

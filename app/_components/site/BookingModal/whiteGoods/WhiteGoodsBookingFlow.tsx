@@ -5,7 +5,20 @@ import { SteppedModal, AnimatedStack, type FinalStep, type StepSection } from ".
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { CustomerTypeStep } from "./CustomerTypeStep";
 import { PickupSourceStep, pickupAddressPlaceholder, type PickupSource } from "./PickupSourceStep";
-import { PickupContactCard, isPickupContactStepReady } from "./PickupContactCard";
+import { PickupContactCard, isPickupContactStepReady, type PickupProductPoolSection } from "./PickupContactCard";
+import { ExtraPickupLocationCard } from "./ExtraPickupLocationCard";
+import {
+  claimedCardIds,
+  groupByCategory,
+  hasEnteredOrderOrContactDetails,
+  isPickupLocationReady,
+  nextPickupLocationId,
+  orderedCardIds,
+  poolsForLocations,
+  remainingAfterClaim,
+  syncPickupLocations,
+  type PickupLocationState,
+} from "./pickupLocations";
 import { ContactDetailsCard } from "./ContactDetailsCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
@@ -202,11 +215,112 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [pickupPlaceName, setPickupPlaceName] = useState("");
   const [pickupContactName, setPickupContactName] = useState("");
   const [pickupContactPhone, setPickupContactPhone] = useState("");
-  // Placeholder for now — no branching behavior yet for an order whose
-  // items come from more than one pickup location.
+  // Unchecking this asks which product CARDS come from THIS address
+  // (selected below) — whatever's left over gets asked about again, as its
+  // own pickup location, until every card has a home. See pickupLocations.ts
+  // for the shared logic behind that chain. Assignment is per card, not per
+  // product, so a product split into several cards (addAnotherProductCard)
+  // can be picked up from different places, same as the "#1"/"#2" split the
+  // order summary already shows for them.
   const [allProductsPickedUpHere, setAllProductsPickedUpHere] = useState(true);
+  const [pickupCardIds, setPickupCardIds] = useState<number[]>([]);
+  const [extraPickupLocations, setExtraPickupLocations] = useState<PickupLocationState[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
+
+  // Every card on the order — the pool the first pickup location's
+  // checklist offers, before any of it gets claimed.
+  const poolCardIds = useMemo(() => orderedCardIds(productCards), [productCards]);
+  const location0Claimed = useMemo(
+    () => claimedCardIds(poolCardIds, allProductsPickedUpHere, pickupCardIds),
+    [poolCardIds, allProductsPickedUpHere, pickupCardIds],
+  );
+  const location0Remaining = useMemo(
+    () => remainingAfterClaim(poolCardIds, location0Claimed),
+    [poolCardIds, location0Claimed],
+  );
+
+  // Grows/trims extraPickupLocations to match how many are actually needed
+  // right now, keeping every kept entry's typed-in fields (see
+  // syncPickupLocations) — same "recompute derived state, only update if it
+  // actually changed" shape as populatedListCodes above.
+  useEffect(() => {
+    setExtraPickupLocations((locations) => {
+      const next = syncPickupLocations(locations, location0Remaining, () => nextPickupLocationId(locations));
+      return next.length === locations.length && next.every((loc, i) => loc === locations[i]) ? locations : next;
+    });
+  }, [location0Remaining]);
+
+  const { pools: extraPickupPools, finalRemaining: unassignedCardIds } = useMemo(
+    () => poolsForLocations(extraPickupLocations, location0Remaining),
+    [extraPickupLocations, location0Remaining],
+  );
+
+  function updateExtraPickupLocation(id: number, patch: Partial<PickupLocationState>) {
+    setExtraPickupLocations((locations) => locations.map((loc) => (loc.id === id ? { ...loc, ...patch } : loc)));
+  }
+
+  // Which website list (category) a product belongs to — used to group the
+  // pickup checklists by category once the order spans more than one list.
+  const listCodeByProductId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const code of chosenListCodes) {
+      for (const product of loadedProducts[code] ?? []) map[product.id] = code;
+    }
+    return map;
+  }, [chosenListCodes, loadedProducts]);
+
+  function categoryLabel(code: string): string {
+    const info = availableLists.find((l) => l.code === code);
+    return info ? t(info.labelEn, info.labelNo) : t("Other", "Annet");
+  }
+
+  // A card's display name for the pickup checklists — the same "#1"/"#2"
+  // sibling numbering and item-name-first rule (Other furniture) the order
+  // summary uses, plus the card's own quantity when it's more than one.
+  function pickupChecklistName(cardId: number): string {
+    const card = productCards.find((c) => c.cardId === cardId);
+    const product = card?.productId ? catalogProducts.find((p) => p.id === card.productId) : undefined;
+    if (!card || !product) return String(cardId);
+    const baseName = getCalculatorProductName({ product, itemName: card.modelNumber, label: productLabel(locale, product) });
+    const siblings = productCards.filter((c) => c.productId === card.productId);
+    const name = siblings.length > 1 ? `${baseName} #${siblings.indexOf(card) + 1}` : baseName;
+    return card.amount > 1 ? `${name} (×${card.amount})` : name;
+  }
+
+  function pickupChecklistChoice(cardId: number) {
+    const card = productCards.find((c) => c.cardId === cardId);
+    const product = card?.productId ? catalogProducts.find((p) => p.id === card.productId) : undefined;
+    return { cardId, name: pickupChecklistName(cardId), code: product?.code ?? "", iconKey: product?.iconKey ?? null };
+  }
+
+  // Groups a location's offered pool into checklist sections by category —
+  // only actually labeled once the order spans more than one website list,
+  // otherwise it's one flat, unlabeled section.
+  function pickupPoolSections(pool: number[]): PickupProductPoolSection[] {
+    const grouped = groupByCategory(pool, (cardId) => {
+      const card = productCards.find((c) => c.cardId === cardId);
+      return (card?.productId && listCodeByProductId[card.productId]) || "";
+    });
+    const showLabels = chosenListCodes.length > 1 && grouped.length > 1;
+    return grouped.map(({ category, items }) => ({
+      label: showLabels ? categoryLabel(category) : null,
+      items: items.map(pickupChecklistChoice),
+    }));
+  }
+
+  const allPickupLocationsReady =
+    isPickupContactStepReady({
+      pickupSource,
+      pickupPlaceName,
+      pickupAddress,
+      pickupAddressSelected,
+      pickupContactName,
+      pickupContactPhone,
+    }) &&
+    (poolCardIds.length <= 1 || allProductsPickedUpHere || pickupCardIds.length > 0) &&
+    extraPickupLocations.every((loc, i) => isPickupLocationReady(loc, extraPickupPools[i] ?? [])) &&
+    unassignedCardIds.length === 0;
 
   // Driving distance is never typed by the customer — it's calculated from
   // the pickup/delivery addresses via Mapbox once both are filled in AND
@@ -491,8 +605,14 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   // Email is mandatory: the order-received confirmation and the payment link
   // are emailed, so an order without one could never be completed.
   const emailValid = EMAIL_RE.test(email.trim());
-  const canContinueContact = !!name.trim() && !!phone.trim() && emailValid;
-  const canSubmit = name.trim() && phone.trim() && emailValid && sizeBracketsComplete && !submitLoading;
+  // Reaching (and staying on) the final review step also needs every
+  // pickup location's own required fields and product split resolved — see
+  // the pickup-contact step's AutoAdvance for why this isn't gated any
+  // earlier: order-details/contact must not disappear just because the
+  // customer went back and split the pickup across more locations.
+  const canContinueContact = !!name.trim() && !!phone.trim() && emailValid && allPickupLocationsReady;
+  const canSubmit =
+    name.trim() && phone.trim() && emailValid && sizeBracketsComplete && allPickupLocationsReady && !submitLoading;
 
   async function handleSubmit() {
     setSubmitLoading(true);
@@ -520,6 +640,28 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           phone,
           email,
           notes,
+          // Only present once the order was actually split across more than
+          // one pickup address — omitted for the common single-location
+          // case so that payload stays exactly as it always has been.
+          ...(!allProductsPickedUpHere && poolCardIds.length > 1
+            ? { pickupProductNames: location0Claimed.map(pickupChecklistName) }
+            : {}),
+          ...(extraPickupLocations.length > 0
+            ? {
+                extraPickupLocations: extraPickupLocations.map((loc, i) => ({
+                  source: loc.source,
+                  placeName: loc.placeName,
+                  address: loc.address,
+                  floor: loc.floor,
+                  liftAvailable: loc.liftAvailable,
+                  contactName: loc.contactName,
+                  contactPhone: loc.contactPhone,
+                  productNames: claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds).map(
+                    pickupChecklistName,
+                  ),
+                })),
+              }
+            : {}),
         }),
       });
       const json = await res.json();
@@ -790,20 +932,54 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
               setPickupContactName={setPickupContactName}
               pickupContactPhone={pickupContactPhone}
               setPickupContactPhone={setPickupContactPhone}
-              allProductsPickedUpHere={allProductsPickedUpHere}
-              setAllProductsPickedUpHere={setAllProductsPickedUpHere}
+              productPoolSections={poolCardIds.length > 1 ? pickupPoolSections(poolCardIds) : undefined}
+              allRemainingHere={allProductsPickedUpHere}
+              setAllRemainingHere={setAllProductsPickedUpHere}
+              selectedCardIds={pickupCardIds}
+              setSelectedCardIds={setPickupCardIds}
+              allRemainingLabel={t("All products are picked up here", "Alle varene hentes her")}
             />
+
+            <AnimatedStack
+              gap={16}
+              items={extraPickupLocations.map((location, i) => ({
+                key: String(location.id),
+                node: (
+                  <ExtraPickupLocationCard
+                    locale={locale}
+                    bookingLocale={bookingLocale}
+                    index={i}
+                    location={location}
+                    productPoolSections={pickupPoolSections(extraPickupPools[i] ?? [])}
+                    onChange={(patch) => updateExtraPickupLocation(location.id, patch)}
+                  />
+                ),
+              }))}
+            />
+
             <AutoAdvance
-              ready={isPickupContactStepReady({
-                pickupSource,
-                pickupPlaceName,
-                pickupAddress,
-                pickupAddressSelected,
-                pickupContactName,
-                pickupContactPhone,
-              })}
+              ready={allPickupLocationsReady}
               onReady={onComplete}
-              onRetract={onUncomplete}
+              // Once order-details/contact already have something in them,
+              // splitting the pickup across more locations must not yank
+              // them off screen — only suppresses the retraction, doesn't
+              // skip anything: canContinueContact below still blocks
+              // reaching the final step until every location resolves again.
+              onRetract={() => {
+                if (
+                  !hasEnteredOrderOrContactDetails({
+                    deliveryAddress,
+                    preferredDate,
+                    timeWindow,
+                    name,
+                    phone,
+                    email,
+                    notes,
+                  })
+                ) {
+                  onUncomplete();
+                }
+              }}
             />
           </div>
         ) : null,
