@@ -39,10 +39,11 @@ describe("seedParcelPalletCatalog", () => {
     expect(parsePriceListSettings(call.create.description).deliveryOnly).toBe(true);
   });
 
-  it("links every product to the price list, since with no options they have no PriceListItem to do it", async () => {
+  it("links every option-less product to the price list directly, since it has no PriceListItem to do it (envelope, bag)", async () => {
     await seedParcelPalletCatalog();
 
-    expect(mocks.priceListProductUpsert).toHaveBeenCalledTimes(PARCEL_PALLET_PRODUCTS.length);
+    const optionLessProductCount = PARCEL_PALLET_PRODUCTS.filter((p) => p.options.length === 0).length;
+    expect(mocks.priceListProductUpsert).toHaveBeenCalledTimes(optionLessProductCount);
     for (const [arg] of mocks.priceListProductUpsert.mock.calls) {
       expect(arg.where.priceListId_productId).toEqual({ priceListId: "pl-parcel-pallet", productId: "p" });
       expect(arg.update).toEqual({});
@@ -90,9 +91,12 @@ describe("seedParcelPalletCatalog", () => {
     }
   });
 
-  it("has no PriceListItem rows to protect for these delivery-only products — confirming deliveryTypes above is the actual price-bearing field, not a moot check", async () => {
+  it("has no PriceListItem rows for the delivery-only products with no options (envelope, bag) — confirming deliveryTypes above is the actual price-bearing field for those, not a moot check", async () => {
     await seedParcelPalletCatalog();
 
-    expect(mocks.priceListItemUpsert).not.toHaveBeenCalled();
+    // Boxes/half-pallet/pallet's unpacking + pallet-pickup add-ons DO get
+    // PriceListItem rows, one per option across those products.
+    const optionCount = PARCEL_PALLET_PRODUCTS.reduce((sum, p) => sum + p.options.length, 0);
+    expect(mocks.priceListItemUpsert).toHaveBeenCalledTimes(optionCount);
   });
 });

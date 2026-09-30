@@ -239,6 +239,8 @@ export function WhiteGoodsProductCard({
   const unpackingOption =
     product.options.find((o) => o.code === "UNPACKING") ?? null;
   const demontOption = product.options.find((o) => o.code === "DEMONT") ?? null;
+  const palletPickupOption =
+    product.options.find((o) => o.code === "PALLET_PICKUP") ?? null;
   const returnOption =
     product.options.find(
       (o) => seedByCode.get(o.code)?.category === "return",
@@ -288,6 +290,7 @@ export function WhiteGoodsProductCard({
     installSelected,
     hasUnpackingOption: !!unpackingOption,
     hasDemontOption: !!demontOption,
+    hasPalletPickupOption: !!palletPickupOption,
     dismantlingGroupCount: dismantlingGroups.length,
     hasAnchoringOption: !!anchoringOption,
     hasReturnOption: !!returnOption,
@@ -408,7 +411,12 @@ export function WhiteGoodsProductCard({
       ? (unpackingOption &&
         value.selectedExtraOptionIds.includes(unpackingOption.id)
           ? 1
-          : 0) + (value.demontEnabled ? 1 : 0)
+          : 0) +
+        (value.demontEnabled ? 1 : 0) +
+        (palletPickupOption &&
+        value.selectedExtraOptionIds.includes(palletPickupOption.id)
+          ? 1
+          : 0)
       : 0) +
     (showReturn && value.selectedReturnOptionId ? 1 : 0) +
     (isFurniture
@@ -828,6 +836,21 @@ export function WhiteGoodsProductCard({
                           demontEnabled: !value.demontEnabled,
                         })
                       }
+                    />
+                  )}
+                  {showExtras && palletPickupOption && (
+                    <OptionRow
+                      variant="checkbox"
+                      selected={value.selectedExtraOptionIds.includes(
+                        palletPickupOption.id,
+                      )}
+                      title={t("Take the empty pallet", "Ta med tom pall")}
+                      description={t(
+                        "We take the empty pallet with us.",
+                        "Vi tar med oss den tomme pallen.",
+                      )}
+                      price={money(palletPickupOption.customerPrice)}
+                      onClick={() => toggleExtraOption(palletPickupOption.id)}
                     />
                   )}
                   {dismantlingGroups.length > 0 && furnitureAddonsVisible && (
