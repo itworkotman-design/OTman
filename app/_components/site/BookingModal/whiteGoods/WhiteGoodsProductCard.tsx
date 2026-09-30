@@ -431,6 +431,7 @@ export function WhiteGoodsProductCard({
       : null,
     showInstallChip: showInstallStep,
     addonCount,
+    sizeInfo: seedProduct?.sizeInfo ?? null,
   });
 
   return (

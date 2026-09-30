@@ -6,6 +6,7 @@ import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
 import { SIZE_VOLUME_CATEGORY, SIZE_WEIGHT_CATEGORY } from "@/lib/booking/pricing/sizeBrackets";
 import type { SizeDimensionsCm } from "@/lib/booking/pricing/sizeDimensions";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
+import { formatSizeInfoChip } from "./cardSummaryChips";
 import { ProductIcon } from "./productIcons";
 import { SizeBracketPicker } from "./SizeBracketPicker";
 import { getTileKeyframes, type TileBox } from "./tileMotion";
@@ -34,6 +35,27 @@ export function productLabel(locale: Locale, product: CatalogProduct) {
   const seed = findWebsiteProductSeed(product.code);
   if (!seed) return product.label;
   return locale === "no" ? seed.nameNo : seed.nameEn;
+}
+
+// Small "?" badge next to a tile's product name for products with a static
+// max-weight/dimensions spec (parcel/pallet catalog) — hover (or focus, for
+// keyboard/touch) reveals the spec in a bubble, same reveal-on-hover pattern
+// used by the archive's row actions.
+function SizeInfoBadge({ label }: { label: string }) {
+  return (
+    <span
+      tabIndex={0}
+      className="group/spec relative inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-black/20 text-[9px] font-semibold leading-none text-black/50 outline-none focus-visible:border-logoblue focus-visible:text-logoblue"
+    >
+      ?
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 w-max max-w-40 -translate-x-1/2 rounded-lg bg-black/85 px-2 py-1 text-center text-[11px] font-normal leading-snug text-white opacity-0 transition-opacity duration-150 group-hover/spec:opacity-100 group-focus-visible/spec:opacity-100"
+      >
+        {label}
+      </span>
+    </span>
+  );
 }
 
 export function WhiteGoodsProductGrid({
@@ -95,6 +117,7 @@ export function WhiteGoodsProductGrid({
           !!onChangeItemName &&
           product.options.some((o) => o.active && (o.category === SIZE_VOLUME_CATEGORY || o.category === SIZE_WEIGHT_CATEGORY));
         const expanded = selected && asksForSize;
+        const sizeInfoLabel = formatSizeInfoChip(locale, findWebsiteProductSeed(product.code)?.sizeInfo ?? null);
 
         return (
           <div
@@ -138,7 +161,10 @@ export function WhiteGoodsProductGrid({
               </div>
             </div>
 
-            <p className="text-sm font-medium text-black/80">{productLabel(locale, product)}</p>
+            <p className="flex items-center gap-1 text-sm font-medium text-black/80">
+              {productLabel(locale, product)}
+              {sizeInfoLabel && <SizeInfoBadge label={sizeInfoLabel} />}
+            </p>
 
             {/* Grows open (grid-rows 0fr -> 1fr, which a plain height cannot
                 animate) when the product is selected. The picker stays mounted

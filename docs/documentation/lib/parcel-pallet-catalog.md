@@ -19,6 +19,8 @@ These website products are plain flat-rate `PHYSICAL` products instead — a
 deliberate scope choice, not an oversight; see
 `docs/homepage-ordering-roadmap.md` §5 progress log.
 
+Bag, Boxes, Half-pallet and Pallet each carry a `sizeInfo` (`WhiteGoodsProductSeed.sizeInfo` — max weight, optional dimensions in cm), display-only, shown as the leading summary pill on the product card via `formatSizeInfoChip` (`cardSummaryChips.ts`). Envelope has none.
+
 ## Exports
 - `PARCEL_PALLET_PRICE_LIST_CODE` — re-exported from `websitePriceListCodes.ts`.
 - `PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[]`.
