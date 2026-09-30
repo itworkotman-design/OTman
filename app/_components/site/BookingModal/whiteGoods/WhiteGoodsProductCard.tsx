@@ -22,6 +22,10 @@ import { buildCardSummaryChips } from "./cardSummaryChips";
 import type { DeliveryOptionPreview } from "./deliveryPricePreview";
 import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
+import {
+  hasExtrasStepContent,
+  hasInstallStepContent,
+} from "./cardSectionVisibility";
 
 // The DB-stored ProductOption/CatalogOption has no field distinguishing a
 // mutually-exclusive "type" choice (radio) from a stackable add-on
@@ -271,6 +275,25 @@ export function WhiteGoodsProductCard({
     deliveryType !== "" &&
     (!!unpackingOption || dismantlingGroups.length > 0 || !!anchoringOption);
 
+  const showInstallStep = hasInstallStepContent({
+    assemblyGroupCount: assemblyGroups.length,
+    typeOptionCount: typeOptions.length,
+    hasNeedsImplementationNote: !!seedProduct?.needsImplementation,
+  });
+  const showExtrasStep = hasExtrasStepContent({
+    showExtras,
+    showReturn,
+    furnitureAddonsVisible,
+    isFurniture,
+    installSelected,
+    hasUnpackingOption: !!unpackingOption,
+    hasDemontOption: !!demontOption,
+    dismantlingGroupCount: dismantlingGroups.length,
+    hasAnchoringOption: !!anchoringOption,
+    hasReturnOption: !!returnOption,
+  });
+  const extrasStepNumber = showInstallStep ? 3 : 2;
+
   function setDeliveryType(next: SavedProductCard["deliveryType"]) {
     onChange({
       ...value,
@@ -406,6 +429,7 @@ export function WhiteGoodsProductCard({
         ? seedLabel(locale, selectedTypeSeed)
         : selectedTypeOption.label
       : null,
+    showInstallChip: showInstallStep,
     addonCount,
   });
 
@@ -564,6 +588,7 @@ export function WhiteGoodsProductCard({
               </div>
             </div>
 
+            {showInstallStep && (
             <div>
               <SectionHeader
                 step={2}
@@ -731,11 +756,12 @@ export function WhiteGoodsProductCard({
                 )}
               </div>
             </div>
+            )}
 
-            {(showExtras || showReturn || furnitureAddonsVisible) && (
+            {showExtrasStep && (
               <div>
                 <SectionHeader
-                  step={3}
+                  step={extrasStepNumber}
                   title={t("Additional services", "Tilleggstjenester")}
                   subtitle={t(
                     "Choose any additional services.",

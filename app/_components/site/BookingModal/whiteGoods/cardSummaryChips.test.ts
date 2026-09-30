@@ -8,6 +8,7 @@ describe("buildCardSummaryChips", () => {
         locale: "no",
         deliveryType: "FIRST_STEP",
         installLabel: null,
+        showInstallChip: true,
         addonCount: 2,
       }),
     ).toEqual(["Levering: Ytterdør", "Montering: Ingen", "2 tillegg"]);
@@ -19,6 +20,7 @@ describe("buildCardSummaryChips", () => {
         locale: "en",
         deliveryType: "INDOOR",
         installLabel: "Standard",
+        showInstallChip: true,
         addonCount: 1,
       }),
     ).toEqual(["Delivery: Carry-in", "Installation: Standard", "1 add-on"]);
@@ -30,8 +32,21 @@ describe("buildCardSummaryChips", () => {
         locale: "no",
         deliveryType: "INSTALL_ONLY",
         installLabel: null,
+        showInstallChip: true,
         addonCount: 0,
       }),
     ).toEqual(["Levering: Kun montering", "Montering: Ingen"]);
+  });
+
+  it("omits the installation chip entirely when the product has no install options", () => {
+    expect(
+      buildCardSummaryChips({
+        locale: "no",
+        deliveryType: "FIRST_STEP",
+        installLabel: null,
+        showInstallChip: false,
+        addonCount: 0,
+      }),
+    ).toEqual(["Levering: Ytterdør"]);
   });
 });

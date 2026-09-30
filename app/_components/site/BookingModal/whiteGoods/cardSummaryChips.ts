@@ -12,11 +12,16 @@ export function buildCardSummaryChips({
   locale,
   deliveryType,
   installLabel,
+  showInstallChip,
   addonCount,
 }: {
   locale: Locale;
   deliveryType: string;
   installLabel: string | null;
+  // False when the product has no installation options at all (e.g.
+  // pakke/pall catalog items) — the "Montering: None" chip would be
+  // meaningless there, so it's left out entirely.
+  showInstallChip: boolean;
   addonCount: number;
 }): string[] {
   const no = locale === "no";
@@ -27,9 +32,11 @@ export function buildCardSummaryChips({
     chips.push(`${no ? "Levering" : "Delivery"}: ${no ? delivery.no : delivery.en}`);
   }
 
-  chips.push(
-    `${no ? "Montering" : "Installation"}: ${installLabel ?? (no ? "Ingen" : "None")}`,
-  );
+  if (showInstallChip) {
+    chips.push(
+      `${no ? "Montering" : "Installation"}: ${installLabel ?? (no ? "Ingen" : "None")}`,
+    );
+  }
 
   if (addonCount > 0) {
     chips.push(no ? `${addonCount} tillegg` : `${addonCount} add-on${addonCount === 1 ? "" : "s"}`);
