@@ -32,6 +32,10 @@ type Props = {
   // typed by the customer — this card only ever displays it.
   drivingDistance: string;
   drivingDistanceLoading: boolean;
+  // Customer-facing price per chargeable floor above the 2nd, no lift (see
+  // getChargeableFloors) — drives the live surcharge shown next to the
+  // delivery floor input.
+  floorSurchargePerFloor: number;
 };
 
 export function OrderDetailsCard({
@@ -49,6 +53,7 @@ export function OrderDetailsCard({
   setTimeWindow,
   drivingDistance,
   drivingDistanceLoading,
+  floorSurchargePerFloor,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
@@ -81,10 +86,15 @@ export function OrderDetailsCard({
         <FloorLiftField
           locale={locale}
           label={t("Delivery floor", "Etasje ved levering")}
+          hint={t(
+            "Ground floor is 0. Without a lift, floors above the 2nd add a surcharge.",
+            "Bakkeplan er 0. Uten heis tilkommer et tillegg for etasjer over 2.",
+          )}
           floorValue={deliveryFloor}
           onFloorChange={setDeliveryFloor}
           liftChecked={deliveryLiftAvailable}
           onLiftChange={setDeliveryLiftAvailable}
+          surchargePerFloor={floorSurchargePerFloor}
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

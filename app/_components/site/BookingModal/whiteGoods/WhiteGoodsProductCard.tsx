@@ -22,6 +22,7 @@ import { buildCardSummaryChips } from "./cardSummaryChips";
 import type { DeliveryOptionPreview } from "./deliveryPricePreview";
 import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
+import { getVatDisplayAmount, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
 import {
   hasExtrasStepContent,
   hasInstallStepContent,
@@ -37,6 +38,10 @@ import {
 
 type Props = {
   locale: Locale;
+  // Private customers see prices incl. VAT (what they actually pay);
+  // business customers see ex-VAT (what they reclaim) — see
+  // getVatDisplayAmount.
+  customerType: CustomerType;
   product: CatalogProduct;
   value: SavedProductCard;
   deliveryPreview: {
@@ -55,11 +60,6 @@ type Props = {
 
 function seedLabel(locale: Locale, seed: { labelEn: string; labelNo: string }) {
   return locale === "no" ? seed.labelNo : seed.labelEn;
-}
-
-function money(value: string) {
-  const n = Number(value);
-  return Number.isFinite(n) ? `${n.toLocaleString("nb-NO")} kr` : value;
 }
 
 // One selectable row shared by every section below: a radio circle (single
@@ -182,6 +182,7 @@ function SectionHeader({
 
 export function WhiteGoodsProductCard({
   locale,
+  customerType,
   product,
   value,
   deliveryPreview,
@@ -192,6 +193,10 @@ export function WhiteGoodsProductCard({
 }: Props) {
   const [open, setOpen] = useState(true);
   const t = (en: string, no: string) => (locale === "no" ? no : en);
+  const money = (raw: string) => {
+    const n = Number(raw);
+    return Number.isFinite(n) ? `${getVatDisplayAmount(n, customerType).toLocaleString("nb-NO")} kr` : raw;
+  };
 
   const seedProduct = useMemo(
     () => findWebsiteProductSeed(product.code),

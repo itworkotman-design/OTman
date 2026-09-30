@@ -6,6 +6,7 @@ import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
 import { SIZE_VOLUME_CATEGORY, SIZE_WEIGHT_CATEGORY } from "@/lib/booking/pricing/sizeBrackets";
 import type { SizeDimensionsCm } from "@/lib/booking/pricing/sizeDimensions";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
+import type { CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
 import { formatSizeInfoChip } from "./cardSummaryChips";
 import { ProductIcon } from "./productIcons";
 import { SizeBracketPicker } from "./SizeBracketPicker";
@@ -15,6 +16,10 @@ const TILE_MOTION_MS = 300;
 
 type Props = {
   locale: Locale;
+  // Private customers see prices incl. VAT (what they actually pay);
+  // business customers see ex-VAT (what they reclaim) — see
+  // getVatDisplayAmount. Forwarded to SizeBracketPicker's own prices.
+  customerType: CustomerType;
   products: CatalogProduct[];
   quantities: Record<string, number>;
   onChangeQuantity: (productId: string, amount: number) => void;
@@ -60,6 +65,7 @@ function SizeInfoBadge({ label }: { label: string }) {
 
 export function WhiteGoodsProductGrid({
   locale,
+  customerType,
   products,
   quantities,
   onChangeQuantity,
@@ -182,6 +188,7 @@ export function WhiteGoodsProductGrid({
                 <div className="overflow-hidden">
                   <SizeBracketPicker
                     locale={locale}
+                    customerType={customerType}
                     product={product}
                     selectedIds={sizeSelections[product.id] ?? []}
                     dimensions={sizeDimensions[product.id] ?? null}

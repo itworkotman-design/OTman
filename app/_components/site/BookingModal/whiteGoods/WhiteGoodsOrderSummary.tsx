@@ -4,7 +4,7 @@ import { Fragment } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { WhiteGoodsLineCategory } from "@/lib/content/whiteGoodsLineCategory";
 import { ProductIcon } from "./productIcons";
-import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import { getVatDisplayAmount, getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
 
 export type OrderSummaryLine = {
   label: string;
@@ -23,11 +23,21 @@ export type OrderSummaryProduct = {
   lines: OrderSummaryLine[];
 };
 
+// Charges that aren't tied to a specific product card — floor surcharge,
+// long-distance delivery, express delivery, etc. (see
+// buildWhiteGoodsCalculatorBreakdowns / buildCalculatorBreakdownsWithOrderExtras).
+export type OrderSummaryExtraLine = {
+  label: string;
+  price: number;
+  qty: number;
+};
+
 type Props = {
   locale: Locale;
   products: OrderSummaryProduct[];
-  totalExVat: number;
-  totalIncVat: number;
+  orderExtras?: OrderSummaryExtraLine[];
+  // The order's client (VAT-inclusive) total — see getVatDisplayTotal.
+  total: number;
   // Answered once as the modal's first step (CustomerTypeStep) — no toggle
   // here anymore, just used to pick which VAT total leads.
   customerType: CustomerType;
@@ -40,12 +50,12 @@ function formatKr(n: number) {
 export function WhiteGoodsOrderSummary({
   locale,
   products,
-  totalExVat,
-  totalIncVat,
+  orderExtras = [],
+  total,
   customerType,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
-  const vatDisplay = getVatDisplayTotal({ totalExVat, totalIncVat, customerType });
+  const vatDisplay = getVatDisplayTotal({ total, customerType });
   const secondaryLabel =
     vatDisplay.primary === "incVat" ? t("ex. VAT", "eks. mva") : t("incl. VAT", "inkl. mva");
 
@@ -69,7 +79,9 @@ export function WhiteGoodsOrderSummary({
                     {t("Qty", "Antall")}: {product.qty}
                   </p>
                 </div>
-                <p className="shrink-0 whitespace-nowrap text-base font-semibold text-black/85">{formatKr(product.total)}</p>
+                <p className="shrink-0 whitespace-nowrap text-base font-semibold text-black/85">
+                  {formatKr(getVatDisplayAmount(product.total, customerType))}
+                </p>
               </div>
 
               {product.lines.length > 0 && (
@@ -96,7 +108,9 @@ export function WhiteGoodsOrderSummary({
                           line.price === 0 ? "font-semibold text-logoblue" : "font-medium text-black/70",
                         ].join(" ")}
                       >
-                        {line.price === 0 ? t("Included", "Inkludert") : formatKr(line.price)}
+                        {line.price === 0
+                          ? t("Included", "Inkludert")
+                          : formatKr(getVatDisplayAmount(line.price, customerType))}
                       </span>
                     </Fragment>
                   ))}
@@ -104,6 +118,34 @@ export function WhiteGoodsOrderSummary({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {orderExtras.length > 0 && (
+        <div className="mt-4 border-t border-black/10 pt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-black/45">
+            {t("Order extras", "Tillegg til ordren")}
+          </p>
+          <div className="mt-2 grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-2 pl-1 text-sm">
+            {orderExtras.map((line, index) => (
+              <Fragment key={index}>
+                <span className="flex items-center gap-2 text-black/60">
+                  <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-logoblue" />
+                  {line.label}
+                </span>
+                <span className="justify-self-end whitespace-nowrap">
+                  {line.qty > 1 && (
+                    <span className="rounded-full bg-logoblue/10 px-1.5 py-0.5 text-xs font-semibold text-logoblue">
+                      {line.qty}×
+                    </span>
+                  )}
+                </span>
+                <span className="whitespace-nowrap text-right font-medium tabular-nums text-black/70">
+                  {formatKr(getVatDisplayAmount(line.price, customerType))}
+                </span>
+              </Fragment>
+            ))}
+          </div>
         </div>
       )}
 
