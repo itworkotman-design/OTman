@@ -55,6 +55,7 @@ describe("hasExtrasStepContent", () => {
     installSelected: false,
     hasUnpackingOption: false,
     hasDemontOption: false,
+    hasPalletPickupOption: false,
     dismantlingGroupCount: 0,
     hasAnchoringOption: false,
     hasReturnOption: false,
@@ -103,5 +104,24 @@ describe("hasExtrasStepContent", () => {
         hasUnpackingOption: true,
       }),
     ).toBe(true);
+  });
+
+  it("is true when pallet pickup is offered and extras are shown (half-pallet/pallet)", () => {
+    expect(
+      hasExtrasStepContent({
+        ...base,
+        showExtras: true,
+        hasPalletPickupOption: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("stays false for pallet pickup when extras aren't shown yet (no delivery type picked)", () => {
+    expect(
+      hasExtrasStepContent({
+        ...base,
+        hasPalletPickupOption: true,
+      }),
+    ).toBe(false);
   });
 });

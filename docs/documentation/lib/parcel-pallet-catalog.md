@@ -21,6 +21,8 @@ deliberate scope choice, not an oversight; see
 
 Bag, Boxes, Half-pallet and Pallet each carry a `sizeInfo` (`WhiteGoodsProductSeed.sizeInfo` — max weight, optional dimensions in cm), display-only, shown as the leading summary pill on the product card via `formatSizeInfoChip` (`cardSummaryChips.ts`). Envelope has none.
 
+Boxes, Half-pallet and Pallet each get an `UNPACKING` option (same code `WhiteGoodsProductCard` already keys its unpacking row off of); Half-pallet and Pallet additionally get `PALLET_PICKUP` ("Ta med tom pall" — we take the empty pallet away), a plain `category: "extra"` option rather than `"return"` so it doesn't pick up that category's hardcoded white-goods-recycling copy. Envelope and Bag get neither.
+
 ## Exports
 - `PARCEL_PALLET_PRICE_LIST_CODE` — re-exported from `websitePriceListCodes.ts`.
 - `PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[]`.

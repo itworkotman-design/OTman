@@ -1,4 +1,4 @@
-import type { WhiteGoodsProductSeed } from "@/lib/content/whiteGoodsElectronics";
+import type { WhiteGoodsOptionSeed, WhiteGoodsProductSeed } from "@/lib/content/whiteGoodsElectronics";
 import { PARCEL_PALLET_PRICE_LIST_CODE } from "@/lib/content/websitePriceListCodes";
 
 export { PARCEL_PALLET_PRICE_LIST_CODE };
@@ -30,6 +30,33 @@ export { PARCEL_PALLET_PRICE_LIST_CODE };
 // PALLET pricing behavior is a follow-up, not a blocker.
 const NO_DELIVERY_PRICE = { customerPrice: 0, subcontractorPrice: 0, xtraPrice: 0, xtraSubcontractorPrice: 0 };
 
+// Code "UNPACKING" is the same one WhiteGoodsProductCard already keys its
+// unpacking row off of (product.options.find(o => o.code === "UNPACKING")) —
+// reusing it here, rather than a bespoke code, is what makes the row appear
+// with no UI changes. Boxes and both pallet sizes only; Bag/Envelope don't
+// arrive in packaging worth unpacking.
+const UNPACKING_OPTION: WhiteGoodsOptionSeed = {
+  code: "UNPACKING",
+  category: "extra",
+  labelEn: "Unpacking and disposal of packaging",
+  labelNo: "Utpakking og kasting av emballasje",
+  customerPrice: 0,
+  subcontractorPrice: 0,
+};
+
+// Pallet sizes only — offers to take the now-empty pallet away after
+// delivery. A plain "extra" (not "return"): that category renders with
+// hardcoded white-goods-recycling copy in WhiteGoodsProductCard, which
+// wouldn't fit here.
+const PALLET_PICKUP_OPTION: WhiteGoodsOptionSeed = {
+  code: "PALLET_PICKUP",
+  category: "extra",
+  labelEn: "Take the empty pallet",
+  labelNo: "Ta med tom pall",
+  customerPrice: 0,
+  subcontractorPrice: 0,
+};
+
 export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
   {
     code: "PKG_KONVOLUTT",
@@ -54,7 +81,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameNo: "Esker",
     sortOrder: 3,
     deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
-    options: [],
+    options: [UNPACKING_OPTION],
     sizeInfo: { maxWeightKg: 50, dimensionsCm: { w: 50, h: 50, d: 50 } },
   },
   {
@@ -63,7 +90,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameNo: "Halvpall",
     sortOrder: 4,
     deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
-    options: [],
+    options: [UNPACKING_OPTION, PALLET_PICKUP_OPTION],
     sizeInfo: { maxWeightKg: 100 },
   },
   {
@@ -72,7 +99,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameNo: "Pall",
     sortOrder: 5,
     deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
-    options: [],
+    options: [UNPACKING_OPTION, PALLET_PICKUP_OPTION],
     sizeInfo: { maxWeightKg: 500 },
   },
 ];

@@ -16,8 +16,9 @@ export function hasInstallStepContent(params: {
 
 // Whether the "Additional services" step has anything to show. Mirrors the
 // individual row conditions in WhiteGoodsProductCard — a product with no
-// unpacking/dismantling/anchoring/return option and not furniture must not
-// render an empty step just because a delivery type was picked.
+// unpacking/dismantling/anchoring/return/pallet-pickup option and not
+// furniture must not render an empty step just because a delivery type was
+// picked.
 export function hasExtrasStepContent(params: {
   showExtras: boolean;
   showReturn: boolean;
@@ -26,6 +27,7 @@ export function hasExtrasStepContent(params: {
   installSelected: boolean;
   hasUnpackingOption: boolean;
   hasDemontOption: boolean;
+  hasPalletPickupOption: boolean;
   dismantlingGroupCount: number;
   hasAnchoringOption: boolean;
   hasReturnOption: boolean;
@@ -38,6 +40,7 @@ export function hasExtrasStepContent(params: {
     installSelected,
     hasUnpackingOption,
     hasDemontOption,
+    hasPalletPickupOption,
     dismantlingGroupCount,
     hasAnchoringOption,
     hasReturnOption,
@@ -47,6 +50,7 @@ export function hasExtrasStepContent(params: {
     (showExtras && hasUnpackingOption) ||
     (isFurniture && !showExtras && installSelected && hasUnpackingOption) ||
     (showExtras && hasDemontOption) ||
+    (showExtras && hasPalletPickupOption) ||
     (dismantlingGroupCount > 0 && furnitureAddonsVisible) ||
     (hasAnchoringOption && furnitureAddonsVisible) ||
     (showReturn && hasReturnOption)
