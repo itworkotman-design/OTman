@@ -157,6 +157,9 @@ async function recomputeOrderPricing(
 
   const drivingDistanceStr = order.drivingDistance ?? "";
   const floorNo = Number(order.floorNo) || 0;
+  // The order only retains one combined floor/lift pair after creation (see
+  // Order.floorNo/lift), so re-pricing on edit necessarily applies it to
+  // both ends — the finer pickup-vs-delivery split only exists at booking time.
   const liftAvailable = order.lift === "yes";
   const extraPickupsForPricing = (order.extraPickupAddress ?? []).map((address) => ({ address }));
 
@@ -181,7 +184,8 @@ async function recomputeOrderPricing(
     extraPickups: extraPickupsForPricing,
     pickupFloor: floorNo,
     deliveryFloor: floorNo,
-    liftAvailable,
+    pickupLiftAvailable: liftAvailable,
+    deliveryLiftAvailable: liftAvailable,
   });
 
   const pricingResult = calculateBookingPricing({

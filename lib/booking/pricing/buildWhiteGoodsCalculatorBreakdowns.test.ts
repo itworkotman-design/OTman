@@ -46,7 +46,8 @@ describe("buildWhiteGoodsCalculatorBreakdowns", () => {
       extraPickups: [],
       pickupFloor: 2,
       deliveryFloor: 1,
-      liftAvailable: false,
+      pickupLiftAvailable: false,
+      deliveryLiftAvailable: false,
     });
 
     const extras = breakdowns.find((b) => b.isOrderExtras);
@@ -66,7 +67,8 @@ describe("buildWhiteGoodsCalculatorBreakdowns", () => {
       extraPickups: [],
       pickupFloor: 4, // 2 chargeable floors (3rd, 4th)
       deliveryFloor: 3, // 1 chargeable floor (3rd)
-      liftAvailable: false,
+      pickupLiftAvailable: false,
+      deliveryLiftAvailable: false,
     });
 
     const extras = breakdowns.find((b) => b.isOrderExtras);
@@ -85,7 +87,7 @@ describe("buildWhiteGoodsCalculatorBreakdowns", () => {
     );
   });
 
-  it("adds no floor-surcharge line when a lift is available", () => {
+  it("adds no floor-surcharge line when a lift is available at both ends", () => {
     const breakdowns = buildWhiteGoodsCalculatorBreakdowns({
       productBreakdowns: [],
       priceListSettings: settings,
@@ -94,7 +96,8 @@ describe("buildWhiteGoodsCalculatorBreakdowns", () => {
       extraPickups: [],
       pickupFloor: 6,
       deliveryFloor: 6,
-      liftAvailable: true,
+      pickupLiftAvailable: true,
+      deliveryLiftAvailable: true,
     });
 
     const extras = breakdowns.find((b) => b.isOrderExtras);
@@ -103,6 +106,27 @@ describe("buildWhiteGoodsCalculatorBreakdowns", () => {
     );
 
     expect(floorItem).toBeUndefined();
+  });
+
+  it("charges only the end without a lift when they differ", () => {
+    const breakdowns = buildWhiteGoodsCalculatorBreakdowns({
+      productBreakdowns: [],
+      priceListSettings: settings,
+      drivingDistance: "",
+      expressDelivery: false,
+      extraPickups: [],
+      pickupFloor: 5, // has a lift -> 0 chargeable
+      deliveryFloor: 4, // no lift -> 2 chargeable (3rd, 4th)
+      pickupLiftAvailable: true,
+      deliveryLiftAvailable: false,
+    });
+
+    const extras = breakdowns.find((b) => b.isOrderExtras);
+    const floorItem = extras?.items.find(
+      (item) => item.kind === "customPrice" && item.code === "FLOOR_SURCHARGE",
+    );
+
+    expect(floorItem).toEqual(expect.objectContaining({ qty: 2 }));
   });
 
   it("still applies the underlying express/pickup/km extras unchanged", () => {
@@ -114,7 +138,8 @@ describe("buildWhiteGoodsCalculatorBreakdowns", () => {
       extraPickups: [],
       pickupFloor: 0,
       deliveryFloor: 0,
-      liftAvailable: false,
+      pickupLiftAvailable: false,
+      deliveryLiftAvailable: false,
     });
 
     const extras = breakdowns.find((b) => b.isOrderExtras);

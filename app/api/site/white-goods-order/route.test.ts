@@ -40,6 +40,7 @@ async function post(body: unknown) {
 
 const validBody = {
   productCards: [{ cardId: 0, productId: "product-1" }],
+  pickupSource: "store",
   pickupAddress: "Storgata 1, Oslo",
   deliveryAddress: "Storgata 2, Oslo",
   name: "Test Customer",
@@ -101,6 +102,16 @@ describe("POST /api/site/white-goods-order", () => {
     expect(res.status).toBe(422);
     const json = await res.json();
     expect(json.errors.pickupAddress).toBe("Required");
+  });
+
+  it("returns 422 when pickupSource is missing or unrecognized", async () => {
+    for (const pickupSource of [undefined, "", "supplier"]) {
+      const res = await post({ ...validBody, pickupSource });
+
+      expect(res.status).toBe(422);
+      const json = await res.json();
+      expect(json.errors.pickupSource).toBe("Required");
+    }
   });
 
   it("returns 422 when no product cards are provided", async () => {

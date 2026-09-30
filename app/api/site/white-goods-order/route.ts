@@ -63,6 +63,17 @@ function checkRateLimit(): "ok" | "minute" | "daily" {
 
 type RequestBody = Record<string, unknown>;
 
+const PICKUP_SOURCE_LABELS: Record<string, string> = {
+  store: "Store",
+  private: "Private individual",
+  business: "Business",
+};
+
+function pickupSourceLabel(v: unknown): string | null {
+  const key = typeof v === "string" ? v : "";
+  return PICKUP_SOURCE_LABELS[key] ?? null;
+}
+
 function str(v: unknown): string | null {
   if (!v) return null;
   const s = String(v).trim();
@@ -184,9 +195,14 @@ async function createWhiteGoodsOrder(
 
   const drivingDistanceStr = str(body.drivingDistance) ?? "";
   const expressDelivery = body.expressDelivery === true;
-  const liftAvailable = body.liftAvailable === true;
-  const pickupFloor = num(body.pickupFloor);
+  // A store pickup never asks for a floor/lift on the client — stores always
+  // have loading access — so the pickup leg is authoritatively treated as
+  // ground floor with a lift here, regardless of what the client sent.
+  const isStorePickup = body.pickupSource === "store";
+  const pickupFloor = isStorePickup ? 0 : num(body.pickupFloor);
   const deliveryFloor = num(body.deliveryFloor);
+  const pickupLiftAvailable = isStorePickup ? true : body.pickupLiftAvailable === true;
+  const deliveryLiftAvailable = body.deliveryLiftAvailable === true;
   const extraPickupsForPricing = Array.isArray(body.extraPickupAddresses)
     ? (body.extraPickupAddresses as unknown[])
         .filter((a): a is string => typeof a === "string" && a.trim().length > 0)
@@ -219,7 +235,8 @@ async function createWhiteGoodsOrder(
     extraPickups: extraPickupsForPricing,
     pickupFloor,
     deliveryFloor,
-    liftAvailable,
+    pickupLiftAvailable,
+    deliveryLiftAvailable,
   });
 
   const pricingResult = calculateBookingPricing({
@@ -242,9 +259,11 @@ async function createWhiteGoodsOrder(
   const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
   const floorNoteParts = [
-    pickupFloor > 0 ? `Pickup floor: ${pickupFloor}` : null,
+    pickupSourceLabel(body.pickupSource) ? `Picking up from: ${pickupSourceLabel(body.pickupSource)}` : null,
+    !isStorePickup && pickupFloor > 0 ? `Pickup floor: ${pickupFloor}` : null,
     deliveryFloor > 0 ? `Delivery floor: ${deliveryFloor}` : null,
-    `Lift available: ${liftAvailable ? "yes" : "no"}`,
+    !isStorePickup ? `Lift available at pickup: ${pickupLiftAvailable ? "yes" : "no"}` : null,
+    `Lift available at delivery: ${deliveryLiftAvailable ? "yes" : "no"}`,
   ].filter(Boolean);
 
   const order = await prisma.order.create({
@@ -268,7 +287,9 @@ async function createWhiteGoodsOrder(
       expressDelivery,
       extraPickupAddress: extraPickupsForPricing.map((p) => p.address),
       floorNo: String(Math.max(pickupFloor, deliveryFloor) || 0),
-      lift: liftAvailable ? "yes" : "no",
+      // Legacy single field (see edit-items re-pricing) — "yes" only when
+      // neither end would incur a floor surcharge, the safer combined value.
+      lift: pickupLiftAvailable && deliveryLiftAvailable ? "yes" : "no",
       description: [str(body.notes), floorNoteParts.join(", ")]
         .filter(Boolean)
         .join("\n\n"),
@@ -388,6 +409,7 @@ export async function POST(req: Request) {
 
   if (!str(body.pickupAddress)) errors.pickupAddress = "Required";
   if (!str(body.deliveryAddress)) errors.deliveryAddress = "Required";
+  if (!pickupSourceLabel(body.pickupSource)) errors.pickupSource = "Required";
   if (!str(body.name)) errors.name = "Required";
   if (!Array.isArray(body.productCards) || body.productCards.length === 0) {
     errors.productCards = "At least one product is required";

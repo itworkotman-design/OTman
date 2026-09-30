@@ -25,7 +25,10 @@ type WhiteGoodsCalculatorExtrasParams = {
   extraPickups: Array<{ address: string }>;
   pickupFloor: number;
   deliveryFloor: number;
-  liftAvailable: boolean;
+  // Tracked separately: a lift at the pickup location says nothing about
+  // whether the delivery address has one, and vice versa.
+  pickupLiftAvailable: boolean;
+  deliveryLiftAvailable: boolean;
   shouldUseNativeDistancePricing?: boolean;
 };
 
@@ -41,7 +44,7 @@ type WhiteGoodsCalculatorExtrasParams = {
 export function buildWhiteGoodsCalculatorBreakdowns(
   params: WhiteGoodsCalculatorExtrasParams,
 ): ProductBreakdown[] {
-  const { pickupFloor, deliveryFloor, liftAvailable, ...sharedParams } = params;
+  const { pickupFloor, deliveryFloor, pickupLiftAvailable, deliveryLiftAvailable, ...sharedParams } = params;
 
   const breakdowns = buildCalculatorBreakdownsWithOrderExtras({
     ...sharedParams,
@@ -53,8 +56,8 @@ export function buildWhiteGoodsCalculatorBreakdowns(
   });
 
   const chargeableFloors =
-    getChargeableFloors(pickupFloor, liftAvailable) +
-    getChargeableFloors(deliveryFloor, liftAvailable);
+    getChargeableFloors(pickupFloor, pickupLiftAvailable) +
+    getChargeableFloors(deliveryFloor, deliveryLiftAvailable);
 
   if (chargeableFloors <= 0) {
     return breakdowns;
