@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SteppedModal, AnimatedStack, type FinalStep, type StepSection } from "../SteppedModal";
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { CustomerTypeStep } from "./CustomerTypeStep";
+import { PickupSourceStep, pickupAddressPlaceholder, type PickupSource } from "./PickupSourceStep";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
 import { WhiteGoodsOrderSummary, type OrderSummaryProduct } from "./WhiteGoodsOrderSummary";
@@ -27,7 +28,7 @@ import { previewCardDeliveryOptions } from "./deliveryPricePreview";
 import { sortSummaryLines } from "./orderSummaryLines";
 import { orderHasRequiredDelivery } from "./orderDeliveryRequirement";
 import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
-import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
+import { OrderDetailsCard } from "./OrderDetailsCard";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import {
   type CatalogProduct,
@@ -139,11 +140,16 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [pickupFloor, setPickupFloor] = useState(0);
   const [deliveryFloor, setDeliveryFloor] = useState(0);
-  const [liftAvailable, setLiftAvailable] = useState(false);
-  const [expressDelivery, setExpressDelivery] = useState(false);
+  // Tracked separately — the pickup and delivery locations aren't
+  // necessarily the same kind of building.
+  const [pickupLiftAvailable, setPickupLiftAvailable] = useState(false);
+  const [deliveryLiftAvailable, setDeliveryLiftAvailable] = useState(false);
   const [preferredDate, setPreferredDate] = useState("");
   const [timeWindow, setTimeWindow] = useState("");
+  // Not user-editable — calculated from the pickup/delivery addresses below
+  // (see the effect near the address state), same as the legacy ServiceModal did.
   const [drivingDistance, setDrivingDistance] = useState("");
+  const [drivingDistanceLoading, setDrivingDistanceLoading] = useState(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -160,8 +166,53 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   // getVatDisplayTotal already treats "private" as its own default
   // whenever this is null.
   const [customerType, setCustomerType] = useState<CustomerType | null>(null);
+  // Who the pickup address belongs to (store / private individual /
+  // business) — asked right before the address fields it gives context to.
+  // Informational for staff/drivers, not used in pricing.
+  const [pickupSource, setPickupSource] = useState<PickupSource | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
+
+  // Driving distance is never typed by the customer — it's calculated from
+  // the pickup/delivery addresses via Mapbox once both are filled in (same
+  // debounced pattern the old ServiceModal used).
+  useEffect(() => {
+    const pickup = pickupAddress.trim();
+    const delivery = deliveryAddress.trim();
+
+    if (!pickup || !delivery) {
+      setDrivingDistance("");
+      setDrivingDistanceLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setDrivingDistanceLoading(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/site/route-distance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pickupAddress: pickup, deliveryAddress: delivery }),
+          signal: controller.signal,
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.ok && typeof data.distanceKm === "string") {
+          setDrivingDistance(data.distanceKm);
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      } finally {
+        if (!controller.signal.aborted) setDrivingDistanceLoading(false);
+      }
+    }, 700);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [pickupAddress, deliveryAddress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -278,6 +329,12 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     [priceListSettings],
   );
 
+  // A store pickup never asks for a pickup floor/lift (see the order-details
+  // step) — treated as ground floor with a lift, same as the server does.
+  const isStorePickup = pickupSource === "store";
+  const effectivePickupFloor = isStorePickup ? 0 : pickupFloor;
+  const effectivePickupLiftAvailable = isStorePickup ? true : pickupLiftAvailable;
+
   const pricing = useMemo(() => {
     const breakdowns = applyWebsiteAssemblyExtras(
       applyWhiteGoodsExtraUnitCharges(
@@ -293,11 +350,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       productBreakdowns: breakdowns,
       priceListSettings: normalizedSettings,
       drivingDistance,
-      expressDelivery,
+      // Not offered as a client-selectable option in this flow — always off.
+      expressDelivery: false,
       extraPickups: [],
-      pickupFloor,
+      pickupFloor: effectivePickupFloor,
       deliveryFloor,
-      liftAvailable,
+      pickupLiftAvailable: effectivePickupLiftAvailable,
+      deliveryLiftAvailable,
     });
     const priceLookup = buildPriceLookup(catalogProducts, catalogSpecialOptions, { locale });
     return calculateBookingPricing({ productBreakdowns: fullBreakdowns, priceLookup });
@@ -308,10 +367,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     catalogSpecialOptions,
     normalizedSettings,
     drivingDistance,
-    expressDelivery,
-    pickupFloor,
+    effectivePickupFloor,
     deliveryFloor,
-    liftAvailable,
+    effectivePickupLiftAvailable,
+    deliveryLiftAvailable,
   ]);
 
   const finalVatDisplay = getVatDisplayTotal({
@@ -383,12 +442,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productCards,
+          pickupSource,
           pickupAddress,
           deliveryAddress,
           pickupFloor,
           deliveryFloor,
-          liftAvailable,
-          expressDelivery,
+          pickupLiftAvailable,
+          deliveryLiftAvailable,
           drivingDistance,
           preferredDate,
           timeWindow,
@@ -627,105 +687,49 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     ...listSections,
     ...moreSections,
     {
+      id: "pickup-source",
+      title: t("Where are we picking up from?", "Hvor henter vi fra?"),
+      render: ({ onComplete }) => (
+        <PickupSourceStep
+          locale={locale}
+          value={pickupSource}
+          onPick={(next) => {
+            setPickupSource(next);
+            onComplete();
+          }}
+        />
+      ),
+    },
+    {
       id: "order-details",
       title: t("Order details", "Ordredetaljer"),
       render: ({ onComplete, onUncomplete }) => (
         <div className="flex flex-col gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-black/50">
-              {t("Pickup address", "Hentested")}
-            </label>
-            <AddressAutocompleteInput
-              value={pickupAddress}
-              onChange={(v) => setPickupAddress(v)}
-              locale={bookingLocale}
-              placeholder={t("Store or delivery point", "Butikk eller hentested")}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-black/50">
-              {t("Delivery address", "Leveringsadresse")}
-            </label>
-            <AddressAutocompleteInput
-              value={deliveryAddress}
-              onChange={(v) => setDeliveryAddress(v)}
-              locale={bookingLocale}
-              placeholder={t("Your address", "Din adresse")}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              {t("Pickup floor", "Etasje ved henting")}
-              <input
-                type="number"
-                min={0}
-                value={pickupFloor}
-                onChange={(e) => setPickupFloor(Math.max(0, Number(e.target.value) || 0))}
-                className="h-10 rounded-lg border border-black/15 px-2"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              {t("Delivery floor", "Etasje ved levering")}
-              <input
-                type="number"
-                min={0}
-                value={deliveryFloor}
-                onChange={(e) => setDeliveryFloor(Math.max(0, Number(e.target.value) || 0))}
-                className="h-10 rounded-lg border border-black/15 px-2"
-              />
-            </label>
-          </div>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={liftAvailable}
-              onChange={(e) => setLiftAvailable(e.target.checked)}
-            />
-            {t("Lift available", "Heis tilgjengelig")}
-          </label>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={expressDelivery}
-              onChange={(e) => setExpressDelivery(e.target.checked)}
-            />
-            {t("Express delivery (under 24h)", "Ekspresslevering (under 24t)")}
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              {t("Requested date", "Ønsket dato")}
-              <input
-                type="date"
-                value={preferredDate}
-                onChange={(e) => setPreferredDate(e.target.value)}
-                className="h-10 rounded-lg border border-black/15 px-2"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              {t("Time window", "Tidsvindu")}
-              <input
-                type="text"
-                value={timeWindow}
-                onChange={(e) => setTimeWindow(e.target.value)}
-                placeholder={t("e.g. 08:00–12:00", "f.eks. 08:00–12:00")}
-                className="h-10 rounded-lg border border-black/15 px-2"
-              />
-            </label>
-          </div>
-
-          <label className="flex flex-col gap-1 text-sm">
-            {t("Driving distance from our depot (km, optional)", "Kjøreavstand fra vårt lager (km, valgfritt)")}
-            <input
-              type="text"
-              value={drivingDistance}
-              onChange={(e) => setDrivingDistance(e.target.value)}
-              className="h-10 rounded-lg border border-black/15 px-2"
-            />
-          </label>
+          <OrderDetailsCard
+            locale={locale}
+            bookingLocale={bookingLocale}
+            pickupAddress={pickupAddress}
+            setPickupAddress={setPickupAddress}
+            pickupAddressPlaceholder={pickupAddressPlaceholder(locale, pickupSource)}
+            // A store always has loading access — no pickup floor/lift to ask about.
+            showPickupFloor={pickupSource !== "store"}
+            deliveryAddress={deliveryAddress}
+            setDeliveryAddress={setDeliveryAddress}
+            pickupFloor={pickupFloor}
+            setPickupFloor={setPickupFloor}
+            deliveryFloor={deliveryFloor}
+            setDeliveryFloor={setDeliveryFloor}
+            pickupLiftAvailable={pickupLiftAvailable}
+            setPickupLiftAvailable={setPickupLiftAvailable}
+            deliveryLiftAvailable={deliveryLiftAvailable}
+            setDeliveryLiftAvailable={setDeliveryLiftAvailable}
+            preferredDate={preferredDate}
+            setPreferredDate={setPreferredDate}
+            timeWindow={timeWindow}
+            setTimeWindow={setTimeWindow}
+            drivingDistance={drivingDistance}
+            drivingDistanceLoading={drivingDistanceLoading}
+          />
 
           <AutoAdvance ready={canContinueOrderDetails} onReady={onComplete} onRetract={onUncomplete} />
         </div>

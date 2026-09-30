@@ -1,0 +1,79 @@
+import { Base, type IconProps } from "./iconBase";
+
+// Icon set for the "Order details" step's card header and field labels —
+// kept local to this step since none of these (document, lift, calendar,
+// clock, warning triangle, chevron stepper, tooltip "?") are reused
+// elsewhere in the white goods flow.
+
+export function DocumentIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 17h6" />
+    </Base>
+  );
+}
+
+export function LiftIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="4" y="3" width="16" height="18" rx="1.5" />
+      <path d="m10 9-2 2 2 2M14 9l2 2-2 2" />
+    </Base>
+  );
+}
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="3" y="4.5" width="18" height="16" rx="1.5" />
+      <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+    </Base>
+  );
+}
+
+export function ClockIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </Base>
+  );
+}
+
+export function WarningTriangleIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M12 3.5 2 20h20L12 3.5Z" />
+      <path d="M12 10v4" />
+      <path d="M12 17.2h.01" />
+    </Base>
+  );
+}
+
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M6 14l6-6 6 6" />
+    </Base>
+  );
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M6 10l6 6 6-6" />
+    </Base>
+  );
+}
+
+export function QuestionMarkIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.3 9.3a2.7 2.7 0 1 1 3.9 2.4c-.9.5-1.2 1-1.2 1.9" />
+      <path d="M12 17.3h.01" />
+    </Base>
+  );
+}
