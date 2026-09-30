@@ -2,6 +2,7 @@
 
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
+import DatePicker from "@/app/_components/utils/DatePicker";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { CalendarIcon, ClockIcon, DocumentIcon, WarningTriangleIcon } from "./orderDetailsIcons";
@@ -86,10 +87,11 @@ export function OrderDetailsCard({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="block">
             <FieldLabel icon={<CalendarIcon className="h-4 w-4" />}>{t("Requested date", "Ønsket dato")}</FieldLabel>
-            <input
-              type="date"
+            <DatePicker
               value={preferredDate}
-              onChange={(e) => setPreferredDate(e.target.value)}
+              onChange={setPreferredDate}
+              locale={locale}
+              placeholder={t("Select a date", "Velg en dato")}
               className={inputClass}
             />
           </label>
