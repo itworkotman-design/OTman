@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, buildCalendarDays, startOfMonth } from "./calendarGrid";
+import { addMonths, buildCalendarDays, monthHasSelectableDay, resolveVisibleMonth, startOfMonth } from "./calendarGrid";
 
 describe("startOfMonth", () => {
   it("returns the first day of the given month", () => {
@@ -52,5 +52,52 @@ describe("buildCalendarDays", () => {
     const days = buildCalendarDays(new Date(2026, 1, 1)); // Feb 2026, 28 days
     const last = days.find((day) => day.iso === "2026-02-28");
     expect(last?.inCurrentMonth).toBe(true);
+  });
+});
+
+describe("monthHasSelectableDay", () => {
+  it("returns false when every day of the month is filtered out", () => {
+    // September 2026 entirely before an October 1 cutoff.
+    const hasDay = monthHasSelectableDay(new Date(2026, 8, 1), (iso) => iso >= "2026-10-01");
+    expect(hasDay).toBe(false);
+  });
+
+  it("returns true when at least one in-month day passes", () => {
+    const hasDay = monthHasSelectableDay(new Date(2026, 9, 1), (iso) => iso >= "2026-10-01");
+    expect(hasDay).toBe(true);
+  });
+
+  it("ignores leading/trailing days from adjacent months", () => {
+    // Aug 31 leads the September grid; only allow that exact day, so the
+    // month itself should still report no selectable (in-month) day.
+    const hasDay = monthHasSelectableDay(new Date(2026, 8, 1), (iso) => iso === "2026-08-31");
+    expect(hasDay).toBe(false);
+  });
+});
+
+describe("resolveVisibleMonth", () => {
+  it("returns the start month unchanged when it already has a selectable day", () => {
+    const result = resolveVisibleMonth(new Date(2026, 9, 1), (iso) => iso >= "2026-10-01");
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(9);
+  });
+
+  it("skips forward to the next month with a selectable day", () => {
+    // Opening on Sept 30 with a cutoff of Oct 1 should land on October.
+    const result = resolveVisibleMonth(new Date(2026, 8, 30), (iso) => iso >= "2026-10-01");
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(9);
+  });
+
+  it("skips multiple empty months in a row", () => {
+    const result = resolveVisibleMonth(new Date(2026, 5, 1), (iso) => iso >= "2026-09-01");
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(8);
+  });
+
+  it("gives up after the scan limit instead of looping forever", () => {
+    const result = resolveVisibleMonth(new Date(2026, 0, 1), () => false, 3);
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(2);
   });
 });

@@ -5,9 +5,12 @@ import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import DatePicker from "@/app/_components/utils/DatePicker";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
+import { addDaysIso, getOsloDateKey } from "@/lib/dates/isoDate";
+import { isNorwegianPublicHoliday } from "@/lib/dates/norwayHolidays";
 import { CalendarIcon, ClockIcon, DocumentIcon, WarningTriangleIcon } from "./orderDetailsIcons";
 import { AddressLabel, FieldLabel, inputClass } from "./formFieldStyles";
 import { FloorLiftField } from "./floorLiftField";
+import { TimeWindowField } from "./timeWindowField";
 
 type Props = {
   locale: Locale;
@@ -93,17 +96,14 @@ export function OrderDetailsCard({
               locale={locale}
               placeholder={t("Select a date", "Velg en dato")}
               className={inputClass}
+              minDate={addDaysIso(getOsloDateKey(), 1)}
+              blockedWeekdays={[0]}
+              isDateBlocked={isNorwegianPublicHoliday}
             />
           </label>
           <label className="block">
             <FieldLabel icon={<ClockIcon className="h-4 w-4" />}>{t("Time window", "Tidsvindu")}</FieldLabel>
-            <input
-              type="text"
-              value={timeWindow}
-              onChange={(e) => setTimeWindow(e.target.value)}
-              placeholder={t("e.g. 08:00–12:00", "f.eks. 08:00–12:00")}
-              className={inputClass}
-            />
+            <TimeWindowField locale={locale} value={timeWindow} onChange={setTimeWindow} />
           </label>
         </div>
 

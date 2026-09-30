@@ -39,3 +39,36 @@ export function buildCalendarDays(month: Date): CalendarDay[] {
     };
   });
 }
+
+// Whether the given month has at least one in-month day for which
+// isDaySelectable returns true (used to skip a picker past a month that's
+// entirely blocked out, e.g. by a minDate cutoff or blocked weekdays).
+export function monthHasSelectableDay(
+  month: Date,
+  isDaySelectable: (iso: string) => boolean,
+): boolean {
+  return buildCalendarDays(month).some((day) => day.inCurrentMonth && isDaySelectable(day.iso));
+}
+
+// Starting from startMonth, scans forward for the first month with a
+// selectable day. Falls back to the last month scanned if none is found
+// within maxMonthsToScan, so a pathological predicate (e.g. one that blocks
+// every day) can't loop forever.
+export function resolveVisibleMonth(
+  startMonth: Date,
+  isDaySelectable: (iso: string) => boolean,
+  maxMonthsToScan = 36,
+): Date {
+  let month = startOfMonth(startMonth);
+
+  for (let i = 0; i < maxMonthsToScan; i++) {
+    if (monthHasSelectableDay(month, isDaySelectable)) {
+      return month;
+    }
+    if (i < maxMonthsToScan - 1) {
+      month = addMonths(month, 1);
+    }
+  }
+
+  return month;
+}

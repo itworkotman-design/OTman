@@ -16,6 +16,7 @@ import {
 } from "@/lib/booking/bookingUiText";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 import { ORDER_STATUS_OPTIONS } from "@/lib/orders/statusPresentation";
+import { PRESET_TIME_WINDOWS } from "@/lib/booking/timeWindows";
 
 const LIMITED_CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
@@ -528,8 +529,11 @@ export default function OrderFieldsForm({
             className="customInput w-full"
           >
             <option value="">{t("Choose")}</option>
-            <option value="10:00-16:00">10:00-16:00</option>
-            <option value="16:00-21:00">16:00-21:00</option>
+            {PRESET_TIME_WINDOWS.map((preset) => (
+              <option key={preset} value={preset}>
+                {preset}
+              </option>
+            ))}
             <option value="custom">{t("Custom")}</option>
           </select>
 
