@@ -36,6 +36,11 @@ describe("parseExtraPickupLocations", () => {
     ]);
   });
 
+  it("keeps a basement (negative) floor", () => {
+    const [loc] = parseExtraPickupLocations([{ address: "Somewhere 1", floor: -1 }]);
+    expect(loc.floor).toBe(-1);
+  });
+
   it("drops an entry with no usable address", () => {
     expect(parseExtraPickupLocations([{ address: "" }, { address: "   " }, {}])).toEqual([]);
   });

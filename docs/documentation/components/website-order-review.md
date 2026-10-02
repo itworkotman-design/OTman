@@ -13,7 +13,7 @@ Builds the text half of the homepage white-goods flow's review page (the `Steppe
 | Type | Purpose |
 |---|---|
 | `ReviewPickup` | One pickup location's answers. `productNames` is only set once the order is split across locations, matching the submitted payload. |
-| `ReviewRow` / `ReviewBlock` | A labelled value, and a titled card of them. |
+| `ReviewRow` / `ReviewBlock` | A labelled value, and a titled card of them. `ReviewBlock.kind` is `"location"` for pickups and delivery (the review page puts a location pin on those) and `"contact"` for Your details. |
 
 ## Functions
 

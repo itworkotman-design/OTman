@@ -29,6 +29,11 @@ describe("buildOrderReviewBlocks", () => {
     expect(blocks.map((block) => block.title)).toEqual(["Henting", "Levering", "Dine opplysninger"]);
   });
 
+  it("marks pickups and the delivery as locations, the contact details as contact", () => {
+    const blocks = buildOrderReviewBlocks("no", { ...base, pickups: [pickup, pickup] });
+    expect(blocks.map((block) => block.kind)).toEqual(["location", "location", "location", "contact"]);
+  });
+
   it("describes the pickup: type, place, address, floor, contact", () => {
     const [pickupBlock] = buildOrderReviewBlocks("no", base);
     expect(rows(pickupBlock)).toEqual({

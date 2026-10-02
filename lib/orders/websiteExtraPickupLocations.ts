@@ -7,6 +7,8 @@
 // which products go where is folded into the order's free-text description
 // for staff to read, rather than being structured, queryable data.
 
+import { parseFloorNumber } from "@/lib/booking/floorNumber";
+
 const PICKUP_SOURCE_LABELS: Record<string, string> = {
   store: "Store",
   private: "Private individual",
@@ -28,11 +30,6 @@ function str(v: unknown): string | null {
   if (!v) return null;
   const s = String(v).trim();
   return s || null;
-}
-
-function num(v: unknown): number {
-  const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
 function productNames(v: unknown): string[] {
@@ -59,7 +56,7 @@ export function parseExtraPickupLocations(value: unknown): ParsedExtraPickupLoca
         source: PICKUP_SOURCE_LABELS[sourceKey] ? sourceKey : null,
         placeName: str(v.placeName),
         address,
-        floor: num(v.floor),
+        floor: parseFloorNumber(v.floor),
         liftAvailable: v.liftAvailable === true,
         contactName: str(v.contactName),
         contactPhone: str(v.contactPhone),

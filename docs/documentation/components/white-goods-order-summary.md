@@ -16,3 +16,8 @@ Individual line-item prices are always ex-VAT, unaffected by that choice
 `customerType` is lifted, read-only state from `WhiteGoodsBookingFlow`, not
 owned here — there's no toggle to change it from this component anymore
 (that would ask the same question the first step already asked).
+
+`showTotal` (default `true`) controls the card's total and its "final
+price may vary" note. The review page (the modal's final step) passes
+`false`: its highlighted "Total incl. VAT" box below the card is the one
+total shown there.

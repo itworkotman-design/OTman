@@ -27,6 +27,7 @@ import {
 } from "@/lib/booking/pricing/websiteAssemblyExtras";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
+import { parseFloorNumber } from "@/lib/booking/floorNumber";
 import {
   applyWhiteGoodsExtraUnitCharges,
   buildWhiteGoodsExtraUnitOrderItems,
@@ -79,11 +80,6 @@ function str(v: unknown): string | null {
   if (!v) return null;
   const s = String(v).trim();
   return s || null;
-}
-
-function num(v: unknown): number {
-  const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
 class UnsellableProductError extends Error {
@@ -200,8 +196,8 @@ async function createWhiteGoodsOrder(
   // have loading access — so the pickup leg is authoritatively treated as
   // ground floor with a lift here, regardless of what the client sent.
   const isStorePickup = body.pickupSource === "store";
-  const pickupFloor = isStorePickup ? 0 : num(body.pickupFloor);
-  const deliveryFloor = num(body.deliveryFloor);
+  const pickupFloor = isStorePickup ? 0 : parseFloorNumber(body.pickupFloor);
+  const deliveryFloor = parseFloorNumber(body.deliveryFloor);
   const pickupLiftAvailable = isStorePickup ? true : body.pickupLiftAvailable === true;
   const deliveryLiftAvailable = body.deliveryLiftAvailable === true;
   // The homepage flow lets a customer split their order across several
@@ -276,8 +272,8 @@ async function createWhiteGoodsOrder(
     pickupPlaceNameStr ? `Store/business name: ${pickupPlaceNameStr}` : null,
     pickupContactNameStr ? `Pickup contact: ${pickupContactNameStr}` : null,
     pickupContactPhoneStr ? `Pickup contact phone: ${pickupContactPhoneStr}` : null,
-    !isStorePickup && pickupFloor > 0 ? `Pickup floor: ${pickupFloor}` : null,
-    deliveryFloor > 0 ? `Delivery floor: ${deliveryFloor}` : null,
+    !isStorePickup && pickupFloor !== 0 ? `Pickup floor: ${pickupFloor}` : null,
+    deliveryFloor !== 0 ? `Delivery floor: ${deliveryFloor}` : null,
     !isStorePickup ? `Lift available at pickup: ${pickupLiftAvailable ? "yes" : "no"}` : null,
     `Lift available at delivery: ${deliveryLiftAvailable ? "yes" : "no"}`,
   ].filter(Boolean);

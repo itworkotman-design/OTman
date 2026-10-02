@@ -22,6 +22,7 @@ import {
   type PickupLocationState,
 } from "./pickupLocations";
 import { ContactDetailsCard } from "./ContactDetailsCard";
+import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { buildOrderReviewBlocks } from "./orderReview";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
@@ -1154,7 +1155,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             <div className="flex flex-col gap-4">
               {reviewBlocks.map((block) => (
                 <div key={block.title} className="rounded-2xl border border-black/10 bg-white p-6">
-                  <h3 className="text-base font-semibold text-black/85">{block.title}</h3>
+                  <h3 className="flex items-center gap-2 text-base font-semibold text-logoblue">
+                    {block.kind === "location" && <PinIcon />}
+                    {block.title}
+                  </h3>
                   <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
                     {block.rows.map((row) => (
                       <Fragment key={row.label}>
@@ -1174,20 +1178,26 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                 orderExtras={orderExtraLines}
                 total={pricing.totals.totalExVat}
                 customerType={customerType ?? "private"}
+                showTotal={false}
               />
 
-              <div className="flex flex-col gap-1 rounded-2xl border border-black/10 bg-white p-6 text-sm">
-                <div className={`flex justify-between ${finalVatDisplay.primary === "exVat" ? "font-semibold" : ""}`}>
+              <div className="flex flex-col gap-2 rounded-2xl border border-black/10 bg-white p-4 text-sm text-black/70">
+                <div
+                  className={`flex justify-between px-2 ${finalVatDisplay.primary === "exVat" ? "font-semibold text-black/85" : ""}`}
+                >
                   <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
-                  <span>{finalVatBreakdown.exVat.toLocaleString("nb-NO")} kr</span>
+                  <span className="tabular-nums">{finalVatBreakdown.exVat.toLocaleString("nb-NO")} kr</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between px-2">
                   <span>{t("VAT (25%)", "MVA (25%)")}</span>
-                  <span>{finalVatBreakdown.vat.toLocaleString("nb-NO")} kr</span>
+                  <span className="tabular-nums">{finalVatBreakdown.vat.toLocaleString("nb-NO")} kr</span>
                 </div>
-                <div className={`flex justify-between ${finalVatDisplay.primary === "incVat" ? "font-semibold" : ""}`}>
-                  <span>{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
-                  <span>{finalVatBreakdown.incVat.toLocaleString("nb-NO")} kr</span>
+                {/* What the customer actually pays — highlighted so it can't be missed. */}
+                <div className="mt-2 flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-5">
+                  <span className="text-base font-semibold text-logoblue">{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
+                  <span className="whitespace-nowrap text-3xl font-bold tabular-nums text-logoblue">
+                    {finalVatBreakdown.incVat.toLocaleString("nb-NO")} kr
+                  </span>
                 </div>
               </div>
 
