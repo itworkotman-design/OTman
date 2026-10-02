@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { MailIcon, MessageIcon, PersonIcon, PhoneIcon } from "./orderDetailsIcons";
 import { FieldLabel, fieldClass, inputClass } from "./formFieldStyles";
+import { sanitizePhoneInput, sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -77,7 +78,7 @@ export function ContactDetailsCard({
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(sanitizeTextInput(e.target.value))}
               onBlur={() => markTouched("name")}
               placeholder={t("Your name or company", "Ditt navn eller firma")}
               className={fieldClass(nameError)}
@@ -88,7 +89,7 @@ export function ContactDetailsCard({
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
               onBlur={() => markTouched("phone")}
               placeholder={t("Your phone number", "Ditt telefonnummer")}
               className={fieldClass(phoneError)}
@@ -101,7 +102,7 @@ export function ContactDetailsCard({
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(sanitizeTextInput(e.target.value))}
             onBlur={() => markTouched("email")}
             placeholder={t("your@email.com", "din@epost.no")}
             className={fieldClass(emailMissing || emailInvalid)}
@@ -119,7 +120,7 @@ export function ContactDetailsCard({
           </FieldLabel>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => setNotes(sanitizeTextInput(e.target.value))}
             rows={3}
             placeholder={t("Any details we should know about?", "Noe vi bør vite om?")}
             className={`${inputClass} h-auto resize-none py-2.5`}

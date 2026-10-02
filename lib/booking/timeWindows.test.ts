@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PRESET_TIME_WINDOWS, buildTimeWindowValue, parseTimeWindowValue } from "./timeWindows";
+import { PRESET_TIME_WINDOWS, buildTimeWindowValue, isTimeWindowComplete, parseTimeWindowValue } from "./timeWindows";
 
 describe("parseTimeWindowValue", () => {
   it("returns an empty selection for an empty value", () => {
@@ -69,5 +69,22 @@ describe("buildTimeWindowValue", () => {
 
     const custom = "08:15-10:00";
     expect(buildTimeWindowValue(parseTimeWindowValue(custom))).toBe(custom);
+  });
+});
+
+describe("isTimeWindowComplete", () => {
+  it("accepts a preset window", () => {
+    expect(isTimeWindowComplete(PRESET_TIME_WINDOWS[0])).toBe(true);
+  });
+
+  it("accepts a specific time once both ends are chosen", () => {
+    expect(isTimeWindowComplete("12:00-14:00")).toBe(true);
+  });
+
+  it("rejects nothing chosen, or a specific time missing either end", () => {
+    expect(isTimeWindowComplete("")).toBe(false);
+    expect(isTimeWindowComplete("-")).toBe(false);
+    expect(isTimeWindowComplete("12:00-")).toBe(false);
+    expect(isTimeWindowComplete("-14:00")).toBe(false);
   });
 });

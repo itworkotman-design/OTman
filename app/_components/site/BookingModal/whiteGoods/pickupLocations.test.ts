@@ -80,6 +80,25 @@ describe("isPickupLocationReady", () => {
     expect(isPickupLocationReady(loc, [1])).toBe(true);
   });
 
+  it("starts with no floor chosen", () => {
+    expect(createPickupLocation(0).floor).toBeNull();
+  });
+
+  it("requires a floor for a private or business pickup, but not a store", () => {
+    const loc = location({
+      source: "private",
+      address: "Storgata 1",
+      addressSelected: true,
+      contactName: "Kari",
+      contactPhone: "41234567",
+    });
+    expect(isPickupLocationReady(loc, [1])).toBe(false);
+    expect(isPickupLocationReady({ ...loc, floor: 1 }, [1])).toBe(true);
+    expect(
+      isPickupLocationReady(location({ source: "store", placeName: "Elkjøp", address: "Storgata 1", addressSelected: true }), [1]),
+    ).toBe(true);
+  });
+
   it("needs no selection when 'all here' is checked", () => {
     const loc = location({
       source: "store",

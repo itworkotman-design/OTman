@@ -6,6 +6,7 @@ import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create
 import { transportTimeWindows } from "@/lib/content/TransportRequestConfig";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { MAX_QUOTE_PHOTOS } from "@/lib/orders/pendingQuoteAttachments";
+import { sanitizePhoneInput, sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 type Props = {
   locale: Locale;
@@ -244,7 +245,7 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
         <div className="flex flex-col gap-3">
           <textarea
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => setDescription(sanitizeTextInput(e.target.value))}
             rows={3}
             placeholder={t("What is it, and anything else we should know?", "Hva er det, og noe annet vi bør vite?")}
             className="rounded-lg border border-black/15 px-2 py-1.5 text-sm"
@@ -344,8 +345,8 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
       title: t("Pickup & delivery", "Henting og levering"),
       render: ({ onComplete }) => (
         <div className="flex flex-col gap-3">
-          <AddressAutocompleteInput value={pickupAddress} onChange={setPickupAddress} placeholder={t("Pickup address", "Henteadresse")} />
-          <AddressAutocompleteInput value={deliveryAddress} onChange={setDeliveryAddress} placeholder={t("Delivery address", "Leveringsadresse")} />
+          <AddressAutocompleteInput value={pickupAddress} onChange={(v) => setPickupAddress(sanitizeTextInput(v))} placeholder={t("Pickup address", "Henteadresse")} />
+          <AddressAutocompleteInput value={deliveryAddress} onChange={(v) => setDeliveryAddress(sanitizeTextInput(v))} placeholder={t("Delivery address", "Leveringsadresse")} />
           <input
             type="date"
             value={preferredDate}
@@ -398,7 +399,7 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
           />
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setName(sanitizeTextInput(e.target.value))}
             placeholder={t("Full name", "Fullt navn")}
             className="h-11 rounded-lg border border-black/15 px-2 text-sm"
           />
@@ -406,20 +407,20 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
             <input
               value={phone}
               inputMode="tel"
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
               placeholder={t("Phone", "Telefon")}
               className="h-11 rounded-lg border border-black/15 px-2 text-sm"
             />
             <input
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(sanitizeTextInput(e.target.value))}
               placeholder={t("Email", "E-post")}
               className="h-11 rounded-lg border border-black/15 px-2 text-sm"
             />
           </div>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => setNotes(sanitizeTextInput(e.target.value))}
             rows={2}
             placeholder={t("Anything else?", "Noe annet?")}
             className="rounded-lg border border-black/15 px-2 py-1.5 text-sm"

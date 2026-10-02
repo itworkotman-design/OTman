@@ -16,6 +16,7 @@ import {
 } from "@/lib/booking/pricing/sizeDimensions";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { getVatDisplayAmount, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 function optionLabel(locale: Locale, product: CatalogProduct, option: CatalogOption) {
   const seed = findWebsiteProductSeed(product.code)?.options.find((o) => o.code === option.code);
@@ -108,7 +109,7 @@ export function SizeBracketPicker({
           type="text"
           value={itemName}
           maxLength={MAX_ITEM_NAME_LENGTH}
-          onChange={(e) => onChangeItemName(product, e.target.value)}
+          onChange={(e) => onChangeItemName(product, sanitizeTextInput(e.target.value))}
           placeholder={t("e.g. grandfather clock, piano stool", "f.eks. bestefarsklokke, pianokrakk")}
           className="h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-black/85 outline-none transition focus:border-logoblue focus:ring-2 focus:ring-logoblue/20"
         />

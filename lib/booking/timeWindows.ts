@@ -48,3 +48,14 @@ export function buildTimeWindowValue(selection: TimeWindowSelection): string {
 
   return selection.selectedTimeWindow;
 }
+
+// Whether a stored time-window value is a usable answer: a preset, or a
+// specific time with both its start and end chosen (a half-filled custom
+// range builds to e.g. "12:00-" or just "-").
+export function isTimeWindowComplete(value: string): boolean {
+  const selection = parseTimeWindowValue(value);
+  if (selection.selectedTimeWindow === "custom") {
+    return Boolean(selection.customTimeFrom && selection.customTimeTo);
+  }
+  return PRESET_TIME_WINDOWS.includes(selection.selectedTimeWindow as PresetTimeWindow);
+}
