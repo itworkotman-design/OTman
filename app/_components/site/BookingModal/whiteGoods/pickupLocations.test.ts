@@ -56,6 +56,20 @@ describe("isPickupLocationReady", () => {
     expect(isPickupLocationReady(location({ source: null }), [1])).toBe(false);
   });
 
+  it("accepts a basement (negative) pickup floor, but not a missing one or 0", () => {
+    const loc = location({
+      source: "private",
+      address: "Storgata 1",
+      addressSelected: true,
+      contactName: "Ola",
+      contactPhone: "12345678",
+      floor: -1,
+    });
+    expect(isPickupLocationReady(loc, [1])).toBe(true);
+    expect(isPickupLocationReady({ ...loc, floor: null }, [1])).toBe(false);
+    expect(isPickupLocationReady({ ...loc, floor: 0 }, [1])).toBe(false);
+  });
+
   it("requires an explicit selection once the pool has more than one item and 'all here' is unchecked", () => {
     const loc = location({
       source: "store",

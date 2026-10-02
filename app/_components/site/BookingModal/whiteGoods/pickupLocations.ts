@@ -11,7 +11,8 @@ export type PickupLocationState = {
   placeName: string;
   address: string;
   addressSelected: boolean;
-  // Counts from 1 (ground floor); null until chosen. Never asked for a store.
+  // Counts from 1 (ground floor), negative for basements; null until chosen.
+  // Never asked for a store.
   floor: number | null;
   liftAvailable: boolean;
   contactName: string;

@@ -177,8 +177,12 @@ export function FloorLiftField({
           {surcharge > 0 && (
             <span
               title={t(
-                `Surcharge for ${chargeableFloors} floor(s) above the 2nd, no lift.`,
-                `Tillegg for ${chargeableFloors} etasje(r) over 2., uten heis.`,
+                (floorValue ?? 0) < 0
+                  ? `Surcharge for ${chargeableFloors} floor(s) below the 1st basement, no lift.`
+                  : `Surcharge for ${chargeableFloors} floor(s) above the 2nd, no lift.`,
+                (floorValue ?? 0) < 0
+                  ? `Tillegg for ${chargeableFloors} etasje(r) under -1, uten heis.`
+                  : `Tillegg for ${chargeableFloors} etasje(r) over 2., uten heis.`,
               )}
               className="shrink-0 whitespace-nowrap rounded-lg bg-amber-50 px-2.5 py-2 text-sm font-semibold text-amber-700"
             >

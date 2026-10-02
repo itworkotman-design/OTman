@@ -9,10 +9,15 @@ import type { PriceListSettings } from "@/lib/products/priceListSettings";
  * Chargeable floors above the included 2nd floor, with no lift. Matches the
  * source rule: "Floor surcharge over 2nd floor, no lift ... per chargeable
  * floor above the included level."
+ *
+ * Basements (negative floors; 1 is the ground floor, so -1 is one flight
+ * down) mirror that allowance: one flight of stairs is included either way,
+ * so -1 is free like the 2nd floor and each basement below it charges.
  */
 export function getChargeableFloors(floor: number, liftAvailable: boolean): number {
-  if (liftAvailable) return 0;
-  if (!Number.isFinite(floor) || floor <= 2) return 0;
+  if (liftAvailable || !Number.isFinite(floor)) return 0;
+  if (floor < 0) return Math.max(0, -Math.ceil(floor) - 1);
+  if (floor <= 2) return 0;
 
   return Math.floor(floor) - 2;
 }
