@@ -17,6 +17,7 @@ import {
   applyWebsiteAssemblyExtras,
   buildWebsiteAssemblyExtraOrderItems,
 } from "@/lib/booking/pricing/websiteAssemblyExtras";
+import { applyWebsiteInstallOnlyVisit } from "@/lib/booking/pricing/websiteInstallOnlyVisit";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
 import {
@@ -142,7 +143,9 @@ async function recomputeOrderPricing(
   });
 
   const builtItems = [
-    ...buildOrderItemsFromCards(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions),
+    ...buildOrderItemsFromCards(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
+      installOnlyVisitPricing: true,
+    }),
     ...buildWhiteGoodsExtraUnitOrderItems(
       submittedCards,
       pricingSource.catalogProducts,
@@ -163,14 +166,20 @@ async function recomputeOrderPricing(
   const liftAvailable = order.lift === "yes";
   const extraPickupsForPricing = (order.extraPickupAddress ?? []).map((address) => ({ address }));
 
-  const productBreakdowns = applyWebsiteAssemblyExtras(
-    applyWhiteGoodsExtraUnitCharges(
-      buildProductBreakdowns(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
-        zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistanceStr) > 100,
-      }),
+  const zeroBaseDeliveryPricesOver100Km = parseDistanceKm(drivingDistanceStr) > 100;
+  const productBreakdowns = applyWebsiteInstallOnlyVisit(
+    applyWebsiteAssemblyExtras(
+      applyWhiteGoodsExtraUnitCharges(
+        buildProductBreakdowns(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
+          zeroBaseDeliveryPricesOver100Km,
+          installOnlyVisitPricing: true,
+        }),
+        submittedCards,
+        pricingSource.catalogProducts,
+        pricingSource.catalogSpecialOptions,
+      ),
       submittedCards,
       pricingSource.catalogProducts,
-      pricingSource.catalogSpecialOptions,
     ),
     submittedCards,
     pricingSource.catalogProducts,

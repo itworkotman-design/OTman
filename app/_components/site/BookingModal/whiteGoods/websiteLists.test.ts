@@ -131,8 +131,6 @@ describe("isListOptionsStepReady (an unfinished size-priced item on another list
         cards,
         listProducts: whiteGoods,
         wasPopulated: true,
-        isLast: false,
-        hasRequiredDelivery: true,
       }),
     ).toBe(true);
   });
@@ -144,17 +142,13 @@ describe("isListOptionsStepReady (an unfinished size-priced item on another list
         cards,
         listProducts: furniture,
         wasPopulated: true,
-        isLast: true,
-        hasRequiredDelivery: true,
       }),
     ).toBe(false);
   });
 
-  it("the last list also needs an item with delivery", () => {
-    const cards = [card(0, "wm")];
-    const args = { cards, listProducts: whiteGoods, wasPopulated: true, isLast: true };
-    expect(isListOptionsStepReady({ ...args, hasRequiredDelivery: false })).toBe(false);
-    expect(isListOptionsStepReady({ ...args, hasRequiredDelivery: true })).toBe(true);
+  it("is ready for an installation-only order — no delivered item needed", () => {
+    const cards = [{ ...card(0, "wm"), deliveryType: "INSTALL_ONLY" } as SavedProductCard];
+    expect(isListOptionsStepReady({ cards, listProducts: whiteGoods, wasPopulated: true })).toBe(true);
   });
 });
 

@@ -1,6 +1,7 @@
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getAutomaticXtraDeliveryCardIds } from "@/lib/booking/pricing/sharedDeliveryLogic";
 import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
+import { previewInstallOnlyVisitPrice } from "@/lib/booking/pricing/websiteInstallOnlyVisit";
 
 export type DeliveryOptionPreview = {
   price: number;
@@ -36,10 +37,12 @@ export function previewCardDeliveryOptions(
   cards: SavedProductCard[],
   catalogProducts: CatalogProduct[],
   cardId: number,
-): { firstStep: DeliveryOptionPreview; indoor: DeliveryOptionPreview } {
+): { firstStep: DeliveryOptionPreview; indoor: DeliveryOptionPreview; installOnly: number | null } {
   const card = cards.find((c) => c.cardId === cardId);
   const product = card ? catalogProducts.find((p) => p.id === card.productId) : undefined;
-  const isCardExtra = getAutomaticXtraDeliveryCardIds(cards, catalogProducts).has(cardId);
+  const isCardExtra = getAutomaticXtraDeliveryCardIds(cards, catalogProducts, {
+    installOnlyVisitPricing: true,
+  }).has(cardId);
 
   function previewFor(type: "FIRST_STEP" | "INDOOR"): DeliveryOptionPreview {
     const deliveryType = product ? getProductDeliveryType(product.deliveryTypes, type) : null;
@@ -53,5 +56,11 @@ export function previewCardDeliveryOptions(
       : { price: standardPrice, subcontractorPrice: standardSubcontractorPrice, isExtra: false };
   }
 
-  return { firstStep: previewFor("FIRST_STEP"), indoor: previewFor("INDOOR") };
+  return {
+    firstStep: previewFor("FIRST_STEP"),
+    indoor: previewFor("INDOOR"),
+    // Installation only: the carry-in price on the full-price card, null
+    // (free) on extra cards (see websiteInstallOnlyVisit.ts).
+    installOnly: previewInstallOnlyVisitPrice(cards, catalogProducts, cardId),
+  };
 }

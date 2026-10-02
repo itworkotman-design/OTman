@@ -22,6 +22,6 @@ Resolves shared delivery behavior for booking product cards, including which car
 | `usesSharedDeliveryPricing` | Checks whether a card can be the main shared delivery price. |
 | `supportsSharedAutoDeliveryPricing` | Checks whether a product auto-delivery price participates in shared XTRA logic. |
 | `getSharedDeliveryCandidate` | Builds a candidate for choosing the main shared delivery line. |
-| `getMainSharedDeliveryCandidate` | Picks the main shared delivery candidate, giving install-only priority when present. |
-| `getAutomaticXtraDeliveryCardIds` | Returns card ids that should use XTRA pricing instead of full delivery pricing. |
+| `getMainSharedDeliveryCandidate` | Picks the main shared delivery candidate, giving a priced install-only card priority when present — except with `installOnlyVisitPricing`, where everyone competes by price. |
+| `getAutomaticXtraDeliveryCardIds` | Returns card ids that should use XTRA pricing instead of full delivery pricing. Optional `{ installOnlyVisitPricing }` (website): install-only competes for the full-price slot at the product's carry-in price, highest wins, ties go to the earlier card. |
 | `canApplyReturnOption` | Checks whether return options can apply for the selected delivery type. |

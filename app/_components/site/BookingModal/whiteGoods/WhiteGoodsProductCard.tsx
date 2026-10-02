@@ -26,6 +26,7 @@ import { getVatDisplayAmount, type CustomerType } from "@/lib/booking/pricing/va
 import {
   hasExtrasStepContent,
   hasInstallStepContent,
+  showsNoInstallOption,
 } from "./cardSectionVisibility";
 
 // The DB-stored ProductOption/CatalogOption has no field distinguishing a
@@ -47,6 +48,8 @@ type Props = {
   deliveryPreview: {
     firstStep: DeliveryOptionPreview;
     indoor: DeliveryOptionPreview;
+    // Null when installation only would be free on this card.
+    installOnly: number | null;
   };
   onChange: (next: SavedProductCard) => void;
   // The customer can split one product into several differently-configured
@@ -286,6 +289,7 @@ export function WhiteGoodsProductCard({
     assemblyGroupCount: assemblyGroups.length,
     typeOptionCount: typeOptions.length,
     hasNeedsImplementationNote: !!seedProduct?.needsImplementation,
+    deliveryType,
   });
   const showExtrasStep = hasExtrasStepContent({
     showExtras,
@@ -594,8 +598,11 @@ export function WhiteGoodsProductCard({
                             "Du har allerede varen — vi monterer den bare.",
                           )
                     }
-                    price={included}
-                    priceClassName="text-logoblue"
+                    price={
+                      deliveryPreview.installOnly !== null
+                        ? money(String(deliveryPreview.installOnly))
+                        : undefined
+                    }
                     onClick={() => setDeliveryType("INSTALL_ONLY")}
                   />
                 )}
@@ -624,18 +631,20 @@ export function WhiteGoodsProductCard({
                 }
               />
               <div className="flex flex-col gap-2">
-                <OptionRow
-                  variant="radio"
-                  selected={!installSelected}
-                  title={t("No installation", "Ingen montering")}
-                  description={t(
-                    "You handle installation yourself.",
-                    "Du monterer selv.",
-                  )}
-                  price={included}
-                  priceClassName="text-logoblue"
-                  onClick={clearInstallation}
-                />
+                {showsNoInstallOption(deliveryType) && (
+                  <OptionRow
+                    variant="radio"
+                    selected={!installSelected}
+                    title={t("No installation", "Ingen montering")}
+                    description={t(
+                      "You handle installation yourself.",
+                      "Du monterer selv.",
+                    )}
+                    price={included}
+                    priceClassName="text-logoblue"
+                    onClick={clearInstallation}
+                  />
+                )}
                 {assemblyGroups.length > 0
                   ? assemblyGroups.map((group) => {
                       const hasSelection = group.options.some(({ option }) =>

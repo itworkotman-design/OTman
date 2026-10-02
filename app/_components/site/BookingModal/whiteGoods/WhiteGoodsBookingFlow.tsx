@@ -56,7 +56,6 @@ import {
 } from "./sizeBracketSelection";
 import { previewCardDeliveryOptions } from "./deliveryPricePreview";
 import { sortSummaryLines } from "./orderSummaryLines";
-import { orderHasRequiredDelivery } from "./orderDeliveryRequirement";
 import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
 import { OrderDetailsCard } from "./OrderDetailsCard";
 import { isOrderDetailsStepReady } from "./orderDetailsReady";
@@ -70,6 +69,7 @@ import {
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { applyWhiteGoodsExtraUnitCharges } from "@/lib/booking/pricing/whiteGoodsExtraUnits";
 import { applyWebsiteAssemblyExtras } from "@/lib/booking/pricing/websiteAssemblyExtras";
+import { applyWebsiteInstallOnlyVisit } from "@/lib/booking/pricing/websiteInstallOnlyVisit";
 import {
   cardsForList,
   filterUnusedLists,
@@ -522,12 +522,18 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   );
 
   const pricing = useMemo(() => {
-    const breakdowns = applyWebsiteAssemblyExtras(
-      applyWhiteGoodsExtraUnitCharges(
-        buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions),
+    const breakdowns = applyWebsiteInstallOnlyVisit(
+      applyWebsiteAssemblyExtras(
+        applyWhiteGoodsExtraUnitCharges(
+          buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions, {
+            installOnlyVisitPricing: true,
+          }),
+          productCards,
+          catalogProducts,
+          catalogSpecialOptions,
+        ),
         productCards,
         catalogProducts,
-        catalogSpecialOptions,
       ),
       productCards,
       catalogProducts,
@@ -604,6 +610,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             price: line.lineTotal,
             qty: line.qty,
             category: categorizeWhiteGoodsLineCode(line.code),
+            blankWhenFree: line.code === "INSTALL_ONLY",
           })),
         );
         const siblings = productCards.filter((c) => c.productId === card.productId);
@@ -627,18 +634,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       .filter((p): p is OrderSummaryProduct => p !== null);
   }, [productCards, catalogProducts, pricing, locale]);
 
-  // Every card is auto-assigned a delivery type the moment it's added (see
-  // applyProductQuantity), so this should never actually be false in
-  // practice — kept as an explicit guard (rather than trusting that
-  // invariant blindly) so a product can never slip through to submission
-  // with no delivery charge at all.
-  const hasConfiguredProduct = productCards.every((c) => !c.productId || c.deliveryType);
   // Size-priced products (Other furniture) also need a volume and a weight
   // bracket chosen — the server rejects an order without them.
   const sizeBracketsComplete =
     findCardsWithSizeBracketProblems(productCards, catalogProducts).length === 0 &&
     findSizePricedCardsMissingName(productCards, catalogProducts).length === 0;
-  const hasRequiredDelivery = orderHasRequiredDelivery(productCards);
   // Pickup address is required earlier, in the pickup-contact step.
   const canContinueOrderDetails = isOrderDetailsStepReady({
     deliveryAddress,
@@ -740,7 +740,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const listSections: StepSection[] = chosenListCodes.flatMap((code, index) => {
     const info = availableLists.find((l) => l.code === code);
     const listProducts = loadedProducts[code] ?? [];
-    const isLast = index === chosenListCodes.length - 1;
     const suffix = index > 0 && info ? ` — ${t(info.labelEn, info.labelNo)}` : "";
 
     const productsStep: StepSection = {
@@ -841,21 +840,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                 ];
               })}
             />
-            {isLast && productCards.length > 0 && hasConfiguredProduct && !hasRequiredDelivery && (
-              <p className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
-                {t(
-                  "At least one item needs delivery (doorstep or carry-in) — installation only isn't enough on its own.",
-                  "Minst én vare må ha levering (til ytterdør eller med innbæring) — kun montering er ikke nok alene.",
-                )}
-              </p>
-            )}
             <AutoAdvance
               ready={isListOptionsStepReady({
                 cards: productCards,
                 listProducts,
                 wasPopulated: populatedListCodes.includes(code),
-                isLast,
-                hasRequiredDelivery,
               })}
               onReady={onComplete}
               onRetract={onUncomplete}

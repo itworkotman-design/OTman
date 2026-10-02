@@ -140,24 +140,26 @@ describe("previewCardDeliveryOptions", () => {
     expect(previewB.firstStep.isExtra).toBe(true);
   });
 
-  it("does not let a zero-priced install-only card make a real delivery card preview as extra", () => {
-    // Reproduces a live bug: card A has real doorstep delivery (608.88), card
-    // B is marked "installation only" (0 kr, no delivery). Because the
-    // white-goods catalog always prices INSTALL_ONLY at 0, card B must not
-    // steal "main" status from card A just by existing.
+  it("lets an install-only card take the full-price slot at its own price", () => {
+    // Installation only is still a trip to the customer with its own price
+    // (700 here). That outprices card A's doorstep (600), so card B is the
+    // full-price card and card A previews at its extra rate.
     const cardAProduct = makeProduct("a", 600, 800);
     const cardBProduct = {
       ...makeProduct("b", 500, 700),
       deliveryTypes: makeProduct("b", 500, 700).deliveryTypes.map((dt) =>
-        dt.key === "INSTALL_ONLY" ? { ...dt, price: "0", xtraPrice: "0" } : dt,
+        dt.key === "INSTALL_ONLY" ? { ...dt, price: "700", xtraPrice: "0" } : dt,
       ),
     };
     const cardA = { ...createEmptyProductCard(0), productId: "a", deliveryType: "FIRST_STEP" as const };
     const cardB = { ...createEmptyProductCard(1), productId: "b", deliveryType: "INSTALL_ONLY" as const };
 
     const previewA = previewCardDeliveryOptions([cardA, cardB], [cardAProduct, cardBProduct], cardA.cardId);
+    const previewB = previewCardDeliveryOptions([cardA, cardB], [cardAProduct, cardBProduct], cardB.cardId);
 
-    expect(previewA.firstStep).toEqual({ price: 600, subcontractorPrice: 0, isExtra: false });
+    expect(previewA.firstStep).toEqual({ price: 229, subcontractorPrice: 100, isExtra: true });
+    expect(previewA.installOnly).toBeNull();
+    expect(previewB.installOnly).toBe(700);
   });
 
   it("when both cards are still undecided, only the earlier one previews at full price", () => {
@@ -171,5 +173,23 @@ describe("previewCardDeliveryOptions", () => {
 
     expect(previewA.firstStep.isExtra).toBe(false);
     expect(previewB.firstStep.isExtra).toBe(true);
+  });
+});
+
+describe("previewCardDeliveryOptions — installation only", () => {
+  const products = [makeProduct("A", 500, 700), makeProduct("B", 600, 800)];
+
+  it("shows the product's own install-only price on the full-price card", () => {
+    // makeProduct keeps the default install-only price (590), not carry-in.
+    const cards = [{ ...createEmptyProductCard(1), productId: "A", deliveryType: "" as const }];
+    expect(previewCardDeliveryOptions(cards, products, 1).installOnly).toBe(590);
+  });
+
+  it("is free (null) on an extra card", () => {
+    const cards = [
+      { ...createEmptyProductCard(1), productId: "A", deliveryType: "" as const },
+      { ...createEmptyProductCard(2), productId: "B", deliveryType: "INDOOR" as const },
+    ];
+    expect(previewCardDeliveryOptions(cards, products, 1).installOnly).toBeNull();
   });
 });
