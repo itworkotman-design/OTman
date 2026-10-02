@@ -55,6 +55,7 @@ import { orderHasRequiredDelivery } from "./orderDeliveryRequirement";
 import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
 import { OrderDetailsCard } from "./OrderDetailsCard";
 import { isOrderDetailsStepReady } from "./orderDetailsReady";
+import { isValidEmail } from "@/lib/orders/websiteOrderValidation";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import {
   type CatalogProduct,
@@ -94,7 +95,6 @@ type Props = {
   onClose: () => void;
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const toBookingLocale = (l: Locale): BookingUiLocale => (l === "no" ? "nb" : "en");
 
@@ -625,7 +625,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   });
   // Email is mandatory: the order-received confirmation and the payment link
   // are emailed, so an order without one could never be completed.
-  const emailValid = EMAIL_RE.test(email.trim());
+  const emailValid = isValidEmail(email);
   // Reaching (and staying on) the final review step also needs every
   // pickup location's own required fields and product split resolved — see
   // the pickup-contact step's AutoAdvance for why this isn't gated any
