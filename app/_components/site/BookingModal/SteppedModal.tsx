@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { finalStepScrollTarget, heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -194,6 +194,8 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
   // completed layout; the min-height is set before the browser lays out the
   // shorter content.)
   const contentRef = useRef<HTMLDivElement>(null);
+  // The modal body that scrolls (the header and progress bar stay put).
+  const scrollRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef(0);
   const holdTimerRef = useRef<number | undefined>(undefined);
   // True from when a reveal starts holding the height until that hold is released.
@@ -225,8 +227,25 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
     previousStructureKey.current = structureKey;
     const next: SectionStructure = { ids: shownIds, showFinalStep };
     const gained = structureGainedSections(previousStructure.current, next);
+    const scrollTarget = finalStepScrollTarget(previousStructure.current.showFinalStep, showFinalStep);
     previousStructure.current = next;
     const el = contentRef.current;
+    // Entering or leaving the final step swaps the whole body and sets its own
+    // scroll position, so there's no old height worth holding — holding it
+    // would leave blank space below the steps when going back from a taller
+    // review page.
+    if (scrollTarget) {
+      window.clearTimeout(holdTimerRef.current);
+      window.clearTimeout(releaseTimerRef.current);
+      holdPendingRef.current = false;
+      if (el) {
+        el.style.minHeight = "";
+        el.style.transition = "";
+      }
+      const scroller = scrollRef.current;
+      if (scroller) scroller.scrollTop = scrollTarget === "top" ? 0 : scroller.scrollHeight;
+      return;
+    }
     if (!el || lastHeightRef.current === 0) return;
     const action = heightHoldAction({ gained, holdPending: holdPendingRef.current });
     if (action !== "hold-then-release") return;
@@ -301,7 +320,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
           <div className="h-full bg-logoblue transition-[width] duration-300 ease-out" style={{ width: `${fillPercent}%` }} />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8">
           <div ref={contentRef}>
           {showFinalStep && finalStep.render({ onBack: () => setShowFinalStep(false) })}
 

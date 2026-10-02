@@ -35,7 +35,15 @@ export function showsBottomSpace(sections: { id: string; hidden?: boolean; botto
   return !!shown[shown.length - 1]?.bottomSpace;
 }
 
-export type SectionStructure ={ ids: string[]; showFinalStep: boolean };
+// Where the modal body should scroll when the final step toggles: its own page
+// starts at the top; going back returns to the bottom of the steps, the last
+// section the user was filling in.
+export function finalStepScrollTarget(wasFinalStep: boolean, isFinalStep: boolean): "top" | "bottom" | null {
+  if (wasFinalStep === isFinalStep) return null;
+  return isFinalStep ? "top" : "bottom";
+}
+
+export type SectionStructure = { ids: string[]; showFinalStep: boolean };
 
 // True when the layout gained something: a section appeared (revealed or
 // un-hidden), or the final step was entered/left, which swaps the whole body.
