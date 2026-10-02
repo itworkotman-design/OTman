@@ -4,7 +4,8 @@ import { BuildingIcon } from "@/app/_components/Dahsboard/booking/create/fieldIc
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { getChargeableFloors } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { ChevronDownIcon, ChevronUpIcon, LiftIcon, QuestionMarkIcon } from "./orderDetailsIcons";
-import { FieldLabel, inputClass, sideColumnClass } from "./formFieldStyles";
+import { FieldLabel, fieldClass, sideColumnClass } from "./formFieldStyles";
+import { parseFloorInput, stepFloor } from "./floorValue";
 
 function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
@@ -12,21 +13,36 @@ function formatKr(n: number) {
 
 // A floor number field with a stacked up/down chevron stepper on the right,
 // instead of the browser's default (and inconsistently styled) number spinner.
-function FloorInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+// Starts empty (null) and never goes below 1 — see floorValue.ts.
+function FloorInput({
+  value,
+  onChange,
+  onBlur,
+  hasError,
+  placeholder,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+  onBlur?: () => void;
+  hasError: boolean;
+  placeholder: string;
+}) {
   return (
     <div className="relative">
       <input
         type="number"
-        min={0}
-        value={value}
-        onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
-        className={`${inputClass} pr-9 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+        min={1}
+        value={value ?? ""}
+        onChange={(e) => onChange(parseFloorInput(e.target.value))}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        className={`${fieldClass(hasError)} pr-9 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
       />
       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-black/10">
         <button
           type="button"
           aria-label="Increase"
-          onClick={() => onChange(value + 1)}
+          onClick={() => onChange(stepFloor(value, 1))}
           className="grid h-4 w-6 place-items-center text-black/40 transition hover:bg-black/5 hover:text-black/70"
         >
           <ChevronUpIcon className="h-3 w-3" />
@@ -34,8 +50,9 @@ function FloorInput({ value, onChange }: { value: number; onChange: (value: numb
         <button
           type="button"
           aria-label="Decrease"
-          onClick={() => onChange(Math.max(0, value - 1))}
-          className="grid h-4 w-6 place-items-center border-t border-black/10 text-black/40 transition hover:bg-black/5 hover:text-black/70"
+          disabled={value === 1}
+          onClick={() => onChange(stepFloor(value, -1))}
+          className="grid h-4 w-6 place-items-center border-t border-black/10 text-black/40 transition hover:bg-black/5 hover:text-black/70 disabled:pointer-events-none disabled:opacity-30"
         >
           <ChevronDownIcon className="h-3 w-3" />
         </button>
@@ -91,18 +108,25 @@ export function FloorLiftField({
   hint,
   floorValue,
   onFloorChange,
+  onFloorBlur,
+  hasError = false,
   liftChecked,
   onLiftChange,
   surchargePerFloor,
 }: {
   locale: Locale;
   label: string;
-  // Overrides the default "Ground floor is 0." tooltip — pass this where the
-  // floor affects the price (see getChargeableFloors) so the customer is
+  // Overrides the default "1 is the ground floor." tooltip — pass this where
+  // the floor affects the price (see getChargeableFloors) so the customer is
   // warned before they see a surprise surcharge.
   hint?: string;
-  floorValue: number;
-  onFloorChange: (value: number) => void;
+  // Counts from 1 (ground floor); null until chosen — see floorValue.ts.
+  floorValue: number | null;
+  onFloorChange: (value: number | null) => void;
+  onFloorBlur?: () => void;
+  // Red state for the required floor left empty — the caller decides when
+  // (touched + still empty), same as the other required fields.
+  hasError?: boolean;
   liftChecked: boolean;
   onLiftChange: (value: boolean) => void;
   // Customer-facing price per chargeable floor (see getChargeableFloors) —
@@ -111,7 +135,7 @@ export function FloorLiftField({
   surchargePerFloor?: number;
 }) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
-  const chargeableFloors = getChargeableFloors(floorValue, liftChecked);
+  const chargeableFloors = getChargeableFloors(floorValue ?? 0, liftChecked);
   const surcharge = surchargePerFloor ? chargeableFloors * surchargePerFloor : 0;
 
   return (
@@ -119,12 +143,18 @@ export function FloorLiftField({
     // label), wrapping under it only when there's no room.
     <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
       <label className="block min-w-40 flex-1">
-        <FieldLabel icon={<BuildingIcon />} hint={hint ?? t("Ground floor is 0.", "Bakkeplan er 0.")}>
+        <FieldLabel icon={<BuildingIcon />} hint={hint ?? t("1 is the ground floor.", "1. etasje er bakkeplan.")}>
           {label}
         </FieldLabel>
         <div className="flex items-center gap-2">
           <div className="flex-1">
-            <FloorInput value={floorValue} onChange={onFloorChange} />
+            <FloorInput
+              value={floorValue}
+              onChange={onFloorChange}
+              onBlur={onFloorBlur}
+              hasError={hasError}
+              placeholder={t("e.g. 1 for the ground floor", "f.eks. 1 for bakkeplan")}
+            />
           </div>
           {surcharge > 0 && (
             <span

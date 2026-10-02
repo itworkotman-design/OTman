@@ -8,18 +8,21 @@ import {
   parseTimeWindowValue,
   type TimeWindowSelection,
 } from "@/lib/booking/timeWindows";
-import { inputClass } from "./formFieldStyles";
+import { fieldClass } from "./formFieldStyles";
 
 type Props = {
   locale: Locale;
   value: string;
   onChange: (value: string) => void;
+  // Red state for the required choice left unanswered (or a specific time
+  // missing an end) — the caller decides when (touched + incomplete).
+  hasError?: boolean;
 };
 
 // The same two fixed pickup/delivery windows offered in the internal
 // booking app, plus a "request a specific time" custom option — see
 // PRESET_TIME_WINDOWS for the shared source of truth.
-export function TimeWindowField({ locale, value, onChange }: Props) {
+export function TimeWindowField({ locale, value, onChange, hasError = false }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const [selection, setSelection] = useState<TimeWindowSelection>(() => parseTimeWindowValue(value));
 
@@ -50,7 +53,9 @@ export function TimeWindowField({ locale, value, onChange }: Props) {
               className={`h-11 rounded-xl border px-2 text-sm font-medium transition ${
                 selected
                   ? "border-logoblue bg-logoblue text-white shadow-sm"
-                  : "border-black/10 bg-white text-black/75 hover:border-logoblue/40 hover:text-black"
+                  : hasError && !selection.selectedTimeWindow
+                    ? "border-red-400 bg-white text-black/75 ring-2 ring-red-100"
+                    : "border-black/10 bg-white text-black/75 hover:border-logoblue/40 hover:text-black"
               }`}
             >
               {option.label}
@@ -67,7 +72,7 @@ export function TimeWindowField({ locale, value, onChange }: Props) {
               type="time"
               value={selection.customTimeFrom}
               onChange={(e) => updateSelection({ customTimeFrom: e.target.value })}
-              className={inputClass}
+              className={fieldClass(hasError && !selection.customTimeFrom)}
             />
           </label>
           <label className="block">
@@ -76,7 +81,7 @@ export function TimeWindowField({ locale, value, onChange }: Props) {
               type="time"
               value={selection.customTimeTo}
               onChange={(e) => updateSelection({ customTimeTo: e.target.value })}
-              className={inputClass}
+              className={fieldClass(hasError && !selection.customTimeTo)}
             />
           </label>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import PickupAddressAutocomplete from "./PickupAddressAutocomplete";
-import { BuildingIcon, PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
+import { BuildingIcon, PinIcon, StorefrontIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { PersonIcon, PhoneIcon } from "./orderDetailsIcons";
@@ -10,6 +10,7 @@ import { AddressLabel, FieldLabel, fieldClass } from "./formFieldStyles";
 import { FloorLiftField } from "./floorLiftField";
 import { ProductIcon } from "./productIcons";
 import type { PickupSource } from "./PickupSourceStep";
+import { sanitizePhoneInput, sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 // One product card offerable to a pickup location's checklist — see
 // pickupLocations.ts's per-card (not per-product) assignment.
@@ -42,8 +43,9 @@ type Props = {
   // A store pickup skips the floor/lift question — a store always has
   // loading access, so there's nothing useful to ask (only shown for
   // private/business, derived from pickupSource below).
-  pickupFloor: number;
-  setPickupFloor: (value: number) => void;
+  // Counts from 1 (ground floor); null until chosen.
+  pickupFloor: number | null;
+  setPickupFloor: (value: number | null) => void;
   pickupLiftAvailable: boolean;
   setPickupLiftAvailable: (value: boolean) => void;
   pickupContactName: string;
@@ -104,6 +106,7 @@ export function PickupContactCard({
     address: false,
     contactName: false,
     contactPhone: false,
+    floor: false,
   });
   const markTouched = (field: keyof typeof touched) => setTouched((prev) => ({ ...prev, [field]: true }));
 
@@ -116,6 +119,7 @@ export function PickupContactCard({
   const addressError = addressMissing || addressNotSelected;
   const contactNameError = showContactPerson && touched.contactName && !pickupContactName.trim();
   const contactPhoneError = showContactPerson && touched.contactPhone && !pickupContactPhone.trim();
+  const floorError = showPickupFloor && touched.floor && pickupFloor === null;
 
   const placeNameLabel = pickupSource === "store" ? t("Store name", "Butikknavn") : t("Business name", "Firmanavn");
   const placeNamePlaceholder =
@@ -128,9 +132,10 @@ export function PickupContactCard({
         ? t("Tell us about the business", "Fortell oss om bedriften")
         : t("Who's our contact for the pickup?", "Hvem er kontaktpersonen for hentingen?");
 
+  // The store title speaks for itself; private/business explain why we ask.
   const subtitle =
     pickupSource === "store"
-      ? t("So our driver knows exactly where to go.", "Slik at sjåføren vår vet nøyaktig hvor de skal.")
+      ? null
       : t(
           "Someone we can reach if the driver needs to call ahead.",
           "Noen vi kan nå hvis sjåføren må ringe på forhånd.",
@@ -145,17 +150,17 @@ export function PickupContactCard({
       // sees it glow red.
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-          setTouched({ placeName: true, address: true, contactName: true, contactPhone: true });
+          setTouched({ placeName: true, address: true, contactName: true, contactPhone: true, floor: true });
         }
       }}
     >
-      <div className="mb-5 flex items-start gap-3">
+      <div className="mb-5 flex items-center gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-black/5 text-logoblue">
-          <PersonIcon className="h-5 w-5" />
+          {pickupSource === "store" ? <StorefrontIcon /> : <PersonIcon className="h-5 w-5" />}
         </div>
         <div>
           <h3 className="text-base font-semibold text-black/85">{title}</h3>
-          <p className="text-sm text-black/50">{subtitle}</p>
+          {subtitle && <p className="text-sm text-black/50">{subtitle}</p>}
         </div>
       </div>
 
@@ -166,7 +171,7 @@ export function PickupContactCard({
             <input
               type="text"
               value={pickupPlaceName}
-              onChange={(e) => setPickupPlaceName(e.target.value)}
+              onChange={(e) => setPickupPlaceName(sanitizeTextInput(e.target.value))}
               onBlur={() => markTouched("placeName")}
               placeholder={placeNamePlaceholder}
               className={fieldClass(placeNameError)}
@@ -201,6 +206,8 @@ export function PickupContactCard({
             label={t("Pickup floor", "Etasje ved henting")}
             floorValue={pickupFloor}
             onFloorChange={setPickupFloor}
+            onFloorBlur={() => markTouched("floor")}
+            hasError={floorError}
             liftChecked={pickupLiftAvailable}
             onLiftChange={setPickupLiftAvailable}
           />
@@ -213,7 +220,7 @@ export function PickupContactCard({
               <input
                 type="text"
                 value={pickupContactName}
-                onChange={(e) => setPickupContactName(e.target.value)}
+                onChange={(e) => setPickupContactName(sanitizeTextInput(e.target.value))}
                 onBlur={() => markTouched("contactName")}
                 placeholder={t("Full name", "Fullt navn")}
                 className={fieldClass(contactNameError)}
@@ -224,9 +231,9 @@ export function PickupContactCard({
               <input
                 type="tel"
                 value={pickupContactPhone}
-                onChange={(e) => setPickupContactPhone(e.target.value)}
+                onChange={(e) => setPickupContactPhone(sanitizePhoneInput(e.target.value))}
                 onBlur={() => markTouched("contactPhone")}
-                placeholder={t("e.g. 412 34 567", "f.eks. 412 34 567")}
+                placeholder={t("e.g. 41234567", "f.eks. 41234567")}
                 className={fieldClass(contactPhoneError)}
               />
             </label>
@@ -321,6 +328,9 @@ export function isPickupContactStepReady(params: {
   // A free-typed address that was never picked from the suggestions isn't
   // good enough to advance on — see AddressAutocompleteInput.
   pickupAddressSelected: boolean;
+  // Counts from 1; null until chosen. Only asked (so only required) for a
+  // private/business pickup.
+  pickupFloor: number | null;
   pickupContactName: string;
   pickupContactPhone: string;
 }): boolean {
@@ -329,6 +339,7 @@ export function isPickupContactStepReady(params: {
     pickupPlaceName,
     pickupAddress,
     pickupAddressSelected,
+    pickupFloor,
     pickupContactName,
     pickupContactPhone,
   } = params;
@@ -340,5 +351,7 @@ export function isPickupContactStepReady(params: {
     pickupSource === "store" ||
     (pickupContactName.trim().length > 0 && pickupContactPhone.trim().length > 0);
 
-  return placeNameOk && contactOk;
+  const floorOk = pickupSource === "store" || (pickupFloor !== null && pickupFloor >= 1);
+
+  return placeNameOk && contactOk && floorOk;
 }

@@ -11,7 +11,8 @@ export type PickupLocationState = {
   placeName: string;
   address: string;
   addressSelected: boolean;
-  floor: number;
+  // Counts from 1 (ground floor); null until chosen. Never asked for a store.
+  floor: number | null;
   liftAvailable: boolean;
   contactName: string;
   contactPhone: string;
@@ -35,7 +36,7 @@ export function createPickupLocation(id: number): PickupLocationState {
     placeName: "",
     address: "",
     addressSelected: false,
-    floor: 0,
+    floor: null,
     liftAvailable: false,
     contactName: "",
     contactPhone: "",
@@ -80,6 +81,7 @@ export function isPickupLocationReady(location: PickupLocationState, pool: numbe
     pickupPlaceName: location.placeName,
     pickupAddress: location.address,
     pickupAddressSelected: location.addressSelected,
+    pickupFloor: location.floor,
     pickupContactName: location.contactName,
     pickupContactPhone: location.contactPhone,
   });

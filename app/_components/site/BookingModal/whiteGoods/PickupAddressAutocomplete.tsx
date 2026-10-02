@@ -14,6 +14,7 @@ import {
   isAddressIconKey,
 } from "@/lib/pickupAddresses/addressAppearance";
 import { matchSavedPickupAddresses, type SavedPickupAddress } from "./matchSavedPickupAddresses";
+import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 // Small colored icon badge, same allow-list the dashboard's saved-locations
 // list uses — falls back to the default icon/color if the DB ever holds
@@ -247,7 +248,8 @@ export default function PickupAddressAutocomplete({
         ref={inputRef}
         value={query}
         onChange={(e) => {
-          const next = e.target.value;
+          // Same character filter as every other public booking input.
+          const next = sanitizeTextInput(e.target.value);
           selectionTokenRef.current += 1;
           setHasInteracted(true);
           setQuery(next);

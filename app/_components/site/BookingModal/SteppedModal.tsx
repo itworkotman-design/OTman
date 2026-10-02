@@ -306,7 +306,8 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
               the final step back and forth instead of replaying on remount. */}
           <div className={showFinalStep ? "hidden" : ""}>
             <AnimatedStack
-              gap={24}
+              // Space above each section title (below the previous section).
+              gap={40}
               className="flex flex-col"
               items={visibleSections.map((section, index) => ({
                 key: section.id,
@@ -315,7 +316,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
                   <div>
                     <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
                     {section.description && <p className="mt-1 text-center text-sm text-black/60">{section.description}</p>}
-                    <div className="mt-4">
+                    <div className="mt-[2rem]">
                       {section.render({
                         isActive: index === revealedCount - 1,
                         onComplete: () => handleSectionComplete(index),

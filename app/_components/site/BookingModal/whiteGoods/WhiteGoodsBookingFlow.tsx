@@ -54,6 +54,7 @@ import { sortSummaryLines } from "./orderSummaryLines";
 import { orderHasRequiredDelivery } from "./orderDeliveryRequirement";
 import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
 import { OrderDetailsCard } from "./OrderDetailsCard";
+import { isOrderDetailsStepReady } from "./orderDetailsReady";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import {
   type CatalogProduct,
@@ -179,8 +180,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     setDeliveryAddressRaw(value);
     setDeliveryAddressSelected(Boolean(wasSelected));
   };
-  const [pickupFloor, setPickupFloor] = useState(0);
-  const [deliveryFloor, setDeliveryFloor] = useState(0);
+  // Floors count from 1 (ground floor); null until the customer picks one —
+  // both are required (see floorValue.ts). Sent as 0 when never asked (a
+  // store pickup), same as before.
+  const [pickupFloor, setPickupFloor] = useState<number | null>(null);
+  const [deliveryFloor, setDeliveryFloor] = useState<number | null>(null);
   // Tracked separately — the pickup and delivery locations aren't
   // necessarily the same kind of building.
   const [pickupLiftAvailable, setPickupLiftAvailable] = useState(false);
@@ -316,6 +320,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       pickupPlaceName,
       pickupAddress,
       pickupAddressSelected,
+      pickupFloor,
       pickupContactName,
       pickupContactPhone,
     }) &&
@@ -492,7 +497,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   // A store pickup never asks for a pickup floor/lift (see the order-details
   // step) — treated as ground floor with a lift, same as the server does.
   const isStorePickup = pickupSource === "store";
-  const effectivePickupFloor = isStorePickup ? 0 : pickupFloor;
+  const effectivePickupFloor = isStorePickup ? 0 : (pickupFloor ?? 0);
+  const effectiveDeliveryFloor = deliveryFloor ?? 0;
   const effectivePickupLiftAvailable = isStorePickup ? true : pickupLiftAvailable;
 
   const pricing = useMemo(() => {
@@ -514,7 +520,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       expressDelivery: false,
       extraPickups: [],
       pickupFloor: effectivePickupFloor,
-      deliveryFloor,
+      deliveryFloor: effectiveDeliveryFloor,
       pickupLiftAvailable: effectivePickupLiftAvailable,
       deliveryLiftAvailable,
     });
@@ -528,7 +534,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     normalizedSettings,
     drivingDistance,
     effectivePickupFloor,
-    deliveryFloor,
+    effectiveDeliveryFloor,
     effectivePickupLiftAvailable,
     deliveryLiftAvailable,
   ]);
@@ -610,7 +616,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     findSizePricedCardsMissingName(productCards, catalogProducts).length === 0;
   const hasRequiredDelivery = orderHasRequiredDelivery(productCards);
   // Pickup address is required earlier, in the pickup-contact step.
-  const canContinueOrderDetails = !!deliveryAddress.trim();
+  const canContinueOrderDetails = isOrderDetailsStepReady({
+    deliveryAddress,
+    deliveryAddressSelected,
+    deliveryFloor,
+    preferredDate,
+    timeWindow,
+  });
   // Email is mandatory: the order-received confirmation and the payment link
   // are emailed, so an order without one could never be completed.
   const emailValid = EMAIL_RE.test(email.trim());
@@ -621,7 +633,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   // customer went back and split the pickup across more locations.
   const canContinueContact = !!name.trim() && !!phone.trim() && emailValid && allPickupLocationsReady;
   const canSubmit =
-    name.trim() && phone.trim() && emailValid && sizeBracketsComplete && allPickupLocationsReady && !submitLoading;
+    name.trim() &&
+    phone.trim() &&
+    emailValid &&
+    sizeBracketsComplete &&
+    allPickupLocationsReady &&
+    canContinueOrderDetails &&
+    !submitLoading;
 
   async function handleSubmit() {
     setSubmitLoading(true);
@@ -638,8 +656,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           pickupContactPhone,
           pickupAddress,
           deliveryAddress,
-          pickupFloor,
-          deliveryFloor,
+          pickupFloor: pickupFloor ?? 0,
+          deliveryFloor: effectiveDeliveryFloor,
           pickupLiftAvailable,
           deliveryLiftAvailable,
           drivingDistance,
@@ -661,7 +679,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                   source: loc.source,
                   placeName: loc.placeName,
                   address: loc.address,
-                  floor: loc.floor,
+                  floor: loc.floor ?? 0,
                   liftAvailable: loc.liftAvailable,
                   contactName: loc.contactName,
                   contactPhone: loc.contactPhone,
@@ -1008,6 +1026,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             bookingLocale={bookingLocale}
             deliveryAddress={deliveryAddress}
             setDeliveryAddress={setDeliveryAddress}
+            deliveryAddressSelected={deliveryAddressSelected}
             deliveryFloor={deliveryFloor}
             setDeliveryFloor={setDeliveryFloor}
             deliveryLiftAvailable={deliveryLiftAvailable}

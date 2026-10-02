@@ -8,6 +8,7 @@ import { transportTimeWindows } from "@/lib/content/TransportRequestConfig";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
+import { sanitizePhoneInput, sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 type Props = {
   locale: Locale;
@@ -152,12 +153,12 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
         <div className="flex flex-col gap-3">
           <AddressAutocompleteInput
             value={pickupAddress}
-            onChange={setPickupAddress}
+            onChange={(v) => setPickupAddress(sanitizeTextInput(v))}
             placeholder={t("Moving from (address)", "Flytter fra (adresse)")}
           />
           <AddressAutocompleteInput
             value={deliveryAddress}
-            onChange={setDeliveryAddress}
+            onChange={(v) => setDeliveryAddress(sanitizeTextInput(v))}
             placeholder={t("Moving to (address)", "Flytter til (adresse)")}
           />
 
@@ -253,7 +254,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
         <div className="flex flex-col gap-3">
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setName(sanitizeTextInput(e.target.value))}
             placeholder={t("Full name", "Fullt navn")}
             className="h-11 rounded-lg border border-black/15 px-2 text-sm"
           />
@@ -261,20 +262,20 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             <input
               value={phone}
               inputMode="tel"
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
               placeholder={t("Phone", "Telefon")}
               className="h-11 rounded-lg border border-black/15 px-2 text-sm"
             />
             <input
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(sanitizeTextInput(e.target.value))}
               placeholder={t("Email", "E-post")}
               className="h-11 rounded-lg border border-black/15 px-2 text-sm"
             />
           </div>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => setNotes(sanitizeTextInput(e.target.value))}
             rows={3}
             placeholder={t(
               "Anything else? Floors, lift access, particularly heavy or fragile items…",

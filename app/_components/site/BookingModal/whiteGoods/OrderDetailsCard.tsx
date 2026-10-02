@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import DatePicker from "@/app/_components/utils/DatePicker";
@@ -8,9 +9,11 @@ import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { addDaysIso, getOsloDateKey } from "@/lib/dates/isoDate";
 import { isNorwegianPublicHoliday } from "@/lib/dates/norwayHolidays";
 import { CalendarIcon, ClockIcon, DocumentIcon, WarningTriangleIcon } from "./orderDetailsIcons";
-import { AddressLabel, FieldLabel, inputClass, sideColumnClass } from "./formFieldStyles";
+import { AddressLabel, FieldLabel, fieldClass, sideColumnClass } from "./formFieldStyles";
+import { isTimeWindowComplete } from "@/lib/booking/timeWindows";
 import { FloorLiftField } from "./floorLiftField";
 import { TimeWindowField } from "./timeWindowField";
+import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 type Props = {
   locale: Locale;
@@ -22,8 +25,12 @@ type Props = {
   // wasSelected: whether the text was actually picked from the address
   // suggestions (vs. free-typed) — see AddressAutocompleteInput.
   setDeliveryAddress: (value: string, wasSelected?: boolean) => void;
-  deliveryFloor: number;
-  setDeliveryFloor: (value: number) => void;
+  // Whether deliveryAddress was actually picked from the suggestions — a
+  // free-typed address isn't good enough to advance (isOrderDetailsStepReady).
+  deliveryAddressSelected: boolean;
+  // Counts from 1 (ground floor); null until chosen.
+  deliveryFloor: number | null;
+  setDeliveryFloor: (value: number | null) => void;
   deliveryLiftAvailable: boolean;
   setDeliveryLiftAvailable: (value: boolean) => void;
   preferredDate: string;
@@ -45,6 +52,7 @@ export function OrderDetailsCard({
   bookingLocale,
   deliveryAddress,
   setDeliveryAddress,
+  deliveryAddressSelected,
   deliveryFloor,
   setDeliveryFloor,
   deliveryLiftAvailable,
@@ -59,8 +67,33 @@ export function OrderDetailsCard({
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
+  // Every field here is required (see isOrderDetailsStepReady) — same
+  // pattern as PickupContactCard: a field only glows red once the visitor
+  // has left it still empty, not while they're filling it in.
+  const [touched, setTouched] = useState({ address: false, floor: false, date: false, timeWindow: false });
+  const markTouched = (field: keyof typeof touched) => setTouched((prev) => ({ ...prev, [field]: true }));
+
+  const addressMissing = touched.address && !deliveryAddress.trim();
+  // Typed but never picked from the suggestions — same red state, plus a
+  // hint explaining why.
+  const addressNotSelected = touched.address && !!deliveryAddress.trim() && !deliveryAddressSelected;
+  const addressError = addressMissing || addressNotSelected;
+  const floorError = touched.floor && deliveryFloor === null;
+  const dateError = touched.date && !preferredDate.trim();
+  const timeWindowError = touched.timeWindow && !isTimeWindowComplete(timeWindow);
+
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+    <div
+      className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6"
+      // Focus leaving the whole card flags every required field at once, so
+      // one skipped without ever being focused (the date and time window
+      // have no text input to blur) still glows red.
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setTouched({ address: true, floor: true, date: true, timeWindow: true });
+        }
+      }}
+    >
       <div className="mb-5 flex items-start gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-black/5 text-logoblue">
           <DocumentIcon className="h-5 w-5" />
@@ -82,10 +115,12 @@ export function OrderDetailsCard({
             <AddressLabel>{t("Delivery address", "Leveringsadresse")}</AddressLabel>
             <AddressAutocompleteInput
               value={deliveryAddress}
-              onChange={setDeliveryAddress}
+              onChange={(value, wasSelected) => setDeliveryAddress(sanitizeTextInput(value), wasSelected)}
               locale={bookingLocale}
               placeholder={t("Your address", "Din adresse")}
               icon={<PinIcon />}
+              onBlur={() => markTouched("address")}
+              hasError={addressError}
             />
           </div>
 
@@ -111,16 +146,23 @@ export function OrderDetailsCard({
             </p>
           </div>
         </div>
+        {addressNotSelected && (
+          <p className="-mt-2.5 text-xs text-red-500">
+            {t("Please choose an address from the suggestions.", "Velg en adresse fra forslagene.")}
+          </p>
+        )}
 
         <FloorLiftField
           locale={locale}
           label={t("Delivery floor", "Etasje ved levering")}
           hint={t(
-            "Ground floor is 0. Without a lift, floors above the 2nd add a surcharge.",
-            "Bakkeplan er 0. Uten heis tilkommer et tillegg for etasjer over 2.",
+            "1 is the ground floor. Without a lift, floors above the 2nd add a surcharge.",
+            "1. etasje er bakkeplan. Uten heis tilkommer et tillegg for etasjer over 2.",
           )}
           floorValue={deliveryFloor}
           onFloorChange={setDeliveryFloor}
+          onFloorBlur={() => markTouched("floor")}
+          hasError={floorError}
           liftChecked={deliveryLiftAvailable}
           onLiftChange={setDeliveryLiftAvailable}
           surchargePerFloor={floorSurchargePerFloor}
@@ -134,7 +176,7 @@ export function OrderDetailsCard({
               onChange={setPreferredDate}
               locale={locale}
               placeholder={t("Select a date", "Velg en dato")}
-              className={inputClass}
+              className={fieldClass(dateError)}
               minDate={addDaysIso(getOsloDateKey(), 1)}
               blockedWeekdays={[0]}
               isDateBlocked={isNorwegianPublicHoliday}
@@ -142,7 +184,7 @@ export function OrderDetailsCard({
           </label>
           <label className="block">
             <FieldLabel icon={<ClockIcon className="h-4 w-4" />}>{t("Time window", "Tidsvindu")}</FieldLabel>
-            <TimeWindowField locale={locale} value={timeWindow} onChange={setTimeWindow} />
+            <TimeWindowField locale={locale} value={timeWindow} onChange={setTimeWindow} hasError={timeWindowError} />
           </label>
         </div>
       </div>
