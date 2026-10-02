@@ -103,6 +103,15 @@ export function supportsSharedAutoDeliveryPricing(product: CatalogProduct) {
   return autoDeliveryPrice.enabled && autoDeliveryPrice.includeInXtraLogic;
 }
 
+// Website only: "installation only" is still a trip to the customer, so it
+// competes for the full-price slot at its own price under the same "highest
+// price wins, ties go to the earlier card" rule as deliveries (instead of the
+// dashboard's "a priced install-only visit always keeps the full-price
+// slot"). See websiteInstallOnlyVisit.ts.
+export type SharedDeliveryOptions = {
+  installOnlyVisitPricing?: boolean;
+};
+
 type SharedDeliveryCandidate = {
   cardId: number;
   index: number;
@@ -160,6 +169,7 @@ function getSharedDeliveryCandidate(
 
 function getMainSharedDeliveryCandidate(
   candidates: SharedDeliveryCandidate[],
+  options: SharedDeliveryOptions,
 ) {
   // An install-only visit represents a real, separate dispatch cost on
   // price lists where it's actually priced (the dashboard's default 590) —
@@ -170,11 +180,14 @@ function getMainSharedDeliveryCandidate(
   // installing something the customer already owns doesn't need transport)
   // have nothing to protect: letting a $0 candidate claim "main" here would
   // just wrongly discount whatever real delivery exists elsewhere in the
-  // order.
-  const installOnlyCandidate = candidates.find(
-    (candidate) =>
-      candidate.deliveryType === DELIVERY_TYPES.INSTALL_ONLY && candidate.standardPrice > 0,
-  );
+  // order. With installOnlyVisitPricing (website), install-only competes by
+  // price like any delivery instead — see SharedDeliveryOptions.
+  const installOnlyCandidate = options.installOnlyVisitPricing
+    ? undefined
+    : candidates.find(
+        (candidate) =>
+          candidate.deliveryType === DELIVERY_TYPES.INSTALL_ONLY && candidate.standardPrice > 0,
+      );
 
   if (installOnlyCandidate) {
     return installOnlyCandidate;
@@ -198,6 +211,7 @@ function getMainSharedDeliveryCandidate(
 export function getAutomaticXtraDeliveryCardIds(
   cards: SavedProductCard[],
   catalogProducts: CatalogProduct[],
+  options: SharedDeliveryOptions = {},
 ) {
   const candidates = cards
     .map((card, index) => {
@@ -221,7 +235,7 @@ export function getAutomaticXtraDeliveryCardIds(
     return new Set<number>();
   }
 
-  const mainCandidate = getMainSharedDeliveryCandidate(candidates);
+  const mainCandidate = getMainSharedDeliveryCandidate(candidates, options);
 
   return new Set(
     candidates

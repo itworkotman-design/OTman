@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasExtrasStepContent,
   hasInstallStepContent,
+  showsNoInstallOption,
 } from "./cardSectionVisibility";
 
 describe("hasInstallStepContent", () => {
@@ -11,6 +12,7 @@ describe("hasInstallStepContent", () => {
         assemblyGroupCount: 0,
         typeOptionCount: 0,
         hasNeedsImplementationNote: false,
+        deliveryType: "INDOOR",
       }),
     ).toBe(false);
   });
@@ -21,6 +23,7 @@ describe("hasInstallStepContent", () => {
         assemblyGroupCount: 0,
         typeOptionCount: 2,
         hasNeedsImplementationNote: false,
+        deliveryType: "INDOOR",
       }),
     ).toBe(true);
   });
@@ -31,6 +34,7 @@ describe("hasInstallStepContent", () => {
         assemblyGroupCount: 1,
         typeOptionCount: 0,
         hasNeedsImplementationNote: false,
+        deliveryType: "INDOOR",
       }),
     ).toBe(true);
   });
@@ -41,6 +45,29 @@ describe("hasInstallStepContent", () => {
         assemblyGroupCount: 0,
         typeOptionCount: 0,
         hasNeedsImplementationNote: true,
+        deliveryType: "INDOOR",
+      }),
+    ).toBe(true);
+  });
+
+  it("is false for doorstep delivery (FIRST_STEP), even when install/assembly options exist", () => {
+    expect(
+      hasInstallStepContent({
+        assemblyGroupCount: 1,
+        typeOptionCount: 2,
+        hasNeedsImplementationNote: true,
+        deliveryType: "FIRST_STEP",
+      }),
+    ).toBe(false);
+  });
+
+  it("is still shown before a delivery type is picked", () => {
+    expect(
+      hasInstallStepContent({
+        assemblyGroupCount: 0,
+        typeOptionCount: 2,
+        hasNeedsImplementationNote: false,
+        deliveryType: "",
       }),
     ).toBe(true);
   });
@@ -123,5 +150,16 @@ describe("hasExtrasStepContent", () => {
         hasPalletPickupOption: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("showsNoInstallOption", () => {
+  it("hides \"No installation\" when the card is installation only", () => {
+    expect(showsNoInstallOption("INSTALL_ONLY")).toBe(false);
+  });
+
+  it("shows it for delivered cards and before a delivery type is picked", () => {
+    expect(showsNoInstallOption("INDOOR")).toBe(true);
+    expect(showsNoInstallOption("")).toBe(true);
   });
 });

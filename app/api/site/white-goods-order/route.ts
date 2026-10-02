@@ -25,6 +25,7 @@ import {
   applyWebsiteAssemblyExtras,
   buildWebsiteAssemblyExtraOrderItems,
 } from "@/lib/booking/pricing/websiteAssemblyExtras";
+import { applyWebsiteInstallOnlyVisit } from "@/lib/booking/pricing/websiteInstallOnlyVisit";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
 import { costliestFloor, parseFloorNumber } from "@/lib/booking/floorNumber";
@@ -173,6 +174,7 @@ async function createWhiteGoodsOrder(
       productCards,
       pricingSource.catalogProducts,
       pricingSource.catalogSpecialOptions,
+      { installOnlyVisitPricing: true },
     ),
     ...buildWhiteGoodsExtraUnitOrderItems(
       productCards,
@@ -220,19 +222,22 @@ async function createWhiteGoodsOrder(
             .map((address) => ({ address }))
         : [];
 
-  const productBreakdowns = applyWebsiteAssemblyExtras(
-    applyWhiteGoodsExtraUnitCharges(
-      buildProductBreakdowns(
+  const zeroBaseDeliveryPricesOver100Km = parseDistanceKm(drivingDistanceStr) > 100;
+  const productBreakdowns = applyWebsiteInstallOnlyVisit(
+    applyWebsiteAssemblyExtras(
+      applyWhiteGoodsExtraUnitCharges(
+        buildProductBreakdowns(
+          productCards,
+          pricingSource.catalogProducts,
+          pricingSource.catalogSpecialOptions,
+          { zeroBaseDeliveryPricesOver100Km, installOnlyVisitPricing: true },
+        ),
         productCards,
         pricingSource.catalogProducts,
         pricingSource.catalogSpecialOptions,
-        {
-          zeroBaseDeliveryPricesOver100Km: parseDistanceKm(drivingDistanceStr) > 100,
-        },
       ),
       productCards,
       pricingSource.catalogProducts,
-      pricingSource.catalogSpecialOptions,
     ),
     productCards,
     pricingSource.catalogProducts,

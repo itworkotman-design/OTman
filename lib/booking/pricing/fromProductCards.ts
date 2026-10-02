@@ -32,6 +32,7 @@ type BuildProductBreakdownsOptions = {
   forcedXtraDeliveryCardIds?: Set<number>;
   xtraPalletPrice?: number;
   xtraPalletSubcontractorPrice?: number;
+  installOnlyVisitPricing?: boolean;
 };
 
 type ReturnPricingState = {
@@ -638,7 +639,9 @@ export function buildProductBreakdowns(
   catalogSpecialOptions: CatalogSpecialOption[],
   options?: BuildProductBreakdownsOptions,
 ): ProductBreakdown[] {
-  const automaticXtraDeliveryCardIds = getAutomaticXtraDeliveryCardIds(cards, catalogProducts);
+  const automaticXtraDeliveryCardIds = getAutomaticXtraDeliveryCardIds(cards, catalogProducts, {
+    installOnlyVisitPricing: options?.installOnlyVisitPricing,
+  });
   const forcedXtraDeliveryCardIds = options?.forcedXtraDeliveryCardIds ?? new Set<number>();
 
   const xtraDeliveryCardIds = new Set([...automaticXtraDeliveryCardIds, ...forcedXtraDeliveryCardIds]);

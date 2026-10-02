@@ -11,6 +11,9 @@ export type OrderSummaryLine = {
   price: number;
   qty: number;
   category: WhiteGoodsLineCategory;
+  // A free line shows no price at all instead of "Included" (installation
+  // only when another item is delivered — see websiteInstallOnlyVisit.ts).
+  blankWhenFree?: boolean;
 };
 
 export type OrderSummaryProduct = {
@@ -113,7 +116,9 @@ export function WhiteGoodsOrderSummary({
                         ].join(" ")}
                       >
                         {line.price === 0
-                          ? t("Included", "Inkludert")
+                          ? line.blankWhenFree
+                            ? null
+                            : t("Included", "Inkludert")
                           : formatKr(getVatDisplayAmount(line.price, customerType))}
                       </span>
                     </Fragment>

@@ -15,6 +15,7 @@ import {
   canApplyReturnOption,
   findAutomaticXtraSpecialOption,
   getAutomaticXtraDeliveryCardIds,
+  type SharedDeliveryOptions,
   isTransportDeliveryType,
 } from "@/lib/booking/pricing/sharedDeliveryLogic";
 import {
@@ -167,11 +168,13 @@ export function buildOrderItemsFromCards(
   productCards: SavedProductCard[],
   catalogProducts: CatalogProduct[],
   catalogSpecialOptions: CatalogSpecialOption[],
+  options: SharedDeliveryOptions = {},
 ): BuiltOrderItem[] {
   const items: BuiltOrderItem[] = [];
   const automaticXtraDeliveryCardIds = getAutomaticXtraDeliveryCardIds(
     productCards,
     catalogProducts,
+    options,
   );
 
   for (const card of productCards) {

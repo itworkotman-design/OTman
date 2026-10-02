@@ -2,16 +2,26 @@
 // show at all. Some products (e.g. package/pallet catalog items) have no
 // install options and no pending-implementation note — for those the whole
 // step should disappear rather than show an empty "No installation" radio.
+// Doorstep delivery (FIRST_STEP) never offers installation/assembly, so the
+// step is hidden for it too.
 export function hasInstallStepContent(params: {
   assemblyGroupCount: number;
   typeOptionCount: number;
   hasNeedsImplementationNote: boolean;
+  deliveryType: string;
 }): boolean {
+  if (params.deliveryType === "FIRST_STEP") return false;
   return (
     params.assemblyGroupCount > 0 ||
     params.typeOptionCount > 0 ||
     params.hasNeedsImplementationNote
   );
+}
+
+// "No installation" makes no sense on an installation-only card — the whole
+// point of that card is the installation.
+export function showsNoInstallOption(deliveryType: string): boolean {
+  return deliveryType !== "INSTALL_ONLY";
 }
 
 // Whether the "Additional services" step has anything to show. Mirrors the
