@@ -87,3 +87,16 @@ export function groupDismantlingOptions(options: CatalogOption[], locale: Locale
 
   return [...groups.values()];
 }
+
+// The installation option "Installation only" starts with: the first one the
+// card shows — furniture's first assembly type + first manufacturer, else
+// white goods' first install type. Null when the product has none.
+export function pickDefaultInstallOptionId({
+  assemblyGroups,
+  typeOptions,
+}: {
+  assemblyGroups: AssemblyTypeGroup[];
+  typeOptions: CatalogOption[];
+}): string | null {
+  return assemblyGroups[0]?.options[0]?.option.id ?? typeOptions[0]?.id ?? null;
+}

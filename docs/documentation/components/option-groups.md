@@ -7,3 +7,4 @@ Grouping helpers for the website product card: furniture assembly is a type + ma
 - `buildOptionSeedMap(productCode)` — option seeds by code.
 - `groupAssemblyOptions(options, seedByCode, locale)` — types with their manufacturer options and a "from" price; empty for white goods and Other furniture.
 - `groupDismantlingOptions(options, locale)` — per type: the for-disposal and careful-for-reuse options.
+- `pickDefaultInstallOptionId({ assemblyGroups, typeOptions })` — the installation option "Installation only" starts with: furniture's first assembly type + first manufacturer, else white goods' first install type; `null` if none.

@@ -14,6 +14,7 @@ import { isSizeBracketCategory } from "@/lib/booking/pricing/sizeBrackets";
 import {
   groupAssemblyOptions,
   groupDismantlingOptions,
+  pickDefaultInstallOptionId,
   type DismantlingGroup,
 } from "./optionGroups";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
@@ -306,11 +307,16 @@ export function WhiteGoodsProductCard({
   });
   const extrasStepNumber = showInstallStep ? 3 : 2;
 
+  // Installation only can never be left with nothing to install: picking it
+  // starts with the first installation option, and it can't be cleared.
+  const defaultInstallOptionId = pickDefaultInstallOptionId({ assemblyGroups, typeOptions });
+
   function setDeliveryType(next: SavedProductCard["deliveryType"]) {
     onChange({
       ...value,
       deliveryType: next,
-      selectedInstallOptionIds: [],
+      selectedInstallOptionIds:
+        next === "INSTALL_ONLY" && defaultInstallOptionId ? [defaultInstallOptionId] : [],
       // Changing delivery clears the add-ons, but the item's size/weight
       // describe the item itself and must survive.
       selectedExtraOptionIds: value.selectedExtraOptionIds.filter((id) => sizeOptionIds.includes(id)),
@@ -320,6 +326,7 @@ export function WhiteGoodsProductCard({
   }
 
   function clearInstallation() {
+    if (deliveryType === "INSTALL_ONLY") return;
     onChange({
       ...value,
       selectedInstallOptionIds: [],
@@ -347,6 +354,7 @@ export function WhiteGoodsProductCard({
 
   function toggleStackableInstall(optionId: string) {
     const has = value.selectedInstallOptionIds.includes(optionId);
+    if (has && deliveryType === "INSTALL_ONLY" && value.selectedInstallOptionIds.length === 1) return;
     onChange({
       ...value,
       selectedInstallOptionIds: has
@@ -640,8 +648,6 @@ export function WhiteGoodsProductCard({
                       "You handle installation yourself.",
                       "Du monterer selv.",
                     )}
-                    price={included}
-                    priceClassName="text-logoblue"
                     onClick={clearInstallation}
                   />
                 )}

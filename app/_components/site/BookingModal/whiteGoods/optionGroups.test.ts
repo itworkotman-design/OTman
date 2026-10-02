@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { groupAssemblyOptions, groupDismantlingOptions, buildOptionSeedMap } from "./optionGroups";
+import {
+  groupAssemblyOptions,
+  groupDismantlingOptions,
+  buildOptionSeedMap,
+  pickDefaultInstallOptionId,
+} from "./optionGroups";
 import { catalogProductFromSeed } from "@/lib/content/websiteCatalogFixtures";
 
 const bed = catalogProductFromSeed("FN_BED");
@@ -74,5 +79,25 @@ describe("groupDismantlingOptions", () => {
 
   it("uses Norwegian type labels in no", () => {
     expect(groupDismantlingOptions(bed.options, "no")[0].label).toBe("Enkeltseng");
+  });
+});
+
+// Picking "Installation only" auto-selects the first installation option the
+// card shows, so the card can never be "installation only" with nothing to
+// install.
+describe("pickDefaultInstallOptionId", () => {
+  it("picks the first assembly type's first manufacturer for furniture", () => {
+    const groups = groupAssemblyOptions(bed.options, seeds, "en");
+    expect(pickDefaultInstallOptionId({ assemblyGroups: groups, typeOptions: [] })).toBe(groups[0].options[0].option.id);
+  });
+
+  it("picks the first install type for white goods", () => {
+    const dishwasher = catalogProductFromSeed("WG_DISHWASHER");
+    const typeOptions = dishwasher.options.filter((o) => o.category === "install").slice(0, 2);
+    expect(pickDefaultInstallOptionId({ assemblyGroups: [], typeOptions })).toBe(typeOptions[0].id);
+  });
+
+  it("is null when there's nothing to pick", () => {
+    expect(pickDefaultInstallOptionId({ assemblyGroups: [], typeOptions: [] })).toBeNull();
   });
 });
