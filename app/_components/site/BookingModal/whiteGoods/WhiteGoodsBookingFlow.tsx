@@ -12,6 +12,7 @@ import {
   groupByCategory,
   hasEnteredOrderOrContactDetails,
   isPickupLocationReady,
+  keepsLaterStepsOnPickupRetract,
   nextPickupLocationId,
   orderedCardIds,
   poolsForLocations,
@@ -105,21 +106,24 @@ const toBookingLocale = (l: Locale): BookingUiLocale => (l === "no" ? "nb" : "en
 // this one instead of leaving them stranded ahead of an unsatisfied step.
 // `onReady`/`onRetract` (SteppedModal's onComplete/onUncomplete) are new
 // function identities every render; only the `ready` transition should
-// re-trigger this.
+// re-trigger this. While `hold` is true an unready section leaves the ones
+// after it alone; `hold` dropping while still unready retracts them then.
 function AutoAdvance({
   ready,
+  hold = false,
   onReady,
   onRetract,
 }: {
   ready: boolean;
+  hold?: boolean;
   onReady: () => void;
   onRetract: () => void;
 }) {
   useEffect(() => {
     if (ready) onReady();
-    else onRetract();
+    else if (!hold) onRetract();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+  }, [ready, ready || hold]);
   return null;
 }
 
@@ -314,16 +318,17 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     }));
   }
 
+  const firstPickupReady = isPickupContactStepReady({
+    pickupSource,
+    pickupPlaceName,
+    pickupAddress,
+    pickupAddressSelected,
+    pickupFloor,
+    pickupContactName,
+    pickupContactPhone,
+  });
   const allPickupLocationsReady =
-    isPickupContactStepReady({
-      pickupSource,
-      pickupPlaceName,
-      pickupAddress,
-      pickupAddressSelected,
-      pickupFloor,
-      pickupContactName,
-      pickupContactPhone,
-    }) &&
+    firstPickupReady &&
     (poolCardIds.length <= 1 || allProductsPickedUpHere || pickupCardIds.length > 0) &&
     extraPickupLocations.every((loc, i) => isPickupLocationReady(loc, extraPickupPools[i] ?? [])) &&
     unassignedCardIds.length === 0;
@@ -943,6 +948,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     {
       id: "pickup-contact",
       title: t("Pickup contact", "Kontakt ved henting"),
+      bottomSpace: true,
       render: ({ onComplete, onUncomplete }) =>
         pickupSource ? (
           <div className="flex flex-col gap-4">
@@ -997,21 +1003,21 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
               // them off screen — only suppresses the retraction, doesn't
               // skip anything: canContinueContact below still blocks
               // reaching the final step until every location resolves again.
-              onRetract={() => {
-                if (
-                  !hasEnteredOrderOrContactDetails({
-                    deliveryAddress,
-                    preferredDate,
-                    timeWindow,
-                    name,
-                    phone,
-                    email,
-                    notes,
-                  })
-                ) {
-                  onUncomplete();
-                }
-              }}
+              // Clearing one of the first pickup's own fields isn't a split,
+              // so it still retracts them.
+              hold={keepsLaterStepsOnPickupRetract({
+                firstPickupReady,
+                laterDetailsEntered: hasEnteredOrderOrContactDetails({
+                  deliveryAddress,
+                  preferredDate,
+                  timeWindow,
+                  name,
+                  phone,
+                  email,
+                  notes,
+                }),
+              })}
+              onRetract={onUncomplete}
             />
           </div>
         ) : null,

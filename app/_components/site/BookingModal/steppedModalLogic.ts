@@ -28,7 +28,14 @@ export function shownSectionIds(sections: { id: string; hidden?: boolean }[]): s
   return sections.filter((section) => !section.hidden).map((section) => section.id);
 }
 
-export type SectionStructure = { ids: string[]; showFinalStep: boolean };
+// Whether the modal should leave extra room below the stack: only while the
+// bottom-most shown section asked for it (StepSection.bottomSpace).
+export function showsBottomSpace(sections: { id: string; hidden?: boolean; bottomSpace?: boolean }[]): boolean {
+  const shown = sections.filter((section) => !section.hidden);
+  return !!shown[shown.length - 1]?.bottomSpace;
+}
+
+export type SectionStructure ={ ids: string[]; showFinalStep: boolean };
 
 // True when the layout gained something: a section appeared (revealed or
 // un-hidden), or the final step was entered/left, which swaps the whole body.
