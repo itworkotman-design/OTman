@@ -1,11 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { BuildingIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { getChargeableFloors } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { ChevronDownIcon, ChevronUpIcon, LiftIcon, QuestionMarkIcon } from "./orderDetailsIcons";
 import { FieldLabel, fieldClass, sideColumnClass } from "./formFieldStyles";
-import { parseFloorInput, stepFloor } from "./floorValue";
+import { parseFloorInput, sanitizeFloorText, stepFloor } from "./floorValue";
 
 function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
@@ -13,7 +14,8 @@ function formatKr(n: number) {
 
 // A floor number field with a stacked up/down chevron stepper on the right,
 // instead of the browser's default (and inconsistently styled) number spinner.
-// Starts empty (null) and never goes below 1 — see floorValue.ts.
+// Starts empty (null); accepts only digits and a leading minus (basements),
+// never 0 — see floorValue.ts.
 function FloorInput({
   value,
   onChange,
@@ -27,16 +29,33 @@ function FloorInput({
   hasError: boolean;
   placeholder: string;
 }) {
+  // The box's own text, so in-between states like a lone "-" survive while
+  // typing. Re-synced whenever the floor changes from outside (the stepper).
+  const [text, setText] = useState(value === null ? "" : String(value));
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    if (parseFloorInput(text) !== value) setText(value === null ? "" : String(value));
+  }
+
   return (
     <div className="relative">
       <input
-        type="number"
-        min={1}
-        value={value ?? ""}
-        onChange={(e) => onChange(parseFloorInput(e.target.value))}
+        type="text"
+        // Full keyboard, not a numeric keypad: iOS's keypad has no minus key,
+        // and basements are negative floors.
+        inputMode="text"
+        value={text}
+        onChange={(e) => {
+          const next = sanitizeFloorText(e.target.value);
+          const floor = parseFloorInput(next);
+          setText(next);
+          setSyncedValue(floor);
+          onChange(floor);
+        }}
         onBlur={onBlur}
         placeholder={placeholder}
-        className={`${fieldClass(hasError)} pr-9 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+        className={`${fieldClass(hasError)} pr-9`}
       />
       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-black/10">
         <button
@@ -50,7 +69,6 @@ function FloorInput({
         <button
           type="button"
           aria-label="Decrease"
-          disabled={value === 1}
           onClick={() => onChange(stepFloor(value, -1))}
           className="grid h-4 w-6 place-items-center border-t border-black/10 text-black/40 transition hover:bg-black/5 hover:text-black/70 disabled:pointer-events-none disabled:opacity-30"
         >
@@ -143,7 +161,7 @@ export function FloorLiftField({
     // label), wrapping under it only when there's no room.
     <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
       <label className="block min-w-40 flex-1">
-        <FieldLabel icon={<BuildingIcon />} hint={hint ?? t("1 is the ground floor.", "1. etasje er bakkeplan.")}>
+        <FieldLabel icon={<BuildingIcon />} hint={hint ?? t("1 is the ground floor, -1 the basement.", "1. etasje er bakkeplan, -1 er kjeller.")}>
           {label}
         </FieldLabel>
         <div className="flex items-center gap-2">

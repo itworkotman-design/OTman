@@ -7,7 +7,8 @@ import type { PickupSource } from "./PickupSourceStep";
 // WhiteGoodsOrderSummary next to these.
 
 export type ReviewRow = { label: string; value: string };
-export type ReviewBlock = { title: string; rows: ReviewRow[] };
+// "location" blocks (pickups, delivery) get a location pin on the review page.
+export type ReviewBlock = { kind: "location" | "contact"; title: string; rows: ReviewRow[] };
 
 export type ReviewPickup = {
   source: PickupSource | null;
@@ -45,7 +46,8 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
     rows.filter((row): row is [string, string] => !!row[1]?.trim()).map(([label, value]) => ({ label, value }));
 
   const numbered = input.pickups.length > 1;
-  const pickupBlocks = input.pickups.map((pickup, i) => ({
+  const pickupBlocks = input.pickups.map((pickup, i): ReviewBlock => ({
+    kind: "location",
     title: numbered ? `${t("Pickup", "Henting")} ${i + 1}` : t("Pickup", "Henting"),
     rows: present([
       [t("Picked up from", "Hentes fra"), pickup.source ? sourceLabel[pickup.source] : null],
@@ -60,6 +62,7 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
   return [
     ...pickupBlocks,
     {
+      kind: "location",
       title: t("Delivery", "Levering"),
       rows: present([
         [t("Address", "Adresse"), input.delivery.address],
@@ -70,6 +73,7 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
       ]),
     },
     {
+      kind: "contact",
       title: t("Your details", "Dine opplysninger"),
       rows: present([
         [t("Name", "Navn"), input.contact.name],
