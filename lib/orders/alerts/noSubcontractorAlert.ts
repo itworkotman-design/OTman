@@ -3,13 +3,26 @@ import { createOrderNotification } from "@/lib/orders/orderNotifications";
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
-export function buildNoSubcontractorAlert() {
+type NoSubcontractorAlertOptions = {
+  // Normalized order status the order sits in (e.g. "invoiced"). Defaults to
+  // "completed" — the original on-complete trigger.
+  status?: string;
+  // True when raised by the daily missing-partner cron rather than the
+  // status change itself.
+  overdue?: boolean;
+};
+
+export function buildNoSubcontractorAlert(options: NoSubcontractorAlertOptions = {}) {
+  const status = options.status || "completed";
+
   return {
     title: "No subcontractor selected",
-    message:
-      "Order was marked as completed without a subcontractor assigned. Assign a subcontractor before finalising.",
+    message: options.overdue
+      ? `Order has been marked as ${status} for more than a day without a subcontractor assigned. Assign a subcontractor before finalising.`
+      : `Order was marked as ${status} without a subcontractor assigned. Assign a subcontractor before finalising.`,
     payload: {
       kind: "NO_SUBCONTRACTOR_ON_COMPLETE" as const,
+      status,
     },
   };
 }
@@ -42,14 +55,16 @@ async function hasOpenNoSubcontractorAlert(
   });
 }
 
+// Dedup only looks at *open* alerts, so once an admin resolves one the daily
+// cron raises it again until a partner is actually set.
 export async function createNoSubcontractorAlert(
   prisma: PrismaLike,
-  input: { orderId: string; companyId: string },
+  input: { orderId: string; companyId: string } & NoSubcontractorAlertOptions,
 ) {
   const alreadyExists = await hasOpenNoSubcontractorAlert(prisma, input);
   if (alreadyExists) return null;
 
-  const alert = buildNoSubcontractorAlert();
+  const alert = buildNoSubcontractorAlert(input);
 
   return createOrderNotification(prisma, {
     orderId: input.orderId,

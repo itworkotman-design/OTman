@@ -247,6 +247,17 @@ const NB_TEXT: Record<string, string> = {
   "Export Excel": "Eksporter Excel",
   "The following orders were already sent to GSM and were sent again — GSM will handle any duplicates:":
     "Følgende bestillinger ble allerede sendt til GSM og ble sendt igjen — GSM håndterer eventuelle duplikater:",
+  "No partner selected": "Ingen partner valgt",
+  "You are setting the status to": "Du setter statusen til",
+  "without a partner.": "uten partner.",
+  "Leave without partner": "Fortsett uten partner",
+  "Choose partner": "Velg partner",
+  Cancel: "Avbryt",
+  Continue: "Fortsett",
+  "These orders will be set to": "Disse bestillingene blir satt til",
+  "without a partner:": "uten partner:",
+  "I'll fix it now": "Jeg fikser det nå",
+  Ignore: "Ignorer",
 };
 
 const NB_STATUS_LABELS: Record<string, string> = {

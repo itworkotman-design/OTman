@@ -45,6 +45,7 @@ import {
   createSubcontractorPriceAlert,
   createTodayDeliveryAlert,
 } from "@/lib/orders/alerts";
+import { cancelledOrderPartnerData } from "@/lib/orders/cancelledOrderPartner";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 import { buildWordpressExtraPickupContacts, getWordpressExtraPickupAddresses, toWordpressMetaRecord } from "@/lib/integrations/wordpress/orderMeta";
@@ -926,6 +927,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
   const nextPriceSubcontractor = pricingSnapshot.subcontractor.total;
 
+  // Cancelling an order with no partner fills in the configured placeholder
+  // partner (CANCELLED_ORDER_PARTNER_EMAIL); an empty object otherwise.
+  const cancelledPartner = await cancelledOrderPartnerData(prisma, {
+    companyId: existingOrder.companyId,
+    displayId: existingOrder.displayId,
+    previousStatus: existingOrder.status,
+    nextStatus: optionalString(body.status),
+    partner: {
+      subcontractorMembershipId: optionalString(body.subcontractorId),
+      subcontractor: optionalString(body.subcontractor),
+    },
+  });
+
   const previousSnapshot = buildOrderEventSnapshot(existingOrder);
   const nextSnapshot = buildOrderEventSnapshot({
     displayId: existingOrder.displayId,
@@ -957,7 +971,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     servicesSummary: summaries.servicesSummary,
     cashierName: patchedString(body.cashierName, existingOrder.cashierName),
     cashierPhone: body.cashierPhone === undefined ? existingOrder.cashierPhone : cashierPhone,
-    subcontractor: patchedString(body.subcontractor, existingOrder.subcontractor),
+    subcontractor: cancelledPartner.subcontractor ?? patchedString(body.subcontractor, existingOrder.subcontractor),
     driver: patchedString(body.driver, existingOrder.driver),
     secondDriver: patchedString(body.secondDriver, existingOrder.secondDriver),
     driverInfo: patchedString(body.driverInfo, existingOrder.driverInfo),
@@ -1030,8 +1044,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         cashierName: optionalString(body.cashierName),
         cashierPhone,
 
-        subcontractorMembershipId: optionalString(body.subcontractorId),
-        subcontractor: optionalString(body.subcontractor),
+        subcontractorMembershipId: cancelledPartner.subcontractorMembershipId ?? optionalString(body.subcontractorId),
+        subcontractor: cancelledPartner.subcontractor ?? optionalString(body.subcontractor),
 
         driver: optionalString(body.driver),
         secondDriver: optionalString(body.secondDriver),
@@ -1044,6 +1058,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
         feeAddToOrder: optionalBoolean(body.feeAddToOrder),
         statusNotes: optionalString(body.statusNotes),
         status: optionalString(body.status),
+        statusChangedAt:
+          normalizeOrderStatus(optionalString(body.status)) !== normalizedExistingStatus ? new Date() : undefined,
         completedAt: normalizeOrderStatus(optionalString(body.status)) === "completed" && !existingOrder.completedAt ? new Date() : existingOrder.completedAt,
         paidAt: normalizeOrderStatus(optionalString(body.status)) === "paid" && !existingOrder.paidAt ? new Date() : existingOrder.paidAt,
         invoicedAt: normalizeOrderStatus(optionalString(body.status)) === "invoiced" && !existingOrder.invoicedAt ? new Date() : existingOrder.invoicedAt,

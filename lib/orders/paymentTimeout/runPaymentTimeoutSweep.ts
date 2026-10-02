@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { createOrderStatusChangedEvent } from "@/lib/orders/orderEvents";
 import { sendLifecycleEmailsForOrders } from "@/lib/orders/sendCustomerLifecycleEmail";
+import { cancelledOrderPartnerData } from "@/lib/orders/cancelledOrderPartner";
 
 const REMINDER_DELAY_HOURS = 24;
 const CANCELLATION_DELAY_DAYS = 3;
@@ -105,7 +106,14 @@ async function cancelOverdueOrders(limit?: number): Promise<{ cancelled: number;
       isWebsiteOrder: true,
       paymentReminderSentAt: { lte: cutoff },
     },
-    select: { id: true, companyId: true, status: true },
+    select: {
+      id: true,
+      companyId: true,
+      displayId: true,
+      status: true,
+      subcontractorMembershipId: true,
+      subcontractor: true,
+    },
     orderBy: { paymentReminderSentAt: "asc" },
     take: limit,
   });
@@ -115,9 +123,20 @@ async function cancelOverdueOrders(limit?: number): Promise<{ cancelled: number;
 
   for (const order of candidates) {
     try {
+      const cancelledPartner = await cancelledOrderPartnerData(prisma, {
+        companyId: order.companyId,
+        displayId: order.displayId,
+        previousStatus: order.status,
+        nextStatus: "cancelled",
+        partner: {
+          subcontractorMembershipId: order.subcontractorMembershipId,
+          subcontractor: order.subcontractor,
+        },
+      });
+
       await prisma.order.update({
         where: { id: order.id },
-        data: { status: "cancelled" },
+        data: { status: "cancelled", ...cancelledPartner },
       });
 
       await createOrderStatusChangedEvent(prisma, {

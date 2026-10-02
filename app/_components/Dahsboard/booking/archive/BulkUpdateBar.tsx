@@ -3,10 +3,20 @@
 import { useEffect, useState } from "react";
 import { bookingText, bookingStatusText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { ORDER_STATUS_OPTIONS } from "@/lib/orders/statusPresentation";
+import { findOrdersMissingPartner, requiresPartner } from "@/lib/orders/partnerRequirement";
+import MissingPartnerDialog from "@/app/_components/Dahsboard/booking/MissingPartnerDialog";
 import type { BookingArchiveOption } from "./types";
+
+type SelectedOrder = {
+  id: string;
+  displayId: number;
+  subcontractorMembershipId?: string | null;
+  subcontractor?: string | null;
+};
 
 type Props = {
   selectedCount: number;
+  selectedOrders: SelectedOrder[];
   subcontractors: BookingArchiveOption[];
   onApply: (payload: {
     status?: string;
@@ -22,6 +32,7 @@ const STATUS_OPTIONS = ORDER_STATUS_OPTIONS;
 
 export default function BulkUpdateBar({
   selectedCount,
+  selectedOrders,
   subcontractors,
   onApply,
   onClear,
@@ -33,6 +44,7 @@ export default function BulkUpdateBar({
   const [status, setStatus] = useState("");
   const [subcontractorId, setSubcontractorId] = useState("");
   const [successFlash, setSuccessFlash] = useState(false);
+  const [missingPartnerLabels, setMissingPartnerLabels] = useState<string[]>([]);
 
   const disabled = selectedCount === 0 || loading;
   const canApply = !!status || !!subcontractorId;
@@ -49,12 +61,36 @@ export default function BulkUpdateBar({
 
   async function handleApplyClick() {
     if (disabled || !canApply) return;
+
+    // Moving orders into failed/completed/invoiced/paid without picking a bulk
+    // partner: list the ones that still have none and let the admin decide.
+    if (requiresPartner(status) && !subcontractorId) {
+      const missing = findOrdersMissingPartner(selectedOrders);
+      if (missing.length > 0) {
+        setMissingPartnerLabels(missing.map((order) => `#${order.displayId}`));
+        return;
+      }
+    }
+
     const confirmMsg =
       locale === "nb"
         ? `Oppdater ${selectedCount} bestillinger?`
         : `Update ${selectedCount} orders?`;
     if (!confirm(confirmMsg)) return;
 
+    await applyBulkUpdate();
+  }
+
+  function closeMissingPartnerDialog() {
+    setMissingPartnerLabels([]);
+  }
+
+  async function handleIgnoreMissingPartner() {
+    setMissingPartnerLabels([]);
+    await applyBulkUpdate();
+  }
+
+  async function applyBulkUpdate() {
     const ok = await onApply({
       status: status || undefined,
       subcontractorId: subcontractorId || undefined,
@@ -198,6 +234,17 @@ export default function BulkUpdateBar({
       </div>
 
       {error ? <div className="mt-3 text-sm font-medium text-red-600">{error}</div> : null}
+
+      <MissingPartnerDialog
+        mode="bulk"
+        open={missingPartnerLabels.length > 0}
+        status={status}
+        missingOrderLabels={missingPartnerLabels}
+        onIgnore={handleIgnoreMissingPartner}
+        onFixNow={closeMissingPartnerDialog}
+        onCancel={closeMissingPartnerDialog}
+        locale={locale}
+      />
     </section>
   );
 }

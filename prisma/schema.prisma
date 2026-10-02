@@ -585,6 +585,12 @@ model Order {
   isWebsiteOrder           Boolean   @default(false)
   approvedAt               DateTime?
   rejectedAt               DateTime?
+  // Last time `status` actually changed via the order editor, bulk update or
+  // GSM webhook (the paths that can set failed/completed/invoiced/paid). Drives
+  // the daily missing-partner alert cron. Defaults to now() for new orders;
+  // existing rows were backfilled from order history. Never derive this from
+  // updatedAt — notification activity bumps that.
+  statusChangedAt          DateTime? @default(now())
   actionToken              String?   @unique
   stripeCheckoutSessionId  String?
   stripePaymentIntentId    String?
@@ -596,6 +602,7 @@ model Order {
   @@unique([recurringOrderTemplateId, recurringOrderOccurrenceDate])
   @@index([companyId, createdAt])
   @@index([status])
+  @@index([status, statusChangedAt])
   @@index([deliveryDate])
   @@index([customerMembershipId])
   @@index([subcontractorMembershipId])

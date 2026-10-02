@@ -43,6 +43,8 @@ import { appendImpreciseAddressNote, isStreetOnlyMatch, type AddressSelectionMet
 import { shouldClearWordpressImportReadOnly } from "@/lib/booking/wordpressReadOnlyCleanup";
 import { parseNokAdjustment } from "@/lib/orders/orderTotals";
 import { deriveDiscountSync } from "@/lib/booking/pricing/discountSync";
+import { shouldPromptForPartner } from "@/lib/orders/partnerRequirement";
+import MissingPartnerDialog from "@/app/_components/Dahsboard/booking/MissingPartnerDialog";
 
 export type OrderFormPayload = {
   productCards: SavedProductCard[];
@@ -156,6 +158,7 @@ type Props = {
   isOrderCreator: boolean;
   initialValues?: Partial<OrderFormPayload> & {
     id?: string;
+    displayId?: number;
     legacyWordpressOrderId?: number | null;
     legacyWordpressDrivingDistance?: string | null;
   };
@@ -462,6 +465,7 @@ export default function BookingEditor({
   const [cashierName, setCashierName] = useState(initialValues?.cashierName ?? "");
   const [cashierPhone, setCashierPhone] = useState(initialValues?.cashierPhone ?? "");
   const [subcontractorId, setSubcontractorId] = useState(initialValues?.subcontractorId ?? "");
+  const [partnerPromptOpen, setPartnerPromptOpen] = useState(false);
   const [driver, setDriver] = useState(initialValues?.driver ?? "");
   const [secondDriver, setSecondDriver] = useState(initialValues?.secondDriver ?? "");
   const [driverInfo, setDriverInfo] = useState(initialValues?.driverInfo ?? "");
@@ -1514,7 +1518,6 @@ export default function BookingEditor({
   const hadVisibleReturnAddressRef = useRef(shouldShowReturnAddress);
   const previousReturnDefaultIdRef = useRef<string | null>(null);
 
-  const selectedSubcontractor = useMemo(() => subcontractorOptions.find((option) => option.id === subcontractorId), [subcontractorId, subcontractorOptions]);
   const selectedCustomerOption = useMemo(() => {
     if (customerMembershipId) {
       return changeCustomerOptions.find((option) => option.id === customerMembershipId) ?? null;
@@ -2059,10 +2062,9 @@ export default function BookingEditor({
     void loadAttachments();
   }, [existingOrderId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    // Must come first: returning before this lets the browser submit the form
-    // natively, which reloads the page and wipes everything entered.
-    e.preventDefault();
+  // partnerChoice is set once the admin has answered the missing-partner
+  // dialog: null = leave without partner, string = chosen partner membership id.
+  const submitOrder = async (partnerChoice?: { subcontractorId: string | null }) => {
     if (isOrderCreator && capacityWarning?.isHardLimitReached) {
       setSubmitError(capacityWarning.message);
       return;
@@ -2127,6 +2129,22 @@ export default function BookingEditor({
       pricingSnapshot: appliedPricingSnapshot,
     }));
 
+    if (
+      !partnerChoice &&
+      shouldPromptForPartner({
+        status,
+        initialStatus: initialValues?.status,
+        subcontractorId,
+        displayId: initialValues?.displayId,
+      })
+    ) {
+      setPartnerPromptOpen(true);
+      return;
+    }
+
+    const submitSubcontractorId = partnerChoice?.subcontractorId ?? subcontractorId;
+    const submitSubcontractor = subcontractorOptions.find((option) => option.id === submitSubcontractorId);
+
     const payload: OrderFormPayload = {
       productCards: productCardsForSubmit,
 
@@ -2170,8 +2188,8 @@ export default function BookingEditor({
       cashierName,
       cashierPhone: normalizedCashierPhone,
 
-      subcontractorId,
-      subcontractor: selectedSubcontractor?.name ?? "",
+      subcontractorId: submitSubcontractorId,
+      subcontractor: submitSubcontractor?.name ?? "",
       driver,
       secondDriver,
       driverInfo,
@@ -2243,6 +2261,26 @@ export default function BookingEditor({
       setSaving(false);
     }
   };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    // Must come first: returning before this lets the browser submit the form
+    // natively, which reloads the page and wipes everything entered.
+    e.preventDefault();
+    await submitOrder();
+  };
+
+  const handleLeaveWithoutPartner = () => {
+    setPartnerPromptOpen(false);
+    void submitOrder({ subcontractorId: null });
+  };
+
+  const handleChoosePartner = (partnerId: string) => {
+    setPartnerPromptOpen(false);
+    setSubcontractorId(partnerId);
+    void submitOrder({ subcontractorId: partnerId });
+  };
+
+  const closePartnerPrompt = useCallback(() => setPartnerPromptOpen(false), []);
 
   // Auto-enable express delivery for new orders only; saved orders keep their persisted value.
   useEffect(() => {
@@ -2554,6 +2592,17 @@ export default function BookingEditor({
           />
         </div>
       </div>
+
+      <MissingPartnerDialog
+        mode="single"
+        open={partnerPromptOpen}
+        status={status}
+        partners={subcontractorOptions.map((option) => ({ id: option.id, label: option.name }))}
+        onLeaveWithoutPartner={handleLeaveWithoutPartner}
+        onChoosePartner={handleChoosePartner}
+        onCancel={closePartnerPrompt}
+        locale={locale}
+      />
     </form>
   );
 }

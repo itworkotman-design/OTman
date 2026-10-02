@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   createManyOrderStatusChangedEventsMock: vi.fn(),
   createOrderUpdatedEventMock: vi.fn(),
   diffOrderEventSnapshotsMock: vi.fn(),
+  findCancelledOrderPartnerMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -41,6 +42,10 @@ vi.mock("@/lib/orders/orderEvents", () => ({
   diffOrderEventSnapshots: mocks.diffOrderEventSnapshotsMock,
 }));
 
+vi.mock("@/lib/orders/cancelledOrderPartner", () => ({
+  findCancelledOrderPartner: mocks.findCancelledOrderPartnerMock,
+}));
+
 import { PATCH } from "./route";
 
 describe("PATCH /api/orders/bulk", () => {
@@ -61,6 +66,7 @@ describe("PATCH /api/orders/bulk", () => {
     mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
     mocks.orderNotificationUpdateManyMock.mockResolvedValue({ count: 0 });
     mocks.orderUpdateMock.mockResolvedValue({});
+    mocks.findCancelledOrderPartnerMock.mockResolvedValue(null);
   });
 
   it("returns 400 when no valid order ids are provided", async () => {
@@ -243,7 +249,8 @@ describe("PATCH /api/orders/bulk", () => {
       updatedCount: 2,
       skippedHeldCount: 0,
     });
-    expect(mocks.orderUpdateManyMock).toHaveBeenCalledTimes(1);
+    // Main update + statusChangedAt stamp; nothing touches discount fields.
+    expect(mocks.orderUpdateManyMock).toHaveBeenCalledTimes(2);
     expect(mocks.orderUpdateManyMock).toHaveBeenCalledWith({
       where: {
         id: { in: ["order-1", "order-2"] },
@@ -253,6 +260,10 @@ describe("PATCH /api/orders/bulk", () => {
         status: "active",
         lastEditedByMembershipId: "membership-1",
       },
+    });
+    expect(mocks.orderUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["order-1", "order-2"] }, companyId: "company-1" },
+      data: { statusChangedAt: expect.any(Date) },
     });
     expect(mocks.createOrderUpdatedEventMock).not.toHaveBeenCalled();
     expect(mocks.createManyOrderStatusChangedEventsMock).toHaveBeenCalledWith(
@@ -394,6 +405,113 @@ describe("PATCH /api/orders/bulk", () => {
     expect(mocks.orderUpdateManyMock).toHaveBeenNthCalledWith(2, {
       where: { id: { in: ["order-1"] }, companyId: "company-1" },
       data: { paidAt: expect.any(Date) },
+    });
+  });
+
+  it("stamps statusChangedAt only for orders whose status actually changes", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "OWNER",
+      user: { username: "Owner", email: "owner@example.com" },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        companyId: "company-1",
+        status: "ferdig",
+        statusNotes: "",
+        gdprHold: false,
+      },
+      {
+        id: "order-2",
+        companyId: "company-1",
+        status: "confirmed",
+        statusNotes: "",
+        gdprHold: false,
+      },
+    ]);
+    mocks.orderUpdateManyMock.mockResolvedValue({ count: 2 });
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/bulk", {
+        method: "PATCH",
+        body: JSON.stringify({
+          orderIds: ["order-1", "order-2"],
+          status: "completed",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    // order-1 is already completed (legacy "ferdig"), so only order-2 gets stamped.
+    expect(mocks.orderUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["order-2"] }, companyId: "company-1" },
+      data: { statusChangedAt: expect.any(Date) },
+    });
+    expect(mocks.orderUpdateManyMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { in: expect.arrayContaining(["order-1"]) } }),
+        data: { statusChangedAt: expect.any(Date) },
+      }),
+    );
+  });
+
+  describe("cancelled-order partner", () => {
+    function setup() {
+      mocks.getAuthenticatedSessionMock.mockResolvedValue({
+        userId: "user-1",
+        activeCompanyId: "company-1",
+      });
+      mocks.membershipFindFirstMock.mockResolvedValue({
+        id: "membership-1",
+        role: "OWNER",
+        user: { username: "Owner", email: "owner@example.com" },
+      });
+      mocks.orderFindManyMock.mockResolvedValue([
+        { id: "no-partner", displayId: 20100, companyId: "company-1", status: "approved", statusNotes: "", subcontractorMembershipId: null, subcontractor: null, gdprHold: false },
+        { id: "has-partner", companyId: "company-1", status: "approved", statusNotes: "", subcontractorMembershipId: "m-real", subcontractor: "Real", gdprHold: false },
+        { id: "already-cancelled", companyId: "company-1", status: "kanselert", statusNotes: "", subcontractorMembershipId: null, subcontractor: null, gdprHold: false },
+        { id: "legacy", displayId: 1234, companyId: "company-1", status: "approved", statusNotes: "", subcontractorMembershipId: null, subcontractor: null, gdprHold: false },
+      ]);
+      mocks.orderUpdateManyMock.mockResolvedValue({ count: 3 });
+      mocks.findCancelledOrderPartnerMock.mockResolvedValue({
+        subcontractorMembershipId: "membership-cancelled",
+        subcontractor: "Kansellert",
+      });
+    }
+
+    function bulk(body: Record<string, unknown>) {
+      return PATCH(
+        new Request("http://localhost/api/orders/bulk", {
+          method: "PATCH",
+          body: JSON.stringify({ orderIds: ["no-partner", "has-partner", "already-cancelled", "legacy"], ...body }),
+        }),
+      );
+    }
+
+    it("fills the placeholder partner only on orders moving into cancelled without one", async () => {
+      setup();
+
+      const res = await bulk({ status: "cancelled" });
+
+      expect(res.status).toBe(200);
+      expect(mocks.findCancelledOrderPartnerMock).toHaveBeenCalledWith(expect.anything(), "company-1");
+      expect(mocks.orderUpdateManyMock).toHaveBeenCalledWith({
+        where: { id: { in: ["no-partner"] }, companyId: "company-1" },
+        data: { subcontractorMembershipId: "membership-cancelled", subcontractor: "Kansellert" },
+      });
+    });
+
+    it("does not look up the placeholder when a bulk partner is chosen", async () => {
+      setup();
+
+      await bulk({ status: "cancelled", subcontractorId: "m-real" });
+
+      expect(mocks.findCancelledOrderPartnerMock).not.toHaveBeenCalled();
     });
   });
 });

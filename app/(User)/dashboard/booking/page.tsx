@@ -68,6 +68,10 @@ export default function BookingPage() {
   const [columnModalOpen, setColumnModalOpen] = useState(false);
 
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const selectedOrders = useMemo(() => {
+    const selected = new Set(selectedOrderIds);
+    return orders.filter((order) => selected.has(order.id));
+  }, [orders, selectedOrderIds]);
   const [pricelists, setPricelists] = useState<BookingArchiveOption[]>([]);
   // ADMIN always sees the Pricelist column/filter; subcontractors and order
   // creators see it only once their own visible orders actually span more
@@ -706,6 +710,7 @@ export default function BookingPage() {
           <>
             <BulkUpdateBar
               selectedCount={selectedOrderIds.length}
+              selectedOrders={selectedOrders}
               subcontractors={subcontractors}
               onApply={handleBulkApply}
               onClear={() => setSelectedOrderIds([])}

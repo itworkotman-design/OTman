@@ -218,6 +218,8 @@ describe("POST /api/integrations/gsm/webhook", () => {
         status: "processing", // unchanged
       }),
     });
+    // Status didn't change, so the missing-partner clock isn't reset.
+    expect(mocks.orderUpdateMock.mock.calls[0][0].data.statusChangedAt).toBeUndefined();
     expect(mocks.createOrderStatusChangedEventMock).not.toHaveBeenCalled();
     expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
       expect.any(Object),
@@ -519,7 +521,8 @@ describe("POST /api/integrations/gsm/webhook", () => {
     expect(response.status).toBe(200);
     expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
       where: { id: "order-1" },
-      data: expect.objectContaining({ status: "completed" }),
+      // statusChangedAt feeds the daily missing-partner cron for GSM-completed orders too.
+      data: expect.objectContaining({ status: "completed", statusChangedAt: expect.any(Date) }),
     });
     expect(mocks.createOrderActionEventMock).not.toHaveBeenCalled();
   });

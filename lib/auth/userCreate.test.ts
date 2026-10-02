@@ -34,6 +34,12 @@ vi.mock("@/lib/auth/password", () => ({
   hashPassword: mocks.hashPasswordMock,
 }));
 
+// The real module opens the archive DB client at import time, which throws
+// without ARCHIVE_DATABASE_URL (Vitest doesn't load .env files).
+vi.mock("@/lib/docArchive/roleSync", () => ({
+  syncArchiveRoleAssignment: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { createUserWithPassword } from "./userCreate";
 
 describe("createUserWithPassword", () => {

@@ -482,7 +482,10 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
     });
   });
 
-  it("returns 200, changes role, revokes sessions, and logs MEMBERSHIP_ROLE_CHANGED for ADMIN actor changing USER to ADMIN", async () => {
+  // Tier model: only an Owner may promote someone off USER. A non-owner with
+  // USER_MANAGEMENT at ADMIN level can manage plain USER members but never
+  // grant ADMIN (see the comment in route.ts).
+  it("returns 403 and FORBIDDEN when a non-owner ADMIN tries to promote USER to ADMIN", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       sessionId: "session-1",
       userId: "u1",
@@ -504,7 +507,7 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
       companyId: "c1",
       role: "ADMIN",
       status: "ACTIVE",
-    appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
+      appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
     });
 
     const req = new Request("http://localhost/api/auth/memberships/m2/role", {
@@ -516,31 +519,10 @@ describe("POST /api/auth/memberships/[membershipId]/role", () => {
       params: Promise.resolve({ membershipId: "m2" }),
     });
 
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({ ok: true });
-
-    expect(mocks.updateManyMock).toHaveBeenCalledWith({
-      where: {
-        id: "m2",
-        status: "ACTIVE",
-      },
-      data: {
-        role: "ADMIN",
-      },
-    });
-
-    expect(mocks.revokeAllUserSessionsMock).toHaveBeenCalledWith("u2");
-
-    expect(mocks.logAuthEventMock).toHaveBeenCalledWith({
-      type: AuthEventType.MEMBERSHIP_ROLE_CHANGED,
-      userId: "u2",
-      companyId: "c1",
-      meta: {
-        membershipId: "m2",
-        previousRole: "USER",
-        newRole: "ADMIN",
-        actorUserId: "u1",
-      },
-    });
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({ ok: false, reason: "FORBIDDEN" });
+    expect(mocks.updateManyMock).not.toHaveBeenCalled();
+    expect(mocks.revokeAllUserSessionsMock).not.toHaveBeenCalled();
+    expect(mocks.logAuthEventMock).not.toHaveBeenCalled();
   });
 });

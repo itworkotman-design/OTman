@@ -457,6 +457,10 @@ export async function POST(req: Request) {
         gsmLastTaskState: taskState ?? undefined,
         gsmLastWebhookAt: new Date(),
         status: nextStatus ?? undefined,
+        statusChangedAt:
+          nextStatus && normalizeOrderStatus(nextStatus) !== normalizeOrderStatus(orderBeforeUpdate.status)
+            ? new Date()
+            : undefined,
       },
     });
 

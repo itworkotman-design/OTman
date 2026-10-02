@@ -51,6 +51,12 @@ vi.mock("@/lib/auth/authEvent", () => ({
   logAuthEvent: mocks.logAuthEventMock,
 }));
 
+// The real module opens the archive DB client at import time, which throws
+// without ARCHIVE_DATABASE_URL (Vitest doesn't load .env files).
+vi.mock("@/lib/docArchive/roleSync", () => ({
+  syncArchiveRoleAssignment: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { acceptInvite } from "./inviteAccept";
 
 describe("acceptInvite", () => {

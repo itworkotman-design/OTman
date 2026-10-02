@@ -10,6 +10,8 @@ import {
 } from "@/lib/orders/orderEvents";
 import { resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { findCancelledOrderPartner } from "@/lib/orders/cancelledOrderPartner";
+import { hasPartner, isPartnerTrackedOrder } from "@/lib/orders/partnerRequirement";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 
 export async function PATCH(req: Request) {
@@ -223,6 +225,7 @@ export async function PATCH(req: Request) {
       cashierName: true,
       cashierPhone: true,
       subcontractor: true,
+      subcontractorMembershipId: true,
       driver: true,
       secondDriver: true,
       driverInfo: true,
@@ -336,6 +339,44 @@ export async function PATCH(req: Request) {
       where: { id: { in: needsRejectedAtStamp }, companyId: session.activeCompanyId },
       data: { rejectedAt: new Date() },
     });
+  }
+
+  const needsStatusChangedAtStamp = normalizedStatus
+    ? effectiveOrdersBeforeUpdate
+        .filter((order) => normalizeOrderStatus(order.status) !== normalizedStatus)
+        .map((order) => order.id)
+    : [];
+
+  if (needsStatusChangedAtStamp.length > 0) {
+    await prisma.order.updateMany({
+      where: { id: { in: needsStatusChangedAtStamp }, companyId: session.activeCompanyId },
+      data: { statusChangedAt: new Date() },
+    });
+  }
+
+  // Cancelling without choosing a bulk partner: orders that still have no
+  // partner get the configured placeholder (CANCELLED_ORDER_PARTNER_EMAIL).
+  if (normalizedStatus === "cancelled" && !subcontractorId) {
+    const needsCancelledPartner = effectiveOrdersBeforeUpdate
+      .filter(
+        (order) =>
+          isPartnerTrackedOrder(order.displayId) &&
+          normalizeOrderStatus(order.status) !== "cancelled" &&
+          !hasPartner(order),
+      )
+      .map((order) => order.id);
+
+    const cancelledPartner =
+      needsCancelledPartner.length > 0
+        ? await findCancelledOrderPartner(prisma, session.activeCompanyId)
+        : null;
+
+    if (cancelledPartner) {
+      await prisma.order.updateMany({
+        where: { id: { in: needsCancelledPartner }, companyId: session.activeCompanyId },
+        data: cancelledPartner,
+      });
+    }
   }
 
   // actionToken must be unique per row, so it can't go through updateMany —

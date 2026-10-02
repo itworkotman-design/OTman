@@ -106,6 +106,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     isWebsiteOrder: false,
     approvedAt: null,
     rejectedAt: null,
+    statusChangedAt: null,
     actionToken: null,
     stripeCheckoutSessionId: null,
     stripePaymentIntentId: null,

@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   resolveOutdatedCapacityNotificationsMock: vi.fn(),
   resolveAllOrderNotificationsMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
+  cancelledOrderPartnerDataMock: vi.fn(),
   priceListFindUniqueMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
   orderDeleteManyMock: vi.fn(),
@@ -63,6 +64,10 @@ vi.mock("@/lib/orders/orderNotifications", () => ({
   resolveAllOrderNotifications: mocks.resolveAllOrderNotificationsMock,
   resolveOutdatedCapacityNotifications:
     mocks.resolveOutdatedCapacityNotificationsMock,
+}));
+
+vi.mock("@/lib/orders/cancelledOrderPartner", () => ({
+  cancelledOrderPartnerData: mocks.cancelledOrderPartnerDataMock,
 }));
 
 vi.mock("@/lib/pickupAddresses/visibility", () => ({
@@ -121,6 +126,7 @@ describe("routes in /api/orders/[orderId]", () => {
     mocks.orderNotificationFindManyMock.mockResolvedValue([]);
     mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
     mocks.orderUpdateMock.mockResolvedValue({ id: "order-1" });
+    mocks.cancelledOrderPartnerDataMock.mockResolvedValue({});
     mocks.transactionMock.mockImplementation(async (callback) =>
       callback({
         order: {
@@ -2191,6 +2197,101 @@ describe("routes in /api/orders/[orderId]", () => {
     await expect(res.json()).resolves.toEqual({
       ok: false,
       reason: "ORDER_NOT_FOUND",
+    });
+  });
+
+  describe("PATCH statusChangedAt", () => {
+    function setupExistingOrder(status: string) {
+      mocks.getAuthenticatedSessionMock.mockResolvedValue({
+        userId: "user-1",
+        activeCompanyId: "company-1",
+      });
+      mocks.membershipFindFirstMock.mockResolvedValue({
+        id: "membership-1",
+        role: "ADMIN",
+        priceListId: "price-list-1",
+        user: { username: "admin", email: "admin@example.com" },
+        permissions: [{ permission: "BOOKING_CREATE" }],
+      });
+      mocks.orderFindFirstMock.mockResolvedValue({
+        id: "order-1",
+        companyId: "company-1",
+        displayId: 22593,
+        orderNumber: "11191323551",
+        productCardsSnapshot: [],
+        priceListId: "price-list-1",
+        customerMembershipId: "membership-2",
+        customerLabel: "POWER Slependen",
+        createdAt: new Date("2026-04-01T00:00:00.000Z"),
+        status,
+        statusNotes: "",
+        statusChangedAt: null,
+        deliveryDate: "2026-05-01",
+        timeWindow: "",
+        expressDelivery: false,
+        contactCustomerForCustomTimeWindow: false,
+        customTimeContactNote: null,
+        pickupAddress: "Old pickup",
+        extraPickupAddress: [],
+        deliveryAddress: "Old delivery",
+        returnAddress: "",
+        gsmLastTaskState: null,
+      });
+    }
+
+    async function patchStatus(status: string) {
+      return PATCH(
+        new Request("http://localhost/api/orders/order-1", {
+          method: "PATCH",
+          body: JSON.stringify({ status, productCards: [{ cardId: 1, productId: "product-1" }] }),
+        }),
+        { params: Promise.resolve({ orderId: "order-1" }) },
+      );
+    }
+
+    it("stamps statusChangedAt when the status changes", async () => {
+      setupExistingOrder("confirmed");
+
+      const res = await patchStatus("completed");
+
+      expect(res.status).toBe(200);
+      const data = mocks.orderUpdateMock.mock.calls[0][0].data;
+      expect(data.statusChangedAt).toBeInstanceOf(Date);
+    });
+
+    it("fills in the cancelled-order partner when cancelling an order without one", async () => {
+      setupExistingOrder("approved");
+      mocks.cancelledOrderPartnerDataMock.mockResolvedValue({
+        subcontractorMembershipId: "membership-cancelled",
+        subcontractor: "Kansellert",
+      });
+
+      const res = await patchStatus("cancelled");
+
+      expect(res.status).toBe(200);
+      expect(mocks.cancelledOrderPartnerDataMock).toHaveBeenCalledWith(expect.anything(), {
+        companyId: "company-1",
+        displayId: 22593,
+        previousStatus: "approved",
+        nextStatus: "cancelled",
+        partner: { subcontractorMembershipId: null, subcontractor: null },
+      });
+      const data = mocks.orderUpdateMock.mock.calls[0][0].data;
+      expect(data.subcontractorMembershipId).toBe("membership-cancelled");
+      expect(data.subcontractor).toBe("Kansellert");
+      expect(mocks.buildOrderEventSnapshotMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ subcontractor: "Kansellert" }),
+      );
+    });
+
+    it("leaves statusChangedAt alone when the status is unchanged (incl. legacy alias)", async () => {
+      setupExistingOrder("ferdig");
+
+      const res = await patchStatus("completed");
+
+      expect(res.status).toBe(200);
+      const data = mocks.orderUpdateMock.mock.calls[0][0].data;
+      expect(data.statusChangedAt).toBeUndefined();
     });
   });
 });
