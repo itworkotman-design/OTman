@@ -194,3 +194,18 @@ export function hasEnteredOrderOrContactDetails(fields: {
 }): boolean {
   return Object.values(fields).some((value) => value.trim().length > 0);
 }
+
+// Whether the pickup-contact step going unready should leave the steps after
+// it on screen. Only an unresolved split (more locations, product assignment)
+// is protected, and only once those steps have content — clearing one of the
+// first pickup's own fields always retracts them, since a section can't be
+// moved past until it's complete.
+export function keepsLaterStepsOnPickupRetract({
+  firstPickupReady,
+  laterDetailsEntered,
+}: {
+  firstPickupReady: boolean;
+  laterDetailsEntered: boolean;
+}): boolean {
+  return firstPickupReady && laterDetailsEntered;
+}

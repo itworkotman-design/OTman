@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -29,6 +29,10 @@ export type StepSection = {
   // again, e.g. to clear a one-off answer that would otherwise still show as
   // picked once the section is revealed again.
   onRetract?: () => void;
+  // Leaves extra room below this section while it's the bottom-most one, for
+  // a dropdown (e.g. address autocomplete) that would otherwise open past the
+  // modal's bottom edge.
+  bottomSpace?: boolean;
   render: (props: StepSectionRenderProps) => ReactNode;
 };
 
@@ -326,6 +330,14 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
                   </div>
                 ),
               }))}
+            />
+            {/* Room below the last revealed section, when it asks for it
+                (StepSection.bottomSpace), so a dropdown opened near the bottom
+                (e.g. the address autocomplete, max-h-72) mostly fits on screen
+                instead of pushing the content into a scroll. */}
+            <div
+              aria-hidden
+              className={`transition-[height] duration-300 ease-in-out ${showsBottomSpace(visibleSections) ? "h-40" : "h-0"}`}
             />
           </div>
           </div>

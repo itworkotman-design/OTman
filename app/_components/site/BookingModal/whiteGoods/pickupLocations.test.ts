@@ -5,6 +5,7 @@ import {
   groupByCategory,
   hasEnteredOrderOrContactDetails,
   isPickupLocationReady,
+  keepsLaterStepsOnPickupRetract,
   nextPickupLocationId,
   orderedCardIds,
   poolsForLocations,
@@ -214,6 +215,20 @@ describe("hasEnteredOrderOrContactDetails", () => {
   it("is true once any field has real content", () => {
     expect(hasEnteredOrderOrContactDetails({ ...blank, deliveryAddress: "Storgata 2" })).toBe(true);
     expect(hasEnteredOrderOrContactDetails({ ...blank, name: "Kari" })).toBe(true);
+  });
+});
+
+describe("keepsLaterStepsOnPickupRetract", () => {
+  it("keeps them when only the split is unresolved and they already have content", () => {
+    expect(keepsLaterStepsOnPickupRetract({ firstPickupReady: true, laterDetailsEntered: true })).toBe(true);
+  });
+
+  it("retracts once the first pickup's own fields are cleared, even with later content", () => {
+    expect(keepsLaterStepsOnPickupRetract({ firstPickupReady: false, laterDetailsEntered: true })).toBe(false);
+  });
+
+  it("retracts when the later steps are still blank", () => {
+    expect(keepsLaterStepsOnPickupRetract({ firstPickupReady: true, laterDetailsEntered: false })).toBe(false);
   });
 });
 

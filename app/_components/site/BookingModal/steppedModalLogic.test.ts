@@ -3,6 +3,7 @@ import {
   heightHoldAction,
   nextRevealedCount,
   progressPercent,
+  showsBottomSpace,
   retractedRevealedCount,
   retractedSectionIndices,
   shownSectionIds,
@@ -144,5 +145,23 @@ describe("retractedSectionIndices", () => {
   it("is empty when nothing was revealed after it", () => {
     expect(retractedSectionIndices(3, 2)).toEqual([]);
     expect(retractedSectionIndices(2, 4)).toEqual([]);
+  });
+});
+
+describe("showsBottomSpace", () => {
+  it("is true when the last shown section asks for it", () => {
+    expect(showsBottomSpace([{ id: "a" }, { id: "pickup", bottomSpace: true }])).toBe(true);
+  });
+
+  it("is false once a later section is revealed after it", () => {
+    expect(showsBottomSpace([{ id: "pickup", bottomSpace: true }, { id: "details" }])).toBe(false);
+  });
+
+  it("skips hidden sections when finding the last shown one", () => {
+    expect(showsBottomSpace([{ id: "pickup", bottomSpace: true }, { id: "opts", hidden: true }])).toBe(true);
+  });
+
+  it("is false with no sections", () => {
+    expect(showsBottomSpace([])).toBe(false);
   });
 });
