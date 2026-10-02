@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
-import OrderModal from "@/app/_components/Dahsboard/booking/OrderModal";
+import DashboardOrderModal from "@/app/_components/Dahsboard/booking/DashboardOrderModal";
 import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadOnlyOrderModal";
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
@@ -823,7 +823,7 @@ export default function BookingPage() {
       </div>
 
       {access.viewMode === "ADMIN" ? (
-        <OrderModal
+        <DashboardOrderModal
           orderId={selectedOrderId}
           open={modalOpen}
           onClose={() => {

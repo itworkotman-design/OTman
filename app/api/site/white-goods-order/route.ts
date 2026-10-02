@@ -29,6 +29,7 @@ import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
 import { costliestFloor, parseFloorNumber } from "@/lib/booking/floorNumber";
 import { buildWebsiteOrderNoteLines, buildWebsiteOrderTextFields } from "@/lib/orders/websiteOrderNotes";
+import { buildWhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import {
   applyWhiteGoodsExtraUnitCharges,
   buildWhiteGoodsExtraUnitOrderItems,
@@ -294,12 +295,41 @@ async function createWhiteGoodsOrder(
 
   // Only non-empty once the order was actually split across more than one
   // pickup address — see websiteExtraPickupLocations.ts.
+  const firstLocationProductNames = Array.isArray(body.pickupProductNames)
+    ? (body.pickupProductNames as unknown[]).filter((n): n is string => typeof n === "string" && n.trim().length > 0)
+    : [];
   const multiPickupNoteParts = buildMultiPickupDescriptionLines({
     firstLocationAddress: str(body.pickupAddress),
-    firstLocationProductNames: Array.isArray(body.pickupProductNames)
-      ? (body.pickupProductNames as unknown[]).filter((n): n is string => typeof n === "string" && n.trim().length > 0)
-      : [],
+    firstLocationProductNames,
     extraLocations: extraPickupLocations,
+  });
+
+  // Structured copy of what the customer entered, for the admin
+  // WebsiteOrderModal (see websiteBookingDetails.ts).
+  const websiteBookingDetails = buildWhiteGoodsBookingDetails({
+    customerType: body.customerType,
+    firstPickup: {
+      source: body.pickupSource,
+      placeName: pickupPlaceNameStr,
+      address: str(body.pickupAddress),
+      floor: pickupFloor,
+      liftAvailable: pickupLiftAvailable,
+      contactName: pickupContactNameStr,
+      contactPhone: pickupContactPhoneStr,
+      productNames: firstLocationProductNames,
+    },
+    extraPickups: extraPickupLocations,
+    delivery: { address: str(body.deliveryAddress), floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
+    preferredDate: str(body.preferredDate),
+    timeWindow: str(body.timeWindow),
+    drivingDistance: drivingDistanceStr || null,
+    // Same lines the homepage summary shows (WhiteGoodsBookingFlow's
+    // orderExtraLines).
+    orderExtras: (pricingResult.breakdowns.find((b) => b.isOrderExtras)?.lines ?? []).map((line) => ({
+      label: line.label,
+      price: line.lineTotal,
+      qty: line.qty,
+    })),
   });
 
   const order = await prisma.order.create({
@@ -312,6 +342,8 @@ async function createWhiteGoodsOrder(
       orderNumber,
       status: "processing",
       isWebsiteOrder: true,
+      websiteOrderKind: "WHITE_GOODS",
+      websiteBookingDetails: websiteBookingDetails as unknown as Prisma.InputJsonValue,
       pickupAddress: str(body.pickupAddress),
       deliveryAddress: str(body.deliveryAddress),
       customerName: str(body.name),

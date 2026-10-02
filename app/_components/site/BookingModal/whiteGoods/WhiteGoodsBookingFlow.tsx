@@ -691,6 +691,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           phone,
           email,
           notes,
+          // Stored on the order for the admin view (websiteBookingDetails).
+          customerType,
           // Only present once the order was actually split across more than
           // one pickup address — omitted for the common single-location
           // case so that payload stays exactly as it always has been.

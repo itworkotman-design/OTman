@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/content/ServiceWindowContent";
+import type { BookingPickupStop } from "@/lib/orders/websiteBookingDetails";
 import type { PickupSource } from "./PickupSourceStep";
 
 // The text half of the white-goods review page (the modal's final step): the
@@ -10,20 +11,11 @@ export type ReviewRow = { label: string; value: string };
 // "location" blocks (pickups, delivery) get a location pin on the review page.
 export type ReviewBlock = { kind: "location" | "contact"; title: string; rows: ReviewRow[] };
 
-export type ReviewPickup = {
-  source: PickupSource | null;
-  placeName: string;
-  address: string;
-  floor: number | null;
-  liftAvailable: boolean;
-  contactName: string;
-  contactPhone: string;
-  // Only once the order is split across locations — which products this one
-  // collects.
-  productNames?: string[];
-};
+// The same stop shape that's stored on the order (Order.websiteBookingDetails),
+// so the admin WebsiteOrderModal renders a saved order through these blocks too.
+export type ReviewPickup = BookingPickupStop;
 
-type ReviewInput = {
+export type ReviewInput = {
   pickups: ReviewPickup[];
   delivery: { address: string; floor: number | null; liftAvailable: boolean };
   preferredDate: string;
