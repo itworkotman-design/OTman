@@ -250,34 +250,52 @@ export function PickupContactCard({
                 <p className="text-xs font-medium text-black/50">
                   {t("Which of these are picked up here?", "Hvilke av disse hentes her?")}
                 </p>
-                {productPoolSections.map((section, i) => (
-                  <div key={section.label ?? i} className="flex flex-col gap-1.5">
-                    {section.label && (
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-black/40">{section.label}</p>
-                    )}
-                    {section.items.map((item) => {
-                      const checked = selectedCardIds.includes(item.cardId);
-                      return (
-                        <label key={item.cardId} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) =>
-                              setSelectedCardIds(
-                                e.target.checked
-                                  ? [...selectedCardIds, item.cardId]
-                                  : selectedCardIds.filter((id) => id !== item.cardId),
-                              )
-                            }
-                            className="h-4 w-4 shrink-0"
-                          />
-                          <ProductIcon code={item.code} iconKey={item.iconKey} className="h-5 w-5 shrink-0 text-logoblue" />
-                          <span>{item.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                ))}
+                {/* One container per category — side by side when there's
+                    room, stacked on phones. */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  {productPoolSections.map((section, i) => (
+                    <div
+                      key={section.label ?? i}
+                      className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white p-3 sm:min-w-56 sm:flex-1"
+                    >
+                      {section.label && (
+                        <h4 className="text-center text-base font-semibold text-logoblue">{section.label}</h4>
+                      )}
+                      {/* Same tile look as the product picker
+                          (WhiteGoodsProductGrid), minus the stepper — the
+                          whole tile toggles the selection. */}
+                      <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-2">
+                        {section.items.map((item) => {
+                          const checked = selectedCardIds.includes(item.cardId);
+                          return (
+                            <label
+                              key={item.cardId}
+                              className={[
+                                "flex cursor-pointer flex-col gap-2 rounded-2xl border p-3 transition has-focus-visible:ring-2 has-focus-visible:ring-logoblue/40",
+                                checked ? "border-logoblue bg-logoblue/5" : "border-black/10 hover:border-black/20",
+                              ].join(" ")}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) =>
+                                  setSelectedCardIds(
+                                    e.target.checked
+                                      ? [...selectedCardIds, item.cardId]
+                                      : selectedCardIds.filter((id) => id !== item.cardId),
+                                  )
+                                }
+                                className="sr-only"
+                              />
+                              <ProductIcon code={item.code} iconKey={item.iconKey} className="h-8 w-8 shrink-0 text-logoblue" />
+                              <span className="text-sm font-medium text-black/80">{item.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 {selectedCardIds.length === 0 && (
                   <p className="text-xs text-black/40">{t("Choose at least one.", "Velg minst én.")}</p>
                 )}

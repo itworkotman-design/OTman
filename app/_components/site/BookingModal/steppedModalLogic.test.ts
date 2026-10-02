@@ -4,6 +4,7 @@ import {
   nextRevealedCount,
   progressPercent,
   retractedRevealedCount,
+  retractedSectionIndices,
   shownSectionIds,
   structureGainedSections,
   withExitingItems,
@@ -132,5 +133,16 @@ describe("progressPercent", () => {
 
   it("treats zero sections as an empty bar instead of dividing by zero", () => {
     expect(progressPercent(0, 0)).toBe(0);
+  });
+});
+
+describe("retractedSectionIndices", () => {
+  it("lists the revealed sections after the one that stopped being satisfied", () => {
+    expect(retractedSectionIndices(5, 1)).toEqual([2, 3, 4]);
+  });
+
+  it("is empty when nothing was revealed after it", () => {
+    expect(retractedSectionIndices(3, 2)).toEqual([]);
+    expect(retractedSectionIndices(2, 4)).toEqual([]);
   });
 });

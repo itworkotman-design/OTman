@@ -897,6 +897,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     {
       id: "pickup-source",
       title: t("Where are we picking up from?", "Hvor henter vi fra?"),
+      // Retracted (e.g. another category was added ahead of it): un-pick the
+      // tile so it doesn't read as answered when it shows again. Everything
+      // typed into the pickup/order/contact steps stays in state, so picking
+      // a tile again brings it all back (and auto-advances through it).
+      onRetract: () => setPickupSource(null),
       render: ({ onComplete }) => (
         <PickupSourceStep
           locale={locale}

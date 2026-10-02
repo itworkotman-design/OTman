@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -25,6 +25,10 @@ export type StepSection = {
   // as a step and its auto-advance keeps working (the steps after it depend on
   // that), e.g. an options step whose list has no products left.
   hidden?: boolean;
+  // Called when an earlier section's onUncomplete takes this one off screen
+  // again, e.g. to clear a one-off answer that would otherwise still show as
+  // picked once the section is revealed again.
+  onRetract?: () => void;
   render: (props: StepSectionRenderProps) => ReactNode;
 };
 
@@ -270,6 +274,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
 
   const handleSectionUncomplete = (index: number) => {
     setShowFinalStep(false);
+    for (const i of retractedSectionIndices(revealedCount, index)) sections[i]?.onRetract?.();
     setRevealedCount((count) => retractedRevealedCount(count, index));
   };
 

@@ -15,6 +15,14 @@ export function retractedRevealedCount(currentRevealedCount: number, fromIndex: 
   return Math.min(currentRevealedCount, fromIndex + 1);
 }
 
+// The indices of the sections a retractedRevealedCount(...) call takes off
+// screen — so each can be told it was retracted (StepSection.onRetract).
+export function retractedSectionIndices(currentRevealedCount: number, fromIndex: number): number[] {
+  const indices: number[] = [];
+  for (let i = fromIndex + 1; i < currentRevealedCount; i++) indices.push(i);
+  return indices;
+}
+
 // The sections currently on screen (revealed and not hidden).
 export function shownSectionIds(sections: { id: string; hidden?: boolean }[]): string[] {
   return sections.filter((section) => !section.hidden).map((section) => section.id);
