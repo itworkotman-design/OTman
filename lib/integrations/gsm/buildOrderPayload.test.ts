@@ -104,6 +104,8 @@ function buildOrder(overrides?: Partial<Order>): Order {
     recurringOrderTemplateId: null,
     recurringOrderOccurrenceDate: null,
     isWebsiteOrder: false,
+    websiteOrderKind: null,
+    websiteBookingDetails: null,
     approvedAt: null,
     rejectedAt: null,
     statusChangedAt: null,

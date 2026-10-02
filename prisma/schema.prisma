@@ -585,6 +585,12 @@ model Order {
   gdprHoldSetAt  DateTime?
 
   isWebsiteOrder           Boolean   @default(false)
+  // "WHITE_GOODS" for homepage white-goods orders (they open in the admin
+  // WebsiteOrderModal); null for every other order, website or not.
+  websiteOrderKind         String?
+  // What the customer entered (pickup stops, delivery, customer type) — see
+  // lib/orders/websiteBookingDetails.ts.
+  websiteBookingDetails    Json?
   approvedAt               DateTime?
   rejectedAt               DateTime?
   // Last time `status` actually changed via the order editor, bulk update or

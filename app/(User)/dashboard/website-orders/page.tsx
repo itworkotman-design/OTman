@@ -14,7 +14,7 @@ const WEBSITE_ORDERS_VISIBLE_COLUMNS = getDefaultVisibleBookingArchiveColumns("A
   (columnId) => !HIDDEN_COLUMN_IDS.has(columnId),
 );
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
-import OrderModal from "@/app/_components/Dahsboard/booking/OrderModal";
+import DashboardOrderModal from "@/app/_components/Dahsboard/booking/DashboardOrderModal";
 import OrderEmailModal from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
 import WebsiteOrdersActionBar from "@/app/_components/Dahsboard/booking/websiteOrders/WebsiteOrdersActionBar";
 import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
@@ -286,7 +286,7 @@ export default function WebsiteOrdersPage() {
         )}
       </div>
 
-      <OrderModal
+      <DashboardOrderModal
         orderId={selectedOrderId}
         open={modalOpen}
         onClose={() => {
