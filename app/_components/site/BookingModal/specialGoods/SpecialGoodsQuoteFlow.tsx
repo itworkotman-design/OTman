@@ -6,7 +6,13 @@ import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create
 import { transportTimeWindows } from "@/lib/content/TransportRequestConfig";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { MAX_QUOTE_PHOTOS } from "@/lib/orders/pendingQuoteAttachments";
-import { sanitizePhoneInput, sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
+import {
+  isValidEmail,
+  sanitizeEmailInput,
+  sanitizePhoneInput,
+  sanitizeTextInput,
+  validatePhoneField,
+} from "@/lib/orders/websiteOrderValidation";
 
 type Props = {
   locale: Locale;
@@ -30,8 +36,6 @@ const METER_OPTIONS = Array.from({ length: 11 }, (_, i) => i);
 const CM_OPTIONS = [0, 20, 40, 60, 80];
 const WEIGHT_OPTIONS = ["Under 10 kg", "Under 30 kg", "Under 50 kg", "Under 100 kg", "Over 100 kg"];
 
-const PHONE_RE = /^\+?[\d\s\-().]{7,20}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function generateQuoteToken() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -181,7 +185,7 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
   const canContinueLocation = !!pickupAddress.trim() && !!deliveryAddress.trim();
   const canContinueTiming = !!preferredDate && !!timeWindow;
   const canSubmit =
-    !!name.trim() && PHONE_RE.test(phone.trim()) && EMAIL_RE.test(email.trim()) && !submitLoading;
+    !!name.trim() && validatePhoneField(phone) === null && isValidEmail(email) && !submitLoading;
 
   const fmtDim = (m: string, c: string) => (m || c ? `${m || "0"}m ${c || "0"}cm` : "");
 
@@ -413,7 +417,7 @@ export function SpecialGoodsQuoteFlow({ locale, onClose }: Props) {
             />
             <input
               value={email}
-              onChange={(e) => setEmail(sanitizeTextInput(e.target.value))}
+              onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
               placeholder={t("Email", "E-post")}
               className="h-11 rounded-lg border border-black/15 px-2 text-sm"
             />

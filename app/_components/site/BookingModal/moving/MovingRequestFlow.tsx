@@ -8,15 +8,19 @@ import { transportTimeWindows } from "@/lib/content/TransportRequestConfig";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
-import { sanitizePhoneInput, sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
+import {
+  isValidEmail,
+  sanitizeEmailInput,
+  sanitizePhoneInput,
+  sanitizeTextInput,
+  validatePhoneField,
+} from "@/lib/orders/websiteOrderValidation";
 
 type Props = {
   locale: Locale;
   onClose: () => void;
 };
 
-const PHONE_RE = /^\+?[\d\s\-().]{7,20}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function formatKr(n: number) {
   return `${Math.round(n).toLocaleString("nb-NO")} kr`;
@@ -88,8 +92,8 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const canContinueTiming = !!preferredDate && !!timeWindow;
   const canSubmit =
     !!name.trim() &&
-    PHONE_RE.test(phone.trim()) &&
-    EMAIL_RE.test(email.trim()) &&
+    validatePhoneField(phone) === null &&
+    isValidEmail(email) &&
     !!sizeOptionCode &&
     !submitLoading;
 
@@ -268,7 +272,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             />
             <input
               value={email}
-              onChange={(e) => setEmail(sanitizeTextInput(e.target.value))}
+              onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
               placeholder={t("Email", "E-post")}
               className="h-11 rounded-lg border border-black/15 px-2 text-sm"
             />

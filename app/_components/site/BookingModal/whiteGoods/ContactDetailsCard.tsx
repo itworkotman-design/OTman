@@ -4,9 +4,8 @@ import { useState } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { MailIcon, MessageIcon, PersonIcon, PhoneIcon } from "./orderDetailsIcons";
 import { FieldLabel, fieldClass, inputClass } from "./formFieldStyles";
-import { sanitizePhoneInput, sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
+import { isValidEmail, sanitizeEmailInput, sanitizePhoneInput, sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Props = {
   locale: Locale;
@@ -42,7 +41,7 @@ export function ContactDetailsCard({
   const phoneError = touched.phone && !phone.trim();
   const trimmedEmail = email.trim();
   const emailMissing = touched.email && !trimmedEmail;
-  const emailInvalid = touched.email && !!trimmedEmail && !EMAIL_RE.test(trimmedEmail);
+  const emailInvalid = touched.email && !!trimmedEmail && !isValidEmail(trimmedEmail);
 
   return (
     <div
@@ -102,7 +101,7 @@ export function ContactDetailsCard({
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(sanitizeTextInput(e.target.value))}
+            onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
             onBlur={() => markTouched("email")}
             placeholder={t("your@email.com", "din@epost.no")}
             className={fieldClass(emailMissing || emailInvalid)}
