@@ -16,6 +16,7 @@ import {
   orderedCardIds,
   poolsForLocations,
   remainingAfterClaim,
+  routeStopsForDistance,
   syncPickupLocations,
   type PickupLocationState,
 } from "./pickupLocations";
@@ -322,16 +323,24 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     extraPickupLocations.every((loc, i) => isPickupLocationReady(loc, extraPickupPools[i] ?? [])) &&
     unassignedCardIds.length === 0;
 
-  // Driving distance is never typed by the customer — it's calculated from
-  // the pickup/delivery addresses via Mapbox once both are filled in AND
-  // actually picked from the suggestions (same debounced pattern the old
-  // ServiceModal used). A free-typed address that was never selected must
-  // not silently get geocoded and priced.
-  useEffect(() => {
-    const pickup = pickupAddress.trim();
-    const delivery = deliveryAddress.trim();
+  // Driving distance is never typed by the customer — it's calculated via
+  // Mapbox along pickup 1 → every extra pickup location → delivery, once all
+  // of those are filled in AND actually picked from the suggestions (same
+  // debounced pattern the old ServiceModal used). A free-typed address that
+  // was never selected must not silently get geocoded and priced.
+  const routeStops = routeStopsForDistance({
+    pickupAddress,
+    pickupAddressSelected,
+    extraLocations: extraPickupLocations,
+    deliveryAddress,
+    deliveryAddressSelected,
+  });
+  // A stable key for the effect below — extraPickupLocations gets a new
+  // identity on every keystroke in any of its fields, not just address ones.
+  const routeStopsKey = routeStops ? JSON.stringify(routeStops) : "";
 
-    if (!pickup || !delivery || !pickupAddressSelected || !deliveryAddressSelected) {
+  useEffect(() => {
+    if (!routeStopsKey) {
       setDrivingDistance("");
       setDrivingDistanceLoading(false);
       return;
@@ -345,7 +354,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         const res = await fetch("/api/site/route-distance", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pickupAddress: pickup, deliveryAddress: delivery }),
+          body: routeStopsKey,
           signal: controller.signal,
         });
         const data = await res.json().catch(() => null);
@@ -363,7 +372,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [pickupAddress, deliveryAddress, pickupAddressSelected, deliveryAddressSelected]);
+  }, [routeStopsKey]);
 
   useEffect(() => {
     let cancelled = false;

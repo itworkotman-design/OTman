@@ -9,6 +9,7 @@ import {
   orderedCardIds,
   poolsForLocations,
   remainingAfterClaim,
+  routeStopsForDistance,
   syncPickupLocations,
   type PickupLocationState,
 } from "./pickupLocations";
@@ -194,5 +195,50 @@ describe("hasEnteredOrderOrContactDetails", () => {
   it("is true once any field has real content", () => {
     expect(hasEnteredOrderOrContactDetails({ ...blank, deliveryAddress: "Storgata 2" })).toBe(true);
     expect(hasEnteredOrderOrContactDetails({ ...blank, name: "Kari" })).toBe(true);
+  });
+});
+
+describe("routeStopsForDistance", () => {
+  const base = {
+    pickupAddress: "Karl Johans gate 1, Oslo",
+    pickupAddressSelected: true,
+    deliveryAddress: "Storgata 10, Lillestrøm",
+    deliveryAddressSelected: true,
+  };
+
+  it("routes pickup 1 straight to delivery when there are no extra pickups", () => {
+    expect(routeStopsForDistance({ ...base, extraLocations: [] })).toEqual({
+      pickupAddress: "Karl Johans gate 1, Oslo",
+      extraPickupAddresses: [],
+      deliveryAddress: "Storgata 10, Lillestrøm",
+    });
+  });
+
+  it("puts every extra pickup between pickup 1 and delivery, in order", () => {
+    expect(
+      routeStopsForDistance({
+        ...base,
+        extraLocations: [
+          location({ address: " Drammensveien 5, Oslo ", addressSelected: true }),
+          location({ address: "Kirkegata 2, Lillestrøm", addressSelected: true }),
+        ],
+      }),
+    ).toEqual({
+      pickupAddress: "Karl Johans gate 1, Oslo",
+      extraPickupAddresses: ["Drammensveien 5, Oslo", "Kirkegata 2, Lillestrøm"],
+      deliveryAddress: "Storgata 10, Lillestrøm",
+    });
+  });
+
+  it("waits while an extra pickup's address is missing or not picked from the suggestions", () => {
+    expect(routeStopsForDistance({ ...base, extraLocations: [location()] })).toBeNull();
+    expect(
+      routeStopsForDistance({ ...base, extraLocations: [location({ address: "Drammensv", addressSelected: false })] }),
+    ).toBeNull();
+  });
+
+  it("waits while pickup 1 or delivery isn't a picked address", () => {
+    expect(routeStopsForDistance({ ...base, pickupAddressSelected: false, extraLocations: [] })).toBeNull();
+    expect(routeStopsForDistance({ ...base, deliveryAddress: "  ", extraLocations: [] })).toBeNull();
   });
 });

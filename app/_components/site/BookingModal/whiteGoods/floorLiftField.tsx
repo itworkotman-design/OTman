@@ -4,7 +4,7 @@ import { BuildingIcon } from "@/app/_components/Dahsboard/booking/create/fieldIc
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { getChargeableFloors } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { ChevronDownIcon, ChevronUpIcon, LiftIcon, QuestionMarkIcon } from "./orderDetailsIcons";
-import { FieldLabel, inputClass } from "./formFieldStyles";
+import { FieldLabel, inputClass, sideColumnClass } from "./formFieldStyles";
 
 function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
@@ -115,13 +115,17 @@ export function FloorLiftField({
   const surcharge = surchargePerFloor ? chargeableFloors * surchargePerFloor : 0;
 
   return (
-    <div className="flex flex-col gap-2">
-      <label className="block">
+    // Lift checkbox sits beside the floor input (level with it, not its
+    // label), wrapping under it only when there's no room.
+    <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+      <label className="block min-w-40 flex-1">
         <FieldLabel icon={<BuildingIcon />} hint={hint ?? t("Ground floor is 0.", "Bakkeplan er 0.")}>
           {label}
         </FieldLabel>
         <div className="flex items-center gap-2">
-          <FloorInput value={floorValue} onChange={onFloorChange} />
+          <div className="flex-1">
+            <FloorInput value={floorValue} onChange={onFloorChange} />
+          </div>
           {surcharge > 0 && (
             <span
               title={t(
@@ -135,7 +139,9 @@ export function FloorLiftField({
           )}
         </div>
       </label>
-      <LiftCheckbox locale={locale} checked={liftChecked} onChange={onLiftChange} />
+      <div className={`flex h-11 items-center ${sideColumnClass}`}>
+        <LiftCheckbox locale={locale} checked={liftChecked} onChange={onLiftChange} />
+      </div>
     </div>
   );
 }
