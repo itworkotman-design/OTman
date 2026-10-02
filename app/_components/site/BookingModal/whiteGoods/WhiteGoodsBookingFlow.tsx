@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { SteppedModal, AnimatedStack, type FinalStep, type StepSection } from "../SteppedModal";
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { CustomerTypeStep } from "./CustomerTypeStep";
@@ -22,6 +22,7 @@ import {
   type PickupLocationState,
 } from "./pickupLocations";
 import { ContactDetailsCard } from "./ContactDetailsCard";
+import { buildOrderReviewBlocks } from "./orderReview";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
 import {
@@ -1025,6 +1026,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     {
       id: "order-details",
       title: t("Order details", "Ordredetaljer"),
+      bottomSpace: true,
       render: ({ onComplete, onUncomplete }) => (
         <div className="flex flex-col gap-4">
           <OrderDetailsCard
@@ -1053,7 +1055,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     {
       id: "contact",
       title: t("Your details", "Dine opplysninger"),
-      render: ({ onComplete, onUncomplete }) => (
+      // The one step with an explicit button instead of AutoAdvance: moving on
+      // swaps the whole modal to the review page, so it mustn't fire the
+      // moment the email first parses as valid while still being typed, or
+      // before the optional notes.
+      render: ({ onComplete }) => (
         <div className="flex flex-col gap-4">
           <ContactDetailsCard
             locale={locale}
@@ -1067,11 +1073,53 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             setNotes={setNotes}
           />
 
-          <AutoAdvance ready={canContinueContact} onReady={onComplete} onRetract={onUncomplete} />
+          <button
+            type="button"
+            disabled={!canContinueContact}
+            onClick={onComplete}
+            className="self-center inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
+          >
+            {t("Go to summary", "Gå til oppsummering")}
+          </button>
         </div>
       ),
     },
   ];
+
+  // Product names per pickup follow the same rule as the submitted payload:
+  // the first location only lists its products once the order is split.
+  const reviewBlocks = buildOrderReviewBlocks(locale, {
+    pickups: [
+      {
+        source: pickupSource,
+        placeName: pickupPlaceName,
+        address: pickupAddress,
+        floor: pickupFloor,
+        liftAvailable: pickupLiftAvailable,
+        contactName: pickupContactName,
+        contactPhone: pickupContactPhone,
+        productNames:
+          !allProductsPickedUpHere && poolCardIds.length > 1 ? location0Claimed.map(pickupChecklistName) : undefined,
+      },
+      ...extraPickupLocations.map((loc, i) => ({
+        source: loc.source,
+        placeName: loc.placeName,
+        address: loc.address,
+        floor: loc.floor,
+        liftAvailable: loc.liftAvailable,
+        contactName: loc.contactName,
+        contactPhone: loc.contactPhone,
+        productNames: claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds).map(
+          pickupChecklistName,
+        ),
+      })),
+    ],
+    delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
+    preferredDate,
+    timeWindow,
+    drivingDistance,
+    contact: { name, phone, email, notes },
+  });
 
   const finalStep: FinalStep = {
     render: ({ onBack }) =>
@@ -1088,7 +1136,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           <button
             type="button"
             onClick={onBack}
@@ -1098,44 +1146,63 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             {t("Back", "Tilbake")}
           </button>
 
-          <div>
-            <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
-              {t("Summary", "Oppsummering")}
-            </h4>
-            <div className="mt-3 flex flex-col gap-1 text-sm">
-              <div
-                className={`flex justify-between ${
-                  finalVatDisplay.primary === "exVat" ? "font-semibold" : ""
-                }`}
+          <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
+            {t("Summary", "Oppsummering")}
+          </h4>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
+            <div className="flex flex-col gap-4">
+              {reviewBlocks.map((block) => (
+                <div key={block.title} className="rounded-2xl border border-black/10 bg-white p-6">
+                  <h3 className="text-base font-semibold text-black/85">{block.title}</h3>
+                  <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+                    {block.rows.map((row) => (
+                      <Fragment key={row.label}>
+                        <dt className="text-black/50">{row.label}</dt>
+                        <dd className="break-words text-black/85">{row.value}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-4 lg:self-start">
+              <WhiteGoodsOrderSummary
+                locale={locale}
+                products={summaryProducts}
+                orderExtras={orderExtraLines}
+                total={pricing.totals.totalExVat}
+                customerType={customerType ?? "private"}
+              />
+
+              <div className="flex flex-col gap-1 rounded-2xl border border-black/10 bg-white p-6 text-sm">
+                <div className={`flex justify-between ${finalVatDisplay.primary === "exVat" ? "font-semibold" : ""}`}>
+                  <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
+                  <span>{finalVatBreakdown.exVat.toLocaleString("nb-NO")} kr</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{t("VAT (25%)", "MVA (25%)")}</span>
+                  <span>{finalVatBreakdown.vat.toLocaleString("nb-NO")} kr</span>
+                </div>
+                <div className={`flex justify-between ${finalVatDisplay.primary === "incVat" ? "font-semibold" : ""}`}>
+                  <span>{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
+                  <span>{finalVatBreakdown.incVat.toLocaleString("nb-NO")} kr</span>
+                </div>
+              </div>
+
+              {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+
+              <button
+                type="button"
+                disabled={!canSubmit}
+                onClick={handleSubmit}
+                className="inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
               >
-                <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
-                <span>{finalVatBreakdown.exVat.toLocaleString("nb-NO")} kr</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{t("VAT (25%)", "MVA (25%)")}</span>
-                <span>{finalVatBreakdown.vat.toLocaleString("nb-NO")} kr</span>
-              </div>
-              <div
-                className={`flex justify-between ${
-                  finalVatDisplay.primary === "incVat" ? "font-semibold" : ""
-                }`}
-              >
-                <span>{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
-                <span>{finalVatBreakdown.incVat.toLocaleString("nb-NO")} kr</span>
-              </div>
+                {submitLoading ? t("Sending…", "Sender…") : t("Submit order", "Send bestilling")}
+              </button>
             </div>
           </div>
-
-          {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-            className="self-start inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
-          >
-            {submitLoading ? t("Sending…", "Sender…") : t("Submit order", "Send bestilling")}
-          </button>
         </div>
       ),
   };

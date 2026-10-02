@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   heightHoldAction,
   nextRevealedCount,
+  finalStepScrollTarget,
   progressPercent,
   showsBottomSpace,
   retractedRevealedCount,
@@ -163,5 +164,20 @@ describe("showsBottomSpace", () => {
 
   it("is false with no sections", () => {
     expect(showsBottomSpace([])).toBe(false);
+  });
+});
+
+describe("finalStepScrollTarget", () => {
+  it("scrolls to the top when the final step opens", () => {
+    expect(finalStepScrollTarget(false, true)).toBe("top");
+  });
+
+  it("scrolls to the bottom when going back, where the user left off", () => {
+    expect(finalStepScrollTarget(true, false)).toBe("bottom");
+  });
+
+  it("leaves the scroll alone when the final step didn't toggle", () => {
+    expect(finalStepScrollTarget(false, false)).toBeNull();
+    expect(finalStepScrollTarget(true, true)).toBeNull();
   });
 });
