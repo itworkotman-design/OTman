@@ -3,6 +3,8 @@ import { parseExtraPickupLocations } from "./websiteExtraPickupLocations";
 import {
   buildWhiteGoodsBookingDetails,
   parseWhiteGoodsBookingDetails,
+  withLiveOrderFields,
+  floorPricingInputs,
   type WhiteGoodsBookingDetailsInput,
 } from "./websiteBookingDetails";
 
@@ -153,5 +155,99 @@ describe("order extras", () => {
     const { orderExtras: _omit, ...rest } = buildWhiteGoodsBookingDetails(input);
     void _omit;
     expect(parseWhiteGoodsBookingDetails(rest)?.orderExtras).toEqual([]);
+  });
+});
+
+describe("withLiveOrderFields", () => {
+  const details = buildWhiteGoodsBookingDetails({
+    ...input,
+    extraPickups: parseExtraPickupLocations([{ address: "Industriveien 2", source: "business", floor: 2 }]),
+  });
+  const live = {
+    pickupAddress: "Storgata 1, Oslo",
+    deliveryAddress: "Kirkegata 5, Oslo",
+    extraPickupAddress: ["Industriveien 2"],
+    deliveryDate: "2026-10-05",
+    timeWindow: "08:00-16:00",
+    drivingDistance: "21",
+  };
+
+  it("shows the order's current addresses, date, time window and distance after an admin edit", () => {
+    const next = withLiveOrderFields(details, {
+      ...live,
+      pickupAddress: "Ny gate 1",
+      deliveryAddress: "Ny gate 2",
+      extraPickupAddress: ["Ny gate 3"],
+      deliveryDate: "2026-10-09",
+      timeWindow: "10:00-16:00",
+      drivingDistance: "30",
+    });
+    expect(next.pickups.map((p) => p.address)).toEqual(["Ny gate 1", "Ny gate 3"]);
+    expect(next.delivery.address).toBe("Ny gate 2");
+    expect(next).toMatchObject({ preferredDate: "2026-10-09", timeWindow: "10:00-16:00", drivingDistance: "30" });
+    // Everything the order columns can't say stays as booked.
+    expect(next.pickups[1]).toMatchObject({ source: "business", floor: 2 });
+  });
+
+  it("keeps the booked extra-stop addresses when the stop count no longer lines up", () => {
+    const next = withLiveOrderFields(details, { ...live, extraPickupAddress: ["A", "B"] });
+    expect(next.pickups[1].address).toBe("Industriveien 2");
+  });
+
+  it("keeps booked values where the order column is empty", () => {
+    const next = withLiveOrderFields(details, { ...live, deliveryAddress: null, deliveryDate: "", timeWindow: null });
+    expect(next.delivery.address).toBe("Kirkegata 5, Oslo");
+    expect(next.preferredDate).toBe("2026-10-05");
+    expect(next.timeWindow).toBe("08:00-16:00");
+  });
+});
+
+describe("floorPricingInputs", () => {
+  it("prices every stop from the booked details: store pickup at ground with a lift", () => {
+    const details = buildWhiteGoodsBookingDetails({
+      ...input,
+      firstPickup: { ...input.firstPickup, source: "store", floor: 0 },
+      delivery: { address: "Kirkegata 5", floor: 5, liftAvailable: false },
+      extraPickups: parseExtraPickupLocations([
+        { address: "A 1", source: "private", floor: -3, liftAvailable: false },
+        { address: "B 2", source: "store" },
+      ]),
+    });
+
+    expect(floorPricingInputs({ floorNo: "5", lift: "no", websiteBookingDetails: details })).toEqual({
+      pickupFloor: 0,
+      pickupLiftAvailable: true,
+      deliveryFloor: 5,
+      deliveryLiftAvailable: false,
+      extraPickupFloors: [
+        { floor: -3, liftAvailable: false },
+        { floor: 0, liftAvailable: true },
+      ],
+    });
+  });
+
+  it("uses a private first pickup's own floor and lift", () => {
+    const details = buildWhiteGoodsBookingDetails(input); // private, floor 3, no lift; delivery -1 with lift
+    expect(floorPricingInputs({ floorNo: "3", lift: "no", websiteBookingDetails: details })).toMatchObject({
+      pickupFloor: 3,
+      pickupLiftAvailable: false,
+      deliveryFloor: -1,
+      deliveryLiftAvailable: true,
+      extraPickupFloors: [],
+    });
+  });
+
+  it("falls back to the one combined floor/lift for orders without booking details", () => {
+    expect(floorPricingInputs({ floorNo: "4", lift: "no", websiteBookingDetails: null })).toEqual({
+      pickupFloor: 4,
+      pickupLiftAvailable: false,
+      deliveryFloor: 4,
+      deliveryLiftAvailable: false,
+      extraPickupFloors: [],
+    });
+    expect(floorPricingInputs({ floorNo: null, lift: "yes", websiteBookingDetails: { junk: true } })).toMatchObject({
+      pickupFloor: 0,
+      deliveryLiftAvailable: true,
+    });
   });
 });

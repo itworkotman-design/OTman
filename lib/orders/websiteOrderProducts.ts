@@ -45,3 +45,19 @@ export function pricingLinesFromSnapshot(snapshot: unknown): PricingLine[] {
       typeof (line as PricingLine).productName === "string",
   );
 }
+
+// What the order total holds beyond its product lines and the booked order
+// extras — non-zero once the order was re-priced or adjusted after booking
+// (e.g. a floor or address change), shown as its own line so the lines always
+// add up to the total. Whole kroner: the stored total is rounded.
+export function unexplainedPriceDifference(
+  clientTotal: number,
+  products: ProductGroup[],
+  orderExtras: { price: number }[],
+): number {
+  const explained =
+    products.reduce((sum, product) => sum + product.total, 0) + orderExtras.reduce((sum, line) => sum + line.price, 0);
+  const difference = clientTotal - explained;
+  // Under a krone is just the stored total being rounded.
+  return Math.abs(difference) < 1 ? 0 : Math.round(difference);
+}

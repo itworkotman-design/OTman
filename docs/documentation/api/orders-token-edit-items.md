@@ -38,3 +38,7 @@ unbuilt feature.
   raises a `MANUAL_REVIEW` notification alerting staff. The customer then
   pays the delta via the existing top-up flow at `/betaling/[token]`
   (`isTopUpPayable`).
+
+## Floors and booking details
+
+For homepage orders with `websiteBookingDetails`, re-pricing uses each stop's own floor and lift (`floorPricingInputs`): the first pickup, every extra pickup stop and the delivery. Older orders keep the one combined `floorNo`/`lift` on both ends. The re-priced order-extra lines are written back to `websiteBookingDetails.orderExtras`, so the admin `WebsiteOrderModal` stays in step with the new total.

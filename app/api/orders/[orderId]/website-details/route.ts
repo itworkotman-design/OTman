@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getModuleAccess } from "@/lib/users/access";
-import { parseWhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
-import { groupPricingLinesByCard, pricingLinesFromSnapshot } from "@/lib/orders/websiteOrderProducts";
+import { parseWhiteGoodsBookingDetails, withLiveOrderFields } from "@/lib/orders/websiteBookingDetails";
+import {
+  groupPricingLinesByCard,
+  pricingLinesFromSnapshot,
+  unexplainedPriceDifference,
+} from "@/lib/orders/websiteOrderProducts";
 
 // Read-only view of a homepage white-goods website order for the admin
 // WebsiteOrderModal. Kept separate from GET /api/orders/[orderId] (which backs
@@ -49,16 +53,39 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       websiteOrderKind: true,
       websiteBookingDetails: true,
       pricingSnapshot: true,
+      pickupAddress: true,
+      deliveryAddress: true,
+      extraPickupAddress: true,
+      deliveryDate: true,
+      timeWindow: true,
+      drivingDistance: true,
+      subcontractorMembershipId: true,
+      subcontractor: true,
+      gsmSentAt: true,
+      gsmSyncStatus: true,
     },
   });
   if (!order) {
     return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
   }
 
-  const details = order.websiteOrderKind === "WHITE_GOODS" ? parseWhiteGoodsBookingDetails(order.websiteBookingDetails) : null;
-  if (!details) {
+  const bookedDetails =
+    order.websiteOrderKind === "WHITE_GOODS" ? parseWhiteGoodsBookingDetails(order.websiteBookingDetails) : null;
+  if (!bookedDetails) {
     return NextResponse.json({ ok: false, reason: "NOT_WHITE_GOODS_WEBSITE_ORDER" }, { status: 404 });
   }
+
+  // Addresses/date as they are now (an edit updates the columns, not the
+  // stored details), and whatever the total holds beyond the booked lines.
+  const details = withLiveOrderFields(bookedDetails, {
+    pickupAddress: order.pickupAddress,
+    deliveryAddress: order.deliveryAddress,
+    extraPickupAddress: order.extraPickupAddress ?? [],
+    deliveryDate: order.deliveryDate,
+    timeWindow: order.timeWindow,
+    drivingDistance: order.drivingDistance,
+  });
+  const products = groupPricingLinesByCard(pricingLinesFromSnapshot(order.pricingSnapshot));
 
   return NextResponse.json({
     ok: true,
@@ -75,7 +102,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       statusNotes: order.statusNotes,
       priceExVat: order.priceExVat,
       details,
-      products: groupPricingLinesByCard(pricingLinesFromSnapshot(order.pricingSnapshot)),
+      products,
+      priceDifference: unexplainedPriceDifference(order.priceExVat, products, details.orderExtras),
+      subcontractorMembershipId: order.subcontractorMembershipId,
+      subcontractor: order.subcontractor,
+      gsmSentAt: order.gsmSentAt ? order.gsmSentAt.toISOString() : null,
+      gsmSyncStatus: order.gsmSyncStatus,
     },
   });
 }

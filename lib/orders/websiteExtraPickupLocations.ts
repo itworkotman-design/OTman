@@ -103,6 +103,10 @@ export function buildMultiPickupDescriptionLines(params: {
     const detail = [
       loc.source ? PICKUP_SOURCE_LABELS[loc.source] : null,
       loc.placeName,
+      // GSM only gets one combined floor/lift for the whole order, so an extra
+      // stop's own floor reaches the driver through this line. A store is
+      // never asked; 0 means not given.
+      loc.source !== "store" && loc.floor !== 0 ? `floor ${loc.floor}, ${loc.liftAvailable ? "lift" : "no lift"}` : null,
       loc.contactName || loc.contactPhone ? `contact: ${[loc.contactName, loc.contactPhone].filter(Boolean).join(" / ")}` : null,
     ]
       .filter(Boolean)
