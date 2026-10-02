@@ -1,28 +1,21 @@
+import "./_loadDevEnv";
 import { prisma } from "../lib/db";
+import { WEBSITE_ACCOUNT_COMPANY_SLUG, WEBSITE_ACCOUNT_EMAIL } from "../lib/website/websiteAccount";
 
-// One-off lookup: prints the membershipId to use as WEBSITE_MEMBERSHIP_ID for
-// a freshly seeded environment (prisma/seed.ts creates this user/company
-// deterministically by email/slug, but the membership id itself is a
-// generated cuid that differs per database).
+// One-off lookup: prints the membershipId to use as WEBSITE_MEMBERSHIP_ID —
+// the dedicated website account's (see lib/website/websiteAccount.ts). The id
+// is a generated cuid that differs per database. Read-only; to create the
+// account use `npm run create:website-account`.
 async function main() {
-  const user = await prisma.user.findUnique({
-    where: { email: "itworkotman@gmail.com" },
-    select: { id: true },
-  });
-
-  if (!user) {
-    throw new Error(
-      "User itworkotman@gmail.com not found — run `npx tsx prisma/seed.ts` against this database first.",
-    );
-  }
-
   const membership = await prisma.membership.findFirst({
-    where: { userId: user.id, company: { slug: "otman" } },
+    where: { user: { email: WEBSITE_ACCOUNT_EMAIL }, company: { slug: WEBSITE_ACCOUNT_COMPANY_SLUG } },
     select: { id: true, status: true },
   });
 
   if (!membership) {
-    throw new Error("Membership not found for itworkotman@gmail.com in company 'otman'.");
+    throw new Error(
+      `No membership for ${WEBSITE_ACCOUNT_EMAIL} in company '${WEBSITE_ACCOUNT_COMPANY_SLUG}' — run \`npm run create:website-account\` first.`,
+    );
   }
 
   console.log(`WEBSITE_MEMBERSHIP_ID=${membership.id}  (status: ${membership.status})`);

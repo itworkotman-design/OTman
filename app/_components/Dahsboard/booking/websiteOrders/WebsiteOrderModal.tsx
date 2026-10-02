@@ -8,6 +8,7 @@ import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { getVatBreakdown } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import type { ProductGroup } from "@/lib/orders/websiteOrderProducts";
+import WebsiteOrderAdminActions from "./WebsiteOrderAdminActions";
 
 // What GET /api/orders/[orderId]/website-details returns.
 export type WebsiteOrderView = {
@@ -24,6 +25,13 @@ export type WebsiteOrderView = {
   priceExVat: number;
   details: WhiteGoodsBookingDetails;
   products: ProductGroup[];
+  // What the total holds beyond the product lines and booked extras (an
+  // adjustment or re-pricing after booking) — 0 when everything adds up.
+  priceDifference: number;
+  subcontractorMembershipId: string | null;
+  subcontractor: string | null;
+  gsmSentAt: string | null;
+  gsmSyncStatus: string | null;
 };
 
 type Props = {
@@ -32,6 +40,8 @@ type Props = {
   // Swaps to the regular OrderModal/BookingEditor — the escape hatch for
   // anything this read-only view doesn't do.
   onOpenStandardEditor: () => void;
+  // After a status/partner save or GSM send — reload the order (and list).
+  onChanged: () => void;
   canDelete?: boolean;
   onDeleted?: () => void;
   locale?: BookingUiLocale;
@@ -48,6 +58,7 @@ export default function WebsiteOrderModal({
   order,
   onClose,
   onOpenStandardEditor,
+  onChanged,
   canDelete = false,
   onDeleted,
   locale = "en",
@@ -163,6 +174,12 @@ export default function WebsiteOrderModal({
               </div>
 
               <div className="flex flex-col gap-4 lg:self-start">
+                <WebsiteOrderAdminActions
+                  key={`${order.status}|${order.statusNotes}|${order.subcontractorMembershipId}|${order.gsmSentAt}`}
+                  order={order}
+                  locale={locale}
+                  onChanged={onChanged}
+                />
                 <div className="rounded-2xl border border-black/10 bg-white p-6">
                   <h3 className="text-lg font-semibold text-logoblue">{t("Products", "Varer")}</h3>
                   <p className="text-xs text-black/45">{t("Prices incl. VAT", "Priser inkl. mva")}</p>
@@ -231,6 +248,16 @@ export default function WebsiteOrderModal({
                           </Fragment>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {order.priceDifference !== 0 && (
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      <span>{t("Adjusted after booking", "Justert etter bestilling")}</span>
+                      <span className="whitespace-nowrap font-semibold tabular-nums">
+                        {order.priceDifference > 0 ? "+" : ""}
+                        {formatKr(order.priceDifference)}
+                      </span>
                     </div>
                   )}
 

@@ -51,6 +51,7 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       expressDelivery: true,
       floorNo: true,
       lift: true,
+      websiteBookingDetails: true,
       extraPickupAddress: true,
       actionToken: true,
       stripeCheckoutSessionId: true,

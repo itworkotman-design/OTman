@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   buildOrderItemsFromCardsMock: vi.fn(),
   buildOrderSummariesMock: vi.fn(),
   buildOrderPricingSnapshotMock: vi.fn(),
+  buildWhiteGoodsCalculatorBreakdownsMock: vi.fn(() => []),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -78,7 +79,7 @@ vi.mock("@/lib/booking/pricing/whiteGoodsExtraUnits", () => ({
   buildWhiteGoodsExtraUnitOrderItems: () => [],
 }));
 vi.mock("@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns", () => ({
-  buildWhiteGoodsCalculatorBreakdowns: () => [],
+  buildWhiteGoodsCalculatorBreakdowns: mocks.buildWhiteGoodsCalculatorBreakdownsMock,
 }));
 vi.mock("@/lib/booking/pricing/engine", () => ({
   calculateBookingPricing: mocks.calculateBookingPricingMock,
@@ -430,5 +431,91 @@ describe("POST /api/public/orders/[token]/edit-items", () => {
 
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toEqual({ ok: false, reason: "UPDATE_FAILED" });
+  });
+});
+
+describe("POST edit-items — homepage orders with booking details", () => {
+  const bookedDetails = {
+    version: 1,
+    customerType: "private",
+    pickups: [
+      { source: "private", placeName: "", address: "A 1", floor: 4, liftAvailable: false, contactName: "", contactPhone: "" },
+      { source: "private", placeName: "", address: "B 2", floor: -2, liftAvailable: false, contactName: "", contactPhone: "" },
+    ],
+    delivery: { address: "C 3", floor: 1, liftAvailable: true },
+    preferredDate: "2026-10-05",
+    timeWindow: "08:00-16:00",
+    drivingDistance: "10",
+    orderExtras: [{ label: "Etasjetillegg", price: 213.62, qty: 3 }],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getWebsiteOrderCatalogMock.mockResolvedValue({
+      products: [{ id: "product-1", code: "WG_DISHWASHER" }],
+      specialOptions: [],
+      priceListSettings: {},
+      priceListIds: ["pl-1"],
+    });
+    mocks.buildWhiteGoodsCalculatorBreakdownsMock.mockReturnValue([]);
+    mocks.buildOrderItemsFromCardsMock.mockReturnValue([builtItem]);
+    mocks.buildOrderSummariesMock.mockReturnValue({ productsSummary: "Dishwasher" });
+    mocks.buildOrderPricingSnapshotMock.mockReturnValue({ lines: [builtItem] });
+    mocks.calculateBookingPricingMock.mockReturnValue({
+      totals: { totalExVat: 1200, subcontractorTotal: 800 },
+      breakdowns: [
+        { isOrderExtras: true, lines: [{ label: "Etasjetillegg", lineTotal: 213.62, qty: 3 }] },
+      ],
+    });
+    mocks.transactionMock.mockResolvedValue([]);
+    mocks.createOrderUpdatedEventMock.mockResolvedValue(undefined);
+    mocks.createOrderNotificationMock.mockResolvedValue(undefined);
+    mocks.getOrderByActionTokenMock.mockResolvedValue({
+      ...baseOrder,
+      floorNo: "4",
+      lift: "no",
+      extraPickupAddress: ["B 2"],
+      websiteBookingDetails: bookedDetails,
+    });
+  });
+
+  it("prices each stop's own floor instead of the combined floor on both ends", async () => {
+    await postCall({ productCards: [submittedCard] });
+
+    expect(mocks.buildWhiteGoodsCalculatorBreakdownsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pickupFloor: 4,
+        pickupLiftAvailable: false,
+        deliveryFloor: 1,
+        deliveryLiftAvailable: true,
+        extraPickupFloors: [{ floor: -2, liftAvailable: false }],
+      }),
+    );
+  });
+
+  it("keeps the stored order extras in step with the new price", async () => {
+    await postCall({ productCards: [submittedCard] });
+
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          websiteBookingDetails: expect.objectContaining({
+            orderExtras: [{ label: "Etasjetillegg", price: 213.62, qty: 3 }],
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("leaves orders without booking details exactly as before", async () => {
+    mocks.getOrderByActionTokenMock.mockResolvedValue({ ...baseOrder, floorNo: "4", lift: "no" });
+
+    await postCall({ productCards: [submittedCard] });
+
+    expect(mocks.buildWhiteGoodsCalculatorBreakdownsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ pickupFloor: 4, deliveryFloor: 4, extraPickupFloors: [] }),
+    );
+    const data = mocks.orderUpdateMock.mock.calls[0]?.[0]?.data ?? {};
+    expect(data).not.toHaveProperty("websiteBookingDetails");
   });
 });

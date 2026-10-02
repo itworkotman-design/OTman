@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupPricingLinesByCard, pricingLinesFromSnapshot, type PricingLine } from "./websiteOrderProducts";
+import { groupPricingLinesByCard, pricingLinesFromSnapshot, unexplainedPriceDifference, type PricingLine } from "./websiteOrderProducts";
 
 function line(overrides: Partial<PricingLine>): PricingLine {
   return {
@@ -69,5 +69,20 @@ describe("pricingLinesFromSnapshot", () => {
     expect(pricingLinesFromSnapshot(null)).toEqual([]);
     expect(pricingLinesFromSnapshot({ lines: "nope" })).toEqual([]);
     expect(pricingLinesFromSnapshot([])).toEqual([]);
+  });
+});
+
+describe("unexplainedPriceDifference", () => {
+  const products = [{ cardId: 0, productName: "Vaskemaskin", total: 1000, items: [] }];
+  const extras = [{ label: "Etasjetillegg", price: 142.42, qty: 2 }];
+
+  it("is 0 when products + extras add up to the order total (rounded to whole kroner)", () => {
+    expect(unexplainedPriceDifference(1142, products, extras)).toBe(0);
+    expect(unexplainedPriceDifference(1143, products, extras)).toBe(0);
+  });
+
+  it("returns what the lines don't explain, e.g. after the order was re-priced or adjusted", () => {
+    expect(unexplainedPriceDifference(1342, products, extras)).toBe(200);
+    expect(unexplainedPriceDifference(942, products, extras)).toBe(-200);
   });
 });

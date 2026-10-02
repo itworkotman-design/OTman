@@ -28,10 +28,13 @@ type Resolved =
 // /api/orders/[orderId]/website-details — any non-ok answer (not a
 // white-goods order, no access, error) means the regular modal.
 export default function DashboardOrderModal(props: Props) {
-  const { orderId, open, onClose, canDelete, onDeleted, locale = "en" } = props;
+  const { orderId, open, onClose, onSaved, canDelete, onDeleted, locale = "en" } = props;
   const requestedId = open && orderId ? orderId : null;
   const [resolved, setResolved] = useState<Resolved | null>(null);
   const current = resolved && resolved.orderId === requestedId ? resolved : null;
+  // Bumped after an admin action in the website view to re-fetch the order
+  // in place (the current view stays up meanwhile).
+  const [reloadCount, setReloadCount] = useState(0);
 
   useEffect(() => {
     if (!requestedId) return;
@@ -59,7 +62,8 @@ export default function DashboardOrderModal(props: Props) {
     return () => {
       cancelled = true;
     };
-  }, [requestedId]);
+    // reloadCount only re-triggers the fetch.
+  }, [requestedId, reloadCount]);
 
   // Scroll lock + Escape while this component shows its own UI (loading or
   // the website view) — OrderModal handles both itself.
@@ -90,6 +94,10 @@ export default function DashboardOrderModal(props: Props) {
         order={current.order}
         onClose={onClose}
         onOpenStandardEditor={() => setResolved({ orderId: current.orderId, mode: "standard" })}
+        onChanged={() => {
+          setReloadCount((count) => count + 1);
+          onSaved?.();
+        }}
         canDelete={canDelete}
         onDeleted={onDeleted}
         locale={locale}

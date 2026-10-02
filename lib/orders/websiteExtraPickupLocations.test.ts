@@ -141,3 +141,42 @@ describe("extraPickupFloorsForPricing", () => {
     expect(extraPickupFloorsForPricing(locations)).toEqual([{ floor: 0, liftAvailable: true }]);
   });
 });
+
+describe("buildMultiPickupDescriptionLines — floors", () => {
+  const base = {
+    source: "private",
+    placeName: null,
+    address: "Storgata 3, Oslo",
+    floor: 4,
+    liftAvailable: false,
+    contactName: null,
+    contactPhone: null,
+    productNames: ["Sofa"],
+  };
+
+  it("tells the driver an extra stop's floor and lift", () => {
+    const [, line] = buildMultiPickupDescriptionLines({
+      firstLocationAddress: "Storgata 1, Oslo",
+      firstLocationProductNames: ["Washing machine"],
+      extraLocations: [base, { ...base, address: "Kjellerveien 1", floor: -1, liftAvailable: true }],
+    });
+    expect(line).toBe("Pickup location 2 (Storgata 3, Oslo, Private individual, floor 4, no lift) — picking up: Sofa");
+
+    const lines = buildMultiPickupDescriptionLines({
+      firstLocationAddress: "Storgata 1, Oslo",
+      firstLocationProductNames: ["Washing machine"],
+      extraLocations: [{ ...base, address: "Kjellerveien 1", floor: -1, liftAvailable: true }],
+    });
+    expect(lines[1]).toContain("floor -1, lift");
+  });
+
+  it("leaves floor and lift out for a store stop", () => {
+    const [, line] = buildMultiPickupDescriptionLines({
+      firstLocationAddress: "Storgata 1, Oslo",
+      firstLocationProductNames: ["Washing machine"],
+      extraLocations: [{ ...base, source: "store", placeName: "Power", floor: 0 }],
+    });
+    expect(line).not.toContain("floor");
+    expect(line).not.toContain("lift");
+  });
+});

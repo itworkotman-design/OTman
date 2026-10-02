@@ -166,3 +166,42 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     });
   });
 });
+
+describe("GET website-details — live order data", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "u1", activeCompanyId: "c1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN", appAccess: [] });
+  });
+
+  it("overlays the order's current addresses/date and reports what the lines don't explain", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({
+      ...whiteGoodsOrder,
+      pickupAddress: "Ny gate 1",
+      deliveryAddress: "Ny gate 2",
+      extraPickupAddress: [],
+      deliveryDate: "2026-10-09",
+      timeWindow: "10:00-16:00",
+      drivingDistance: "30",
+      // 899 product + 71.21 extras booked; total since re-priced to 1171.
+      priceExVat: 1171,
+      subcontractorMembershipId: "sub-1",
+      subcontractor: "Flyttefirma AS",
+      gsmSentAt: new Date("2026-10-02T09:00:00Z"),
+      gsmSyncStatus: "SENT",
+    });
+
+    const json = await (await call()).json();
+
+    expect(json.order.details.pickups[0].address).toBe("Ny gate 1");
+    expect(json.order.details.delivery.address).toBe("Ny gate 2");
+    expect(json.order.details.preferredDate).toBe("2026-10-09");
+    expect(json.order.priceDifference).toBe(201);
+    expect(json.order).toMatchObject({
+      subcontractorMembershipId: "sub-1",
+      subcontractor: "Flyttefirma AS",
+      gsmSentAt: "2026-10-02T09:00:00.000Z",
+      gsmSyncStatus: "SENT",
+    });
+  });
+});

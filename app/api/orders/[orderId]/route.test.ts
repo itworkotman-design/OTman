@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   canEditOrdersMock: vi.fn(),
   getBookingCatalogMock: vi.fn(),
+  getWebsiteOrderCatalogMock: vi.fn(),
   buildOrderSummariesMock: vi.fn(),
   buildOrderItemsFromCardsMock: vi.fn(),
   buildOrderEventSnapshotMock: vi.fn(),
@@ -45,6 +46,10 @@ vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
 
 vi.mock("@/lib/booking/catalog/getBookingCatalog", () => ({
   getBookingCatalog: mocks.getBookingCatalogMock,
+}));
+
+vi.mock("@/lib/content/websiteOrderCatalog", () => ({
+  getWebsiteOrderCatalog: mocks.getWebsiteOrderCatalogMock,
 }));
 
 vi.mock("@/lib/orders/orderEvents", () => ({
@@ -2293,5 +2298,80 @@ describe("routes in /api/orders/[orderId]", () => {
       const data = mocks.orderUpdateMock.mock.calls[0][0].data;
       expect(data.statusChangedAt).toBeUndefined();
     });
+  });
+});
+
+describe("PATCH /api/orders/[orderId] — white-goods website orders", () => {
+  function patchRequest() {
+    return PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          status: "processing",
+          priceExVat: 1019,
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.canEditOrdersMock.mockReturnValue(true);
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      user: { username: "admin", email: "admin@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.getBookingCatalogMock.mockResolvedValue({ products: [], specialOptions: [] });
+    mocks.getWebsiteOrderCatalogMock.mockResolvedValue({
+      priceListId: "website-list-1",
+      priceListIds: ["website-list-1", "website-list-2"],
+      products: [],
+      specialOptions: [],
+    });
+    mocks.buildOrderSummariesMock.mockReturnValue({});
+    mocks.buildOrderEventSnapshotMock.mockImplementation((value) => value);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([]);
+    mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
+    mocks.orderUpdateMock.mockResolvedValue({ id: "order-1" });
+    mocks.orderNotificationFindFirstMock.mockResolvedValue(null);
+    mocks.orderNotificationFindManyMock.mockResolvedValue([]);
+    mocks.cancelledOrderPartnerDataMock.mockResolvedValue({});
+  });
+
+  it("re-prices a white-goods website order from the merged website catalog, not its single price list", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      displayId: 20001,
+      priceListId: "website-list-1",
+      isWebsiteOrder: true,
+      websiteOrderKind: "WHITE_GOODS",
+      createdAt: new Date("2026-10-01T00:00:00.000Z"),
+    });
+
+    await patchRequest();
+
+    expect(mocks.getWebsiteOrderCatalogMock).toHaveBeenCalledTimes(1);
+    expect(mocks.getBookingCatalogMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps pricing every other order from its own price list", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      displayId: 20001,
+      priceListId: "price-list-1",
+      isWebsiteOrder: true,
+      websiteOrderKind: null,
+      createdAt: new Date("2026-10-01T00:00:00.000Z"),
+    });
+
+    await patchRequest();
+
+    expect(mocks.getBookingCatalogMock).toHaveBeenCalledWith("price-list-1");
+    expect(mocks.getWebsiteOrderCatalogMock).not.toHaveBeenCalled();
   });
 });

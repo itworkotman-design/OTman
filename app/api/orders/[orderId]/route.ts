@@ -15,6 +15,7 @@ import { resolveExtraPickupCustomAddresses } from "@/lib/orders/resolveExtraPick
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { getBookingCatalog } from "@/lib/booking/catalog/getBookingCatalog";
+import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { sendExtraPickupNotificationEmail, sendOrderNotificationEmail } from "@/lib/orders/orderNotificationEmail";
 import {
   buildOrderEventSnapshot,
@@ -606,6 +607,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
       paidAt: true,
       invoicedAt: true,
       isWebsiteOrder: true,
+      websiteOrderKind: true,
       approvedAt: true,
       rejectedAt: true,
       actionToken: true,
@@ -844,7 +846,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     optionalString(body.deliveryAddress) ?? (body.deliveryAddress === undefined ? existingOrder.deliveryAddress : null);
   const nextReturnAddress = resolvedReturnAddress ?? (body.returnAddress === undefined ? existingOrder.returnAddress : null);
 
-  const catalog = await getBookingCatalog(existingOrder.priceListId ?? membership.membershipPriceLists[0]?.priceListId ?? null);
+  // A homepage white-goods order mixes products from several website price
+  // lists and is only filed under the first one, so it is re-priced from the
+  // same merged catalog it was booked from — its single list would drop or
+  // misprice the products from the others.
+  const catalog =
+    existingOrder.websiteOrderKind === "WHITE_GOODS"
+      ? await getWebsiteOrderCatalog()
+      : await getBookingCatalog(existingOrder.priceListId ?? membership.membershipPriceLists[0]?.priceListId ?? null);
   const pricingSource = applyOrderPricingSnapshot({
     catalogProducts: catalog.products,
     catalogSpecialOptions: catalog.specialOptions,

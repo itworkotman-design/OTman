@@ -171,3 +171,89 @@ function isOrderExtraLine(value: unknown): value is OrderExtraLine {
     Number.isFinite(line.qty)
   );
 }
+
+// The order's regular columns as they are now — an admin edit in the
+// standard editor (or the customer's own edit link) updates these, not the
+// stored details.
+export type LiveOrderFields = {
+  pickupAddress: string | null;
+  deliveryAddress: string | null;
+  extraPickupAddress: string[];
+  deliveryDate: string | null;
+  timeWindow: string | null;
+  drivingDistance: string | null;
+};
+
+function liveOr(live: string | null | undefined, booked: string): string {
+  return live?.trim() ? live : booked;
+}
+
+// The stored details with whatever the order's own columns say now laid on
+// top, so the admin view never shows an address or date that was since
+// changed. Floors, lifts, contacts and product splits only exist in the
+// details and stay as booked. Extra-stop addresses are only overlaid while the
+// stop count still matches — otherwise there's no telling which is which.
+export function withLiveOrderFields(details: WhiteGoodsBookingDetails, live: LiveOrderFields): WhiteGoodsBookingDetails {
+  const extraStops = details.pickups.length - 1;
+  const extraMatches = live.extraPickupAddress.length === extraStops;
+  return {
+    ...details,
+    pickups: details.pickups.map((stop, i) => {
+      if (i === 0) return { ...stop, address: liveOr(live.pickupAddress, stop.address) };
+      return extraMatches ? { ...stop, address: liveOr(live.extraPickupAddress[i - 1], stop.address) } : stop;
+    }),
+    delivery: { ...details.delivery, address: liveOr(live.deliveryAddress, details.delivery.address) },
+    preferredDate: liveOr(live.deliveryDate, details.preferredDate),
+    timeWindow: liveOr(live.timeWindow, details.timeWindow),
+    drivingDistance: liveOr(live.drivingDistance, details.drivingDistance),
+  };
+}
+
+type StopFloor = { floor: number; liftAvailable: boolean };
+
+// A store is never asked for a floor (stores have loading access): priced
+// as ground floor with a lift, same as at booking.
+function stopFloor(stop: BookingPickupStop): StopFloor {
+  return stop.source === "store"
+    ? { floor: 0, liftAvailable: true }
+    : { floor: stop.floor ?? 0, liftAvailable: stop.liftAvailable };
+}
+
+// The floor/lift of each stop for re-pricing an existing order (the
+// customer's edit link). Uses the per-stop floors from the booking details
+// when the order has them; older orders only have the one combined
+// Order.floorNo/lift pair, which is then applied to both ends as before.
+export function floorPricingInputs(order: {
+  floorNo: string | null;
+  lift: string | null;
+  websiteBookingDetails: unknown;
+}): {
+  pickupFloor: number;
+  pickupLiftAvailable: boolean;
+  deliveryFloor: number;
+  deliveryLiftAvailable: boolean;
+  extraPickupFloors: StopFloor[];
+} {
+  const details = parseWhiteGoodsBookingDetails(order.websiteBookingDetails);
+  if (details && details.pickups.length > 0) {
+    const [first, ...extras] = details.pickups;
+    const pickup = stopFloor(first);
+    return {
+      pickupFloor: pickup.floor,
+      pickupLiftAvailable: pickup.liftAvailable,
+      deliveryFloor: details.delivery.floor ?? 0,
+      deliveryLiftAvailable: details.delivery.liftAvailable,
+      extraPickupFloors: extras.map(stopFloor),
+    };
+  }
+
+  const floor = Number(order.floorNo) || 0;
+  const liftAvailable = order.lift === "yes";
+  return {
+    pickupFloor: floor,
+    pickupLiftAvailable: liftAvailable,
+    deliveryFloor: floor,
+    deliveryLiftAvailable: liftAvailable,
+    extraPickupFloors: [],
+  };
+}

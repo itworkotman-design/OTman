@@ -28,6 +28,7 @@ import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/build
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import { normalizePriceListSettings } from "@/lib/products/priceListSettings";
+import { floorPricingInputs, parseWhiteGoodsBookingDetails, type OrderExtraLine } from "@/lib/orders/websiteBookingDetails";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 
 // "Forgot something?" — a customer on an already-confirmed (paid) order can
@@ -111,6 +112,8 @@ async function recomputeOrderPricing(
     floorNo: string | null;
     lift: string | null;
     extraPickupAddress: string[];
+    // Per-stop floors and the booked order extras (homepage orders only).
+    websiteBookingDetails?: unknown;
     rabatt: string | null;
     leggTil: string | null;
     subcontractorMinus: string | null;
@@ -159,11 +162,14 @@ async function recomputeOrderPricing(
   const priceLookup = buildPriceLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
 
   const drivingDistanceStr = order.drivingDistance ?? "";
-  const floorNo = Number(order.floorNo) || 0;
-  // The order only retains one combined floor/lift pair after creation (see
-  // Order.floorNo/lift), so re-pricing on edit necessarily applies it to
-  // both ends — the finer pickup-vs-delivery split only exists at booking time.
-  const liftAvailable = order.lift === "yes";
+  // Each stop's own floor/lift from the booking details when the order has
+  // them; older orders fall back to the one combined Order.floorNo/lift pair
+  // applied to both ends (see floorPricingInputs).
+  const floors = floorPricingInputs({
+    floorNo: order.floorNo,
+    lift: order.lift,
+    websiteBookingDetails: order.websiteBookingDetails ?? null,
+  });
   const extraPickupsForPricing = (order.extraPickupAddress ?? []).map((address) => ({ address }));
 
   const zeroBaseDeliveryPricesOver100Km = parseDistanceKm(drivingDistanceStr) > 100;
@@ -191,10 +197,11 @@ async function recomputeOrderPricing(
     drivingDistance: drivingDistanceStr,
     expressDelivery: order.expressDelivery === true,
     extraPickups: extraPickupsForPricing,
-    pickupFloor: floorNo,
-    deliveryFloor: floorNo,
-    pickupLiftAvailable: liftAvailable,
-    deliveryLiftAvailable: liftAvailable,
+    pickupFloor: floors.pickupFloor,
+    deliveryFloor: floors.deliveryFloor,
+    pickupLiftAvailable: floors.pickupLiftAvailable,
+    deliveryLiftAvailable: floors.deliveryLiftAvailable,
+    extraPickupFloors: floors.extraPickupFloors,
   });
 
   const pricingResult = calculateBookingPricing({
@@ -226,6 +233,13 @@ async function recomputeOrderPricing(
     pricingSnapshot,
     priceExVat: Math.round(pricingResult.totals.totalExVat),
     priceSubcontractor: Math.round(pricingResult.totals.subcontractorTotal),
+    // Same lines the homepage summary shows — kept on the booking details so
+    // the admin view stays in step with the new price.
+    orderExtras: (pricingResult.breakdowns?.find((b) => b.isOrderExtras)?.lines ?? []).map((line) => ({
+      label: line.label,
+      price: line.lineTotal,
+      qty: line.qty,
+    })),
   };
 }
 
@@ -280,6 +294,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
           priceExVat: recomputed.priceExVat,
           priceSubcontractor: recomputed.priceSubcontractor,
           ...recomputed.summaries,
+          ...refreshedBookingDetails(order.websiteBookingDetails, recomputed.orderExtras),
           needsNotificationAttention: true,
           lastNotificationAt: new Date(),
         },
@@ -354,4 +369,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     console.error("[edit-items] Failed to apply order item edits:", err);
     return NextResponse.json({ ok: false, reason: "UPDATE_FAILED" }, { status: 500 });
   }
+}
+
+// The order's booking details with the re-priced order extras, as an
+// update fragment — nothing for orders that never had details.
+function refreshedBookingDetails(stored: unknown, orderExtras: OrderExtraLine[]) {
+  const details = parseWhiteGoodsBookingDetails(stored);
+  if (!details) return {};
+  return { websiteBookingDetails: { ...details, orderExtras } as unknown as Prisma.InputJsonValue };
 }
