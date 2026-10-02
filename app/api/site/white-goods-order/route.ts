@@ -28,6 +28,7 @@ import {
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
 import { costliestFloor, parseFloorNumber } from "@/lib/booking/floorNumber";
+import { buildWebsiteOrderNoteLines, buildWebsiteOrderTextFields } from "@/lib/orders/websiteOrderNotes";
 import {
   applyWhiteGoodsExtraUnitCharges,
   buildWhiteGoodsExtraUnitOrderItems,
@@ -267,16 +268,24 @@ async function createWhiteGoodsOrder(
   const pickupContactNameStr = str(body.pickupContactName);
   const pickupContactPhoneStr = str(body.pickupContactPhone);
 
-  const floorNoteParts = [
-    pickupSourceLabel(body.pickupSource) ? `Picking up from: ${pickupSourceLabel(body.pickupSource)}` : null,
-    pickupPlaceNameStr ? `Store/business name: ${pickupPlaceNameStr}` : null,
-    pickupContactNameStr ? `Pickup contact: ${pickupContactNameStr}` : null,
-    pickupContactPhoneStr ? `Pickup contact phone: ${pickupContactPhoneStr}` : null,
-    !isStorePickup && pickupFloor !== 0 ? `Pickup floor: ${pickupFloor}` : null,
-    deliveryFloor !== 0 ? `Delivery floor: ${deliveryFloor}` : null,
-    !isStorePickup ? `Lift available at pickup: ${pickupLiftAvailable ? "yes" : "no"}` : null,
-    `Lift available at delivery: ${deliveryLiftAvailable ? "yes" : "no"}`,
-  ].filter(Boolean);
+  const orderFloorNo = String(costliestFloor(pickupFloor, deliveryFloor));
+  // Legacy single field (see edit-items re-pricing) — "yes" only when
+  // neither end would incur a floor surcharge, the safer combined value.
+  const orderLift = pickupLiftAvailable && deliveryLiftAvailable ? "yes" : "no";
+
+  const floorNoteLines = buildWebsiteOrderNoteLines({
+    pickupSourceLabel: pickupSourceLabel(body.pickupSource),
+    pickupPlaceName: pickupPlaceNameStr,
+    pickupContactName: pickupContactNameStr,
+    pickupContactPhone: pickupContactPhoneStr,
+    isStorePickup,
+    pickupFloor,
+    pickupLiftAvailable,
+    deliveryFloor,
+    deliveryLiftAvailable,
+    orderFloorNo,
+    orderLift,
+  });
 
   // Only non-empty once the order was actually split across more than one
   // pickup address — see websiteExtraPickupLocations.ts.
@@ -308,13 +317,13 @@ async function createWhiteGoodsOrder(
       drivingDistance: drivingDistanceStr || null,
       expressDelivery,
       extraPickupAddress: extraPickupsForPricing.map((p) => p.address),
-      floorNo: String(costliestFloor(pickupFloor, deliveryFloor)),
-      // Legacy single field (see edit-items re-pricing) — "yes" only when
-      // neither end would incur a floor surcharge, the safer combined value.
-      lift: pickupLiftAvailable && deliveryLiftAvailable ? "yes" : "no",
-      description: [str(body.notes), floorNoteParts.join(", "), multiPickupNoteParts.join("\n")]
-        .filter(Boolean)
-        .join("\n\n"),
+      floorNo: orderFloorNo,
+      lift: orderLift,
+      ...buildWebsiteOrderTextFields({
+        customerComment: str(body.notes),
+        noteLines: floorNoteLines,
+        multiPickupLines: multiPickupNoteParts,
+      }),
       priceExVat: Math.round(pricingResult.totals.totalExVat),
       priceSubcontractor: Math.round(pricingResult.totals.subcontractorTotal),
       productCardsSnapshot: productCards as unknown as Prisma.InputJsonValue,

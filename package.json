@@ -20,6 +20,7 @@
     "backfill:gsm-missing-pod-attachments": "tsx scripts/backfill-missing-gsm-pod-attachments-from-gsm.ts",
     "backfill:gsm-historical-pod-attachments": "tsx scripts/backfill-historical-gsm-pod-attachments.ts",
     "backfill:membership-app-access": "tsx scripts/backfill-membership-app-access.ts",
+    "create:website-account": "tsx scripts/create-website-account.ts",
     "seed:white-goods-catalog": "tsx scripts/seed-white-goods-catalog.ts",
     "seed:furniture-catalog": "tsx scripts/seed-furniture-catalog.ts",
     "seed:moving-catalog": "tsx scripts/seed-moving-catalog.ts",
