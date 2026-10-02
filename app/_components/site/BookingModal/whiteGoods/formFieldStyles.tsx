@@ -18,6 +18,11 @@ export function fieldClass(hasError: boolean): string {
   return hasError ? inputErrorClass : inputClass;
 }
 
+// The narrow right-hand column beside a full-width field (driving distance
+// beside the delivery address, the lift checkbox beside a floor input) — one
+// fixed width so those columns line up under each other. Phones stack them.
+export const sideColumnClass = "sm:w-48 sm:shrink-0";
+
 // Small uppercase eyebrow label used above an address input — the input
 // itself carries a leading pin icon, so the label needs none.
 export function AddressLabel({ children }: { children: ReactNode }) {

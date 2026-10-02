@@ -8,7 +8,7 @@ import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { addDaysIso, getOsloDateKey } from "@/lib/dates/isoDate";
 import { isNorwegianPublicHoliday } from "@/lib/dates/norwayHolidays";
 import { CalendarIcon, ClockIcon, DocumentIcon, WarningTriangleIcon } from "./orderDetailsIcons";
-import { AddressLabel, FieldLabel, inputClass } from "./formFieldStyles";
+import { AddressLabel, FieldLabel, inputClass, sideColumnClass } from "./formFieldStyles";
 import { FloorLiftField } from "./floorLiftField";
 import { TimeWindowField } from "./timeWindowField";
 
@@ -74,15 +74,42 @@ export function OrderDetailsCard({
       </div>
 
       <div className="flex flex-col gap-4">
-        <div>
-          <AddressLabel>{t("Delivery address", "Leveringsadresse")}</AddressLabel>
-          <AddressAutocompleteInput
-            value={deliveryAddress}
-            onChange={setDeliveryAddress}
-            locale={bookingLocale}
-            placeholder={t("Your address", "Din adresse")}
-            icon={<PinIcon />}
-          />
+        {/* Driving distance sits beside the address it's calculated from —
+            plain text rather than a (read-only) input, so it doesn't read as
+            something the customer can edit. Stacks under it on phones. */}
+        <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[1fr_auto]">
+          <div className="min-w-0">
+            <AddressLabel>{t("Delivery address", "Leveringsadresse")}</AddressLabel>
+            <AddressAutocompleteInput
+              value={deliveryAddress}
+              onChange={setDeliveryAddress}
+              locale={bookingLocale}
+              placeholder={t("Your address", "Din adresse")}
+              icon={<PinIcon />}
+            />
+          </div>
+
+          <div className={sideColumnClass}>
+            <FieldLabel
+              icon={<WarningTriangleIcon className="h-4 w-4" />}
+              hint={t(
+                "Calculated automatically along every pickup address, then the delivery address.",
+                "Beregnes automatisk via alle hentestedene og deretter leveringsadressen.",
+              )}
+            >
+              {t("Driving distance", "Kjøreavstand")}
+            </FieldLabel>
+            {/* h-12.5 matches the address autocomplete input beside it. */}
+            <p className="flex h-12.5 items-center text-sm" aria-live="polite">
+              {drivingDistanceLoading ? (
+                <span className="text-black/40">{t("Calculating…", "Beregner…")}</span>
+              ) : drivingDistance ? (
+                <span className="text-base font-semibold text-black/80">{drivingDistance} km</span>
+              ) : (
+                <span className="text-black/40">{t("Fill in the addresses", "Fyll inn adressene")}</span>
+              )}
+            </p>
+          </div>
         </div>
 
         <FloorLiftField
@@ -118,34 +145,6 @@ export function OrderDetailsCard({
             <TimeWindowField locale={locale} value={timeWindow} onChange={setTimeWindow} />
           </label>
         </div>
-
-        <label className="block">
-          <FieldLabel
-            icon={<WarningTriangleIcon className="h-4 w-4" />}
-            hint={t(
-              "Calculated automatically from the addresses above.",
-              "Beregnes automatisk fra adressene over.",
-            )}
-          >
-            {t("Driving distance", "Kjøreavstand")}
-          </FieldLabel>
-          <div className="relative">
-            <input
-              type="text"
-              readOnly
-              value={drivingDistanceLoading ? "" : drivingDistance}
-              placeholder={
-                drivingDistanceLoading
-                  ? t("Calculating…", "Beregner…")
-                  : t("Fill in the addresses above", "Fyll inn adressene over")
-              }
-              className={`${inputClass} cursor-default bg-black/2 pr-12 text-black/60`}
-            />
-            <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md bg-black/5 px-1.5 py-0.5 text-xs font-medium text-black/50">
-              km
-            </span>
-          </div>
-        </label>
       </div>
     </div>
   );

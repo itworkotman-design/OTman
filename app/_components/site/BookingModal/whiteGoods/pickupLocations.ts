@@ -133,6 +133,30 @@ export function poolsForLocations(
   return { pools, finalRemaining: pool };
 }
 
+// The stops the driving distance is routed through: pickup 1, then every
+// extra pickup location in order, then delivery (see
+// /api/site/route-distance). Null until every one of those addresses was
+// actually picked from the suggestions — a half-filled extra pickup would
+// otherwise quietly show the shorter route without it.
+export function routeStopsForDistance(params: {
+  pickupAddress: string;
+  pickupAddressSelected: boolean;
+  extraLocations: PickupLocationState[];
+  deliveryAddress: string;
+  deliveryAddressSelected: boolean;
+}): { pickupAddress: string; extraPickupAddresses: string[]; deliveryAddress: string } | null {
+  const pickupAddress = params.pickupAddress.trim();
+  const deliveryAddress = params.deliveryAddress.trim();
+  if (!pickupAddress || !params.pickupAddressSelected) return null;
+  if (!deliveryAddress || !params.deliveryAddressSelected) return null;
+  if (params.extraLocations.some((loc) => !loc.address.trim() || !loc.addressSelected)) return null;
+  return {
+    pickupAddress,
+    extraPickupAddresses: params.extraLocations.map((loc) => loc.address.trim()),
+    deliveryAddress,
+  };
+}
+
 // Splits an ordered list into sections by category, in first-seen category
 // order (an item under a category already seen joins that section, even if
 // another category appeared in between) — used to group a pickup

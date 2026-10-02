@@ -271,7 +271,11 @@ export function PickupContactCard({
                             <label
                               key={item.cardId}
                               className={[
-                                "flex cursor-pointer flex-col gap-2 rounded-2xl border p-3 transition has-focus-visible:ring-2 has-focus-visible:ring-logoblue/40",
+                                // `relative` anchors the sr-only checkbox inside
+                                // the tile — otherwise it's positioned against the
+                                // modal's overflow-hidden frame, and focusing it
+                                // scrolls that frame (blanking the modal).
+                                "relative flex cursor-pointer flex-col gap-2 rounded-2xl border p-3 transition has-focus-visible:ring-2 has-focus-visible:ring-logoblue/40",
                                 checked ? "border-logoblue bg-logoblue/5" : "border-black/10 hover:border-black/20",
                               ].join(" ")}
                             >
