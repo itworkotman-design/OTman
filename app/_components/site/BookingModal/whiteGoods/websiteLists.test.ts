@@ -147,8 +147,13 @@ describe("isListOptionsStepReady (an unfinished size-priced item on another list
   });
 
   it("is ready for an installation-only order — no delivered item needed", () => {
-    const cards = [{ ...card(0, "wm"), deliveryType: "INSTALL_ONLY" } as SavedProductCard];
-    expect(isListOptionsStepReady({ cards, listProducts: whiteGoods, wasPopulated: true })).toBe(true);
+    const listProducts = [
+      { id: "wm", options: [{ id: "inst", category: "install", active: true, customerPrice: "0" }] },
+    ] as unknown as CatalogProduct[];
+    const cards = [
+      { ...card(0, "wm"), deliveryType: "INSTALL_ONLY", selectedInstallOptionIds: ["inst"] } as SavedProductCard,
+    ];
+    expect(isListOptionsStepReady({ cards, listProducts, wasPopulated: true })).toBe(true);
   });
 });
 
@@ -164,5 +169,21 @@ describe("highlightedStartList", () => {
   it("falls back to the first chosen list when nothing is picked, and null when nothing is chosen", () => {
     expect(highlightedStartList(["wg", "fn"], [], productsByList)).toBe("wg");
     expect(highlightedStartList([], [], productsByList)).toBeNull();
+  });
+});
+
+describe("isListConfigured — installation only", () => {
+  const products = [
+    { id: "dw", code: "WG_DISHWASHER", active: true, options: [{ id: "inst", code: "DW_INSTALL", active: true, category: "install" }] },
+  ] as unknown as CatalogProduct[];
+  const installOnly = (selected: string[]) =>
+    ({ ...createEmptyProductCard(0), productId: "dw", deliveryType: "INSTALL_ONLY", selectedInstallOptionIds: selected }) as SavedProductCard;
+
+  it("isn't done while an installation-only item has no installation picked", () => {
+    expect(isListConfigured([installOnly([])], products)).toBe(false);
+  });
+
+  it("is done once the installation is picked", () => {
+    expect(isListConfigured([installOnly(["inst"])], products)).toBe(true);
   });
 });

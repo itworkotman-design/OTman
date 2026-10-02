@@ -21,6 +21,7 @@ import { findUnsellableProductIds } from "@/lib/content/mergeWebsiteCatalogs";
 import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName, isSizePricedProduct } from "@/lib/booking/pricing/sizeBrackets";
 import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeDimensions";
 import { findWebsiteCatalogByProductCode } from "@/lib/content/websiteCatalogs";
+import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyRequirement";
 import {
   applyWebsiteAssemblyExtras,
   buildWebsiteAssemblyExtraOrderItems,
@@ -101,6 +102,12 @@ class ItemNameError extends Error {
   }
 }
 
+class InstallOptionRequiredError extends Error {
+  constructor() {
+    super("An installation-only product needs an installation option");
+  }
+}
+
 class SizeBracketSelectionError extends Error {
   constructor() {
     super("A product priced by size needs exactly one volume and one weight bracket");
@@ -144,6 +151,12 @@ async function createWhiteGoodsOrder(
   // bracket, otherwise the surcharge could be dodged by simply not choosing.
   if (findCardsWithSizeBracketProblems(productCards, catalog.products).length > 0) {
     throw new SizeBracketSelectionError();
+  }
+
+  // An installation-only item with no installation picked is an order for
+  // nothing (the client auto-selects one — this is the backstop).
+  if (findInstallOnlyCardsMissingInstall(productCards, catalog.products).length > 0) {
+    throw new InstallOptionRequiredError();
   }
 
   // ...and say what the item is: a short name in the same plain-text rules as
@@ -527,6 +540,12 @@ export async function POST(req: Request) {
           reason: "VALIDATION_FAILED",
           errors: { productCards: "Say what the item is (a short name, up to 80 characters, no special characters)" },
         },
+        { status: 422 },
+      );
+    }
+    if (err instanceof InstallOptionRequiredError) {
+      return NextResponse.json(
+        { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "Choose which installation you need" } },
         { status: 422 },
       );
     }
