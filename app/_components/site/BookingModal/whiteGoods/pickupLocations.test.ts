@@ -5,6 +5,8 @@ import {
   groupByCategory,
   hasEnteredOrderOrContactDetails,
   isPickupLocationReady,
+  patchPickupLocation,
+  extraPickupsForPricing,
   keepsLaterStepsOnPickupRetract,
   nextPickupLocationId,
   orderedCardIds,
@@ -288,5 +290,54 @@ describe("routeStopsForDistance", () => {
   it("waits while pickup 1 or delivery isn't a picked address", () => {
     expect(routeStopsForDistance({ ...base, pickupAddressSelected: false, extraLocations: [] })).toBeNull();
     expect(routeStopsForDistance({ ...base, deliveryAddress: "  ", extraLocations: [] })).toBeNull();
+  });
+});
+
+describe("patchPickupLocation", () => {
+  // Three cards; pickup 1 already took card 1, so 2 and 3 are left for the
+  // extra locations.
+  const firstRemaining = [2, 3];
+
+  it("adds a third pickup location once the second one claims only part of what's left", () => {
+    const second = location({ id: 0, allRemainingHere: true });
+
+    const next = patchPickupLocation([second], 0, { allRemainingHere: false, selectedCardIds: [2] }, firstRemaining);
+
+    expect(next).toHaveLength(2);
+    expect(next[0]).toMatchObject({ id: 0, allRemainingHere: false, selectedCardIds: [2] });
+    expect(next[1].id).toBe(1);
+  });
+
+  it("removes the third location again once the second one takes everything that's left", () => {
+    const second = location({ id: 0, allRemainingHere: false, selectedCardIds: [2] });
+    const third = location({ id: 1 });
+
+    const next = patchPickupLocation([second, third], 0, { allRemainingHere: true }, firstRemaining);
+
+    expect(next.map((l) => l.id)).toEqual([0]);
+  });
+
+  it("keeps the typed-in fields of the locations it doesn't patch", () => {
+    const second = location({ id: 0, allRemainingHere: false, selectedCardIds: [2] });
+    const third = location({ id: 1, address: "Storgata 3" });
+
+    const next = patchPickupLocation([second, third], 0, { placeName: "Elkjøp" }, firstRemaining);
+
+    expect(next[1]).toBe(third);
+  });
+});
+
+describe("extraPickupsForPricing", () => {
+  it("lists one extra pickup per extra location with an address, like the server charges them", () => {
+    const next = extraPickupsForPricing([
+      location({ id: 0, address: " Storgata 1 " }),
+      location({ id: 1, address: "" }),
+      location({ id: 2, address: "Kirkegata 5" }),
+    ]);
+    expect(next).toEqual([{ address: "Storgata 1" }, { address: "Kirkegata 5" }]);
+  });
+
+  it("is empty when the order isn't split", () => {
+    expect(extraPickupsForPricing([])).toEqual([]);
   });
 });

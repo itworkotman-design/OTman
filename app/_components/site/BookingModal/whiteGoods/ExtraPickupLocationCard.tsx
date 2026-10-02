@@ -17,6 +17,7 @@ export function ExtraPickupLocationCard({
   index,
   location,
   productPoolSections,
+  floorSurchargePerFloor,
   onChange,
 }: {
   locale: Locale;
@@ -25,7 +26,8 @@ export function ExtraPickupLocationCard({
   index: number;
   location: PickupLocationState;
   productPoolSections: PickupProductPoolSection[];
-  onChange: (patch: Partial<PickupLocationState>) => void;
+  floorSurchargePerFloor: number;
+  onChange:(patch: Partial<PickupLocationState>) => void;
 }) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
@@ -67,6 +69,7 @@ export function ExtraPickupLocationCard({
                 "All the remaining products are picked up here",
                 "Alle de resterende varene hentes her",
               )}
+              floorSurchargePerFloor={floorSurchargePerFloor}
             />
           </div>
         )}

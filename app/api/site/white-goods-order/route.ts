@@ -43,7 +43,11 @@ import {
   validateTextField,
 } from "@/lib/orders/websiteOrderValidation";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { buildMultiPickupDescriptionLines, parseExtraPickupLocations } from "@/lib/orders/websiteExtraPickupLocations";
+import {
+  buildMultiPickupDescriptionLines,
+  extraPickupFloorsForPricing,
+  parseExtraPickupLocations,
+} from "@/lib/orders/websiteExtraPickupLocations";
 
 // Independent from transport-request's rate limiter by design — a separate
 // public order-creation flow gets its own budget rather than sharing state
@@ -243,6 +247,7 @@ async function createWhiteGoodsOrder(
     deliveryFloor,
     pickupLiftAvailable,
     deliveryLiftAvailable,
+    extraPickupFloors: extraPickupFloorsForPricing(extraPickupLocations),
   });
 
   const pricingResult = calculateBookingPricing({

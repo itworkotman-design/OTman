@@ -67,6 +67,32 @@ describe("buildWhiteGoodsCalculatorBreakdowns", () => {
     expect(floorItem).toBeUndefined();
   });
 
+  it("also charges the floors of every extra pickup location", () => {
+    const breakdowns = buildWhiteGoodsCalculatorBreakdowns({
+      productBreakdowns: [],
+      priceListSettings: settings,
+      drivingDistance: "",
+      expressDelivery: false,
+      extraPickups: [],
+      pickupFloor: 1,
+      deliveryFloor: 1,
+      pickupLiftAvailable: false,
+      deliveryLiftAvailable: false,
+      extraPickupFloors: [
+        { floor: 5, liftAvailable: false }, // 3 chargeable
+        { floor: -2, liftAvailable: false }, // 1 chargeable
+        { floor: 9, liftAvailable: true }, // lift: 0
+      ],
+    });
+
+    const extras = breakdowns.find((b) => b.isOrderExtras);
+    const floorItem = extras?.items.find(
+      (item) => item.kind === "customPrice" && item.code === "FLOOR_SURCHARGE",
+    );
+
+    expect(floorItem).toEqual(expect.objectContaining({ qty: 4 }));
+  });
+
   it("adds a floor-surcharge line sized to the combined chargeable floors of pickup + delivery", () => {
     const breakdowns = buildWhiteGoodsCalculatorBreakdowns({
       productBreakdowns: [],

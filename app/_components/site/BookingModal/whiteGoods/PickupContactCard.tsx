@@ -65,6 +65,10 @@ type Props = {
   // remaining products are picked up here" for the ones after (whose pool
   // is already just whatever earlier locations left unclaimed).
   allRemainingLabel: string;
+  // Customer-facing price per chargeable floor — shows the live "+X kr"
+  // surcharge next to the floor, same as the delivery floor (see
+  // getChargeableFloors).
+  floorSurchargePerFloor: number;
 };
 
 export function PickupContactCard({
@@ -91,6 +95,7 @@ export function PickupContactCard({
   selectedCardIds,
   setSelectedCardIds,
   allRemainingLabel,
+  floorSurchargePerFloor,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
@@ -210,6 +215,11 @@ export function PickupContactCard({
             hasError={floorError}
             liftChecked={pickupLiftAvailable}
             onLiftChange={setPickupLiftAvailable}
+            surchargePerFloor={floorSurchargePerFloor}
+            hint={t(
+              "1 is the ground floor, -1 the basement. Without a lift, floors above the 2nd or below the 1st basement add a surcharge.",
+              "1. etasje er bakkeplan, -1 er kjeller. Uten heis tilkommer et tillegg for etasjer over 2. og under -1.",
+            )}
           />
         )}
 

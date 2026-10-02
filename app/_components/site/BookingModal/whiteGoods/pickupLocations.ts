@@ -119,6 +119,29 @@ export function syncPickupLocations(
   return next;
 }
 
+// Applies an edit to one extra pickup location, then re-syncs the list —
+// a location's own product selection decides whether a further location is
+// needed (or a later one is now stale), so every edit has to re-run the
+// sync, not only changes to the first location's claim.
+export function patchPickupLocation(
+  locations: PickupLocationState[],
+  id: number,
+  patch: Partial<PickupLocationState>,
+  firstLocationRemaining: number[],
+): PickupLocationState[] {
+  const patched = locations.map((loc) => (loc.id === id ? { ...loc, ...patch } : loc));
+  return syncPickupLocations(patched, firstLocationRemaining, () => nextPickupLocationId(patched));
+}
+
+// The extra pickup stops the live calculator charges the extra-pickup fee
+// for — one per extra location with an address, the same count the server
+// prices (see parseExtraPickupLocations, which drops address-less entries).
+export function extraPickupsForPricing(locations: PickupLocationState[]): { address: string }[] {
+  return locations
+    .map((loc) => ({ address: loc.address.trim() }))
+    .filter((pickup) => pickup.address.length > 0);
+}
+
 // The pool offered to each location in turn (for rendering their
 // checklists), and whatever's left once the last one has claimed its share
 // — non-empty only while pickup assignment isn't finished yet.
