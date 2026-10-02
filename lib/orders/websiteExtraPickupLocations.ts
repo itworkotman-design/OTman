@@ -66,6 +66,17 @@ export function parseExtraPickupLocations(value: unknown): ParsedExtraPickupLoca
     .filter((loc): loc is ParsedExtraPickupLocation => loc !== null);
 }
 
+// Each extra stop's floor/lift for the floor surcharge. A store stop never
+// asks for a floor on the client (stores always have loading access), so it's
+// authoritatively ground floor with a lift — same as the first pickup.
+export function extraPickupFloorsForPricing(
+  locations: ParsedExtraPickupLocation[],
+): Array<{ floor: number; liftAvailable: boolean }> {
+  return locations.map((loc) =>
+    loc.source === "store" ? { floor: 0, liftAvailable: true } : { floor: loc.floor, liftAvailable: loc.liftAvailable },
+  );
+}
+
 function describeLocation(index: number, address: string, detail: string | null, items: string[]): string {
   const head = detail ? `${address}, ${detail}` : address;
   const suffix = items.length > 0 ? ` — picking up: ${items.join(", ")}` : "";

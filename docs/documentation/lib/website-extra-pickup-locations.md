@@ -14,3 +14,4 @@ Server-side counterpart to the homepage white-goods flow's multi-pickup-location
 | --- | --- |
 | `parseExtraPickupLocations` | Reads the raw request field into `ParsedExtraPickupLocation[]`, coercing every field to a safe default and dropping any entry with no usable address. Never throws on malformed input. |
 | `buildMultiPickupDescriptionLines` | Human-readable "Pickup location N (address, source, contact) — picking up: X, Y" lines for the order description — empty when the order was never split across more than one location, so a normal single-location order's description is unaffected. |
+| `extraPickupFloorsForPricing` | Each extra stop's floor and lift for the floor surcharge (`buildWhiteGoodsCalculatorBreakdowns`'s `extraPickupFloors`). A store stop is always ground floor with a lift, whatever the client sent, same as the first pickup. |

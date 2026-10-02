@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildMultiPickupDescriptionLines, parseExtraPickupLocations } from "./websiteExtraPickupLocations";
+import {
+  buildMultiPickupDescriptionLines,
+  extraPickupFloorsForPricing,
+  parseExtraPickupLocations,
+} from "./websiteExtraPickupLocations";
 
 describe("parseExtraPickupLocations", () => {
   it("returns nothing for a non-array or empty input", () => {
@@ -117,5 +121,23 @@ describe("buildMultiPickupDescriptionLines", () => {
       "Pickup location 2 (Storgata 3, Oslo, Business, Acme AS, contact: Kari Nordmann / +47 987 65 432) — picking up: Sofa, Bed",
       "Pickup location 3 (Storgata 5, Oslo)",
     ]);
+  });
+});
+
+describe("extraPickupFloorsForPricing", () => {
+  it("passes each extra stop's floor and lift through for the floor surcharge", () => {
+    const locations = parseExtraPickupLocations([
+      { address: "A 1", source: "private", floor: 5, liftAvailable: false },
+      { address: "B 2", source: "business", floor: -2, liftAvailable: true },
+    ]);
+    expect(extraPickupFloorsForPricing(locations)).toEqual([
+      { floor: 5, liftAvailable: false },
+      { floor: -2, liftAvailable: true },
+    ]);
+  });
+
+  it("treats a store stop as ground floor with a lift, whatever the client sent", () => {
+    const locations = parseExtraPickupLocations([{ address: "A 1", source: "store", floor: 7, liftAvailable: false }]);
+    expect(extraPickupFloorsForPricing(locations)).toEqual([{ floor: 0, liftAvailable: true }]);
   });
 });

@@ -24,4 +24,4 @@ Floors count from 1 (the ground floor, "1. etasje") and go negative below ground
 
 ## Floor surcharge (no lift)
 
-`getChargeableFloors` (`lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns.ts`) counts the surcharged floors. One flight of stairs is included in each direction: floors 1, 2 and -1 are free, each floor above 2 costs one surcharge, and each basement below -1 does too (-2 = 1, -3 = 2). With a lift there is no surcharge.
+`getChargeableFloors` (`lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns.ts`) counts the surcharged floors. One flight of stairs is included in each direction: floors 1, 2 and -1 are free, each floor above 2 costs one surcharge, and each basement below -1 does too (-2 = 1, -3 = 2). With a lift there is no surcharge. Every stop is charged: the first pickup, each extra pickup location (`extraPickupFloors`) and the delivery. Store pickups count as ground floor with a lift. Every pickup floor field and the delivery floor field show the live "+X kr" surcharge.

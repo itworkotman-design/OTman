@@ -14,6 +14,8 @@ import {
   isPickupLocationReady,
   keepsLaterStepsOnPickupRetract,
   nextPickupLocationId,
+  patchPickupLocation,
+  extraPickupsForPricing,
   orderedCardIds,
   poolsForLocations,
   remainingAfterClaim,
@@ -268,7 +270,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   );
 
   function updateExtraPickupLocation(id: number, patch: Partial<PickupLocationState>) {
-    setExtraPickupLocations((locations) => locations.map((loc) => (loc.id === id ? { ...loc, ...patch } : loc)));
+    setExtraPickupLocations((locations) => patchPickupLocation(locations, id, patch, location0Remaining));
   }
 
   // Which website list (category) a product belongs to — used to group the
@@ -507,6 +509,17 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const effectivePickupFloor = isStorePickup ? 0 : (pickupFloor ?? 0);
   const effectiveDeliveryFloor = deliveryFloor ?? 0;
   const effectivePickupLiftAvailable = isStorePickup ? true : pickupLiftAvailable;
+  // Same rule for every extra stop (mirrors extraPickupFloorsForPricing on
+  // the server).
+  const extraPickupFloors = useMemo(
+    () =>
+      extraPickupLocations.map((loc) =>
+        loc.source === "store"
+          ? { floor: 0, liftAvailable: true }
+          : { floor: loc.floor ?? 0, liftAvailable: loc.liftAvailable },
+      ),
+    [extraPickupLocations],
+  );
 
   const pricing = useMemo(() => {
     const breakdowns = applyWebsiteAssemblyExtras(
@@ -525,11 +538,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       drivingDistance,
       // Not offered as a client-selectable option in this flow — always off.
       expressDelivery: false,
-      extraPickups: [],
+      // Charged per extra pickup location, same as the server does.
+      extraPickups: extraPickupsForPricing(extraPickupLocations),
       pickupFloor: effectivePickupFloor,
       deliveryFloor: effectiveDeliveryFloor,
       pickupLiftAvailable: effectivePickupLiftAvailable,
       deliveryLiftAvailable,
+      extraPickupFloors,
     });
     const priceLookup = buildPriceLookup(catalogProducts, catalogSpecialOptions, { locale });
     return calculateBookingPricing({ productBreakdowns: fullBreakdowns, priceLookup });
@@ -544,6 +559,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     effectiveDeliveryFloor,
     effectivePickupLiftAvailable,
     deliveryLiftAvailable,
+    extraPickupFloors,
+    extraPickupLocations,
   ]);
 
   // pricing.totals.totalExVat is the sum of the raw, unmodified line prices
@@ -978,6 +995,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
               selectedCardIds={pickupCardIds}
               setSelectedCardIds={setPickupCardIds}
               allRemainingLabel={t("All products are picked up here", "Alle varene hentes her")}
+              floorSurchargePerFloor={floorSurchargePerFloor}
             />
 
             <AnimatedStack
@@ -991,6 +1009,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                     index={i}
                     location={location}
                     productPoolSections={pickupPoolSections(extraPickupPools[i] ?? [])}
+                    floorSurchargePerFloor={floorSurchargePerFloor}
                     onChange={(patch) => updateExtraPickupLocation(location.id, patch)}
                   />
                 ),
