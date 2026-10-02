@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { parseFloorNumber } from "./floorNumber";
+import { costliestFloor, parseFloorNumber } from "./floorNumber";
+
+describe("costliestFloor", () => {
+  it("picks the floor with the bigger no-lift surcharge, basements included", () => {
+    expect(costliestFloor(-3, 1)).toBe(-3);
+    expect(costliestFloor(4, -2)).toBe(4);
+    expect(costliestFloor(1, 5)).toBe(5);
+  });
+
+  it("falls back to the higher floor when neither costs more", () => {
+    expect(costliestFloor(1, 2)).toBe(2);
+    expect(costliestFloor(-1, 2)).toBe(2);
+    expect(costliestFloor(0, 0)).toBe(0);
+  });
+});
 
 describe("parseFloorNumber", () => {
   it("keeps whole floors above and below ground", () => {

@@ -19,9 +19,13 @@ describe("isOrderDetailsStepReady", () => {
     expect(isOrderDetailsStepReady({ ...ready, deliveryAddressSelected: false })).toBe(false);
   });
 
-  it("needs a delivery floor of at least 1", () => {
+  it("needs a delivery floor, which can't be 0", () => {
     expect(isOrderDetailsStepReady({ ...ready, deliveryFloor: null })).toBe(false);
     expect(isOrderDetailsStepReady({ ...ready, deliveryFloor: 0 })).toBe(false);
+  });
+
+  it("accepts a basement (negative) delivery floor", () => {
+    expect(isOrderDetailsStepReady({ ...ready, deliveryFloor: -1 })).toBe(true);
   });
 
   it("needs a date and a complete time window", () => {

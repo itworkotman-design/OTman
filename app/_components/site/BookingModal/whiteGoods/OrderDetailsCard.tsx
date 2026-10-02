@@ -156,8 +156,8 @@ export function OrderDetailsCard({
           locale={locale}
           label={t("Delivery floor", "Etasje ved levering")}
           hint={t(
-            "1 is the ground floor, -1 the basement. Without a lift, floors above the 2nd add a surcharge.",
-            "1. etasje er bakkeplan, -1 er kjeller. Uten heis tilkommer et tillegg for etasjer over 2.",
+            "1 is the ground floor, -1 the basement. Without a lift, floors above the 2nd or below the 1st basement add a surcharge.",
+            "1. etasje er bakkeplan, -1 er kjeller. Uten heis tilkommer et tillegg for etasjer over 2. og under -1.",
           )}
           floorValue={deliveryFloor}
           onFloorChange={setDeliveryFloor}

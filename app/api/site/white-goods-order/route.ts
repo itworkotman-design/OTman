@@ -27,7 +27,7 @@ import {
 } from "@/lib/booking/pricing/websiteAssemblyExtras";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
-import { parseFloorNumber } from "@/lib/booking/floorNumber";
+import { costliestFloor, parseFloorNumber } from "@/lib/booking/floorNumber";
 import {
   applyWhiteGoodsExtraUnitCharges,
   buildWhiteGoodsExtraUnitOrderItems,
@@ -308,7 +308,7 @@ async function createWhiteGoodsOrder(
       drivingDistance: drivingDistanceStr || null,
       expressDelivery,
       extraPickupAddress: extraPickupsForPricing.map((p) => p.address),
-      floorNo: String(Math.max(pickupFloor, deliveryFloor) || 0),
+      floorNo: String(costliestFloor(pickupFloor, deliveryFloor)),
       // Legacy single field (see edit-items re-pricing) — "yes" only when
       // neither end would incur a floor surcharge, the safer combined value.
       lift: pickupLiftAvailable && deliveryLiftAvailable ? "yes" : "no",

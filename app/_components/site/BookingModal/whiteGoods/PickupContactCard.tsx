@@ -351,7 +351,7 @@ export function isPickupContactStepReady(params: {
     pickupSource === "store" ||
     (pickupContactName.trim().length > 0 && pickupContactPhone.trim().length > 0);
 
-  const floorOk = pickupSource === "store" || (pickupFloor !== null && pickupFloor >= 1);
+  const floorOk = pickupSource === "store" || (pickupFloor !== null && pickupFloor !== 0);
 
   return placeNameOk && contactOk && floorOk;
 }

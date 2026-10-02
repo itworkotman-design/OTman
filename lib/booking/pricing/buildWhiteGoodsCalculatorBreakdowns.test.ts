@@ -22,9 +22,18 @@ describe("getChargeableFloors", () => {
     expect(getChargeableFloors(10, true)).toBe(0);
   });
 
-  it("treats a non-finite or negative floor as 0", () => {
+  it("treats a non-finite floor as 0", () => {
     expect(getChargeableFloors(Number.NaN, false)).toBe(0);
+  });
+
+  it("mirrors the allowance below ground: the 1st basement is free, each one below it charges", () => {
     expect(getChargeableFloors(-1, false)).toBe(0);
+    expect(getChargeableFloors(-2, false)).toBe(1);
+    expect(getChargeableFloors(-4, false)).toBe(3);
+  });
+
+  it("charges nothing for a basement when a lift is available", () => {
+    expect(getChargeableFloors(-3, true)).toBe(0);
   });
 });
 

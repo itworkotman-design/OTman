@@ -20,3 +20,8 @@ Floors count from 1 (the ground floor, "1. etasje") and go negative below ground
 | `parseFloorInput` | Text → a whole non-zero floor, or `null` (empty, lone `-`, `0`, non-numbers). |
 | `stepFloor` | One stepper step. From `null` it lands on 1, and it skips 0 (1 ↔ -1). |
 | `parseFloorNumber` (server) | Reads a submitted floor for `POST /api/site/white-goods-order` and `parseExtraPickupLocations`. It keeps negative floors and falls back to 0 for anything that isn't a whole number. A non-zero floor, basements included, is written to the order notes. |
+| `costliestFloor` (server) | Picks which of the pickup and delivery floors to store in the single `Order.floorNo`, which edit-items re-pricing reads later. It keeps whichever has the bigger no-lift surcharge, so a deep basement isn't lost to a higher but free floor. Ties keep the higher floor. |
+
+## Floor surcharge (no lift)
+
+`getChargeableFloors` (`lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns.ts`) counts the surcharged floors. One flight of stairs is included in each direction: floors 1, 2 and -1 are free, each floor above 2 costs one surcharge, and each basement below -1 does too (-2 = 1, -3 = 2). With a lift there is no surcharge.
