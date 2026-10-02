@@ -1178,28 +1178,30 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                 orderExtras={orderExtraLines}
                 total={pricing.totals.totalExVat}
                 customerType={customerType ?? "private"}
-                showTotal={false}
+                totalFooter={
+                  <div className="flex flex-col gap-2 text-sm text-black/70">
+                    <div
+                      className={`flex justify-between ${finalVatDisplay.primary === "exVat" ? "font-semibold text-black/85" : ""}`}
+                    >
+                      <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
+                      <span className="tabular-nums">{finalVatBreakdown.exVat.toLocaleString("nb-NO")} kr</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{t("VAT (25%)", "MVA (25%)")}</span>
+                      <span className="tabular-nums">{finalVatBreakdown.vat.toLocaleString("nb-NO")} kr</span>
+                    </div>
+                    {/* What the customer actually pays — highlighted so it can't be missed. */}
+                    <div className="mt-2 flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-5">
+                      <span className="text-base font-semibold text-logoblue">
+                        {t("Total incl. VAT", "Totalt inkl. MVA")}
+                      </span>
+                      <span className="whitespace-nowrap text-3xl font-bold tabular-nums text-logoblue">
+                        {finalVatBreakdown.incVat.toLocaleString("nb-NO")} kr
+                      </span>
+                    </div>
+                  </div>
+                }
               />
-
-              <div className="flex flex-col gap-2 rounded-2xl border border-black/10 bg-white p-4 text-sm text-black/70">
-                <div
-                  className={`flex justify-between px-2 ${finalVatDisplay.primary === "exVat" ? "font-semibold text-black/85" : ""}`}
-                >
-                  <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
-                  <span className="tabular-nums">{finalVatBreakdown.exVat.toLocaleString("nb-NO")} kr</span>
-                </div>
-                <div className="flex justify-between px-2">
-                  <span>{t("VAT (25%)", "MVA (25%)")}</span>
-                  <span className="tabular-nums">{finalVatBreakdown.vat.toLocaleString("nb-NO")} kr</span>
-                </div>
-                {/* What the customer actually pays — highlighted so it can't be missed. */}
-                <div className="mt-2 flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-5">
-                  <span className="text-base font-semibold text-logoblue">{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
-                  <span className="whitespace-nowrap text-3xl font-bold tabular-nums text-logoblue">
-                    {finalVatBreakdown.incVat.toLocaleString("nb-NO")} kr
-                  </span>
-                </div>
-              </div>
 
               {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 

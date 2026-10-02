@@ -17,7 +17,7 @@ Individual line-item prices are always ex-VAT, unaffected by that choice
 owned here — there's no toggle to change it from this component anymore
 (that would ask the same question the first step already asked).
 
-`showTotal` (default `true`) controls the card's total and its "final
-price may vary" note. The review page (the modal's final step) passes
-`false`: its highlighted "Total incl. VAT" box below the card is the one
-total shown there.
+`totalFooter` (optional) replaces the card's own total and "final price may
+vary" note, rendered inside the same card below a divider. The review page
+(the modal's final step) passes its subtotal/VAT rows and the highlighted
+"Total incl. VAT" box, so products and the final price read as one card.

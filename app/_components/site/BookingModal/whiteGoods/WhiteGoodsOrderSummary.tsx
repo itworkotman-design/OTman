@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { WhiteGoodsLineCategory } from "@/lib/content/whiteGoodsLineCategory";
 import { ProductIcon } from "./productIcons";
@@ -41,9 +41,9 @@ type Props = {
   // Answered once as the modal's first step (CustomerTypeStep) — no toggle
   // here anymore, just used to pick which VAT total leads.
   customerType: CustomerType;
-  // The total and its "final price may vary" note — off on the review page,
-  // which shows its own highlighted total below this card.
-  showTotal?: boolean;
+  // Replaces the card's own total and "final price may vary" note, inside the
+  // same card — the review page passes its VAT breakdown + highlighted total.
+  totalFooter?: ReactNode;
 };
 
 function formatKr(n: number) {
@@ -56,7 +56,7 @@ export function WhiteGoodsOrderSummary({
   orderExtras = [],
   total,
   customerType,
-  showTotal = true,
+  totalFooter,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const vatDisplay = getVatDisplayTotal({ total, customerType });
@@ -153,7 +153,9 @@ export function WhiteGoodsOrderSummary({
         </div>
       )}
 
-      {showTotal && (
+      {totalFooter ? (
+        <div className="mt-4 border-t border-black/10 pt-4">{totalFooter}</div>
+      ) : (
         <>
           <div className="mt-4 border-t border-black/10 pt-3">
             <div className="flex items-center justify-between">
