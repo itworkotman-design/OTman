@@ -243,7 +243,7 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
             </select>
           </label>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-3">
             <label className="flex flex-col gap-1">
               <span className={labelClass}>{t("Delivery date", "Leveringsdato")}</span>
               <DatePicker
@@ -264,7 +264,7 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
             <label className="flex flex-col gap-1">
               <span className={labelClass}>{t("Driver", "Sjåfør")}</span>
               <input value={handling.driver} onChange={(e) => setField("driver", e.target.value)} className={fieldClass} />
