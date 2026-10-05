@@ -11,6 +11,7 @@ import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/Produ
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
+import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges";
 import { CUSTOM_DEVIATION_CODE, normalizeDeviationLabel } from "@/lib/booking/pricing/deviationFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import type { CalculatedLine, ProductBreakdown } from "@/lib/booking/pricing/types";
@@ -161,6 +162,7 @@ type Props = {
     displayId?: number;
     legacyWordpressOrderId?: number | null;
     legacyWordpressDrivingDistance?: string | null;
+    createdAt?: string | null;
   };
   showCapacityDetails?: boolean;
 };
@@ -1155,6 +1157,7 @@ export default function BookingEditor({
       normalizeRouteAddress(initialValues?.legacyWordpressDrivingDistance ?? initialValues?.drivingDistance);
 
   const shouldUseNativeDistancePricing = !initialValues?.legacyWordpressOrderId || importedWordpressRouteChanged || importedWordpressDistanceChanged;
+  const useFullDistanceKmPricing = usesFullDistanceKmPricing(initialValues?.createdAt);
 
   const productBreakdowns = useMemo(
     () =>
@@ -1187,6 +1190,7 @@ export default function BookingEditor({
         feeExtraWork,
         extraPickups,
         shouldUseNativeDistancePricing,
+        useFullDistanceKmPricing,
         nulledOrderExtraKeysForCustomer,
         nulledOrderExtraKeysForSubcontractor,
         customDeviationPrice,
@@ -1204,6 +1208,7 @@ export default function BookingEditor({
     productBreakdowns,
     extraPickups,
     shouldUseNativeDistancePricing,
+    useFullDistanceKmPricing,
     nulledOrderExtraKeysForCustomer,
     nulledOrderExtraKeysForSubcontractor,
     customDeviationPrice,
@@ -1248,6 +1253,7 @@ export default function BookingEditor({
         feeExtraWork,
         extraPickups,
         shouldUseNativeDistancePricing,
+        useFullDistanceKmPricing,
         nulledOrderExtraKeysForCustomer,
         nulledOrderExtraKeysForSubcontractor,
         customDeviationPrice,
@@ -1265,6 +1271,7 @@ export default function BookingEditor({
       feeExtraWork,
       extraPickups,
       shouldUseNativeDistancePricing,
+      useFullDistanceKmPricing,
       nulledOrderExtraKeysForCustomer,
       nulledOrderExtraKeysForSubcontractor,
       customDeviationPrice,

@@ -1,4 +1,7 @@
-import { getStartedChargeableKilometers } from "@/lib/booking/pricing/distanceCharges";
+import {
+  getFullChargeableKilometers,
+  getStartedChargeableKilometers,
+} from "@/lib/booking/pricing/distanceCharges";
 import { calculateExtraWorkFee } from "@/lib/booking/pricing/hardcodedFees";
 import {
   CUSTOM_DEVIATION_CODE,
@@ -56,6 +59,9 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
   feeExtraWork: boolean;
   extraPickups: ExtraPickupInput[];
   shouldUseNativeDistancePricing: boolean;
+  // false for orders created before FULL_DISTANCE_KM_PRICING_FROM (see
+  // usesFullDistanceKmPricing); new orders pay for the full distance over 20 km.
+  useFullDistanceKmPricing?: boolean;
   nulledOrderExtraKeysForCustomer?: string[];
   nulledOrderExtraKeysForSubcontractor?: string[];
   customDeviationPrice?: number | null;
@@ -73,6 +79,7 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
     feeExtraWork,
     extraPickups,
     shouldUseNativeDistancePricing,
+    useFullDistanceKmPricing = true,
     nulledOrderExtraKeysForCustomer = [],
     nulledOrderExtraKeysForSubcontractor = [],
     customDeviationPrice,
@@ -84,7 +91,9 @@ export function buildCalculatorBreakdownsWithOrderExtras(params: {
   const totalDistanceKm = shouldUseNativeDistancePricing
     ? parseDistanceKm(drivingDistance)
     : 0;
-  const chargeableDistanceKm = getStartedChargeableKilometers(totalDistanceKm);
+  const chargeableDistanceKm = useFullDistanceKmPricing
+    ? getFullChargeableKilometers(totalDistanceKm)
+    : getStartedChargeableKilometers(totalDistanceKm);
   const kmFrom21Qty =
     totalDistanceKm > 20 && totalDistanceKm <= 100
       ? chargeableDistanceKm

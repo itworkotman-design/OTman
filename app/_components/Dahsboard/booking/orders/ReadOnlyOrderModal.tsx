@@ -24,6 +24,7 @@ import {
   parseDistanceKm,
   parsePriceSetting,
 } from "@/lib/booking/pricing/orderCalculatorExtras";
+import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges";
 import type { PriceListSettings } from "@/lib/products/priceListSettings";
 import type { PriceLookup } from "@/lib/booking/pricing/types";
 
@@ -80,6 +81,7 @@ type FullOrderResponse = {
     id: string;
     legacyWordpressOrderId?: number | null;
     legacyWordpressDrivingDistance?: string | null;
+    createdAt?: string | null;
     priceListId: string;
     productCards: SavedProductCard[];
     pickupAddress: string;
@@ -576,6 +578,7 @@ function useAdminCalculatorState(order: ReadOnlyOrder | null) {
         feeExtraWork: fullOrder.feeExtraWork,
         extraPickups: fullOrder.extraPickups,
         shouldUseNativeDistancePricing,
+        useFullDistanceKmPricing: usesFullDistanceKmPricing(fullOrder.createdAt),
         nulledOrderExtraKeysForCustomer: fullOrder.nulledOrderExtraKeysForCustomer,
         nulledOrderExtraKeysForSubcontractor: fullOrder.nulledOrderExtraKeysForSubcontractor,
         customDeviationPrice: fullOrder.customDeviationPrice,

@@ -35,6 +35,33 @@ describe("computeFullOrderTotal", () => {
     expect(result.subcontractorTotal).toBe(640);
   });
 
+  it("bills the full driving distance once it is over 20 km (new orders, e.g. recurring)", () => {
+    const priceListSettings = createDefaultPriceListSettings();
+    priceListSettings.kmFrom21.price = "10";
+    priceListSettings.kmFrom21.subcontractorPrice = "6";
+
+    const result = computeFullOrderTotal({
+      productCards: [],
+      catalogProducts: [],
+      catalogSpecialOptions: [],
+      priceListSettings,
+      deviation: "",
+      drivingDistance: "30 km",
+      expressDelivery: false,
+      extraWorkMinutes: 0,
+      feeAddToOrder: false,
+      feeExtraWork: false,
+      extraPickups: [],
+      rabatt: null,
+      leggTil: null,
+      subcontractorMinus: null,
+      subcontractorPlus: null,
+    });
+
+    expect(result.totalExVat).toBe(300);
+    expect(result.subcontractorTotal).toBe(180);
+  });
+
   it("returns 0 when there are no product lines and no order extras apply", () => {
     const result = computeFullOrderTotal({
       productCards: [],

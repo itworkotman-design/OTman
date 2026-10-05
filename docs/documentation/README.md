@@ -212,6 +212,7 @@ Each documentation file should include:
 - [Lib: order alerts](./lib/order-alerts.md)
 - [Lib: order form visibility](./lib/order-form-visibility.md)
 - [Lib: price list settings](./lib/price-list-settings.md)
+- [Lib: distance charges](./lib/distance-charges.md)
 - [Lib: pricing snapshot](./lib/pricing-snapshot.md)
 - [Lib: pricing types](./lib/pricing-types.md)
 - [Lib: shared delivery logic](./lib/shared-delivery-logic.md)

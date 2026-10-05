@@ -375,6 +375,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       subcontractorMinus: true,
       subcontractorPlus: true,
       lastEditedByMembershipId: true,
+      createdAt: true,
       createdByMembership: {
         select: {
           user: {
@@ -426,6 +427,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       id: order.id,
       displayId: order.displayId ?? 0,
       legacyWordpressOrderId: order.legacyWordpressOrderId,
+      // Decides old vs. full-distance km pricing (usesFullDistanceKmPricing).
+      createdAt: order.createdAt,
       priceListId: effectivePriceListId ?? "",
       customerMembershipId: order.customerMembershipId ?? "",
       productCards: normalizedProductCards,

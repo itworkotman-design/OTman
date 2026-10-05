@@ -466,6 +466,44 @@ describe("routes in /api/orders/[orderId]", () => {
     });
   });
 
+  it("GET returns createdAt so the editor can pick the km pricing rule for the order", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      displayId: 20001,
+      legacyWordpressOrderId: null,
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      productCardsSnapshot: [],
+      extraPickupAddress: [],
+      extraPickupContacts: null,
+      legacyWordpressRawMeta: null,
+      drivingDistance: "30 km",
+      status: "processing",
+      createdByMembership: null,
+      lastEditedByMembership: null,
+      createdAt: new Date("2026-09-01T10:00:00.000Z"),
+    });
+
+    const res = await GET(new Request("http://localhost/api/orders/order-1"), {
+      params: Promise.resolve({ orderId: "order-1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ createdAt: true }),
+      }),
+    );
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      order: { createdAt: "2026-09-01T10:00:00.000Z" },
+    });
+  });
+
   it("PATCH returns 400 when product cards are missing", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
