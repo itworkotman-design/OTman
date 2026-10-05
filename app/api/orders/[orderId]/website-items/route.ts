@@ -21,7 +21,14 @@ import {
   routeAddressesChanged,
 } from "@/lib/orders/websiteOrderDetailsEdit";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
-import { handlingFromOrder, handlingOrderData, parseWebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
+import { websiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
+import {
+  handlingFromOrder,
+  handlingOrderData,
+  parseWebsiteOrderHandling,
+  scheduleBookingDetails,
+  type WebsiteOrderHandling,
+} from "@/lib/orders/websiteOrderHandling";
 import { parseWhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 import { createOrderUpdatedEvent, type OrderEventActor, type OrderEventChange } from "@/lib/orders/orderEvents";
@@ -201,6 +208,10 @@ const LOGGED_HANDLING_FIELDS = [
   ["description", "Description"],
   ["rabatt", "Discount"],
   ["leggTil", "Extra"],
+  ["subcontractorMinus", "Partner minus"],
+  ["subcontractorPlus", "Partner plus"],
+  ["deliveryDate", "Delivery date"],
+  ["timeWindow", "Time window"],
 ] as const;
 
 export async function PUT(req: Request, { params }: Params) {
@@ -232,10 +243,13 @@ export async function PUT(req: Request, { params }: Params) {
   // The admin's handling fields — express, discount, extra and the deviation
   // change the price, so they're laid over the order before re-pricing.
   let handling: ReturnType<typeof handlingOrderData> | null = null;
+  let parsedHandling: WebsiteOrderHandling | null = null;
   let customDeviation: { price: number | null; subcontractorPrice: number | null; description: string | null } | undefined;
   if (body?.handling !== undefined) {
-    const parsed = parseWebsiteOrderHandling(body.handling);
+    // Fields left out keep their stored value (the calculator sends only its own).
+    const parsed = parseWebsiteOrderHandling(body.handling, handlingFromOrder(order));
     if (!parsed.ok) return reject(parsed.reason, 422, { errors: parsed.errors });
+    parsedHandling = parsed.handling;
     handling = handlingOrderData(parsed.handling);
     customDeviation = parsed.handling.customDeviation;
   }
@@ -283,12 +297,15 @@ export async function PUT(req: Request, { params }: Params) {
     });
   }
 
+  const detailsBookingDetails = detailsUpdate ? detailsUpdate.bookingDetails : order.websiteBookingDetails;
   const pricedOrder = {
     ...order,
-    ...(detailsUpdate ? { ...detailsUpdate.orderData, websiteBookingDetails: detailsUpdate.bookingDetails } : {}),
+    ...(detailsUpdate ? detailsUpdate.orderData : {}),
     // The handling description is the admin's own text — it wins over the
     // regenerated pickup notes when both are saved.
     ...(handling ?? {}),
+    // The date and time window are on the order and in the booking details.
+    websiteBookingDetails: parsedHandling ? scheduleBookingDetails(detailsBookingDetails, parsedHandling) : detailsBookingDetails,
     ...(customDeviation !== undefined ? { customDeviation } : {}),
   };
 
@@ -325,6 +342,7 @@ export async function PUT(req: Request, { params }: Params) {
       priceExVat: recomputed.priceExVat,
       drivingDistance: pricedOrder.drivingDistance,
       comparison,
+      calculator: websiteOrderCalculatorView(recomputed.pricingResult, { includePartner: true }),
     });
   }
 

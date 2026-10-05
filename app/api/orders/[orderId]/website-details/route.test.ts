@@ -4,6 +4,11 @@ const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
+  recomputeMock: vi.fn(),
+}));
+
+vi.mock("@/lib/orders/websiteOrderRepricing", () => ({
+  recomputeWebsiteOrderPricing: mocks.recomputeMock,
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -89,6 +94,59 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "u1", activeCompanyId: "c1" });
     mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN", appAccess: [] });
     mocks.orderFindFirstMock.mockResolvedValue(whiteGoodsOrder);
+    mocks.recomputeMock.mockResolvedValue({
+      pricingResult: {
+        breakdowns: [
+          { productName: "Vaskemaskin", cardId: 0, lines: [{ label: "Levering", qty: 1, unitPrice: 899, lineTotal: 899, subcontractorLineTotal: 400 }] },
+        ],
+        totals: {
+          subtotalExVat: 899,
+          discount: 0,
+          extra: 0,
+          checkboxDiscount: 0,
+          totalExVat: 899,
+          vat: 0,
+          totalIncVat: 899,
+          subcontractorBase: 400,
+          subcontractorMinus: 0,
+          subcontractorPlus: 0,
+          subcontractorCheckboxDiscount: 0,
+          subcontractorTotal: 400,
+        },
+      },
+    });
+  });
+
+  it("returns the calculator — customer and partner side — priced from the stored products", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({ ...whiteGoodsOrder, productCardsSnapshot: [{ cardId: 0, productId: "p-wm" }] });
+    const json = await (await call()).json();
+    expect(mocks.recomputeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "order-1" }),
+      [{ cardId: 0, productId: "p-wm" }],
+      { allowIncomplete: true },
+    );
+    expect(json.order.calculator).toMatchObject({
+      products: [{ name: "Vaskemaskin", lines: [{ customer: 899, partner: 400 }] }],
+      customer: { total: 899 },
+      partner: { total: 400 },
+    });
+  });
+
+  it("hides partner prices from someone who can only view website orders", async () => {
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      role: "USER",
+      appAccess: [{ module: "WEBSITE_ORDERS", enabled: true, level: "VIEWER" }],
+    });
+    const json = await (await call()).json();
+    expect(json.order.calculator.partner).toBeNull();
+    expect(json.order.calculator.products[0].lines[0].partner).toBeNull();
+  });
+
+  it("still opens the order when it can't be priced (no calculator)", async () => {
+    mocks.recomputeMock.mockRejectedValue(new Error("catalog down"));
+    const res = await call();
+    expect(res.status).toBe(200);
+    expect((await res.json()).order.calculator).toBeNull();
   });
 
   it("returns the admin's handling fields for the panel", async () => {

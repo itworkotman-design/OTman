@@ -11,6 +11,9 @@ import {
 import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import { handlingFromOrder } from "@/lib/orders/websiteOrderHandling";
 import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
+import { recomputeWebsiteOrderPricing } from "@/lib/orders/websiteOrderRepricing";
+import { websiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
+import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 
 // Read-only view of a homepage white-goods website order for the admin
 // WebsiteOrderModal. Kept separate from GET /api/orders/[orderId] (which backs
@@ -37,6 +40,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
   if (!canView) {
     return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
+  // Partner prices are for admins only, like the booking app's partner view.
+  const websiteOrders = getModuleAccess(membership, "WEBSITE_ORDERS");
+  const canSeePartnerPrices =
+    membership.role === "OWNER" || membership.role === "ADMIN" || (websiteOrders.enabled && websiteOrders.level === "ADMIN");
 
   const { orderId } = await params;
   const order = await prisma.order.findFirst({
@@ -55,6 +62,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       priceExVat: true,
       rabatt: true,
       leggTil: true,
+      subcontractorMinus: true,
+      subcontractorPlus: true,
+      floorNo: true,
+      lift: true,
+      productCardsSnapshot: true,
       driver: true,
       secondDriver: true,
       driverInfo: true,
@@ -101,6 +113,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
   });
   const products = groupPricingLinesByCard(pricingLinesFromSnapshot(order.pricingSnapshot));
 
+  // The calculator: the stored order priced the way it's saved, every line
+  // with its customer and partner price. An order that can't be priced still
+  // opens, just without it.
+  let calculator = null;
+  try {
+    const cards = Array.isArray(order.productCardsSnapshot) ? (order.productCardsSnapshot as unknown as SavedProductCard[]) : [];
+    const priced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true });
+    calculator = websiteOrderCalculatorView(priced.pricingResult, { includePartner: canSeePartnerPrices });
+  } catch (err) {
+    console.error("[website-details] Couldn't price the order for the calculator:", err);
+  }
+
   return NextResponse.json({
     ok: true,
     order: {
@@ -131,6 +155,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       subcontractor: order.subcontractor,
       gsmSentAt: order.gsmSentAt ? order.gsmSentAt.toISOString() : null,
       gsmSyncStatus: order.gsmSyncStatus,
+      calculator,
       // The fields only an admin handles (driver, deviation, discount…).
       handling: handlingFromOrder(order),
       // Paid so far vs. the order now: what changed and what's due/refundable.
