@@ -20,3 +20,7 @@ So what the customer is shown is exactly what is stored and charged. Previously 
 - `buildWebsiteOrderItems(cards, products, specialOptions, { drivingDistance })` — the stored order lines (`OrderItem` rows / `pricingSnapshot.lines`), priced by the same rules so they add up to the total. Returns are priced and over-100 km delivery is stored at 0 kr.
 
 The tests check that the lines + order extras equal the total, within and over 100 km.
+
+## Km rule
+
+`useFullDistanceKmPricing` (default `true`) picks the km rule in `distanceCharges.ts`. With the new rule, the whole distance is billed once it is over 20 km. With the old rule, only the km above 20 are billed. New orders use the default. Re-pricing an existing order passes `usesFullDistanceKmPricing(order.createdAt)`, so orders made before `FULL_DISTANCE_KM_PRICING_FROM` keep the price the customer saw.

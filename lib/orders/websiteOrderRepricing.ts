@@ -12,6 +12,7 @@ import {
   getPricingSnapshotCustomDeviationSubcontractorPrice,
 } from "@/lib/orders/orderTotals";
 import { buildWebsiteOrderItems, priceWebsiteOrder } from "@/lib/booking/pricing/priceWebsiteOrder";
+import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges";
 import { normalizePriceListSettings } from "@/lib/products/priceListSettings";
 import { floorPricingInputs, parseWhiteGoodsBookingDetails, type OrderExtraLine } from "@/lib/orders/websiteBookingDetails";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
@@ -55,6 +56,9 @@ export async function recomputeWebsiteOrderPricing(
     // The order's stored pricing — where a custom deviation's prices live
     // when `customDeviation` isn't given.
     pricingSnapshot?: unknown;
+    // Decides the km rule: orders made before FULL_DISTANCE_KM_PRICING_FROM
+    // keep the old one, so re-pricing never moves what the customer saw.
+    createdAt?: Date | string | null;
   },
   rawCards: SavedProductCard[],
   // Admin saves: an admin may save an order that isn't complete yet (e.g. an
@@ -121,6 +125,7 @@ export async function recomputeWebsiteOrderPricing(
     pickupLiftAvailable: floors.pickupLiftAvailable,
     deliveryLiftAvailable: floors.deliveryLiftAvailable,
     extraPickupFloors: floors.extraPickupFloors,
+    useFullDistanceKmPricing: usesFullDistanceKmPricing(order.createdAt),
     deviation: order.deviation
       ? {
           label: order.deviation,

@@ -6,6 +6,7 @@ vi.mock("@/lib/content/websiteOrderCatalog", () => ({ getWebsiteOrderCatalog: mo
 
 import { createEmptyProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { SizeBracketSelectionError, recomputeWebsiteOrderPricing } from "./websiteOrderRepricing";
+import { createDefaultPriceListSettings } from "@/lib/products/priceListSettings";
 
 const option = (id: string, category: string) => ({
   id,
@@ -126,5 +127,35 @@ describe("recomputeWebsiteOrderPricing — admin handling fields", () => {
     const base = await recomputeWebsiteOrderPricing(order, [washerCard]);
     const adjusted = await recomputeWebsiteOrderPricing({ ...order, rabatt: "100", leggTil: "30" }, [washerCard]);
     expect(adjusted.priceExVat - base.priceExVat).toBe(-70);
+  });
+});
+
+describe("recomputeWebsiteOrderPricing — km pricing by when the order was made", () => {
+  const washer = {
+    ...otherFurniture,
+    id: "wm",
+    code: "WG_WASHING_MACHINE",
+    allowModelNumber: false,
+    options: [option("base", "base")],
+  };
+  const washerCard = { ...createEmptyProductCard(0), productId: "wm", amount: 1 };
+
+  beforeEach(() => {
+    const settings = createDefaultPriceListSettings();
+    settings.kmFrom21 = { ...settings.kmFrom21, price: "10", subcontractorPrice: "5" };
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer], specialOptions: [], priceListSettings: settings });
+  });
+
+  const kmQty = (result: Awaited<ReturnType<typeof recomputeWebsiteOrderPricing>>) =>
+    result.orderExtras.find((line) => line.price > 0 && /km/i.test(line.label))?.qty ?? 0;
+
+  it("keeps the old rule (only km above 20) for an order made before the change, so its price doesn't move", async () => {
+    const result = await recomputeWebsiteOrderPricing({ ...order, drivingDistance: "30", createdAt: new Date("2026-10-01T10:00:00Z") }, [washerCard]);
+    expect(kmQty(result)).toBe(10);
+  });
+
+  it("charges the whole distance for an order made after it", async () => {
+    const result = await recomputeWebsiteOrderPricing({ ...order, drivingDistance: "30", createdAt: new Date("2026-10-07T10:00:00Z") }, [washerCard]);
+    expect(kmQty(result)).toBe(30);
   });
 });

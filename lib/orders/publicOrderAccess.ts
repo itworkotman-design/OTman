@@ -48,6 +48,8 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       // (delivery type/addons per product), not e.g. re-deriving express
       // delivery from whatever "now" happens to be at edit time.
       drivingDistance: true,
+      // Orders made before FULL_DISTANCE_KM_PRICING_FROM keep the old km rule.
+      createdAt: true,
       expressDelivery: true,
       floorNo: true,
       lift: true,

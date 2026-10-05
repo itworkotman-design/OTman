@@ -38,6 +38,9 @@ type WhiteGoodsCalculatorExtrasParams = {
   // — charged the same way as the first pickup and the delivery.
   extraPickupFloors?: Array<{ floor: number; liftAvailable: boolean }>;
   shouldUseNativeDistancePricing?: boolean;
+  // false for orders made before FULL_DISTANCE_KM_PRICING_FROM: only the km
+  // above 20 are billed (see usesFullDistanceKmPricing). Default: the new rule.
+  useFullDistanceKmPricing?: boolean;
   // A deviation fee an admin set afterwards (DEVIATION_FEE_OPTIONS label);
   // the custom one carries its own prices and description.
   deviation?: string;

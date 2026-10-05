@@ -22,6 +22,7 @@ import {
 } from "@/lib/orders/websiteOrderDetailsEdit";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { websiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
+import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges";
 import {
   handlingFromOrder,
   handlingOrderData,
@@ -67,6 +68,8 @@ const ORDER_SELECT = {
   displayId: true,
   orderNumber: true,
   status: true,
+  // The km rule depends on when the order was made (usesFullDistanceKmPricing).
+  createdAt: true,
   customerName: true,
   customerLabel: true,
   statusNotes: true,
@@ -168,6 +171,9 @@ export async function GET(req: Request, { params }: Params) {
       drivingDistance: order.drivingDistance,
       // Express/discount/extra/deviation — part of the price the editor shows.
       handling: handlingFromOrder(order),
+      // Which km rule the editor's live price must use (orders made before
+      // FULL_DISTANCE_KM_PRICING_FROM keep the old one).
+      useFullDistanceKmPricing: usesFullDistanceKmPricing(order.createdAt),
       comparison: compareOrderWithPayments({ payments: order.payments, current: buildOrderStateSnapshot(order) }),
       catalogProducts: catalog.products,
       categories: seeded.map(({ catalog: list }) => ({

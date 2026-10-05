@@ -273,6 +273,20 @@ describe("/api/orders/[orderId]/website-items", () => {
   });
 
   describe("GET", () => {
+    it("says which km rule the order is priced with, so the editor's live price matches the server", async () => {
+      mocks.orderFindFirstMock.mockResolvedValue(order({ createdAt: new Date("2026-10-01T10:00:00Z") }));
+      expect((await (await get()).json()).useFullDistanceKmPricing).toBe(false);
+      mocks.orderFindFirstMock.mockResolvedValue(order({ createdAt: new Date("2026-10-07T10:00:00Z") }));
+      expect((await (await get()).json()).useFullDistanceKmPricing).toBe(true);
+    });
+
+    it("re-prices with the order's creation date (the km rule)", async () => {
+      const createdAt = new Date("2026-10-01T10:00:00Z");
+      mocks.orderFindFirstMock.mockResolvedValue(order({ createdAt }));
+      await put({ handling: { driver: "Per" } });
+      expect(mocks.recomputeMock.mock.calls[0]![0]).toMatchObject({ createdAt });
+    });
+
     it("returns the order's cards, editable details, payment comparison and every website product by category", async () => {
       const res = await get();
       const json = await res.json();

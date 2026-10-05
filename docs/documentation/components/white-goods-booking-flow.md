@@ -17,3 +17,5 @@ The homepage booking modal for every website catalog (white goods, furniture, pa
 - The distance is only looked up again once a stop's address actually changes, so opening and saving never re-prices on its own.
 - The live price includes the order's express delivery, discount, extra and deviation (`handling` from the GET), which are set in the modal's "Handle order" panel.
 - The footer is `WebsiteOrderAdminFooter`, which receives the flow's products and `adminDetailsFromFlow(...)`.
+
+In admin mode, the live price uses the order's km rule (`useFullDistanceKmPricing` from the website-items GET). A customer's new order always uses the new rule.

@@ -45,6 +45,10 @@ export type WebsiteOrderPricingInput = {
     customSubcontractorPrice?: number | null;
     customDescription?: string | null;
   } | null;
+  // false for an order made before FULL_DISTANCE_KM_PRICING_FROM, so re-pricing
+  // it keeps the old km rule (usesFullDistanceKmPricing(order.createdAt)).
+  // New orders: the default, whole distance billed once over 20 km.
+  useFullDistanceKmPricing?: boolean;
   // Line labels' language (the browser); the server keeps the default.
   locale?: "en" | "no";
 };
@@ -85,6 +89,7 @@ export function priceWebsiteOrder(input: WebsiteOrderPricingInput) {
     pickupLiftAvailable: input.pickupLiftAvailable,
     deliveryLiftAvailable: input.deliveryLiftAvailable,
     extraPickupFloors: input.extraPickupFloors,
+    useFullDistanceKmPricing: input.useFullDistanceKmPricing,
     deviation: input.deviation?.label ?? "",
     customDeviationPrice: input.deviation?.customPrice ?? null,
     customDeviationSubcontractorPrice: input.deviation?.customSubcontractorPrice ?? null,

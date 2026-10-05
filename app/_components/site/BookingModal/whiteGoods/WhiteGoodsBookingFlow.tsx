@@ -260,6 +260,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
   // The order's express / discount / extra / deviation (set in the modal's
   // "Handle order" panel, not here) — included in the live price.
   const [adminHandling, setAdminHandling] = useState<WebsiteOrderHandling | null>(null);
+  // The km rule for the order being edited (old orders keep the old one), as
+  // the server prices it. A customer's new order always uses the new rule.
+  const [adminUseFullKm, setAdminUseFullKm] = useState(true);
   // The route as loaded — the distance is only looked up again once a stop
   // actually changes, so opening and saving never re-prices by itself.
   const adminInitialRouteKey = useRef<string | null>(null);
@@ -518,6 +521,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
         );
         setAdminComparison(json.comparison);
         setAdminHandling(json.handling ?? null);
+        setAdminUseFullKm(json.useFullDistanceKmPricing !== false);
         setAdminReady(true);
       } catch {
         if (!cancelled) setAdminLoadError(true);
@@ -654,6 +658,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
       deliveryLiftAvailable,
       extraPickupFloors,
       locale,
+      useFullDistanceKmPricing: adminUseFullKm,
       ...(adminHandling
         ? {
             adjustments: { rabatt: adminHandling.rabatt, leggTil: adminHandling.leggTil },
@@ -682,6 +687,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
     extraPickupFloors,
     extraPickupLocations,
     adminHandling,
+    adminUseFullKm,
   ]);
 
   // pricing.totals.totalExVat is the sum of the raw, unmodified line prices

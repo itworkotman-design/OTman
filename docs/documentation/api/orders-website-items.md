@@ -24,3 +24,5 @@ Backs the admin mode of the booking flow (`WhiteGoodsBookingFlow` with `admin`, 
   - **Response:** `200 { ok, previousPriceExVat, priceExVat, drivingDistance, comparison, emailSent, emailFailed }`.
 
 Nothing is refunded automatically. A cheaper paid order shows `outcome: "refund"`. A change does not update an order already sent to GSM.
+
+GET also returns `useFullDistanceKmPricing` (from the order's `createdAt`), so the admin editor's live price uses the same km rule as the server.
