@@ -88,6 +88,8 @@ export default function WebsiteOrderModal({
   const [editNotice, setEditNotice] = useState("");
   // The calculator's unsaved changes; the one Save under "Handle order" stores them.
   const [pricingDraft, setPricingDraft] = useState<WebsiteOrderPricingDraft | null>(null);
+  // Above the left column's Save: where the calculator shows its price preview.
+  const [priceChangeSlot, setPriceChangeSlot] = useState<HTMLDivElement | null>(null);
   const check = order.totalsCheck;
   const totalsWarnings = [
     check.differsFromShown !== 0 && check.shownTotal !== null
@@ -265,6 +267,7 @@ export default function WebsiteOrderModal({
                   locale={locale}
                   onChanged={onChanged}
                   pricingDraft={pricingDraft}
+                  priceChangeSlotRef={setPriceChangeSlot}
                   besideSave={
                     canDelete ? (
                       <button
@@ -300,6 +303,7 @@ export default function WebsiteOrderModal({
                     locale={locale}
                     onChanged={onChanged}
                     onDraftChange={setPricingDraft}
+                    priceChangeTarget={priceChangeSlot}
                   />
                 ) : (
                 <div className="rounded-2xl border border-black/10 bg-white p-6">

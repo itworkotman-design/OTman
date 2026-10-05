@@ -35,6 +35,8 @@ type Props = {
   besideSave?: ReactNode;
   // The calculator's unsaved changes, stored by this Save too.
   pricingDraft?: WebsiteOrderPricingDraft | null;
+  // An empty spot right above Save the calculator renders its price preview into.
+  priceChangeSlotRef?: (el: HTMLDivElement | null) => void;
 };
 
 const CUSTOM_DEVIATION_LABEL = DEVIATION_FEE_OPTIONS.find((o) => o.code === CUSTOM_DEVIATION_CODE)?.englishLabel ?? "Custom";
@@ -47,7 +49,7 @@ const PREVIEW_DELAY_MS = 700;
 // /api/orders/[orderId]/website-items with `handling`, which re-prices —
 // express and the deviation change the total, previewed
 // against what was paid before saving).
-export default function WebsiteOrderAdminActions({ order, locale, onChanged, children, besideSave, pricingDraft = null }: Props) {
+export default function WebsiteOrderAdminActions({ order, locale, onChanged, children, besideSave, pricingDraft = null, priceChangeSlotRef }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const initial = {
     status: normalizeOrderStatus(order.status),
@@ -208,43 +210,8 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
 
         <div className="mt-4 flex flex-col gap-3 text-sm">
           <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Status", "Status")}</span>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
-              {!ORDER_STATUS_OPTIONS.includes(status as (typeof ORDER_STATUS_OPTIONS)[number]) && status && (
-                <option value={status}>{bookingText(locale, status)}</option>
-              )}
-              {ORDER_STATUS_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {bookingText(locale, option)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Status notes", "Statusnotater")}</span>
-            <textarea
-              value={statusNotes}
-              onChange={(e) => setStatusNotes(e.target.value)}
-              rows={2}
-              className={fieldClass}
-              placeholder={t("Saved with a status change", "Lagres sammen med en statusendring")}
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Partner", "Partner")}</span>
-            <select value={subcontractorId} onChange={(e) => setSubcontractorId(e.target.value)} className={fieldClass}>
-              <option value="">{t("— No partner —", "— Ingen partner —")}</option>
-              {partnerMissingFromList && (
-                <option value={initial.subcontractorId}>{order.subcontractor || initial.subcontractorId}</option>
-              )}
-              {partners.map((partner) => (
-                <option key={partner.id} value={partner.id}>
-                  {partner.name}
-                </option>
-              ))}
-            </select>
+            <span className={labelClass}>{t("Description (internal)", "Beskrivelse (intern)")}</span>
+            <textarea value={handling.description} onChange={(e) => setField("description", e.target.value)} rows={4} className={fieldClass} />
           </label>
 
           <div className="flex flex-col gap-3">
@@ -268,6 +235,26 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
             </div>
           </div>
 
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={handling.expressDelivery} onChange={(e) => setField("expressDelivery", e.target.checked)} />
+            <span className="font-medium text-black/70">{t("Express delivery", "Ekspresslevering")}</span>
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Partner", "Partner")}</span>
+            <select value={subcontractorId} onChange={(e) => setSubcontractorId(e.target.value)} className={fieldClass}>
+              <option value="">{t("— No partner —", "— Ingen partner —")}</option>
+              {partnerMissingFromList && (
+                <option value={initial.subcontractorId}>{order.subcontractor || initial.subcontractorId}</option>
+              )}
+              {partners.map((partner) => (
+                <option key={partner.id} value={partner.id}>
+                  {partner.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <div className="flex flex-col gap-3">
             <label className="flex flex-col gap-1">
               <span className={labelClass}>{t("Driver", "Sjåfør")}</span>
@@ -287,11 +274,6 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
           <label className="flex flex-col gap-1">
             <span className={labelClass}>{t("License plate", "Registreringsnummer")}</span>
             <input value={handling.licensePlate} onChange={(e) => setField("licensePlate", e.target.value)} className={fieldClass} />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Description (internal)", "Beskrivelse (intern)")}</span>
-            <textarea value={handling.description} onChange={(e) => setField("description", e.target.value)} rows={4} className={fieldClass} />
           </label>
 
           <label className="flex flex-col gap-1">
@@ -345,34 +327,54 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
             </div>
           )}
 
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={handling.expressDelivery} onChange={(e) => setField("expressDelivery", e.target.checked)} />
-            <span className="font-medium text-black/70">{t("Express delivery", "Ekspresslevering")}</span>
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Status", "Status")}</span>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
+              {!ORDER_STATUS_OPTIONS.includes(status as (typeof ORDER_STATUS_OPTIONS)[number]) && status && (
+                <option value={status}>{bookingText(locale, status)}</option>
+              )}
+              {ORDER_STATUS_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {bookingText(locale, option)}
+                </option>
+              ))}
+            </select>
           </label>
 
-          {change.affectsPrice && (
-            <div className="rounded-xl border border-logoblue/20 bg-logoblue/5 p-3">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
-                {previewing && <span className="text-xs text-black/50">{t("Calculating…", "Beregner…")}</span>}
-              </div>
-              {preview ? (
-                <WebsiteOrderPaymentSummary
-                  comparison={preview}
-                  locale={locale}
-                  totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
-                />
-              ) : (
-                !previewing && <p className="text-xs text-black/50">{reasonText.INVALID_HANDLING}</p>
-              )}
-            </div>
-          )}
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Status notes", "Statusnotater")}</span>
+            <textarea
+              value={statusNotes}
+              onChange={(e) => setStatusNotes(e.target.value)}
+              rows={2}
+              className={fieldClass}
+              placeholder={t("Saved with a status change", "Lagres sammen med en statusendring")}
+            />
+          </label>
         </div>
       </div>
 
       {children}
 
       <div className="flex flex-col gap-2">
+        {change.affectsPrice && (
+          <div className="rounded-xl border border-logoblue/20 bg-logoblue/5 p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
+              {previewing && <span className="text-xs text-black/50">{t("Calculating…", "Beregner…")}</span>}
+            </div>
+            {preview ? (
+              <WebsiteOrderPaymentSummary
+                comparison={preview}
+                locale={locale}
+                totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
+              />
+            ) : (
+              !previewing && <p className="text-xs text-black/50">{reasonText.INVALID_HANDLING}</p>
+            )}
+          </div>
+        )}
+        <div ref={priceChangeSlotRef} className="empty:hidden" />
         <div className="flex items-center gap-3">
           {besideSave}
           <button

@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { getVatBreakdown } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
@@ -36,6 +37,8 @@ type Props = {
   onChanged: () => void;
   // The unsaved changes (null when there are none); the modal's Save stores them.
   onDraftChange: (draft: WebsiteOrderPricingDraft | null) => void;
+  // Where to show "Price after this change" (above the modal's Save); inline when absent.
+  priceChangeTarget?: HTMLElement | null;
 };
 
 const PREVIEW_DELAY_MS = 700;
@@ -89,6 +92,7 @@ export default function WebsiteOrderCalculator({
   locale,
   onChanged,
   onDraftChange,
+  priceChangeTarget = null,
 }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const isAdmin = calculator.partner !== null;
@@ -162,6 +166,8 @@ export default function WebsiteOrderCalculator({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewKey]);
+
+  const withPriceChangeTarget = (node: ReactNode) => (priceChangeTarget ? createPortal(node, priceChangeTarget) : node);
 
   function setDiscount(rabatt: string) {
     // A discount replaces lines set to 0 (booking app: setting one clears them).
@@ -454,7 +460,7 @@ export default function WebsiteOrderCalculator({
         </div>
       )}
 
-      {isAdmin && changed && (
+      {isAdmin && changed && withPriceChangeTarget(
         <div className="rounded-2xl border border-logoblue/20 bg-logoblue/5 p-4">
           <p className="mb-2 text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
           {preview && !previewFailed ? (
