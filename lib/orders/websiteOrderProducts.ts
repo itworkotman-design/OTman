@@ -1,4 +1,4 @@
-import type { OrderPricingSnapshot } from "./orderTotals";
+import { parseNokAdjustment, roundNok, type OrderPricingSnapshot } from "./orderTotals";
 
 // Turns a website order's stored pricing lines (Order.pricingSnapshot.lines,
 // one row per product card and per chosen option) into one group per product
@@ -46,18 +46,35 @@ export function pricingLinesFromSnapshot(snapshot: unknown): PricingLine[] {
   );
 }
 
-// What the order total holds beyond its product lines and the booked order
-// extras — non-zero once the order was re-priced or adjusted after booking
-// (e.g. a floor or address change), shown as its own line so the lines always
-// add up to the total. Whole kroner: the stored total is rounded.
-export function unexplainedPriceDifference(
-  clientTotal: number,
-  products: ProductGroup[],
-  orderExtras: { price: number }[],
-): number {
-  const explained =
-    products.reduce((sum, product) => sum + product.total, 0) + orderExtras.reduce((sum, line) => sum + line.price, 0);
-  const difference = clientTotal - explained;
-  // Under a krone is just the stored total being rounded.
-  return Math.abs(difference) < 1 ? 0 : Math.round(difference);
+// Sanity check of a website order's money, for the admin WebsiteOrderModal.
+// The customer pays what they were shown, so any of these being non-zero
+// means something is wrong and must be visible, not explained away:
+// - missingFromLines: what the order total holds beyond its own priced lines
+//   (+ booked order extras ± manual discount/surcharge) — lines missing or
+//   mispriced (e.g. returns stored at 0 kr).
+// - differsFromShown: order total − the total the customer was shown when
+//   booking (only while the order hasn't been re-priced since).
+export function checkWebsiteOrderTotals(params: {
+  total: number;
+  products: ProductGroup[];
+  orderExtras: { price: number }[];
+  rabatt: string | null | undefined;
+  leggTil: string | null | undefined;
+  shownTotal?: number | null;
+}) {
+  const linesTotal = roundNok(
+    params.products.reduce((sum, product) => sum + product.total, 0) +
+      params.orderExtras.reduce((sum, line) => sum + line.price, 0),
+  );
+  const explained = linesTotal - parseNokAdjustment(params.rabatt) + parseNokAdjustment(params.leggTil);
+  const missing = roundNok(params.total - explained);
+  const shownTotal = typeof params.shownTotal === "number" ? params.shownTotal : null;
+  const differsFromShown = shownTotal === null ? 0 : roundNok(params.total - shownTotal);
+  return {
+    linesTotal,
+    // Under a krone is rounding of the stored total.
+    missingFromLines: Math.abs(missing) < 1 ? 0 : missing,
+    shownTotal,
+    differsFromShown: Math.abs(differsFromShown) < 0.5 ? 0 : differsFromShown,
+  };
 }

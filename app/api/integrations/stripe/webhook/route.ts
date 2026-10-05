@@ -6,6 +6,7 @@ import { createOrderActionEvent, createOrderStatusChangedEvent } from "@/lib/ord
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { recordOrderPayment, sumOrderPayments } from "@/lib/orders/orderPayments";
 import { sendLifecycleEmailsForOrders } from "@/lib/orders/sendCustomerLifecycleEmail";
+import { buildOrderStateSnapshot } from "@/lib/orders/paidOrderSnapshot";
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   const orderId = session.metadata?.orderId;
@@ -27,6 +28,19 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       actionToken: true,
       email: true,
       emailThreadToken: true,
+      // What the payment covered — stored on the OrderPayment below.
+      priceExVat: true,
+      rabatt: true,
+      leggTil: true,
+      pricingSnapshot: true,
+      websiteOrderKind: true,
+      websiteBookingDetails: true,
+      pickupAddress: true,
+      deliveryAddress: true,
+      extraPickupAddress: true,
+      deliveryDate: true,
+      timeWindow: true,
+      drivingDistance: true,
     },
   });
 
@@ -50,6 +64,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     stripeCheckoutSessionId: session.id,
     stripePaymentIntentId: paymentIntentId,
     amountChargedCents: session.amount_total ?? 0,
+    // The order as it is when the payment lands. Admin edits are compared
+    // against this (see compareOrderWithPayments).
+    orderSnapshot: buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }),
   });
   if (!payment) {
     return;

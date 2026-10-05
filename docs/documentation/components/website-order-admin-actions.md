@@ -7,9 +7,13 @@
 
 ## Responsibility
 
-The "Handle order" panel in `WebsiteOrderModal`: status, status notes and partner, plus "Send to GSM" / "Update in GSM". It only uses existing endpoints, none of which re-price the order:
-- `PATCH /api/orders/bulk` with this one order's id;
-- `POST /api/orders/send-to-gsm`.
+The "Handle order" panel in `WebsiteOrderModal`: everything on the order that only an admin handles, without opening the booking editor. One Save covers all of it:
+
+- **Status, status notes and partner:** `PATCH /api/orders/bulk` with this one order's id, which doesn't re-price.
+- **The rest:** driver, second driver, info for the driver, license plate, internal description, deviation (with its own description and prices for the custom one), discount, extra, express delivery and "don't send email". These go through `PUT /api/orders/[orderId]/website-items` with `handling`, which re-prices. Express, discount, extra and the deviation change the total, so while one of those is changed a debounced `dryRun` shows "Price after this change" (`WebsiteOrderPaymentSummary`) against what was paid. `handlingChange` decides what changed.
+- **"Send to GSM" / "Update in GSM":** `POST /api/orders/send-to-gsm`.
+
+The handling fields can still be saved on completed or invoiced orders.
 
 Both are admin/owner only on the server, and anyone else gets an error message.
 

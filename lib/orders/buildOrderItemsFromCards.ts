@@ -26,6 +26,7 @@ import {
   normalizedUpper,
 } from "@/lib/booking/pricing/rules";
 import { computeLineKey } from "@/lib/booking/pricing/lineKey";
+import { shouldZeroBaseDeliveryPrice } from "@/lib/booking/pricing/fromProductCards";
 import { resolveSizeBracketCharge, splitSizeBracketOptionIds } from "@/lib/booking/pricing/sizeBrackets";
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
@@ -168,8 +169,14 @@ export function buildOrderItemsFromCards(
   productCards: SavedProductCard[],
   catalogProducts: CatalogProduct[],
   catalogSpecialOptions: CatalogSpecialOption[],
-  options: SharedDeliveryOptions = {},
+  options: SharedDeliveryOptions & {
+    // Same flag the pricing engine gets (buildProductBreakdowns): over 100 km
+    // the delivery line is stored at 0 kr, so the lines add up to the total.
+    zeroBaseDeliveryPricesOver100Km?: boolean;
+  } = {},
 ): BuiltOrderItem[] {
+  const zeroBaseDelivery = (deliveryType: SavedProductCard["deliveryType"]) =>
+    shouldZeroBaseDeliveryPrice(deliveryType, false, options.zeroBaseDeliveryPricesOver100Km ?? false);
   const items: BuiltOrderItem[] = [];
   const automaticXtraDeliveryCardIds = getAutomaticXtraDeliveryCardIds(
     productCards,
@@ -287,7 +294,10 @@ export function buildOrderItemsFromCards(
           })
         : null;
 
-      const customerPriceCents = useXtraDeliveryPricing
+      const zeroed = zeroBaseDelivery(card.deliveryType);
+      const customerPriceCents = zeroed
+        ? 0
+        : useXtraDeliveryPricing
         ? xtraOption
           ? decimalStringToCents(xtraOption.effectiveCustomerPrice)
           : safeInt32Cents(Math.round(
@@ -304,7 +314,9 @@ export function buildOrderItemsFromCards(
             }) * 100,
           ));
 
-      const subcontractorPriceCents = useXtraDeliveryPricing
+      const subcontractorPriceCents = zeroed
+        ? 0
+        : useXtraDeliveryPricing
         ? xtraOption
           ? decimalStringToCents(xtraOption.subcontractorPrice)
           : safeInt32Cents(Math.round(
@@ -323,7 +335,9 @@ export function buildOrderItemsFromCards(
             }) * 100,
           ));
 
-      if (customerPriceCents !== null && customerPriceCents > 0) {
+      // A zeroed (over 100 km) delivery line is kept at 0 kr so the order
+      // still shows which delivery was booked.
+      if (customerPriceCents !== null && (customerPriceCents > 0 || zeroed)) {
         const deliveryTypeCode = getProductDeliveryTypeCode(
           product.deliveryTypes,
           card.deliveryType,
@@ -689,10 +703,17 @@ export function buildOrderItemsFromCards(
         });
 
     if (product && showReturnOptionForCard && card.selectedReturnOptionId) {
+      // The dashboard's global return choice (RETURNSTORE/RETURNREC) or, for
+      // the website catalog, the product's own return option — same lookup
+      // order as the pricing engine (findSelectedReturnOption).
       const special =
         catalogSpecialOptions.find(
           (o) => o.id === card.selectedReturnOptionId,
-        ) ?? null;
+        ) ??
+        product.options.find(
+          (o) => o.active && isReturnOption(o.category, o.code) && o.id === card.selectedReturnOptionId,
+        ) ??
+        null;
 
       items.push({
         cardId: card.cardId,

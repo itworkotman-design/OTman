@@ -5,7 +5,6 @@ import {
   applyOrderPricingSnapshot,
   getSavedOrderPricingSnapshot,
 } from "@/lib/booking/pricing/snapshot";
-import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { buildOrderPricingSnapshot } from "@/lib/orders/orderTotals";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
@@ -22,23 +21,10 @@ import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName, isSiz
 import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeDimensions";
 import { findWebsiteCatalogByProductCode } from "@/lib/content/websiteCatalogs";
 import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyRequirement";
-import {
-  applyWebsiteAssemblyExtras,
-  buildWebsiteAssemblyExtraOrderItems,
-} from "@/lib/booking/pricing/websiteAssemblyExtras";
-import { applyWebsiteInstallOnlyVisit } from "@/lib/booking/pricing/websiteInstallOnlyVisit";
-import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
-import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
 import { costliestFloor, parseFloorNumber } from "@/lib/booking/floorNumber";
-import { buildWebsiteOrderNoteLines, buildWebsiteOrderTextFields } from "@/lib/orders/websiteOrderNotes";
+import { buildPickupNoteLines, buildWebsiteOrderTextFields } from "@/lib/orders/websiteOrderNotes";
 import { buildWhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
-import {
-  applyWhiteGoodsExtraUnitCharges,
-  buildWhiteGoodsExtraUnitOrderItems,
-} from "@/lib/booking/pricing/whiteGoodsExtraUnits";
-import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
-import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
-import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
+import { buildWebsiteOrderItems, priceWebsiteOrder } from "@/lib/booking/pricing/priceWebsiteOrder";
 import { normalizePriceListSettings } from "@/lib/products/priceListSettings";
 import {
   validateEmailField,
@@ -47,7 +33,6 @@ import {
 } from "@/lib/orders/websiteOrderValidation";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import {
-  buildMultiPickupDescriptionLines,
   extraPickupFloorsForPricing,
   parseExtraPickupLocations,
 } from "@/lib/orders/websiteExtraPickupLocations";
@@ -105,6 +90,18 @@ class ItemNameError extends Error {
 class InstallOptionRequiredError extends Error {
   constructor() {
     super("An installation-only product needs an installation option");
+  }
+}
+
+class ShownTotalRequiredError extends Error {
+  constructor() {
+    super("The order must say which total the customer was shown");
+  }
+}
+
+class PriceChangedError extends Error {
+  constructor(readonly total: number) {
+    super("The total the customer was shown is not the current price");
   }
 }
 
@@ -182,21 +179,6 @@ async function createWhiteGoodsOrder(
     pricingSnapshot: getSavedOrderPricingSnapshot(productCards),
   });
 
-  const builtItems = [
-    ...buildOrderItemsFromCards(
-      productCards,
-      pricingSource.catalogProducts,
-      pricingSource.catalogSpecialOptions,
-      { installOnlyVisitPricing: true },
-    ),
-    ...buildWhiteGoodsExtraUnitOrderItems(
-      productCards,
-      pricingSource.catalogProducts,
-      pricingSource.catalogSpecialOptions,
-    ),
-    ...buildWebsiteAssemblyExtraOrderItems(productCards, pricingSource.catalogProducts),
-  ];
-
   const summaries = buildOrderSummaries(
     productCards,
     pricingSource.catalogProducts,
@@ -205,10 +187,6 @@ async function createWhiteGoodsOrder(
 
   const normalizedPriceListSettings = normalizePriceListSettings(
     catalog.priceListSettings,
-  );
-  const priceLookup = buildPriceLookup(
-    pricingSource.catalogProducts,
-    pricingSource.catalogSpecialOptions,
   );
 
   const drivingDistanceStr = str(body.drivingDistance) ?? "";
@@ -235,29 +213,12 @@ async function createWhiteGoodsOrder(
             .map((address) => ({ address }))
         : [];
 
-  const zeroBaseDeliveryPricesOver100Km = parseDistanceKm(drivingDistanceStr) > 100;
-  const productBreakdowns = applyWebsiteInstallOnlyVisit(
-    applyWebsiteAssemblyExtras(
-      applyWhiteGoodsExtraUnitCharges(
-        buildProductBreakdowns(
-          productCards,
-          pricingSource.catalogProducts,
-          pricingSource.catalogSpecialOptions,
-          { zeroBaseDeliveryPricesOver100Km, installOnlyVisitPricing: true },
-        ),
-        productCards,
-        pricingSource.catalogProducts,
-        pricingSource.catalogSpecialOptions,
-      ),
-      productCards,
-      pricingSource.catalogProducts,
-    ),
-    productCards,
-    pricingSource.catalogProducts,
-  );
-
-  const fullBreakdowns = buildWhiteGoodsCalculatorBreakdowns({
-    productBreakdowns,
+  // THE price — the same function the customer's summary used
+  // (priceWebsiteOrder), so the total below is the one they were shown.
+  const { result: pricingResult, orderExtras } = priceWebsiteOrder({
+    cards: productCards,
+    catalogProducts: pricingSource.catalogProducts,
+    catalogSpecialOptions: pricingSource.catalogSpecialOptions,
     priceListSettings: normalizedPriceListSettings,
     drivingDistance: drivingDistanceStr,
     expressDelivery,
@@ -269,9 +230,22 @@ async function createWhiteGoodsOrder(
     extraPickupFloors: extraPickupFloorsForPricing(extraPickupLocations),
   });
 
-  const pricingResult = calculateBookingPricing({
-    productBreakdowns: fullBreakdowns,
-    priceLookup,
+  // The customer pays what they were shown, so the order is only stored when
+  // that is exactly the price calculated here. Anything else (stale catalog,
+  // a pricing bug, a tampered request) is refused with the real price rather
+  // than stored at a total the customer never saw.
+  const shownTotal = typeof body.shownTotal === "number" && Number.isFinite(body.shownTotal) ? body.shownTotal : null;
+  if (shownTotal === null) throw new ShownTotalRequiredError();
+  if (Math.abs(shownTotal - pricingResult.totals.totalExVat) >= 0.5) {
+    console.error("[white-goods-order] Shown total differs from server total", {
+      shownTotal,
+      serverTotal: pricingResult.totals.totalExVat,
+    });
+    throw new PriceChangedError(pricingResult.totals.totalExVat);
+  }
+
+  const builtItems = buildWebsiteOrderItems(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
+    drivingDistance: drivingDistanceStr,
   });
 
   const pricingSnapshot = buildOrderPricingSnapshot({
@@ -297,29 +271,30 @@ async function createWhiteGoodsOrder(
   // neither end would incur a floor surcharge, the safer combined value.
   const orderLift = pickupLiftAvailable && deliveryLiftAvailable ? "yes" : "no";
 
-  const floorNoteLines = buildWebsiteOrderNoteLines({
-    pickupSourceLabel: pickupSourceLabel(body.pickupSource),
-    pickupPlaceName: pickupPlaceNameStr,
-    pickupContactName: pickupContactNameStr,
-    pickupContactPhone: pickupContactPhoneStr,
-    isStorePickup,
-    pickupFloor,
-    pickupLiftAvailable,
-    deliveryFloor,
-    deliveryLiftAvailable,
-    orderFloorNo,
-    orderLift,
-  });
-
   // Only non-empty once the order was actually split across more than one
   // pickup address — see websiteExtraPickupLocations.ts.
   const firstLocationProductNames = Array.isArray(body.pickupProductNames)
     ? (body.pickupProductNames as unknown[]).filter((n): n is string => typeof n === "string" && n.trim().length > 0)
     : [];
-  const multiPickupNoteParts = buildMultiPickupDescriptionLines({
-    firstLocationAddress: str(body.pickupAddress),
-    firstLocationProductNames,
-    extraLocations: extraPickupLocations,
+  // One description line per pickup stop (see buildPickupNoteLines).
+  const pickupNoteLines = buildPickupNoteLines({
+    stops: [
+      {
+        source: typeof body.pickupSource === "string" ? body.pickupSource : null,
+        placeName: pickupPlaceNameStr,
+        address: str(body.pickupAddress),
+        floor: pickupFloor,
+        liftAvailable: pickupLiftAvailable,
+        contactName: pickupContactNameStr,
+        contactPhone: pickupContactPhoneStr,
+        productNames: firstLocationProductNames,
+      },
+      ...extraPickupLocations,
+    ],
+    deliveryFloor,
+    deliveryLiftAvailable,
+    orderFloorNo,
+    orderLift,
   });
 
   // Structured copy of what the customer entered, for the admin
@@ -335,6 +310,10 @@ async function createWhiteGoodsOrder(
       contactName: pickupContactNameStr,
       contactPhone: pickupContactPhoneStr,
       productNames: firstLocationProductNames,
+      // Which product cards are collected here (for the admin editor).
+      ...(Array.isArray(body.pickupCardIds)
+        ? { cardIds: (body.pickupCardIds as unknown[]).filter((id): id is number => Number.isInteger(id)) }
+        : {}),
     },
     extraPickups: extraPickupLocations,
     delivery: { address: str(body.deliveryAddress), floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
@@ -343,11 +322,8 @@ async function createWhiteGoodsOrder(
     drivingDistance: drivingDistanceStr || null,
     // Same lines the homepage summary shows (WhiteGoodsBookingFlow's
     // orderExtraLines).
-    orderExtras: (pricingResult.breakdowns.find((b) => b.isOrderExtras)?.lines ?? []).map((line) => ({
-      label: line.label,
-      price: line.lineTotal,
-      qty: line.qty,
-    })),
+    orderExtras,
+    shownTotal,
   });
 
   const order = await prisma.order.create({
@@ -376,8 +352,8 @@ async function createWhiteGoodsOrder(
       lift: orderLift,
       ...buildWebsiteOrderTextFields({
         customerComment: str(body.notes),
-        noteLines: floorNoteLines,
-        multiPickupLines: multiPickupNoteParts,
+        noteLines: pickupNoteLines,
+        multiPickupLines: [],
       }),
       priceExVat: Math.round(pricingResult.totals.totalExVat),
       priceSubcontractor: Math.round(pricingResult.totals.subcontractorTotal),
@@ -527,6 +503,12 @@ export async function POST(req: Request) {
     const result = await createWhiteGoodsOrder(body);
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
+    if (err instanceof ShownTotalRequiredError) {
+      return NextResponse.json({ ok: false, reason: "SHOWN_TOTAL_REQUIRED" }, { status: 400 });
+    }
+    if (err instanceof PriceChangedError) {
+      return NextResponse.json({ ok: false, reason: "PRICE_CHANGED", total: err.total }, { status: 409 });
+    }
     if (err instanceof UnsellableProductError) {
       return NextResponse.json(
         { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "Unknown product" } },

@@ -4,6 +4,8 @@ import { getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok } from
 import { sumOrderPayments } from "@/lib/orders/orderPayments";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import OrderPaymentClient from "@/app/_components/site/pageComponents/OrderPaymentClient";
+import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
+import { describeDetailChange, describeLineChange } from "@/lib/orders/orderChangeText";
 
 export const metadata: Metadata = {
   title: "Betaling | Otman AS",
@@ -16,7 +18,10 @@ const TEXT = {
     notFound: "Fant ikke bestillingen. Sjekk lenken, eller ta kontakt med oss.",
     alreadyConfirmed: "Denne bestillingen er allerede betalt. Takk!",
     notPayable: "Denne bestillingen kan ikke betales akkurat nå. Ta kontakt med oss om du tror dette er feil.",
-    balanceDueNotice: "Bestillingen din er oppdatert med flere varer. Betal restbeløpet under for å bekrefte.",
+    balanceDueNotice: "Bestillingen din er oppdatert. Betal restbeløpet under for å bekrefte.",
+    changesHeading: "Dette er endret siden du betalte",
+    newTotal: "Ny totalpris (inkl. MVA)",
+    payNow: "Å betale nå",
     order: "Bestilling",
     delivery: "Leveringsdato",
     products: "Produkter",
@@ -29,7 +34,10 @@ const TEXT = {
     notFound: "We couldn't find that order. Check the link, or contact us.",
     alreadyConfirmed: "This order has already been paid. Thank you!",
     notPayable: "This order can't be paid right now. Contact us if you think this is a mistake.",
-    balanceDueNotice: "Your order was updated with more items. Pay the remaining balance below to confirm.",
+    balanceDueNotice: "Your order was updated. Pay the remaining balance below to confirm.",
+    changesHeading: "What changed since you paid",
+    newTotal: "New total (incl. VAT)",
+    payNow: "To pay now",
     order: "Order",
     delivery: "Delivery date",
     products: "Products",
@@ -68,6 +76,19 @@ export default async function OrderPaymentPage({
   const remainingBalanceIncVat = getOrderRemainingBalanceIncVatNok(order, totalPaidCents);
   const isTopUp = isTopUpPayable(order.status, remainingBalanceIncVat);
   const fmt = (n: number) => n.toLocaleString(locale === "no" ? "nb-NO" : "en-US");
+  // On a top-up: exactly what changed since the last payment.
+  const comparison = isTopUp
+    ? compareOrderWithPayments({
+        payments: order.payments,
+        current: buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }),
+      })
+    : null;
+  const changeLines = comparison
+    ? [
+        ...comparison.lineChanges.map((change) => describeLineChange(change, locale)),
+        ...comparison.detailChanges.map((change) => describeDetailChange(change, locale)),
+      ]
+    : [];
 
   return (
     <div className="py-16">
@@ -94,7 +115,7 @@ export default async function OrderPaymentPage({
             </div>
           ) : null}
           <div className="flex justify-between border-t border-gray-200 pt-2">
-            <dt className="text-textColorThird">{t.total}</dt>
+            <dt className="text-textColorThird">{isTopUp ? t.newTotal : t.total}</dt>
             <dd className="font-semibold">NOK {fmt(amountIncVat)}</dd>
           </div>
           {isTopUp && (
@@ -104,12 +125,23 @@ export default async function OrderPaymentPage({
                 <dd className="font-medium">NOK {fmt(totalPaidCents / 100)}</dd>
               </div>
               <div className="flex justify-between border-t border-gray-200 pt-2">
-                <dt className="text-textColorThird">{t.remainingBalance}</dt>
-                <dd className="font-semibold">NOK {fmt(remainingBalanceIncVat)}</dd>
+                <dt className="font-semibold">{t.payNow}</dt>
+                <dd className="text-lg font-bold">NOK {fmt(remainingBalanceIncVat)}</dd>
               </div>
             </>
           )}
         </dl>
+
+        {changeLines.length > 0 && (
+          <div className="mt-6 text-sm">
+            <p className="font-semibold">{t.changesHeading}</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-textColorThird">
+              {changeLines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {isTopUp ? (
           <>

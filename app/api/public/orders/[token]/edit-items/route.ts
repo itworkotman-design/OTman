@@ -1,34 +1,17 @@
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getOrderByActionToken } from "@/lib/orders/publicOrderAccess";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { validateOrderItemEdits } from "@/lib/orders/validateOrderItemEdits";
-import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
-import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeDimensions";
-import { applyOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
-import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
-import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
-import { buildOrderPricingSnapshot } from "@/lib/orders/orderTotals";
 import { createOrderUpdatedEvent } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import {
-  applyWebsiteAssemblyExtras,
-  buildWebsiteAssemblyExtraOrderItems,
-} from "@/lib/booking/pricing/websiteAssemblyExtras";
-import { applyWebsiteInstallOnlyVisit } from "@/lib/booking/pricing/websiteInstallOnlyVisit";
-import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
-import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
-import {
-  applyWhiteGoodsExtraUnitCharges,
-  buildWhiteGoodsExtraUnitOrderItems,
-} from "@/lib/booking/pricing/whiteGoodsExtraUnits";
-import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
-import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
-import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
-import { normalizePriceListSettings } from "@/lib/products/priceListSettings";
-import { floorPricingInputs, parseWhiteGoodsBookingDetails, type OrderExtraLine } from "@/lib/orders/websiteBookingDetails";
+  ItemNameRequiredError,
+  SizeBracketSelectionError,
+  recomputeWebsiteOrderPricing,
+  websiteOrderPricingWrites,
+} from "@/lib/orders/websiteOrderRepricing";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 
 // "Forgot something?" — a customer on an already-confirmed (paid) order can
@@ -40,27 +23,15 @@ import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/creat
 // case still deliberately staff-mediated. See
 // docs/homepage-ordering-roadmap.md §4.
 //
-// Re-runs the EXACT SAME pricing pipeline app/api/site/white-goods-order/
-// route.ts uses to create an order in the first place, just with the
-// submitted (modified) cards — this guarantees the recomputed total is
-// consistent with how the order was priced originally, rather than a
-// hand-rolled shortcut risking a different number. Order-level context
-// (driving distance, express delivery, floors, lift, extra pickups) is
-// preserved from the order as it already exists — the customer isn't
-// resubmitting addresses here, only reconfiguring products — so those
-// inputs to the pipeline don't change, only the per-card ones do.
+// Re-priced through the same pipeline that created the order (see
+// lib/orders/websiteOrderRepricing.ts), so the new total is consistent with
+// how the order was priced originally. Order-level context (driving
+// distance, express delivery, floors, lift, extra pickups) is preserved from
+// the order as it already exists — only the per-card inputs change.
 //
 // A change that would DECREASE the total is rejected outright: refunding a
 // partial payment is a materially different feature (money going back out,
 // not in) that nothing here builds — see the roadmap doc's own note on this.
-
-// A size-priced product (Other furniture) must keep exactly one volume and one
-// weight bracket — removing one would drop the real size/weight info from the
-// order (and, for a waived bracket, change nothing in the price).
-class SizeBracketSelectionError extends Error {}
-
-// ...and it must keep its name (what the item is).
-class ItemNameRequiredError extends Error {}
 
 class PriceWouldDecreaseError extends Error {
   constructor() {
@@ -105,144 +76,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   }
 }
 
-async function recomputeOrderPricing(
-  order: {
-    drivingDistance: string | null;
-    expressDelivery: boolean;
-    floorNo: string | null;
-    lift: string | null;
-    extraPickupAddress: string[];
-    // Per-stop floors and the booked order extras (homepage orders only).
-    websiteBookingDetails?: unknown;
-    rabatt: string | null;
-    leggTil: string | null;
-    subcontractorMinus: string | null;
-    subcontractorPlus: string | null;
-  },
-  rawCards: SavedProductCard[],
-) {
-  const catalog = await getWebsiteOrderCatalog();
-
-  // The volume bracket of a size-priced product is derived from its
-  // width/height/length here, never taken from the client.
-  const submittedCards = applyDimensionDerivedVolumeBrackets(rawCards, catalog.products);
-
-  if (findCardsWithSizeBracketProblems(submittedCards, catalog.products).length > 0) {
-    throw new SizeBracketSelectionError();
-  }
-
-  if (findSizePricedCardsMissingName(submittedCards, catalog.products).length > 0) {
-    throw new ItemNameRequiredError();
-  }
-
-  // Never trust a per-card frozen pricingSnapshot here — a "Forgot
-  // something?" edit should always price against the current live catalog,
-  // not whatever was frozen at original booking time.
-  const pricingSource = applyOrderPricingSnapshot({
-    catalogProducts: catalog.products,
-    catalogSpecialOptions: catalog.specialOptions,
-    priceListSettings: catalog.priceListSettings,
-    pricingSnapshot: null,
-  });
-
-  const builtItems = [
-    ...buildOrderItemsFromCards(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
-      installOnlyVisitPricing: true,
-    }),
-    ...buildWhiteGoodsExtraUnitOrderItems(
-      submittedCards,
-      pricingSource.catalogProducts,
-      pricingSource.catalogSpecialOptions,
-    ),
-    ...buildWebsiteAssemblyExtraOrderItems(submittedCards, pricingSource.catalogProducts),
-  ];
-
-  const summaries = buildOrderSummaries(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
-  const normalizedPriceListSettings = normalizePriceListSettings(catalog.priceListSettings);
-  const priceLookup = buildPriceLookup(pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
-
-  const drivingDistanceStr = order.drivingDistance ?? "";
-  // Each stop's own floor/lift from the booking details when the order has
-  // them; older orders fall back to the one combined Order.floorNo/lift pair
-  // applied to both ends (see floorPricingInputs).
-  const floors = floorPricingInputs({
-    floorNo: order.floorNo,
-    lift: order.lift,
-    websiteBookingDetails: order.websiteBookingDetails ?? null,
-  });
-  const extraPickupsForPricing = (order.extraPickupAddress ?? []).map((address) => ({ address }));
-
-  const zeroBaseDeliveryPricesOver100Km = parseDistanceKm(drivingDistanceStr) > 100;
-  const productBreakdowns = applyWebsiteInstallOnlyVisit(
-    applyWebsiteAssemblyExtras(
-      applyWhiteGoodsExtraUnitCharges(
-        buildProductBreakdowns(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
-          zeroBaseDeliveryPricesOver100Km,
-          installOnlyVisitPricing: true,
-        }),
-        submittedCards,
-        pricingSource.catalogProducts,
-        pricingSource.catalogSpecialOptions,
-      ),
-      submittedCards,
-      pricingSource.catalogProducts,
-    ),
-    submittedCards,
-    pricingSource.catalogProducts,
-  );
-
-  const fullBreakdowns = buildWhiteGoodsCalculatorBreakdowns({
-    productBreakdowns,
-    priceListSettings: normalizedPriceListSettings,
-    drivingDistance: drivingDistanceStr,
-    expressDelivery: order.expressDelivery === true,
-    extraPickups: extraPickupsForPricing,
-    pickupFloor: floors.pickupFloor,
-    deliveryFloor: floors.deliveryFloor,
-    pickupLiftAvailable: floors.pickupLiftAvailable,
-    deliveryLiftAvailable: floors.deliveryLiftAvailable,
-    extraPickupFloors: floors.extraPickupFloors,
-  });
-
-  const pricingResult = calculateBookingPricing({
-    productBreakdowns: fullBreakdowns,
-    priceLookup,
-    adjustments: {
-      rabatt: order.rabatt ?? "",
-      leggTil: order.leggTil ?? "",
-      subcontractorMinus: order.subcontractorMinus ?? "",
-      subcontractorPlus: order.subcontractorPlus ?? "",
-    },
-  });
-
-  const pricingSnapshot = buildOrderPricingSnapshot({
-    lines: builtItems,
-    rabatt: order.rabatt,
-    leggTil: order.leggTil,
-    subcontractorMinus: order.subcontractorMinus,
-    subcontractorPlus: order.subcontractorPlus,
-    fallbackCustomerTotalExVat: pricingResult.totals.totalExVat,
-    fallbackSubcontractorTotal: pricingResult.totals.subcontractorTotal,
-  });
-
-  return {
-    // The cards with their derived size brackets — what gets persisted.
-    cards: submittedCards,
-    builtItems,
-    summaries,
-    pricingSnapshot,
-    priceExVat: Math.round(pricingResult.totals.totalExVat),
-    priceSubcontractor: Math.round(pricingResult.totals.subcontractorTotal),
-    // Same lines the homepage summary shows — kept on the booking details so
-    // the admin view stays in step with the new price.
-    orderExtras: (pricingResult.breakdowns?.find((b) => b.isOrderExtras)?.lines ?? []).map((line) => ({
-      label: line.label,
-      price: line.lineTotal,
-      qty: line.qty,
-    })),
-  };
-}
-
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
@@ -278,49 +111,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   }
 
   try {
-    const recomputed = await recomputeOrderPricing(order, submittedCards);
+    const recomputed = await recomputeWebsiteOrderPricing(order, submittedCards);
     const previousPriceExVat = order.priceExVat;
 
     if (recomputed.priceExVat < previousPriceExVat) {
       throw new PriceWouldDecreaseError();
     }
 
-    await prisma.$transaction([
-      prisma.order.update({
-        where: { id: order.id },
-        data: {
-          productCardsSnapshot: recomputed.cards as unknown as Prisma.InputJsonValue,
-          pricingSnapshot: recomputed.pricingSnapshot as unknown as Prisma.InputJsonValue,
-          priceExVat: recomputed.priceExVat,
-          priceSubcontractor: recomputed.priceSubcontractor,
-          ...recomputed.summaries,
-          ...refreshedBookingDetails(order.websiteBookingDetails, recomputed.orderExtras),
-          needsNotificationAttention: true,
-          lastNotificationAt: new Date(),
-        },
+    await prisma.$transaction(
+      websiteOrderPricingWrites(order, recomputed, {
+        needsNotificationAttention: true,
+        lastNotificationAt: new Date(),
       }),
-      prisma.orderItem.deleteMany({ where: { orderId: order.id } }),
-      ...recomputed.builtItems.map((item) =>
-        prisma.orderItem.create({
-          data: {
-            orderId: order.id,
-            cardId: item.cardId,
-            productId: item.productId,
-            productCode: item.productCode,
-            productName: item.productName,
-            deliveryType: item.deliveryType,
-            itemType: item.itemType,
-            optionId: item.optionId,
-            optionCode: item.optionCode,
-            optionLabel: item.optionLabel,
-            quantity: item.quantity,
-            customerPriceCents: item.customerPriceCents,
-            subcontractorPriceCents: item.subcontractorPriceCents,
-            rawData: item.rawData as Prisma.InputJsonValue,
-          },
-        }),
-      ),
-    ]);
+    );
 
     await createOrderUpdatedEvent(prisma, {
       orderId: order.id,
@@ -369,12 +172,4 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     console.error("[edit-items] Failed to apply order item edits:", err);
     return NextResponse.json({ ok: false, reason: "UPDATE_FAILED" }, { status: 500 });
   }
-}
-
-// The order's booking details with the re-priced order extras, as an
-// update fragment — nothing for orders that never had details.
-function refreshedBookingDetails(stored: unknown, orderExtras: OrderExtraLine[]) {
-  const details = parseWhiteGoodsBookingDetails(stored);
-  if (!details) return {};
-  return { websiteBookingDetails: { ...details, orderExtras } as unknown as Prisma.InputJsonValue };
 }

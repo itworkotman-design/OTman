@@ -101,6 +101,7 @@ describe("POST /api/integrations/stripe/webhook", () => {
       stripeCheckoutSessionId: "cs_test",
       stripePaymentIntentId: "pi_test",
       amountChargedCents: 500000,
+      orderSnapshot: expect.objectContaining({ version: 1 }),
     });
     expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
       where: { id: "order1" },
@@ -117,6 +118,39 @@ describe("POST /api/integrations/stripe/webhook", () => {
         orders: [expect.objectContaining({ id: "order1" })],
       }),
     );
+  });
+
+  it("stores what the payment covered (lines, stops and the charged total) on the payment", async () => {
+    mocks.orderFindUniqueMock.mockResolvedValue({
+      id: "order1",
+      companyId: "company1",
+      status: "approved",
+      email: null,
+      actionToken: "a".repeat(32),
+      priceExVat: 5000,
+      rabatt: null,
+      leggTil: null,
+      websiteOrderKind: "WHITE_GOODS",
+      pricingSnapshot: { customer: { totalExVat: 5000 }, lines: [] },
+      websiteBookingDetails: null,
+      pickupAddress: "Strømmen 1",
+      deliveryAddress: "Kirkegata 5",
+      extraPickupAddress: [],
+      deliveryDate: "2026-10-10",
+      timeWindow: "08:00-16:00",
+      drivingDistance: "21",
+    });
+    mocks.recordOrderPaymentMock.mockResolvedValue({ id: "payment1" });
+    mocks.orderPaymentFindManyMock.mockResolvedValue([{ amountChargedCents: 500000 }]);
+
+    await POST(webhookRequest(checkoutSessionCompletedEvent({})));
+
+    const recorded = mocks.recordOrderPaymentMock.mock.calls[0]![1];
+    expect(recorded.orderSnapshot).toMatchObject({
+      version: 1,
+      totalIncVatNok: 5000,
+      details: expect.arrayContaining([{ key: "delivery.address", value: "Kirkegata 5" }]),
+    });
   });
 
   it("does not send the order-confirmed email for a top-up payment (only the first payment)", async () => {

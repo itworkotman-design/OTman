@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import { recordOrderPayment, sumOrderPayments } from "./orderPayments";
+import type { OrderStateSnapshot } from "./paidOrderSnapshot";
 
 describe("sumOrderPayments", () => {
   it("sums the charged amounts across every recorded payment", () => {
@@ -49,6 +50,22 @@ describe("recordOrderPayment", () => {
       },
     });
     expect(result).toEqual({ id: "op1" });
+  });
+
+  it("stores what the payment covered when given a snapshot", async () => {
+    const create = vi.fn().mockResolvedValue({ id: "op1" });
+    const snapshot: OrderStateSnapshot = { version: 1, totalIncVatNok: 5000, lines: [], details: [] };
+
+    await recordOrderPayment({ orderPayment: { create } } as never, {
+      orderId: "order1",
+      companyId: "company1",
+      stripeCheckoutSessionId: "cs_123",
+      stripePaymentIntentId: "pi_123",
+      amountChargedCents: 500000,
+      orderSnapshot: snapshot,
+    });
+
+    expect(create.mock.calls[0]![0].data.orderSnapshot).toEqual(snapshot);
   });
 
   it("returns null instead of throwing when this session was already recorded (webhook redelivery)", async () => {

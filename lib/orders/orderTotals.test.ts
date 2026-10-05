@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOrderPricingSnapshot, getOrderRemainingBalanceIncVatNok } from "@/lib/orders/orderTotals";
+import { buildOrderPricingSnapshot, getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok } from "@/lib/orders/orderTotals";
 
 describe("buildOrderPricingSnapshot", () => {
   it("uses submitted totals as authoritative when line prices are partial", () => {
@@ -110,5 +110,35 @@ describe("getOrderRemainingBalanceIncVatNok", () => {
       pricingSnapshot: { customer: { totalIncVat: 2000 } },
     };
     expect(getOrderRemainingBalanceIncVatNok(order, 60000)).toBe(1400);
+  });
+});
+
+describe("getOrderChargeAmountIncVatNok for homepage website orders", () => {
+  // Homepage catalog prices are stored VAT-inclusive (see vatDisplayTotal.ts),
+  // so the client total the customer saw is what they pay — no extra 25%.
+  const websiteOrder = {
+    priceExVat: 2855,
+    rabatt: null,
+    leggTil: null,
+    pricingSnapshot: { customer: { totalExVat: 2855, totalIncVat: 3568.75 } },
+    websiteOrderKind: "WHITE_GOODS",
+  };
+
+  it("charges the client total as-is, not plus VAT", () => {
+    expect(getOrderChargeAmountIncVatNok(websiteOrder)).toBe(2855);
+  });
+
+  it("falls back to the adjusted priceExVat, without adding VAT, when there's no snapshot", () => {
+    const order = { ...websiteOrder, priceExVat: 1000, rabatt: "100", pricingSnapshot: null };
+    expect(getOrderChargeAmountIncVatNok(order)).toBe(900);
+  });
+
+  it("uses the client total for the remaining balance too", () => {
+    expect(getOrderRemainingBalanceIncVatNok(websiteOrder, 200000)).toBe(855);
+  });
+
+  it("leaves other orders charging their ex-VAT total plus VAT", () => {
+    const order = { priceExVat: 1000, rabatt: null, leggTil: null, pricingSnapshot: null, websiteOrderKind: null };
+    expect(getOrderChargeAmountIncVatNok(order)).toBe(1250);
   });
 });

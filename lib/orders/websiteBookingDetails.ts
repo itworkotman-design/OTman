@@ -23,8 +23,10 @@ export type BookingPickupStop = {
   contactName: string;
   contactPhone: string;
   // Only once the order is split across locations — which products this stop
-  // collects.
+  // collects: display names, and (newer orders) the product card ids, which
+  // the admin editor uses to put each product back on its stop.
   productNames?: string[];
+  cardIds?: number[];
 };
 
 export type WhiteGoodsBookingDetails = {
@@ -39,6 +41,9 @@ export type WhiteGoodsBookingDetails = {
   // distance…) as priced at booking — the pricing snapshot only keeps
   // product lines. Same lines the homepage summary shows under order extras.
   orderExtras: OrderExtraLine[];
+  // The total the customer was shown when booking (the order is only
+  // accepted when it equals the calculated price). Absent on older orders.
+  shownTotal?: number;
 };
 
 export type OrderExtraLine = { label: string; price: number; qty: number };
@@ -54,6 +59,7 @@ export type WhiteGoodsBookingDetailsInput = {
     contactName: string | null;
     contactPhone: string | null;
     productNames: string[];
+    cardIds?: number[];
   };
   extraPickups: ParsedExtraPickupLocation[];
   delivery: { address: string | null; floor: number; liftAvailable: boolean };
@@ -61,6 +67,7 @@ export type WhiteGoodsBookingDetailsInput = {
   timeWindow: string | null;
   drivingDistance: string | null;
   orderExtras: OrderExtraLine[];
+  shownTotal?: number | null;
 };
 
 const PICKUP_SOURCES: BookingPickupSource[] = ["store", "private", "business"];
@@ -96,6 +103,7 @@ function stop(fields: {
   contactName: unknown;
   contactPhone: unknown;
   productNames: unknown;
+  cardIds?: unknown;
 }): BookingPickupStop {
   const source = pickupSource(fields.source);
   // A store is never asked for a floor/lift (see the order route).
@@ -110,6 +118,9 @@ function stop(fields: {
     contactName: text(fields.contactName),
     contactPhone: text(fields.contactPhone),
     ...(productNames.length > 0 ? { productNames } : {}),
+    ...(Array.isArray(fields.cardIds)
+      ? { cardIds: fields.cardIds.filter((id): id is number => Number.isInteger(id)) }
+      : {}),
   };
 }
 
@@ -127,6 +138,7 @@ export function buildWhiteGoodsBookingDetails(input: WhiteGoodsBookingDetailsInp
     timeWindow: text(input.timeWindow),
     drivingDistance: text(input.drivingDistance),
     orderExtras: input.orderExtras.map((line) => ({ label: line.label, price: line.price, qty: line.qty })),
+    ...(typeof input.shownTotal === "number" ? { shownTotal: input.shownTotal } : {}),
   };
 }
 
@@ -157,6 +169,7 @@ export function parseWhiteGoodsBookingDetails(value: unknown): WhiteGoodsBooking
     orderExtras: Array.isArray(v.orderExtras)
       ? v.orderExtras.filter(isOrderExtraLine).map((line) => ({ label: line.label, price: line.price, qty: line.qty }))
       : [],
+    ...(typeof v.shownTotal === "number" && Number.isFinite(v.shownTotal) ? { shownTotal: v.shownTotal } : {}),
   };
 }
 

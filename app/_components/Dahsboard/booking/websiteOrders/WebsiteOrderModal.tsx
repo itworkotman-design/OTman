@@ -9,6 +9,12 @@ import { getVatBreakdown } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import type { ProductGroup } from "@/lib/orders/websiteOrderProducts";
 import WebsiteOrderAdminActions from "./WebsiteOrderAdminActions";
+import { WhiteGoodsBookingFlow } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsBookingFlow";
+import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
+import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
+import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
+import WebsiteOrderAttachments from "./WebsiteOrderAttachments";
+import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 
 // What GET /api/orders/[orderId]/website-details returns.
 export type WebsiteOrderView = {
@@ -25,27 +31,36 @@ export type WebsiteOrderView = {
   priceExVat: number;
   details: WhiteGoodsBookingDetails;
   products: ProductGroup[];
-  // What the total holds beyond the product lines and booked extras (an
-  // adjustment or re-pricing after booking) — 0 when everything adds up.
-  priceDifference: number;
+  // Lines vs total vs what the customer was shown (checkWebsiteOrderTotals).
+  totalsCheck: {
+    linesTotal: number;
+    missingFromLines: number;
+    shownTotal: number | null;
+    differsFromShown: number;
+  };
   subcontractorMembershipId: string | null;
   subcontractor: string | null;
   gsmSentAt: string | null;
   gsmSyncStatus: string | null;
+  // Paid so far vs. the order now (compareOrderWithPayments).
+  payment: OrderPaymentComparison;
+  // Fields only an admin handles (driver, deviation, discount…).
+  handling: WebsiteOrderHandling;
 };
 
 type Props = {
   order: WebsiteOrderView;
   onClose: () => void;
-  // Swaps to the regular OrderModal/BookingEditor — the escape hatch for
-  // anything this read-only view doesn't do.
-  onOpenStandardEditor: () => void;
   // After a status/partner save or GSM send — reload the order (and list).
   onChanged: () => void;
   canDelete?: boolean;
   onDeleted?: () => void;
   locale?: BookingUiLocale;
 };
+
+// Nothing is changed from the modal once an order is done or dead (same rule
+// as PUT /api/orders/[orderId]/website-items).
+const LOCKED_STATUSES = new Set(["cancelled", "completed", "invoiced", "paid"]);
 
 function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
@@ -57,7 +72,6 @@ function formatKr(n: number) {
 export default function WebsiteOrderModal({
   order,
   onClose,
-  onOpenStandardEditor,
   onChanged,
   canDelete = false,
   onDeleted,
@@ -66,6 +80,24 @@ export default function WebsiteOrderModal({
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [editingOrder, setEditingOrder] = useState(false);
+  const [editNotice, setEditNotice] = useState("");
+  const check = order.totalsCheck;
+  const totalsWarnings = [
+    check.differsFromShown !== 0 && check.shownTotal !== null
+      ? t(
+          `The customer was shown ${formatKr(check.shownTotal)} when booking, but the order total is ${formatKr(order.priceExVat)} (${check.differsFromShown > 0 ? "+" : ""}${formatKr(check.differsFromShown)}).`,
+          `Kunden så ${formatKr(check.shownTotal)} ved bestilling, men ordretotalen er ${formatKr(order.priceExVat)} (${check.differsFromShown > 0 ? "+" : ""}${formatKr(check.differsFromShown)}).`,
+        )
+      : null,
+    check.missingFromLines !== 0
+      ? t(
+          `The order lines add up to ${formatKr(check.linesTotal)}, but the order total is ${formatKr(order.priceExVat)} — ${formatKr(Math.abs(check.missingFromLines))} is ${check.missingFromLines > 0 ? "not on any line" : "on lines but not in the total"}. Prices may be missing or wrong.`,
+          `Ordrelinjene blir ${formatKr(check.linesTotal)}, men ordretotalen er ${formatKr(order.priceExVat)} — ${formatKr(Math.abs(check.missingFromLines))} ${check.missingFromLines > 0 ? "står ikke på noen linje" : "står på linjer men ikke i totalen"}. Priser kan mangle eller være feil.`,
+        )
+      : null,
+  ].filter((warning): warning is string => warning !== null);
+  const canEditOrder = !LOCKED_STATUSES.has(normalizeOrderStatus(order.status));
 
   const { details } = order;
   const reviewBlocks = buildOrderReviewBlocks(locale === "nb" ? "no" : "en", {
@@ -136,16 +168,62 @@ export default function WebsiteOrderModal({
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-logoblue text-white"
-            >
-              ×
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {canEditOrder && !editingOrder && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditNotice("");
+                    setEditingOrder(true);
+                  }}
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-logoblue px-4 text-sm font-semibold text-logoblue"
+                >
+                  {t("Edit order", "Endre bestilling")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-logoblue text-white"
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
+            {totalsWarnings.length > 0 && (
+              <div className="mb-4 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+                <p className="font-bold">{t("Price problem on this order — check before taking payment", "Prisproblem på denne ordren — sjekk før betaling")}</p>
+                <ul className="mt-1 list-disc pl-5">
+                  {totalsWarnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {editNotice && (
+              <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">{editNotice}</p>
+            )}
+            {/* "Edit order" opens the customer's own booking modal on top,
+                prefilled, with every section open (see WhiteGoodsBookingFlow's
+                `admin`). */}
+            {editingOrder && (
+              <WhiteGoodsBookingFlow
+                locale={locale === "nb" ? "no" : "en"}
+                onClose={() => setEditingOrder(false)}
+                admin={{
+                  orderId: order.id,
+                  orderLabel: order.orderNumber ? `#${order.orderNumber}` : `(${order.displayId})`,
+                  gsmSentAt: order.gsmSentAt,
+                  onSaved: (message) => {
+                    setEditingOrder(false);
+                    setEditNotice(message);
+                    onChanged();
+                  },
+                }}
+              />
+            )}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
               <div className="flex flex-col gap-4">
                 {reviewBlocks.map((block) => (
@@ -171,15 +249,23 @@ export default function WebsiteOrderModal({
                     <p className="mt-3 whitespace-pre-line text-sm text-black/85">{order.statusNotes}</p>
                   </div>
                 )}
-              </div>
 
-              <div className="flex flex-col gap-4 lg:self-start">
                 <WebsiteOrderAdminActions
-                  key={`${order.status}|${order.statusNotes}|${order.subcontractorMembershipId}|${order.gsmSentAt}`}
+                  key={`${order.status}|${order.statusNotes}|${order.subcontractorMembershipId}|${order.gsmSentAt}|${order.priceExVat}|${JSON.stringify(order.handling)}`}
                   order={order}
                   locale={locale}
                   onChanged={onChanged}
                 />
+
+                <WebsiteOrderAttachments orderId={order.id} locale={locale} />
+              </div>
+
+              {/* Right column: only what the order costs — payment and products. */}
+              <div className="flex flex-col gap-4 lg:self-start">
+                <div className="rounded-2xl border border-black/10 bg-white p-6">
+                  <h3 className="mb-3 text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
+                  <WebsiteOrderPaymentSummary comparison={order.payment} locale={locale} />
+                </div>
                 <div className="rounded-2xl border border-black/10 bg-white p-6">
                   <h3 className="text-lg font-semibold text-logoblue">{t("Products", "Varer")}</h3>
                   <p className="text-xs text-black/45">{t("Prices incl. VAT", "Priser inkl. mva")}</p>
@@ -251,12 +337,12 @@ export default function WebsiteOrderModal({
                     </div>
                   )}
 
-                  {order.priceDifference !== 0 && (
-                    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                      <span>{t("Adjusted after booking", "Justert etter bestilling")}</span>
+                  {order.totalsCheck.missingFromLines !== 0 && (
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+                      <span>{t("Not covered by the lines above", "Ikke dekket av linjene over")}</span>
                       <span className="whitespace-nowrap font-semibold tabular-nums">
-                        {order.priceDifference > 0 ? "+" : ""}
-                        {formatKr(order.priceDifference)}
+                        {order.totalsCheck.missingFromLines > 0 ? "+" : ""}
+                        {formatKr(order.totalsCheck.missingFromLines)}
                       </span>
                     </div>
                   )}
@@ -283,11 +369,8 @@ export default function WebsiteOrderModal({
               </div>
             </div>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <button type="button" onClick={onOpenStandardEditor} className="customButtonDefault h-10">
-                {t("Open in standard editor", "Åpne i standard redigering")}
-              </button>
-              {canDelete && (
+            {canDelete && (
+              <div className="mt-8 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={handleDelete}
@@ -296,8 +379,8 @@ export default function WebsiteOrderModal({
                 >
                   {deleteLoading ? bookingText(locale, "Deleting...") : bookingText(locale, "Delete order")}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             {deleteError ? <div className="mt-2 text-sm font-medium text-red-600">{deleteError}</div> : null}
           </div>
         </div>

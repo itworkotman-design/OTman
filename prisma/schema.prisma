@@ -645,6 +645,8 @@ model OrderPayment {
   stripeCheckoutSessionId String   @unique
   stripePaymentIntentId   String?
   amountChargedCents      Int
+  // What this payment covered — see lib/orders/paidOrderSnapshot.ts.
+  orderSnapshot           Json?
   createdAt               DateTime @default(now())
   order                   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

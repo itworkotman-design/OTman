@@ -19,6 +19,8 @@ this, a confirmed order sent the customer no email at all, which meant the
 `"confirmed"` status) had no way to reach them — see that email's own
 purpose comment in `lib/orders/customerLifecycleEmails.ts`.
 
+Each recorded payment also stores `orderSnapshot`: what the payment covered (priced lines, stops, date and the charged total, from `buildOrderStateSnapshot` in `lib/orders/paidOrderSnapshot.ts`). Later admin changes are compared against it, so "what changed and what's still due" is exact.
+
 ## Functions
 - `handleCheckoutSessionCompleted(session)` — the logic above.
 - `POST` — signature verification, dispatches to the handler above for

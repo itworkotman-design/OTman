@@ -6,8 +6,11 @@ import { parseWhiteGoodsBookingDetails, withLiveOrderFields } from "@/lib/orders
 import {
   groupPricingLinesByCard,
   pricingLinesFromSnapshot,
-  unexplainedPriceDifference,
+  checkWebsiteOrderTotals,
 } from "@/lib/orders/websiteOrderProducts";
+import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
+import { handlingFromOrder } from "@/lib/orders/websiteOrderHandling";
+import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
 
 // Read-only view of a homepage white-goods website order for the admin
 // WebsiteOrderModal. Kept separate from GET /api/orders/[orderId] (which backs
@@ -50,6 +53,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       customerComments: true,
       statusNotes: true,
       priceExVat: true,
+      rabatt: true,
+      leggTil: true,
+      driver: true,
+      secondDriver: true,
+      driverInfo: true,
+      licensePlate: true,
+      deviation: true,
+      dontSendEmail: true,
+      description: true,
+      expressDelivery: true,
+      payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
       websiteOrderKind: true,
       websiteBookingDetails: true,
       pricingSnapshot: true,
@@ -103,11 +117,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       priceExVat: order.priceExVat,
       details,
       products,
-      priceDifference: unexplainedPriceDifference(order.priceExVat, products, details.orderExtras),
+      // Lines vs total vs what the customer was shown — any mismatch is a
+      // warning in the modal (the customer pays what they were shown).
+      totalsCheck: checkWebsiteOrderTotals({
+        total: getOrderChargeAmountIncVatNok(order),
+        products,
+        orderExtras: details.orderExtras,
+        rabatt: order.rabatt,
+        leggTil: order.leggTil,
+        shownTotal: details.shownTotal,
+      }),
       subcontractorMembershipId: order.subcontractorMembershipId,
       subcontractor: order.subcontractor,
       gsmSentAt: order.gsmSentAt ? order.gsmSentAt.toISOString() : null,
       gsmSyncStatus: order.gsmSyncStatus,
+      // The fields only an admin handles (driver, deviation, discount…).
+      handling: handlingFromOrder(order),
+      // Paid so far vs. the order now: what changed and what's due/refundable.
+      payment: compareOrderWithPayments({
+        payments: order.payments ?? [],
+        current: buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }),
+      }),
     },
   });
 }

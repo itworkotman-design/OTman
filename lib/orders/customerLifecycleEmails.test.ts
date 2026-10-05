@@ -26,6 +26,25 @@ describe("buildBalanceDueEmail", () => {
   it("throws for an order with no actionToken", () => {
     expect(() => buildBalanceDueEmail({ ...order, actionToken: null })).toThrow();
   });
+
+  it("states what was paid, the new total, exactly what to pay now and what changed", () => {
+    const { html } = buildBalanceDueEmail({
+      ...order,
+      balanceDue: {
+        paidIncVatNok: 1099,
+        totalIncVatNok: 1749,
+        amountDueIncVatNok: 650,
+        changes: ["Lagt til: Tørketrommel (+550 kr)", "Leveringsadresse: Kirkegata 5 → <Storgata 1>"],
+      },
+    });
+
+    expect(html).toContain("1 099 kr");
+    expect(html).toContain("1 749 kr");
+    expect(html).toContain("650 kr");
+    expect(html).toContain("Lagt til: Tørketrommel (+550 kr)");
+    // Change text is escaped.
+    expect(html).toContain("&lt;Storgata 1&gt;");
+  });
 });
 
 describe("buildOrderConfirmedEmail", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupPricingLinesByCard, pricingLinesFromSnapshot, unexplainedPriceDifference, type PricingLine } from "./websiteOrderProducts";
+import { checkWebsiteOrderTotals, groupPricingLinesByCard, pricingLinesFromSnapshot, type PricingLine } from "./websiteOrderProducts";
 
 function line(overrides: Partial<PricingLine>): PricingLine {
   return {
@@ -72,17 +72,35 @@ describe("pricingLinesFromSnapshot", () => {
   });
 });
 
-describe("unexplainedPriceDifference", () => {
+describe("checkWebsiteOrderTotals", () => {
   const products = [{ cardId: 0, productName: "Vaskemaskin", total: 1000, items: [] }];
   const extras = [{ label: "Etasjetillegg", price: 142.42, qty: 2 }];
+  const base = { products, orderExtras: extras, rabatt: null, leggTil: null };
 
-  it("is 0 when products + extras add up to the order total (rounded to whole kroner)", () => {
-    expect(unexplainedPriceDifference(1142, products, extras)).toBe(0);
-    expect(unexplainedPriceDifference(1143, products, extras)).toBe(0);
+  it("is clean when products + extras add up to the order total (to the krone)", () => {
+    expect(checkWebsiteOrderTotals({ ...base, total: 1142.42 })).toEqual({
+      linesTotal: 1142.42,
+      missingFromLines: 0,
+      shownTotal: null,
+      differsFromShown: 0,
+    });
   });
 
-  it("returns what the lines don't explain, e.g. after the order was re-priced or adjusted", () => {
-    expect(unexplainedPriceDifference(1342, products, extras)).toBe(200);
-    expect(unexplainedPriceDifference(942, products, extras)).toBe(-200);
+  it("counts a manual discount / surcharge as explained", () => {
+    expect(checkWebsiteOrderTotals({ ...base, rabatt: "100", leggTil: "50", total: 1092.42 }).missingFromLines).toBe(0);
+  });
+
+  it("reports what the order total holds beyond its lines — lines missing or mispriced", () => {
+    // The order from the bug: lines 12 930 (returns at 0), total 12 290.
+    expect(checkWebsiteOrderTotals({ ...base, total: 1342.42 }).missingFromLines).toBe(200);
+    expect(checkWebsiteOrderTotals({ ...base, total: 942.42 }).missingFromLines).toBe(-200);
+  });
+
+  it("compares the order total with what the customer was shown at booking", () => {
+    expect(checkWebsiteOrderTotals({ ...base, total: 1142.42, shownTotal: 1142.42 }).differsFromShown).toBe(0);
+    expect(checkWebsiteOrderTotals({ ...base, total: 1142.42, shownTotal: 2302.42 })).toMatchObject({
+      shownTotal: 2302.42,
+      differsFromShown: -1160,
+    });
   });
 });
