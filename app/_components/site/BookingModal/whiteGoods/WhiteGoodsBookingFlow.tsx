@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { SteppedModal, AnimatedStack, type FinalStep, type StepSection } from "../SteppedModal";
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
 import { CustomerTypeStep } from "./CustomerTypeStep";
@@ -23,6 +23,11 @@ import {
   syncPickupLocations,
   type PickupLocationState,
 } from "./pickupLocations";
+import { adminDetailsFromFlow, pickupStateFromStops } from "./adminOrderState";
+import WebsiteOrderAdminFooter from "@/app/_components/Dahsboard/booking/websiteOrders/WebsiteOrderAdminFooter";
+import type { AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
+import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
+import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { ContactDetailsCard } from "./ContactDetailsCard";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { buildOrderReviewBlocks } from "./orderReview";
@@ -66,10 +71,7 @@ import {
   type CatalogSpecialOption,
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
-import { applyWhiteGoodsExtraUnitCharges } from "@/lib/booking/pricing/whiteGoodsExtraUnits";
-import { applyWebsiteAssemblyExtras } from "@/lib/booking/pricing/websiteAssemblyExtras";
-import { applyWebsiteInstallOnlyVisit } from "@/lib/booking/pricing/websiteInstallOnlyVisit";
+import { priceWebsiteOrder } from "@/lib/booking/pricing/priceWebsiteOrder";
 import {
   cardsForList,
   filterUnusedLists,
@@ -79,15 +81,12 @@ import {
   removeListCards,
   type WebsiteListInfo,
 } from "./websiteLists";
-import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
-import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import {
   findCardsWithSizeBracketProblems,
   findSizePricedCardsMissingName,
   isSizePricedProduct,
 } from "@/lib/booking/pricing/sizeBrackets";
-import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import {
   createDefaultPriceListSettings,
   normalizePriceListSettings,
@@ -95,9 +94,21 @@ import {
 } from "@/lib/products/priceListSettings";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 
+// The same flow, opened by an admin on an existing website order
+// (WebsiteOrderModal's "Edit order"): prefilled from the order, every section
+// open at once, nothing required, and a save bar instead of "Send order".
+export type WhiteGoodsAdminEdit = {
+  orderId: string;
+  // Shown in the header, e.g. "#G8SMMP58".
+  orderLabel: string;
+  gsmSentAt: string | null;
+  onSaved: (message: string) => void;
+};
+
 type Props = {
   locale: Locale;
   onClose: () => void;
+  admin?: WhiteGoodsAdminEdit;
 };
 
 
@@ -131,7 +142,7 @@ function AutoAdvance({
   return null;
 }
 
-export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
+export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const bookingLocale = toBookingLocale(locale);
 
@@ -240,6 +251,18 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   const [extraPickupLocations, setExtraPickupLocations] = useState<PickupLocationState[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
+
+  // Admin editing: the order loaded into the fields above, and what it was
+  // compared with its payments when opened.
+  const [adminReady, setAdminReady] = useState(false);
+  const [adminLoadError, setAdminLoadError] = useState(false);
+  const [adminComparison, setAdminComparison] = useState<OrderPaymentComparison | null>(null);
+  // The order's express / discount / extra / deviation (set in the modal's
+  // "Handle order" panel, not here) — included in the live price.
+  const [adminHandling, setAdminHandling] = useState<WebsiteOrderHandling | null>(null);
+  // The route as loaded — the distance is only looked up again once a stop
+  // actually changes, so opening and saving never re-prices by itself.
+  const adminInitialRouteKey = useRef<string | null>(null);
 
   // Every card on the order — the pool the first pickup location's
   // checklist offers, before any of it gets claimed.
@@ -352,8 +375,16 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   // A stable key for the effect below — extraPickupLocations gets a new
   // identity on every keystroke in any of its fields, not just address ones.
   const routeStopsKey = routeStops ? JSON.stringify(routeStops) : "";
+  const isAdmin = !!admin;
 
   useEffect(() => {
+    if (isAdmin && adminInitialRouteKey.current === null) return;
+    // An admin's order keeps its stored distance until a stop changes (and
+    // when an edited address hasn't been picked from the suggestions yet).
+    if (isAdmin && (routeStopsKey === adminInitialRouteKey.current || !routeStopsKey)) {
+      setDrivingDistanceLoading(false);
+      return;
+    }
     if (!routeStopsKey) {
       setDrivingDistance("");
       setDrivingDistanceLoading(false);
@@ -386,7 +417,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [routeStopsKey]);
+  }, [routeStopsKey, isAdmin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -397,7 +428,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         const json = await res.json();
         if (cancelled) return;
         if (!json.ok) throw new Error(json.reason ?? "catalog fetch failed");
-        setLoadedProducts({ [json.priceListCode]: json.products });
+        setLoadedProducts((lists) => ({ ...lists, [json.priceListCode]: lists[json.priceListCode] ?? json.products }));
         setAvailableLists(json.availableLists ?? []);
         setCatalogSpecialOptions(json.specialOptions);
         setPriceListSettings(json.priceListSettings);
@@ -415,6 +446,88 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Admin: load the order into the flow's own state.
+  useEffect(() => {
+    if (!admin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/orders/${admin.orderId}/website-items`, { credentials: "include", cache: "no-store" });
+        const json = await res.json();
+        if (cancelled) return;
+        if (!json?.ok || !json.details) throw new Error(json?.reason ?? "load failed");
+        const products = json.catalogProducts as CatalogProduct[];
+        const categories = json.categories as { code: string; productIds: string[] }[];
+        const cards = json.productCards as SavedProductCard[];
+        const details = json.details as AdminOrderDetails;
+
+        const lists: Record<string, CatalogProduct[]> = {};
+        for (const category of categories) {
+          lists[category.code] = category.productIds.flatMap((id) => products.find((p) => p.id === id) ?? []);
+        }
+        const onOrder = new Set(cards.map((card) => card.productId));
+        setLoadedProducts((current) => ({ ...current, ...lists }));
+        setChosenListCodes(categories.filter((c) => c.productIds.some((id) => onOrder.has(id))).map((c) => c.code));
+        setProductCards(cards);
+
+        setCustomerType(details.customer.customerType);
+        setName(details.customer.name);
+        setPhone(details.customer.phone);
+        setEmail(details.customer.email);
+        setNotes(details.customer.comments);
+
+        const [first] = details.pickups;
+        setPickupSource(first?.source ?? null);
+        setPickupPlaceName(first?.placeName ?? "");
+        setPickupAddress(first?.address ?? "", !!first?.address);
+        setPickupFloor(first?.floor ?? null);
+        setPickupLiftAvailable(first?.liftAvailable ?? false);
+        setPickupContactName(first?.contactName ?? "");
+        setPickupContactPhone(first?.contactPhone ?? "");
+
+        // Which products each stop collects — the names stored at booking
+        // are the Norwegian checklist names (the site's default language).
+        const nameOf = (cardId: number) => {
+          const card = cards.find((c) => c.cardId === cardId);
+          const product = card?.productId ? products.find((p) => p.id === card.productId) : undefined;
+          if (!card || !product) return "";
+          const base = getCalculatorProductName({ product, itemName: card.modelNumber, label: productLabel("no", product) });
+          const siblings = cards.filter((c) => c.productId === card.productId);
+          return siblings.length > 1 ? `${base} #${siblings.indexOf(card) + 1}` : base;
+        };
+        const pickupState = pickupStateFromStops({ cards, stops: details.pickups, nameOf });
+        setAllProductsPickedUpHere(pickupState.allProductsPickedUpHere);
+        setPickupCardIds(pickupState.pickupCardIds);
+        setExtraPickupLocations(pickupState.extraLocations);
+
+        setDeliveryAddress(details.delivery.address, !!details.delivery.address);
+        setDeliveryFloor(details.delivery.floor);
+        setDeliveryLiftAvailable(details.delivery.liftAvailable);
+        setPreferredDate(details.preferredDate);
+        setTimeWindow(details.timeWindow);
+        setDrivingDistance(json.drivingDistance ?? "");
+        adminInitialRouteKey.current = JSON.stringify(
+          routeStopsForDistance({
+            pickupAddress: first?.address ?? "",
+            pickupAddressSelected: !!first?.address,
+            extraLocations: pickupState.extraLocations,
+            deliveryAddress: details.delivery.address,
+            deliveryAddressSelected: !!details.delivery.address,
+          }) ?? "",
+        );
+        setAdminComparison(json.comparison);
+        setAdminHandling(json.handling ?? null);
+        setAdminReady(true);
+      } catch {
+        if (!cancelled) setAdminLoadError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [admin?.orderId]);
 
   // The start list shown on the first step: the first chosen list that still
   // has products (emptying white goods while furniture remains makes furniture
@@ -521,29 +634,18 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     [extraPickupLocations],
   );
 
+  // The one shared pricing (priceWebsiteOrder) — the server prices the order
+  // with exactly the same function and refuses it if the totals differ, so
+  // this number is what gets stored and charged.
   const pricing = useMemo(() => {
-    const breakdowns = applyWebsiteInstallOnlyVisit(
-      applyWebsiteAssemblyExtras(
-        applyWhiteGoodsExtraUnitCharges(
-          buildProductBreakdowns(productCards, catalogProducts, catalogSpecialOptions, {
-            installOnlyVisitPricing: true,
-          }),
-          productCards,
-          catalogProducts,
-          catalogSpecialOptions,
-        ),
-        productCards,
-        catalogProducts,
-      ),
-      productCards,
+    return priceWebsiteOrder({
+      cards: productCards,
       catalogProducts,
-    );
-    const fullBreakdowns = buildWhiteGoodsCalculatorBreakdowns({
-      productBreakdowns: breakdowns,
+      catalogSpecialOptions,
       priceListSettings: normalizedSettings,
       drivingDistance,
-      // Not offered as a client-selectable option in this flow — always off.
-      expressDelivery: false,
+      // Not offered to customers — only an admin editing an order may have it.
+      expressDelivery: adminHandling?.expressDelivery ?? false,
       // Charged per extra pickup location, same as the server does.
       extraPickups: extraPickupsForPricing(extraPickupLocations),
       pickupFloor: effectivePickupFloor,
@@ -551,9 +653,21 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
       pickupLiftAvailable: effectivePickupLiftAvailable,
       deliveryLiftAvailable,
       extraPickupFloors,
-    });
-    const priceLookup = buildPriceLookup(catalogProducts, catalogSpecialOptions, { locale });
-    return calculateBookingPricing({ productBreakdowns: fullBreakdowns, priceLookup });
+      locale,
+      ...(adminHandling
+        ? {
+            adjustments: { rabatt: adminHandling.rabatt, leggTil: adminHandling.leggTil },
+            deviation: adminHandling.deviation
+              ? {
+                  label: adminHandling.deviation,
+                  customPrice: adminHandling.customDeviation.price,
+                  customSubcontractorPrice: adminHandling.customDeviation.subcontractorPrice,
+                  customDescription: adminHandling.customDeviation.description,
+                }
+              : null,
+          }
+        : {}),
+    }).result;
   }, [
     productCards,
     locale,
@@ -567,6 +681,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
     deliveryLiftAvailable,
     extraPickupFloors,
     extraPickupLocations,
+    adminHandling,
   ]);
 
   // pricing.totals.totalExVat is the sum of the raw, unmodified line prices
@@ -693,12 +808,18 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           notes,
           // Stored on the order for the admin view (websiteBookingDetails).
           customerType,
+          // The total shown above — the server only accepts the order at
+          // this price (see app/api/site/white-goods-order).
+          shownTotal: pricing.totals.totalExVat,
           // Only present once the order was actually split across more than
           // one pickup address — omitted for the common single-location
           // case so that payload stays exactly as it always has been.
           ...(!allProductsPickedUpHere && poolCardIds.length > 1
             ? { pickupProductNames: location0Claimed.map(pickupChecklistName) }
             : {}),
+          // Which product cards each stop collects (the admin editor puts
+          // them back on their stops from these).
+          pickupCardIds: location0Claimed,
           ...(extraPickupLocations.length > 0
             ? {
                 extraPickupLocations: extraPickupLocations.map((loc, i) => ({
@@ -712,12 +833,23 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
                   productNames: claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds).map(
                     pickupChecklistName,
                   ),
+                  cardIds: claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds),
                 })),
               }
             : {}),
         }),
       });
       const json = await res.json();
+      if (!json.ok && json.reason === "PRICE_CHANGED") {
+        const total = Number(json.total);
+        setSubmitError(
+          t(
+            `The price has changed to ${total.toLocaleString("nb-NO")} kr since you started. Please reload the page to see the updated price before ordering.`,
+            `Prisen er endret til ${total.toLocaleString("nb-NO")} kr siden du startet. Last inn siden på nytt for å se oppdatert pris før du bestiller.`,
+          ),
+        );
+        return;
+      }
       if (!json.ok) {
         setSubmitError(
           t("Something went wrong. Please check your details and try again.", "Noe gikk galt. Sjekk opplysningene og prøv igjen."),
@@ -871,7 +1003,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
   });
 
   const moreSections: StepSection[] =
-    chosenListCodes.length > 0 && remainingLists.length > 0
+    (admin || chosenListCodes.length > 0) && remainingLists.length > 0
       ? [
           {
             id: "more-products",
@@ -914,7 +1046,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         />
       ),
     },
-    {
+    // An admin adds categories through "any other products?" instead —
+    // picking a different start category here would empty the order.
+    ...(admin ? [] : ([{
       id: "pickup-category",
       title: t("What are we picking up?", "Hva skal vi hente?"),
       render: ({ onComplete }) => (
@@ -933,7 +1067,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           {addListError && <p className="text-xs text-red-600">{addListError}</p>}
         </div>
       ),
-    },
+    }] satisfies StepSection[])),
     ...listSections,
     ...moreSections,
     {
@@ -1084,6 +1218,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
             setNotes={setNotes}
           />
 
+          {!admin && (
           <button
             type="button"
             disabled={!canContinueContact}
@@ -1092,6 +1227,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
           >
             {t("Go to summary", "Gå til oppsummering")}
           </button>
+          )}
         </div>
       ),
     },
@@ -1228,6 +1364,81 @@ export function WhiteGoodsBookingFlow({ locale, onClose }: Props) {
         </div>
       ),
   };
+
+  if (admin) {
+    const adminDetails = adminDetailsFromFlow({
+      customerType,
+      name,
+      phone,
+      email,
+      notes,
+      firstPickup: {
+        source: pickupSource,
+        placeName: pickupPlaceName,
+        address: pickupAddress,
+        floor: pickupSource === "store" ? null : pickupFloor,
+        liftAvailable: pickupSource === "store" ? false : pickupLiftAvailable,
+        contactName: pickupContactName,
+        contactPhone: pickupContactPhone,
+        cardIds: location0Claimed,
+        productNames: location0Claimed.map(pickupChecklistName),
+      },
+      extraPickups: extraPickupLocations.map((loc, i) => {
+        const claimed = claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds);
+        return {
+          source: loc.source,
+          placeName: loc.placeName,
+          address: loc.address,
+          floor: loc.source === "store" ? null : loc.floor,
+          liftAvailable: loc.source === "store" ? false : loc.liftAvailable,
+          contactName: loc.contactName,
+          contactPhone: loc.contactPhone,
+          cardIds: claimed,
+          productNames: claimed.map(pickupChecklistName),
+        };
+      }),
+      delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
+      preferredDate,
+      timeWindow,
+      drivingDistance,
+    });
+    const adminSections: StepSection[] = adminReady
+      ? sections
+      : [
+          {
+            id: "admin-loading",
+            title: adminLoadError ? t("Couldn't load the order", "Kunne ikke laste bestillingen") : t("Loading order…", "Laster bestilling…"),
+            render: () => null,
+          },
+        ];
+    return (
+      <SteppedModal
+        showAll
+        sections={adminSections}
+        finalStep={finalStep}
+        onClose={onClose}
+        title={
+          <span className="truncate text-base font-semibold text-logoblue">
+            {t("Editing order", "Redigerer bestilling")} {admin.orderLabel}
+          </span>
+        }
+        footer={
+          adminReady && adminComparison ? (
+            <WebsiteOrderAdminFooter
+              orderId={admin.orderId}
+              productCards={productCards}
+              details={adminDetails}
+              initialComparison={adminComparison}
+              gsmSentAt={admin.gsmSentAt}
+              locale={bookingLocale}
+              onCancel={onClose}
+              onSaved={admin.onSaved}
+            />
+          ) : null
+        }
+      />
+    );
+  }
 
   return <SteppedModal sections={sections} finalStep={finalStep} onClose={onClose} />;
 }

@@ -52,6 +52,13 @@ type SteppedModalProps = {
   sections: StepSection[];
   finalStep: FinalStep;
   onClose: () => void;
+  // Every section open at once, nothing gated and no final step — the admin
+  // editing an existing order (see WhiteGoodsBookingFlow's `admin`).
+  showAll?: boolean;
+  // Shown next to the logo (e.g. which order is being edited).
+  title?: ReactNode;
+  // Pinned below the scrolling body (e.g. the admin's save bar).
+  footer?: ReactNode;
 };
 
 const TRANSITION_MS = 300;
@@ -164,7 +171,7 @@ export function AnimatedStack({ items, gap, className = "" }: { items: AnimatedS
   );
 }
 
-export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps) {
+export function SteppedModal({ sections, finalStep, onClose, showAll = false, title, footer }: SteppedModalProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -215,8 +222,10 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
     };
   }, []);
 
-  const [revealedCount, setRevealedCount] = useState(1);
-  const [showFinalStep, setShowFinalStep] = useState(false);
+  const [revealedSteps, setRevealedCount] = useState(1);
+  const [finalStepReached, setShowFinalStep] = useState(false);
+  const revealedCount = showAll ? sections.length : revealedSteps;
+  const showFinalStep = !showAll && finalStepReached;
   const visibleSections = sections.slice(0, revealedCount);
   const shownIds = shownSectionIds(visibleSections);
   const structureKey = `${showFinalStep ? "final" : "steps"}:${shownIds.join("|")}`;
@@ -288,6 +297,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
   const fillPercent = showFinalStep ? 100 : progressPercent(revealedCount, sections.length + 1);
 
   const handleSectionComplete = (index: number) => {
+    if (showAll) return;
     if (index === sections.length - 1) {
       setShowFinalStep(true);
       return;
@@ -296,6 +306,7 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
   };
 
   const handleSectionUncomplete = (index: number) => {
+    if (showAll) return;
     setShowFinalStep(false);
     for (const i of retractedSectionIndices(revealedCount, index)) sections[i]?.onRetract?.();
     setRevealedCount((count) => retractedRevealedCount(count, index));
@@ -305,7 +316,10 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
     <div className="fixed inset-0 z-50 flex items-center justify-center overscroll-contain bg-[#091030]/45 px-4 py-6 backdrop-blur-sm">
       <div className="relative flex max-h-[92vh] w-full max-w-[1200px] flex-col overflow-hidden rounded-[32] bg-white shadow-[0_32px_100px_rgba(9,16,48,0.28)]">
         <div className="flex shrink-0 items-center justify-between px-5 py-3 sm:px-8">
-          <Image src="/Otman Logo Horizontal Blue.svg" width={116} height={50} alt="Logo" className="h-[34] w-auto" />
+          <div className="flex min-w-0 items-center gap-4">
+            <Image src="/Otman Logo Horizontal Blue.svg" width={116} height={50} alt="Logo" className="h-[34] w-auto" />
+            {title}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -317,7 +331,9 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
         </div>
 
         <div className="h-1 shrink-0 bg-logoblue/10">
-          <div className="h-full bg-logoblue transition-[width] duration-300 ease-out" style={{ width: `${fillPercent}%` }} />
+          {!showAll && (
+            <div className="h-full bg-logoblue transition-[width] duration-300 ease-out" style={{ width: `${fillPercent}%` }} />
+          )}
         </div>
 
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8">
@@ -361,6 +377,8 @@ export function SteppedModal({ sections, finalStep, onClose }: SteppedModalProps
           </div>
           </div>
         </div>
+
+        {footer && <div className="shrink-0 border-t border-black/10 bg-white px-5 py-4 sm:px-8">{footer}</div>}
       </div>
     </div>
   );

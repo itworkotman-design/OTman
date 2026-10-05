@@ -629,7 +629,11 @@ export default function BookingArchiveTable({
           {orders.map((order) => (
             <tr
               key={order.id}
-              className="cursor-pointer border-b border-black/10 hover:bg-black/2"
+              // Website orders get a light blue tint so they stand out at a
+              // glance, not just by their "website" store name.
+              className={`cursor-pointer border-b border-black/10 ${
+                order.isWebsiteOrder ? "bg-logoblue/6 hover:bg-logoblue/10" : "hover:bg-black/2"
+              }`}
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('[data-selector-cell="true"]')) return;
                 if ((e.target as HTMLElement).closest('[data-alert-cell="true"]')) return;

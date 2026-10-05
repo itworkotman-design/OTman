@@ -61,9 +61,10 @@ vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
 vi.mock("@/lib/orders/buildOrderSummaries", () => ({
   buildOrderSummaries: mocks.buildOrderSummariesMock,
 }));
-vi.mock("@/lib/orders/orderTotals", () => ({
-  buildOrderPricingSnapshot: mocks.buildOrderPricingSnapshotMock,
-}));
+vi.mock("@/lib/orders/orderTotals", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/orders/orderTotals")>("@/lib/orders/orderTotals");
+  return { ...actual, buildOrderPricingSnapshot: mocks.buildOrderPricingSnapshotMock };
+});
 vi.mock("@/lib/booking/pricing/websiteAssemblyExtras", () => ({
   applyWebsiteAssemblyExtras: (breakdowns: unknown) => breakdowns,
   buildWebsiteAssemblyExtraOrderItems: () => [],

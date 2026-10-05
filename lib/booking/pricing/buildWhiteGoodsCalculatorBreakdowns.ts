@@ -38,6 +38,12 @@ type WhiteGoodsCalculatorExtrasParams = {
   // — charged the same way as the first pickup and the delivery.
   extraPickupFloors?: Array<{ floor: number; liftAvailable: boolean }>;
   shouldUseNativeDistancePricing?: boolean;
+  // A deviation fee an admin set afterwards (DEVIATION_FEE_OPTIONS label);
+  // the custom one carries its own prices and description.
+  deviation?: string;
+  customDeviationPrice?: number | null;
+  customDeviationSubcontractorPrice?: number | null;
+  customDeviationDescription?: string | null;
 };
 
 /**
@@ -63,7 +69,7 @@ export function buildWhiteGoodsCalculatorBreakdowns(
 
   const breakdowns = buildCalculatorBreakdownsWithOrderExtras({
     ...sharedParams,
-    deviation: "",
+    deviation: sharedParams.deviation ?? "",
     extraWorkMinutes: 0,
     feeAddToOrder: false,
     feeExtraWork: false,

@@ -158,17 +158,32 @@ export function getPricingSnapshotCustomerTotalIncVat(snapshot: unknown): number
   return getSnapshotNumber(customer?.totalIncVat);
 }
 
-// Amount to actually charge the customer through Stripe: the stored ex-VAT
-// customer total (with rabatt/leggTil discounts already applied) plus 25%
-// Norwegian VAT. Prefers the order's own pricingSnapshot (computed once at
-// order creation/edit time) and only recomputes from the raw fields as a
-// fallback for orders that predate the snapshot.
-export function getOrderChargeAmountIncVatNok(order: {
+type ChargeableOrder = {
   priceExVat: number;
   rabatt: string | null | undefined;
   leggTil: string | null | undefined;
   pricingSnapshot: unknown;
-}): number {
+  // "WHITE_GOODS" = a homepage catalog order (see websiteBookingDetails.ts).
+  websiteOrderKind?: string | null;
+};
+
+// Amount to actually charge the customer through Stripe. Prefers the order's
+// own pricingSnapshot (computed once at order creation/edit time) and only
+// recomputes from the raw fields as a fallback for orders that predate it.
+//
+// Homepage catalog orders are priced in VAT-inclusive catalog prices (see
+// lib/booking/pricing/vatDisplayTotal.ts) — their stored "ex-VAT" total is
+// really the client total the customer saw, so that is charged as-is.
+// Every other order stores a real ex-VAT total and is charged it plus 25%
+// Norwegian VAT.
+export function getOrderChargeAmountIncVatNok(order: ChargeableOrder): number {
+  if (order.websiteOrderKind === "WHITE_GOODS") {
+    return (
+      getPricingSnapshotCustomerTotal(order.pricingSnapshot) ??
+      getAdjustedCustomerTotal({ subtotal: order.priceExVat, rabatt: order.rabatt, leggTil: order.leggTil })
+    );
+  }
+
   const snapshotTotal = getPricingSnapshotCustomerTotalIncVat(order.pricingSnapshot);
   if (snapshotTotal !== null) {
     return snapshotTotal;
@@ -188,12 +203,7 @@ export function getOrderChargeAmountIncVatNok(order: {
 // order total minus everything paid so far, floored at 0 so an
 // over-payment/rounding edge case never produces a negative "amount owed".
 export function getOrderRemainingBalanceIncVatNok(
-  order: {
-    priceExVat: number;
-    rabatt: string | null | undefined;
-    leggTil: string | null | undefined;
-    pricingSnapshot: unknown;
-  },
+  order: ChargeableOrder,
   totalPaidCents: number,
 ): number {
   const fullTotal = getOrderChargeAmountIncVatNok(order);

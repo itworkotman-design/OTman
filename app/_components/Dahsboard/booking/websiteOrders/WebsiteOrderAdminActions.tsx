@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { shouldPromptForPartner } from "@/lib/orders/partnerRequirement";
 import { ORDER_STATUS_OPTIONS, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildWebsiteOrderAdminUpdate } from "@/lib/orders/websiteOrderAdminUpdate";
+import { handlingChange, type WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
+import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
+import { CUSTOM_DEVIATION_CODE, DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
+import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 
 type Partner = { id: string; name: string };
 
@@ -18,16 +22,23 @@ type Props = {
     subcontractor: string | null;
     gsmSentAt: string | null;
     gsmSyncStatus: string | null;
+    handling: WebsiteOrderHandling;
   };
   locale: BookingUiLocale;
   // Called after a successful save or GSM send so the caller can reload.
   onChanged: () => void;
 };
 
-// Status, status notes, partner and "send to GSM" for a website order — all
-// through the existing endpoints (PATCH /api/orders/bulk and
-// POST /api/orders/send-to-gsm with this one order), none of which re-price
-// the order. Admin/owner only server-side; others get the error back.
+const CUSTOM_DEVIATION_LABEL = DEVIATION_FEE_OPTIONS.find((o) => o.code === CUSTOM_DEVIATION_CODE)?.englishLabel ?? "Custom";
+const PREVIEW_DELAY_MS = 700;
+
+// Everything on a website order only an admin handles, without opening the
+// booking editor: status, status notes and partner (PATCH /api/orders/bulk,
+// which doesn't re-price), driver(s), info for the driver, license plate,
+// deviation, "don't send email", description, express delivery, discount and
+// extra (PUT /api/orders/[orderId]/website-items with `handling`, which
+// re-prices — express/discount/extra/deviation change the total, previewed
+// against what was paid before saving), and "send to GSM".
 export default function WebsiteOrderAdminActions({ order, locale, onChanged }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const initial = {
@@ -38,10 +49,18 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
   const [status, setStatus] = useState(initial.status);
   const [statusNotes, setStatusNotes] = useState(initial.statusNotes);
   const [subcontractorId, setSubcontractorId] = useState(initial.subcontractorId);
+  const [handling, setHandling] = useState<WebsiteOrderHandling>(order.handling);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [preview, setPreview] = useState<OrderPaymentComparison | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const previewSeq = useRef(0);
+
+  const change = handlingChange(order.handling, handling);
+  const setField = <K extends keyof WebsiteOrderHandling>(key: K, value: WebsiteOrderHandling[K]) =>
+    setHandling((current) => ({ ...current, [key]: value }));
 
   useEffect(() => {
     let cancelled = false;
@@ -56,24 +75,68 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
     };
   }, []);
 
+  async function putHandling(extra: Record<string, unknown> = {}) {
+    const res = await fetch(`/api/orders/${order.id}/website-items`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ handling, ...extra }),
+    });
+    const data = await res.json().catch(() => null);
+    return { ok: res.ok && !!data?.ok, data };
+  }
+
+  // Express / discount / extra / deviation change the price: preview it.
+  const previewKey = change.affectsPrice ? JSON.stringify(handling) : "";
+  useEffect(() => {
+    const seq = ++previewSeq.current;
+    if (!previewKey) {
+      setPreview(null);
+      setPreviewing(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setPreviewing(true);
+      try {
+        const { ok, data } = await putHandling({ dryRun: true });
+        if (seq === previewSeq.current) setPreview(ok ? data.comparison : null);
+      } catch {
+        if (seq === previewSeq.current) setPreview(null);
+      } finally {
+        if (seq === previewSeq.current) setPreviewing(false);
+      }
+    }, PREVIEW_DELAY_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewKey]);
+
   const reasonText: Record<string, string> = {
-    NO_CHANGES: t("Nothing to save.", "Ingenting å lagre."),
     NOTES_NEED_STATUS_CHANGE: t(
       "Status notes are saved together with a status change.",
       "Statusnotater lagres sammen med en statusendring.",
     ),
     REJECTION_COMMENT_REQUIRED: t("Rejecting needs a comment.", "Avvisning krever en kommentar."),
     FORBIDDEN: t("Only admins can change website orders.", "Kun administratorer kan endre nettsidebestillinger."),
+    INVALID_HANDLING: t(
+      "Check discount / extra (an amount in kroner) and the deviation.",
+      "Sjekk rabatt / tillegg (et beløp i kroner) og avviket.",
+    ),
   };
 
   async function handleSave() {
     setMessage(null);
     const update = buildWebsiteOrderAdminUpdate(order.id, initial, { status, statusNotes, subcontractorId });
-    if (!update.ok) {
+    const statusChanged = update.ok;
+    if (!update.ok && update.reason !== "NO_CHANGES") {
       setMessage({ tone: "error", text: reasonText[update.reason] });
       return;
     }
+    if (!statusChanged && !change.changed) {
+      setMessage({ tone: "error", text: t("Nothing to save.", "Ingenting å lagre.") });
+      return;
+    }
     if (
+      statusChanged &&
       shouldPromptForPartner({ status, initialStatus: initial.status, subcontractorId, displayId: order.displayId }) &&
       !confirm(
         t(
@@ -87,20 +150,28 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
 
     try {
       setSaving(true);
-      const res = await fetch("/api/orders/bulk", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(update.body),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) {
-        const reason = data?.reason as string | undefined;
-        setMessage({
-          tone: "error",
-          text: (reason && reasonText[reason]) || t("Couldn't save the order.", "Kunne ikke lagre bestillingen."),
+      if (change.changed) {
+        const { ok, data } = await putHandling();
+        if (!ok) {
+          const reason = data?.reason as string | undefined;
+          setMessage({ tone: "error", text: (reason && reasonText[reason]) || t("Couldn't save the order.", "Kunne ikke lagre bestillingen.") });
+          return;
+        }
+      }
+      if (update.ok) {
+        const res = await fetch("/api/orders/bulk", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(update.body),
         });
-        return;
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.ok) {
+          const reason = data?.reason as string | undefined;
+          setMessage({ tone: "error", text: (reason && reasonText[reason]) || t("Couldn't save the status.", "Kunne ikke lagre statusen.") });
+          if (change.changed) onChanged();
+          return;
+        }
       }
       setMessage({ tone: "ok", text: t("Saved.", "Lagret.") });
       onChanged();
@@ -133,9 +204,7 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
       }
       setMessage({
         tone: "ok",
-        text: result.wasAlreadySent
-          ? t("Updated in GSM.", "Oppdatert i GSM.")
-          : t("Sent to GSM.", "Sendt til GSM."),
+        text: result.wasAlreadySent ? t("Updated in GSM.", "Oppdatert i GSM.") : t("Sent to GSM.", "Sendt til GSM."),
       });
       onChanged();
     } catch {
@@ -146,8 +215,10 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
   }
 
   const fieldClass = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black/85";
+  const labelClass = "font-medium text-black/60";
   // The current partner may not be in the list (e.g. no longer a subcontractor).
   const partnerMissingFromList = !!initial.subcontractorId && !partners.some((p) => p.id === initial.subcontractorId);
+  const isCustomDeviation = handling.deviation === CUSTOM_DEVIATION_LABEL;
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-6">
@@ -155,7 +226,7 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
 
       <div className="mt-4 flex flex-col gap-3 text-sm">
         <label className="flex flex-col gap-1">
-          <span className="font-medium text-black/60">{t("Status", "Status")}</span>
+          <span className={labelClass}>{t("Status", "Status")}</span>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
             {!ORDER_STATUS_OPTIONS.includes(status as (typeof ORDER_STATUS_OPTIONS)[number]) && status && (
               <option value={status}>{bookingText(locale, status)}</option>
@@ -169,18 +240,18 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="font-medium text-black/60">{t("Status notes", "Statusnotater")}</span>
+          <span className={labelClass}>{t("Status notes", "Statusnotater")}</span>
           <textarea
             value={statusNotes}
             onChange={(e) => setStatusNotes(e.target.value)}
-            rows={3}
+            rows={2}
             className={fieldClass}
             placeholder={t("Saved with a status change", "Lagres sammen med en statusendring")}
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="font-medium text-black/60">{t("Partner", "Partner")}</span>
+          <span className={labelClass}>{t("Partner", "Partner")}</span>
           <select value={subcontractorId} onChange={(e) => setSubcontractorId(e.target.value)} className={fieldClass}>
             <option value="">{t("— No partner —", "— Ingen partner —")}</option>
             {partnerMissingFromList && (
@@ -193,6 +264,121 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
             ))}
           </select>
         </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Driver", "Sjåfør")}</span>
+            <input value={handling.driver} onChange={(e) => setField("driver", e.target.value)} className={fieldClass} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Second driver", "Sjåfør 2")}</span>
+            <input value={handling.secondDriver} onChange={(e) => setField("secondDriver", e.target.value)} className={fieldClass} />
+          </label>
+        </div>
+
+        <label className="flex flex-col gap-1">
+          <span className={labelClass}>{t("Info for the driver", "Info til sjåføren")}</span>
+          <textarea value={handling.driverInfo} onChange={(e) => setField("driverInfo", e.target.value)} rows={3} className={fieldClass} />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className={labelClass}>{t("License plate", "Registreringsnummer")}</span>
+          <input value={handling.licensePlate} onChange={(e) => setField("licensePlate", e.target.value)} className={fieldClass} />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className={labelClass}>{t("Description (internal)", "Beskrivelse (intern)")}</span>
+          <textarea value={handling.description} onChange={(e) => setField("description", e.target.value)} rows={4} className={fieldClass} />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className={labelClass}>{t("Deviation", "Avvik")}</span>
+          <select value={handling.deviation} onChange={(e) => setField("deviation", e.target.value)} className={fieldClass}>
+            <option value="">{t("— No deviation —", "— Ingen avvik —")}</option>
+            {DEVIATION_FEE_OPTIONS.map((option) => (
+              <option key={option.code} value={option.englishLabel}>
+                {locale === "nb" ? option.norwegianLabel : option.englishLabel}
+              </option>
+            ))}
+          </select>
+        </label>
+        {isCustomDeviation && (
+          <div className="flex flex-col gap-2 rounded-lg bg-black/3 p-3">
+            <input
+              value={handling.customDeviation.description ?? ""}
+              onChange={(e) => setField("customDeviation", { ...handling.customDeviation, description: e.target.value || null })}
+              placeholder={t("Describe the deviation…", "Beskriv avviket…")}
+              className={fieldClass}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex flex-col gap-1">
+                <span className={labelClass}>{t("Price (customer)", "Pris (kunde)")}</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={handling.customDeviation.price ?? ""}
+                  onChange={(e) =>
+                    setField("customDeviation", { ...handling.customDeviation, price: e.target.value === "" ? null : Number(e.target.value) })
+                  }
+                  className={fieldClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={labelClass}>{t("Price (partner)", "Pris (partner)")}</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={handling.customDeviation.subcontractorPrice ?? ""}
+                  onChange={(e) =>
+                    setField("customDeviation", {
+                      ...handling.customDeviation,
+                      subcontractorPrice: e.target.value === "" ? null : Number(e.target.value),
+                    })
+                  }
+                  className={fieldClass}
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Discount (kr)", "Rabatt (kr)")}</span>
+            <input inputMode="decimal" value={handling.rabatt} onChange={(e) => setField("rabatt", e.target.value)} className={fieldClass} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Extra (kr)", "Tillegg (kr)")}</span>
+            <input inputMode="decimal" value={handling.leggTil} onChange={(e) => setField("leggTil", e.target.value)} className={fieldClass} />
+          </label>
+        </div>
+
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={handling.expressDelivery} onChange={(e) => setField("expressDelivery", e.target.checked)} />
+          <span className="font-medium text-black/70">{t("Express delivery", "Ekspresslevering")}</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={handling.dontSendEmail} onChange={(e) => setField("dontSendEmail", e.target.checked)} />
+          <span className="font-medium text-black/70">{t("Don't send email", "Ikke send e-post")}</span>
+        </label>
+
+        {change.affectsPrice && (
+          <div className="rounded-xl border border-logoblue/20 bg-logoblue/5 p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
+              {previewing && <span className="text-xs text-black/50">{t("Calculating…", "Beregner…")}</span>}
+            </div>
+            {preview ? (
+              <WebsiteOrderPaymentSummary
+                comparison={preview}
+                locale={locale}
+                totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
+              />
+            ) : (
+              !previewing && <p className="text-xs text-black/50">{reasonText.INVALID_HANDLING}</p>
+            )}
+          </div>
+        )}
 
         <p className="text-xs text-black/50">
           GSM:{" "}

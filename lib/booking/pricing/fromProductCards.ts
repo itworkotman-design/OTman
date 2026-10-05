@@ -50,7 +50,9 @@ function parsePrice(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function shouldZeroBaseDeliveryPrice(
+// Over 100 km the per-km charge replaces the base delivery price. Exported so
+// buildOrderItemsFromCards stores the same (zeroed) delivery line.
+export function shouldZeroBaseDeliveryPrice(
   deliveryType: SavedProductCard["deliveryType"],
   _useXtraDeliveryPricing: boolean,
   zeroBaseDeliveryPricesOver100Km: boolean,

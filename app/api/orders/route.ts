@@ -121,6 +121,7 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   lastEditedByMembershipId: true,
   customerMembershipId: true,
   legacyWordpressAuthorId: true,
+  isWebsiteOrder: true,
   customerMembership: {
     select: {
       user: {
@@ -1253,6 +1254,8 @@ export async function GET(req: Request) {
         lastEditedByMembershipId: order.lastEditedByMembershipId ?? "",
         customerMembershipId: order.customerMembershipId ?? "",
         createdBy: storeLabel,
+        // Placed through the public website — tinted in the orders table.
+        isWebsiteOrder: order.isWebsiteOrder === true,
         lastEditedBy: latestActionTitle || getMembershipUserLabel(order.lastEditedByMembership?.user),
       };
     }),

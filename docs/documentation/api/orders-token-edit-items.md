@@ -26,11 +26,12 @@ unbuilt feature.
   so the client can render each product's choices with current prices (not
   whatever was frozen in the order's `pricingSnapshot` at original booking
   time).
-- `recomputeOrderPricing` (internal) — re-runs the exact same pricing
-  pipeline `app/api/site/white-goods-order/route.ts` uses to create an
-  order, against the submitted cards, preserving the order's own
-  driving-distance/express-delivery/floor/lift/extra-pickup context (the
-  customer isn't resubmitting addresses here).
+- Re-pricing goes through `recomputeWebsiteOrderPricing` and
+  `websiteOrderPricingWrites` (`lib/orders/websiteOrderRepricing.ts`, shared
+  with the admin product editor), which re-run the exact same pipeline
+  `app/api/site/white-goods-order/route.ts` uses to create an order, keeping
+  the order's own driving-distance/express-delivery/floor/lift/extra-pickup
+  context (the customer isn't resubmitting addresses here).
 - `POST` — validates the submitted cards via `validateOrderItemEdits`,
   recomputes pricing, rejects a decrease, otherwise persists the new
   `productCardsSnapshot`/`pricingSnapshot`/totals and replaces the order's

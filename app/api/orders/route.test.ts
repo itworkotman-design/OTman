@@ -861,6 +861,87 @@ describe("routes in /api/orders", () => {
     expect(mocks.priceListFindManyMock).not.toHaveBeenCalled();
   });
 
+  it("GET marks which rows are website orders, so the table can tint them", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      companyId: "company-1",
+      role: "USER",
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      {
+        id: "order-1",
+        displayId: 20001,
+        status: "processing",
+        statusNotes: null,
+        deliveryDate: "2030-01-15",
+        timeWindow: "08-12",
+        customerLabel: "Acme",
+        customerName: "Alice",
+        orderNumber: "PO-1",
+        phone: "12345678",
+        email: null,
+        pickupAddress: "Pickup 1",
+        extraPickupAddress: [],
+        extraPickupContacts: null,
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        items: [],
+        productsSummary: "Van",
+        deliveryTypeSummary: "Standard",
+        servicesSummary: "Carry",
+        description: null,
+        cashierName: null,
+        cashierPhone: null,
+        customerComments: null,
+        driverInfo: null,
+        subcontractorMembershipId: null,
+        subcontractor: null,
+        driver: null,
+        createdAt: new Date("2030-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2030-01-02T00:00:00.000Z"),
+        lastInboundEmailAt: null,
+        lastOutboundEmailAt: null,
+        lastNotificationAt: null,
+        needsEmailAttention: false,
+        unreadInboundEmailCount: 0,
+        needsNotificationAttention: false,
+        unreadNotificationCount: 0,
+        priceExVat: 1000,
+        priceSubcontractor: 700,
+        priceListId: null,
+        createdByMembershipId: "membership-1",
+        lastEditedByMembershipId: null,
+        customerMembershipId: "membership-1",
+        legacyWordpressAuthorId: null,
+        isWebsiteOrder: true,
+        customerMembership: {
+          user: { username: "assigned-store", email: "store@example.com" },
+        },
+        createdByMembership: {
+          user: { username: "creator", email: "creator@example.com" },
+        },
+        lastEditedByMembership: null,
+      },
+    ]);
+
+    const res = await GET(new Request("http://localhost/api/orders"));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      orders: [
+        expect.objectContaining({ id: "order-1", isWebsiteOrder: true }),
+      ],
+      page: 1,
+      rowsPerPage: 25,
+    });
+  });
+
   it("GET filters orders by the selected pricelist id", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "admin-1",

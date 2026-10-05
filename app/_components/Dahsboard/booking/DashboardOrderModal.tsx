@@ -7,6 +7,7 @@ import WebsiteOrderModal, {
   type WebsiteOrderView,
 } from "@/app/_components/Dahsboard/booking/websiteOrders/WebsiteOrderModal";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
+import { orderModalMode } from "./orderModalMode";
 
 type Props = {
   orderId: string | null;
@@ -20,13 +21,14 @@ type Props = {
 
 type Resolved =
   | { orderId: string; mode: "website"; order: WebsiteOrderView }
-  | { orderId: string; mode: "standard" };
+  | { orderId: string; mode: "standard" }
+  | { orderId: string; mode: "error" };
 
 // Drop-in replacement for OrderModal (same props): homepage white-goods
-// website orders open in the read-only WebsiteOrderModal, every other order
-// in the regular OrderModal, unchanged. Decided by asking
-// /api/orders/[orderId]/website-details — any non-ok answer (not a
-// white-goods order, no access, error) means the regular modal.
+// website orders open in WebsiteOrderModal, every other order in the regular
+// OrderModal, unchanged. Decided by asking /api/orders/[orderId]/website-details
+// (see orderModalMode) — a failed lookup shows an error with a retry, never
+// the regular modal: a website order must not be edited there.
 export default function DashboardOrderModal(props: Props) {
   const { orderId, open, onClose, onSaved, canDelete, onDeleted, locale = "en" } = props;
   const requestedId = open && orderId ? orderId : null;
@@ -48,13 +50,14 @@ export default function DashboardOrderModal(props: Props) {
         });
         const data = await res.json().catch(() => null);
         if (cancelled) return;
+        const mode = orderModalMode(res.status, data);
         setResolved(
-          res.ok && data?.ok && data.order
-            ? { orderId: id, mode: "website", order: data.order as WebsiteOrderView }
-            : { orderId: id, mode: "standard" },
+          mode === "website"
+            ? { orderId: id, mode, order: data.order as WebsiteOrderView }
+            : { orderId: id, mode },
         );
       } catch {
-        if (!cancelled) setResolved({ orderId: id, mode: "standard" });
+        if (!cancelled) setResolved({ orderId: id, mode: "error" });
       }
     }
 
@@ -67,7 +70,7 @@ export default function DashboardOrderModal(props: Props) {
 
   // Scroll lock + Escape while this component shows its own UI (loading or
   // the website view) — OrderModal handles both itself.
-  const showsOwnUi = !!requestedId && (!current || current.mode === "website");
+  const showsOwnUi = !!requestedId && (!current || current.mode !== "standard");
   useEffect(() => {
     if (!showsOwnUi) return;
     const previousOverflow = document.body.style.overflow;
@@ -93,7 +96,6 @@ export default function DashboardOrderModal(props: Props) {
       <WebsiteOrderModal
         order={current.order}
         onClose={onClose}
-        onOpenStandardEditor={() => setResolved({ orderId: current.orderId, mode: "standard" })}
         onChanged={() => {
           setReloadCount((count) => count + 1);
           onSaved?.();
@@ -102,6 +104,33 @@ export default function DashboardOrderModal(props: Props) {
         onDeleted={onDeleted}
         locale={locale}
       />
+    );
+  }
+
+  if (current?.mode === "error") {
+    const t = (en: string, no: string) => (locale === "nb" ? no : en);
+    return createPortal(
+      <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+        <div className="flex flex-col items-center gap-4 rounded-2xl bg-white px-6 py-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <p className="text-sm font-medium text-red-600">{t("Couldn't load the order.", "Kunne ikke laste bestillingen.")}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setResolved(null);
+                setReloadCount((count) => count + 1);
+              }}
+              className="customButtonEnabled h-10 px-5"
+            >
+              {t("Try again", "Prøv igjen")}
+            </button>
+            <button type="button" onClick={onClose} className="customButtonDefault h-10 px-5">
+              {t("Close", "Lukk")}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
     );
   }
 

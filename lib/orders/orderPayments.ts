@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+import type { OrderStateSnapshot } from "./paidOrderSnapshot";
 
 // Any Prisma client or transaction handle that can write OrderPayment rows —
 // same "generic client" shape lib/orders/orderEvents.ts uses, so this
@@ -23,6 +24,9 @@ export async function recordOrderPayment(
     stripeCheckoutSessionId: string;
     stripePaymentIntentId: string | null;
     amountChargedCents: number;
+    // What this payment covered (see paidOrderSnapshot.ts) — compared later
+    // against the order as it is then, so every change has a clear "before".
+    orderSnapshot?: OrderStateSnapshot | null;
   },
 ) {
   try {
@@ -33,6 +37,7 @@ export async function recordOrderPayment(
         stripeCheckoutSessionId: params.stripeCheckoutSessionId,
         stripePaymentIntentId: params.stripePaymentIntentId,
         amountChargedCents: params.amountChargedCents,
+        ...(params.orderSnapshot ? { orderSnapshot: params.orderSnapshot as unknown as Prisma.InputJsonValue } : {}),
       },
     });
   } catch (error) {

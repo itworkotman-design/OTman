@@ -91,6 +91,47 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     mocks.orderFindFirstMock.mockResolvedValue(whiteGoodsOrder);
   });
 
+  it("returns the admin's handling fields for the panel", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({
+      ...whiteGoodsOrder,
+      driver: "Per",
+      secondDriver: null,
+      driverInfo: "Ring først",
+      licensePlate: "EL 12345",
+      deviation: null,
+      dontSendEmail: true,
+      description: "Intern",
+      expressDelivery: false,
+      rabatt: "100",
+      leggTil: null,
+    });
+    const json = await (await call()).json();
+    expect(json.order.handling).toMatchObject({
+      driver: "Per",
+      secondDriver: "",
+      driverInfo: "Ring først",
+      licensePlate: "EL 12345",
+      deviation: "",
+      dontSendEmail: true,
+      description: "Intern",
+      expressDelivery: false,
+      rabatt: "100",
+      leggTil: "",
+    });
+  });
+
+  it("says how the order compares with what the customer has paid", async () => {
+    let json = await (await call()).json();
+    expect(json.order.payment).toMatchObject({ outcome: "unpaid", totalPaidIncVatNok: 0, currentTotalIncVatNok: 2855 });
+
+    mocks.orderFindFirstMock.mockResolvedValue({
+      ...whiteGoodsOrder,
+      payments: [{ amountChargedCents: 200000, createdAt: new Date("2026-10-03T10:00:00Z"), orderSnapshot: null }],
+    });
+    json = await (await call()).json();
+    expect(json.order.payment).toMatchObject({ outcome: "due", totalPaidIncVatNok: 2000, differenceIncVatNok: 855 });
+  });
+
   it("returns 401 without a session", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue(null);
     const res = await call();
@@ -196,7 +237,12 @@ describe("GET website-details — live order data", () => {
     expect(json.order.details.pickups[0].address).toBe("Ny gate 1");
     expect(json.order.details.delivery.address).toBe("Ny gate 2");
     expect(json.order.details.preferredDate).toBe("2026-10-09");
-    expect(json.order.priceDifference).toBe(201);
+    expect(json.order.totalsCheck).toEqual({
+      linesTotal: 970.21,
+      missingFromLines: 200.79,
+      shownTotal: null,
+      differsFromShown: 0,
+    });
     expect(json.order).toMatchObject({
       subcontractorMembershipId: "sub-1",
       subcontractor: "Flyttefirma AS",

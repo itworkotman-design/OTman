@@ -26,6 +26,8 @@ What it stores:
 | `buildWhiteGoodsBookingDetails` | Builds version-1 details from the route's already-parsed values. A store stop gets no floor or lift. Floor 0 ("not given") becomes `null`. An unknown customer type becomes `null`. |
 | `withLiveOrderFields` | Lays the order's current columns over the stored details: the first pickup address, the extra-stop addresses (only while the stop count still matches), the delivery address, date, time window and distance. An edit changes those columns, not the details. Floors, lifts, contacts and product splits stay as booked. |
 | `floorPricingInputs` | Each stop's floor and lift for re-pricing an existing order (the customer's edit link). Uses the per-stop floors from the details, with a store stop as ground floor with a lift. Orders without details fall back to the one combined `floorNo`/`lift` applied to both ends, as before. |
+| `cardIds` (stop field) | Which product cards a stop collects, as sent by the booking flow (`pickupCardIds`, and `cardIds` per extra location). The admin editor uses them to put every product back on its stop; older orders only have `productNames`. |
+| `shownTotal` (field) | The total the customer was shown when booking. The order route only accepts the order when it equals the calculated price. It is dropped when the order is re-priced (`websiteOrderPricingWrites`); from then on the order is compared with its payments. Absent on older orders. |
 | `parseWhiteGoodsBookingDetails` | Tolerant reader for the stored JSON. Returns `null` for anything that isn't version-1 details, and coerces malformed fields inside a stop or order-extra line to safe defaults. |
 
 Orders created before this column existed have no details and keep opening in the regular `OrderModal`.

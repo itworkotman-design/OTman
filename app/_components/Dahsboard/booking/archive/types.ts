@@ -92,6 +92,8 @@ export type OrderRow = {
   subcontractor: string;
   priceListId: string;
   priceListName: string;
+  // Placed through the public website (shown with a blue tint).
+  isWebsiteOrder?: boolean;
 };
 
 export type OrderCalculatorItem = {

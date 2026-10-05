@@ -21,3 +21,5 @@ Stripe session (support/refunds). See
   on order status — a status-based guard (the old approach) silently
   swallows a legitimate second/top-up payment on an order that's already
   `"confirmed"`.
+  An optional `orderSnapshot` (see `lib/orders/paidOrderSnapshot.ts`) is stored
+  on the row: what this payment covered.

@@ -52,11 +52,16 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       floorNo: true,
       lift: true,
       websiteBookingDetails: true,
+      // Homepage catalog orders are charged their VAT-inclusive client total
+      // (see getOrderChargeAmountIncVatNok).
+      websiteOrderKind: true,
+      // An admin-set deviation fee, kept when the customer re-prices.
+      deviation: true,
       extraPickupAddress: true,
       actionToken: true,
       stripeCheckoutSessionId: true,
       stripePaymentIntentId: true,
-      payments: { select: { amountChargedCents: true } },
+      payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
     },
   });
 }

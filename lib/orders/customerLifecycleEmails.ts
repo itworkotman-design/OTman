@@ -1,3 +1,4 @@
+import { formatKr } from "./orderChangeText";
 import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import { getOrderEmailLogoUrl } from "@/lib/email/emailAssets";
 import { getOrderActionBaseUrl } from "@/lib/stripe/stripeClient";
@@ -12,6 +13,15 @@ export type LifecycleEmailOrder = {
   customerLabel: string | null;
   statusNotes: string | null;
   actionToken: string | null;
+  // balance_due only: the explicit breakdown (see compareOrderWithPayments).
+  // Without it the email falls back to the generic "pay the rest" wording.
+  balanceDue?: {
+    paidIncVatNok: number;
+    totalIncVatNok: number;
+    amountDueIncVatNok: number;
+    // Ready-made lines from lib/orders/orderChangeText.ts.
+    changes: string[];
+  };
 };
 
 function escapeHtml(value: string) {
@@ -148,20 +158,37 @@ export function buildRejectedEmail(order: LifecycleEmailOrder) {
   return { subject, html };
 }
 
-// Sent when staff add items to an order that's already confirmed (paid) —
-// there's a remaining balance to collect. Deliberately doesn't state the
-// amount (same minimal-info pattern as buildPaymentRequestEmail): the exact
-// figure lives on the payment page itself, not duplicated into the email.
+// Sent when staff change an order that's already confirmed (paid) — there's
+// a remaining balance to collect. With `balanceDue` (the admin editor passes
+// it) the email spells out what was paid, the new total, exactly what's due
+// now and what changed; the payment page shows the same, and is what charges.
 export function buildBalanceDueEmail(order: LifecycleEmailOrder) {
   const { payUrl } = buildOrderActionUrls(requireActionToken(order));
   const reference = orderReference(order);
+  const due = order.balanceDue;
 
   const subject = `Bestilling ${reference} er oppdatert — betal restbeløpet`.trim();
+  const row = (label: string, value: string, bold = false) =>
+    `<tr><td style="padding:4px 16px 4px 0;">${escapeHtml(label)}</td><td style="padding:4px 0;text-align:right;${bold ? "font-weight:700;" : ""}">${escapeHtml(value)}</td></tr>`;
+  const breakdown = due
+    ? `
+    ${
+      due.changes.length > 0
+        ? `<p style="margin:0 0 8px 0;font-weight:600;">Dette er endret siden du betalte:</p>
+    <ul style="margin:0 0 16px 0;padding-left:20px;">${due.changes.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>`
+        : ""
+    }
+    <table style="margin:0 0 16px 0;border-collapse:collapse;font-size:14px;">
+      ${row("Betalt så langt", formatKr(due.paidIncVatNok))}
+      ${row("Ny totalpris (inkl. MVA)", formatKr(due.totalIncVatNok))}
+      ${row("Å betale nå", formatKr(due.amountDueIncVatNok), true)}
+    </table>`
+    : "";
   const html = buildSimpleEmailShell(`
     <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
     <p style="margin:0 0 16px 0;">
-      Bestillingen din ${escapeHtml(reference)} er oppdatert med flere varer. Betal restbeløpet via lenken under for å bekrefte.
-    </p>
+      Bestillingen din ${escapeHtml(reference)} er oppdatert. Betal restbeløpet via lenken under for å bekrefte.
+    </p>${breakdown}
     <div style="margin:20px 0;">${buttonLink(payUrl, "Betal restbeløp")}</div>
     <p style="margin:16px 0 0 0;">Har du spørsmål? Bare svar på denne e-posten.</p>
   `);

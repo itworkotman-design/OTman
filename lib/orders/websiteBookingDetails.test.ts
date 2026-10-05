@@ -94,6 +94,19 @@ describe("buildWhiteGoodsBookingDetails", () => {
     expect(details.pickups[2]).toMatchObject({ source: "store", floor: null, productNames: ["TV"] });
   });
 
+  it("records which product cards each stop collects", () => {
+    const details = buildWhiteGoodsBookingDetails({
+      ...input,
+      firstPickup: { ...input.firstPickup, productNames: ["Vaskemaskin #1"], cardIds: [0] },
+      extraPickups: parseExtraPickupLocations([
+        { source: "store", placeName: "Elkjøp", address: "Askim", productNames: ["Vaskemaskin #2"], cardIds: [1, "x"] },
+      ]),
+    });
+    expect(details.pickups.map((stop) => stop.cardIds)).toEqual([[0], [1]]);
+    const stored = parseWhiteGoodsBookingDetails(JSON.parse(JSON.stringify(details)));
+    expect(stored?.pickups.map((stop) => stop.cardIds)).toEqual([[0], [1]]);
+  });
+
   it("stores floor 0 (not given) as no floor", () => {
     const details = buildWhiteGoodsBookingDetails({ ...input, delivery: { ...input.delivery, floor: 0 } });
     expect(details.delivery.floor).toBeNull();
@@ -113,6 +126,13 @@ describe("parseWhiteGoodsBookingDetails", () => {
       firstPickup: { ...input.firstPickup, productNames: ["Vaskemaskin"] },
     });
     expect(parseWhiteGoodsBookingDetails(JSON.parse(JSON.stringify(details)))).toEqual(details);
+  });
+
+  it("keeps the total the customer was shown at booking, and only a real number", () => {
+    const stored = JSON.parse(JSON.stringify(buildWhiteGoodsBookingDetails({ ...input, shownTotal: 13450 })));
+    expect(parseWhiteGoodsBookingDetails(stored)?.shownTotal).toBe(13450);
+    expect(parseWhiteGoodsBookingDetails({ ...stored, shownTotal: "13450" })?.shownTotal).toBeUndefined();
+    expect(parseWhiteGoodsBookingDetails(JSON.parse(JSON.stringify(buildWhiteGoodsBookingDetails(input))))?.shownTotal).toBeUndefined();
   });
 
   it("returns null for anything that isn't version-1 details", () => {
