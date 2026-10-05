@@ -164,6 +164,8 @@ export async function recomputeWebsiteOrderPricing(
     // Same lines the homepage summary shows — kept on the booking details so
     // the admin view stays in step with the new price.
     orderExtras,
+    // Every line with its customer and partner price, for the admin calculator.
+    pricingResult,
   };
 }
 

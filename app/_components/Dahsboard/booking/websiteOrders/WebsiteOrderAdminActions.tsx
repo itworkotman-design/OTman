@@ -8,6 +8,8 @@ import { buildWebsiteOrderAdminUpdate } from "@/lib/orders/websiteOrderAdminUpda
 import { handlingChange, type WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import { CUSTOM_DEVIATION_CODE, DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
+import DatePicker from "@/app/_components/utils/DatePicker";
+import { TimeWindowField } from "@/app/_components/site/BookingModal/whiteGoods/timeWindowField";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 
 type Partner = { id: string; name: string };
@@ -34,10 +36,10 @@ const PREVIEW_DELAY_MS = 700;
 
 // Everything on a website order only an admin handles, without opening the
 // booking editor: status, status notes and partner (PATCH /api/orders/bulk,
-// which doesn't re-price), driver(s), info for the driver, license plate,
-// deviation, "don't send email", description, express delivery, discount and
-// extra (PUT /api/orders/[orderId]/website-items with `handling`, which
-// re-prices — express/discount/extra/deviation change the total, previewed
+// which doesn't re-price), delivery date and time window, driver(s), info for the driver, license plate,
+// deviation, "don't send email", description and express delivery (PUT
+// /api/orders/[orderId]/website-items with `handling`, which re-prices —
+// express and the deviation change the total, previewed
 // against what was paid before saving), and "send to GSM".
 export default function WebsiteOrderAdminActions({ order, locale, onChanged }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
@@ -76,17 +78,21 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
   }, []);
 
   async function putHandling(extra: Record<string, unknown> = {}) {
+    // Discount, extra and partner minus/plus belong to the calculator — left
+    // out here so the server keeps whatever it last saved.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { rabatt, leggTil, subcontractorMinus, subcontractorPlus, ...panelFields } = handling;
     const res = await fetch(`/api/orders/${order.id}/website-items`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ handling, ...extra }),
+      body: JSON.stringify({ handling: panelFields, ...extra }),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok && !!data?.ok, data };
   }
 
-  // Express / discount / extra / deviation change the price: preview it.
+  // Express and the deviation change the price: preview it.
   const previewKey = change.affectsPrice ? JSON.stringify(handling) : "";
   useEffect(() => {
     const seq = ++previewSeq.current;
@@ -118,8 +124,8 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
     REJECTION_COMMENT_REQUIRED: t("Rejecting needs a comment.", "Avvisning krever en kommentar."),
     FORBIDDEN: t("Only admins can change website orders.", "Kun administratorer kan endre nettsidebestillinger."),
     INVALID_HANDLING: t(
-      "Check discount / extra (an amount in kroner) and the deviation.",
-      "Sjekk rabatt / tillegg (et beløp i kroner) og avviket.",
+      "Check the date and the deviation.",
+      "Sjekk datoen og avviket.",
     ),
   };
 
@@ -219,6 +225,7 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
   // The current partner may not be in the list (e.g. no longer a subcontractor).
   const partnerMissingFromList = !!initial.subcontractorId && !partners.some((p) => p.id === initial.subcontractorId);
   const isCustomDeviation = handling.deviation === CUSTOM_DEVIATION_LABEL;
+  const siteLocale = locale === "nb" ? "no" : "en";
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-6">
@@ -264,6 +271,27 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
             ))}
           </select>
         </label>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Delivery date", "Leveringsdato")}</span>
+            <DatePicker
+              value={handling.deliveryDate}
+              onChange={(value) => setField("deliveryDate", value)}
+              locale={siteLocale}
+              placeholder={t("Select a date", "Velg en dato")}
+              className={fieldClass}
+            />
+          </label>
+          <div className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Time window", "Tidsvindu")}</span>
+            <TimeWindowField
+              locale={siteLocale}
+              value={handling.timeWindow}
+              onChange={(value) => setField("timeWindow", value)}
+            />
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1">
@@ -341,17 +369,6 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
             </div>
           </div>
         )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Discount (kr)", "Rabatt (kr)")}</span>
-            <input inputMode="decimal" value={handling.rabatt} onChange={(e) => setField("rabatt", e.target.value)} className={fieldClass} />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Extra (kr)", "Tillegg (kr)")}</span>
-            <input inputMode="decimal" value={handling.leggTil} onChange={(e) => setField("leggTil", e.target.value)} className={fieldClass} />
-          </label>
-        </div>
 
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={handling.expressDelivery} onChange={(e) => setField("expressDelivery", e.target.checked)} />

@@ -14,6 +14,8 @@ import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import WebsiteOrderAttachments from "./WebsiteOrderAttachments";
+import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
+import type { WebsiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 
 // What GET /api/orders/[orderId]/website-details returns.
@@ -46,6 +48,8 @@ export type WebsiteOrderView = {
   payment: OrderPaymentComparison;
   // Fields only an admin handles (driver, deviation, discount…).
   handling: WebsiteOrderHandling;
+  // Customer and partner price per line (null when the order can't be priced).
+  calculator: WebsiteOrderCalculatorView | null;
 };
 
 type Props = {
@@ -114,6 +118,9 @@ export default function WebsiteOrderModal({
     },
   });
   const vat = getVatBreakdown(order.priceExVat);
+  // The calculator's four fields; "Handle order" saves everything else.
+  const { rabatt, leggTil, subcontractorMinus, subcontractorPlus, ...panelHandling } = order.handling;
+  const calculatorAdjustments = { rabatt, leggTil, subcontractorMinus, subcontractorPlus };
   const customerTypeLabel =
     details.customerType === "business"
       ? t("Business", "Bedrift")
@@ -251,7 +258,7 @@ export default function WebsiteOrderModal({
                 )}
 
                 <WebsiteOrderAdminActions
-                  key={`${order.status}|${order.statusNotes}|${order.subcontractorMembershipId}|${order.gsmSentAt}|${order.priceExVat}|${JSON.stringify(order.handling)}`}
+                  key={`${order.status}|${order.statusNotes}|${order.subcontractorMembershipId}|${order.gsmSentAt}|${JSON.stringify(panelHandling)}`}
                   order={order}
                   locale={locale}
                   onChanged={onChanged}
@@ -266,6 +273,18 @@ export default function WebsiteOrderModal({
                   <h3 className="mb-3 text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
                   <WebsiteOrderPaymentSummary comparison={order.payment} locale={locale} />
                 </div>
+                {order.calculator ? (
+                  <WebsiteOrderCalculator
+                    key={`${order.priceExVat}|${JSON.stringify(order.calculator)}|${JSON.stringify(calculatorAdjustments)}`}
+                    orderId={order.id}
+                    calculator={order.calculator}
+                    adjustments={calculatorAdjustments}
+                    missingFromLines={order.totalsCheck.missingFromLines}
+                    storedTotal={order.priceExVat}
+                    locale={locale}
+                    onChanged={onChanged}
+                  />
+                ) : (
                 <div className="rounded-2xl border border-black/10 bg-white p-6">
                   <h3 className="text-lg font-semibold text-logoblue">{t("Products", "Varer")}</h3>
                   <p className="text-xs text-black/45">{t("Prices incl. VAT", "Priser inkl. mva")}</p>
@@ -366,6 +385,7 @@ export default function WebsiteOrderModal({
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             </div>
 

@@ -4,6 +4,7 @@ import {
   handlingFromOrder,
   handlingOrderData,
   parseWebsiteOrderHandling,
+  scheduleBookingDetails,
   type WebsiteOrderHandling,
 } from "./websiteOrderHandling";
 
@@ -19,9 +20,25 @@ const handling: WebsiteOrderHandling = {
   expressDelivery: true,
   rabatt: "100",
   leggTil: "",
+  subcontractorMinus: "37",
+  subcontractorPlus: "",
+  deliveryDate: "2026-10-12",
+  timeWindow: "10:00-16:00",
 };
 
 describe("parseWebsiteOrderHandling", () => {
+  it("takes the delivery date and time window — any day for an admin, empty allowed", () => {
+    expect(parseWebsiteOrderHandling({ deliveryDate: " 2026-12-27 ", timeWindow: "12:00-14:00" })).toMatchObject({
+      ok: true,
+      handling: { deliveryDate: "2026-12-27", timeWindow: "12:00-14:00" },
+    });
+    expect(parseWebsiteOrderHandling({ deliveryDate: "27.12.2026" })).toMatchObject({
+      ok: false,
+      errors: { deliveryDate: expect.any(String) },
+    });
+    expect(parseWebsiteOrderHandling({ deliveryDate: "2026-02-30" })).toMatchObject({ ok: false });
+  });
+
   it("accepts and trims the admin's handling fields", () => {
     expect(parseWebsiteOrderHandling({ ...handling, driver: "  Per " })).toEqual({ ok: true, handling });
   });
@@ -42,6 +59,10 @@ describe("parseWebsiteOrderHandling", () => {
         expressDelivery: false,
         rabatt: "",
         leggTil: "",
+        subcontractorMinus: "",
+        subcontractorPlus: "",
+        deliveryDate: "",
+        timeWindow: "",
       },
     });
   });
@@ -54,6 +75,10 @@ describe("parseWebsiteOrderHandling", () => {
     expect(parseWebsiteOrderHandling({ rabatt: "abc", leggTil: "-5" })).toMatchObject({
       ok: false,
       errors: { rabatt: expect.any(String), leggTil: expect.any(String) },
+    });
+    expect(parseWebsiteOrderHandling({ subcontractorMinus: "37,5", subcontractorPlus: "x" })).toMatchObject({
+      ok: false,
+      errors: { subcontractorPlus: expect.any(String) },
     });
   });
 
@@ -91,8 +116,23 @@ describe("handlingOrderData / handlingFromOrder", () => {
       expressDelivery: true,
       rabatt: "100",
       leggTil: null,
+      subcontractorMinus: "37",
+      subcontractorPlus: null,
+      deliveryDate: "2026-10-12",
+      timeWindow: "10:00-16:00",
     });
     expect(handlingFromOrder({ ...data, pricingSnapshot: null })).toEqual(handling);
+  });
+
+  it("keeps the booking details' date and time window in step with the order", () => {
+    const stored = { version: 1, preferredDate: "2026-10-10", timeWindow: "16:00-21:00", orderExtras: [] };
+    expect(scheduleBookingDetails(stored, { ...handling, deliveryDate: "", timeWindow: "10:00-16:00" })).toEqual({
+      version: 1,
+      preferredDate: "",
+      timeWindow: "10:00-16:00",
+      orderExtras: [],
+    });
+    expect(scheduleBookingDetails(null, handling)).toBeNull();
   });
 
   it("reads a custom deviation's prices from the stored pricing", () => {
@@ -106,13 +146,23 @@ describe("handlingOrderData / handlingFromOrder", () => {
   });
 });
 
+describe("parseWebsiteOrderHandling over the stored values", () => {
+  it("keeps what a save leaves out — the calculator only sends its own four fields", () => {
+    const stored = { ...handling, driver: "Per", rabatt: "" };
+    expect(parseWebsiteOrderHandling({ rabatt: "200", subcontractorMinus: "74" }, stored)).toEqual({
+      ok: true,
+      handling: { ...stored, rabatt: "200", subcontractorMinus: "74" },
+    });
+  });
+});
+
 describe("handlingChange", () => {
   it("is unchanged for the same values", () => {
     expect(handlingChange(handling, { ...handling })).toEqual({ changed: false, affectsPrice: false });
   });
 
   it("changes without touching the price for driver, plate, notes…", () => {
-    expect(handlingChange(handling, { ...handling, driver: "Ola", description: "Ny" })).toEqual({
+    expect(handlingChange(handling, { ...handling, driver: "Ola", description: "Ny", deliveryDate: "2026-10-13" })).toEqual({
       changed: true,
       affectsPrice: false,
     });
@@ -123,6 +173,8 @@ describe("handlingChange", () => {
       { ...handling, expressDelivery: false },
       { ...handling, rabatt: "200" },
       { ...handling, leggTil: "10" },
+      { ...handling, subcontractorMinus: "" },
+      { ...handling, subcontractorPlus: "50" },
       { ...handling, deviation: "Custom" },
       { ...handling, customDeviation: { price: 1, subcontractorPrice: null, description: null } },
     ]) {

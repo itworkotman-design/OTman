@@ -148,6 +148,25 @@ function recomputed(priceExVat: number) {
     priceExVat,
     priceSubcontractor: 0,
     orderExtras: [],
+    pricingResult: {
+      breakdowns: [
+        { productName: "Vaskemaskin", cardId: 0, lines: [{ label: "Levering", qty: 1, unitPrice: priceExVat, lineTotal: priceExVat, subcontractorLineTotal: 400 }] },
+      ],
+      totals: {
+        subtotalExVat: priceExVat,
+        discount: 0,
+        extra: 0,
+        checkboxDiscount: 0,
+        totalExVat: priceExVat,
+        vat: 0,
+        totalIncVat: priceExVat,
+        subcontractorBase: 400,
+        subcontractorMinus: 0,
+        subcontractorPlus: 0,
+        subcontractorCheckboxDiscount: 0,
+        subcontractorTotal: 400,
+      },
+    },
   };
 }
 
@@ -436,7 +455,27 @@ describe("/api/orders/[orderId]/website-items", () => {
       expressDelivery: true,
       rabatt: "100",
       leggTil: "50",
+      deliveryDate: "2026-10-10",
+      timeWindow: "08:00-16:00",
     };
+
+    it("moves the delivery date and time window on the order and in the booking details, and logs it", async () => {
+      const res = await put({ handling: { ...handling, deliveryDate: "2026-10-14", timeWindow: "16:00-21:00" } });
+      expect(res.status).toBe(200);
+
+      const [target, , data] = mocks.pricingWritesMock.mock.calls[0]!;
+      expect(data).toMatchObject({ deliveryDate: "2026-10-14", timeWindow: "16:00-21:00" });
+      expect(target.websiteBookingDetails).toMatchObject({ preferredDate: "2026-10-14", timeWindow: "16:00-21:00" });
+      expect(mocks.createOrderUpdatedEventMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          changes: expect.arrayContaining([
+            expect.objectContaining({ field: "deliveryDate", previousValue: "2026-10-10", nextValue: "2026-10-14" }),
+            expect.objectContaining({ field: "timeWindow", previousValue: "08:00-16:00", nextValue: "16:00-21:00" }),
+          ]),
+        }),
+      );
+    });
 
     it("saves them and re-prices with express, discount, extra and the deviation — products as stored", async () => {
       const res = await put({ handling });
@@ -468,6 +507,33 @@ describe("/api/orders/[orderId]/website-items", () => {
         expect.anything(),
         expect.objectContaining({
           changes: expect.arrayContaining([expect.objectContaining({ field: "driver", previousValue: "", nextValue: "Per" })]),
+        }),
+      );
+    });
+
+    it("keeps what a save leaves out — the calculator sends only discount, extra and partner minus/plus", async () => {
+      mocks.orderFindFirstMock.mockResolvedValue(order({ driver: "Per", licensePlate: "EL 1", expressDelivery: true }));
+      const res = await put({ handling: { rabatt: "200", leggTil: "", subcontractorMinus: "74", subcontractorPlus: "10" } });
+      expect(res.status).toBe(200);
+
+      const [pricedOrder] = mocks.recomputeMock.mock.calls[0]!;
+      expect(pricedOrder).toMatchObject({ rabatt: "200", subcontractorMinus: "74", subcontractorPlus: "10", expressDelivery: true });
+      const [, , data] = mocks.pricingWritesMock.mock.calls[0]!;
+      expect(data).toMatchObject({
+        driver: "Per",
+        licensePlate: "EL 1",
+        expressDelivery: true,
+        deliveryDate: "2026-10-10",
+        rabatt: "200",
+        subcontractorMinus: "74",
+        subcontractorPlus: "10",
+      });
+      expect(mocks.createOrderUpdatedEventMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          changes: expect.arrayContaining([
+            expect.objectContaining({ field: "subcontractorMinus", previousValue: "", nextValue: "74" }),
+          ]),
         }),
       );
     });
@@ -511,6 +577,15 @@ describe("/api/orders/[orderId]/website-items", () => {
       expect(mocks.transactionMock).not.toHaveBeenCalled();
       expect(mocks.sendLifecycleEmailsMock).not.toHaveBeenCalled();
       expect(mocks.createOrderUpdatedEventMock).not.toHaveBeenCalled();
+    });
+
+    it("returns the calculator — customer and partner side — for the change", async () => {
+      const json = await (await put({ handling: { rabatt: "100" }, dryRun: true })).json();
+      expect(json.calculator).toMatchObject({
+        products: [{ name: "Vaskemaskin", lines: [{ label: "Levering", customer: 1500, partner: 400 }] }],
+        customer: { total: 1500 },
+        partner: { base: 400, total: 400 },
+      });
     });
 
     it("flags a refund when the change makes a paid order cheaper", async () => {

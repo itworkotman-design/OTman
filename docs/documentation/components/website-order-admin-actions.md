@@ -10,7 +10,7 @@
 The "Handle order" panel in `WebsiteOrderModal`: everything on the order that only an admin handles, without opening the booking editor. One Save covers all of it:
 
 - **Status, status notes and partner:** `PATCH /api/orders/bulk` with this one order's id, which doesn't re-price.
-- **The rest:** driver, second driver, info for the driver, license plate, internal description, deviation (with its own description and prices for the custom one), discount, extra, express delivery and "don't send email". These go through `PUT /api/orders/[orderId]/website-items` with `handling`, which re-prices. Express, discount, extra and the deviation change the total, so while one of those is changed a debounced `dryRun` shows "Price after this change" (`WebsiteOrderPaymentSummary`) against what was paid. `handlingChange` decides what changed.
+- **The rest:** delivery date and time window (`DatePicker` without the customer's blocked days, and the booking flow's `TimeWindowField`), driver, second driver, info for the driver, license plate, internal description, deviation (with its own description and prices for the custom one), discount, extra, express delivery and "don't send email". These go through `PUT /api/orders/[orderId]/website-items` with `handling`, which re-prices. Express and the deviation change the total, so while one of those is changed a debounced `dryRun` shows "Price after this change" (`WebsiteOrderPaymentSummary`) against what was paid. `handlingChange` decides what changed.
 - **"Send to GSM" / "Update in GSM":** `POST /api/orders/send-to-gsm`.
 
 The handling fields can still be saved on completed or invoiced orders.
