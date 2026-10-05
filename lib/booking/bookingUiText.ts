@@ -24,6 +24,7 @@ const NB_TEXT: Record<string, string> = {
   "Booking app": "Bestillingsapp",
   Others: "Annet",
   "Booking orders": "Bestillinger",
+  "Insurance cases": "Forsikringssaker",
   Calculator: "Kalkulator",
   "Cashier name": "Kasserers navn",
   "Cashier phone": "Kasserers telefon",

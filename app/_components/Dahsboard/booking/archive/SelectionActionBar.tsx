@@ -31,6 +31,10 @@ type Props = {
   loading?: boolean;
   error?: string;
   gsmDuplicateWarning?: string[];
+  // Both default true; the Insurance cases page turns them off (its store is
+  // fixed, and those orders aren't dispatched to GSM from that list).
+  showStoreEmail?: boolean;
+  showSendGsm?: boolean;
 };
 
 export default function SelectionActionBar({
@@ -46,6 +50,8 @@ export default function SelectionActionBar({
   loading = false,
   error = "",
   gsmDuplicateWarning = [],
+  showStoreEmail = true,
+  showSendGsm = true,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
 
@@ -159,60 +165,66 @@ export default function SelectionActionBar({
     <section className="customContainer padding-weird-landscape margin-weird-landscape text-weird-landscape padding-weird-landscape [@media_(orientation:landscape)_and_(max-height:800px)_and_(min-width:900px)]:shadow-none!">
       {/* Phone: inputs stacked, GSM/Copy/Export/Hide columns fill a 2-up grid, Send email is the last button */}
       <div className="flex flex-col gap-3 md:hidden">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Store")}</label>
-          <select
-            value={creatorId}
-            onChange={(e) => setCreatorId(e.target.value)}
-            className="customInput w-full padding-weird-landscape"
-            disabled={loading}
-          >
-            <option value="">{t("Select store...")}</option>
-            {creators.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showStoreEmail && (
+          <>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Store")}</label>
+              <select
+                value={creatorId}
+                onChange={(e) => setCreatorId(e.target.value)}
+                className="customInput w-full padding-weird-landscape"
+                disabled={loading}
+              >
+                <option value="">{t("Select store...")}</option>
+                {creators.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape padding">{t("Email type")}</label>
-          <select
-            value={emailType}
-            onChange={(e) => setEmailType(e.target.value as EmailType)}
-            className="customInput w-full  padding-weird-landscape"
-            disabled={loading}
-          >
-            <option value="">{t("Select type...")}</option>
-            <option value="prepare_orders">{t("Prepare orders")}</option>
-            <option value="confirmed_delivery">{t("Confirmed for delivery")}</option>
-            <option value="custom">{t("Custom")}</option>
-          </select>
-        </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape padding">{t("Email type")}</label>
+              <select
+                value={emailType}
+                onChange={(e) => setEmailType(e.target.value as EmailType)}
+                className="customInput w-full  padding-weird-landscape"
+                disabled={loading}
+              >
+                <option value="">{t("Select type...")}</option>
+                <option value="prepare_orders">{t("Prepare orders")}</option>
+                <option value="confirmed_delivery">{t("Confirmed for delivery")}</option>
+                <option value="custom">{t("Custom")}</option>
+              </select>
+            </div>
 
-        {emailType === "custom" && (
-          <div>
-            <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Custom message")}</label>
-            <textarea
-              value={customMessage}
-              onChange={(e) => setCustomMessage(e.target.value)}
-              rows={3}
-              className="customInput w-full resize-none padding-weird-landscape"
-              placeholder={t("Write custom email message...")}
-            />
-          </div>
+            {emailType === "custom" && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Custom message")}</label>
+                <textarea
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  rows={3}
+                  className="customInput w-full resize-none padding-weird-landscape"
+                  placeholder={t("Write custom email message...")}
+                />
+              </div>
+            )}
+          </>
         )}
 
         <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={handleSendGsmClick}
-            className={`h-10 w-full disabled:opacity-50! disabled:cursor-auto! height-weird-landscape ${gsmSuccessFlash ? "customButtonEnabled bg-green-600!" : "customButtonDefault"}`}
-          >
-            {loading ? t("Sending...") : gsmSuccessFlash ? t("Sent to GSM") : t("Send to GSM")}
-          </button>
+          {showSendGsm && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={handleSendGsmClick}
+              className={`h-10 w-full disabled:opacity-50! disabled:cursor-auto! height-weird-landscape ${gsmSuccessFlash ? "customButtonEnabled bg-green-600!" : "customButtonDefault"}`}
+            >
+              {loading ? t("Sending...") : gsmSuccessFlash ? t("Sent to GSM") : t("Send to GSM")}
+            </button>
+          )}
 
           <button
             type="button"
@@ -237,83 +249,89 @@ export default function SelectionActionBar({
           </button>
         </div>
 
-        <button
-          type="button"
-          disabled={disabled || !canSendEmail}
-          onClick={handleSendEmailClick}
-          className={`h-10 w-full disabled:opacity-50! disabled:cursor-auto! height-weird-landscape ${successFlash ? "customButtonEnabled bg-green-600!" : "customButtonEnabled "}`}
-        >
-          {loading ? t("Sending...") : successFlash ? t("Sent") : t("Send email")}
-        </button>
-      </div>
-
-      {/* Tablet and up: original layout */}
-      <div className="hidden md:block">
-        <div className="grid items-start gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Store")}</label>
-            <select
-              value={creatorId}
-              onChange={(e) => setCreatorId(e.target.value)}
-              className="customInput w-full padding-weird-landscape"
-              disabled={loading}
-            >
-              <option value="">{t("Select store...")}</option>
-              {creators.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape padding">{t("Email type")}</label>
-            <select
-              value={emailType}
-              onChange={(e) => setEmailType(e.target.value as EmailType)}
-              className="customInput w-full  padding-weird-landscape"
-              disabled={loading}
-            >
-              <option value="">{t("Select type...")}</option>
-              <option value="prepare_orders">{t("Prepare orders")}</option>
-              <option value="confirmed_delivery">{t("Confirmed for delivery")}</option>
-              <option value="custom">{t("Custom")}</option>
-            </select>
-          </div>
-
-          {emailType === "custom" && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Custom message")}</label>
-              <textarea
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                rows={3}
-                className="customInput w-full resize-none padding-weird-landscape"
-                placeholder={t("Write custom email message...")}
-              />
-            </div>
-          )}
-
+        {showStoreEmail && (
           <button
             type="button"
             disabled={disabled || !canSendEmail}
             onClick={handleSendEmailClick}
-            className={`mt-5 h-10 disabled:opacity-50! disabled:cursor-auto! margin-weird-landscape height-weird-landscape ${successFlash ? "customButtonEnabled bg-green-600!" : "customButtonEnabled "}`}
+            className={`h-10 w-full disabled:opacity-50! disabled:cursor-auto! height-weird-landscape ${successFlash ? "customButtonEnabled bg-green-600!" : "customButtonEnabled "}`}
           >
             {loading ? t("Sending...") : successFlash ? t("Sent") : t("Send email")}
           </button>
-        </div>
+        )}
+      </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={handleSendGsmClick}
-            className={`h-10 disabled:opacity-50! disabled:cursor-auto! height-weird-landscape ${gsmSuccessFlash ? "customButtonEnabled bg-green-600!" : "customButtonDefault"}`}
-          >
-            {loading ? t("Sending...") : gsmSuccessFlash ? t("Sent to GSM") : t("Send to GSM")}
-          </button>
+      {/* Tablet and up: original layout */}
+      <div className="hidden md:block">
+        {showStoreEmail && (
+          <div className="grid items-start gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Store")}</label>
+              <select
+                value={creatorId}
+                onChange={(e) => setCreatorId(e.target.value)}
+                className="customInput w-full padding-weird-landscape"
+                disabled={loading}
+              >
+                <option value="">{t("Select store...")}</option>
+                {creators.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape padding">{t("Email type")}</label>
+              <select
+                value={emailType}
+                onChange={(e) => setEmailType(e.target.value as EmailType)}
+                className="customInput w-full  padding-weird-landscape"
+                disabled={loading}
+              >
+                <option value="">{t("Select type...")}</option>
+                <option value="prepare_orders">{t("Prepare orders")}</option>
+                <option value="confirmed_delivery">{t("Confirmed for delivery")}</option>
+                <option value="custom">{t("Custom")}</option>
+              </select>
+            </div>
+
+            {emailType === "custom" && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-textColorThird text-weird-landscape">{t("Custom message")}</label>
+                <textarea
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  rows={3}
+                  className="customInput w-full resize-none padding-weird-landscape"
+                  placeholder={t("Write custom email message...")}
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              disabled={disabled || !canSendEmail}
+              onClick={handleSendEmailClick}
+              className={`mt-5 h-10 disabled:opacity-50! disabled:cursor-auto! margin-weird-landscape height-weird-landscape ${successFlash ? "customButtonEnabled bg-green-600!" : "customButtonEnabled "}`}
+            >
+              {loading ? t("Sending...") : successFlash ? t("Sent") : t("Send email")}
+            </button>
+          </div>
+        )}
+
+        <div className={`${showStoreEmail ? "mt-3 " : ""}flex flex-wrap gap-2`}>
+          {showSendGsm && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={handleSendGsmClick}
+              className={`h-10 disabled:opacity-50! disabled:cursor-auto! height-weird-landscape ${gsmSuccessFlash ? "customButtonEnabled bg-green-600!" : "customButtonDefault"}`}
+            >
+              {loading ? t("Sending...") : gsmSuccessFlash ? t("Sent to GSM") : t("Send to GSM")}
+            </button>
+          )}
 
           <button
             type="button"

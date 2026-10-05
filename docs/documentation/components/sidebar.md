@@ -13,4 +13,4 @@ Renders the dashboard sidebar navigation, language switch, logout actions, and t
 | Function | Description |
 | --- | --- |
 | `Icon` | Renders the reusable sidebar SVG icons. |
-| `Sidebar` | Renders the dashboard navigation, language preference trigger, request modal trigger, logout action, and the current user header with optional managed logo display and custom username color styling. |
+| `Sidebar` | Renders the dashboard navigation (the "All orders" group holds Main orders, the admin-only Insurance cases page, Website orders and Scheduler orders, each gated independently), language preference trigger, request modal trigger, logout action, and the current user header with optional managed logo display and custom username color styling. |

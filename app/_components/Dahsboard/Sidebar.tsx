@@ -74,13 +74,14 @@ const ICONS = {
     "m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2",
 };
 
-// Any of the three destinations grouped under the "All orders" dropdown —
+// Any of the destinations grouped under the "All orders" dropdown —
 // shared by the dropdown's initial-open state (so a direct/deep link into
 // one of these lands with the dropdown already expanded) and by the
 // re-open-on-navigation check below.
 function isOrderRoutePath(path: string) {
   return (
     path === "/dashboard/booking" ||
+    path === "/dashboard/booking/insurance-cases" ||
     path === "/dashboard/website-orders" ||
     path.startsWith("/dashboard/website-orders/") ||
     path === "/dashboard/scheduler-orders" ||
@@ -127,6 +128,7 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   // it's a rarer sub-feature and NavbarBooking never showed it while
   // currentUser was still loading either.
   const showScheduler = Boolean(currentUser && getModuleAccess(currentUser, "SCHEDULER").enabled);
+  const isBookingFullAccess = !currentUser || hasFullAccess(currentUser.role);
 
   // The three "order list" destinations (main booking orders, website
   // orders, scheduler orders) are gated independently per membership, so
@@ -135,6 +137,11 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   // with no dropdown chrome when only one is.
   const orderNavEntries: { href: string; label: string; exact: boolean }[] = [
     ...(showBooking ? [{ href: "/dashboard/booking", label: "Main orders", exact: true }] : []),
+    // Admin-only: the main list locked to the insurance-cases store, see
+    // app/(User)/dashboard/booking/insurance-cases/page.tsx.
+    ...(showBooking && isBookingFullAccess
+      ? [{ href: "/dashboard/booking/insurance-cases", label: bookingText(locale, "Insurance cases"), exact: false }]
+      : []),
     ...(showWebsiteOrders
       ? [{
           href: "/dashboard/website-orders",
@@ -179,7 +186,6 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   // render as top-level buttons under the "Booking app" header instead, for
   // every tier, at every width — see the block below.
   const canCreateBooking = !currentUser || getBookingArchiveAccess(currentUser).canCreate;
-  const isBookingFullAccess = !currentUser || hasFullAccess(currentUser.role);
   const showBookingPriceLists = Boolean(
     currentUser && !hasFullAccess(currentUser.role) && (currentUser.priceListIds?.length ?? 0) > 0,
   );
