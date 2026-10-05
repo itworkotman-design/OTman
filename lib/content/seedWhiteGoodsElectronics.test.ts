@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     priceList: { upsert: mocks.priceListUpsert },
     product: { upsert: mocks.productUpsert },
-    productOption: { upsert: mocks.productOptionUpsert },
+    productOption: { upsert: mocks.productOptionUpsert, findMany: async () => [], update: async () => ({}) },
     priceListItem: { upsert: mocks.priceListItemUpsert },
   },
 }));

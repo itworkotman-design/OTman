@@ -87,12 +87,12 @@ describe("assembly (type + manufacturer) options", () => {
   });
 
   it("prices IKEA single bed assembly at 850 / 600 and 'Other manufacturer' at 1000 / 700 (Sofa)", () => {
-    const bed = opt("FN_BED", "ASM_SINGLE_BED_IKEA");
+    const bed = opt("FN_BED", "ASM_SGL_BED_IKEA");
     expect(bed.customerPrice).toBe(850);
     expect(bed.subcontractorPrice).toBe(600);
     expect(bed.typeEn).toBe("Single bed");
     expect(bed.manufacturer).toBe("IKEA");
-    expect(opt("FN_SOFA", "ASM_STANDARD_2_3_SEAT_FIXED_COVER_OTHER_MANUFACTURER").customerPrice).toBe(1000);
+    expect(opt("FN_SOFA", "ASM_STD_2_3_SEAT_FIX_COV_OTHER").customerPrice).toBe(1000);
   });
 
   it("keeps delivery + assembly = carry-in + assembly for every combination (the source's own identity)", () => {
@@ -129,11 +129,11 @@ describe("add-ons", () => {
   });
 
   it("has two paid dismantling variants per relevant type — for disposal and careful for reuse", () => {
-    expect(opt("FN_BED", "DISMANTLE_DISPOSAL_SINGLE_BED").customerPrice).toBe(400);
-    expect(opt("FN_BED", "DISMANTLE_DISPOSAL_SINGLE_BED").subcontractorPrice).toBe(250);
-    expect(opt("FN_BED", "DISMANTLE_CAREFUL_SINGLE_BED").customerPrice).toBe(650);
-    expect(opt("FN_BED", "DISMANTLE_CAREFUL_SINGLE_BED").subcontractorPrice).toBe(450);
-    expect(opt("FN_BED", "DISMANTLE_DISPOSAL_BUNK_FAMILY_BED").customerPrice).toBe(1150);
+    expect(opt("FN_BED", "DISMANTLE_DISP_SGL_BED").customerPrice).toBe(400);
+    expect(opt("FN_BED", "DISMANTLE_DISP_SGL_BED").subcontractorPrice).toBe(250);
+    expect(opt("FN_BED", "DISMANTLE_CAR_SGL_BED").customerPrice).toBe(650);
+    expect(opt("FN_BED", "DISMANTLE_CAR_SGL_BED").subcontractorPrice).toBe(450);
+    expect(opt("FN_BED", "DISMANTLE_DISP_BUNK_FAM_BED").customerPrice).toBe(1150);
   });
 
   it("offers no dismantling for chairs and other small items", () => {

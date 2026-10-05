@@ -1,4 +1,5 @@
 import { WEBSITE_CATALOGS } from "./websiteCatalogs";
+import { shortenCatalogCode } from "./shortCatalogCode";
 
 export type WhiteGoodsLineCategory = "delivery" | "install" | "other";
 
@@ -12,9 +13,11 @@ export function categorizeWhiteGoodsLineCode(code: string | undefined): WhiteGoo
   if (code === "FIRST_STEP" || code === "INDOOR" || code === "XTRA") return "delivery";
   if (!code) return "other";
 
+  // Old long codes (stored before the catalog was reseeded) match too.
+  const short = shortenCatalogCode(code);
   for (const catalog of WEBSITE_CATALOGS) {
     for (const product of catalog.products) {
-      const option = product.options.find((o) => o.code === code);
+      const option = product.options.find((o) => o.code === short);
       if (option) return option.category === "install" ? "install" : "other";
     }
   }

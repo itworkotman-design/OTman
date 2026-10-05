@@ -14,6 +14,7 @@ Two families, deliberately separate so a seed can never hit the wrong database:
 - **Deploy before seeding production.** The production database only gets new
   migrations when the app is deployed (`build.sh` runs `prisma migrate deploy`);
   seeding first fails with e.g. "column pricingMode does not exist".
+- **Option codes were shortened** (`lib/content/shortCatalogCode.ts`). Reseeding renames existing options in place, so ids, prices and orders are kept. Until a catalog is reseeded, its old codes still work.
 - Seeds are idempotent upserts. Catalogs whose prices staff enter in
   `/dashboard/booking/editPrices` (Moving, parcel/pallet, and furniture's
   `staffPriced` "Other furniture" size brackets) never have those prices

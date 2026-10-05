@@ -5,3 +5,10 @@ Pure builder for the `Product.deliveryTypes` JSON a website catalog product is s
 
 ## Functions
 ### `buildDeliveryTypesJson(product)`
+Carry-in (`INDOOR`) is `enabled: false` when the seed sets `deliveryTypes.indoorEnabled: false` (pallets).
+
+### `mergePreservedDeliveryTypes(stored, seeded)`
+For a reseed with `preservePricesOnReseed`:
+- **Prices:** stored prices are kept unless all four are 0, in which case they are an unfilled placeholder and the seed's prices are used.
+- **Enabled:** a delivery type stays enabled only if both the stored and the seeded entry are enabled.
+- **Nothing usable stored:** the seed is returned as is.

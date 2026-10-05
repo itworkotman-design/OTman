@@ -12,6 +12,12 @@ describe("categorizeWhiteGoodsLineCode", () => {
     expect(categorizeWhiteGoodsLineCode("WASHING_MACHINE_APPROVED_WETROOM")).toBe("install");
   });
 
+  it("knows the short codes, and still the old long ones that past orders' lines carry", () => {
+    expect(categorizeWhiteGoodsLineCode("DISHWASHER_STD_WET")).toBe("install");
+    expect(categorizeWhiteGoodsLineCode("ASM_SGL_BED_IKEA")).toBe("install");
+    expect(categorizeWhiteGoodsLineCode("DISMANTLE_DISP_SGL_BED")).toBe("other");
+  });
+
   it("treats the shared add-on/return codes as other lines", () => {
     expect(categorizeWhiteGoodsLineCode("UNPACKING")).toBe("other");
     expect(categorizeWhiteGoodsLineCode("DEMONT")).toBe("other");

@@ -29,14 +29,14 @@ const assembledBed = (extra: string[]) => ({
   ...createEmptyProductCard(0),
   productId: "FN_BED",
   deliveryType: "INDOOR" as const,
-  selectedInstallOptionIds: ["ASM_SINGLE_BED_IKEA"],
+  selectedInstallOptionIds: ["ASM_SGL_BED_IKEA"],
   selectedExtraOptionIds: extra,
 });
 
 describe("isAssemblyCompatibleExtraCode", () => {
   it("allows dismantling and wall anchoring, but not unpacking or white-goods demont", () => {
-    expect(isAssemblyCompatibleExtraCode("DISMANTLE_DISPOSAL_SINGLE_BED")).toBe(true);
-    expect(isAssemblyCompatibleExtraCode("DISMANTLE_CAREFUL_DAYBED")).toBe(true);
+    expect(isAssemblyCompatibleExtraCode("DISMANTLE_DISP_SGL_BED")).toBe(true);
+    expect(isAssemblyCompatibleExtraCode("DISMANTLE_CAR_DAYBED")).toBe(true);
     expect(isAssemblyCompatibleExtraCode("WALL_ANCHORING")).toBe(true);
     expect(isAssemblyCompatibleExtraCode("UNPACKING")).toBe(false);
     expect(isAssemblyCompatibleExtraCode("DEMONT")).toBe(false);
@@ -45,20 +45,20 @@ describe("isAssemblyCompatibleExtraCode", () => {
 
 describe("applyWebsiteAssemblyExtras", () => {
   it("shows the gap it fills: the shared pricing alone leaves dismantling unpriced next to assembly", () => {
-    const card = assembledBed(["DISMANTLE_DISPOSAL_SINGLE_BED"]);
+    const card = assembledBed(["DISMANTLE_DISP_SGL_BED"]);
     // 690 carry-in + 850 assembly, dismantling (400) silently dropped.
     expect(price([card], [bed], false)).toBe(1540);
   });
 
   it("prices dismantling + wall anchoring on top of delivery + assembly", () => {
-    const card = assembledBed(["DISMANTLE_DISPOSAL_SINGLE_BED", "WALL_ANCHORING"]);
+    const card = assembledBed(["DISMANTLE_DISP_SGL_BED", "WALL_ANCHORING"]);
     // 690 + 850 + 400 + 465 (463.368 rounded to 5)
     expect(price([card])).toBe(2405);
   });
 
   it("scales the extras with the quantity", () => {
-    const card = { ...assembledBed(["DISMANTLE_CAREFUL_SINGLE_BED"]), amount: 2 };
-    const oneUnit = price([assembledBed(["DISMANTLE_CAREFUL_SINGLE_BED"])]);
+    const card = { ...assembledBed(["DISMANTLE_CAR_SGL_BED"]), amount: 2 };
+    const oneUnit = price([assembledBed(["DISMANTLE_CAR_SGL_BED"])]);
     const noExtra = price([{ ...assembledBed([]), amount: 2 }]);
     expect(price([card]) - noExtra).toBe(2 * (oneUnit - price([assembledBed([])])));
   });
@@ -68,7 +68,7 @@ describe("applyWebsiteAssemblyExtras", () => {
       ...createEmptyProductCard(0),
       productId: "FN_BED",
       deliveryType: "INDOOR" as const,
-      selectedExtraOptionIds: ["DISMANTLE_DISPOSAL_SINGLE_BED"],
+      selectedExtraOptionIds: ["DISMANTLE_DISP_SGL_BED"],
     };
     expect(price([card])).toBe(price([card], [bed], false));
     expect(price([card])).toBe(690 + 400);
@@ -83,7 +83,7 @@ describe("applyWebsiteAssemblyExtras", () => {
       ...createEmptyProductCard(0),
       productId: "WG_DISHWASHER",
       deliveryType: "INDOOR" as const,
-      selectedInstallOptionIds: ["DISHWASHER_STANDARD_WETROOM"],
+      selectedInstallOptionIds: ["DISHWASHER_STD_WET"],
       selectedExtraOptionIds: ["UNPACKING"],
     };
     expect(price([card], [dishwasher])).toBe(price([card], [dishwasher], false));
@@ -92,9 +92,9 @@ describe("applyWebsiteAssemblyExtras", () => {
 
 describe("buildWebsiteAssemblyExtraOrderItems", () => {
   it("produces the saved order lines for the same extras, priced per unit in cents", () => {
-    const card = { ...assembledBed(["DISMANTLE_DISPOSAL_SINGLE_BED", "WALL_ANCHORING", "UNPACKING"]), amount: 2 };
+    const card = { ...assembledBed(["DISMANTLE_DISP_SGL_BED", "WALL_ANCHORING", "UNPACKING"]), amount: 2 };
     const items = buildWebsiteAssemblyExtraOrderItems([card], [bed]);
-    expect(items.map((i) => i.optionCode)).toEqual(["DISMANTLE_DISPOSAL_SINGLE_BED", "WALL_ANCHORING"]);
+    expect(items.map((i) => i.optionCode)).toEqual(["DISMANTLE_DISP_SGL_BED", "WALL_ANCHORING"]);
     expect(items[0]).toMatchObject({
       cardId: 0,
       itemType: "EXTRA_OPTION",
@@ -105,7 +105,7 @@ describe("buildWebsiteAssemblyExtraOrderItems", () => {
   });
 
   it("produces none without an assembly option", () => {
-    const card = { ...assembledBed(["DISMANTLE_DISPOSAL_SINGLE_BED"]), selectedInstallOptionIds: [] };
+    const card = { ...assembledBed(["DISMANTLE_DISP_SGL_BED"]), selectedInstallOptionIds: [] };
     expect(buildWebsiteAssemblyExtraOrderItems([card], [bed])).toEqual([]);
   });
 });

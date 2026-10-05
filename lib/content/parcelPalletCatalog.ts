@@ -1,4 +1,9 @@
-import type { WhiteGoodsOptionSeed, WhiteGoodsProductSeed } from "@/lib/content/whiteGoodsElectronics";
+import {
+  STANDARD_DELIVERY_TYPES,
+  type WhiteGoodsDeliveryTypes,
+  type WhiteGoodsOptionSeed,
+  type WhiteGoodsProductSeed,
+} from "@/lib/content/whiteGoodsElectronics";
 import { PARCEL_PALLET_PRICE_LIST_CODE } from "@/lib/content/websitePriceListCodes";
 
 export { PARCEL_PALLET_PRICE_LIST_CODE };
@@ -11,13 +16,17 @@ export { PARCEL_PALLET_PRICE_LIST_CODE };
 // plugs into the shared "any other products?" cart directly rather than
 // needing a bespoke flow like Moving did.
 //
-// Prices are placeholders (0 kr) — seeded once via
-// seedParcelPalletCatalog.ts, which passes `preservePricesOnReseed: true` so
-// a reseed never resets whatever staff have since entered via
-// /dashboard/booking/editPrices (unlike furniture/white goods, which DO
-// refresh prices from their spreadsheet source on every reseed — there's no
-// spreadsheet source here). Same pattern as Moving. See
-// docs/homepage-ordering-roadmap.md §5/§4 progress log.
+// Prices (NOK ex VAT, rounded to 5 kr when seeded):
+// - Pallet: the price codes PALL S1 (774 / 516, one pallet) and PALLXTRA S1
+//   (258 / 154.80, each extra pallet) from the white-goods workbook's
+//   "Source price codes" sheet. Doorstep only — a pallet is never carried in.
+// - Half-pallet: 0.75 × the pallet, doorstep only.
+// - Envelope, bag, boxes: a standard item (DELIVERY / INDOOR / XTRA codes).
+// - Unpacking: UNPACKING (103.20 / 51.60). Taking the empty pallet: priced
+//   like a recycling return, RETURNREC (258 / 154.80).
+// seedParcelPalletCatalog.ts passes `preservePricesOnReseed: true`: a reseed
+// never resets a price staff entered in /dashboard/booking/editPrices, but
+// fills one still at the old 0 kr placeholder.
 //
 // Not modeled yet: the "extra pallet" quantity surcharge the internal
 // dashboard's ProductType.PALLET products get (a flat per-unit rate plus a
@@ -28,7 +37,21 @@ export { PARCEL_PALLET_PRICE_LIST_CODE };
 // hardcodes productType: "PHYSICAL") was a deliberate scope choice to keep
 // this addition small; giving "Pall"/"Halvpall" specifically the real
 // PALLET pricing behavior is a follow-up, not a blocker.
-const NO_DELIVERY_PRICE = { customerPrice: 0, subcontractorPrice: 0, xtraPrice: 0, xtraSubcontractorPrice: 0 };
+const PALLET_FIRST_STEP = { customerPrice: 774, subcontractorPrice: 516, xtraPrice: 258, xtraSubcontractorPrice: 154.8 };
+const HALF_PALLET_FIRST_STEP = {
+  customerPrice: 580.5,
+  subcontractorPrice: 387,
+  xtraPrice: 193.5,
+  xtraSubcontractorPrice: 116.1,
+};
+
+// Doorstep only: carry-in is switched off (its prices just mirror doorstep).
+function doorstepOnly(firstStep: WhiteGoodsDeliveryTypes["firstStep"]): WhiteGoodsDeliveryTypes {
+  return { firstStep, indoor: firstStep, installOnlyEnabled: false, indoorEnabled: false };
+}
+
+// A standard item, like a white-goods delivery — nothing to install.
+const PARCEL_DELIVERY: WhiteGoodsDeliveryTypes = { ...STANDARD_DELIVERY_TYPES, installOnlyEnabled: false };
 
 // Code "UNPACKING" is the same one WhiteGoodsProductCard already keys its
 // unpacking row off of (product.options.find(o => o.code === "UNPACKING")) —
@@ -40,8 +63,8 @@ const UNPACKING_OPTION: WhiteGoodsOptionSeed = {
   category: "extra",
   labelEn: "Unpacking and disposal of packaging",
   labelNo: "Utpakking og kasting av emballasje",
-  customerPrice: 0,
-  subcontractorPrice: 0,
+  customerPrice: 103.2,
+  subcontractorPrice: 51.6,
 };
 
 // Pallet sizes only — offers to take the now-empty pallet away after
@@ -53,8 +76,8 @@ const PALLET_PICKUP_OPTION: WhiteGoodsOptionSeed = {
   category: "extra",
   labelEn: "Take the empty pallet",
   labelNo: "Ta med tom pall",
-  customerPrice: 0,
-  subcontractorPrice: 0,
+  customerPrice: 258,
+  subcontractorPrice: 154.8,
 };
 
 export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
@@ -63,7 +86,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameEn: "Envelope",
     nameNo: "Konvolutt",
     sortOrder: 1,
-    deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
+    deliveryTypes: PARCEL_DELIVERY,
     options: [],
   },
   {
@@ -71,7 +94,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameEn: "Bag",
     nameNo: "Pose",
     sortOrder: 2,
-    deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
+    deliveryTypes: PARCEL_DELIVERY,
     options: [],
     sizeInfo: { maxWeightKg: 15, dimensionsCm: { w: 20, h: 30, d: 40 } },
   },
@@ -80,7 +103,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameEn: "Boxes",
     nameNo: "Esker",
     sortOrder: 3,
-    deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
+    deliveryTypes: PARCEL_DELIVERY,
     options: [UNPACKING_OPTION],
     sizeInfo: { maxWeightKg: 50, dimensionsCm: { w: 50, h: 50, d: 50 } },
   },
@@ -89,7 +112,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameEn: "Half-pallet",
     nameNo: "Halvpall",
     sortOrder: 4,
-    deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
+    deliveryTypes: doorstepOnly(HALF_PALLET_FIRST_STEP),
     options: [UNPACKING_OPTION, PALLET_PICKUP_OPTION],
     sizeInfo: { maxWeightKg: 100 },
   },
@@ -98,7 +121,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameEn: "Pallet",
     nameNo: "Pall",
     sortOrder: 5,
-    deliveryTypes: { firstStep: NO_DELIVERY_PRICE, indoor: NO_DELIVERY_PRICE, installOnlyEnabled: false },
+    deliveryTypes: doorstepOnly(PALLET_FIRST_STEP),
     options: [UNPACKING_OPTION, PALLET_PICKUP_OPTION],
     sizeInfo: { maxWeightKg: 500 },
   },

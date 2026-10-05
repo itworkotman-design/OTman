@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     priceList: { upsert: mocks.priceListUpsert },
     product: { upsert: mocks.productUpsert },
-    productOption: { upsert: mocks.productOptionUpsert },
+    productOption: { upsert: mocks.productOptionUpsert, findMany: async () => [], update: async () => ({}) },
     priceListItem: { upsert: mocks.priceListItemUpsert },
   },
 }));
@@ -104,7 +104,7 @@ describe("seedFurnitureCatalog", () => {
 
     const call = mocks.productOptionUpsert.mock.calls
       .map(([arg]) => arg)
-      .find((arg) => arg.create.code === "ASM_SINGLE_BED_IKEA");
+      .find((arg) => arg.create.code === "ASM_SGL_BED_IKEA");
     expect(call.create.label).toBe("Single bed — IKEA");
     expect(call.create.description).toMatch(/IKEA/);
     expect(call.create.descriptionEn).toBe("Single bed — IKEA");

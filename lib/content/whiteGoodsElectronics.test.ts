@@ -131,8 +131,8 @@ describe("WHITE_GOODS_ELECTRONICS_PRODUCTS", () => {
     expect(plug.standaloneInstall).toBe(true);
     expect(plug.customerPrice).toBeCloseTo(308.568, 3);
     expect(typeOptions(cooker).map((o) => o.code)).toEqual([
-      "COOKER_CABLE_FITTED",
-      "COOKER_INCLUDING_PLUG",
+      "COOKER_CABLE_FIT",
+      "COOKER_INCL_PLUG",
       "COOKER_INSTALL_PLUG",
     ]);
   });
@@ -140,7 +140,7 @@ describe("WHITE_GOODS_ELECTRONICS_PRODUCTS", () => {
   it("deliveryTypeAfterSelectingType keeps the chosen delivery for standalone options, otherwise implies carry-in", () => {
     const cooker = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_COOKER")!;
     const plug = cooker.options.find((o) => o.code === "COOKER_INSTALL_PLUG")!;
-    const cable = cooker.options.find((o) => o.code === "COOKER_CABLE_FITTED")!;
+    const cable = cooker.options.find((o) => o.code === "COOKER_CABLE_FIT")!;
 
     // Plug only: the cooker is delivered but not installed, so delivery is untouched.
     expect(deliveryTypeAfterSelectingType(plug, "FIRST_STEP")).toBe("FIRST_STEP");

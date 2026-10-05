@@ -2,6 +2,7 @@ import type { CatalogOption } from "@/app/_components/Dahsboard/booking/create/_
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { FurnitureOptionSeed } from "@/lib/content/furnitureCatalog";
 import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
+import { shortenCatalogCode } from "@/lib/content/shortCatalogCode";
 
 // Grouping helpers for the website product card. Furniture's assembly is a
 // "type + manufacturer" choice and its dismantling comes in two variants per
@@ -31,7 +32,8 @@ export function groupAssemblyOptions(
   const groups = new Map<string, AssemblyTypeGroup>();
 
   for (const option of options) {
-    const seed = seedByCode.get(option.code);
+    // Shortened, so an option still stored under its old long code matches too.
+    const seed = seedByCode.get(shortenCatalogCode(option.code));
     if (!option.active || seed?.exclusiveGroup !== "type" || !seed.typeEn || !seed.manufacturer) continue;
 
     const group = groups.get(seed.typeEn) ?? {
@@ -58,7 +60,9 @@ export type DismantlingGroup = {
   careful?: CatalogOption;
 };
 
-const DISMANTLING_CODE = /^DISMANTLE_(DISPOSAL|CAREFUL)_(.+)$/;
+// Matched on the shortened code, so the old long codes (DISMANTLE_DISPOSAL_…)
+// pair up the same way until the catalog is reseeded.
+const DISMANTLING_CODE = /^DISMANTLE_(DISP|CAR)_(.+)$/;
 
 function afterDash(text: string | null) {
   const value = text ?? "";
@@ -72,7 +76,7 @@ export function groupDismantlingOptions(options: CatalogOption[], locale: Locale
   const groups = new Map<string, DismantlingGroup>();
 
   for (const option of options) {
-    const match = DISMANTLING_CODE.exec(option.code);
+    const match = DISMANTLING_CODE.exec(shortenCatalogCode(option.code));
     if (!option.active || !match) continue;
 
     const [, variant, typeKey] = match;
@@ -80,7 +84,7 @@ export function groupDismantlingOptions(options: CatalogOption[], locale: Locale
       key: typeKey,
       label: afterDash(locale === "no" ? (option.description ?? option.label) : option.label),
     };
-    if (variant === "DISPOSAL") group.disposal = option;
+    if (variant === "DISP") group.disposal = option;
     else group.careful = option;
     groups.set(typeKey, group);
   }

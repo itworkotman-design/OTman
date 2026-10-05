@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   hasExtrasStepContent,
   hasInstallStepContent,
+  offersCarryIn,
   showsNoInstallOption,
 } from "./cardSectionVisibility";
+import { catalogProductFromSeed } from "@/lib/content/websiteCatalogFixtures";
 
 describe("hasInstallStepContent", () => {
   it("is false when the product has no assembly groups, type options or pending note (pakke/pall)", () => {
@@ -161,5 +163,18 @@ describe("showsNoInstallOption", () => {
   it("shows it for delivered cards and before a delivery type is picked", () => {
     expect(showsNoInstallOption("INDOOR")).toBe(true);
     expect(showsNoInstallOption("")).toBe(true);
+  });
+});
+
+describe("offersCarryIn", () => {
+  it("is false for pallets and half-pallets (doorstep only), true for everything else", () => {
+    expect(offersCarryIn(catalogProductFromSeed("PKG_PALL").deliveryTypes)).toBe(false);
+    expect(offersCarryIn(catalogProductFromSeed("PKG_HALVPALL").deliveryTypes)).toBe(false);
+    expect(offersCarryIn(catalogProductFromSeed("PKG_ESKER").deliveryTypes)).toBe(true);
+    expect(offersCarryIn(catalogProductFromSeed("WG_WASHING_MACHINE").deliveryTypes)).toBe(true);
+  });
+
+  it("is true for a product with no carry-in entry stored (older data)", () => {
+    expect(offersCarryIn([])).toBe(true);
   });
 });

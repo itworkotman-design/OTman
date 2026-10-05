@@ -12,3 +12,6 @@ True if any individual row in the "Additional services" step (unpacking, dismant
 
 ### `showsNoInstallOption(deliveryType)`
 False for an installation-only card (`INSTALL_ONLY`) — the "No installation" row is hidden there, since that card exists for the installation.
+
+### `offersCarryIn(deliveryTypes)`
+False when the product's `INDOOR` delivery type is disabled (pallets, half-pallets), so the card hides the carry-in row. A product with no `INDOOR` entry keeps offering it.
