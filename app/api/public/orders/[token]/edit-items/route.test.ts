@@ -57,6 +57,7 @@ vi.mock("@/lib/booking/pricing/snapshot", () => ({
 }));
 vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
   buildOrderItemsFromCards: mocks.buildOrderItemsFromCardsMock,
+  applyNulledLineKeys: <T,>(items: T[]) => items,
 }));
 vi.mock("@/lib/orders/buildOrderSummaries", () => ({
   buildOrderSummaries: mocks.buildOrderSummariesMock,

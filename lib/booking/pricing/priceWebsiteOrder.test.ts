@@ -156,3 +156,41 @@ describe("priceWebsiteOrder", () => {
     expect(orderExtras).toEqual(expect.arrayContaining([{ label: "Ventetid 1 time", price: 400, qty: 1 }]));
   });
 });
+
+// The booking app's "Set to 0" checkboxes: a line nulled for the customer or
+// the partner costs 0 on that side, and the stored lines still add up.
+describe("priceWebsiteOrder — lines set to 0", () => {
+  it("zeroes a product line for the customer only", () => {
+    const base = priceWebsiteOrder(input("21")).result.totals;
+    const i = input("21", [card(0, { nulledLineKeysForCustomer: ["opt:inst-1"] }), card(1, { selectedInstallOptionIds: [] })]);
+    const { totals } = priceWebsiteOrder(i).result;
+    expect(base.totalExVat - totals.totalExVat).toBe(610);
+    expect(totals.subcontractorTotal).toBe(base.subcontractorTotal);
+    expect(linesTotal(i)).toBeCloseTo(totals.totalExVat, 2);
+  });
+
+  it("zeroes a product line for the partner only, on the stored line too", () => {
+    const base = priceWebsiteOrder(input("21")).result.totals;
+    const cards = [card(0, { nulledLineKeysForSubcontractor: ["opt:inst-1"] }), card(1, { selectedInstallOptionIds: [] })];
+    const { totals } = priceWebsiteOrder(input("21", cards)).result;
+    expect(base.subcontractorTotal - totals.subcontractorTotal).toBe(400);
+    expect(totals.totalExVat).toBe(base.totalExVat);
+    const install = buildWebsiteOrderItems(cards, [washer], [], { drivingDistance: "21" }).find((item) => item.optionId === "inst-1");
+    expect(install).toMatchObject({ customerPriceCents: 61000, subcontractorPriceCents: 0 });
+  });
+
+  it("zeroes an order extra (the floor surcharge) for the customer", () => {
+    const settings = normalizePriceListSettings(null);
+    settings.floorSurcharge = { ...settings.floorSurcharge, price: "70", subcontractorPrice: "30" };
+    const i = { ...input("21"), priceListSettings: settings };
+    const floorCode = i.priceListSettings.floorSurcharge.code;
+    const base = priceWebsiteOrder(i);
+    const floor = base.orderExtras.find((extra) => extra.label === i.priceListSettings.floorSurcharge.description)!;
+    expect(floor.price).toBeGreaterThan(0);
+
+    const nulled = priceWebsiteOrder({ ...i, nulledOrderExtraKeys: { customer: [`code:${floorCode}`], subcontractor: [] } });
+    expect(nulled.orderExtras.find((extra) => extra.label === floor.label)?.price).toBe(0);
+    expect(base.result.totals.totalExVat - nulled.result.totals.totalExVat).toBeCloseTo(floor.price, 2);
+    expect(nulled.result.totals.subcontractorTotal).toBe(base.result.totals.subcontractorTotal);
+  });
+});

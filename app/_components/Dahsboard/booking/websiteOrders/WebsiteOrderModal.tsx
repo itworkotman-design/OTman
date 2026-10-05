@@ -15,7 +15,7 @@ import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import WebsiteOrderAttachments from "./WebsiteOrderAttachments";
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
-import type { WebsiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
+import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 
 // What GET /api/orders/[orderId]/website-details returns.
@@ -86,6 +86,8 @@ export default function WebsiteOrderModal({
   const [deleteError, setDeleteError] = useState("");
   const [editingOrder, setEditingOrder] = useState(false);
   const [editNotice, setEditNotice] = useState("");
+  // The calculator's unsaved changes; the one Save under "Handle order" stores them.
+  const [pricingDraft, setPricingDraft] = useState<WebsiteOrderPricingDraft | null>(null);
   const check = order.totalsCheck;
   const totalsWarnings = [
     check.differsFromShown !== 0 && check.shownTotal !== null
@@ -262,6 +264,7 @@ export default function WebsiteOrderModal({
                   order={order}
                   locale={locale}
                   onChanged={onChanged}
+                  pricingDraft={pricingDraft}
                   besideSave={
                     canDelete ? (
                       <button
@@ -296,6 +299,7 @@ export default function WebsiteOrderModal({
                     storedTotal={order.priceExVat}
                     locale={locale}
                     onChanged={onChanged}
+                    onDraftChange={setPricingDraft}
                   />
                 ) : (
                 <div className="rounded-2xl border border-black/10 bg-white p-6">

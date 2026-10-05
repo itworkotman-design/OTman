@@ -26,3 +26,9 @@ Backs the admin mode of the booking flow (`WhiteGoodsBookingFlow` with `admin`, 
 Nothing is refunded automatically. A cheaper paid order shows `outcome: "refund"`. A change does not update an order already sent to GSM.
 
 GET also returns `useFullDistanceKmPricing` (from the order's `createdAt`), so the admin editor's live price uses the same km rule as the server.
+
+`PUT` also takes `nulledLines` (the calculator's "Set to 0" choices; `parseNulledLines`):
+- **Product lines:** written onto the product cards (`nulledLineKeysForCustomer` / `nulledLineKeysForSubcontractor`).
+- **Order extras:** passed to repricing and kept in the pricing snapshot.
+- **Finished orders:** like discounts, allowed on completed or invoiced orders.
+- **Malformed:** returns `400 INVALID_BODY`.

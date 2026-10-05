@@ -25,4 +25,6 @@ Moving into a status that needs a partner without one set asks for confirmation 
 |---|---|
 | `buildWebsiteOrderAdminUpdate` | Turns the form into the bulk-update body, sending only what changed. An unchanged status is never re-sent, because re-sending e.g. "approved" would re-issue its payment link. Notes go out only with a status change, since the bulk update can't save notes on their own. Rejecting needs a comment. A partner can be set but not cleared. Returns `NO_CHANGES`, `NOTES_NEED_STATUS_CHANGE` or `REJECTION_COMMENT_REQUIRED` instead of a body when the form can't be saved. |
 
+Calculator changes: the modal passes `pricingDraft` (the calculator unsaved discount, extra, partner minus/plus and lines set to 0). When there is one, Save sends it in the same `PUT` (`websiteItemsSaveBody`), so one button stores the panel and the prices.
+
 Layout: `children` (the modal passes `WebsiteOrderAttachments`) render between the panel card and the Save row, so Save is the last thing in the left column. `besideSave` (the modal's red "Delete order", when allowed) sits left of Save in that row, and Save fills the rest of the width. The save message shows under the button.

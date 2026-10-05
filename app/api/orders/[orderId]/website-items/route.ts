@@ -21,7 +21,11 @@ import {
   routeAddressesChanged,
 } from "@/lib/orders/websiteOrderDetailsEdit";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
-import { websiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
+import {
+  applyNulledLinesToCards,
+  parseNulledLines,
+  websiteOrderCalculatorView,
+} from "@/lib/orders/websiteOrderCalculator";
 import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges";
 import {
   handlingFromOrder,
@@ -228,12 +232,16 @@ export async function PUT(req: Request, { params }: Params) {
     productCards?: unknown;
     details?: unknown;
     handling?: unknown;
+    // The calculator's "Set to 0" choices (like the booking app's checkboxes).
+    nulledLines?: unknown;
     sendPaymentLink?: unknown;
     dryRun?: unknown;
   } | null;
   if (body?.productCards !== undefined && !Array.isArray(body.productCards)) {
     return reject("INVALID_BODY", 400);
   }
+  const nulledLines = body?.nulledLines === undefined ? null : parseNulledLines(body.nulledLines);
+  if (body?.nulledLines !== undefined && !nulledLines) return reject("INVALID_BODY", 400);
   const sendPaymentLink = body?.sendPaymentLink === true;
   const dryRun = body?.dryRun === true;
 
@@ -262,7 +270,8 @@ export async function PUT(req: Request, { params }: Params) {
   // An admin can save anything, even an order with no products or one
   // that isn't complete yet — only products not sold on the website are
   // refused (they can't be priced).
-  const cards = Array.isArray(body?.productCards) ? (body.productCards as SavedProductCard[]) : storedCards(order);
+  const baseCards = Array.isArray(body?.productCards) ? (body.productCards as SavedProductCard[]) : storedCards(order);
+  const cards = nulledLines ? applyNulledLinesToCards(baseCards, nulledLines) : baseCards;
   const catalog = await getWebsiteOrderCatalog();
   if (findUnsellableProductIds(cards, catalog.products).length > 0) return reject("UNKNOWN_PRODUCT", 422);
 
@@ -312,6 +321,7 @@ export async function PUT(req: Request, { params }: Params) {
     // The date and time window are on the order and in the booking details.
     websiteBookingDetails: parsedHandling ? scheduleBookingDetails(detailsBookingDetails, parsedHandling) : detailsBookingDetails,
     ...(customDeviation !== undefined ? { customDeviation } : {}),
+    ...(nulledLines ? { nulledOrderExtras: nulledLines.orderExtras } : {}),
   };
 
   let recomputed;

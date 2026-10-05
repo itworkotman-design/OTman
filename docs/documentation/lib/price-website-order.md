@@ -24,3 +24,7 @@ The tests check that the lines + order extras equal the total, within and over 1
 ## Km rule
 
 `useFullDistanceKmPricing` (default `true`) picks the km rule in `distanceCharges.ts`. With the new rule, the whole distance is billed once it is over 20 km. With the old rule, only the km above 20 are billed. New orders use the default. Re-pricing an existing order passes `usesFullDistanceKmPricing(order.createdAt)`, so orders made before `FULL_DISTANCE_KM_PRICING_FROM` keep the price the customer saw.
+
+## Lines set to 0
+
+Product lines set to 0 come from the cards (`nulledLineKeysFor…`). Order extras set to 0 come in as `nulledOrderExtraKeys`, a lineKey list per side, and are passed to the order-extras calculator (the floor-surcharge line included). `buildWebsiteOrderItems` also zeroes the website-only stored lines (extra-unit and assembly-extra) with `applyNulledLineKeys`, so the lines still add up to the total.

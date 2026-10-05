@@ -570,6 +570,39 @@ describe("/api/orders/[orderId]/website-items", () => {
     });
   });
 
+  describe("PUT (lines set to 0)", () => {
+    const nulledLines = {
+      cards: { 0: { customer: ["opt:inst-1"], subcontractor: [] } },
+      orderExtras: { customer: ["code:KM_FROM_21"], subcontractor: ["code:FLOOR_SURCHARGE"] },
+    };
+
+    it("puts the choices on the stored cards and the order extras, and re-prices", async () => {
+      const res = await put({ nulledLines });
+      expect(res.status).toBe(200);
+      const [pricedOrder, cards] = mocks.recomputeMock.mock.calls[0]!;
+      expect(cards[0]).toMatchObject({ cardId: 0, productId: "p-wm", nulledLineKeysForCustomer: ["opt:inst-1"], nulledLineKeysForSubcontractor: [] });
+      expect(pricedOrder.nulledOrderExtras).toEqual({ customer: ["code:KM_FROM_21"], subcontractor: ["code:FLOOR_SURCHARGE"] });
+    });
+
+    it("clears choices on cards the save doesn't list", async () => {
+      mocks.orderFindFirstMock.mockResolvedValue(
+        order({ productCardsSnapshot: [{ ...card(0, "p-wm"), nulledLineKeysForCustomer: ["opt:old"] }] }),
+      );
+      await put({ nulledLines: { cards: {}, orderExtras: { customer: [], subcontractor: [] } } });
+      const [, cards] = mocks.recomputeMock.mock.calls[0]!;
+      expect(cards[0].nulledLineKeysForCustomer).toEqual([]);
+    });
+
+    it("can be saved on a completed order, like discounts", async () => {
+      mocks.orderFindFirstMock.mockResolvedValue(order({ status: "completed" }));
+      expect((await put({ nulledLines })).status).toBe(200);
+    });
+
+    it("refuses a malformed body", async () => {
+      expect((await put({ nulledLines: { cards: "x" } })).status).toBe(400);
+    });
+  });
+
   describe("PUT (preview)", () => {
     it("prices the change and compares it with what was paid, without saving or emailing", async () => {
       mocks.orderFindFirstMock.mockResolvedValue(paidOrder(100000));

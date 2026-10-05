@@ -10,6 +10,8 @@ import {
   getPricingSnapshotCustomDeviationDescription,
   getPricingSnapshotCustomDeviationPrice,
   getPricingSnapshotCustomDeviationSubcontractorPrice,
+  getPricingSnapshotNulledOrderExtraKeysForCustomer,
+  getPricingSnapshotNulledOrderExtraKeysForSubcontractor,
 } from "@/lib/orders/orderTotals";
 import { buildWebsiteOrderItems, priceWebsiteOrder } from "@/lib/booking/pricing/priceWebsiteOrder";
 import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges";
@@ -59,6 +61,9 @@ export async function recomputeWebsiteOrderPricing(
     // Decides the km rule: orders made before FULL_DISTANCE_KM_PRICING_FROM
     // keep the old one, so re-pricing never moves what the customer saw.
     createdAt?: Date | string | null;
+    // Order extras set to 0 with the calculator's checkboxes, per side; when
+    // not given, the ones stored in the order's pricingSnapshot are kept.
+    nulledOrderExtras?: { customer: string[]; subcontractor: string[] };
   },
   rawCards: SavedProductCard[],
   // Admin saves: an admin may save an order that isn't complete yet (e.g. an
@@ -74,6 +79,11 @@ export async function recomputeWebsiteOrderPricing(
           subcontractorPrice: getPricingSnapshotCustomDeviationSubcontractorPrice(order.pricingSnapshot),
           description: getPricingSnapshotCustomDeviationDescription(order.pricingSnapshot),
         };
+
+  const nulledOrderExtras = order.nulledOrderExtras ?? {
+    customer: getPricingSnapshotNulledOrderExtraKeysForCustomer(order.pricingSnapshot),
+    subcontractor: getPricingSnapshotNulledOrderExtraKeysForSubcontractor(order.pricingSnapshot),
+  };
 
   // The volume bracket of a size-priced product is derived from its
   // width/height/length here, never taken from the client.
@@ -126,6 +136,7 @@ export async function recomputeWebsiteOrderPricing(
     deliveryLiftAvailable: floors.deliveryLiftAvailable,
     extraPickupFloors: floors.extraPickupFloors,
     useFullDistanceKmPricing: usesFullDistanceKmPricing(order.createdAt),
+    nulledOrderExtraKeys: nulledOrderExtras,
     deviation: order.deviation
       ? {
           label: order.deviation,
@@ -156,6 +167,8 @@ export async function recomputeWebsiteOrderPricing(
     customDeviationPrice: customDeviation?.price ?? null,
     customDeviationSubcontractorPrice: customDeviation?.subcontractorPrice ?? null,
     customDeviationDescription: customDeviation?.description ?? null,
+    nulledOrderExtraKeysForCustomer: nulledOrderExtras.customer,
+    nulledOrderExtraKeysForSubcontractor: nulledOrderExtras.subcontractor,
   });
 
   return {

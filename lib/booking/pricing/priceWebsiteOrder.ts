@@ -13,7 +13,7 @@ import { applyWhiteGoodsExtraUnitCharges, buildWhiteGoodsExtraUnitOrderItems } f
 import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
-import { buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
+import { applyNulledLineKeys, buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
 
 // THE price of a homepage website order. The customer's summary
 // (WhiteGoodsBookingFlow), order creation (app/api/site/white-goods-order) and
@@ -49,6 +49,9 @@ export type WebsiteOrderPricingInput = {
   // it keeps the old km rule (usesFullDistanceKmPricing(order.createdAt)).
   // New orders: the default, whole distance billed once over 20 km.
   useFullDistanceKmPricing?: boolean;
+  // Order extras (km, floors, pickups, express…) an admin set to 0 with the
+  // calculator's checkboxes, per side — lineKeys (computeLineKey).
+  nulledOrderExtraKeys?: { customer: string[]; subcontractor: string[] };
   // Line labels' language (the browser); the server keeps the default.
   locale?: "en" | "no";
 };
@@ -90,6 +93,8 @@ export function priceWebsiteOrder(input: WebsiteOrderPricingInput) {
     deliveryLiftAvailable: input.deliveryLiftAvailable,
     extraPickupFloors: input.extraPickupFloors,
     useFullDistanceKmPricing: input.useFullDistanceKmPricing,
+    nulledOrderExtraKeysForCustomer: input.nulledOrderExtraKeys?.customer ?? [],
+    nulledOrderExtraKeysForSubcontractor: input.nulledOrderExtraKeys?.subcontractor ?? [],
     deviation: input.deviation?.label ?? "",
     customDeviationPrice: input.deviation?.customPrice ?? null,
     customDeviationSubcontractorPrice: input.deviation?.customSubcontractorPrice ?? null,
@@ -127,7 +132,13 @@ export function buildWebsiteOrderItems(
       installOnlyVisitPricing: true,
       zeroBaseDeliveryPricesOver100Km: zeroBaseDelivery(options.drivingDistance),
     }),
-    ...buildWhiteGoodsExtraUnitOrderItems(cards, catalogProducts, catalogSpecialOptions),
-    ...buildWebsiteAssemblyExtraOrderItems(cards, catalogProducts),
+    // Lines set to 0 are nulled on these too, like the calculator does.
+    ...applyNulledLineKeys(
+      [
+        ...buildWhiteGoodsExtraUnitOrderItems(cards, catalogProducts, catalogSpecialOptions),
+        ...buildWebsiteAssemblyExtraOrderItems(cards, catalogProducts),
+      ],
+      cards,
+    ),
   ];
 }

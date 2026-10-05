@@ -16,3 +16,7 @@ Re-prices an existing homepage website order from a new set of product cards, us
 ## Km rule
 
 The order's `createdAt` decides the km rule (`usesFullDistanceKmPricing`). Orders made before `FULL_DISTANCE_KM_PRICING_FROM` keep the old "only km above 20" rule, so re-pricing never moves what the customer saw. Every caller passes `createdAt`: `website-items`, `website-details` and the customer's `edit-items` (via `getOrderByActionToken`). A missing date means a new order, so the new rule applies.
+
+## Order extras set to 0
+
+Taken from `order.nulledOrderExtras` when given; otherwise the ones stored in the order's `pricingSnapshot` are kept. Either way they're written back into the new snapshot.

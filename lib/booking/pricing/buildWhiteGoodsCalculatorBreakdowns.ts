@@ -41,6 +41,9 @@ type WhiteGoodsCalculatorExtrasParams = {
   // false for orders made before FULL_DISTANCE_KM_PRICING_FROM: only the km
   // above 20 are billed (see usesFullDistanceKmPricing). Default: the new rule.
   useFullDistanceKmPricing?: boolean;
+  // Order extras set to 0 by an admin (the calculator's checkboxes), per side.
+  nulledOrderExtraKeysForCustomer?: string[];
+  nulledOrderExtraKeysForSubcontractor?: string[];
   // A deviation fee an admin set afterwards (DEVIATION_FEE_OPTIONS label);
   // the custom one carries its own prices and description.
   deviation?: string;
@@ -111,6 +114,12 @@ export function buildWhiteGoodsCalculatorBreakdowns(
 
   return [
     ...breakdowns,
-    { productName: "Order extras", items: [floorItem], isOrderExtras: true },
+    {
+      productName: "Order extras",
+      items: [floorItem],
+      isOrderExtras: true,
+      nulledLineKeysForCustomer: params.nulledOrderExtraKeysForCustomer ?? [],
+      nulledLineKeysForSubcontractor: params.nulledOrderExtraKeysForSubcontractor ?? [],
+    },
   ];
 }

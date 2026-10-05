@@ -738,6 +738,14 @@ export function buildOrderItemsFromCards(
 
   }
 
+  return applyNulledLineKeys(items, productCards);
+}
+
+// The booking app's "Set to 0" choices (card.nulledLineKeysFor…): a stored
+// line nulled for the customer or the partner is priced 0 on that side.
+// Exported so lines built elsewhere for the same cards (the website's
+// extra-unit and assembly-extra lines) are nulled the same way.
+export function applyNulledLineKeys(items: BuiltOrderItem[], productCards: SavedProductCard[]): BuiltOrderItem[] {
   const nulledLineKeysByCardId = new Map(
     productCards
       .filter((card) => !card.wordpressImportReadOnly)

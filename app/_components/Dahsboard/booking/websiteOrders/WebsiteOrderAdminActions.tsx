@@ -7,6 +7,7 @@ import { ORDER_STATUS_OPTIONS, normalizeOrderStatus } from "@/lib/orders/statusP
 import { buildWebsiteOrderAdminUpdate } from "@/lib/orders/websiteOrderAdminUpdate";
 import { handlingChange, type WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
+import { websiteItemsSaveBody, type WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import { CUSTOM_DEVIATION_CODE, DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import DatePicker from "@/app/_components/utils/DatePicker";
 import { TimeWindowField } from "@/app/_components/site/BookingModal/whiteGoods/timeWindowField";
@@ -32,6 +33,8 @@ type Props = {
   children?: ReactNode;
   // Shown left of Save in the same row (the modal's "Delete order").
   besideSave?: ReactNode;
+  // The calculator's unsaved changes, stored by this Save too.
+  pricingDraft?: WebsiteOrderPricingDraft | null;
 };
 
 const CUSTOM_DEVIATION_LABEL = DEVIATION_FEE_OPTIONS.find((o) => o.code === CUSTOM_DEVIATION_CODE)?.englishLabel ?? "Custom";
@@ -44,7 +47,7 @@ const PREVIEW_DELAY_MS = 700;
 // /api/orders/[orderId]/website-items with `handling`, which re-prices —
 // express and the deviation change the total, previewed
 // against what was paid before saving).
-export default function WebsiteOrderAdminActions({ order, locale, onChanged, children, besideSave }: Props) {
+export default function WebsiteOrderAdminActions({ order, locale, onChanged, children, besideSave, pricingDraft = null }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const initial = {
     status: normalizeOrderStatus(order.status),
@@ -80,15 +83,15 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
   }, []);
 
   async function putHandling(extra: Record<string, unknown> = {}) {
-    // Discount, extra and partner minus/plus belong to the calculator — left
-    // out here so the server keeps whatever it last saved.
+    // Discount, extra and partner minus/plus come from the calculator — only
+    // sent when it changed them, otherwise the server keeps what it saved.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { rabatt, leggTil, subcontractorMinus, subcontractorPlus, ...panelFields } = handling;
     const res = await fetch(`/api/orders/${order.id}/website-items`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ handling: panelFields, ...extra }),
+      body: JSON.stringify(websiteItemsSaveBody(panelFields, extra.dryRun ? null : pricingDraft, extra)),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok && !!data?.ok, data };
@@ -126,8 +129,8 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
     REJECTION_COMMENT_REQUIRED: t("Rejecting needs a comment.", "Avvisning krever en kommentar."),
     FORBIDDEN: t("Only admins can change website orders.", "Kun administratorer kan endre nettsidebestillinger."),
     INVALID_HANDLING: t(
-      "Check the date and the deviation.",
-      "Sjekk datoen og avviket.",
+      "Check the date, the deviation and the amounts (in kroner).",
+      "Sjekk datoen, avviket og beløpene (i kroner).",
     ),
   };
 
@@ -139,7 +142,8 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
       setMessage({ tone: "error", text: reasonText[update.reason] });
       return;
     }
-    if (!statusChanged && !change.changed) {
+    const pricesChanged = !!pricingDraft;
+    if (!statusChanged && !change.changed && !pricesChanged) {
       setMessage({ tone: "error", text: t("Nothing to save.", "Ingenting å lagre.") });
       return;
     }
@@ -158,7 +162,7 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
 
     try {
       setSaving(true);
-      if (change.changed) {
+      if (change.changed || pricesChanged) {
         const { ok, data } = await putHandling();
         if (!ok) {
           const reason = data?.reason as string | undefined;
@@ -177,7 +181,7 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
         if (!res.ok || !data?.ok) {
           const reason = data?.reason as string | undefined;
           setMessage({ tone: "error", text: (reason && reasonText[reason]) || t("Couldn't save the status.", "Kunne ikke lagre statusen.") });
-          if (change.changed) onChanged();
+          if (change.changed || pricesChanged) onChanged();
           return;
         }
       }

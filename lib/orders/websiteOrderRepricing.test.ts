@@ -159,3 +159,42 @@ describe("recomputeWebsiteOrderPricing — km pricing by when the order was made
     expect(kmQty(result)).toBe(30);
   });
 });
+
+describe("recomputeWebsiteOrderPricing — order extras set to 0", () => {
+  const washer = {
+    ...otherFurniture,
+    id: "wm",
+    code: "WG_WASHING_MACHINE",
+    allowModelNumber: false,
+    options: [option("base", "base")],
+  };
+  const washerCard = { ...createEmptyProductCard(0), productId: "wm", amount: 1 };
+  const kmKey = (settings: ReturnType<typeof createDefaultPriceListSettings>) => `code:${settings.kmFrom21.code}`;
+
+  beforeEach(() => {
+    const settings = createDefaultPriceListSettings();
+    settings.kmFrom21 = { ...settings.kmFrom21, price: "10", subcontractorPrice: "5" };
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer], specialOptions: [], priceListSettings: settings });
+  });
+
+  it("applies new choices and stores them in the pricing snapshot", async () => {
+    const settings = createDefaultPriceListSettings();
+    const base = await recomputeWebsiteOrderPricing({ ...order, drivingDistance: "30" }, [washerCard]);
+    const nulled = await recomputeWebsiteOrderPricing(
+      { ...order, drivingDistance: "30", nulledOrderExtras: { customer: [kmKey(settings)], subcontractor: [] } },
+      [washerCard],
+    );
+    expect(base.priceExVat - nulled.priceExVat).toBe(300);
+    expect(nulled.pricingSnapshot).toMatchObject({ nulledOrderExtraKeysForCustomer: [kmKey(settings)], nulledOrderExtraKeysForSubcontractor: [] });
+  });
+
+  it("keeps the choices already stored on the order when none are given", async () => {
+    const settings = createDefaultPriceListSettings();
+    const result = await recomputeWebsiteOrderPricing(
+      { ...order, drivingDistance: "30", pricingSnapshot: { nulledOrderExtraKeysForCustomer: [kmKey(settings)] } },
+      [washerCard],
+    );
+    expect(result.pricingSnapshot).toMatchObject({ nulledOrderExtraKeysForCustomer: [kmKey(settings)] });
+    expect(result.orderExtras.find((line) => /km/i.test(line.label))?.price).toBe(0);
+  });
+});

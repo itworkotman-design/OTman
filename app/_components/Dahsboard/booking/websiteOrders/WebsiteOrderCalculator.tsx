@@ -1,17 +1,27 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { getVatBreakdown } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import {
+  nulledLinesFromView,
   partnerMinusForDiscount,
+  toggleNulledLine,
   type WebsiteOrderCalculatorLine,
   type WebsiteOrderCalculatorView,
+  type WebsiteOrderNulledLines,
+  type WebsiteOrderPricingDraft,
 } from "@/lib/orders/websiteOrderCalculator";
+import { parseNokAdjustment } from "@/lib/orders/orderTotals";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 
-type Adjustments = { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string };
+type Adjustments = {
+  rabatt: string;
+  leggTil: string;
+  subcontractorMinus: string;
+  subcontractorPlus: string;
+};
 
 type Props = {
   orderId: string;
@@ -24,9 +34,32 @@ type Props = {
   locale: BookingUiLocale;
   // After a save — reload the order.
   onChanged: () => void;
+  // The unsaved changes (null when there are none); the modal's Save stores them.
+  onDraftChange: (draft: WebsiteOrderPricingDraft | null) => void;
 };
 
 const PREVIEW_DELAY_MS = 700;
+
+type Side = "customer" | "partner";
+type CalculatorProduct = WebsiteOrderCalculatorView["products"][number];
+const NO_NULLED: WebsiteOrderNulledLines = {
+  cards: {},
+  orderExtras: { customer: [], subcontractor: [] },
+};
+
+// Order-independent form of the choices, to tell whether they changed.
+function canonicalNulled(nulled: WebsiteOrderNulledLines) {
+  const sorted = (keys: string[]) => [...keys].sort();
+  const cards = Object.entries(nulled.cards)
+    .map(([cardId, sides]) => [cardId, sorted(sides.customer), sorted(sides.subcontractor)] as const)
+    .filter(([, customer, subcontractor]) => customer.length > 0 || subcontractor.length > 0)
+    .sort(([a], [b]) => Number(a) - Number(b));
+  return JSON.stringify([cards, sorted(nulled.orderExtras.customer), sorted(nulled.orderExtras.subcontractor)]);
+}
+
+function hasNulled(nulled: WebsiteOrderNulledLines) {
+  return canonicalNulled(nulled) !== canonicalNulled(NO_NULLED);
+}
 
 function formatKr(n: number) {
   return `${Math.round(n).toLocaleString("nb-NO")} kr`;
@@ -55,32 +88,50 @@ export default function WebsiteOrderCalculator({
   storedTotal,
   locale,
   onChanged,
+  onDraftChange,
 }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const isAdmin = calculator.partner !== null;
   const [adj, setAdj] = useState<Adjustments>(adjustments);
+  // The booking app's "Set to 0" checkboxes: lines nulled per side.
+  const initialNulled = useMemo(() => nulledLinesFromView(calculator), [calculator]);
+  const [nulled, setNulled] = useState<WebsiteOrderNulledLines>(initialNulled);
   const [view, setView] = useState<WebsiteOrderCalculatorView>(calculator);
   const [preview, setPreview] = useState<OrderPaymentComparison | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    tone: "ok" | "error";
+    text: string;
+  } | null>(null);
   const previewSeq = useRef(0);
+  // Set by a checkbox click: skip the typing delay for that preview.
+  const immediatePreview = useRef(false);
 
-  const changed = JSON.stringify(adj) !== JSON.stringify(adjustments);
+  const changed = JSON.stringify(adj) !== JSON.stringify(adjustments) || canonicalNulled(nulled) !== canonicalNulled(initialNulled);
+  // Same rules as the booking app: lines can only be set to 0 while there is
+  // no discount / partner minus, and those inputs hide while lines are set to 0.
+  const hasDiscountValue = parseNokAdjustment(adj.rabatt) !== 0 || parseNokAdjustment(adj.subcontractorMinus) !== 0;
+  const anyNulled = hasNulled(nulled);
+
+  useEffect(() => {
+    onDraftChange(changed ? { adjustments: adj, nulledLines: nulled } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [changed, adj, nulled]);
 
   async function put(dryRun: boolean) {
     const res = await fetch(`/api/orders/${orderId}/website-items`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ handling: adj, dryRun }),
+      body: JSON.stringify({ handling: adj, nulledLines: nulled, dryRun }),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok && !!data?.ok, data };
   }
 
-  const previewKey = changed ? JSON.stringify(adj) : "";
+  const previewKey = changed ? JSON.stringify(adj) + canonicalNulled(nulled) : "";
   useEffect(() => {
     const seq = ++previewSeq.current;
     if (!previewKey) {
@@ -90,6 +141,8 @@ export default function WebsiteOrderCalculator({
       setPreviewFailed(false);
       return;
     }
+    const delay = immediatePreview.current ? 0 : PREVIEW_DELAY_MS;
+    immediatePreview.current = false;
     const timer = setTimeout(async () => {
       setPreviewing(true);
       try {
@@ -105,12 +158,14 @@ export default function WebsiteOrderCalculator({
       } finally {
         if (seq === previewSeq.current) setPreviewing(false);
       }
-    }, PREVIEW_DELAY_MS);
+    }, delay);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewKey]);
 
   function setDiscount(rabatt: string) {
+    // A discount replaces lines set to 0 (booking app: setting one clears them).
+    if (parseNokAdjustment(rabatt) !== 0) setNulled(NO_NULLED);
     // The booking app's rule: the partner minus follows the discount.
     setAdj((current) => ({
       ...current,
@@ -137,7 +192,10 @@ export default function WebsiteOrderCalculator({
       }
       onChanged();
     } catch {
-      setMessage({ tone: "error", text: t("Couldn't save the prices.", "Kunne ikke lagre prisene.") });
+      setMessage({
+        tone: "error",
+        text: t("Couldn't save the prices.", "Kunne ikke lagre prisene."),
+      });
     } finally {
       setSaving(false);
     }
@@ -166,25 +224,55 @@ export default function WebsiteOrderCalculator({
   const fieldClass = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black/85";
   const labelClass = "text-sm font-medium text-black/60";
 
-  const lineRows = (lines: WebsiteOrderCalculatorLine[], side: "customer" | "partner") =>
-    lines.map((line, index) => (
-      <Fragment key={index}>
-        <span className="flex items-center gap-2 text-black/60">
-          <span
-            aria-hidden="true"
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${side === "partner" ? "bg-amber-600" : "bg-logoblue"}`}
-          />
-          <span>
-            {line.qty > 1 && <span className="mr-1 opacity-70">x{formatQty(line.qty)}</span>}
-            {line.code && <span className={`mr-1 ${side === "partner" ? "text-amber-700" : "text-logoblue"}`}>({line.code})</span>}
-            {line.label}
+  function nulledKeys(product: CalculatorProduct, side: Side): string[] {
+    const sides = product.isOrderExtras ? nulled.orderExtras : product.cardId !== null ? nulled.cards[product.cardId] : undefined;
+    return (side === "partner" ? sides?.subcontractor : sides?.customer) ?? [];
+  }
+
+  function toggleNulled(product: CalculatorProduct, side: Side, lineKey: string, on: boolean) {
+    const target = product.isOrderExtras ? ({ orderExtras: true } as const) : product.cardId !== null ? { cardId: product.cardId } : null;
+    if (!target) return;
+    // A click is priced straight away, like the booking app's calculator.
+    immediatePreview.current = true;
+    setNulled((current) => toggleNulledLine(current, target, side, lineKey, on));
+  }
+
+  const lineRows = (product: CalculatorProduct, lines: WebsiteOrderCalculatorLine[], side: Side) =>
+    lines.map((line, index) => {
+      const canNull = isAdmin && !hasDiscountValue && !!line.lineKey && (product.cardId !== null || product.isOrderExtras);
+      const isNulled = !!line.lineKey && nulledKeys(product, side).includes(line.lineKey);
+      return (
+        <Fragment key={index}>
+          <span className={`flex items-center gap-2 text-black/60 ${isNulled ? "line-through opacity-60" : ""}`}>
+            {canNull ? (
+              <input
+                type="checkbox"
+                title={t("Set to 0", "Sett til 0")}
+                aria-label={t("Set to 0", "Sett til 0")}
+                checked={isNulled}
+                onChange={(e) => toggleNulled(product, side, line.lineKey!, e.target.checked)}
+                className="shrink-0"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${side === "partner" ? "bg-amber-600" : "bg-logoblue"}`}
+              />
+            )}
+            <span>
+              {line.qty > 1 && <span className="mr-1 opacity-70">x{formatQty(line.qty)}</span>}
+              {line.code && <span className={`mr-1 ${side === "partner" ? "text-amber-700" : "text-logoblue"}`}>({line.code})</span>}
+              {line.label}
+            </span>
           </span>
-        </span>
-        <span className="whitespace-nowrap text-right font-medium tabular-nums text-black/70">
-          {formatKr(side === "partner" ? (line.partner ?? 0) : line.customer)}
-        </span>
-      </Fragment>
-    ));
+          <span
+            className={`whitespace-nowrap text-right font-medium tabular-nums text-black/70 ${isNulled ? "line-through opacity-60" : ""}`}
+          >
+            {formatKr(side === "partner" ? (line.partner ?? 0) : line.customer)}
+          </span>
+        </Fragment>
+      );
+    });
 
   const productList = (side: "customer" | "partner") =>
     view.products.length === 0 ? (
@@ -193,12 +281,10 @@ export default function WebsiteOrderCalculator({
       <div className="mt-4 flex flex-col gap-4">
         {view.products.map((product, index) => (
           <div key={index}>
-            <p className="font-semibold text-black/85">
-              {product.isOrderExtras ? t("Order extras", "Tillegg til ordren") : product.name}
-            </p>
+            <p className="font-semibold text-black/85">{product.isOrderExtras ? t("Order extras", "Tillegg til ordren") : product.name}</p>
             {product.lines.length > 0 && (
               <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1.5 pl-1 text-sm">
-                {lineRows(product.lines, side)}
+                {lineRows(product, product.lines, side)}
               </div>
             )}
           </div>
@@ -281,16 +367,18 @@ export default function WebsiteOrderCalculator({
 
         {isAdmin && (
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1">
-              <span className={labelClass}>{t("Discount (kr)", "Rabatt (kr)")}</span>
-              <input
-                inputMode="decimal"
-                value={adj.rabatt}
-                onChange={(e) => setDiscount(e.target.value)}
-                placeholder={t("e.g. 500", "f.eks. 500")}
-                className={fieldClass}
-              />
-            </label>
+            {!anyNulled && (
+              <label className="flex flex-col gap-1">
+                <span className={labelClass}>{t("Discount (kr)", "Rabatt (kr)")}</span>
+                <input
+                  inputMode="decimal"
+                  value={adj.rabatt}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  placeholder={t("e.g. 500", "f.eks. 500")}
+                  className={fieldClass}
+                />
+              </label>
+            )}
             <label className="flex flex-col gap-1">
               <span className={labelClass}>{t("Extra (kr)", "Tillegg (kr)")}</span>
               <input
@@ -326,29 +414,38 @@ export default function WebsiteOrderCalculator({
             )}
             <div className="mt-1 flex items-center justify-between gap-4">
               <span className="text-base font-bold text-amber-900">{t("Total", "Totalt")}</span>
-              <span className="whitespace-nowrap text-2xl font-bold tabular-nums text-amber-900">
-                {formatKr(view.partner.total)}
-              </span>
+              <span className="whitespace-nowrap text-2xl font-bold tabular-nums text-amber-900">{formatKr(view.partner.total)}</span>
             </div>
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1">
-              <span className={labelClass}>{t("Partner minus (kr)", "Partner minus (kr)")}</span>
-              <input
-                inputMode="decimal"
-                value={adj.subcontractorMinus}
-                onChange={(e) => setAdj((current) => ({ ...current, subcontractorMinus: e.target.value }))}
-                placeholder={t("e.g. 200", "f.eks. 200")}
-                className={fieldClass}
-              />
-            </label>
+            {!anyNulled && (
+              <label className="flex flex-col gap-1">
+                <span className={labelClass}>{t("Partner minus (kr)", "Partner minus (kr)")}</span>
+                <input
+                  inputMode="decimal"
+                  value={adj.subcontractorMinus}
+                  onChange={(e) => {
+                    const subcontractorMinus = e.target.value;
+                    if (parseNokAdjustment(subcontractorMinus) !== 0) setNulled(NO_NULLED);
+                    setAdj((current) => ({ ...current, subcontractorMinus }));
+                  }}
+                  placeholder={t("e.g. 200", "f.eks. 200")}
+                  className={fieldClass}
+                />
+              </label>
+            )}
             <label className="flex flex-col gap-1">
               <span className={labelClass}>{t("Partner plus (kr)", "Partner pluss (kr)")}</span>
               <input
                 inputMode="decimal"
                 value={adj.subcontractorPlus}
-                onChange={(e) => setAdj((current) => ({ ...current, subcontractorPlus: e.target.value }))}
+                onChange={(e) =>
+                  setAdj((current) => ({
+                    ...current,
+                    subcontractorPlus: e.target.value,
+                  }))
+                }
                 placeholder={t("e.g. 200", "f.eks. 200")}
                 className={fieldClass}
               />
@@ -361,7 +458,11 @@ export default function WebsiteOrderCalculator({
         <div className="rounded-2xl border border-logoblue/20 bg-logoblue/5 p-4">
           <p className="mb-2 text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
           {preview && !previewFailed ? (
-            <WebsiteOrderPaymentSummary comparison={preview} locale={locale} totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")} />
+            <WebsiteOrderPaymentSummary
+              comparison={preview}
+              locale={locale}
+              totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
+            />
           ) : (
             !previewing &&
             previewFailed && (
@@ -370,27 +471,20 @@ export default function WebsiteOrderCalculator({
               </p>
             )
           )}
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-black/55">{t("Stored when you press Save.", "Lagres når du trykker Lagre.")}</p>
             <button
               type="button"
-              onClick={handleSave}
-              disabled={saving || previewFailed}
-              className="inline-flex h-10 items-center justify-center rounded-full bg-logoblue px-5 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {saving ? t("Saving…", "Lagrer…") : t("Save prices", "Lagre priser")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setAdj(adjustments)}
+              onClick={() => {
+                setAdj(adjustments);
+                setNulled(initialNulled);
+              }}
               disabled={saving}
               className="inline-flex h-10 items-center justify-center rounded-full border border-logoblue px-5 text-sm font-semibold text-logoblue disabled:opacity-50"
             >
-              {t("Undo", "Angre")}
+              {t("Reset prices", "Tilbakestill priser")}
             </button>
           </div>
-          {message && (
-            <p className={`mt-2 text-sm font-medium ${message.tone === "ok" ? "text-green-700" : "text-red-600"}`}>{message.text}</p>
-          )}
         </div>
       )}
     </div>
