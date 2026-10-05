@@ -4,7 +4,7 @@ import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
-import { sendOrderReceivedEmail } from "@/lib/orders/sendOrderReceivedEmail";
+import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
 import { promoteTempAttachmentToOrders } from "@/lib/orders/orderAttachmentStorage";
 import {
   isValidQuoteToken,
@@ -141,8 +141,9 @@ async function createSpecialGoodsQuote(body: RequestBody): Promise<{ orderId: st
     message: `Special-goods quote request placed via the homepage${linkedPhotoCount > 0 ? ` with ${linkedPhotoCount} photo(s)` : ""} — needs a manual quote before it can be approved. Customer: ${order.customerName ?? "—"}, Phone: ${order.phone ?? "—"}, Email: ${order.email ?? "—"}.`,
   });
 
-  // Best-effort (never throws) — the order is already saved.
-  await sendOrderReceivedEmail(order);
+  // Best-effort (never throws) — the order is already saved. Links the
+  // customer's "My order" login and sends the order-received email.
+  await welcomeWebsiteOrderCustomer(order);
 
   return { orderId: order.id, displayId: order.displayId, orderNumber: order.orderNumber };
 }

@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   membershipFindUnique: vi.fn(),
   orderCreate: vi.fn(),
   reserveNextManualOrderNumberMock: vi.fn(),
-  sendOrderReceivedEmailMock: vi.fn(),
+  welcomeWebsiteOrderCustomerMock: vi.fn(),
   reservePublicOrderNumberMock: vi.fn(),
   createOrderCreatedEventMock: vi.fn(),
   createOrderNotificationMock: vi.fn(),
@@ -19,8 +19,8 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-vi.mock("@/lib/orders/sendOrderReceivedEmail", () => ({
-  sendOrderReceivedEmail: mocks.sendOrderReceivedEmailMock,
+vi.mock("@/lib/customerAccounts/welcomeWebsiteOrderCustomer", () => ({
+  welcomeWebsiteOrderCustomer: mocks.welcomeWebsiteOrderCustomerMock,
 }));
 
 vi.mock("@/lib/orders/orderEvents", () => ({
@@ -170,7 +170,7 @@ describe("POST /api/site/special-goods-quote", () => {
     // Customers see the random public number, not the sequential displayId.
     await expect(res.json()).resolves.toMatchObject({ ok: true, orderNumber: "K7MQ4XZ2" });
     expect(mocks.orderCreate.mock.calls[0][0].data).toMatchObject({ displayId: 7, orderNumber: "K7MQ4XZ2" });
-    expect(mocks.sendOrderReceivedEmailMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order1", email: "customer@example.com" }));
+    expect(mocks.welcomeWebsiteOrderCustomerMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order1", email: "customer@example.com" }));
   });
 
   it("promotes the photos out of tmp/ BEFORE creating the order, and creates no order if that fails", async () => {

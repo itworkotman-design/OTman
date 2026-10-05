@@ -14,13 +14,10 @@ import {
 } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
-import { sendOrderReceivedEmail } from "@/lib/orders/sendOrderReceivedEmail";
+import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
-import { findUnsellableProductIds } from "@/lib/content/mergeWebsiteCatalogs";
-import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName, isSizePricedProduct } from "@/lib/booking/pricing/sizeBrackets";
-import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeDimensions";
 import { findWebsiteCatalogByProductCode } from "@/lib/content/websiteCatalogs";
-import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyRequirement";
+import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
 import { costliestFloor, parseFloorNumber } from "@/lib/booking/floorNumber";
 import { buildPickupNoteLines, buildWebsiteOrderTextFields } from "@/lib/orders/websiteOrderNotes";
 import { buildWhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
@@ -135,42 +132,16 @@ async function createWhiteGoodsOrder(
 
   const submittedCards = (body.productCards as SavedProductCard[] | undefined) ?? [];
 
-  if (findUnsellableProductIds(submittedCards, catalog.products).length > 0) {
-    throw new UnsellableProductError();
-  }
-
-  // Products priced by size (Other furniture): the volume bracket is DERIVED
-  // here from the customer's width/height/length — a bracket sent by the client
-  // is never trusted (small bracket + big dimensions would dodge the charge).
-  let productCards = applyDimensionDerivedVolumeBrackets(submittedCards, catalog.products);
-
-  // ...and each such card must end up with exactly one volume and one weight
-  // bracket, otherwise the surcharge could be dodged by simply not choosing.
-  if (findCardsWithSizeBracketProblems(productCards, catalog.products).length > 0) {
-    throw new SizeBracketSelectionError();
-  }
-
-  // An installation-only item with no installation picked is an order for
-  // nothing (the client auto-selects one — this is the backstop).
-  if (findInstallOnlyCardsMissingInstall(productCards, catalog.products).length > 0) {
-    throw new InstallOptionRequiredError();
-  }
-
-  // ...and say what the item is: a short name in the same plain-text rules as
-  // every other public free-text field. Stored trimmed.
-  if (findSizePricedCardsMissingName(productCards, catalog.products).length > 0) {
+  // Unsellable products, size brackets (derived from the dimensions), install-
+  // only items and item names — the same rules a later "My order" edit gets.
+  const cardsCheck = validateWebsiteOrderCards(submittedCards, catalog.products);
+  if (!cardsCheck.ok) {
+    if (cardsCheck.reason === "UNKNOWN_PRODUCT") throw new UnsellableProductError();
+    if (cardsCheck.reason === "SIZE_BRACKETS_REQUIRED") throw new SizeBracketSelectionError();
+    if (cardsCheck.reason === "INSTALL_OPTION_REQUIRED") throw new InstallOptionRequiredError();
     throw new ItemNameError();
   }
-  for (const card of productCards) {
-    const product = catalog.products.find((p) => p.id === card.productId);
-    if (product && isSizePricedProduct(product) && validateTextField(card.modelNumber)) {
-      throw new ItemNameError();
-    }
-  }
-  productCards = productCards.map((card) => {
-    const product = catalog.products.find((p) => p.id === card.productId);
-    return product && isSizePricedProduct(product) ? { ...card, modelNumber: card.modelNumber.trim() } : card;
-  });
+  const productCards = cardsCheck.cards;
 
   const pricingSource = applyOrderPricingSnapshot({
     catalogProducts: catalog.products,
@@ -424,8 +395,9 @@ async function createWhiteGoodsOrder(
     message: `Order placed via the homepage website order flow (${catalogLabels}). Customer: ${order.customerName ?? "—"}, Phone: ${order.phone ?? "—"}, Email: ${order.email ?? "—"}.`,
   });
 
-  // Best-effort (never throws) — the order is already saved.
-  await sendOrderReceivedEmail(order);
+  // Best-effort (never throws) — the order is already saved. Links the
+  // customer's "My order" login and sends the order-received email.
+  await welcomeWebsiteOrderCustomer(order);
 
   return { orderId: order.id, displayId: order.displayId, orderNumber: order.orderNumber };
 }

@@ -4,7 +4,7 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getModuleAccess } from "@/lib/users/access";
 import { getWebsiteOrderCatalog, listSeededWebsiteCatalogs } from "@/lib/content/websiteOrderCatalog";
 import { findUnsellableProductIds } from "@/lib/content/mergeWebsiteCatalogs";
-import { getRouteDistance } from "@/lib/integrations/mapbox/routeDistance";
+import { resolveDrivingDistance } from "@/lib/orders/resolveDrivingDistance";
 import {
   ItemNameRequiredError,
   SizeBracketSelectionError,
@@ -18,7 +18,6 @@ import {
   buildDetailsUpdate,
   editableDetailsFromOrder,
   parseAdminOrderDetails,
-  routeAddressesChanged,
 } from "@/lib/orders/websiteOrderDetailsEdit";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import {
@@ -284,24 +283,8 @@ export async function PUT(req: Request, { params }: Params) {
     const details = parsed.details;
 
     // The editor sends the distance it priced with (override); otherwise it
-    // is recalculated when a stop moved — and the stored one kept when the
-    // route can't be worked out (an empty or unknown address).
-    let drivingDistance = order.drivingDistance ?? "";
-    const routable = details.pickups.length > 0 && details.pickups.every((stop) => stop.address) && !!details.delivery.address;
-    if (details.drivingDistanceOverride !== null) {
-      drivingDistance = details.drivingDistanceOverride;
-    } else if (routable && routeAddressesChanged(order, details)) {
-      try {
-        const route = await getRouteDistance({
-          pickupAddress: details.pickups[0]?.address,
-          extraPickupAddresses: details.pickups.slice(1).map((stop) => stop.address),
-          deliveryAddress: details.delivery.address,
-        });
-        if (route) drivingDistance = route.distanceKm;
-      } catch (err) {
-        console.error("[website-items] Route distance failed, keeping the stored distance:", err);
-      }
-    }
+    // is recalculated when a stop moved.
+    const drivingDistance = await resolveDrivingDistance(order, details);
 
     detailsUpdate = buildDetailsUpdate({
       details,

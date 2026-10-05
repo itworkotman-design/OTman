@@ -1,0 +1,147 @@
+import { prisma } from "@/lib/db";
+import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
+import { getCustomerEditPermissions, type CustomerEditPermissions } from "@/lib/orders/customerOrderEditPolicy";
+import { editableDetailsFromOrder, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
+
+// A customer's own order as "My order" reads it. Orders are only ever found
+// through the logged-in account (customerAccountId) — never by number alone.
+
+export const CUSTOMER_ORDER_SELECT = {
+  id: true,
+  companyId: true,
+  displayId: true,
+  orderNumber: true,
+  status: true,
+  createdAt: true,
+  customerName: true,
+  customerLabel: true,
+  statusNotes: true,
+  phone: true,
+  email: true,
+  customerComments: true,
+  description: true,
+  deviation: true,
+  actionToken: true,
+  emailThreadToken: true,
+  priceExVat: true,
+  productsSummary: true,
+  rabatt: true,
+  leggTil: true,
+  subcontractorMinus: true,
+  subcontractorPlus: true,
+  pricingSnapshot: true,
+  pickupAddress: true,
+  deliveryAddress: true,
+  deliveryDate: true,
+  timeWindow: true,
+  drivingDistance: true,
+  expressDelivery: true,
+  floorNo: true,
+  lift: true,
+  extraPickupAddress: true,
+  gsmSentAt: true,
+  websiteOrderKind: true,
+  websiteBookingDetails: true,
+  productCardsSnapshot: true,
+  payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
+} as const;
+
+export async function findCustomerOrder(accountId: string, orderNumber: string) {
+  if (!orderNumber) return null;
+  return prisma.order.findFirst({ where: { customerAccountId: accountId, orderNumber }, select: CUSTOMER_ORDER_SELECT });
+}
+
+export type CustomerOrder = NonNullable<Awaited<ReturnType<typeof findCustomerOrder>>>;
+
+// What the customer edits: the full details (stops, delivery) on a homepage
+// catalog order, just contact + date on the others (moving, quotes).
+export type CustomerOrderDetails =
+  | (AdminOrderDetails & { kind: "catalog" })
+  | {
+      kind: "basic";
+      customer: { name: string; phone: string; email: string; comments: string };
+      preferredDate: string;
+      timeWindow: string;
+    };
+
+export function customerOrderDetails(order: CustomerOrder): CustomerOrderDetails {
+  const full = order.websiteOrderKind === "WHITE_GOODS" ? editableDetailsFromOrder(order) : null;
+  if (full) return { ...full, kind: "catalog" };
+  return {
+    kind: "basic",
+    customer: {
+      name: order.customerName ?? "",
+      phone: order.phone ?? "",
+      email: order.email ?? "",
+      comments: order.customerComments ?? "",
+    },
+    preferredDate: order.deliveryDate ?? "",
+    timeWindow: order.timeWindow ?? "",
+  };
+}
+
+export function customerOrderTotalIncVatNok(order: {
+  priceExVat: number;
+  rabatt: string | null;
+  leggTil: string | null;
+  pricingSnapshot: unknown;
+  websiteOrderKind: string | null;
+}) {
+  // A quote not priced yet has no total to show.
+  return order.priceExVat > 0 ? getOrderChargeAmountIncVatNok(order) : null;
+}
+
+// The order as the customer sees it — nothing internal (partner prices,
+// drivers, staff notes).
+export function customerOrderView(order: CustomerOrder, now: Date = new Date()) {
+  const permissions: CustomerEditPermissions = getCustomerEditPermissions(order, now);
+  const details = customerOrderDetails(order);
+  return {
+    order: {
+      orderNumber: order.orderNumber,
+      status: order.status,
+      websiteOrderKind: order.websiteOrderKind,
+      customerName: order.customerName,
+      phone: order.phone,
+      email: order.email,
+      customerComments: order.customerComments,
+      pickupAddress: order.pickupAddress,
+      extraPickupAddress: order.extraPickupAddress,
+      deliveryAddress: order.deliveryAddress,
+      deliveryDate: order.deliveryDate,
+      timeWindow: order.timeWindow,
+      productsSummary: order.productsSummary,
+      totalIncVatNok: customerOrderTotalIncVatNok(order),
+    },
+    permissions: { ...permissions, canEditItems: permissions.canEditItems && details.kind === "catalog" },
+    details,
+  };
+}
+
+// The account's orders for the "My orders" list, newest first.
+export async function listCustomerOrders(accountId: string) {
+  const orders = await prisma.order.findMany({
+    where: { customerAccountId: accountId, orderNumber: { not: null } },
+    orderBy: { createdAt: "desc" },
+    select: {
+      orderNumber: true,
+      status: true,
+      deliveryDate: true,
+      timeWindow: true,
+      productsSummary: true,
+      priceExVat: true,
+      rabatt: true,
+      leggTil: true,
+      pricingSnapshot: true,
+      websiteOrderKind: true,
+    },
+  });
+  return orders.map((order) => ({
+    orderNumber: order.orderNumber as string,
+    status: order.status,
+    deliveryDate: order.deliveryDate,
+    timeWindow: order.timeWindow,
+    productsSummary: order.productsSummary,
+    totalIncVatNok: customerOrderTotalIncVatNok(order),
+  }));
+}

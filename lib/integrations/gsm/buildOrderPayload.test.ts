@@ -115,6 +115,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     stripeAmountChargedCents: null,
     paymentRequestSentAt: null,
     paymentReminderSentAt: null,
+    customerAccountId: null,
     ...overrides,
   };
 }

@@ -15,3 +15,5 @@ Creates a homepage website order (all website catalogs: white goods, furniture, 
 - equal → the order is stored at that total, and `shownTotal` is kept in `websiteBookingDetails` for the admin's sanity check (`checkWebsiteOrderTotals`).
 
 Other validation errors are `422 VALIDATION_FAILED` with `errors`.
+
+The product cards are checked with `validateWebsiteOrderCards` (the same rules a later "My order" edit gets). Once the order is saved, `welcomeWebsiteOrderCustomer` links or creates the customer's "My order" account and sends the order-received email, plus the password email for a new account. See `docs/documentation/lib/customer-accounts.md`.

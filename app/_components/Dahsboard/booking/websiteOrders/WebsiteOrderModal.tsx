@@ -14,6 +14,7 @@ import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import WebsiteOrderAttachments from "./WebsiteOrderAttachments";
+import WebsiteOrderCustomerLoginButton from "./WebsiteOrderCustomerLoginButton";
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
@@ -180,6 +181,7 @@ export default function WebsiteOrderModal({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <WebsiteOrderCustomerLoginButton orderId={order.id} email={order.email} t={t} onResult={setEditNotice} />
               {canEditOrder && !editingOrder && (
                 <button
                   type="button"

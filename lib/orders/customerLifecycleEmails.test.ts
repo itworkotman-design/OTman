@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildBalanceDueEmail, buildOrderConfirmedEmail, buildOrderReceivedEmail } from "./customerLifecycleEmails";
+import {
+  buildBalanceDueEmail,
+  buildOrderConfirmedEmail,
+  buildOrderReceivedEmail,
+  buildOrderUpdatedEmail,
+} from "./customerLifecycleEmails";
 
 beforeEach(() => {
   process.env.ORDER_ACTION_BASE_URL = "https://otman.no";
@@ -105,5 +110,63 @@ describe("buildOrderReceivedEmail", () => {
     const { html } = buildOrderReceivedEmail(order);
 
     expect(html).toContain("svar på denne e-posten");
+  });
+
+  it("has no login block when the order has no customer account", () => {
+    const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2" });
+
+    expect(html).not.toContain("/min-bestilling");
+  });
+
+  it("links to My order and gives the username, saying the password comes separately", () => {
+    const { html } = buildOrderReceivedEmail({
+      ...order,
+      orderNumber: "K7MQ4XZ2",
+      customerLogin: { email: "ola@example.com", hasNewPassword: true },
+    });
+
+    expect(html).toContain("https://otman.no/min-bestilling/K7MQ4XZ2");
+    expect(html).toContain("ola@example.com");
+    expect(html).toContain("egen e-post");
+  });
+
+  it("tells a returning customer to use their existing password, with a forgot-password link", () => {
+    const { html } = buildOrderReceivedEmail({
+      ...order,
+      orderNumber: "K7MQ4XZ2",
+      customerLogin: { email: "ola@example.com", hasNewPassword: false },
+    });
+
+    expect(html).toContain("passordet du allerede har");
+    expect(html).toContain("https://otman.no/min-bestilling/logg-inn?glemt=1");
+    expect(html).not.toContain("egen e-post");
+  });
+});
+
+describe("buildOrderUpdatedEmail", () => {
+  it("lists the changes and the new total, with a link back to the order", () => {
+    const { subject, html } = buildOrderUpdatedEmail({
+      ...order,
+      orderNumber: "K7MQ4XZ2",
+      actionToken: null,
+      orderUpdate: { changes: ["Lagt til: Utpakking", "Telefon: <1> → 2"], totalIncVatNok: 1749 },
+    });
+
+    expect(subject).toContain("#K7MQ4XZ2");
+    expect(html).toContain("Lagt til: Utpakking");
+    expect(html).toContain("Telefon: &lt;1&gt; → 2");
+    expect(html).toContain("1");
+    expect(html).toContain("749");
+    expect(html).toContain("https://otman.no/min-bestilling/K7MQ4XZ2");
+  });
+
+  it("leaves out the total when the order has no price", () => {
+    const { html } = buildOrderUpdatedEmail({
+      ...order,
+      orderNumber: "K7MQ4XZ2",
+      orderUpdate: { changes: ["Notat endret"], totalIncVatNok: null },
+    });
+
+    expect(html).not.toContain("Ny totalpris");
   });
 });

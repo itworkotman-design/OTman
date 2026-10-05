@@ -11,9 +11,12 @@ import {
   buildBalanceDueEmail,
   buildOrderConfirmedEmail,
   buildOrderReceivedEmail,
+  buildOrderUpdatedEmail,
   type LifecycleEmailOrder,
 } from "@/lib/orders/customerLifecycleEmails";
 
+// The kinds staff can (re)send from the dashboard. order_updated is only sent
+// by the customer edit route, which has the change list it needs.
 export const LIFECYCLE_EMAIL_KINDS = [
   "payment_request",
   "rejected",
@@ -22,13 +25,14 @@ export const LIFECYCLE_EMAIL_KINDS = [
   "order_confirmed",
   "order_received",
 ] as const;
-export type LifecycleEmailKind = (typeof LIFECYCLE_EMAIL_KINDS)[number];
+export type LifecycleEmailKind = (typeof LIFECYCLE_EMAIL_KINDS)[number] | "order_updated";
 
 // order_received goes out at submission, before staff approve/reject mint an
-// actionToken, and contains no action links — every other kind builds links
-// from the token and must not send without one.
+// actionToken, and order_updated links to "My order" (by order number), not
+// to the token pages — every other kind builds links from the token and must
+// not send without one.
 export function lifecycleKindRequiresActionToken(kind: LifecycleEmailKind): boolean {
-  return kind !== "order_received";
+  return kind !== "order_received" && kind !== "order_updated";
 }
 
 export type LifecycleEmailOrderInput = LifecycleEmailOrder & {
@@ -55,6 +59,7 @@ function buildEmailForKind(kind: LifecycleEmailKind, order: LifecycleEmailOrder)
   if (kind === "balance_due") return buildBalanceDueEmail(order);
   if (kind === "order_confirmed") return buildOrderConfirmedEmail(order);
   if (kind === "order_received") return buildOrderReceivedEmail(order);
+  if (kind === "order_updated") return buildOrderUpdatedEmail(order);
   return buildPaymentTimeoutEmail(order);
 }
 

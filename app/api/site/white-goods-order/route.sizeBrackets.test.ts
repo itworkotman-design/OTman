@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   getWebsiteOrderCatalog: vi.fn(),
 }));
 
-vi.mock("@/lib/orders/sendOrderReceivedEmail", () => ({ sendOrderReceivedEmail: vi.fn() }));
+vi.mock("@/lib/customerAccounts/welcomeWebsiteOrderCustomer", () => ({ welcomeWebsiteOrderCustomer: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: { membership: { findUnique: mocks.membershipFindUnique } },
 }));

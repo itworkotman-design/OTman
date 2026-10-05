@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: "INVALID_ORDER_IDS" }, { status: 400 });
   }
 
-  if (!VALID_KINDS.includes(kind as LifecycleEmailKind)) {
+  if (!(VALID_KINDS as readonly string[]).includes(kind)) {
     return NextResponse.json({ ok: false, reason: "INVALID_KIND" }, { status: 400 });
   }
 

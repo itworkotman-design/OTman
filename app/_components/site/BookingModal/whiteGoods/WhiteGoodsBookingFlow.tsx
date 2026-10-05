@@ -25,6 +25,8 @@ import {
 } from "./pickupLocations";
 import { adminDetailsFromFlow, pickupStateFromStops } from "./adminOrderState";
 import WebsiteOrderAdminFooter from "@/app/_components/Dahsboard/booking/websiteOrders/WebsiteOrderAdminFooter";
+import CustomerOrderEditFooter from "@/app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter";
+import type { CustomerEditDraft } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
 import type { AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
@@ -105,10 +107,23 @@ export type WhiteGoodsAdminEdit = {
   onSaved: (message: string) => void;
 };
 
+// The same flow, opened by the customer on their own order in "My order"
+// (app/(site)/[locale]/min-bestilling): prefilled from GET
+// /api/customer/orders/[orderNumber], saved through its PUT. Within 24h of
+// the time window (`beforeCutoff` false) only the product options (delivery
+// type, add-ons) and the contact details stay open — see
+// lib/orders/customerOrderEditPolicy.ts, which the server enforces.
+export type WhiteGoodsCustomerEdit = {
+  orderNumber: string;
+  beforeCutoff: boolean;
+  onSaved: (message: string) => void;
+};
+
 type Props = {
   locale: Locale;
   onClose: () => void;
   admin?: WhiteGoodsAdminEdit;
+  customer?: WhiteGoodsCustomerEdit;
 };
 
 
@@ -142,7 +157,7 @@ function AutoAdvance({
   return null;
 }
 
-export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
+export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const bookingLocale = toBookingLocale(locale);
 
@@ -266,6 +281,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
   // The route as loaded — the distance is only looked up again once a stop
   // actually changes, so opening and saving never re-prices by itself.
   const adminInitialRouteKey = useRef<string | null>(null);
+  // Customer editing: the order as loaded, to send only what they changed.
+  const [customerInitialDraft, setCustomerInitialDraft] = useState<CustomerEditDraft | null>(null);
+  // Within 24h of the job: only product options and contact details.
+  const customerLocked = !!customer && !customer.beforeCutoff;
 
   // Every card on the order — the pool the first pickup location's
   // checklist offers, before any of it gets claimed.
@@ -378,7 +397,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
   // A stable key for the effect below — extraPickupLocations gets a new
   // identity on every keystroke in any of its fields, not just address ones.
   const routeStopsKey = routeStops ? JSON.stringify(routeStops) : "";
-  const isAdmin = !!admin;
+  // An existing order being edited (by an admin or the customer).
+  const isAdmin = !!admin || !!customer;
 
   useEffect(() => {
     if (isAdmin && adminInitialRouteKey.current === null) return;
@@ -450,6 +470,71 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Admin / customer editing: put a loaded order into the flow's own state.
+  function loadOrderIntoFlow(loaded: {
+    products: CatalogProduct[];
+    categories: { code: string; productIds: string[] }[];
+    cards: SavedProductCard[];
+    details: AdminOrderDetails;
+    drivingDistance: string | null;
+  }) {
+    const { products, categories, cards, details } = loaded;
+    const lists: Record<string, CatalogProduct[]> = {};
+    for (const category of categories) {
+      lists[category.code] = category.productIds.flatMap((id) => products.find((p) => p.id === id) ?? []);
+    }
+    const onOrder = new Set(cards.map((card) => card.productId));
+    setLoadedProducts((current) => ({ ...current, ...lists }));
+    setChosenListCodes(categories.filter((c) => c.productIds.some((id) => onOrder.has(id))).map((c) => c.code));
+    setProductCards(cards);
+
+    setCustomerType(details.customer.customerType);
+    setName(details.customer.name);
+    setPhone(details.customer.phone);
+    setEmail(details.customer.email);
+    setNotes(details.customer.comments);
+
+    const [first] = details.pickups;
+    setPickupSource(first?.source ?? null);
+    setPickupPlaceName(first?.placeName ?? "");
+    setPickupAddress(first?.address ?? "", !!first?.address);
+    setPickupFloor(first?.floor ?? null);
+    setPickupLiftAvailable(first?.liftAvailable ?? false);
+    setPickupContactName(first?.contactName ?? "");
+    setPickupContactPhone(first?.contactPhone ?? "");
+
+    // Which products each stop collects — the names stored at booking
+    // are the Norwegian checklist names (the site's default language).
+    const nameOf = (cardId: number) => {
+      const card = cards.find((c) => c.cardId === cardId);
+      const product = card?.productId ? products.find((p) => p.id === card.productId) : undefined;
+      if (!card || !product) return "";
+      const base = getCalculatorProductName({ product, itemName: card.modelNumber, label: productLabel("no", product) });
+      const siblings = cards.filter((c) => c.productId === card.productId);
+      return siblings.length > 1 ? `${base} #${siblings.indexOf(card) + 1}` : base;
+    };
+    const pickupState = pickupStateFromStops({ cards, stops: details.pickups, nameOf });
+    setAllProductsPickedUpHere(pickupState.allProductsPickedUpHere);
+    setPickupCardIds(pickupState.pickupCardIds);
+    setExtraPickupLocations(pickupState.extraLocations);
+
+    setDeliveryAddress(details.delivery.address, !!details.delivery.address);
+    setDeliveryFloor(details.delivery.floor);
+    setDeliveryLiftAvailable(details.delivery.liftAvailable);
+    setPreferredDate(details.preferredDate);
+    setTimeWindow(details.timeWindow);
+    setDrivingDistance(loaded.drivingDistance ?? "");
+    adminInitialRouteKey.current = JSON.stringify(
+      routeStopsForDistance({
+        pickupAddress: first?.address ?? "",
+        pickupAddressSelected: !!first?.address,
+        extraLocations: pickupState.extraLocations,
+        deliveryAddress: details.delivery.address,
+        deliveryAddressSelected: !!details.delivery.address,
+      }) ?? "",
+    );
+  }
+
   // Admin: load the order into the flow's own state.
   useEffect(() => {
     if (!admin) return;
@@ -460,65 +545,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
         const json = await res.json();
         if (cancelled) return;
         if (!json?.ok || !json.details) throw new Error(json?.reason ?? "load failed");
-        const products = json.catalogProducts as CatalogProduct[];
-        const categories = json.categories as { code: string; productIds: string[] }[];
-        const cards = json.productCards as SavedProductCard[];
-        const details = json.details as AdminOrderDetails;
-
-        const lists: Record<string, CatalogProduct[]> = {};
-        for (const category of categories) {
-          lists[category.code] = category.productIds.flatMap((id) => products.find((p) => p.id === id) ?? []);
-        }
-        const onOrder = new Set(cards.map((card) => card.productId));
-        setLoadedProducts((current) => ({ ...current, ...lists }));
-        setChosenListCodes(categories.filter((c) => c.productIds.some((id) => onOrder.has(id))).map((c) => c.code));
-        setProductCards(cards);
-
-        setCustomerType(details.customer.customerType);
-        setName(details.customer.name);
-        setPhone(details.customer.phone);
-        setEmail(details.customer.email);
-        setNotes(details.customer.comments);
-
-        const [first] = details.pickups;
-        setPickupSource(first?.source ?? null);
-        setPickupPlaceName(first?.placeName ?? "");
-        setPickupAddress(first?.address ?? "", !!first?.address);
-        setPickupFloor(first?.floor ?? null);
-        setPickupLiftAvailable(first?.liftAvailable ?? false);
-        setPickupContactName(first?.contactName ?? "");
-        setPickupContactPhone(first?.contactPhone ?? "");
-
-        // Which products each stop collects — the names stored at booking
-        // are the Norwegian checklist names (the site's default language).
-        const nameOf = (cardId: number) => {
-          const card = cards.find((c) => c.cardId === cardId);
-          const product = card?.productId ? products.find((p) => p.id === card.productId) : undefined;
-          if (!card || !product) return "";
-          const base = getCalculatorProductName({ product, itemName: card.modelNumber, label: productLabel("no", product) });
-          const siblings = cards.filter((c) => c.productId === card.productId);
-          return siblings.length > 1 ? `${base} #${siblings.indexOf(card) + 1}` : base;
-        };
-        const pickupState = pickupStateFromStops({ cards, stops: details.pickups, nameOf });
-        setAllProductsPickedUpHere(pickupState.allProductsPickedUpHere);
-        setPickupCardIds(pickupState.pickupCardIds);
-        setExtraPickupLocations(pickupState.extraLocations);
-
-        setDeliveryAddress(details.delivery.address, !!details.delivery.address);
-        setDeliveryFloor(details.delivery.floor);
-        setDeliveryLiftAvailable(details.delivery.liftAvailable);
-        setPreferredDate(details.preferredDate);
-        setTimeWindow(details.timeWindow);
-        setDrivingDistance(json.drivingDistance ?? "");
-        adminInitialRouteKey.current = JSON.stringify(
-          routeStopsForDistance({
-            pickupAddress: first?.address ?? "",
-            pickupAddressSelected: !!first?.address,
-            extraLocations: pickupState.extraLocations,
-            deliveryAddress: details.delivery.address,
-            deliveryAddressSelected: !!details.delivery.address,
-          }) ?? "",
-        );
+        loadOrderIntoFlow({
+          products: json.catalogProducts,
+          categories: json.categories,
+          cards: json.productCards,
+          details: json.details,
+          drivingDistance: json.drivingDistance,
+        });
         setAdminComparison(json.comparison);
         setAdminHandling(json.handling ?? null);
         setAdminUseFullKm(json.useFullDistanceKmPricing !== false);
@@ -532,6 +565,61 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [admin?.orderId]);
+
+  // Customer ("My order"): the same, from their own order.
+  useEffect(() => {
+    if (!customer) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/customer/orders/${encodeURIComponent(customer.orderNumber)}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = await res.json();
+        if (cancelled) return;
+        if (!json?.ok || json.details?.kind !== "catalog" || !json.catalog) throw new Error(json?.reason ?? "load failed");
+        loadOrderIntoFlow({
+          products: json.catalog.products,
+          categories: json.categories,
+          cards: json.productCards,
+          details: json.details,
+          drivingDistance: json.drivingDistance,
+        });
+        // Staff-set parts of the price (discount, extra, deviation, express),
+        // so the live summary matches what the server will charge.
+        const context = json.pricingContext;
+        setAdminHandling({
+          driver: "",
+          secondDriver: "",
+          driverInfo: "",
+          licensePlate: "",
+          description: "",
+          deliveryDate: "",
+          timeWindow: "",
+          subcontractorMinus: "",
+          subcontractorPlus: "",
+          expressDelivery: context?.expressDelivery === true,
+          rabatt: context?.rabatt ?? "",
+          leggTil: context?.leggTil ?? "",
+          deviation: context?.deviation ?? "",
+          customDeviation: {
+            price: context?.customDeviation?.price ?? null,
+            subcontractorPrice: null,
+            description: context?.customDeviation?.description ?? null,
+          },
+        });
+        setAdminUseFullKm(context?.useFullDistanceKmPricing !== false);
+        setAdminReady(true);
+      } catch {
+        if (!cancelled) setAdminLoadError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer?.orderNumber]);
 
   // The start list shown on the first step: the first chosen list that still
   // has products (emptying white goods while furniture remains makes furniture
@@ -966,9 +1054,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
                         deliveryPreview={previewCardDeliveryOptions(productCards, catalogProducts, card.cardId)}
                         onChange={(next) => updateCard(card.cardId, next)}
                         variantNumber={isSplit ? siblings.indexOf(card) + 1 : undefined}
-                        onRemove={isSplit ? () => removeCard(card.cardId) : undefined}
+                        onRemove={isSplit && !customerLocked ? () => removeCard(card.cardId) : undefined}
                         onAddAnother={
-                          isLastOfProduct && !isSizePricedProduct(product)
+                          isLastOfProduct && !isSizePricedProduct(product) && !customerLocked
                             ? () => addAnotherCard(product.id)
                             : undefined
                         }
@@ -1009,7 +1097,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
   });
 
   const moreSections: StepSection[] =
-    (admin || chosenListCodes.length > 0) && remainingLists.length > 0
+    (admin || chosenListCodes.length > 0) && remainingLists.length > 0 && !customerLocked
       ? [
           {
             id: "more-products",
@@ -1052,9 +1140,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
         />
       ),
     },
-    // An admin adds categories through "any other products?" instead —
+    // An admin (or the customer changing their order) adds categories through "any other products?" instead —
     // picking a different start category here would empty the order.
-    ...(admin ? [] : ([{
+    ...(admin || customer ? [] : ([{
       id: "pickup-category",
       title: t("What are we picking up?", "Hva skal vi hente?"),
       render: ({ onComplete }) => (
@@ -1224,7 +1312,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
             setNotes={setNotes}
           />
 
-          {!admin && (
+          {!admin && !customer && (
           <button
             type="button"
             disabled={!canContinueContact}
@@ -1371,52 +1459,109 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin }: Props) {
       ),
   };
 
+  // The edited order in the editors' shape (admin and customer saves).
+  const editedDetails = adminDetailsFromFlow({
+    customerType,
+    name,
+    phone,
+    email,
+    notes,
+    firstPickup: {
+      source: pickupSource,
+      placeName: pickupPlaceName,
+      address: pickupAddress,
+      floor: pickupSource === "store" ? null : pickupFloor,
+      liftAvailable: pickupSource === "store" ? false : pickupLiftAvailable,
+      contactName: pickupContactName,
+      contactPhone: pickupContactPhone,
+      cardIds: location0Claimed,
+      productNames: location0Claimed.map(pickupChecklistName),
+    },
+    extraPickups: extraPickupLocations.map((loc, i) => {
+      const claimed = claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds);
+      return {
+        source: loc.source,
+        placeName: loc.placeName,
+        address: loc.address,
+        floor: loc.source === "store" ? null : loc.floor,
+        liftAvailable: loc.source === "store" ? false : loc.liftAvailable,
+        contactName: loc.contactName,
+        contactPhone: loc.contactPhone,
+        cardIds: claimed,
+        productNames: claimed.map(pickupChecklistName),
+      };
+    }),
+    delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
+    preferredDate,
+    timeWindow,
+    drivingDistance,
+  });
+  const customerDraft: CustomerEditDraft = {
+    customer: { name, phone, email, comments: notes },
+    preferredDate,
+    timeWindow,
+    pickups: editedDetails.pickups,
+    delivery: editedDetails.delivery,
+    productCards,
+  };
+  const customerDraftKey = JSON.stringify(customerDraft);
+
+  // The order as loaded, once the flow has settled (its own effects tidy the
+  // loaded state on the first renders) — what "only send what changed"
+  // compares with.
+  useEffect(() => {
+    if (!customer || !adminReady || customerInitialDraft) return;
+    const timer = setTimeout(() => setCustomerInitialDraft(JSON.parse(customerDraftKey)), 300);
+    return () => clearTimeout(timer);
+  }, [customer, adminReady, customerInitialDraft, customerDraftKey]);
+
+  const loadingSections: StepSection[] = [
+    {
+      id: "admin-loading",
+      title: adminLoadError ? t("Couldn't load the order", "Kunne ikke laste bestillingen") : t("Loading order…", "Laster bestilling…"),
+      render: () => null,
+    },
+  ];
+
+  if (customer) {
+    // The customer type was answered at booking; within 24h only the
+    // product options and contact details are left.
+    const customerSections = sections.filter(
+      (section) =>
+        section.id !== "customer-type" &&
+        (!customerLocked || section.id.startsWith("product-options-") || section.id === "contact"),
+    );
+    return (
+      <SteppedModal
+        showAll
+        sections={adminReady ? customerSections : loadingSections}
+        finalStep={finalStep}
+        onClose={onClose}
+        title={
+          <span className="truncate text-base font-semibold text-logoblue">
+            {t("Change order", "Endre bestilling")} #{customer.orderNumber}
+          </span>
+        }
+        footer={
+          adminReady && customerInitialDraft ? (
+            <CustomerOrderEditFooter
+              orderNumber={customer.orderNumber}
+              initial={customerInitialDraft}
+              current={customerDraft}
+              beforeCutoff={customer.beforeCutoff}
+              locale={locale}
+              onCancel={onClose}
+              onSaved={customer.onSaved}
+            />
+          ) : null
+        }
+      />
+    );
+  }
+
   if (admin) {
-    const adminDetails = adminDetailsFromFlow({
-      customerType,
-      name,
-      phone,
-      email,
-      notes,
-      firstPickup: {
-        source: pickupSource,
-        placeName: pickupPlaceName,
-        address: pickupAddress,
-        floor: pickupSource === "store" ? null : pickupFloor,
-        liftAvailable: pickupSource === "store" ? false : pickupLiftAvailable,
-        contactName: pickupContactName,
-        contactPhone: pickupContactPhone,
-        cardIds: location0Claimed,
-        productNames: location0Claimed.map(pickupChecklistName),
-      },
-      extraPickups: extraPickupLocations.map((loc, i) => {
-        const claimed = claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds);
-        return {
-          source: loc.source,
-          placeName: loc.placeName,
-          address: loc.address,
-          floor: loc.source === "store" ? null : loc.floor,
-          liftAvailable: loc.source === "store" ? false : loc.liftAvailable,
-          contactName: loc.contactName,
-          contactPhone: loc.contactPhone,
-          cardIds: claimed,
-          productNames: claimed.map(pickupChecklistName),
-        };
-      }),
-      delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
-      preferredDate,
-      timeWindow,
-      drivingDistance,
-    });
-    const adminSections: StepSection[] = adminReady
-      ? sections
-      : [
-          {
-            id: "admin-loading",
-            title: adminLoadError ? t("Couldn't load the order", "Kunne ikke laste bestillingen") : t("Loading order…", "Laster bestilling…"),
-            render: () => null,
-          },
-        ];
+    const adminDetails = editedDetails;
+    const adminSections: StepSection[] = adminReady ? sections : loadingSections;
     return (
       <SteppedModal
         showAll

@@ -111,6 +111,15 @@ pass once this area stabilizes, per `docs/documentation/README.md`'s convention.
 
 ## 4. What's already built for payment & post-purchase (don't rebuild this)
 
+> **Update 2026-10-05 — "My order" customer accounts.**
+> - **Accounts:** every homepage order now gets a temporary customer account (username = email, generated password sent via Brevo). The order-received email links to `/{locale}/min-bestilling`.
+> - **What customers can change:** contact details, notes and add-ons can be changed directly until the order closes; date, addresses and products until 24h before the time window. Cancelling is direct until then, and a request after.
+> - **Staff:** every change notifies staff.
+> - **Lifetime:** accounts are deleted one day after their last order closes, unless an order is on `gdprHold`.
+> - **Docs:** `docs/documentation/lib/customer-accounts.md` and `customer-order-edit-policy.md`.
+>
+> The token links described below still work unchanged. Stripe isn't wired into My order yet: a price change only updates the order.
+
 This is more complete than the diagram implies, and more complete than the user's
 framing ("we will also need to implement... a 1-time code") suggested going in —
 worth knowing precisely what exists so new work extends it instead of duplicating it.

@@ -224,6 +224,12 @@ export function compareOrderWithPayments(params: {
   };
 }
 
+// What changed between any two states of an order (e.g. before and after a
+// customer's own edit in "My order").
+export function diffOrderStates(before: OrderStateSnapshot, after: OrderStateSnapshot) {
+  return { lineChanges: diffLines(before.lines, after.lines), detailChanges: diffDetails(before.details, after.details) };
+}
+
 // Changed and removed lines in the paid order's order, then added ones.
 function diffLines(before: OrderStateLine[], after: OrderStateLine[]): OrderLineChange[] {
   const afterByKey = new Map(after.map((l) => [l.key, l]));

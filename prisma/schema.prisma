@@ -605,6 +605,10 @@ model Order {
   stripeAmountChargedCents Int?
   paymentRequestSentAt     DateTime?
   paymentReminderSentAt    DateTime?
+  // The temporary customer account ("My order") a homepage order belongs to —
+  // see lib/customerAccounts/. Cleared when the account is deleted.
+  customerAccountId        String?
+  customerAccount          CustomerAccount? @relation(fields: [customerAccountId], references: [id], onDelete: SetNull)
 
   @@unique([companyId, displayId])
   @@unique([recurringOrderTemplateId, recurringOrderOccurrenceDate])
@@ -628,6 +632,37 @@ model Order {
   @@index([status, paymentReminderSentAt])
   @@index([customPickupAddressId])
   @@index([customReturnAddressId])
+  @@index([customerAccountId])
+}
+
+// A temporary login for a homepage customer: username = their email, a
+// generated password emailed at order time. Lives only as long as its orders
+// need it (lib/customerAccounts/accountLifetime.ts) and is deleted by the
+// customer-account-cleanup cron. Deliberately separate from User/Session,
+// which grant dashboard access.
+model CustomerAccount {
+  id           String            @id @default(cuid())
+  // Lowercased.
+  email        String            @unique
+  passwordHash String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  lastLoginAt  DateTime?
+  orders       Order[]
+  sessions     CustomerSession[]
+}
+
+model CustomerSession {
+  id                String          @id @default(cuid())
+  customerAccountId String
+  tokenHash         String          @unique
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  lastSeenAt        DateTime?
+  createdAt         DateTime        @default(now())
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([customerAccountId, expiresAt])
 }
 
 // One row per completed Stripe charge on an order — an order can be paid in

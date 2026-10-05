@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // request-level validation and rate limiting, which run before any of that
 // pipeline is touched.
 
-vi.mock("@/lib/orders/sendOrderReceivedEmail", () => ({ sendOrderReceivedEmail: vi.fn() }));
+vi.mock("@/lib/customerAccounts/welcomeWebsiteOrderCustomer", () => ({ welcomeWebsiteOrderCustomer: vi.fn() }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {

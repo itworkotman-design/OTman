@@ -16,6 +16,7 @@ Amounts are what the customer is charged (`getOrderChargeAmountIncVatNok`). Home
   - **Lines:** one per product + option label (from `pricingSnapshot`), one per order extra (group `extras`), plus discount/surcharge (group `adjustment`), merged by key.
   - **Details:** raw values for every pickup stop (`pickup.<n>.address|place|floor|lift|contact`), the delivery (`delivery.address|floor|lift`), `date`, `timeWindow` and `distance`, using the live order columns laid over the booking details.
 - `parseOrderStateSnapshot(value)` — reads a stored snapshot back. Returns `null` for anything malformed.
+- `diffOrderStates(before, after)` — `{ lineChanges, detailChanges }` between any two snapshots. The customer's "My order" edit uses it to describe what they changed to staff and in the `order_updated` email.
 - `compareOrderWithPayments({ payments, current })` — returns:
   - `outcome`: `unpaid`, `due`, `refund` or `settled`.
   - `totalPaidIncVatNok` (the sum of every payment), `currentTotalIncVatNok`, and `differenceIncVatNok` (current − paid).

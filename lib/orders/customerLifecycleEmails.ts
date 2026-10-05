@@ -22,9 +22,16 @@ export type LifecycleEmailOrder = {
     // Ready-made lines from lib/orders/orderChangeText.ts.
     changes: string[];
   };
+  // order_received only: the order's temporary customer account ("My order",
+  // lib/customerAccounts/). The password itself never goes through these
+  // Gmail emails — it is sent on its own (customerCredentialsEmail.ts).
+  customerLogin?: { email: string; hasNewPassword: boolean };
+  // order_updated only: what the customer changed, and the new total (null =
+  // the order has no price, e.g. a quote).
+  orderUpdate?: { changes: string[]; totalIncVatNok: number | null };
 };
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -33,7 +40,7 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-function buildSimpleEmailShell(content: string) {
+export function buildSimpleEmailShell(content: string) {
   const logoUrl = getOrderEmailLogoUrl();
 
   return `
@@ -56,7 +63,7 @@ function buildSimpleEmailShell(content: string) {
   `;
 }
 
-function buttonLink(url: string, label: string, color = "#273097") {
+export function buttonLink(url: string, label: string, color = "#273097") {
   return `
     <a href="${escapeHtml(url)}"
       style="display:inline-block;background-color:${color};color:#ffffff;padding:12px 20px;text-decoration:none;font-weight:600;border-radius:6px;font-family:Arial,Helvetica,sans-serif;font-size:14px;margin:6px 8px 6px 0;">
@@ -83,11 +90,22 @@ export function buildOrderActionUrls(token: string) {
   };
 }
 
-function customerGreetingName(order: LifecycleEmailOrder) {
+// "My order" pages (app/(site)/[locale]/min-bestilling). Un-prefixed like
+// the other action links — proxy.ts adds the default locale.
+export function buildCustomerOrderUrls(orderNumber: string) {
+  const baseUrl = getOrderActionBaseUrl();
+
+  return {
+    orderUrl: `${baseUrl}/min-bestilling/${encodeURIComponent(orderNumber)}`,
+    forgotPasswordUrl: `${baseUrl}/min-bestilling/logg-inn?glemt=1`,
+  };
+}
+
+export function customerGreetingName(order: Pick<LifecycleEmailOrder, "customerName" | "customerLabel">) {
   return order.customerName?.trim() || order.customerLabel?.trim() || "kunde";
 }
 
-function orderReference(order: LifecycleEmailOrder) {
+export function orderReference(order: Pick<LifecycleEmailOrder, "orderNumber" | "displayId">) {
   const orderNumber = order.orderNumber?.trim();
   if (orderNumber) return `#${orderNumber}`;
   return typeof order.displayId === "number" ? `#${order.displayId}` : "";
@@ -217,14 +235,34 @@ export function buildPaymentTimeoutEmail(order: LifecycleEmailOrder) {
 }
 
 // Sent right after a customer submits a website order, before staff have
-// reviewed it. Deliberately has no action links: no actionToken exists yet
-// (it's minted on approve/reject), and the cancel / request-change pages
-// reject orders that are still "processing" anyway. A reply is the customer's
-// way to reach us — Reply-To is the order's Email Center thread, so it lands
-// on the order. Works for priced and quote-only flows alike, hence the
-// generic "approved / priced, then you get a payment link" wording.
+// reviewed it. No token action links: no actionToken exists yet (it's minted
+// on approve/reject), and the cancel / request-change pages reject orders
+// that are still "processing" anyway. With `customerLogin` it points to "My
+// order" instead, where the customer logs in to see and change the order —
+// the username here, the password in its own email. A reply is the
+// customer's other way to reach us — Reply-To is the order's Email Center
+// thread, so it lands on the order. Works for priced and quote-only flows
+// alike, hence the generic "approved / priced, then you get a payment link"
+// wording.
 export function buildOrderReceivedEmail(order: LifecycleEmailOrder) {
   const reference = orderReference(order);
+  const orderNumber = order.orderNumber?.trim();
+
+  const loginBlock =
+    order.customerLogin && orderNumber
+      ? (() => {
+          const { orderUrl, forgotPasswordUrl } = buildCustomerOrderUrls(orderNumber);
+          const password = order.customerLogin.hasNewPassword
+            ? "Passordet får du i en egen e-post."
+            : `Logg inn med passordet du allerede har. <a href="${escapeHtml(forgotPasswordUrl)}" style="color:#273097;">Glemt passord?</a>`;
+          return `
+    <p style="margin:0 0 8px 0;">
+      Under <strong>Min bestilling</strong> kan du se bestillingen og gjøre endringer selv.
+    </p>
+    <p style="margin:0 0 8px 0;">Brukernavn: <strong>${escapeHtml(order.customerLogin.email)}</strong><br/>${password}</p>
+    <div style="margin:16px 0;">${buttonLink(orderUrl, "Se eller endre bestillingen")}</div>`;
+        })()
+      : "";
 
   const subject = `Vi har mottatt bestillingen din ${reference}`.trim();
   const html = buildSimpleEmailShell(`
@@ -234,8 +272,37 @@ export function buildOrderReceivedEmail(order: LifecycleEmailOrder) {
     </p>
     <p style="margin:0 0 16px 0;">
       Du får en ny e-post fra oss så snart bestillingen er godkjent, med en lenke for å betale og bekrefte.
-    </p>
+    </p>${loginBlock}
     <p style="margin:16px 0 0 0;">Har du spørsmål eller vil du endre noe? Bare svar på denne e-posten.</p>
+  `);
+
+  return { subject, html };
+}
+
+// Sent after the customer changed their own order in "My order" — a record
+// of exactly what changed (the same lines staff see on the order).
+export function buildOrderUpdatedEmail(order: LifecycleEmailOrder) {
+  const reference = orderReference(order);
+  const orderNumber = order.orderNumber?.trim();
+  const update = order.orderUpdate ?? { changes: [], totalIncVatNok: null };
+
+  const subject = `Bestilling ${reference} er endret`.trim();
+  const changes =
+    update.changes.length > 0
+      ? `<ul style="margin:0 0 16px 0;padding-left:20px;">${update.changes.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>`
+      : "";
+  const total =
+    update.totalIncVatNok !== null
+      ? `<p style="margin:0 0 16px 0;">Ny totalpris (inkl. MVA): <strong>${escapeHtml(formatKr(update.totalIncVatNok))}</strong></p>`
+      : "";
+  const link = orderNumber
+    ? `<div style="margin:20px 0;">${buttonLink(buildCustomerOrderUrls(orderNumber).orderUrl, "Se bestillingen")}</div>`
+    : "";
+  const html = buildSimpleEmailShell(`
+    <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
+    <p style="margin:0 0 16px 0;">Bestillingen din ${escapeHtml(reference)} er endret:</p>
+    ${changes}${total}${link}
+    <p style="margin:16px 0 0 0;">Var det ikke du som gjorde endringen? Svar på denne e-posten med en gang.</p>
   `);
 
   return { subject, html };

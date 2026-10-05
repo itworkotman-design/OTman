@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // limiting, and price resolution — rather than deep-mocking the whole order
 // creation chain.
 
-vi.mock("@/lib/orders/sendOrderReceivedEmail", () => ({ sendOrderReceivedEmail: vi.fn() }));
+vi.mock("@/lib/customerAccounts/welcomeWebsiteOrderCustomer", () => ({ welcomeWebsiteOrderCustomer: vi.fn() }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
