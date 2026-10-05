@@ -143,6 +143,25 @@ export default function WebsiteOrderCalculator({
     }
   }
 
+  // The order re-priced now (today's catalog) differs from what's saved.
+  const priceOutdated = Math.round(calculator.customer.total) !== Math.round(storedTotal);
+
+  // Re-saves the order unchanged, which re-prices it at today's prices — like
+  // the booking app's "Use new price". What was paid is compared as usual.
+  async function handleUseNewPrice() {
+    if (
+      !confirm(
+        t(
+          `Change the order total from ${formatKr(storedTotal)} to ${formatKr(calculator.customer.total)}? If the customer has paid, the difference shows as due or to refund.`,
+          `Endre ordretotalen fra ${formatKr(storedTotal)} til ${formatKr(calculator.customer.total)}? Har kunden betalt, vises differansen som utestående eller til refusjon.`,
+        ),
+      )
+    ) {
+      return;
+    }
+    await handleSave();
+  }
+
   const vat = getVatBreakdown(view.customer.total);
   const fieldClass = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black/85";
   const labelClass = "text-sm font-medium text-black/60";
@@ -198,13 +217,26 @@ export default function WebsiteOrderCalculator({
 
         {productList("customer")}
 
-        {!changed && Math.round(calculator.customer.total) !== Math.round(storedTotal) && (
-          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
-            {t(
-              `Priced now this order comes to ${formatKr(calculator.customer.total)}, but it is saved at ${formatKr(storedTotal)}. Saving here stores the new price.`,
-              `Priset nå blir ordren ${formatKr(calculator.customer.total)}, men den er lagret med ${formatKr(storedTotal)}. Lagrer du her, lagres den nye prisen.`,
+        {!changed && priceOutdated && (
+          <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+            <p>
+              {t(
+                `Priced now this order comes to ${formatKr(calculator.customer.total)}, but it is saved at ${formatKr(storedTotal)} (prices have changed since).`,
+                `Priset nå blir ordren ${formatKr(calculator.customer.total)}, men den er lagret med ${formatKr(storedTotal)} (prisene er endret siden).`,
+              )}
+            </p>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleUseNewPrice}
+                disabled={saving}
+                className="mt-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+              >
+                {saving ? t("Saving…", "Lagrer…") : t("Use new price", "Bruk ny pris")}
+              </button>
             )}
-          </p>
+            {message && !changed && <p className="mt-2 text-sm font-medium text-red-700">{message.text}</p>}
+          </div>
         )}
 
         {missingFromLines !== 0 && !changed && (

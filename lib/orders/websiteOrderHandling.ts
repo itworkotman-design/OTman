@@ -8,7 +8,7 @@ import { validateTextField } from "./websiteOrderValidation";
 
 // The fields of a homepage website order only an admin handles (never the
 // customer), edited straight in WebsiteOrderModal: driver(s), info for the
-// driver, license plate, deviation fee, "don't send email", the internal
+// driver, license plate, deviation fee, the internal
 // description, express delivery, discount and extra — and the delivery date
 // and time window, which the booking editor can change too. Express, discount,
 // extra and the deviation change the price, so a save re-prices the order
@@ -23,7 +23,6 @@ export type WebsiteOrderHandling = {
   deviation: string;
   // Only for the custom deviation: its own prices and description.
   customDeviation: { price: number | null; subcontractorPrice: number | null; description: string | null };
-  dontSendEmail: boolean;
   description: string;
   expressDelivery: boolean;
   // Kroner as a plain number string ("" = none), like Order.rabatt/leggTil.
@@ -82,7 +81,6 @@ export function parseWebsiteOrderHandling(raw: unknown, stored?: WebsiteOrderHan
     licensePlate: text(v.licensePlate),
     deviation: text(v.deviation),
     customDeviation: { price: null, subcontractorPrice: null, description: null },
-    dontSendEmail: v.dontSendEmail === true,
     description: text(v.description),
     expressDelivery: v.expressDelivery === true,
     rabatt: "",
@@ -129,7 +127,6 @@ export function handlingOrderData(handling: WebsiteOrderHandling) {
     driverInfo: handling.driverInfo || null,
     licensePlate: handling.licensePlate || null,
     deviation: handling.deviation || null,
-    dontSendEmail: handling.dontSendEmail,
     description: handling.description || null,
     expressDelivery: handling.expressDelivery,
     rabatt: handling.rabatt || null,
@@ -155,7 +152,6 @@ export function handlingFromOrder(order: {
   driverInfo: string | null;
   licensePlate: string | null;
   deviation: string | null;
-  dontSendEmail: boolean;
   description: string | null;
   expressDelivery: boolean;
   rabatt: string | null;
@@ -178,7 +174,6 @@ export function handlingFromOrder(order: {
       subcontractorPrice: isCustom ? getPricingSnapshotCustomDeviationSubcontractorPrice(order.pricingSnapshot) : null,
       description: isCustom ? getPricingSnapshotCustomDeviationDescription(order.pricingSnapshot) : null,
     },
-    dontSendEmail: order.dontSendEmail === true,
     description: order.description ?? "",
     expressDelivery: order.expressDelivery === true,
     rabatt: order.rabatt ?? "",

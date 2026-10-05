@@ -72,7 +72,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       driverInfo: true,
       licensePlate: true,
       deviation: true,
-      dontSendEmail: true,
       description: true,
       expressDelivery: true,
       payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },

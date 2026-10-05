@@ -15,3 +15,5 @@ Renders the upload UI for order files, split into two user-facing categories: re
 | `isImage` | Checks whether an uploaded file should render with an image preview. |
 | `isPdf` | Checks whether an uploaded file should render with the PDF placeholder. |
 | `OrderAttachmentsSection` | Main upload and listing component. Renders localized left-aligned upload buttons and grouped file lists for each category, uses signed preview/open links when available, and keeps download actions pointed at the dedicated download URL. |
+
+Optional `categories` (default `ATTACHMENT_CATEGORIES`, receipts and attachments) limits which kinds are offered. Website orders pass `["ATTACHMENT"]`.

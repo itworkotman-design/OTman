@@ -20,6 +20,8 @@ type Props = {
   ) => void | Promise<void>;
   onDelete?: (attachmentId: string) => void | Promise<void>;
   locale?: BookingUiLocale;
+  // Which kinds to offer; default both. Website orders have no receipts.
+  categories?: readonly AttachmentCategory[];
 };
 
 function isImage(file: AttachmentItem) {
@@ -38,13 +40,14 @@ export default function OrderAttachmentsSection({
   onUpload,
   onDelete,
   locale = "en",
+  categories = ATTACHMENT_CATEGORIES,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const inputId = useId();
 
   return (
     <div>
-      {ATTACHMENT_CATEGORIES.map((category) => {
+      {categories.map((category) => {
         const files = attachments.filter((file) => file.category === category);
         const categoryId = `${inputId}-${category.toLowerCase()}`;
         const emptyLabel =

@@ -10,7 +10,8 @@ type Props = {
   locale: BookingUiLocale;
 };
 
-// Attachments and receipts of a website order, straight in WebsiteOrderModal
+// Attachments of a website order (no receipts — those are for the regular
+// booking flow), straight in WebsiteOrderModal
 // — the same section and endpoints the regular order editor uses
 // (/api/orders/[orderId]/attachments, /api/orders/attachments/[id]). Uploads
 // and deletes take effect immediately; there is no form to save.
@@ -72,7 +73,7 @@ export default function WebsiteOrderAttachments({ orderId, locale }: Props) {
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-6">
-      <h3 className="mb-4 text-base font-semibold text-logoblue">{t("Attachments & receipts", "Vedlegg og kvitteringer")}</h3>
+      <h3 className="mb-4 text-base font-semibold text-logoblue">{t("Attachments", "Vedlegg")}</h3>
       <OrderAttachmentsSection
         attachments={attachments}
         uploading={uploading}
@@ -80,6 +81,7 @@ export default function WebsiteOrderAttachments({ orderId, locale }: Props) {
         onUpload={upload}
         onDelete={remove}
         locale={locale}
+        categories={["ATTACHMENT"]}
       />
     </div>
   );

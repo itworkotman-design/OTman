@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-The "Attachments & receipts" card in `WebsiteOrderModal`. It uses the same `OrderAttachmentsSection` and endpoints as the regular order editor:
+The "Attachments" card in `WebsiteOrderModal`, under "Handle order". It offers attachments only (`categories={["ATTACHMENT"]}`); receipts belong to the regular booking flow. It uses the same `OrderAttachmentsSection` and endpoints as the regular order editor:
 
 - `GET` / `POST /api/orders/[orderId]/attachments` to load and upload;
 - `DELETE /api/orders/attachments/[attachmentId]` to delete, after a confirm.

@@ -511,12 +511,13 @@ describe("/api/orders/[orderId]/website-items", () => {
         driverInfo: "Ring først",
         licensePlate: "EL 12345",
         deviation: "Custom",
-        dontSendEmail: true,
         description: "Intern",
         expressDelivery: true,
         rabatt: "100",
         leggTil: "50",
       });
+      // "Don't send email" isn't a website-order field any more — never written.
+      expect(data).not.toHaveProperty("dontSendEmail");
       expect(mocks.createOrderUpdatedEventMock).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({

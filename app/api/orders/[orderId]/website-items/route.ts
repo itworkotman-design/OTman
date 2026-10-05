@@ -82,7 +82,6 @@ const ORDER_SELECT = {
   driverInfo: true,
   licensePlate: true,
   deviation: true,
-  dontSendEmail: true,
   actionToken: true,
   emailThreadToken: true,
   paymentRequestSentAt: true,
@@ -414,15 +413,14 @@ export async function PUT(req: Request, { params }: Params) {
         }))
       : []),
     ...(handling
-      ? ([
-          ["expressDelivery", "Express delivery"],
-          ["dontSendEmail", "Don't send email"],
-        ] as const).map(([field, label]) => ({
-          field,
-          label,
-          previousValue: order[field] ? "yes" : "no",
-          nextValue: handling[field] ? "yes" : "no",
-        }))
+      ? [
+          {
+            field: "expressDelivery" as const,
+            label: "Express delivery",
+            previousValue: order.expressDelivery ? "yes" : "no",
+            nextValue: handling.expressDelivery ? "yes" : "no",
+          },
+        ]
       : []),
     {
       field: "extraPickupAddress",

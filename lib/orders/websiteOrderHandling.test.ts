@@ -15,7 +15,6 @@ const handling: WebsiteOrderHandling = {
   licensePlate: "EL 12345",
   deviation: "",
   customDeviation: { price: null, subcontractorPrice: null, description: null },
-  dontSendEmail: false,
   description: "Intern merknad",
   expressDelivery: true,
   rabatt: "100",
@@ -54,7 +53,6 @@ describe("parseWebsiteOrderHandling", () => {
         licensePlate: "",
         deviation: "",
         customDeviation: { price: null, subcontractorPrice: null, description: null },
-        dontSendEmail: false,
         description: "",
         expressDelivery: false,
         rabatt: "",
@@ -111,7 +109,6 @@ describe("handlingOrderData / handlingFromOrder", () => {
       driverInfo: "Ring 10 min før",
       licensePlate: "EL 12345",
       deviation: null,
-      dontSendEmail: false,
       description: "Intern merknad",
       expressDelivery: true,
       rabatt: "100",
@@ -153,6 +150,14 @@ describe("parseWebsiteOrderHandling over the stored values", () => {
       ok: true,
       handling: { ...stored, rabatt: "200", subcontractorMinus: "74" },
     });
+  });
+});
+
+describe("don't send email", () => {
+  it("isn't a website-order handling field (it did nothing there) and is never written", () => {
+    const parsed = parseWebsiteOrderHandling({ dontSendEmail: true });
+    expect(parsed.ok && parsed.handling).not.toHaveProperty("dontSendEmail");
+    expect(handlingOrderData(handling)).not.toHaveProperty("dontSendEmail");
   });
 });
 

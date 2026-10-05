@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { shouldPromptForPartner } from "@/lib/orders/partnerRequirement";
 import { ORDER_STATUS_OPTIONS, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
@@ -22,13 +22,16 @@ type Props = {
     statusNotes: string | null;
     subcontractorMembershipId: string | null;
     subcontractor: string | null;
-    gsmSentAt: string | null;
-    gsmSyncStatus: string | null;
     handling: WebsiteOrderHandling;
   };
   locale: BookingUiLocale;
-  // Called after a successful save or GSM send so the caller can reload.
+  // Called after a successful save so the caller can reload.
   onChanged: () => void;
+  // Cards shown between this panel and its Save button (the attachments), so
+  // Save is the last thing in the modal's left column.
+  children?: ReactNode;
+  // Shown left of Save in the same row (the modal's "Delete order").
+  besideSave?: ReactNode;
 };
 
 const CUSTOM_DEVIATION_LABEL = DEVIATION_FEE_OPTIONS.find((o) => o.code === CUSTOM_DEVIATION_CODE)?.englishLabel ?? "Custom";
@@ -37,11 +40,11 @@ const PREVIEW_DELAY_MS = 700;
 // Everything on a website order only an admin handles, without opening the
 // booking editor: status, status notes and partner (PATCH /api/orders/bulk,
 // which doesn't re-price), delivery date and time window, driver(s), info for the driver, license plate,
-// deviation, "don't send email", description and express delivery (PUT
+// deviation, description and express delivery (PUT
 // /api/orders/[orderId]/website-items with `handling`, which re-prices —
 // express and the deviation change the total, previewed
-// against what was paid before saving), and "send to GSM".
-export default function WebsiteOrderAdminActions({ order, locale, onChanged }: Props) {
+// against what was paid before saving).
+export default function WebsiteOrderAdminActions({ order, locale, onChanged, children, besideSave }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const initial = {
     status: normalizeOrderStatus(order.status),
@@ -54,7 +57,6 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
   const [handling, setHandling] = useState<WebsiteOrderHandling>(order.handling);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [saving, setSaving] = useState(false);
-  const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [preview, setPreview] = useState<OrderPaymentComparison | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -188,38 +190,6 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
     }
   }
 
-  async function handleSendToGsm() {
-    setMessage(null);
-    try {
-      setSending(true);
-      const res = await fetch("/api/orders/send-to-gsm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ orderIds: [order.id] }),
-      });
-      const data = await res.json().catch(() => null);
-      const result = Array.isArray(data?.results) ? data.results[0] : null;
-      if (!res.ok || !data?.ok || !result?.ok) {
-        const reason = (result?.error ?? data?.reason) as string | undefined;
-        setMessage({
-          tone: "error",
-          text: (reason && reasonText[reason]) || reason || t("Couldn't send to GSM.", "Kunne ikke sende til GSM."),
-        });
-        return;
-      }
-      setMessage({
-        tone: "ok",
-        text: result.wasAlreadySent ? t("Updated in GSM.", "Oppdatert i GSM.") : t("Sent to GSM.", "Sendt til GSM."),
-      });
-      onChanged();
-    } catch {
-      setMessage({ tone: "error", text: t("Couldn't send to GSM.", "Kunne ikke sende til GSM.") });
-    } finally {
-      setSending(false);
-    }
-  }
-
   const fieldClass = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black/85";
   const labelClass = "font-medium text-black/60";
   // The current partner may not be in the list (e.g. no longer a subcontractor).
@@ -228,211 +198,194 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged }: P
   const siteLocale = locale === "nb" ? "no" : "en";
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-6">
-      <h3 className="text-lg font-semibold text-logoblue">{t("Handle order", "Behandle bestilling")}</h3>
+    <>
+      <div className="rounded-2xl border border-black/10 bg-white p-6">
+        <h3 className="text-lg font-semibold text-logoblue">{t("Handle order", "Behandle bestilling")}</h3>
 
-      <div className="mt-4 flex flex-col gap-3 text-sm">
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>{t("Status", "Status")}</span>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
-            {!ORDER_STATUS_OPTIONS.includes(status as (typeof ORDER_STATUS_OPTIONS)[number]) && status && (
-              <option value={status}>{bookingText(locale, status)}</option>
-            )}
-            {ORDER_STATUS_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {bookingText(locale, option)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>{t("Status notes", "Statusnotater")}</span>
-          <textarea
-            value={statusNotes}
-            onChange={(e) => setStatusNotes(e.target.value)}
-            rows={2}
-            className={fieldClass}
-            placeholder={t("Saved with a status change", "Lagres sammen med en statusendring")}
-          />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>{t("Partner", "Partner")}</span>
-          <select value={subcontractorId} onChange={(e) => setSubcontractorId(e.target.value)} className={fieldClass}>
-            <option value="">{t("— No partner —", "— Ingen partner —")}</option>
-            {partnerMissingFromList && (
-              <option value={initial.subcontractorId}>{order.subcontractor || initial.subcontractorId}</option>
-            )}
-            {partners.map((partner) => (
-              <option key={partner.id} value={partner.id}>
-                {partner.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="mt-4 flex flex-col gap-3 text-sm">
           <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Delivery date", "Leveringsdato")}</span>
-            <DatePicker
-              value={handling.deliveryDate}
-              onChange={(value) => setField("deliveryDate", value)}
-              locale={siteLocale}
-              placeholder={t("Select a date", "Velg en dato")}
+            <span className={labelClass}>{t("Status", "Status")}</span>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
+              {!ORDER_STATUS_OPTIONS.includes(status as (typeof ORDER_STATUS_OPTIONS)[number]) && status && (
+                <option value={status}>{bookingText(locale, status)}</option>
+              )}
+              {ORDER_STATUS_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {bookingText(locale, option)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Status notes", "Statusnotater")}</span>
+            <textarea
+              value={statusNotes}
+              onChange={(e) => setStatusNotes(e.target.value)}
+              rows={2}
               className={fieldClass}
+              placeholder={t("Saved with a status change", "Lagres sammen med en statusendring")}
             />
           </label>
-          <div className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Time window", "Tidsvindu")}</span>
-            <TimeWindowField
-              locale={siteLocale}
-              value={handling.timeWindow}
-              onChange={(value) => setField("timeWindow", value)}
-            />
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Driver", "Sjåfør")}</span>
-            <input value={handling.driver} onChange={(e) => setField("driver", e.target.value)} className={fieldClass} />
+            <span className={labelClass}>{t("Partner", "Partner")}</span>
+            <select value={subcontractorId} onChange={(e) => setSubcontractorId(e.target.value)} className={fieldClass}>
+              <option value="">{t("— No partner —", "— Ingen partner —")}</option>
+              {partnerMissingFromList && (
+                <option value={initial.subcontractorId}>{order.subcontractor || initial.subcontractorId}</option>
+              )}
+              {partners.map((partner) => (
+                <option key={partner.id} value={partner.id}>
+                  {partner.name}
+                </option>
+              ))}
+            </select>
           </label>
-          <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Second driver", "Sjåfør 2")}</span>
-            <input value={handling.secondDriver} onChange={(e) => setField("secondDriver", e.target.value)} className={fieldClass} />
-          </label>
-        </div>
 
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>{t("Info for the driver", "Info til sjåføren")}</span>
-          <textarea value={handling.driverInfo} onChange={(e) => setField("driverInfo", e.target.value)} rows={3} className={fieldClass} />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>{t("License plate", "Registreringsnummer")}</span>
-          <input value={handling.licensePlate} onChange={(e) => setField("licensePlate", e.target.value)} className={fieldClass} />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>{t("Description (internal)", "Beskrivelse (intern)")}</span>
-          <textarea value={handling.description} onChange={(e) => setField("description", e.target.value)} rows={4} className={fieldClass} />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>{t("Deviation", "Avvik")}</span>
-          <select value={handling.deviation} onChange={(e) => setField("deviation", e.target.value)} className={fieldClass}>
-            <option value="">{t("— No deviation —", "— Ingen avvik —")}</option>
-            {DEVIATION_FEE_OPTIONS.map((option) => (
-              <option key={option.code} value={option.englishLabel}>
-                {locale === "nb" ? option.norwegianLabel : option.englishLabel}
-              </option>
-            ))}
-          </select>
-        </label>
-        {isCustomDeviation && (
-          <div className="flex flex-col gap-2 rounded-lg bg-black/3 p-3">
-            <input
-              value={handling.customDeviation.description ?? ""}
-              onChange={(e) => setField("customDeviation", { ...handling.customDeviation, description: e.target.value || null })}
-              placeholder={t("Describe the deviation…", "Beskriv avviket…")}
-              className={fieldClass}
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className={labelClass}>{t("Price (customer)", "Pris (kunde)")}</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={handling.customDeviation.price ?? ""}
-                  onChange={(e) =>
-                    setField("customDeviation", { ...handling.customDeviation, price: e.target.value === "" ? null : Number(e.target.value) })
-                  }
-                  className={fieldClass}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className={labelClass}>{t("Price (partner)", "Pris (partner)")}</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={handling.customDeviation.subcontractorPrice ?? ""}
-                  onChange={(e) =>
-                    setField("customDeviation", {
-                      ...handling.customDeviation,
-                      subcontractorPrice: e.target.value === "" ? null : Number(e.target.value),
-                    })
-                  }
-                  className={fieldClass}
-                />
-              </label>
-            </div>
-          </div>
-        )}
-
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={handling.expressDelivery} onChange={(e) => setField("expressDelivery", e.target.checked)} />
-          <span className="font-medium text-black/70">{t("Express delivery", "Ekspresslevering")}</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={handling.dontSendEmail} onChange={(e) => setField("dontSendEmail", e.target.checked)} />
-          <span className="font-medium text-black/70">{t("Don't send email", "Ikke send e-post")}</span>
-        </label>
-
-        {change.affectsPrice && (
-          <div className="rounded-xl border border-logoblue/20 bg-logoblue/5 p-3">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
-              {previewing && <span className="text-xs text-black/50">{t("Calculating…", "Beregner…")}</span>}
-            </div>
-            {preview ? (
-              <WebsiteOrderPaymentSummary
-                comparison={preview}
-                locale={locale}
-                totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className={labelClass}>{t("Delivery date", "Leveringsdato")}</span>
+              <DatePicker
+                value={handling.deliveryDate}
+                onChange={(value) => setField("deliveryDate", value)}
+                locale={siteLocale}
+                placeholder={t("Select a date", "Velg en dato")}
+                className={fieldClass}
               />
-            ) : (
-              !previewing && <p className="text-xs text-black/50">{reasonText.INVALID_HANDLING}</p>
-            )}
+            </label>
+            <div className="flex flex-col gap-1">
+              <span className={labelClass}>{t("Time window", "Tidsvindu")}</span>
+              <TimeWindowField
+                locale={siteLocale}
+                value={handling.timeWindow}
+                onChange={(value) => setField("timeWindow", value)}
+              />
+            </div>
           </div>
-        )}
 
-        <p className="text-xs text-black/50">
-          GSM:{" "}
-          {order.gsmSentAt
-            ? `${t("sent", "sendt")} ${new Date(order.gsmSentAt).toLocaleString("nb-NO")}${order.gsmSyncStatus ? ` (${order.gsmSyncStatus})` : ""}`
-            : t("not sent yet", "ikke sendt ennå")}
-        </p>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className={labelClass}>{t("Driver", "Sjåfør")}</span>
+              <input value={handling.driver} onChange={(e) => setField("driver", e.target.value)} className={fieldClass} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className={labelClass}>{t("Second driver", "Sjåfør 2")}</span>
+              <input value={handling.secondDriver} onChange={(e) => setField("secondDriver", e.target.value)} className={fieldClass} />
+            </label>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Info for the driver", "Info til sjåføren")}</span>
+            <textarea value={handling.driverInfo} onChange={(e) => setField("driverInfo", e.target.value)} rows={3} className={fieldClass} />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("License plate", "Registreringsnummer")}</span>
+            <input value={handling.licensePlate} onChange={(e) => setField("licensePlate", e.target.value)} className={fieldClass} />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Description (internal)", "Beskrivelse (intern)")}</span>
+            <textarea value={handling.description} onChange={(e) => setField("description", e.target.value)} rows={4} className={fieldClass} />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>{t("Deviation", "Avvik")}</span>
+            <select value={handling.deviation} onChange={(e) => setField("deviation", e.target.value)} className={fieldClass}>
+              <option value="">{t("— No deviation —", "— Ingen avvik —")}</option>
+              {DEVIATION_FEE_OPTIONS.map((option) => (
+                <option key={option.code} value={option.englishLabel}>
+                  {locale === "nb" ? option.norwegianLabel : option.englishLabel}
+                </option>
+              ))}
+            </select>
+          </label>
+          {isCustomDeviation && (
+            <div className="flex flex-col gap-2 rounded-lg bg-black/3 p-3">
+              <input
+                value={handling.customDeviation.description ?? ""}
+                onChange={(e) => setField("customDeviation", { ...handling.customDeviation, description: e.target.value || null })}
+                placeholder={t("Describe the deviation…", "Beskriv avviket…")}
+                className={fieldClass}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass}>{t("Price (customer)", "Pris (kunde)")}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={handling.customDeviation.price ?? ""}
+                    onChange={(e) =>
+                      setField("customDeviation", { ...handling.customDeviation, price: e.target.value === "" ? null : Number(e.target.value) })
+                    }
+                    className={fieldClass}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className={labelClass}>{t("Price (partner)", "Pris (partner)")}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={handling.customDeviation.subcontractorPrice ?? ""}
+                    onChange={(e) =>
+                      setField("customDeviation", {
+                        ...handling.customDeviation,
+                        subcontractorPrice: e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
+                    className={fieldClass}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={handling.expressDelivery} onChange={(e) => setField("expressDelivery", e.target.checked)} />
+            <span className="font-medium text-black/70">{t("Express delivery", "Ekspresslevering")}</span>
+          </label>
+
+          {change.affectsPrice && (
+            <div className="rounded-xl border border-logoblue/20 bg-logoblue/5 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
+                {previewing && <span className="text-xs text-black/50">{t("Calculating…", "Beregner…")}</span>}
+              </div>
+              {preview ? (
+                <WebsiteOrderPaymentSummary
+                  comparison={preview}
+                  locale={locale}
+                  totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
+                />
+              ) : (
+                !previewing && <p className="text-xs text-black/50">{reasonText.INVALID_HANDLING}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {children}
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          {besideSave}
           <button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex h-10 items-center justify-center rounded-full bg-logoblue px-5 text-sm font-semibold text-white disabled:opacity-50"
+            className="inline-flex h-12 flex-1 items-center justify-center rounded-full bg-logoblue px-5 text-base font-semibold text-white disabled:opacity-50"
           >
             {saving ? t("Saving…", "Lagrer…") : t("Save", "Lagre")}
           </button>
-          <button
-            type="button"
-            onClick={handleSendToGsm}
-            disabled={sending}
-            className="inline-flex h-10 items-center justify-center rounded-full border border-logoblue px-5 text-sm font-semibold text-logoblue disabled:opacity-50"
-          >
-            {sending
-              ? t("Sending…", "Sender…")
-              : order.gsmSentAt
-                ? t("Update in GSM", "Oppdater i GSM")
-                : t("Send to GSM", "Send til GSM")}
-          </button>
         </div>
-
         {message && (
-          <p className={`text-sm font-medium ${message.tone === "ok" ? "text-green-700" : "text-red-600"}`}>
+          <p className={`text-center text-sm font-medium ${message.tone === "ok" ? "text-green-700" : "text-red-600"}`}>
             {message.text}
           </p>
         )}
       </div>
-    </div>
+    </>
   );
 }

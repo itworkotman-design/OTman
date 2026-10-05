@@ -170,12 +170,12 @@ describe("GET /api/orders/[orderId]/website-details", () => {
       driverInfo: "Ring først",
       licensePlate: "EL 12345",
       deviation: "",
-      dontSendEmail: true,
       description: "Intern",
       expressDelivery: false,
       rabatt: "100",
       leggTil: "",
     });
+    expect(json.order.handling).not.toHaveProperty("dontSendEmail");
   });
 
   it("says how the order compares with what the customer has paid", async () => {

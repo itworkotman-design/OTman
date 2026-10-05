@@ -258,13 +258,26 @@ export default function WebsiteOrderModal({
                 )}
 
                 <WebsiteOrderAdminActions
-                  key={`${order.status}|${order.statusNotes}|${order.subcontractorMembershipId}|${order.gsmSentAt}|${JSON.stringify(panelHandling)}`}
+                  key={`${order.status}|${order.statusNotes}|${order.subcontractorMembershipId}|${JSON.stringify(panelHandling)}`}
                   order={order}
                   locale={locale}
                   onChanged={onChanged}
-                />
-
-                <WebsiteOrderAttachments orderId={order.id} locale={locale} />
+                  besideSave={
+                    canDelete ? (
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={deleteLoading}
+                        className="inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-red-600 px-5 text-base font-semibold text-white disabled:opacity-50"
+                      >
+                        {deleteLoading ? bookingText(locale, "Deleting...") : bookingText(locale, "Delete order")}
+                      </button>
+                    ) : null
+                  }
+                >
+                  <WebsiteOrderAttachments orderId={order.id} locale={locale} />
+                </WebsiteOrderAdminActions>
+                {deleteError ? <p className="text-center text-sm font-medium text-red-600">{deleteError}</p> : null}
               </div>
 
               {/* Right column: only what the order costs — payment and products. */}
@@ -389,19 +402,6 @@ export default function WebsiteOrderModal({
               </div>
             </div>
 
-            {canDelete && (
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleteLoading}
-                  className="customButtonDefault h-10 bg-red-600! text-white! disabled:opacity-50!"
-                >
-                  {deleteLoading ? bookingText(locale, "Deleting...") : bookingText(locale, "Delete order")}
-                </button>
-              </div>
-            )}
-            {deleteError ? <div className="mt-2 text-sm font-medium text-red-600">{deleteError}</div> : null}
           </div>
         </div>
       </div>
