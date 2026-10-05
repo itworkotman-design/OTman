@@ -27,6 +27,7 @@ import { getVatDisplayAmount, type CustomerType } from "@/lib/booking/pricing/va
 import {
   hasExtrasStepContent,
   hasInstallStepContent,
+  offersCarryIn,
   showsNoInstallOption,
 } from "./cardSectionVisibility";
 
@@ -571,6 +572,7 @@ export function WhiteGoodsProductCard({
                   price={money(String(deliveryPreview.firstStep.price))}
                   onClick={() => setDeliveryType("FIRST_STEP")}
                 />
+                {offersCarryIn(product.deliveryTypes) && (
                 <OptionRow
                   variant="radio"
                   selected={deliveryType === "INDOOR"}
@@ -586,6 +588,7 @@ export function WhiteGoodsProductCard({
                   price={money(String(deliveryPreview.indoor.price))}
                   onClick={() => setDeliveryType("INDOOR")}
                 />
+                )}
                 {installOnlyAvailable && (
                   <OptionRow
                     variant="radio"

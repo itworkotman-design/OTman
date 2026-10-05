@@ -8,7 +8,8 @@ import {
   WHITE_GOODS_ORDER_LEVEL_EXTRAS,
   type WhiteGoodsProductSeed,
 } from "@/lib/content/whiteGoodsElectronics";
-import { buildDeliveryTypesJson } from "@/lib/content/websiteDeliveryTypes";
+import { buildDeliveryTypesJson, mergePreservedDeliveryTypes } from "@/lib/content/websiteDeliveryTypes";
+import { shortenCatalogCode } from "@/lib/content/shortCatalogCode";
 
 function buildPriceListSettings(deliveryOnly: boolean) {
   const extras = WHITE_GOODS_ORDER_LEVEL_EXTRAS;
@@ -30,6 +31,23 @@ function buildPriceListSettings(deliveryOnly: boolean) {
   settings.kmOver100 = setting(extras.kmOver100, "Per km when distance is over 100 km");
   settings.floorSurcharge = setting(extras.floorSurcharge, "Floor surcharge per chargeable floor, no lift");
   return settings;
+}
+
+// Option codes were shortened (shortCatalogCode.ts). An option still stored
+// under its old long code is renamed in place before the upsert, so the upsert
+// updates that same row: its id, its prices and every order pointing at it
+// stay, and no duplicate appears next to it. Skipped when the short code
+// already exists, so two rows never share a code.
+async function renameLongOptionCodes(productId: string, seedCodes: string[]) {
+  const wanted = new Set(seedCodes);
+  const existing = await prisma.productOption.findMany({ where: { productId }, select: { id: true, code: true } });
+  const taken = new Set(existing.map((o) => o.code));
+  for (const option of existing) {
+    const short = shortenCatalogCode(option.code);
+    if (short === option.code || !wanted.has(short) || taken.has(short)) continue;
+    await prisma.productOption.update({ where: { id: option.id }, data: { code: short } });
+    taken.add(short);
+  }
 }
 
 // Seeds one public-website catalog (a dedicated PriceList + its products and
@@ -96,12 +114,16 @@ export async function seedWebsiteCatalog({
     // deliveryTypes carries prices (per-product, JSON — see
     // Product.deliveryTypes), same as PriceListItem does for options below.
     // A delivery-only product (no options — e.g. parcel/pallet) has NO
-    // PriceListItem rows at all, so this is the only place its price lives;
-    // must be excluded from the update just like PriceListItem prices are.
-    const { deliveryTypes: _deliveryTypes, ...productDataWithoutPrices } = productData;
+    // PriceListItem rows at all, so this is the only place its price lives.
+    // When preserving, staff-entered prices here are kept just like
+    // PriceListItem prices are, but a delivery type still at the 0 kr
+    // placeholder gets the seed's price (mergePreservedDeliveryTypes).
+    const stored = preservePricesOnReseed
+      ? await prisma.product.findUnique({ where: { code: productSeed.code }, select: { deliveryTypes: true } })
+      : null;
     const product = await prisma.product.upsert({
       where: { code: productSeed.code },
-      update: preservePricesOnReseed ? productDataWithoutPrices : productData,
+      update: stored ? { ...productData, deliveryTypes: mergePreservedDeliveryTypes(stored.deliveryTypes, deliveryTypes) } : productData,
       create: { ...productData, code: productSeed.code },
     });
     productsUpserted += 1;
@@ -115,6 +137,8 @@ export async function seedWebsiteCatalog({
         create: { priceListId: priceList.id, productId: product.id },
       });
     }
+
+    await renameLongOptionCodes(product.id, productSeed.options.map((o) => o.code));
 
     for (const [index, optionSeed] of productSeed.options.entries()) {
       const optionData = {
@@ -138,14 +162,21 @@ export async function seedWebsiteCatalog({
         subcontractorPriceCents: Math.round(roundToNearest5(optionSeed.subcontractorPrice) * 100),
       };
 
+      const where = { priceListId_productOptionId: { priceListId: priceList.id, productOptionId: option.id } };
+      // Preserved prices are kept, except one still at the 0 kr placeholder.
+      let update: typeof prices | Record<string, never> = prices;
+      if (optionSeed.staffPriced) update = {};
+      else if (preservePricesOnReseed) {
+        const existing = await prisma.priceListItem.findUnique({
+          where,
+          select: { customerPriceCents: true, subcontractorPriceCents: true },
+        });
+        const placeholder = !!existing && !existing.customerPriceCents && !existing.subcontractorPriceCents;
+        update = placeholder ? prices : {};
+      }
       await prisma.priceListItem.upsert({
-        where: {
-          priceListId_productOptionId: {
-            priceListId: priceList.id,
-            productOptionId: option.id,
-          },
-        },
-        update: preservePricesOnReseed || optionSeed.staffPriced ? {} : prices,
+        where,
+        update,
         create: { ...prices, priceListId: priceList.id, productOptionId: option.id },
       });
       optionsUpserted += 1;

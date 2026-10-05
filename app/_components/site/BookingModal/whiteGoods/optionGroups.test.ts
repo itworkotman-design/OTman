@@ -33,7 +33,7 @@ describe("groupAssemblyOptions", () => {
       "Skeidar",
       "Other manufacturer",
     ]);
-    expect(single.options[0].option.id).toBe("ASM_SINGLE_BED_IKEA");
+    expect(single.options[0].option.id).toBe("ASM_SGL_BED_IKEA");
     expect(single.options[0].option.customerPrice).toBe("850");
   });
 
@@ -58,6 +58,20 @@ describe("groupAssemblyOptions", () => {
 describe("groupDismantlingOptions", () => {
   const groups = groupDismantlingOptions(bed.options, "en");
 
+  it("pairs options still stored under the old long codes (before a reseed) the same way", () => {
+    const longCodes: Record<string, string> = {
+      DISMANTLE_DISP_SGL_BED: "DISMANTLE_DISPOSAL_SINGLE_BED",
+      DISMANTLE_CAR_SGL_BED: "DISMANTLE_CAREFUL_SINGLE_BED",
+    };
+    const old = bed.options.map((o) => ({ ...o, code: longCodes[o.code] ?? o.code }));
+    const single = groupDismantlingOptions(old, "en")[0];
+    expect(single?.disposal?.code).toBe("DISMANTLE_DISPOSAL_SINGLE_BED");
+    expect(single?.careful?.code).toBe("DISMANTLE_CAREFUL_SINGLE_BED");
+
+    const oldAssembly = bed.options.map((o) => (o.code === "ASM_SGL_BED_IKEA" ? { ...o, code: "ASM_SINGLE_BED_IKEA" } : o));
+    expect(groupAssemblyOptions(oldAssembly, seeds, "en")[0]?.options[0]?.option.code).toBe("ASM_SINGLE_BED_IKEA");
+  });
+
   it("pairs the for-disposal and careful-for-reuse variants per type", () => {
     expect(groups.map((g) => g.label)).toEqual([
       "Single bed",
@@ -67,8 +81,8 @@ describe("groupDismantlingOptions", () => {
       "Daybed",
     ]);
     const single = groups[0];
-    expect(single.disposal?.id).toBe("DISMANTLE_DISPOSAL_SINGLE_BED");
-    expect(single.careful?.id).toBe("DISMANTLE_CAREFUL_SINGLE_BED");
+    expect(single.disposal?.id).toBe("DISMANTLE_DISP_SGL_BED");
+    expect(single.careful?.id).toBe("DISMANTLE_CAR_SGL_BED");
     expect(single.disposal?.customerPrice).toBe("400");
     expect(single.careful?.customerPrice).toBe("650");
   });

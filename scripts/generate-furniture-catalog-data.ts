@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { shortenCatalogCode } from "../lib/content/shortCatalogCode";
 
 // Regenerates lib/content/furnitureCatalogData.ts from the furniture workbook:
 //   npx tsx scripts/generate-furniture-catalog-data.ts "<path to .xlsx>"
@@ -202,6 +203,8 @@ async function main() {
       }
     }
 
+    // Option codes are shortened by the one rule every website catalog uses.
+    for (const option of options) option.code = shortenCatalogCode(option.code as string);
     const codes = options.map((o) => o.code as string);
     if (new Set(codes).size !== codes.length) throw new Error(`${name}: duplicate option codes`);
 

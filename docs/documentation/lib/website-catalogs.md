@@ -7,5 +7,5 @@ Every catalog here plugs into the shared `WhiteGoodsBookingFlow`/`WhiteGoodsProd
 
 ## Functions
 - `getWebsiteCatalog(code)` — catalog by price list code, or null.
-- `findWebsiteCatalogByProductCode(code)` / `findWebsiteProductSeed(code)` / `findWebsiteOptionSeed(productCode, optionCode)` — lookups across every catalog (null for products not sold on the website).
+- `findWebsiteCatalogByProductCode(code)` / `findWebsiteProductSeed(code)` / `findWebsiteOptionSeed(productCode, optionCode)` — lookups across every catalog (null for products not sold on the website). `findWebsiteOptionSeed` also finds an option by its old long code.
 - `remainingWebsiteCatalogs(usedCodes)` — catalogs not yet used.

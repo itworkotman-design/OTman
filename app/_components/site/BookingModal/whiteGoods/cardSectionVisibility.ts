@@ -1,3 +1,6 @@
+import { DELIVERY_TYPES } from "@/lib/booking/constants";
+import { getProductDeliveryType, type ProductDeliveryType } from "@/lib/products/deliveryTypes";
+
 // Whether a product card's "Installation"/"Assembly" step has anything to
 // show at all. Some products (e.g. package/pallet catalog items) have no
 // install options and no pending-implementation note — for those the whole
@@ -65,4 +68,11 @@ export function hasExtrasStepContent(params: {
     (hasAnchoringOption && furnitureAddonsVisible) ||
     (showReturn && hasReturnOption)
   );
+}
+
+// Whether the card offers carry-in. Pallets and half-pallets are doorstep only
+// (their INDOOR delivery type is seeded disabled); a product with no INDOOR
+// entry stored keeps offering it, as before.
+export function offersCarryIn(deliveryTypes: ProductDeliveryType[]): boolean {
+  return getProductDeliveryType(deliveryTypes, DELIVERY_TYPES.INDOOR)?.enabled !== false;
 }

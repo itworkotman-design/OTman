@@ -89,8 +89,8 @@ describe("an order mixing white goods and furniture", () => {
         card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" }),
         card(1, "FN_BED", {
           deliveryType: "INDOOR",
-          selectedInstallOptionIds: ["ASM_SINGLE_BED_IKEA"],
-          selectedExtraOptionIds: ["DISMANTLE_DISPOSAL_SINGLE_BED"],
+          selectedInstallOptionIds: ["ASM_SGL_BED_IKEA"],
+          selectedExtraOptionIds: ["DISMANTLE_DISP_SGL_BED"],
         }),
       ]),
     ).toBe(155 + 690 + 850 + 400);

@@ -6,6 +6,7 @@ import {
 } from "@/lib/content/websitePriceListCodes";
 import { WHITE_GOODS_ELECTRONICS_PRODUCTS } from "@/lib/content/whiteGoodsElectronics";
 import { PARCEL_PALLET_PRODUCTS } from "@/lib/content/parcelPalletCatalog";
+import { shortenCatalogCode } from "@/lib/content/shortCatalogCode";
 
 // The price lists a website customer can order from, in the order they're
 // offered: the first one is chosen up front and supplies the order-level fees;
@@ -60,8 +61,10 @@ export function findWebsiteProductSeed(productCode: string): FurnitureProductSee
   return null;
 }
 
+// Old long option codes (see shortCatalogCode.ts) find their seed too.
 export function findWebsiteOptionSeed(productCode: string, optionCode: string) {
-  return findWebsiteProductSeed(productCode)?.options.find((o) => o.code === optionCode) ?? null;
+  const short = shortenCatalogCode(optionCode);
+  return findWebsiteProductSeed(productCode)?.options.find((o) => o.code === short) ?? null;
 }
 
 export function remainingWebsiteCatalogs(usedPriceListCodes: string[]): WebsiteCatalog[] {

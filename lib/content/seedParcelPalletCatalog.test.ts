@@ -6,14 +6,16 @@ const mocks = vi.hoisted(() => ({
   productOptionUpsert: vi.fn(),
   priceListItemUpsert: vi.fn(),
   priceListProductUpsert: vi.fn(),
+  productFindUnique: vi.fn(),
+  priceListItemFindUnique: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     priceList: { upsert: mocks.priceListUpsert },
-    product: { upsert: mocks.productUpsert },
-    productOption: { upsert: mocks.productOptionUpsert },
-    priceListItem: { upsert: mocks.priceListItemUpsert },
+    product: { upsert: mocks.productUpsert, findUnique: mocks.productFindUnique },
+    productOption: { upsert: mocks.productOptionUpsert, findMany: async () => [], update: async () => ({}) },
+    priceListItem: { upsert: mocks.priceListItemUpsert, findUnique: mocks.priceListItemFindUnique },
     priceListProduct: { upsert: mocks.priceListProductUpsert },
   },
 }));
@@ -30,6 +32,8 @@ describe("seedParcelPalletCatalog", () => {
     mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
     mocks.priceListItemUpsert.mockResolvedValue({});
     mocks.priceListProductUpsert.mockResolvedValue({});
+    mocks.productFindUnique.mockResolvedValue(null);
+    mocks.priceListItemFindUnique.mockResolvedValue(null);
   });
 
   it("marks the price list delivery-only", async () => {
@@ -80,15 +84,30 @@ describe("seedParcelPalletCatalog", () => {
     expect(new Set(sorted.map((p) => p.sortOrder)).size).toBe(sorted.length);
   });
 
-  it("never overwrites a product's deliveryTypes (where its price actually lives — these delivery-only products have no options/PriceListItem rows) on reseed", async () => {
+  it("fills prices still at the 0 kr placeholder on reseed, but keeps prices staff entered", async () => {
+    const zero = { price: "0", subcontractorPrice: "0", xtraPrice: "0", xtraSubcontractorPrice: "0" };
+    mocks.productFindUnique.mockImplementation(async ({ where }: { where: { code: string } }) =>
+      where.code === "PKG_PALL"
+        ? { deliveryTypes: [{ key: "FIRST_STEP", enabled: true, ...zero }, { key: "INDOOR", enabled: true, ...zero }] }
+        : { deliveryTypes: [{ key: "FIRST_STEP", enabled: true, price: "650", subcontractorPrice: "420", xtraPrice: "160", xtraSubcontractorPrice: "100" }] },
+    );
     await seedParcelPalletCatalog();
 
-    expect(mocks.productUpsert.mock.calls.length).toBeGreaterThan(0);
-    for (const [arg] of mocks.productUpsert.mock.calls) {
-      expect(arg.update.deliveryTypes).toBeUndefined();
-      // Everything else stays in sync from code on every reseed, though.
-      expect(arg.update.name).toBeDefined();
-    }
+    const update = (code: string) => mocks.productUpsert.mock.calls.find(([arg]) => arg.create.code === code)![0].update;
+    expect(update("PKG_PALL").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "775" });
+    expect(update("PKG_PALL").deliveryTypes.find((t: { key: string }) => t.key === "INDOOR").enabled).toBe(false);
+    expect(update("PKG_ESKER").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "650" });
+  });
+
+  it("fills an option price still at 0 kr, but never overwrites one staff entered", async () => {
+    mocks.priceListItemFindUnique
+      .mockResolvedValueOnce({ customerPriceCents: 0, subcontractorPriceCents: 0 })
+      .mockResolvedValue({ customerPriceCents: 15000, subcontractorPriceCents: 9000 });
+    await seedParcelPalletCatalog();
+
+    const updates = mocks.priceListItemUpsert.mock.calls.map(([arg]) => arg.update);
+    expect(updates[0]).toEqual({ customerPriceCents: 10500, subcontractorPriceCents: 5000 });
+    expect(updates.slice(1).every((u) => JSON.stringify(u) === "{}")).toBe(true);
   });
 
   it("has no PriceListItem rows for the delivery-only products with no options (envelope, bag) — confirming deliveryTypes above is the actual price-bearing field for those, not a moot check", async () => {
