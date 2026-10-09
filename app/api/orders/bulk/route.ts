@@ -9,7 +9,7 @@ import {
   diffOrderEventSnapshots,
 } from "@/lib/orders/orderEvents";
 import { resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
-import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { isAllowedWebsiteOrderStatus, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { findCancelledOrderPartner } from "@/lib/orders/cancelledOrderPartner";
 import { hasPartner, isPartnerTrackedOrder } from "@/lib/orders/partnerRequirement";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
@@ -260,6 +260,17 @@ export async function PATCH(req: Request) {
   ) {
     return NextResponse.json(
       { ok: false, reason: "NOT_A_WEBSITE_ORDER" },
+      { status: 400 },
+    );
+  }
+
+  if (
+    normalizedStatus &&
+    !isAllowedWebsiteOrderStatus(normalizedStatus) &&
+    ordersBeforeUpdate.some((order) => order.isWebsiteOrder)
+  ) {
+    return NextResponse.json(
+      { ok: false, reason: "WEBSITE_ORDER_STATUS_NOT_ALLOWED" },
       { status: 400 },
     );
   }

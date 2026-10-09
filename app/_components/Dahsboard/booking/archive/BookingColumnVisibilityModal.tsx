@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { BookingArchiveViewMode } from "./types";
 import {
   getBookingArchiveColumns,
+  type BookingArchiveColumn,
   type BookingArchiveColumnId,
 } from "@/lib/booking/archiveColumns";
 
@@ -13,6 +14,8 @@ type Props = {
   viewMode: BookingArchiveViewMode;
   visibleColumnIds: BookingArchiveColumnId[];
   showPricelistColumn?: boolean;
+  // Overrides the viewMode column set, e.g. the narrower Website orders set.
+  columns?: BookingArchiveColumn[];
   onToggleColumn: (columnId: BookingArchiveColumnId) => void;
   onReset: () => void;
   onClose: () => void;
@@ -23,13 +26,16 @@ export default function BookingColumnVisibilityModal({
   viewMode,
   visibleColumnIds,
   showPricelistColumn = false,
+  columns: columnsOverride,
   onToggleColumn,
   onReset,
   onClose,
 }: Props) {
-  const columns = getBookingArchiveColumns(viewMode, {
-    includePricelist: showPricelistColumn,
-  });
+  const columns =
+    columnsOverride ??
+    getBookingArchiveColumns(viewMode, {
+      includePricelist: showPricelistColumn,
+    });
 
   useEffect(() => {
     if (!open) return;

@@ -8,7 +8,12 @@ import {
   getBookingArchiveExportColumns,
   getDefaultVisibleBookingArchiveColumns,
   getDnbDiscountArchiveAmount,
+  getBookingArchiveVisibilityStorageKey,
+  getWebsiteOrdersColumns,
+  getWebsiteOrdersVisibilityStorageKey,
+  getWebsiteOrdersVisibleColumns,
   sanitizeVisibleBookingArchiveColumns,
+  sanitizeWebsiteOrdersVisibleColumns,
 } from "@/lib/booking/archiveColumns";
 
 function buildOrderRow(overrides?: Partial<OrderRow>): OrderRow {
@@ -480,5 +485,44 @@ describe("homepage (WHITE_GOODS) orders in the Price ex. VAT column", () => {
   it("sums the selection without VAT too", () => {
     const rows = [buildOrderRow({ id: "a", websiteOrderKind: "WHITE_GOODS", priceExVat: 1250 }), buildOrderRow({ id: "b", priceExVat: 100 })];
     expect(getSelectedArchiveOrdersPriceTotal(rows, ["a", "b"], "ADMIN")).toBe(1100);
+  });
+});
+
+describe("getWebsiteOrdersVisibleColumns", () => {
+  it("shows the public order number the customer was given", () => {
+    expect(getWebsiteOrdersVisibleColumns()).toContain("orderNumber");
+  });
+
+  it("hides the store/cashier/DNB columns that never apply to website orders", () => {
+    const columns = getWebsiteOrdersVisibleColumns();
+    for (const hidden of ["createdBy", "cashierName", "cashierPhone", "dnbDiscount"] as const) {
+      expect(columns).not.toContain(hidden);
+    }
+  });
+});
+
+describe("getWebsiteOrdersColumns", () => {
+  it("offers only the website-relevant columns in the column picker", () => {
+    const ids = getWebsiteOrdersColumns().map((column) => column.id);
+    expect(ids).toEqual(getWebsiteOrdersVisibleColumns());
+    expect(ids).toContain("orderNumber");
+    expect(ids).not.toContain("cashierName");
+  });
+});
+
+describe("sanitizeWebsiteOrdersVisibleColumns", () => {
+  it("drops store/cashier/DNB and unknown ids from a saved layout", () => {
+    expect(sanitizeWebsiteOrdersVisibleColumns(["cashierName", "phone", "bogus", "orderNumber"])).toEqual(["orderNumber", "phone"]);
+  });
+
+  it("falls back to the website defaults when nothing usable is left", () => {
+    expect(sanitizeWebsiteOrdersVisibleColumns([])).toEqual(getWebsiteOrdersVisibleColumns());
+    expect(sanitizeWebsiteOrdersVisibleColumns(["cashierName", "dnbDiscount"])).toEqual(getWebsiteOrdersVisibleColumns());
+  });
+});
+
+describe("getWebsiteOrdersVisibilityStorageKey", () => {
+  it("keeps the website page's column layout separate from the main admin archive", () => {
+    expect(getWebsiteOrdersVisibilityStorageKey()).not.toBe(getBookingArchiveVisibilityStorageKey("ADMIN"));
   });
 });

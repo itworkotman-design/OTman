@@ -5,4 +5,4 @@ Renders the archive bulk-update bar used to apply one status or subcontractor ch
 
 ## Functions
 ### `BulkUpdateBar(props)`
-Tracks the selected bulk status and subcontractor values, confirms the bulk action, resets the controls after a successful apply, flashes a short success state, and keeps the status options aligned with the canonical lowercase order-status keys.
+Tracks the selected bulk status and subcontractor values, confirms the bulk action, resets the controls after a successful apply, flashes a short success state, and keeps the status options aligned with the canonical lowercase order-status keys. `statusOptions` overrides the list (the Website orders page passes `WEBSITE_ORDER_STATUS_OPTIONS`). Choosing `rejected` asks for a required reason via a prompt instead of the usual confirm, and sends it as `statusNotes`, since the route refuses a rejection without one.

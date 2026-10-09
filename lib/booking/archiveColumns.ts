@@ -633,6 +633,48 @@ export function getDefaultVisibleBookingArchiveColumns(
   return getBookingArchiveColumns(viewMode, options).map((column) => column.id);
 }
 
+// Website orders have no associated store/cashier and never use the DNB
+// discount, so those admin-default columns are just noise on that page.
+// orderNumber stays: it holds the public order number the customer was given
+// (see lib/orders/publicOrderNumber.ts) and quotes when they get in touch.
+const WEBSITE_ORDERS_HIDDEN_COLUMN_IDS = new Set<BookingArchiveColumnId>([
+  "createdBy",
+  "cashierName",
+  "cashierPhone",
+  "dnbDiscount",
+]);
+
+export function getWebsiteOrdersColumns(): BookingArchiveColumn[] {
+  return getBookingArchiveColumns("ADMIN").filter(
+    (column) => !WEBSITE_ORDERS_HIDDEN_COLUMN_IDS.has(column.id),
+  );
+}
+
+export function getWebsiteOrdersVisibleColumns(): BookingArchiveColumnId[] {
+  return getWebsiteOrdersColumns().map((column) => column.id);
+}
+
+// Same migrations as the admin archive, then narrowed to the website set so a
+// saved layout can never bring a store/cashier/DNB column back.
+export function sanitizeWebsiteOrdersVisibleColumns(
+  columnIds: string[],
+): BookingArchiveColumnId[] {
+  const defaults = getWebsiteOrdersVisibleColumns();
+  const allowed = new Set(defaults);
+  const usable = columnIds.filter((columnId) =>
+    allowed.has(columnId as BookingArchiveColumnId),
+  );
+  if (usable.length === 0) return defaults;
+
+  return sanitizeVisibleBookingArchiveColumns("ADMIN", usable).filter(
+    (columnId) => allowed.has(columnId),
+  );
+}
+
+export function getWebsiteOrdersVisibilityStorageKey(): string {
+  return "booking-archive-visible-columns:WEBSITE_ORDERS";
+}
+
 export function sanitizeVisibleBookingArchiveColumns(
   viewMode: BookingArchiveViewMode,
   columnIds: string[],

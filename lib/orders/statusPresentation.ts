@@ -11,6 +11,25 @@ export const ORDER_STATUS_OPTIONS = [
   "paid",
 ] as const;
 
+// Homepage (public customer) orders are prepaid at checkout, so they never
+// need approved (awaiting payment) and never reach the B2B invoiced/paid
+// bookkeeping statuses.
+export const WEBSITE_ORDER_STATUS_OPTIONS = [
+  "processing",
+  "rejected",
+  "confirmed",
+  "active",
+  "failed",
+  "cancelled",
+  "completed",
+] as const;
+
+const WEBSITE_ORDER_STATUS_SET = new Set<string>(WEBSITE_ORDER_STATUS_OPTIONS);
+
+export function isAllowedWebsiteOrderStatus(status: string | null | undefined): boolean {
+  return WEBSITE_ORDER_STATUS_SET.has(normalizeOrderStatus(status));
+}
+
 export function normalizeOrderStatus(status: string | null | undefined) {
   const key = (status ?? "").toString().trim().toLowerCase();
 

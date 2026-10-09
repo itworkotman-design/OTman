@@ -515,3 +515,47 @@ describe("PATCH /api/orders/bulk", () => {
     });
   });
 });
+
+describe("PATCH /api/orders/bulk — website order statuses", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      user: { username: "Admin", email: "admin@example.com" },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      { id: "web-1", companyId: "company-1", status: "processing", statusNotes: "", isWebsiteOrder: true, gdprHold: false },
+    ]);
+    mocks.orderUpdateManyMock.mockResolvedValue({ count: 1 });
+    mocks.buildOrderEventSnapshotMock.mockImplementation((order) => ({ status: order.status ?? null }));
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([]);
+    mocks.createManyOrderStatusChangedEventsMock.mockResolvedValue(undefined);
+    mocks.orderNotificationUpdateManyMock.mockResolvedValue({ count: 0 });
+    mocks.findCancelledOrderPartnerMock.mockResolvedValue(null);
+  });
+
+  function bulk(status: string) {
+    return PATCH(
+      new Request("http://localhost/api/orders/bulk", {
+        method: "PATCH",
+        body: JSON.stringify({ orderIds: ["web-1"], status }),
+      }),
+    );
+  }
+
+  it.each(["approved", "invoiced", "paid"])("refuses %s for a website order", async (status) => {
+    const res = await bulk(status);
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ ok: false, reason: "WEBSITE_ORDER_STATUS_NOT_ALLOWED" });
+    expect(mocks.orderUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a website status", async () => {
+    const res = await bulk("completed");
+
+    expect(res.status).toBe(200);
+  });
+});

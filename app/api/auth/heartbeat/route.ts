@@ -15,6 +15,9 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const lastChecked =
     typeof body?.lastChecked === "string" ? body.lastChecked : null;
+  // The Website orders page only cares about homepage orders; without this a
+  // B2B order elsewhere in the company would flag its Refresh button.
+  const websiteOrdersOnly = body?.websiteOrdersOnly === true;
   const companyId = session.activeCompanyId;
 
   let hasNewOrders = false;
@@ -27,12 +30,14 @@ export async function POST(req: Request) {
         prisma.order.count({
           where: {
             companyId,
+            ...(websiteOrdersOnly ? { isWebsiteOrder: true } : {}),
             createdAt: { gt: since },
           },
         }),
         prisma.order.count({
           where: {
             companyId,
+            ...(websiteOrdersOnly ? { isWebsiteOrder: true } : {}),
             updatedAt: { gt: since },
             createdAt: { lte: since },
           },

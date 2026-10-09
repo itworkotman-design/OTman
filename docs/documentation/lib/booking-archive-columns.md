@@ -19,6 +19,10 @@ Defines the column sets, export metadata, and visibility helpers used by the boo
 | `getEffectiveArchiveSubcontractorTotal` | Calculates the subcontractor archive total from stored subcontractor price, minus, and plus fields, with cancelled rows clamped to at least the protected fee total. |
 | `getBookingArchiveColumns` | Returns the configured column list for a given archive view mode. |
 | `getDefaultVisibleBookingArchiveColumns` | Returns the default visible-column order for a given view mode. |
+| `getWebsiteOrdersColumns` | Returns the column definitions offered on the dashboard Website orders page: the admin columns minus store/cashier/DNB. Keeps `orderNumber`, which holds the public order number the customer was given. |
+| `getWebsiteOrdersVisibleColumns` | Returns the ids of `getWebsiteOrdersColumns()`, which are the default visible set on the Website orders page. |
+| `sanitizeWebsiteOrdersVisibleColumns` | Applies the admin sanitizing to a saved Website orders layout, then narrows it to the website set. Falls back to the defaults when nothing usable is left. |
+| `getWebsiteOrdersVisibilityStorageKey` | localStorage key for the Website orders column layout, separate from the main admin archive's key. |
 | `sanitizeVisibleBookingArchiveColumns` | Filters persisted column ids down to the valid ids for the current view mode and migrates older admin `customerName` visibility to `createdBy`. |
 | `getBookingArchiveExportColumns` | Returns the currently visible columns that are exportable. |
 | `getBookingArchiveVisibilityStorageKey` | Builds the local-storage key used to persist archive column visibility. |

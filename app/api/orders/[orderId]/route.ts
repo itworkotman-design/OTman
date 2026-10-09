@@ -47,7 +47,7 @@ import {
   createTodayDeliveryAlert,
 } from "@/lib/orders/alerts";
 import { cancelledOrderPartnerData } from "@/lib/orders/cancelledOrderPartner";
-import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { isAllowedWebsiteOrderStatus, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 import { buildWordpressExtraPickupContacts, getWordpressExtraPickupAddresses, toWordpressMetaRecord } from "@/lib/integrations/wordpress/orderMeta";
 import { applyOrderPricingSnapshot, getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
@@ -883,6 +883,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     !existingOrder.isWebsiteOrder
   ) {
     return NextResponse.json({ ok: false, reason: "NOT_A_WEBSITE_ORDER" }, { status: 400 });
+  }
+
+  // Only a change is checked, so legacy website orders already sitting in
+  // approved stay editable (the editor sends the current status back on save).
+  if (
+    existingOrder.isWebsiteOrder &&
+    normalizedNextStatus !== normalizedExistingStatus &&
+    !isAllowedWebsiteOrderStatus(normalizedNextStatus)
+  ) {
+    return NextResponse.json({ ok: false, reason: "WEBSITE_ORDER_STATUS_NOT_ALLOWED" }, { status: 400 });
   }
 
   if (normalizedNextStatus === "rejected" && !nextStatusNotes) {

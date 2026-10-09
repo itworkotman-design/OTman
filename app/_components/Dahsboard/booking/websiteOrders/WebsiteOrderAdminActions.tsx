@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { shouldPromptForPartner } from "@/lib/orders/partnerRequirement";
-import { ORDER_STATUS_OPTIONS, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { WEBSITE_ORDER_STATUS_OPTIONS, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildWebsiteOrderAdminUpdate } from "@/lib/orders/websiteOrderAdminUpdate";
 import { handlingChange, type WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
@@ -129,6 +129,7 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
       "Statusnotater lagres sammen med en statusendring.",
     ),
     REJECTION_COMMENT_REQUIRED: t("Rejecting needs a comment.", "Avvisning krever en kommentar."),
+    WEBSITE_ORDER_STATUS_NOT_ALLOWED: t("That status isn't used for website orders.", "Den statusen brukes ikke for nettsidebestillinger."),
     FORBIDDEN: t("Only admins can change website orders.", "Kun administratorer kan endre nettsidebestillinger."),
     INVALID_HANDLING: t(
       "Check the date, the deviation and the amounts (in kroner).",
@@ -330,10 +331,10 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
           <label className="flex flex-col gap-1">
             <span className={labelClass}>{t("Status", "Status")}</span>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
-              {!ORDER_STATUS_OPTIONS.includes(status as (typeof ORDER_STATUS_OPTIONS)[number]) && status && (
+              {!WEBSITE_ORDER_STATUS_OPTIONS.includes(status as (typeof WEBSITE_ORDER_STATUS_OPTIONS)[number]) && status && (
                 <option value={status}>{bookingText(locale, status)}</option>
               )}
-              {ORDER_STATUS_OPTIONS.map((option) => (
+              {WEBSITE_ORDER_STATUS_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {bookingText(locale, option)}
                 </option>

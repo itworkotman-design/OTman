@@ -20,6 +20,8 @@ import {
 import { parseIsoDate, toIsoDate } from "@/lib/dates/isoDate";
 import { addMonths, buildCalendarDays, startOfMonth } from "@/lib/dates/calendarGrid";
 
+const DEFAULT_STATUS_OPTIONS = ["processing", "confirmed", "active", "cancelled", "failed", "completed", "invoiced", "paid"] as const;
+
 type Props = {
   initialApplied: BookingArchiveFilters;
   access: {
@@ -34,6 +36,8 @@ type Props = {
   showPricelistFilter?: boolean;
   pickupAddresses?: BookingArchiveOption[];
   showPickupAddressFilter?: boolean;
+  // Website orders also use approved/rejected, which B2B orders never reach.
+  statusOptions?: readonly string[];
   onApply: (filters: BookingArchiveFilters) => void;
   onReset: () => void;
   onRefresh?: () => void;
@@ -103,6 +107,7 @@ export default function BookingFilters({
   showPricelistFilter = false,
   pickupAddresses = [],
   showPickupAddressFilter = false,
+  statusOptions = DEFAULT_STATUS_OPTIONS,
   onApply,
   onReset,
   onDownloadSelectedTable,
@@ -320,14 +325,11 @@ export default function BookingFilters({
             <Field label={t("Status")}>
               <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput padding-weird-landscape text-weird-landscape w-full">
                 <option value="">{t("All statuses")}</option>
-                <option value="processing">{bookingStatusText(locale, "processing")}</option>
-                <option value="confirmed">{bookingStatusText(locale, "confirmed")}</option>
-                <option value="active">{bookingStatusText(locale, "active")}</option>
-                <option value="cancelled">{bookingStatusText(locale, "cancelled")}</option>
-                <option value="failed">{bookingStatusText(locale, "failed")}</option>
-                <option value="completed">{bookingStatusText(locale, "completed")}</option>
-                <option value="invoiced">{bookingStatusText(locale, "invoiced")}</option>
-                <option value="paid">{bookingStatusText(locale, "paid")}</option>
+                {statusOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {bookingStatusText(locale, option)}
+                  </option>
+                ))}
               </select>
             </Field>
 

@@ -20,20 +20,22 @@ type Props = {
   subcontractors: BookingArchiveOption[];
   onApply: (payload: {
     status?: string;
+    statusNotes?: string;
     subcontractorId?: string;
   }) => void | Promise<boolean>;
   onClear: () => void;
   loading?: boolean;
   error?: string;
   locale?: BookingUiLocale;
+  // Website orders use a narrower set (WEBSITE_ORDER_STATUS_OPTIONS).
+  statusOptions?: readonly string[];
 };
-
-const STATUS_OPTIONS = ORDER_STATUS_OPTIONS;
 
 export default function BulkUpdateBar({
   selectedCount,
   selectedOrders,
   subcontractors,
+  statusOptions = ORDER_STATUS_OPTIONS,
   onApply,
   onClear,
   loading = false,
@@ -76,9 +78,20 @@ export default function BulkUpdateBar({
       locale === "nb"
         ? `Oppdater ${selectedCount} bestillinger?`
         : `Update ${selectedCount} orders?`;
-    if (!confirm(confirmMsg)) return;
+    // The server refuses a rejection without a comment (it's the reason
+    // recorded on the order), so ask for it up front.
+    let statusNotes: string | undefined;
+    if (status === "rejected") {
+      const reason = window.prompt(
+        locale === "nb" ? "Grunn for avvisning (påkrevd):" : "Reason for rejecting (required):",
+      );
+      if (!reason?.trim()) return;
+      statusNotes = reason.trim();
+    } else if (!confirm(confirmMsg)) {
+      return;
+    }
 
-    await applyBulkUpdate();
+    await applyBulkUpdate(statusNotes);
   }
 
   function closeMissingPartnerDialog() {
@@ -90,9 +103,10 @@ export default function BulkUpdateBar({
     await applyBulkUpdate();
   }
 
-  async function applyBulkUpdate() {
+  async function applyBulkUpdate(statusNotes?: string) {
     const ok = await onApply({
       status: status || undefined,
+      statusNotes,
       subcontractorId: subcontractorId || undefined,
     });
 
@@ -124,7 +138,7 @@ export default function BulkUpdateBar({
               disabled={loading}
             >
               <option value="">{t("No status change")}</option>
-              {STATUS_OPTIONS.map((s) => (
+              {statusOptions.map((s) => (
                 <option key={s} value={s}>
                   {bookingStatusText(locale, s)}
                 </option>
@@ -189,7 +203,7 @@ export default function BulkUpdateBar({
             disabled={loading}
           >
             <option value="">{t("No status change")}</option>
-            {STATUS_OPTIONS.map((s) => (
+            {statusOptions.map((s) => (
               <option key={s} value={s}>
                 {bookingStatusText(locale, s)}
               </option>

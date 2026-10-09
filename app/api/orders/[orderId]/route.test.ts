@@ -2413,3 +2413,74 @@ describe("PATCH /api/orders/[orderId] — white-goods website orders", () => {
     expect(mocks.getWebsiteOrderCatalogMock).not.toHaveBeenCalled();
   });
 });
+
+describe("PATCH /api/orders/[orderId] — website order statuses", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.canEditOrdersMock.mockReturnValue(true);
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      user: { username: "admin", email: "admin@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.getBookingCatalogMock.mockResolvedValue({ products: [], specialOptions: [] });
+    mocks.buildOrderSummariesMock.mockReturnValue({});
+    mocks.buildOrderEventSnapshotMock.mockImplementation((value) => value);
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([]);
+    mocks.buildOrderItemsFromCardsMock.mockReturnValue([]);
+    mocks.orderUpdateMock.mockResolvedValue({ id: "order-1" });
+    mocks.orderNotificationFindFirstMock.mockResolvedValue(null);
+    mocks.orderNotificationFindManyMock.mockResolvedValue([]);
+    mocks.cancelledOrderPartnerDataMock.mockResolvedValue({});
+  });
+
+  function websiteOrder(status: string) {
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      displayId: 20001,
+      priceListId: "price-list-1",
+      isWebsiteOrder: true,
+      websiteOrderKind: null,
+      status,
+      createdAt: new Date("2026-10-01T00:00:00.000Z"),
+    });
+  }
+
+  function patchStatus(status: string) {
+    return PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({ status, productCards: [{ cardId: 1, productId: "product-1" }] }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+  }
+
+  it("refuses moving a website order into a B2B-only status", async () => {
+    websiteOrder("confirmed");
+
+    const res = await patchStatus("invoiced");
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ ok: false, reason: "WEBSITE_ORDER_STATUS_NOT_ALLOWED" });
+    expect(mocks.orderUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("still saves a legacy approved website order whose status isn't changing", async () => {
+    websiteOrder("approved");
+
+    const res = await patchStatus("approved");
+
+    expect(res.status).toBe(200);
+  });
+
+  it("allows moving a website order into a website status", async () => {
+    websiteOrder("confirmed");
+
+    const res = await patchStatus("completed");
+
+    expect(res.status).toBe(200);
+  });
+});
