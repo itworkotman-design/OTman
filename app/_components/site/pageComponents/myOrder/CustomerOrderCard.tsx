@@ -59,7 +59,7 @@ export default function CustomerOrderCard({ order, locale }: Props) {
         <div className="flex min-w-0 flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-start lg:col-span-1">
           <div className="flex min-w-0 flex-1 gap-3">
             <PinIcon className="h-6 w-6 shrink-0 text-logoblue" />
-            <div className="min-w-0 [overflow-wrap:anywhere]">
+            <div className="min-w-0 wrap-anywhere">
               <p className="text-gray-900">{order.pickupAddress || t("Pickup not set", "Henteadresse ikke satt")}</p>
               {order.extraPickupCount > 0 && (
                 <p className="text-textColorThird">
@@ -71,7 +71,7 @@ export default function CustomerOrderCard({ order, locale }: Props) {
           <ArrowRightIcon className="hidden h-6 w-6 shrink-0 text-gray-700 sm:block" />
           <div className="flex min-w-0 flex-1 gap-3">
             <PinIcon className="h-6 w-6 shrink-0 text-logoblue" />
-            <p className="min-w-0 text-gray-900 [overflow-wrap:anywhere]">
+            <p className="min-w-0 text-gray-900 wrap-anywhere">
               {order.deliveryAddress || t("Delivery not set", "Leveringsadresse ikke satt")}
             </p>
           </div>

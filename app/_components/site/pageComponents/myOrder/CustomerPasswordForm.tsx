@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 // Lets a logged-in customer swap the generated password for their own
-// (POST /api/customer/password).
+// (POST /api/customer/password). A link in the "My orders" header that opens
+// the form as a small panel under it.
 export default function CustomerPasswordForm({ locale }: { locale: "en" | "no" }) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const [open, setOpen] = useState(false);
@@ -49,12 +50,15 @@ export default function CustomerPasswordForm({ locale }: { locale: "en" | "no" }
   const inputClass = "mt-1 h-11 w-full rounded-lg border border-gray-300 px-3 text-sm focus:border-logoblue focus:outline-none";
 
   return (
-    <div className="mt-6 max-w-3xl text-sm">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="font-semibold text-logoblue">
+    <div className="relative text-sm">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="font-semibold text-logoblue">
         {t("Change password", "Endre passord")}
       </button>
       {open && (
-        <form onSubmit={submit} className="mt-3 flex max-w-md flex-col gap-3 rounded-lg border border-gray-200 p-6">
+        <form
+          onSubmit={submit}
+          className="absolute right-0 top-full z-20 mt-3 flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-5 shadow-lg max-sm:left-0 max-sm:right-auto"
+        >
           <label className="block font-medium">
             {t("Current password", "Nåværende passord")}
             <input

@@ -10,7 +10,8 @@
 - `app/_components/site/pageComponents/myOrder/CustomerOrderDetailsForm.tsx`: the edit form for moving and quote orders.
 - `app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter.tsx`: the save bar of the booking flow's customer mode.
 - `app/_components/site/pageComponents/myOrder/customerEditPayload.ts`: builds the save payload.
-- `app/_components/site/pageComponents/myOrder/CustomerPasswordForm.tsx`: the change-password form.
+- `app/_components/site/pageComponents/myOrder/CustomerPasswordForm.tsx`: "Endre passord" in the orders list header; opens the form as a small panel.
+- `app/_components/site/pageComponents/myOrder/orderRules.ts`: the "Godt å vite" lines from the order's permissions (open, before the cutoff, can change products) and the cutoff.
 - `app/_components/site/pageComponents/myOrder/CustomerLogoutButton.tsx`: the logout button.
 - `app/_components/site/pageComponents/myOrder/CustomerOrderCard.tsx`: one order on the list — number, status badge, ordered date, delivery date and time window, pickup → delivery (with "+N more pickups"), delivery type and products, the progress bar, "Se detaljer" and a ⋯ menu (see/change, contact, call).
 - `app/_components/site/pageComponents/myOrder/OrderProgressBar.tsx`: the steps from `lib/customerAccounts/orderProgress.ts` (Bestilling mottatt → Under behandling → Bekreftet → På vei → Fullført). Done = check with the time, current = pulsing ring, needs a change = orange "!", stopped = red cross (Kansellert / Ikke gjennomført), plus a note under the bar. Each step is a fifth of the width from `sm`, so a stopped order's bar ends where it stopped; vertical on phones.

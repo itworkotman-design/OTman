@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerCustomerSession } from "@/lib/customerAccounts/serverCustomerSession";
-import { customerOrderView, findCustomerOrder } from "@/lib/customerAccounts/customerOrderView";
+import { customerOrderView, findCustomerOrder, findCustomerOrderProducts } from "@/lib/customerAccounts/customerOrderView";
 import CustomerOrderClient from "@/app/_components/site/pageComponents/myOrder/CustomerOrderClient";
 
 export const metadata: Metadata = {
@@ -38,10 +38,12 @@ export default async function MyOrderPage({ params }: { params: Promise<{ locale
   }
 
   const view = customerOrderView(order);
+  const products = await findCustomerOrderProducts(order);
   return (
     <CustomerOrderClient
       locale={locale}
       order={view.order}
+      products={products}
       details={view.details}
       permissions={{ ...view.permissions, cutoffAt: view.permissions.cutoffAt?.toISOString() ?? null }}
     />

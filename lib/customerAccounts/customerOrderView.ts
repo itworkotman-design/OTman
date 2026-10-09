@@ -3,6 +3,7 @@ import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import { getCustomerEditPermissions, type CustomerEditPermissions } from "@/lib/orders/customerOrderEditPolicy";
 import { editableDetailsFromOrder, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import { buildOrderProgress } from "./orderProgress";
+import { customerOrderProducts } from "./customerOrderProducts";
 
 // A customer's own order as "My order" reads it. Orders are only ever found
 // through the logged-in account (customerAccountId) — never by number alone.
@@ -44,6 +45,8 @@ export const CUSTOMER_ORDER_SELECT = {
   emailThreadToken: true,
   priceExVat: true,
   productsSummary: true,
+  deliveryTypeSummary: true,
+  servicesSummary: true,
   rabatt: true,
   leggTil: true,
   subcontractorMinus: true,
@@ -64,6 +67,19 @@ export const CUSTOMER_ORDER_SELECT = {
   productCardsSnapshot: true,
   payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
   events: STATUS_EVENTS,
+  items: {
+    select: {
+      cardId: true,
+      itemType: true,
+      productId: true,
+      productCode: true,
+      productName: true,
+      deliveryType: true,
+      optionLabel: true,
+      quantity: true,
+      rawData: true,
+    },
+  },
 } as const;
 
 export async function findCustomerOrder(accountId: string, orderNumber: string) {
@@ -131,6 +147,9 @@ export function customerOrderView(order: CustomerOrder, now: Date = new Date()) 
       deliveryDate: order.deliveryDate,
       timeWindow: order.timeWindow,
       productsSummary: order.productsSummary,
+      deliveryTypeSummary: order.deliveryTypeSummary,
+      servicesSummary: order.servicesSummary,
+      createdAt: order.createdAt,
       totalIncVatNok: customerOrderTotalIncVatNok(order),
       progress: progressOf(order),
     },
@@ -177,4 +196,12 @@ export async function listCustomerOrders(accountId: string) {
     totalIncVatNok: customerOrderTotalIncVatNok(order),
     progress: progressOf(order),
   }));
+}
+
+// The order's products for the "Varer og tjenester" tiles, with each
+// product's icon key (Product.iconKey) looked up.
+export async function findCustomerOrderProducts(order: Pick<CustomerOrder, "items">) {
+  const ids = [...new Set(order.items.map((item) => item.productId).filter((id): id is string => !!id))];
+  const products = ids.length > 0 ? await prisma.product.findMany({ where: { id: { in: ids } }, select: { id: true, iconKey: true } }) : [];
+  return customerOrderProducts(order.items, products);
 }

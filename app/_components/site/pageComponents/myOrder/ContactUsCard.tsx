@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { ArrowRightIcon, ChatIcon } from "./myOrderIcons";
 
-// "Questions about an order?" box at the bottom of the My order pages.
-export default function ContactUsCard({ locale }: { locale: "no" | "en" }) {
+// "Questions about an order?" box on the My order pages. `stacked` = one
+// column, for the order page's narrow side column.
+export default function ContactUsCard({ locale, stacked = false }: { locale: "no" | "en"; stacked?: boolean }) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   return (
-    <section className="flex flex-col gap-5 rounded-2xl border border-blue-100 bg-blue-50/50 p-5 sm:flex-row sm:items-center sm:p-6">
+    <section className={`flex flex-col gap-5 rounded-2xl border border-blue-100 bg-blue-50/50 p-5 sm:p-6 ${stacked ? "" : "sm:flex-row sm:items-center"}`}>
       <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-blue-100 text-logoblue">
         <ChatIcon className="h-8 w-8" />
       </span>

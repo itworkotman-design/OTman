@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerCustomerSession } from "@/lib/customerAccounts/serverCustomerSession";
 import { listCustomerOrders } from "@/lib/customerAccounts/customerOrderView";
 import CustomerLogoutButton from "@/app/_components/site/pageComponents/myOrder/CustomerLogoutButton";
+import CustomerPasswordForm from "@/app/_components/site/pageComponents/myOrder/CustomerPasswordForm";
 import CustomerOrderCard from "@/app/_components/site/pageComponents/myOrder/CustomerOrderCard";
 import ContactUsCard from "@/app/_components/site/pageComponents/myOrder/ContactUsCard";
 import AutoRefresh from "@/app/_components/site/pageComponents/myOrder/AutoRefresh";
@@ -41,7 +42,10 @@ export default async function MyOrdersPage({ params }: { params: Promise<{ local
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">{t.heading}</h1>
           <p className="mt-3 text-lg text-textColorThird">{t.intro}</p>
         </div>
-        <CustomerLogoutButton locale={locale} />
+        <div className="flex items-center gap-5">
+          <CustomerPasswordForm locale={locale} />
+          <CustomerLogoutButton locale={locale} />
+        </div>
       </div>
 
       <div className="mt-8 flex flex-col gap-6">
