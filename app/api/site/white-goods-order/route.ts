@@ -18,6 +18,8 @@ import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsi
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { findWebsiteCatalogByProductCode } from "@/lib/content/websiteCatalogs";
 import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
+import { isBookableDeliveryDate } from "@/lib/orders/customerOrderEditPolicy";
+import { isTimeWindowComplete } from "@/lib/booking/timeWindows";
 import { costliestFloor, parseFloorNumber } from "@/lib/booking/floorNumber";
 import { buildPickupNoteLines, buildWebsiteOrderTextFields } from "@/lib/orders/websiteOrderNotes";
 import { buildWhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
@@ -90,6 +92,12 @@ class InstallOptionRequiredError extends Error {
   }
 }
 
+class InstallAddOnNotAllowedError extends Error {
+  constructor() {
+    super("An install add-on was chosen without the install type it belongs to");
+  }
+}
+
 class ShownTotalRequiredError extends Error {
   constructor() {
     super("The order must say which total the customer was shown");
@@ -139,6 +147,7 @@ async function createWhiteGoodsOrder(
     if (cardsCheck.reason === "UNKNOWN_PRODUCT") throw new UnsellableProductError();
     if (cardsCheck.reason === "SIZE_BRACKETS_REQUIRED") throw new SizeBracketSelectionError();
     if (cardsCheck.reason === "INSTALL_OPTION_REQUIRED") throw new InstallOptionRequiredError();
+    if (cardsCheck.reason === "INSTALL_ADDON_NOT_ALLOWED") throw new InstallAddOnNotAllowedError();
     throw new ItemNameError();
   }
   const productCards = cardsCheck.cards;
@@ -460,6 +469,9 @@ export async function POST(req: Request) {
     }
   }
   if (!str(body.name)) errors.name = "Required";
+  // The booking calendar's rules, held on the server too.
+  if (!isBookableDeliveryDate(str(body.preferredDate) ?? "")) errors.preferredDate = "Choose a delivery date from tomorrow (not Sundays or public holidays)";
+  if (!("timeWindow" in errors) && !isTimeWindowComplete(str(body.timeWindow) ?? "")) errors.timeWindow = "Choose a time window";
   if (!Array.isArray(body.productCards) || body.productCards.length === 0) {
     errors.productCards = "At least one product is required";
   }
@@ -500,6 +512,12 @@ export async function POST(req: Request) {
     if (err instanceof InstallOptionRequiredError) {
       return NextResponse.json(
         { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "Choose which installation you need" } },
+        { status: 422 },
+      );
+    }
+    if (err instanceof InstallAddOnNotAllowedError) {
+      return NextResponse.json(
+        { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "That add-on can only be combined with a different installation — please review the installation choices" } },
         { status: 422 },
       );
     }

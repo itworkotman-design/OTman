@@ -249,7 +249,7 @@ export default function WebsiteOrderCalculator({
       const isNulled = !!line.lineKey && nulledKeys(product, side).includes(line.lineKey);
       return (
         <Fragment key={index}>
-          <span className={`flex items-center gap-2 text-black/60 ${isNulled ? "line-through opacity-60" : ""}`}>
+          <span className={`flex min-w-0 items-center gap-2 text-black/60 ${isNulled ? "line-through opacity-60" : ""}`}>
             {canNull ? (
               <input
                 type="checkbox"
@@ -265,7 +265,9 @@ export default function WebsiteOrderCalculator({
                 className={`h-1.5 w-1.5 shrink-0 rounded-full ${side === "partner" ? "bg-amber-600" : "bg-logoblue"}`}
               />
             )}
-            <span>
+            {/* Option codes (WASHING_MACHINE_NONAPPR_WET) have no natural break
+                point — let them wrap instead of widening the column. */}
+            <span className="min-w-0 [overflow-wrap:anywhere]">
               {line.qty > 1 && <span className="mr-1 opacity-70">x{formatQty(line.qty)}</span>}
               {line.code && <span className={`mr-1 ${side === "partner" ? "text-amber-700" : "text-logoblue"}`}>({line.code})</span>}
               {line.label}
@@ -289,7 +291,7 @@ export default function WebsiteOrderCalculator({
           <div key={index}>
             <p className="font-semibold text-black/85">{product.isOrderExtras ? t("Order extras", "Tillegg til ordren") : product.name}</p>
             {product.lines.length > 0 && (
-              <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1.5 pl-1 text-sm">
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 pl-1 text-sm">
                 {lineRows(product, product.lines, side)}
               </div>
             )}

@@ -7,6 +7,7 @@ import type {
   SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { deliveryTypeAfterSelectingType } from "@/lib/content/whiteGoodsElectronics";
+import { isInstallAddOnAllowed } from "@/lib/content/installAddOnRequirements";
 import type { FurnitureOptionSeed } from "@/lib/content/furnitureCatalog";
 import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
 import { isAssemblyCompatibleExtraCode } from "@/lib/booking/pricing/websiteAssemblyExtras";
@@ -230,15 +231,11 @@ export function WhiteGoodsProductCard({
     const seed = seedByCode.get(o.code);
     if (!seed || seed.category !== "install" || seed.exclusiveGroup)
       return false;
-    // TV's 75"-100" mount-on-stand add-on is only relevant alongside those
-    // two size-tier type choices.
-    if (o.code === "TV_MOUNT_STAND_75_100") {
-      return (
-        selectedTypeCode === "TV_TABLE_75_100" ||
-        selectedTypeCode === "TV_WALL_75_100"
-      );
-    }
-    return true;
+    // Some add-ons only go with one install type (TV stand / feet 75"-100"
+    // only with table mounting) — see installAddOnRequirements. One already
+    // selected stays visible so it can be unticked (orders booked before the
+    // rule may still hold it).
+    return isInstallAddOnAllowed(o.code, selectedTypeCode) || value.selectedInstallOptionIds.includes(o.id);
   });
 
   // Size-priced products (Other furniture) get their volume and weight chosen in
@@ -337,8 +334,10 @@ export function WhiteGoodsProductCard({
   function selectType(optionId: string) {
     const option = product.options.find((o) => o.id === optionId);
     const seed = option ? seedByCode.get(option.code) : undefined;
+    // Kept add-ons must still fit the newly chosen type (switching to wall
+    // mounting drops the TV stand / feet add-on).
     const stackableSelected = value.selectedInstallOptionIds.filter((id) =>
-      stackableInstallOptions.some((o) => o.id === id),
+      stackableInstallOptions.some((o) => o.id === id && isInstallAddOnAllowed(o.code, option?.code)),
     );
     onChange({
       ...value,

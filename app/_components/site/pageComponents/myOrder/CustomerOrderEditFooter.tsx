@@ -54,6 +54,10 @@ export default function CustomerOrderEditFooter({ orderNumber, initial, current,
     SIZE_BRACKETS_REQUIRED: t("Choose a size and weight for every item.", "Velg størrelse og vekt for alle varer."),
     ITEM_NAME_REQUIRED: t("Say what each item is.", "Skriv hva hver vare er."),
     INSTALL_OPTION_REQUIRED: t("Choose an installation option.", "Velg et monteringsvalg."),
+    INSTALL_ADDON_NOT_ALLOWED: t(
+      "One of the installation add-ons doesn't go with the installation you chose. Check the installation choices.",
+      "Et av monteringstilleggene passer ikke med monteringen du har valgt. Sjekk monteringsvalgene.",
+    ),
     UNKNOWN_PRODUCT: t("One of the products can't be ordered on the website.", "En av varene kan ikke bestilles på nettsiden."),
     UNAUTHORIZED: t("You have been logged out. Log in again.", "Du er logget ut. Logg inn igjen."),
   };

@@ -34,7 +34,7 @@ export async function POST(req: Request, { params }: Params) {
   const { orderId } = await params;
   const order = await prisma.order.findFirst({
     where: { id: orderId, companyId, isWebsiteOrder: true },
-    select: { id: true, companyId: true, displayId: true, orderNumber: true, customerName: true, email: true },
+    select: { id: true, companyId: true, displayId: true, orderNumber: true, customerName: true, email: true, emailThreadToken: true },
   });
   if (!order) return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
 
@@ -50,7 +50,14 @@ export async function POST(req: Request, { params }: Params) {
   });
 
   const sent = await sendCustomerCredentialsEmail({
-    order: { id: order.id, companyId: order.companyId, displayId: order.displayId, orderNumber: order.orderNumber, customerName: order.customerName },
+    order: {
+      id: order.id,
+      companyId: order.companyId,
+      displayId: order.displayId,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      emailThreadToken: order.emailThreadToken,
+    },
     email: account.email,
     password: account.newPassword,
   });

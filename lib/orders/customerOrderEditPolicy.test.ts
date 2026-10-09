@@ -5,6 +5,7 @@ import {
   getCustomerEditPermissions,
   getEditCutoff,
   isAllowedNewSchedule,
+  isBookableDeliveryDate,
   type CustomerEditState,
 } from "./customerOrderEditPolicy";
 
@@ -135,11 +136,24 @@ describe("classifyCustomerOrderEdit", () => {
     expect(classifyCustomerOrderEdit(state(), state({ pickups }))).toEqual([]);
   });
 
-  it("finds an add-on or delivery type change as a reconfigure", () => {
+  it("finds purely added services (extra add-ons, doorstep → carry-in) as addOns", () => {
     const cards = [{ ...state().cards![0], selectedExtraOptionIds: ["UNPACKING"] }];
-    expect(classifyCustomerOrderEdit(state(), state({ cards }))).toEqual(["reconfigure"]);
+    expect(classifyCustomerOrderEdit(state(), state({ cards }))).toEqual(["addOns"]);
     const indoor = [{ ...state().cards![0], deliveryType: "INDOOR" }];
-    expect(classifyCustomerOrderEdit(state(), state({ cards: indoor }))).toEqual(["reconfigure"]);
+    expect(classifyCustomerOrderEdit(state(), state({ cards: indoor }))).toEqual(["addOns"]);
+    const returned = [{ ...state().cards![0], selectedReturnOptionId: "RETURN", demontEnabled: true }];
+    expect(classifyCustomerOrderEdit(state(), state({ cards: returned }))).toEqual(["addOns"]);
+  });
+
+  it("finds removing or swapping a service, or a downgrade, as a reconfigure", () => {
+    const withUnpacking = state({ cards: [{ ...state().cards![0], deliveryType: "INDOOR", selectedExtraOptionIds: ["UNPACKING"] }] });
+    const removed = [{ ...withUnpacking.cards![0], selectedExtraOptionIds: [] }];
+    expect(classifyCustomerOrderEdit(withUnpacking, state({ cards: removed }))).toEqual(["reconfigure"]);
+    const downgraded = [{ ...withUnpacking.cards![0], deliveryType: "FIRST_STEP" }];
+    expect(classifyCustomerOrderEdit(withUnpacking, state({ cards: downgraded }))).toEqual(["reconfigure"]);
+    const installed = state({ cards: [{ ...state().cards![0], selectedInstallOptionIds: ["WALL"] }] });
+    const swapped = [{ ...installed.cards![0], selectedInstallOptionIds: ["TABLE"] }];
+    expect(classifyCustomerOrderEdit(installed, state({ cards: swapped }))).toEqual(["reconfigure"]);
   });
 
   it("finds a quantity change", () => {
@@ -169,15 +183,16 @@ describe("findForbiddenChanges", () => {
 
   it("allows everything before the cutoff", () => {
     expect(
-      findForbiddenChanges(["contact", "notes", "schedule", "addresses", "reconfigure", "addProduct", "removeProduct", "quantity"], before),
+      findForbiddenChanges(["contact", "notes", "schedule", "addresses", "addOns", "reconfigure", "addProduct", "removeProduct", "quantity"], before),
     ).toEqual([]);
   });
 
-  it("only allows contact, notes and add-ons after the cutoff", () => {
-    expect(findForbiddenChanges(["contact", "notes", "reconfigure"], after)).toEqual([]);
-    expect(findForbiddenChanges(["schedule", "addresses", "addProduct", "removeProduct", "quantity", "notes"], after)).toEqual([
+  it("only allows contact, notes and added services after the cutoff", () => {
+    expect(findForbiddenChanges(["contact", "notes", "addOns"], after)).toEqual([]);
+    expect(findForbiddenChanges(["schedule", "addresses", "reconfigure", "addProduct", "removeProduct", "quantity", "notes"], after)).toEqual([
       "schedule",
       "addresses",
+      "reconfigure",
       "addProduct",
       "removeProduct",
       "quantity",
@@ -190,8 +205,8 @@ describe("findForbiddenChanges", () => {
 
   it("forbids item and address changes on orders that can't edit items", () => {
     expect(
-      findForbiddenChanges(["contact", "schedule", "addresses", "reconfigure"], { ...before, canEditItems: false }),
-    ).toEqual(["addresses", "reconfigure"]);
+      findForbiddenChanges(["contact", "schedule", "addresses", "addOns", "reconfigure"], { ...before, canEditItems: false }),
+    ).toEqual(["addresses", "addOns", "reconfigure"]);
   });
 });
 
@@ -222,5 +237,22 @@ describe("isAllowedNewSchedule", () => {
   it("refuses a missing or invalid date", () => {
     expect(isAllowedNewSchedule("", "10:00-16:00", now)).toBe(false);
     expect(isAllowedNewSchedule("2026-13-40", "10:00-16:00", now)).toBe(false);
+  });
+});
+
+describe("isBookableDeliveryDate", () => {
+  const now = new Date("2026-10-05T10:00:00Z"); // Monday, 12:00 Oslo
+
+  it("accepts tomorrow and later (the booking calendar's rule — no 24h cutoff)", () => {
+    expect(isBookableDeliveryDate("2026-10-06", now)).toBe(true);
+    expect(isBookableDeliveryDate("2026-10-16", now)).toBe(true);
+  });
+
+  it("refuses today, the past, Sundays, public holidays and non-dates", () => {
+    expect(isBookableDeliveryDate("2026-10-05", now)).toBe(false);
+    expect(isBookableDeliveryDate("2026-09-30", now)).toBe(false);
+    expect(isBookableDeliveryDate("2026-10-11", now)).toBe(false);
+    expect(isBookableDeliveryDate("2026-12-25", now)).toBe(false);
+    expect(isBookableDeliveryDate("15.10.2026", now)).toBe(false);
   });
 });

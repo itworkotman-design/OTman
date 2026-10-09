@@ -21,3 +21,7 @@ Converts saved product cards into persisted order item rows, including option me
 | `findDemontOption` | Finds the active `DEMONT` option for products that support demont. |
 | `findXtraSpecialOption` | Finds the active XTRA special option. |
 | `buildOrderItemsFromCards` | Builds product-card, option, visible custom-section, demont, return, and read-only WordPress mismatch item rows using effective customer prices for discounts, preserving read-only WP quantity and unit-price metadata. A return can be a global special option (dashboard) or the product's own return option (website catalog), the same lookup as the pricing engine. With `zeroBaseDeliveryPricesOver100Km` the delivery line is kept at 0 kr (`shouldZeroBaseDeliveryPrice`, shared with the engine), so the lines add up to the total. |
+
+## Notes
+
+- A card whose delivery is charged at the extra-unit rate stores its delivery line under the `XTRA` code (or the XTRA special option's code), the same code the calculator uses. A "Set to 0" on that line (`code:XTRA`) therefore also zeroes the stored line, and the stored lines add up to the order total.

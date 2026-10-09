@@ -351,7 +351,9 @@ export function buildOrderItemsFromCards(
           deliveryType: deliveryTypeLabel,
           itemType: "EXTRA_OPTION",
           optionId: xtraOption?.id ?? null,
-          optionCode: xtraOption?.code ?? deliveryTypeCode,
+          // An extra-rate line is XTRA in the calculator too (fromProductCards),
+          // so a "Set to 0" on it (code:XTRA) also nulls this stored line.
+          optionCode: xtraOption?.code ?? (useXtraDeliveryPricing ? OPTION_CODES.XTRA : deliveryTypeCode),
           optionLabel: deliveryTypeLabel ?? "",
           quantity: 1,
           customerPriceCents,

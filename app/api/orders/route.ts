@@ -91,6 +91,7 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   servicesSummary: true,
   productCardsSnapshot: true,
   pricingSnapshot: true,
+  websiteOrderKind: true,
   description: true,
   cashierName: true,
   cashierPhone: true,
@@ -1244,6 +1245,7 @@ export async function GET(req: Request) {
           ? (priceListNames.get(order.priceListId) ?? "")
           : "",
         pricingSnapshot: order.pricingSnapshot,
+        websiteOrderKind: order.websiteOrderKind,
         rabatt: order.rabatt ?? "",
         dnbDiscount: order.dnbDiscount,
         leggTil: order.leggTil ?? "",

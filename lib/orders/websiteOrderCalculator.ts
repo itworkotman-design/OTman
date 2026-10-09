@@ -58,16 +58,18 @@ export function websiteOrderCalculatorView(
         nulledPartner: includePartner && line.nulledForSubcontractor === true,
       })),
     })),
+    // A line set to 0 already shows 0 kr (and is left out of the subtotal), so
+    // its amount (checkboxDiscount) isn't shown again as a discount.
     customer: {
       subtotal: totals.subtotalExVat,
-      discount: totals.discount + totals.checkboxDiscount,
+      discount: totals.discount,
       extra: totals.extra,
       total: totals.totalExVat,
     },
     partner: includePartner
       ? {
           base: totals.subcontractorBase,
-          minus: totals.subcontractorMinus + totals.subcontractorCheckboxDiscount,
+          minus: totals.subcontractorMinus,
           plus: totals.subcontractorPlus,
           total: totals.subcontractorTotal,
         }

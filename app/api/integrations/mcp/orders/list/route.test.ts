@@ -136,4 +136,14 @@ describe("GET /api/integrations/mcp/orders/list", () => {
       lines: [],
     });
   });
+
+  it("reports a homepage (WHITE_GOODS) order's total and VAT without adding VAT again", async () => {
+    mocks.orderFindManyMock.mockResolvedValue([
+      { displayId: 1, websiteOrderKind: "WHITE_GOODS", pricingSnapshot: { customer: { totalExVat: 1250, vat: 312.5, totalIncVat: 1562.5 } } },
+    ]);
+
+    const json = await (await createRequest("")).json();
+
+    expect(json.orders[0]).toEqual(expect.objectContaining({ totalPrice: 1250, vat: 250 }));
+  });
 });

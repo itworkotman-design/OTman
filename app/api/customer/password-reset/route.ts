@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     if (reset) {
       const order = await prisma.order.findUnique({
         where: { id: reset.orderId },
-        select: { id: true, companyId: true, displayId: true, orderNumber: true, customerName: true },
+        select: { id: true, companyId: true, displayId: true, orderNumber: true, customerName: true, emailThreadToken: true },
       });
       if (order) await sendCustomerCredentialsEmail({ order, email: reset.email, password: reset.newPassword });
     }

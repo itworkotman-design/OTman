@@ -51,6 +51,8 @@ const validBody = {
   name: "Test Customer",
   phone: "+47 123 45 678",
   email: "customer@example.com",
+  preferredDate: "2030-01-08",
+  timeWindow: "10:00-16:00",
 };
 
 describe("POST /api/site/white-goods-order — installation only", () => {

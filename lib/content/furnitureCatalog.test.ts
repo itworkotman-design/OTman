@@ -149,14 +149,15 @@ describe("add-ons", () => {
 });
 
 describe("Other furniture", () => {
-  it("is a real product with delivery, unpacking and return, but no assembly — flagged as needing implementation", () => {
+  it("is a real product with delivery, unpacking and return, but no assembly — flagged as a manual quote", () => {
     const other = byCode("FN_OTHER_FURNITURE");
     // (plus the size brackets — see "Other furniture size brackets" below)
     expect(other.options.filter((o) => !o.category.startsWith("size_")).map((o) => o.code).sort()).toEqual(["RETURN_RECYCLING", "UNPACKING"]);
     expect(other.deliveryTypes.installOnlyEnabled).toBe(false);
+    // Shown to customers as a disabled note — must read as a customer message.
     expect(other.needsImplementation).toEqual({
-      labelEn: "Assembly — needs implementation",
-      labelNo: "Montering — trenger implementering",
+      labelEn: "Need assembly? Describe it under additional information and we'll send you a price.",
+      labelNo: "Trenger du montering? Beskriv det under tilleggsinformasjon, så sender vi deg en pris.",
     });
   });
 

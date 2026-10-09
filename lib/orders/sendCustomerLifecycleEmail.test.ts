@@ -155,4 +155,28 @@ describe("sendLifecycleEmailsForOrders", () => {
 
     expect(result).toEqual({ sentCount: 1, failedOrderIds: ["order1"] });
   });
+
+  describe("an order_received email with the customer's new password", () => {
+    const withPassword = { ...baseOrder, customerLogin: { email: "ola@example.com", password: "WZeMSSoC5EZn" } };
+
+    it("sends the real password through Gmail but logs the Email Center copy with it masked, under the Gmail ids", async () => {
+      await sendLifecycleEmailsForOrders({ orders: [withPassword], kind: "order_received", actor });
+
+      expect(mocks.sendGmailEmail.mock.calls[0][0].html).toContain("WZeMSSoC5EZn");
+      const logged = mocks.orderEmailMessageCreate.mock.calls[0][0].data;
+      // Gmail sync skips a message whose gmailMessageId is already logged, so
+      // the plaintext copy in Gmail never reaches the Email Center.
+      expect(logged).toMatchObject({ status: "SENT", gmailMessageId: "g1", gmailThreadId: "t1" });
+      expect(logged.bodyHtml).toContain("ola@example.com");
+      expect(JSON.stringify(logged)).not.toContain("WZeMSSoC5EZn");
+    });
+
+    it("keeps the password out of a FAILED record, whatever the error says", async () => {
+      mocks.sendGmailEmail.mockRejectedValue(new Error("rejected body containing WZeMSSoC5EZn"));
+
+      await sendLifecycleEmailsForOrders({ orders: [withPassword], kind: "order_received", actor });
+
+      expect(JSON.stringify(mocks.orderEmailMessageCreate.mock.calls)).not.toContain("WZeMSSoC5EZn");
+    });
+  });
 });

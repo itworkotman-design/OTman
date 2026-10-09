@@ -76,6 +76,18 @@ describe("orderSummary", () => {
     );
   });
 
+  it("doesn't repeat the card's delivery type for its priced delivery lines (full price + extra units)", () => {
+    const base = { cardId: 10, productName: "Boxes", deliveryType: "Delivery with carry-in" };
+    const groups = buildOrderSummaryGroups([
+      { ...base, itemType: "PRODUCT_CARD", optionCode: null, optionLabel: null, quantity: 3, rawData: { amount: 3 } },
+      { ...base, itemType: "EXTRA_OPTION", optionCode: "INDOOR", optionLabel: "Delivery with carry-in", quantity: 1, rawData: { source: "delivery_type_price" } },
+      { ...base, itemType: "EXTRA_OPTION", optionCode: "INDOOR", optionLabel: "Delivery with carry-in", quantity: 2, rawData: { source: "white_goods_extra_unit" } },
+      { ...base, itemType: "EXTRA_OPTION", optionCode: "UNPACKING", optionLabel: "Unpacking", quantity: 3, rawData: { description: "Utpakking" } },
+    ]);
+
+    expect(groups).toEqual([{ title: "Boxes x3", details: ["Delivery with carry-in x3", "Utpakking x3"] }]);
+  });
+
   it("builds a legacy fallback group when order items are missing", () => {
     expect(
       buildLegacyOrderSummaryGroups({

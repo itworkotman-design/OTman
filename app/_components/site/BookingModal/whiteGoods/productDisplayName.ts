@@ -26,3 +26,20 @@ export function getCalculatorProductName({
 
   return `${NAME_PREFIX_BY_PRODUCT_CODE[product.code] ?? label}: ${name}`;
 }
+
+// The customer-facing order summary spells it out instead of the "A.M:"
+// shorthand: the item's own name as the title, the product label under it.
+export function getSummaryProductTitle({
+  product,
+  itemName,
+  label,
+}: {
+  product: CatalogProduct;
+  itemName: string | null | undefined;
+  label: string;
+}): { name: string; subtitle: string | null } {
+  const name = typeof itemName === "string" ? itemName.trim() : "";
+  if (!name || !isSizePricedProduct(product)) return { name: label, subtitle: null };
+
+  return { name, subtitle: label };
+}

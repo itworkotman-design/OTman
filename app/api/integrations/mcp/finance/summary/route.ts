@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 import { authenticateMcpRequest } from "@/lib/integrations/mcp/authenticateMcpRequest";
 import { prisma } from "@/lib/db";
+import { getPricingSnapshotCustomerVatTotals } from "@/lib/orders/orderTotals";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -10,14 +11,10 @@ function roundNok(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function getRevenue(pricingSnapshot: unknown): number {
-  if (!pricingSnapshot || typeof pricingSnapshot !== "object") {
-    return 0;
-  }
-
-  const customer = (pricingSnapshot as { customer?: { totalIncVat?: number } })
-    .customer;
-  return typeof customer?.totalIncVat === "number" ? customer.totalIncVat : 0;
+// Incl. VAT. Homepage orders are VAT-inclusive already — see
+// getPricingSnapshotCustomerVatTotals.
+function getRevenue(pricingSnapshot: unknown, websiteOrderKind: string | null | undefined): number {
+  return getPricingSnapshotCustomerVatTotals(pricingSnapshot, websiteOrderKind)?.totalIncVat ?? 0;
 }
 
 export async function GET(request: Request) {
@@ -64,14 +61,14 @@ export async function GET(request: Request) {
     // callers should narrow fromDate/toDate for a large company history.
     const orders = await prisma.order.findMany({
       where,
-      select: { customerLabel: true, pricingSnapshot: true },
+      select: { customerLabel: true, pricingSnapshot: true, websiteOrderKind: true },
     });
 
     const byStore = new Map<string, { revenue: number; orderCount: number }>();
     let totalRevenue = 0;
 
     for (const order of orders) {
-      const revenue = getRevenue(order.pricingSnapshot);
+      const revenue = getRevenue(order.pricingSnapshot, order.websiteOrderKind);
       const storeKey = order.customerLabel ?? "Unknown";
 
       totalRevenue += revenue;

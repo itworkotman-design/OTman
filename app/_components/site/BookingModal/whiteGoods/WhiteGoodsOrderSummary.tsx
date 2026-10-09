@@ -19,6 +19,9 @@ export type OrderSummaryLine = {
 export type OrderSummaryProduct = {
   cardId: number;
   name: string;
+  // Shown under the name — Other furniture's product label, under the
+  // customer's own name for the item.
+  subtitle: string | null;
   code: string;
   iconKey: string | null;
   qty: number;
@@ -83,6 +86,7 @@ export function WhiteGoodsOrderSummary({
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-semibold text-black/85">{product.name}</p>
                   <p className="text-sm text-black/50">
+                    {product.subtitle ? `${product.subtitle} · ` : ""}
                     {t("Qty", "Antall")}: {product.qty}
                   </p>
                 </div>

@@ -6,11 +6,11 @@
 
 ## Responsibility
 
-Sends the email with a customer's "My order" username and password.
+Sends the email with a customer's "My order" username and password. Used for a password reset and for staff's "Send new login". A new order's first password goes in the order-received email instead (see `send-order-received-email.md`).
 
-- **Sent through Brevo:** not through the company Gmail account the other order emails use. A password sent from Gmail would sit in plaintext in Gmail's Sent folder and in the order's Email Center.
-- **Logged masked:** the copy logged on the order (`OrderEmailMessage`) has the password replaced by `••••••••••••`.
-- **On failure:** the failure is logged without the error text, because that text could echo the password. A `MANUAL_REVIEW` notification asks staff to use "Send new login".
+- **Sent through the company Gmail**, threaded to the order like the other order emails: the order's `emailThreadToken` is reused, or created and saved. The real password sits in Gmail's Sent folder (and the `ORDER_CONVERSATION_BACKUP_EMAIL` BCC, if set).
+- **Logged masked:** the copy logged on the order (`OrderEmailMessage`) has the password replaced by `••••••••••••`. It is logged under the Gmail ids, so Gmail sync skips the plaintext copy in Gmail.
+- **On failure (including when the email can't be built, e.g. no `ORDER_ACTION_BASE_URL`):** the failure is logged without the error text, because that text could echo the password. A `MANUAL_REVIEW` notification asks staff to use "Send new login".
 
 ## Functions
 

@@ -1,3 +1,4 @@
+import { localizeWebsiteLineLabel, localizeWebsiteProductName } from "@/lib/content/websiteLineLabels";
 import { ADJUSTMENT_GROUP, EXTRAS_GROUP, type OrderDetailChange, type OrderLineChange } from "./paidOrderSnapshot";
 
 // Plain-text wording for what changed since the customer paid (see
@@ -62,12 +63,15 @@ export function describeDetailChange(change: OrderDetailChange, locale: ChangeLo
   return `${detailLabel(change.key, locale)}: ${detailValue(change.key, change.before, locale)} → ${detailValue(change.key, change.after, locale)}`;
 }
 
+// Website lines carry English catalog names and seeded labels — translated
+// for Norwegian (localizeWebsiteProductName / localizeWebsiteLineLabel).
 function lineName(change: Pick<OrderLineChange, "group" | "label">, locale: ChangeLocale): string {
-  if (change.group === EXTRAS_GROUP) return change.label;
+  if (change.group === EXTRAS_GROUP) return localizeWebsiteLineLabel(change.label, locale);
   if (change.group === ADJUSTMENT_GROUP) {
     return change.label === "discount" ? t(locale, "Rabatt", "Discount") : t(locale, "Tillegg", "Surcharge");
   }
-  return change.label && change.label !== change.group ? `${change.group} — ${change.label}` : change.group;
+  const group = localizeWebsiteProductName(change.group, locale);
+  return change.label && change.label !== change.group ? `${group} — ${localizeWebsiteLineLabel(change.label, locale)}` : group;
 }
 
 function qtyPrice(qty: number, price: number): string {

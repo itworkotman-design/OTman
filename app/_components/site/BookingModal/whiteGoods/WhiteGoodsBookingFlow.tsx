@@ -53,7 +53,8 @@ import {
   nextCardId,
   removeProductCard,
 } from "./productQuantity";
-import { getCalculatorProductName } from "./productDisplayName";
+import { getCalculatorProductName, getSummaryProductTitle } from "./productDisplayName";
+import { localizeWebsiteLineLabel } from "@/lib/content/websiteLineLabels";
 import {
   applyItemName,
   applySizeBracketSelection,
@@ -62,7 +63,7 @@ import {
   getSizeDimensions,
 } from "./sizeBracketSelection";
 import { previewCardDeliveryOptions } from "./deliveryPricePreview";
-import { sortSummaryLines } from "./orderSummaryLines";
+import { buildOrderAdjustmentLines, sortSummaryLines } from "./orderSummaryLines";
 import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
 import { OrderDetailsCard } from "./OrderDetailsCard";
 import { isOrderDetailsStepReady } from "./orderDetailsReady";
@@ -792,12 +793,17 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
   // long-distance delivery, …) — see buildWhiteGoodsCalculatorBreakdowns.
   const orderExtraLines: OrderSummaryExtraLine[] = useMemo(() => {
     const extrasBreakdown = pricing.breakdowns.find((b) => b.isOrderExtras);
-    return (extrasBreakdown?.lines ?? []).map((line) => ({
-      label: line.label,
-      price: line.lineTotal,
-      qty: line.qty,
-    }));
-  }, [pricing]);
+    return [
+      ...(extrasBreakdown?.lines ?? []).map((line) => ({
+        label: localizeWebsiteLineLabel(line.label, locale),
+        price: line.lineTotal,
+        qty: line.qty,
+      })),
+      // A staff discount / extra (rabatt, leggTil) — otherwise the lines
+      // wouldn't add up to the total in "My order" and the admin editor.
+      ...buildOrderAdjustmentLines(pricing.totals, locale),
+    ];
+  }, [pricing, locale]);
 
   // Converted here (rather than in FloorLiftField) since this is the one
   // place in the tree that already holds customerType — the badge itself
@@ -815,7 +821,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
         const breakdown = pricing.breakdowns.find((b) => b.cardId === card.cardId);
         const lines = sortSummaryLines(
           (breakdown?.lines ?? []).map((line) => ({
-            label: line.label,
+            label: localizeWebsiteLineLabel(line.label, locale),
             price: line.lineTotal,
             qty: line.qty,
             category: categorizeWhiteGoodsLineCode(line.code),
@@ -823,16 +829,18 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
           })),
         );
         const siblings = productCards.filter((c) => c.productId === card.productId);
-        const baseName = getCalculatorProductName({
+        const title = getSummaryProductTitle({
           product,
           itemName: card.modelNumber,
           label: productLabel(locale, product),
         });
         return {
           cardId: card.cardId,
-          // Other furniture is titled with the customer's own name ("A.M: Fish").
-          // A product split into several cards is numbered so they can be told apart.
-          name: siblings.length > 1 ? `${baseName} #${siblings.indexOf(card) + 1}` : baseName,
+          // Other furniture is titled with the customer's own name, the product
+          // label under it. A product split into several cards is numbered so
+          // they can be told apart.
+          name: siblings.length > 1 ? `${title.name} #${siblings.indexOf(card) + 1}` : title.name,
+          subtitle: title.subtitle,
           code: product.code,
           iconKey: product.iconKey ?? null,
           qty: card.amount,

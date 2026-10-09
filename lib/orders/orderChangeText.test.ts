@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { describeDetailChange, describeLineChange, detailLabel, formatKr } from "./orderChangeText";
+import { EXTRAS_GROUP } from "./paidOrderSnapshot";
 
 describe("formatKr", () => {
   it("formats whole and øre amounts the Norwegian way, with an optional sign", () => {
@@ -62,5 +63,27 @@ describe("describeDetailChange", () => {
       "Henting 2: adresse: — → Bjerke 9",
     );
     expect(describeDetailChange({ key: "distance", before: "21", after: "33.10" }, "en")).toBe("Driving distance: 21 km → 33.10 km");
+  });
+});
+
+describe("describeLineChange in Norwegian", () => {
+  const base = { qtyBefore: 0, qtyAfter: 1, priceBefore: 0, priceAfter: 155, delta: 155 };
+
+  it("translates the website product name and the seeded delivery label", () => {
+    expect(describeLineChange({ ...base, kind: "added", group: "Microwave oven", label: "Delivery to doorstep" }, "no")).toBe(
+      "Lagt til: Mikrobølgeovn — Levering til ytterdør (+155 kr)",
+    );
+  });
+
+  it("translates a seeded order-extra label", () => {
+    expect(
+      describeLineChange({ ...base, kind: "added", group: EXTRAS_GROUP, label: "Floor surcharge per chargeable floor, no lift" }, "no"),
+    ).toContain("Etasjetillegg per etasje uten heis");
+  });
+
+  it("leaves English as it is", () => {
+    expect(describeLineChange({ ...base, kind: "added", group: "Microwave oven", label: "Delivery to doorstep" }, "en")).toBe(
+      "Added: Microwave oven — Delivery to doorstep (+155 kr)",
+    );
   });
 });

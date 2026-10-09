@@ -101,3 +101,20 @@ describe("buildOrderItemsFromCards — website catalog", () => {
     );
   });
 });
+
+describe("buildOrderItemsFromCards — extra-rate delivery line", () => {
+  // The second card's delivery is charged at the extra-unit rate; the
+  // calculator calls that line XTRA, and the stored line must be keyed the
+  // same so "Set to 0" on it nulls the stored line too.
+  it("stores an extra-rate delivery line under the XTRA code, so a line set to 0 is 0 when stored", () => {
+    const cards = [card({ cardId: 0 }), card({ cardId: 1, nulledLineKeysForCustomer: ["code:XTRA"] })];
+    const delivery = buildOrderItemsFromCards(cards, [washer], []).filter(
+      (item) => (item.rawData as { source?: string } | null)?.source === "delivery_type_price",
+    );
+
+    expect(delivery.map((item) => [item.cardId, item.optionCode, item.customerPriceCents])).toEqual([
+      [0, DELIVERY_TYPES.INDOOR, 69000],
+      [1, "XTRA", 0],
+    ]);
+  });
+});

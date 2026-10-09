@@ -53,6 +53,15 @@ export type SendLifecycleEmailsSummary = {
   failedOrderIds: string[];
 };
 
+const PASSWORD_MASK = "••••••••••••";
+
+// The order with the customer's new "My order" password (order_received)
+// masked — for everything we store. Only the email Gmail sends has the real
+// one.
+function withMaskedPassword(order: LifecycleEmailOrderInput): LifecycleEmailOrderInput {
+  return order.customerLogin?.password ? { ...order, customerLogin: { ...order.customerLogin, password: PASSWORD_MASK } } : order;
+}
+
 function buildEmailForKind(kind: LifecycleEmailKind, order: LifecycleEmailOrder) {
   if (kind === "payment_request") return buildPaymentRequestEmail(order);
   if (kind === "rejected") return buildRejectedEmail(order);
@@ -102,6 +111,9 @@ export async function sendLifecycleEmailsForOrders(params: {
     }
 
     const { subject, html } = buildEmailForKind(kind, order);
+    // Gmail sync skips a message whose gmailMessageId is already logged, so
+    // logging the masked copy keeps the password out of the Email Center.
+    const logged = order.customerLogin?.password ? buildEmailForKind(kind, withMaskedPassword(order)) : { subject, html };
     const threadToken = order.emailThreadToken || createOrderEmailThreadToken();
     const recipientName = order.customerName ?? order.customerLabel ?? undefined;
 
@@ -139,8 +151,8 @@ export async function sendLifecycleEmailsForOrders(params: {
         externalMessageId: sendResult.messageId,
         gmailMessageId: sendResult.gmailMessageId,
         gmailThreadId: sendResult.gmailThreadId,
-        subject,
-        bodyHtml: html,
+        subject: logged.subject,
+        bodyHtml: logged.html,
         fromEmail,
         fromName,
         toEmail: order.email,
@@ -174,7 +186,8 @@ export async function sendLifecycleEmailsForOrders(params: {
             status: "FAILED",
             sentByMembershipId: actor.membershipId ?? null,
             subject: `Failed to send ${kind} email`,
-            bodyText: String(result.reason ?? "Unknown error"),
+            // The error could echo the request, and so a password.
+            bodyText: order.customerLogin?.password ? "The email could not be sent." : String(result.reason ?? "Unknown error"),
             fromEmail,
             fromName,
             toEmail: order.email ?? "",

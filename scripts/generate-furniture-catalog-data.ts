@@ -217,7 +217,10 @@ async function main() {
       deliveryTypes,
       options,
       ...(manual
-        ? { needsImplementation: { labelEn: "Assembly — needs implementation", labelNo: "Montering — trenger implementering" } }
+        ? { needsImplementation: {
+            labelEn: "Need assembly? Describe it under additional information and we'll send you a price.",
+            labelNo: "Trenger du montering? Beskriv det under tilleggsinformasjon, så sender vi deg en pris.",
+          } }
         : {}),
     };
   });

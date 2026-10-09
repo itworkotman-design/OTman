@@ -75,6 +75,17 @@ function getOptionDetail(item: OrderSummaryItem) {
   return `${baseLabel}${formatQuantity(item.quantity)}`;
 }
 
+// The priced split of the card's own delivery (full-price unit + extra
+// units): the card line already says which delivery and how many.
+const DELIVERY_PRICE_SOURCES = new Set(["delivery_type_price", "white_goods_extra_unit"]);
+
+function isDeliveryPriceLine(item: OrderSummaryItem) {
+  const raw = item.rawData;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const source = (raw as { source?: unknown }).source;
+  return typeof source === "string" && DELIVERY_PRICE_SOURCES.has(source);
+}
+
 function getModelNumber(rawData: unknown): string | null {
   if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
     return null;
@@ -128,6 +139,9 @@ export function buildOrderSummaryGroups(
 
     for (const item of cardItems) {
       if (item.itemType === "PRODUCT_CARD") {
+        continue;
+      }
+      if (productItem?.deliveryType?.trim() && isDeliveryPriceLine(item)) {
         continue;
       }
 

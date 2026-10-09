@@ -6,10 +6,11 @@
 
 ## Responsibility
 
-Every homepage order route (`white-goods-order`, `moving-request`, `special-goods-quote`) calls this right after saving the order. It replaces the direct call to `sendOrderReceivedEmail`. It runs three steps:
+Every homepage order route (`white-goods-order`, `moving-request`, `special-goods-quote`) calls this right after saving the order, passing the saved order row (`WelcomeOrder`). It:
 
-1. `ensureCustomerAccountForOrder` links the order to the customer's account, creating the account if needed.
-2. `sendOrderReceivedEmail` is called with `customerLogin`, so the email includes the My order button and the username.
-3. If a password was just set, `sendCustomerCredentialsEmail` sends it.
+1. Links the order to the customer's account with `ensureCustomerAccountForOrder`, creating it if needed.
+2. Sends the ONE order-received email through `sendOrderReceivedEmail`, with:
+   - `customerLogin`: the username, plus the password if one was just generated (otherwise `null`);
+   - `orderDetails`: built from the order row. `totalIncVatNok` comes from `getOrderChargeAmountIncVatNok`, and is `null` for an unpriced quote.
 
-It never throws. If the account can't be created, the order email still goes out without the login block, and staff get a `MANUAL_REVIEW` notification.
+There is no separate password email any more. It never throws: if the account can't be created, the email still goes out without the login block, and staff get a `MANUAL_REVIEW` notification.

@@ -49,13 +49,24 @@ export function buildTimeWindowValue(selection: TimeWindowSelection): string {
   return selection.selectedTimeWindow;
 }
 
+function clockMinutes(value: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours <= 23 && minutes <= 59 ? hours * 60 + minutes : null;
+}
+
 // Whether a stored time-window value is a usable answer: a preset, or a
 // specific time with both its start and end chosen (a half-filled custom
-// range builds to e.g. "12:00-" or just "-").
+// range builds to e.g. "12:00-" or just "-") — real clock times, the end
+// after the start.
 export function isTimeWindowComplete(value: string): boolean {
   const selection = parseTimeWindowValue(value);
   if (selection.selectedTimeWindow === "custom") {
-    return Boolean(selection.customTimeFrom && selection.customTimeTo);
+    const from = clockMinutes(selection.customTimeFrom);
+    const to = clockMinutes(selection.customTimeTo);
+    return from !== null && to !== null && to > from;
   }
   return PRESET_TIME_WINDOWS.includes(selection.selectedTimeWindow as PresetTimeWindow);
 }

@@ -5,6 +5,8 @@ import { getServerCustomerSession } from "@/lib/customerAccounts/serverCustomerS
 import { listCustomerOrders } from "@/lib/customerAccounts/customerOrderView";
 import CustomerLogoutButton from "@/app/_components/site/pageComponents/myOrder/CustomerLogoutButton";
 import { customerStatusLabel } from "@/app/_components/site/pageComponents/myOrder/customerStatusLabel";
+import { formatOrderDate } from "@/lib/orders/formatOrderDate";
+import { localizeProductsSummary } from "@/lib/content/websiteLineLabels";
 
 export const metadata: Metadata = {
   title: "Min bestilling | Otman AS",
@@ -46,8 +48,8 @@ export default async function MyOrdersPage({ params }: { params: Promise<{ local
                     {t.order} #{order.orderNumber}
                   </span>
                   <span className="block text-sm text-textColorThird">
-                    {[order.deliveryDate, order.timeWindow].filter(Boolean).join(" · ")}
-                    {order.productsSummary ? ` — ${order.productsSummary}` : ""}
+                    {[order.deliveryDate ? formatOrderDate(order.deliveryDate, locale) : null, order.timeWindow].filter(Boolean).join(" · ")}
+                    {order.productsSummary ? ` — ${localizeProductsSummary(order.productsSummary, locale)}` : ""}
                   </span>
                 </span>
                 <span className="shrink-0 text-sm text-textColorThird">{customerStatusLabel(order.status, locale)}</span>

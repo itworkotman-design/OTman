@@ -81,4 +81,30 @@ describe("sendOrderReceivedEmail", () => {
 
     await expect(sendOrderReceivedEmail(order)).resolves.toBeUndefined();
   });
+
+  describe("with a new password", () => {
+    const withPassword = { ...order, customerLogin: { email: "ola@example.com", password: "WZeMSSoC5EZn" } };
+
+    it("sends it through Gmail like every other order email (never Brevo)", async () => {
+      await sendOrderReceivedEmail(withPassword);
+
+      expect(mocks.sendLifecycleEmailsForOrders).toHaveBeenCalledWith({
+        orders: [withPassword],
+        kind: "order_received",
+        actor: { source: "SYSTEM", name: "Website" },
+      });
+    });
+
+    it("alerts staff to send a new login when it fails, without logging the password", async () => {
+      mocks.sendLifecycleEmailsForOrders.mockRejectedValue(new Error("gmail said no to WZeMSSoC5EZn"));
+
+      await expect(sendOrderReceivedEmail(withPassword)).resolves.toBeUndefined();
+
+      expect(mocks.createOrderNotification).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ orderId: "order1", message: expect.stringContaining("Send new login") }),
+      );
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("WZeMSSoC5EZn");
+    });
+  });
 });

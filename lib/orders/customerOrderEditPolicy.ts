@@ -89,15 +89,21 @@ export function getCustomerEditPermissions(
   };
 }
 
+// A day the booking calendar offers: from tomorrow (Oslo), no Sundays or
+// public holidays. What a new homepage order is held to on the server.
+export function isBookableDeliveryDate(deliveryDate: string, now: Date = new Date()): boolean {
+  const dateKey = validDateKey(deliveryDate);
+  if (!dateKey) return false;
+  if (dateKey < addDaysIso(getOsloDateKey(now), 1)) return false;
+  return !(new Date(`${dateKey}T12:00:00Z`).getUTCDay() === 0 || isNorwegianPublicHoliday(dateKey));
+}
+
 // A new date/time the customer picks: a day the booking calendar offers
 // (from tomorrow, no Sundays or public holidays) and still more than 24h
 // away, or it would be locked the moment it's saved.
 export function isAllowedNewSchedule(deliveryDate: string, timeWindow: string, now: Date = new Date()): boolean {
-  const dateKey = validDateKey(deliveryDate);
-  if (!dateKey) return false;
-  if (dateKey < addDaysIso(getOsloDateKey(now), 1)) return false;
-  if (new Date(`${dateKey}T12:00:00Z`).getUTCDay() === 0 || isNorwegianPublicHoliday(dateKey)) return false;
-  const cutoff = getEditCutoff(dateKey, timeWindow);
+  if (!isBookableDeliveryDate(deliveryDate, now)) return false;
+  const cutoff = getEditCutoff(deliveryDate.trim(), timeWindow);
   return cutoff !== null && now.getTime() < cutoff.getTime();
 }
 
@@ -106,6 +112,11 @@ export type CustomerEditKind =
   | "notes"
   | "schedule"
   | "addresses"
+  // Only services added to a product (an add-on, return, dismantling, doorstep
+  // → carry-in) — what the customer may still do after the 24h cutoff.
+  | "addOns"
+  // Anything else about a product's setup (removing/swapping a service,
+  // another delivery type) — locked after the cutoff.
   | "reconfigure"
   | "addProduct"
   | "removeProduct"
@@ -160,6 +171,40 @@ function cardConfig(card: CustomerEditCard) {
   );
 }
 
+// Delivery types in increasing service — moving up the list only adds work.
+const DELIVERY_UPGRADES: Record<string, string[]> = { FIRST_STEP: ["INDOOR"] };
+
+// Whether `after` only adds to `before`: every list a superset, a return /
+// dismantling only switched on, the delivery type the same or an upgrade, and
+// every other setting untouched.
+function onlyAddsServices(before: CustomerEditCard, after: CustomerEditCard): boolean {
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)].filter((key) => !CARD_IDENTITY.has(key)));
+  for (const key of keys) {
+    const was = before[key];
+    const now = after[key];
+    if (same(was, now)) continue;
+    if (key === "deliveryType") {
+      if (!(typeof was === "string" && typeof now === "string" && DELIVERY_UPGRADES[was]?.includes(now))) return false;
+      continue;
+    }
+    if (key === "selectedReturnOptionId") {
+      if (was !== null && was !== undefined && was !== "") return false;
+      continue;
+    }
+    if (key === "demontEnabled") {
+      if (!(was !== true && now === true)) return false;
+      continue;
+    }
+    if (Array.isArray(now) && (was === undefined || Array.isArray(was))) {
+      const previous = (was as unknown[] | undefined) ?? [];
+      if (!previous.every((item) => now.some((candidate) => same(candidate, item)))) return false;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
 export function classifyCustomerOrderEdit(before: CustomerEditState, after: CustomerEditState): CustomerEditKind[] {
   const kinds = new Set<CustomerEditKind>();
 
@@ -191,18 +236,18 @@ export function classifyCustomerOrderEdit(before: CustomerEditState, after: Cust
         kinds.add("removeProduct");
       } else {
         if (original.amount !== card.amount) kinds.add("quantity");
-        if (!same(cardConfig(original), cardConfig(card))) kinds.add("reconfigure");
+        if (!same(cardConfig(original), cardConfig(card))) kinds.add(onlyAddsServices(original, card) ? "addOns" : "reconfigure");
       }
     }
     if ([...beforeById.keys()].some((id) => !afterIds.has(id))) kinds.add("removeProduct");
   }
 
-  const order: CustomerEditKind[] = ["contact", "notes", "schedule", "addresses", "reconfigure", "addProduct", "removeProduct", "quantity"];
+  const order: CustomerEditKind[] = ["contact", "notes", "schedule", "addresses", "addOns", "reconfigure", "addProduct", "removeProduct", "quantity"];
   return order.filter((kind) => kinds.has(kind));
 }
 
-const ALWAYS_ALLOWED = new Set<CustomerEditKind>(["contact", "notes", "reconfigure"]);
-const ITEM_KINDS = new Set<CustomerEditKind>(["addresses", "reconfigure", "addProduct", "removeProduct", "quantity"]);
+const ALWAYS_ALLOWED = new Set<CustomerEditKind>(["contact", "notes", "addOns"]);
+const ITEM_KINDS = new Set<CustomerEditKind>(["addresses", "addOns", "reconfigure", "addProduct", "removeProduct", "quantity"]);
 
 export function findForbiddenChanges(kinds: CustomerEditKind[], permissions: CustomerEditPermissions): CustomerEditKind[] {
   return kinds.filter((kind) => {

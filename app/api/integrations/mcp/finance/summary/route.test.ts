@@ -78,4 +78,14 @@ describe("GET /api/integrations/mcp/finance/summary", () => {
     expect(body.summary.totalRevenue).toBe(0);
     expect(body.summary.orderCount).toBe(1);
   });
+
+  it("counts a homepage (WHITE_GOODS) order at its VAT-inclusive total, without adding VAT again", async () => {
+    mocks.orderFindManyMock.mockResolvedValue([
+      { customerLabel: "Web", websiteOrderKind: "WHITE_GOODS", pricingSnapshot: { customer: { totalExVat: 44255, totalIncVat: 55318.75 } } },
+    ]);
+
+    const json = await (await createRequest("")).json();
+
+    expect(json.summary.totalRevenue).toBe(44255);
+  });
 });

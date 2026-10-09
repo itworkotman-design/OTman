@@ -1,3 +1,4 @@
+import { formatOrderDate } from "@/lib/orders/formatOrderDate";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { BookingPickupStop } from "@/lib/orders/websiteBookingDetails";
 import type { PickupSource } from "./PickupSourceStep";
@@ -59,7 +60,7 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
       rows: present([
         [t("Address", "Adresse"), input.delivery.address],
         [t("Floor", "Etasje"), floorValue(input.delivery.floor, input.delivery.liftAvailable)],
-        [t("Preferred date", "Ønsket dato"), formatDate(input.preferredDate, locale)],
+        [t("Preferred date", "Ønsket dato"), formatOrderDate(input.preferredDate, locale)],
         [t("Time window", "Tidsvindu"), input.timeWindow],
         [t("Driving distance", "Kjøreavstand"), input.drivingDistance.trim() ? `${input.drivingDistance} km` : null],
       ]),
@@ -75,18 +76,4 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
       ]),
     },
   ];
-}
-
-// "2026-10-05" → "5. oktober 2026" / "5 October 2026". Read as a calendar
-// date (UTC), not a local midnight, so it can't shift a day by timezone.
-function formatDate(isoDate: string, locale: Locale): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate.trim());
-  if (!match) return isoDate;
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-  return date.toLocaleDateString(locale === "no" ? "nb-NO" : "en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }

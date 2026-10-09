@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOrderPricingSnapshot, getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok } from "@/lib/orders/orderTotals";
+import { buildOrderPricingSnapshot, getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok, getPricingSnapshotCustomerVatTotals } from "@/lib/orders/orderTotals";
 
 describe("buildOrderPricingSnapshot", () => {
   it("uses submitted totals as authoritative when line prices are partial", () => {
@@ -140,5 +140,22 @@ describe("getOrderChargeAmountIncVatNok for homepage website orders", () => {
   it("leaves other orders charging their ex-VAT total plus VAT", () => {
     const order = { priceExVat: 1000, rabatt: null, leggTil: null, pricingSnapshot: null, websiteOrderKind: null };
     expect(getOrderChargeAmountIncVatNok(order)).toBe(1250);
+  });
+});
+
+describe("getPricingSnapshotCustomerVatTotals", () => {
+  const snapshot = { customer: { totalExVat: 44255, vat: 11063.75, totalIncVat: 55318.75 } };
+
+  it("treats a homepage (WHITE_GOODS) total as VAT-inclusive — no VAT on top", () => {
+    expect(getPricingSnapshotCustomerVatTotals(snapshot, "WHITE_GOODS")).toEqual({ totalIncVat: 44255, vat: 8851 });
+  });
+
+  it("uses the snapshot's own VAT for every other order", () => {
+    expect(getPricingSnapshotCustomerVatTotals(snapshot, null)).toEqual({ totalIncVat: 55318.75, vat: 11063.75 });
+  });
+
+  it("returns null without a snapshot total", () => {
+    expect(getPricingSnapshotCustomerVatTotals(null, "WHITE_GOODS")).toBeNull();
+    expect(getPricingSnapshotCustomerVatTotals({ customer: {} }, null)).toBeNull();
   });
 });

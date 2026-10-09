@@ -47,6 +47,8 @@ const validBody = {
   name: "Test Customer",
   phone: "+47 123 45 678",
   email: "customer@example.com",
+  preferredDate: "2030-01-08",
+  timeWindow: "10:00-16:00",
 };
 
 describe("POST /api/site/white-goods-order", () => {
@@ -68,6 +70,17 @@ describe("POST /api/site/white-goods-order", () => {
 
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({ ok: false, reason: "INVALID_BODY" });
+  });
+
+  it("returns 422 for a date the booking calendar doesn't offer, or an impossible time", async () => {
+    for (const preferredDate of ["", "2020-01-07", "2030-01-06" /* Sunday */]) {
+      const res = await post({ ...validBody, preferredDate });
+      expect(res.status).toBe(422);
+      expect((await res.json()).errors).toHaveProperty("preferredDate");
+    }
+    const res = await post({ ...validBody, timeWindow: "25:00-26:00" });
+    expect(res.status).toBe(422);
+    expect((await res.json()).errors).toHaveProperty("timeWindow");
   });
 
   it("returns 422 with a phone error for a missing phone number", async () => {

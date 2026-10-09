@@ -15,7 +15,7 @@ Defines the column sets, export metadata, and visibility helpers used by the boo
 | `formatCell` | Normalizes empty export values into `-`. |
 | `formatMoney` | Returns archive numeric totals as Excel-friendly numbers, or blank values when missing. |
 | `getDnbDiscountArchiveAmount` | Returns the DNB portion of a stacked discount from the saved pricing snapshot or adjusted stored totals when the flag is enabled. |
-| `getEffectiveArchiveCustomerTotal` | Calculates the customer-facing archive total from stored price, discount, and add-on fields, with cancelled rows clamped to at least the protected fee total. |
+| `getEffectiveArchiveCustomerTotal` | Calculates the customer-facing archive total from stored price, discount, and add-on fields, with cancelled rows clamped to at least the protected fee total. Homepage orders (`websiteOrderKind` `WHITE_GOODS`) store a VAT-inclusive total, so it is divided by 1.25 to keep the column (and the selection sum and export) ex. VAT. |
 | `getEffectiveArchiveSubcontractorTotal` | Calculates the subcontractor archive total from stored subcontractor price, minus, and plus fields, with cancelled rows clamped to at least the protected fee total. |
 | `getBookingArchiveColumns` | Returns the configured column list for a given archive view mode. |
 | `getDefaultVisibleBookingArchiveColumns` | Returns the default visible-column order for a given view mode. |

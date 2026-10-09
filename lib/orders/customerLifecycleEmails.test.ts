@@ -118,28 +118,101 @@ describe("buildOrderReceivedEmail", () => {
     expect(html).not.toContain("/min-bestilling");
   });
 
-  it("links to My order and gives the username, saying the password comes separately", () => {
+  it("gives the username and the password in the same email, with a link to My order", () => {
     const { html } = buildOrderReceivedEmail({
       ...order,
       orderNumber: "K7MQ4XZ2",
-      customerLogin: { email: "ola@example.com", hasNewPassword: true },
+      customerLogin: { email: "ola@example.com", password: "WZeMSSoC5EZn" },
     });
 
     expect(html).toContain("https://otman.no/min-bestilling/K7MQ4XZ2");
     expect(html).toContain("ola@example.com");
-    expect(html).toContain("egen e-post");
+    expect(html).toContain("WZeMSSoC5EZn");
+    expect(html).not.toContain("egen e-post");
+    expect(html).toContain("Ikke del passordet med andre");
   });
 
   it("tells a returning customer to use their existing password, with a forgot-password link", () => {
     const { html } = buildOrderReceivedEmail({
       ...order,
       orderNumber: "K7MQ4XZ2",
-      customerLogin: { email: "ola@example.com", hasNewPassword: false },
+      customerLogin: { email: "ola@example.com", password: null },
     });
 
     expect(html).toContain("passordet du allerede har");
     expect(html).toContain("https://otman.no/min-bestilling/logg-inn?glemt=1");
     expect(html).not.toContain("egen e-post");
+  });
+
+  it("no longer promises a separate approval / payment email — it goes out once the order is paid", () => {
+    expect(buildOrderReceivedEmail(order).html).not.toContain("betale og bekrefte");
+  });
+
+  const customerLogin = { email: "ola@example.com", password: "WZeMSSoC5EZn" };
+  const details = {
+    deliveryDate: "2026-10-15",
+    timeWindow: "10:00-16:00",
+    customerName: "Ola Nordmann",
+    phone: "+47 900 00 000",
+    email: "ola@example.com",
+    pickupAddress: "Elkjøp Lørenskog, Lørenskog",
+    extraPickupAddress: ["Power Alnabru, Oslo", "IKEA Furuset, Oslo"],
+    deliveryAddress: "Storgata 1, 2000 Lillestrøm",
+    returnAddress: "Gjenvinning Grorud, Oslo",
+    floorNo: "3",
+    lift: "Nei",
+    productsSummary: "Washing machine x2, Other furniture (Piano stool)",
+    deliveryTypeSummary: "Delivery with carry-in x2",
+    servicesSummary: "Unpacking and disposal of packaging",
+    customerComments: "Ring på døren",
+    totalIncVatNok: 44170,
+  };
+
+  it("ends with the order details: date, every address, products, services and total", () => {
+    const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2", orderDetails: details });
+
+    expect(html).toContain("Bestillingsdetaljer");
+    expect(html).toContain("15. oktober 2026");
+    expect(html).toContain("10:00 - 16:00");
+    expect(html).toContain("Elkjøp Lørenskog, Lørenskog");
+    expect(html).toContain("Power Alnabru, Oslo");
+    expect(html).toContain("IKEA Furuset, Oslo");
+    expect(html).toContain("Storgata 1, 2000 Lillestrøm");
+    expect(html).toContain("Gjenvinning Grorud, Oslo");
+    expect(html).toContain("Vaskemaskin x2, Andre møbler (Piano stool)");
+    expect(html).toContain("Levering med innbæring x2");
+    expect(html).toContain("Utpakking og kasting av emballasje");
+    expect(html).toContain("Ring på døren");
+    expect(html).toContain("+47 900 00 000");
+    expect(html).toMatch(/44\s170 kr/);
+    // The details come last, after the login and the rules.
+    expect(html.indexOf("Bestillingsdetaljer")).toBeGreaterThan(html.indexOf("svar på denne e-posten"));
+  });
+
+  it("leaves out empty detail rows, and the price row for an unpriced quote", () => {
+    const { html } = buildOrderReceivedEmail({
+      ...order,
+      orderDetails: { ...details, extraPickupAddress: [], returnAddress: null, customerComments: null, totalIncVatNok: null },
+    });
+
+    expect(html).not.toContain("Ekstra hentested");
+    expect(html).not.toContain("Returadresse");
+    expect(html).not.toContain("Kommentar");
+    expect(html).not.toContain("Totalpris");
+  });
+
+  it("states until when the order can be changed and cancelled — 24h before the time window starts", () => {
+    const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2", customerLogin, orderDetails: details });
+
+    expect(html).toContain("14. oktober kl. 10:00");
+    expect(html).toContain("avbestille");
+    expect(html).toContain("legge til tjenester");
+  });
+
+  it("states the 24h rule without a date when the order has none", () => {
+    const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2", customerLogin, orderDetails: { ...details, deliveryDate: null } });
+
+    expect(html).toContain("24 timer før");
   });
 });
 

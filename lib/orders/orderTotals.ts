@@ -158,6 +158,26 @@ export function getPricingSnapshotCustomerTotalIncVat(snapshot: unknown): number
   return getSnapshotNumber(customer?.totalIncVat);
 }
 
+// The customer total incl. VAT and the VAT in it, from a stored snapshot.
+// A homepage catalog order ("WHITE_GOODS") is priced VAT-inclusive, so its
+// snapshot "totalExVat" already IS the incl.-VAT total (its stored vat /
+// totalIncVat add 25% on top and must not be used) — same rule as
+// getOrderChargeAmountIncVatNok.
+export function getPricingSnapshotCustomerVatTotals(
+  snapshot: unknown,
+  websiteOrderKind: string | null | undefined,
+): { totalIncVat: number; vat: number } | null {
+  if (websiteOrderKind === "WHITE_GOODS") {
+    const total = getPricingSnapshotCustomerTotal(snapshot);
+    return total === null ? null : { totalIncVat: total, vat: roundNok(total - total / 1.25) };
+  }
+  const root = getSnapshotRecord(snapshot);
+  const customer = getSnapshotRecord(root?.customer);
+  const totalIncVat = getSnapshotNumber(customer?.totalIncVat);
+  if (totalIncVat === null) return null;
+  return { totalIncVat, vat: getSnapshotNumber(customer?.vat) ?? roundNok(totalIncVat - totalIncVat / 1.25) };
+}
+
 type ChargeableOrder = {
   priceExVat: number;
   rabatt: string | null | undefined;

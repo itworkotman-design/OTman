@@ -275,7 +275,7 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     let cards = submittedCards ?? beforeCards;
     if (submittedCards) {
       const catalog = await getWebsiteOrderCatalog();
-      const check = validateWebsiteOrderCards(submittedCards, catalog.products);
+      const check = validateWebsiteOrderCards(submittedCards, catalog.products, { previousCards: normalizedCards(order.productCardsSnapshot) });
       if (!check.ok) return reject(check.reason, 422);
       cards = check.cards;
     }

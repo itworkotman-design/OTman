@@ -66,6 +66,13 @@ describe("websiteOrderCalculatorView", () => {
     });
   });
 
+  it("doesn't count a line set to 0 again as a discount — the line already shows 0", () => {
+    const nulled = { ...result, totals: { ...result.totals, discount: 0, checkboxDiscount: 260, subcontractorMinus: 0, subcontractorCheckboxDiscount: 120 } };
+    const view = websiteOrderCalculatorView(nulled, { includePartner: true });
+    expect(view.customer.discount).toBe(0);
+    expect(view.partner?.minus).toBe(0);
+  });
+
   it("leaves the partner side out for someone who can only view the order", () => {
     const view = websiteOrderCalculatorView(result, { includePartner: false });
     expect(view.partner).toBeNull();

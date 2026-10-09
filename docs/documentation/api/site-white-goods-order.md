@@ -14,6 +14,6 @@ Creates a homepage website order (all website catalogs: white goods, furniture, 
 - differs from the calculated total by 0.5 kr or more → `409 { reason: "PRICE_CHANGED", total }`, and nothing is stored. The booking flow then tells the customer the real price and asks them to reload.
 - equal → the order is stored at that total, and `shownTotal` is kept in `websiteBookingDetails` for the admin's sanity check (`checkWebsiteOrderTotals`).
 
-Other validation errors are `422 VALIDATION_FAILED` with `errors`.
+Other validation errors are `422 VALIDATION_FAILED` with `errors`. Among them: `preferredDate` must be a day the booking calendar offers (`isBookableDeliveryDate`), and `timeWindow` must be a preset or a real `HH:MM-HH:MM` range (`isTimeWindowComplete`). An install add-on without the install type it needs (TV stand / feet without table mounting) is also refused.
 
 The product cards are checked with `validateWebsiteOrderCards` (the same rules a later "My order" edit gets). Once the order is saved, `welcomeWebsiteOrderCustomer` links or creates the customer's "My order" account and sends the order-received email, plus the password email for a new account. See `docs/documentation/lib/customer-accounts.md`.

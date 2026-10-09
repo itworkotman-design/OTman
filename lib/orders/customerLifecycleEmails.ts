@@ -1,4 +1,7 @@
 import { formatKr } from "./orderChangeText";
+import { formatOrderDate } from "./formatOrderDate";
+import { getEditCutoff } from "./customerOrderEditPolicy";
+import { localizeProductsSummary, localizeWebsiteLineLabelList } from "@/lib/content/websiteLineLabels";
 import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import { getOrderEmailLogoUrl } from "@/lib/email/emailAssets";
 import { getOrderActionBaseUrl } from "@/lib/stripe/stripeClient";
@@ -23,12 +26,35 @@ export type LifecycleEmailOrder = {
     changes: string[];
   };
   // order_received only: the order's temporary customer account ("My order",
-  // lib/customerAccounts/). The password itself never goes through these
-  // Gmail emails — it is sent on its own (customerCredentialsEmail.ts).
-  customerLogin?: { email: string; hasNewPassword: boolean };
+  // lib/customerAccounts/). `password` is the one just generated (null = a
+  // returning customer keeps theirs). It is masked in the copy logged on the
+  // order — see sendCustomerLifecycleEmail.ts.
+  customerLogin?: { email: string; password: string | null };
+  // order_received only: the "Bestillingsdetaljer" table at the end.
+  orderDetails?: OrderReceivedDetails;
   // order_updated only: what the customer changed, and the new total (null =
   // the order has no price, e.g. a quote).
   orderUpdate?: { changes: string[]; totalIncVatNok: number | null };
+};
+
+export type OrderReceivedDetails = {
+  deliveryDate: string | null;
+  timeWindow: string | null;
+  customerName: string | null;
+  phone: string | null;
+  email: string | null;
+  pickupAddress: string | null;
+  extraPickupAddress: string[];
+  deliveryAddress: string | null;
+  returnAddress: string | null;
+  floorNo: string | null;
+  lift: string | null;
+  productsSummary: string | null;
+  deliveryTypeSummary: string | null;
+  servicesSummary: string | null;
+  customerComments: string | null;
+  // null = not priced yet (a quote).
+  totalIncVatNok: number | null;
 };
 
 export function escapeHtml(value: string) {
@@ -234,16 +260,74 @@ export function buildPaymentTimeoutEmail(order: LifecycleEmailOrder) {
   return { subject, html };
 }
 
-// Sent right after a customer submits a website order, before staff have
-// reviewed it. No token action links: no actionToken exists yet (it's minted
-// on approve/reject), and the cancel / request-change pages reject orders
-// that are still "processing" anyway. With `customerLogin` it points to "My
-// order" instead, where the customer logs in to see and change the order —
-// the username here, the password in its own email. A reply is the
-// customer's other way to reach us — Reply-To is the order's Email Center
-// thread, so it lands on the order. Works for priced and quote-only flows
-// alike, hence the generic "approved / priced, then you get a payment link"
-// wording.
+// "torsdag 14. oktober kl. 10:00" (Oslo time).
+function formatCutoff(cutoff: Date): string {
+  const date = cutoff.toLocaleDateString("nb-NO", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Oslo" });
+  const time = cutoff.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Europe/Oslo" });
+  return `${date} kl. ${time.replace(".", ":")}`;
+}
+
+// What the customer may do in "My order" and until when — the rules of
+// customerOrderEditPolicy.ts (and the cancel route) in words.
+function editRulesBlock(details: OrderReceivedDetails | undefined) {
+  const cutoff = getEditCutoff(details?.deliveryDate, details?.timeWindow);
+  const until = cutoff ? `Frem til ${escapeHtml(formatCutoff(cutoff))} (24 timer før leveringen)` : "Frem til 24 timer før leveringen";
+  return `
+    <p style="margin:0 0 16px 0;">
+      ${until} kan du endre dato, adresser og varer, eller avbestille bestillingen. Etter det kan du fortsatt
+      legge til tjenester og oppdatere kontaktinformasjonen din — vil du avbestille da, sender du oss en forespørsel.
+    </p>`;
+}
+
+function detailsRow(label: string, value: string | null | undefined) {
+  const text = value?.trim();
+  if (!text) return "";
+  return `
+      <tr>
+        <td style="padding:8px 12px;border:1px solid #dbe3f0;background:#f8fafc;font-weight:700;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 12px;border:1px solid #dbe3f0;vertical-align:top;white-space:pre-line;">${escapeHtml(text)}</td>
+      </tr>`;
+}
+
+// Same look as the dashboard's "send selected orders" table, in the
+// customer's words: every address, what is delivered and the total.
+function orderDetailsTable(details: OrderReceivedDetails) {
+  const date = [details.deliveryDate ? formatOrderDate(details.deliveryDate, "no") : null, details.timeWindow?.replace("-", " - ")]
+    .filter(Boolean)
+    .join(", ");
+  const floor = [details.floorNo?.trim() ? `${details.floorNo.trim()}. etasje` : null, details.lift?.trim() ? `heis: ${details.lift.trim()}` : null]
+    .filter(Boolean)
+    .join(", ");
+
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="border-collapse:collapse;margin:24px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111827;">
+      <tr>
+        <td colspan="2" style="padding:12px 14px;background:#273097;color:#ffffff;font-weight:700;font-size:15px;">Bestillingsdetaljer</td>
+      </tr>
+      ${detailsRow("Leveringsdato", date)}
+      ${detailsRow("Henteadresse", details.pickupAddress)}
+      ${detailsRow(details.extraPickupAddress.length > 1 ? "Ekstra hentesteder" : "Ekstra hentested", details.extraPickupAddress.join("\n"))}
+      ${detailsRow("Leveringsadresse", details.deliveryAddress)}
+      ${detailsRow("Etasje", floor)}
+      ${detailsRow("Returadresse", details.returnAddress)}
+      ${detailsRow("Varer", localizeProductsSummary(details.productsSummary, "no"))}
+      ${detailsRow("Levering", localizeWebsiteLineLabelList(details.deliveryTypeSummary, "no"))}
+      ${detailsRow("Tjenester", localizeWebsiteLineLabelList(details.servicesSummary, "no"))}
+      ${detailsRow("Navn", details.customerName)}
+      ${detailsRow("Telefon", details.phone)}
+      ${detailsRow("E-post", details.email)}
+      ${detailsRow("Kommentar", details.customerComments)}
+      ${detailsRow("Totalpris (inkl. MVA)", details.totalIncVatNok !== null ? formatKr(details.totalIncVatNok) : null)}
+    </table>`;
+}
+
+// The one email a customer gets right after placing a website order: the
+// confirmation, their "My order" login (username and, for a new account, the
+// password), what they can still change and until when, and the full order.
+// No token action links: no actionToken exists yet. A reply is the customer's
+// other way to reach us — Reply-To is the order's Email Center thread, so it
+// lands on the order. Works for priced and quote-only flows alike.
 export function buildOrderReceivedEmail(order: LifecycleEmailOrder) {
   const reference = orderReference(order);
   const orderNumber = order.orderNumber?.trim();
@@ -252,28 +336,30 @@ export function buildOrderReceivedEmail(order: LifecycleEmailOrder) {
     order.customerLogin && orderNumber
       ? (() => {
           const { orderUrl, forgotPasswordUrl } = buildCustomerOrderUrls(orderNumber);
-          const password = order.customerLogin.hasNewPassword
-            ? "Passordet får du i en egen e-post."
+          const password = order.customerLogin.password
+            ? `Passord: <strong style="font-family:monospace;font-size:16px;">${escapeHtml(order.customerLogin.password)}</strong>`
             : `Logg inn med passordet du allerede har. <a href="${escapeHtml(forgotPasswordUrl)}" style="color:#273097;">Glemt passord?</a>`;
           return `
-    <p style="margin:0 0 8px 0;">
-      Under <strong>Min bestilling</strong> kan du se bestillingen og gjøre endringer selv.
+    <p style="margin:0 0 16px 0;">
+      Under <strong>Min bestilling</strong> kan du se bestillingen og legge til tjenester i tilfelle du har glemt noe,
+      eller endre den hvis du har bestilt noe for mye. Du kan alltid kontakte oss for hjelp!
     </p>
     <p style="margin:0 0 8px 0;">Brukernavn: <strong>${escapeHtml(order.customerLogin.email)}</strong><br/>${password}</p>
-    <div style="margin:16px 0;">${buttonLink(orderUrl, "Se eller endre bestillingen")}</div>`;
+    <div style="margin:16px 0;">${buttonLink(orderUrl, "Gå til Min bestilling")}</div>
+    <p style="margin:0 0 16px 0;">
+      Innloggingen slettes automatisk kort tid etter at bestillingen er levert og fullført. Ikke del passordet med andre.
+    </p>${editRulesBlock(order.orderDetails)}`;
         })()
       : "";
 
-  const subject = `Vi har mottatt bestillingen din ${reference}`.trim();
+  const subject = `Takk for bestillingen ${reference}`.trim();
   const html = buildSimpleEmailShell(`
     <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
     <p style="margin:0 0 16px 0;">
-      Takk for bestillingen! Vi har mottatt ${reference ? `bestilling ${escapeHtml(reference)}` : "bestillingen din"} og går gjennom den nå.
-    </p>
-    <p style="margin:0 0 16px 0;">
-      Du får en ny e-post fra oss så snart bestillingen er godkjent, med en lenke for å betale og bekrefte.
+      Takk for bestillingen! Vi har mottatt ${reference ? `bestilling ${escapeHtml(reference)}` : "bestillingen din"} og behandler den nå.
     </p>${loginBlock}
-    <p style="margin:16px 0 0 0;">Har du spørsmål eller vil du endre noe? Bare svar på denne e-posten.</p>
+    <p style="margin:0 0 16px 0;">Har du spørsmål eller vil du endre noe? Bare svar på denne e-posten.</p>
+    ${order.orderDetails ? orderDetailsTable(order.orderDetails) : ""}
   `);
 
   return { subject, html };

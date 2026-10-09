@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { authenticateMcpRequest } from "@/lib/integrations/mcp/authenticateMcpRequest";
 import { prisma } from "@/lib/db";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { getPricingSnapshotCustomerVatTotals } from "@/lib/orders/orderTotals";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_RESULTS = 200;
@@ -114,6 +115,7 @@ export async function GET(request: Request) {
         status: true,
         driver: true,
         pricingSnapshot: true,
+        websiteOrderKind: true,
       },
       orderBy: { deliveryDate: "desc" },
       take: MAX_RESULTS,
@@ -122,6 +124,9 @@ export async function GET(request: Request) {
     return NextResponse.json({
       orders: orders.map((order) => {
         const snapshot = getPricingSnapshot(order.pricingSnapshot);
+        // Homepage orders are VAT-inclusive — no VAT on top (see
+        // getPricingSnapshotCustomerVatTotals).
+        const vatTotals = getPricingSnapshotCustomerVatTotals(order.pricingSnapshot, order.websiteOrderKind);
 
         return {
           orderNumber: order.displayId,
@@ -134,8 +139,8 @@ export async function GET(request: Request) {
           driver: order.driver,
           discount: snapshot.customer?.discount ?? null,
           extra: snapshot.customer?.extra ?? null,
-          vat: snapshot.customer?.vat ?? null,
-          totalPrice: snapshot.customer?.totalIncVat ?? null,
+          vat: vatTotals?.vat ?? null,
+          totalPrice: vatTotals?.totalIncVat ?? null,
           directCost: snapshot.subcontractor?.total ?? null,
           lines: (snapshot.lines ?? []).map((line) => ({
             itemType: line.itemType ?? null,

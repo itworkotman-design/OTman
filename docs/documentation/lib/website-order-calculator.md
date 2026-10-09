@@ -10,7 +10,7 @@ The data behind the calculator in `WebsiteOrderModal`, shown like the booking ap
 
 ## Functions
 
-- `websiteOrderCalculatorView(result, { includePartner })` — every product and order-extras line with its customer and partner price, plus the customer side (subtotal, discount, extra, total) and the partner side (base, minus, plus, total). Without `includePartner`, partner prices are `null` and `partner` is `null`.
+- `websiteOrderCalculatorView(result, { includePartner })` — every product and order-extras line with its customer and partner price, plus the customer side (subtotal, discount, extra, total) and the partner side (base, minus, plus, total). Without `includePartner`, partner prices are `null` and `partner` is `null`. A line set to 0 shows 0 kr and is not shown again in `discount` / `minus`.
 - `partnerMinusForDiscount({ rabatt, subtotal, partnerBase })` — the booking app's rule: a discount cuts the partner's pay by the same share (`deriveDiscountSync` without DNB). `""` when there's no discount or no subtotal.
 
 ## "Set to 0" choices

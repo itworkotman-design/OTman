@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
-import { sendEmail } from "@/lib/email/sendEmail";
+import { sendGmailEmail } from "@/lib/email/sendGmailEmail";
+import { formatGmailSenderName, getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import { htmlToText } from "@/lib/email/htmlToText";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import { buildReplyToAddress, createOrderEmailThreadToken } from "@/lib/orders/orderEmail";
 import {
   buildCustomerOrderUrls,
   buildSimpleEmailShell,
@@ -13,10 +15,11 @@ import {
 } from "@/lib/orders/customerLifecycleEmails";
 
 // The login details for a temporary customer account (username = email, a
-// generated password). Sent on its own, through Brevo — never through the
-// company Gmail account the other order emails use, where the password would
-// sit in plaintext in Gmail's Sent folder and the order's Email Center. The
-// copy logged on the order has the password masked.
+// generated password) — for a password reset and staff's "Send new login"; a
+// new order's first password is in the order-received email instead. Sent
+// through the company Gmail like the other order emails, threaded to the
+// order. The copy logged on the order has the password masked, and is logged
+// under the Gmail ids so Gmail sync skips the plaintext copy.
 
 const MASK = "••••••••••••";
 
@@ -26,6 +29,8 @@ type CredentialsOrder = {
   displayId: number | null;
   orderNumber: string | null;
   customerName: string | null;
+  // The order's Email Center thread — reused, or created and saved here.
+  emailThreadToken?: string | null;
 };
 
 export function buildCustomerCredentialsEmail(params: { order: CredentialsOrder; email: string; password: string }) {
@@ -61,16 +66,30 @@ export async function sendCustomerCredentialsEmail(params: {
 }): Promise<boolean> {
   const { order, email } = params;
   const sentAt = new Date();
-  const fromEmail = process.env.BREVO_SENDER_EMAIL ?? "";
-  const logged = buildCustomerCredentialsEmail({ ...params, password: MASK });
+  const fromEmail = getGmailSendAsEmail();
+  const fromName = formatGmailSenderName();
 
   try {
+    // Built inside the try: building can throw too (no ORDER_ACTION_BASE_URL),
+    // and this function must never fail the caller — the order is saved.
+    const logged = buildCustomerCredentialsEmail({ ...params, password: MASK });
     const { subject, html } = buildCustomerCredentialsEmail(params);
-    const result = await sendEmail({
+    const threadToken = order.emailThreadToken || createOrderEmailThreadToken();
+    const result = await sendGmailEmail({
       to: { email, name: order.customerName ?? undefined },
+      threadToken,
       subject,
       html,
       text: htmlToText(html),
+      replyTo: buildReplyToAddress(threadToken),
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      direction: "outbound",
+    });
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { lastOutboundEmailAt: sentAt, ...(order.emailThreadToken ? {} : { emailThreadToken: threadToken }) },
     });
 
     await prisma.orderEmailMessage.create({
@@ -78,11 +97,15 @@ export async function sendCustomerCredentialsEmail(params: {
         orderId: order.id,
         companyId: order.companyId,
         direction: "OUTBOUND",
-        status: "SENT",
+        status: result.syncWarning ? "SENT_WITH_SYNC_WARNING" : "SENT",
+        source: "GMAIL",
         externalMessageId: result.messageId,
+        gmailMessageId: result.gmailMessageId,
+        gmailThreadId: result.gmailThreadId,
         subject: logged.subject,
         bodyHtml: logged.html,
         fromEmail,
+        fromName,
         toEmail: email,
         toName: order.customerName,
         sentAt,
@@ -108,7 +131,7 @@ export async function sendCustomerCredentialsEmail(params: {
           companyId: order.companyId,
           direction: "OUTBOUND",
           status: "FAILED",
-          subject: `Failed to send ${logged.subject}`,
+          subject: `Failed to send login details for order ${orderReference(order)}`.trim(),
           bodyText: "The login details email could not be sent.",
           fromEmail,
           toEmail: email,

@@ -9,6 +9,8 @@ import CustomerOrderDetailsForm from "./CustomerOrderDetailsForm";
 import CustomerLogoutButton from "./CustomerLogoutButton";
 import CustomerPasswordForm from "./CustomerPasswordForm";
 import { customerStatusLabel } from "./customerStatusLabel";
+import { formatOrderDate } from "@/lib/orders/formatOrderDate";
+import { localizeProductsSummary } from "@/lib/content/websiteLineLabels";
 
 type Props = {
   locale: "en" | "no";
@@ -96,10 +98,10 @@ export default function CustomerOrderClient({ locale, order, details, permission
 
   const rows: [string, string | null][] = [
     [t("Status", "Status"), customerStatusLabel(order.status, locale)],
-    [t("Date", "Dato"), [order.deliveryDate, order.timeWindow].filter(Boolean).join(" · ") || null],
+    [t("Date", "Dato"), [order.deliveryDate ? formatOrderDate(order.deliveryDate, locale) : null, order.timeWindow].filter(Boolean).join(" · ") || null],
     [t("Pickup", "Henting"), [order.pickupAddress, ...order.extraPickupAddress].filter(Boolean).join("\n") || null],
     [t("Delivery", "Levering"), order.deliveryAddress],
-    [t("Products", "Varer"), order.productsSummary],
+    [t("Products", "Varer"), localizeProductsSummary(order.productsSummary, locale)],
     [t("Name", "Navn"), order.customerName],
     [t("Phone", "Telefon"), order.phone],
     [t("Email", "E-post"), order.email],

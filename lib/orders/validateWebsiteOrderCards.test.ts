@@ -29,6 +29,17 @@ const products = [
     ],
   },
   { id: "wm", code: "WM", label: "Washing machine", active: true, options: [] },
+  {
+    id: "tv",
+    code: "WG_TV",
+    label: "TV",
+    active: true,
+    options: [
+      option("tv-table", "install", "TV_TABLE_75_100"),
+      option("tv-wall", "install", "TV_WALL_75_100"),
+      option("tv-stand", "install", "TV_MOUNT_STAND_75_100"),
+    ],
+  },
 ] as unknown as CatalogProduct[];
 
 function card(overrides: Partial<SavedProductCard> & Record<string, unknown> = {}): SavedProductCard {
@@ -74,5 +85,28 @@ describe("validateWebsiteOrderCards", () => {
     });
     const ok = validateWebsiteOrderCards([card({ ...base, modelNumber: "  Clock  " })], products);
     expect(ok.ok && ok.cards[0].modelNumber).toBe("Clock");
+  });
+
+  it("refuses the TV stand / feet add-on unless table mounting 75\"-100\" is chosen", () => {
+    const tvCard = (ids: string[]) => card({ productId: "tv", deliveryType: "INDOOR", selectedInstallOptionIds: ids });
+    expect(validateWebsiteOrderCards([tvCard(["tv-wall", "tv-stand"])], products)).toEqual({
+      ok: false,
+      reason: "INSTALL_ADDON_NOT_ALLOWED",
+    });
+    expect(validateWebsiteOrderCards([tvCard(["tv-table", "tv-stand"])], products).ok).toBe(true);
+  });
+
+  it("lets an order keep a combination it already had (booked before the rule), but not add it", () => {
+    const tvCard = (cardId: number, ids: string[]) =>
+      card({ cardId, productId: "tv", deliveryType: "INDOOR", selectedInstallOptionIds: ids });
+    const before = [tvCard(1, ["tv-wall", "tv-stand"]), tvCard(2, ["tv-wall"])];
+
+    // Card 1 unchanged (order of ids doesn't matter) — fine.
+    expect(validateWebsiteOrderCards([tvCard(1, ["tv-stand", "tv-wall"])], products, { previousCards: before }).ok).toBe(true);
+    // Card 2 newly gets the stand — refused.
+    expect(validateWebsiteOrderCards([tvCard(2, ["tv-wall", "tv-stand"])], products, { previousCards: before })).toEqual({
+      ok: false,
+      reason: "INSTALL_ADDON_NOT_ALLOWED",
+    });
   });
 });

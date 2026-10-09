@@ -130,7 +130,17 @@ function getProtectedCancelledSubcontractorTotal(
   return Math.round((total + Number.EPSILON) * 100) / 100;
 }
 
-export function getEffectiveArchiveCustomerTotal(row: Pick<OrderRow, "status" | "priceExVat" | "pricingSnapshot" | "rabatt" | "leggTil" | "calculatorItems">): number {
+type CustomerTotalRow = Pick<OrderRow, "status" | "priceExVat" | "pricingSnapshot" | "rabatt" | "leggTil" | "calculatorItems" | "websiteOrderKind">;
+
+// Homepage catalog orders ("WHITE_GOODS") store the VAT-inclusive client
+// total in priceExVat (see getOrderChargeAmountIncVatNok) — the "Price ex.
+// VAT" column, selection sum and export show it without the 25% VAT.
+export function getEffectiveArchiveCustomerTotal(row: CustomerTotalRow): number {
+  const total = getStoredArchiveCustomerTotal(row);
+  return row.websiteOrderKind === "WHITE_GOODS" ? Math.round((total / 1.25) * 100) / 100 : total;
+}
+
+function getStoredArchiveCustomerTotal(row: CustomerTotalRow): number {
   const snapshotTotal = getPricingSnapshotCustomerTotal(row.pricingSnapshot);
   if (snapshotTotal !== null) {
     return snapshotTotal;
@@ -205,7 +215,7 @@ export function getEffectiveArchiveSubcontractorTotal(
 // in the table, and the selection sum has to match or it leaks the customer price.
 export function getSelectedArchiveOrdersPriceTotal(
   orders: Array<
-    Pick<OrderRow, "id" | "status" | "priceExVat" | "priceSubcontractor" | "pricingSnapshot" | "rabatt" | "leggTil" | "subcontractorMinus" | "subcontractorPlus" | "calculatorItems">
+    Pick<OrderRow, "id" | "status" | "priceExVat" | "priceSubcontractor" | "pricingSnapshot" | "rabatt" | "leggTil" | "subcontractorMinus" | "subcontractorPlus" | "calculatorItems" | "websiteOrderKind">
   >,
   selectedOrderIds: string[],
   viewMode: BookingArchiveViewMode,

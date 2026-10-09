@@ -186,6 +186,20 @@ export default function WebsiteOrderModal({
                 <button
                   type="button"
                   onClick={() => {
+                    // Saving the edit reloads the order, which would silently
+                    // drop unsaved calculator changes (discount, extra, lines
+                    // set to 0) — make that a choice.
+                    if (
+                      pricingDraft &&
+                      !window.confirm(
+                        t(
+                          "You have unsaved price changes in the calculator. They will be lost if you edit the order now. Continue?",
+                          "Du har ulagrede prisendringer i kalkulatoren. De går tapt hvis du endrer bestillingen nå. Fortsette?",
+                        ),
+                      )
+                    ) {
+                      return;
+                    }
                     setEditNotice("");
                     setEditingOrder(true);
                   }}
@@ -237,7 +251,7 @@ export default function WebsiteOrderModal({
                 }}
               />
             )}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
               <div className="flex flex-col gap-4">
                 {reviewBlocks.map((block) => (
                   <div key={block.title} className="rounded-2xl border border-black/10 bg-white p-6">

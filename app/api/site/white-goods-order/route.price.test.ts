@@ -107,6 +107,8 @@ function body(overrides: Record<string, unknown> = {}) {
     name: "Ralfs",
     phone: "93004023",
     email: "customer@example.com",
+    preferredDate: "2030-01-08",
+    timeWindow: "10:00-16:00",
     ...overrides,
   };
 }

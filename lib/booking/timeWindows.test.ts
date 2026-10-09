@@ -88,3 +88,16 @@ describe("isTimeWindowComplete", () => {
     expect(isTimeWindowComplete("-14:00")).toBe(false);
   });
 });
+
+describe("isTimeWindowComplete — real times only", () => {
+  it("rejects impossible clock times and a range that ends before it starts", () => {
+    expect(isTimeWindowComplete("25:00-26:00")).toBe(false);
+    expect(isTimeWindowComplete("12:60-13:00")).toBe(false);
+    expect(isTimeWindowComplete("14:00-12:00")).toBe(false);
+    expect(isTimeWindowComplete("12:00-12:00")).toBe(false);
+  });
+
+  it("still accepts a normal specific time", () => {
+    expect(isTimeWindowComplete("08:30-23:59")).toBe(true);
+  });
+});
