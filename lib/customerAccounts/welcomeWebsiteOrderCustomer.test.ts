@@ -100,6 +100,47 @@ describe("welcomeWebsiteOrderCustomer", () => {
     });
   });
 
+  it("passes the booked pickup stops and delivery, with the order's current addresses on top", async () => {
+    mocks.ensureCustomerAccountForOrder.mockResolvedValue(null);
+    const stop = { source: "private", placeName: "", floor: 3, liftAvailable: false, contactName: "Kari", contactPhone: "+47 911 11 111" };
+
+    await welcomeWebsiteOrderCustomer({
+      ...order,
+      pickupAddress: "Changed 1, Oslo",
+      extraPickupAddress: ["Bjerkeveien 4"],
+      deliveryAddress: "Storgata 1",
+      websiteBookingDetails: {
+        version: 1,
+        customerType: "private",
+        pickups: [
+          { ...stop, source: "store", placeName: "Elkjøp", floor: null, address: "Booked 1, Oslo" },
+          { ...stop, address: "Bjerkeveien 4" },
+        ],
+        delivery: { address: "Storgata 1", floor: 5, liftAvailable: true },
+        preferredDate: "2026-10-15",
+        timeWindow: "10:00-16:00",
+        drivingDistance: "21",
+        orderExtras: [],
+      },
+    });
+
+    const details = mocks.sendOrderReceivedEmail.mock.calls[0][0].orderDetails;
+    expect(details.pickups).toHaveLength(2);
+    expect(details.pickups[0]).toMatchObject({ source: "store", placeName: "Elkjøp", address: "Changed 1, Oslo" });
+    expect(details.pickups[1]).toMatchObject({ floor: 3, contactName: "Kari" });
+    expect(details.delivery).toEqual({ address: "Storgata 1", floor: 5, liftAvailable: true });
+  });
+
+  it("has no stops for an order without booking details (moving, special goods)", async () => {
+    mocks.ensureCustomerAccountForOrder.mockResolvedValue(null);
+
+    await welcomeWebsiteOrderCustomer({ ...order, websiteBookingDetails: null });
+
+    const details = mocks.sendOrderReceivedEmail.mock.calls[0][0].orderDetails;
+    expect(details.pickups).toBeUndefined();
+    expect(details.delivery).toBeUndefined();
+  });
+
   it("gives an unpriced quote no total", async () => {
     mocks.ensureCustomerAccountForOrder.mockResolvedValue(null);
 

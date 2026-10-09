@@ -36,13 +36,21 @@ Norwegian, in this order:
    10:00") date, addresses and products can be changed and the order
    cancelled; after it, services can still be added and contact info updated,
    and cancelling becomes a request to staff.
-3. "Questions or changes? Just reply to this email."
+3. "Questions, or unsure how to change something? Reply to this email and we will get back to you shortly."
 4. With `orderDetails`: a "Bestillingsdetaljer" table (same look as the
-   dashboard's send-selected-orders email): date + time window, pickup, extra
-   pickups, delivery address, floor/lift, return address, products, delivery
-   type, services (translated with `website-line-labels`), name, phone, email,
-   comment and total incl. VAT. Empty rows are left out; an unpriced quote has
-   no total.
+   dashboard's send-selected-orders email): date + time window, the
+   addresses, return address, products, delivery types (each with its count —
+   "x1" included), services (translated with `website-line-labels`), name,
+   phone, email, comment and total incl. VAT. Empty rows and parts are left
+   out; an unpriced quote has no total.
+   - **Homepage white-goods orders** (`orderDetails.pickups` / `delivery`,
+     from `Order.websiteBookingDetails` with the live addresses on top via
+     `withLiveOrderFields`): one "Henting N" row per stop — Butikk /
+     Privatperson / Bedrift · place name, address, floor and lift (none for a
+     store), contact person, and the products collected there — and a
+     "Leveringsadresse" row with its floor and lift.
+   - **Other orders** (moving, special goods, older): plain Henteadresse /
+     Ekstra hentested(er) / Leveringsadresse / Etasje rows.
 
 ## Notes
 - No token action links (pay / cancel / request change): the email goes out

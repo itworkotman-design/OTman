@@ -4,6 +4,7 @@ import { sendOrderReceivedEmail } from "@/lib/orders/sendOrderReceivedEmail";
 import type { LifecycleEmailOrderInput } from "@/lib/orders/sendCustomerLifecycleEmail";
 import type { OrderReceivedDetails } from "@/lib/orders/customerLifecycleEmails";
 import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
+import { parseWhiteGoodsBookingDetails, withLiveOrderFields } from "@/lib/orders/websiteBookingDetails";
 import { ensureCustomerAccountForOrder } from "./ensureCustomerAccount";
 
 // The saved order row, as the order routes pass it. The detail fields are
@@ -27,10 +28,29 @@ export type WelcomeOrder = LifecycleEmailOrderInput & {
   leggTil?: string | null;
   pricingSnapshot?: unknown;
   websiteOrderKind?: string | null;
+  drivingDistance?: string | null;
+  websiteBookingDetails?: unknown;
 };
+
+// Every pickup stop and the delivery as booked (homepage white-goods orders
+// only), with the order's current addresses laid on top.
+function bookedStops(order: WelcomeOrder): Pick<OrderReceivedDetails, "pickups" | "delivery"> {
+  const booked = parseWhiteGoodsBookingDetails(order.websiteBookingDetails);
+  if (!booked || booked.pickups.length === 0) return {};
+  const { pickups, delivery } = withLiveOrderFields(booked, {
+    pickupAddress: order.pickupAddress ?? null,
+    deliveryAddress: order.deliveryAddress ?? null,
+    extraPickupAddress: order.extraPickupAddress ?? [],
+    deliveryDate: order.deliveryDate ?? null,
+    timeWindow: order.timeWindow ?? null,
+    drivingDistance: order.drivingDistance ?? null,
+  });
+  return { pickups, delivery };
+}
 
 function orderReceivedDetails(order: WelcomeOrder): OrderReceivedDetails {
   return {
+    ...bookedStops(order),
     deliveryDate: order.deliveryDate ?? null,
     timeWindow: order.timeWindow ?? null,
     customerName: order.customerName,

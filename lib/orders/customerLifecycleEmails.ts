@@ -1,7 +1,8 @@
 import { formatKr } from "./orderChangeText";
 import { formatOrderDate } from "./formatOrderDate";
 import { getEditCutoff } from "./customerOrderEditPolicy";
-import { localizeProductsSummary, localizeWebsiteLineLabelList } from "@/lib/content/websiteLineLabels";
+import { localizeProductsSummary, localizeWebsiteLineLabelList, localizeWebsiteProductName } from "@/lib/content/websiteLineLabels";
+import type { BookingPickupStop } from "./websiteBookingDetails";
 import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import { getOrderEmailLogoUrl } from "@/lib/email/emailAssets";
 import { getOrderActionBaseUrl } from "@/lib/stripe/stripeClient";
@@ -55,6 +56,11 @@ export type OrderReceivedDetails = {
   customerComments: string | null;
   // null = not priced yet (a quote).
   totalIncVatNok: number | null;
+  // Homepage white-goods orders: every pickup stop and the delivery as booked
+  // (Order.websiteBookingDetails, with the live addresses laid on top). When
+  // present they replace the plain pickup / extra pickup / floor rows.
+  pickups?: BookingPickupStop[];
+  delivery?: { address: string; floor: number | null; liftAvailable: boolean };
 };
 
 export function escapeHtml(value: string) {
@@ -289,6 +295,63 @@ function detailsRow(label: string, value: string | null | undefined) {
       </tr>`;
 }
 
+function escapeOrNull(value: string | null) {
+  return value ? escapeHtml(value) : null;
+}
+
+// A row whose value is several lines of ready-made HTML (each already escaped).
+function detailsSectionRow(label: string, lines: (string | null)[]) {
+  const present = lines.filter((line): line is string => !!line);
+  if (present.length === 0) return "";
+  return `
+      <tr>
+        <td style="padding:8px 12px;border:1px solid #dbe3f0;background:#f8fafc;font-weight:700;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 12px;border:1px solid #dbe3f0;vertical-align:top;">${present.map((line) => `<div style="margin:0 0 4px 0;">${line}</div>`).join("")}</td>
+      </tr>`;
+}
+
+const PICKUP_SOURCE_LABEL: Record<NonNullable<BookingPickupStop["source"]>, string> = {
+  store: "Butikk",
+  private: "Privatperson",
+  business: "Bedrift",
+};
+
+// A store has no floor (null) — it has loading access.
+function floorText(floor: number | null, liftAvailable: boolean): string | null {
+  return floor === null ? null : `Etasje ${floor}, ${liftAvailable ? "med heis" : "uten heis"}`;
+}
+
+// One row per pickup stop: who/where, address, floor and lift, contact
+// person, and (on a split order) which products are collected there.
+function pickupRows(pickups: BookingPickupStop[]) {
+  return pickups
+    .map((stop, i) => {
+      const heading = [stop.source ? PICKUP_SOURCE_LABEL[stop.source] : null, stop.placeName.trim() || null].filter(Boolean).join(" · ");
+      const contact = [stop.contactName, stop.contactPhone].map((s) => s.trim()).filter(Boolean).join(", ");
+      const products = (stop.productNames ?? []).map((name) => localizeWebsiteProductName(name, "no")).join(", ");
+      return detailsSectionRow(pickups.length > 1 ? `Henting ${i + 1}` : "Henting", [
+        heading ? `<strong>${escapeHtml(heading)}</strong>` : null,
+        escapeOrNull(stop.address.trim() || null),
+        escapeOrNull(floorText(stop.floor, stop.liftAvailable)),
+        contact ? `Kontaktperson: ${escapeHtml(contact)}` : null,
+        products ? `Varer: ${escapeHtml(products)}` : null,
+      ]);
+    })
+    .join("");
+}
+
+// "Delivery with carry-in x2, Delivery to doorstep" → "Levering med
+// innbæring x2, Levering til ytterdør x1": the stored summary leaves out a
+// count of one.
+function deliveryTypesWithCount(summary: string | null): string | null {
+  const localized = localizeWebsiteLineLabelList(summary, "no");
+  if (!localized) return localized;
+  return localized
+    .split(", ")
+    .map((item) => (/ x\d+$/.test(item) ? item : `${item} x1`))
+    .join(", ");
+}
+
 // Same look as the dashboard's "send selected orders" table, in the
 // customer's words: every address, what is delivered and the total.
 function orderDetailsTable(details: OrderReceivedDetails) {
@@ -298,6 +361,17 @@ function orderDetailsTable(details: OrderReceivedDetails) {
   const floor = [details.floorNo?.trim() ? `${details.floorNo.trim()}. etasje` : null, details.lift?.trim() ? `heis: ${details.lift.trim()}` : null]
     .filter(Boolean)
     .join(", ");
+  const addressRows =
+    details.pickups && details.pickups.length > 0 && details.delivery
+      ? `${pickupRows(details.pickups)}
+      ${detailsSectionRow("Leveringsadresse", [
+        escapeOrNull(details.delivery.address.trim() || null),
+        escapeOrNull(floorText(details.delivery.floor, details.delivery.liftAvailable)),
+      ])}`
+      : `${detailsRow("Henteadresse", details.pickupAddress)}
+      ${detailsRow(details.extraPickupAddress.length > 1 ? "Ekstra hentesteder" : "Ekstra hentested", details.extraPickupAddress.join("\n"))}
+      ${detailsRow("Leveringsadresse", details.deliveryAddress)}
+      ${detailsRow("Etasje", floor)}`;
 
   return `
     <table width="100%" cellpadding="0" cellspacing="0" border="0"
@@ -306,13 +380,10 @@ function orderDetailsTable(details: OrderReceivedDetails) {
         <td colspan="2" style="padding:12px 14px;background:#273097;color:#ffffff;font-weight:700;font-size:15px;">Bestillingsdetaljer</td>
       </tr>
       ${detailsRow("Leveringsdato", date)}
-      ${detailsRow("Henteadresse", details.pickupAddress)}
-      ${detailsRow(details.extraPickupAddress.length > 1 ? "Ekstra hentesteder" : "Ekstra hentested", details.extraPickupAddress.join("\n"))}
-      ${detailsRow("Leveringsadresse", details.deliveryAddress)}
-      ${detailsRow("Etasje", floor)}
+      ${addressRows}
       ${detailsRow("Returadresse", details.returnAddress)}
       ${detailsRow("Varer", localizeProductsSummary(details.productsSummary, "no"))}
-      ${detailsRow("Levering", localizeWebsiteLineLabelList(details.deliveryTypeSummary, "no"))}
+      ${detailsRow("Leveringstype", deliveryTypesWithCount(details.deliveryTypeSummary))}
       ${detailsRow("Tjenester", localizeWebsiteLineLabelList(details.servicesSummary, "no"))}
       ${detailsRow("Navn", details.customerName)}
       ${detailsRow("Telefon", details.phone)}
@@ -358,7 +429,7 @@ export function buildOrderReceivedEmail(order: LifecycleEmailOrder) {
     <p style="margin:0 0 16px 0;">
       Takk for bestillingen! Vi har mottatt ${reference ? `bestilling ${escapeHtml(reference)}` : "bestillingen din"} og behandler den nå.
     </p>${loginBlock}
-    <p style="margin:0 0 16px 0;">Har du spørsmål eller vil du endre noe? Bare svar på denne e-posten.</p>
+    <p style="margin:0 0 16px 0;">Har du spørsmål eller er du usikker på hvordan du endrer noe? Svar på denne e-posten, så tar vi kontakt med deg så snart som mulig.</p>
     ${order.orderDetails ? orderDetailsTable(order.orderDetails) : ""}
   `);
 

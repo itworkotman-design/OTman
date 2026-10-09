@@ -109,7 +109,7 @@ describe("buildOrderReceivedEmail", () => {
   it("tells the customer they can reply to the email (replies thread into the order's Email Center)", () => {
     const { html } = buildOrderReceivedEmail(order);
 
-    expect(html).toContain("svar på denne e-posten");
+    expect(html).toContain("Har du spørsmål eller er du usikker på hvordan du endrer noe? Svar på denne e-posten, så tar vi kontakt med deg så snart som mulig.");
   });
 
   it("has no login block when the order has no customer account", () => {
@@ -186,7 +186,7 @@ describe("buildOrderReceivedEmail", () => {
     expect(html).toContain("+47 900 00 000");
     expect(html).toMatch(/44\s170 kr/);
     // The details come last, after the login and the rules.
-    expect(html.indexOf("Bestillingsdetaljer")).toBeGreaterThan(html.indexOf("svar på denne e-posten"));
+    expect(html.indexOf("Bestillingsdetaljer")).toBeGreaterThan(html.indexOf("Svar på denne e-posten"));
   });
 
   it("leaves out empty detail rows, and the price row for an unpriced quote", () => {
@@ -213,6 +213,83 @@ describe("buildOrderReceivedEmail", () => {
     const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2", customerLogin, orderDetails: { ...details, deliveryDate: null } });
 
     expect(html).toContain("24 timer før");
+  });
+
+  it("states x1 on a delivery type that is there once", () => {
+    const { html } = buildOrderReceivedEmail({
+      ...order,
+      orderDetails: { ...details, deliveryTypeSummary: "Delivery with carry-in x2, Delivery to doorstep" },
+    });
+
+    expect(html).toContain("Levering med innbæring x2, Levering til ytterdør x1");
+  });
+
+  describe("with the booked pickup stops and delivery", () => {
+    const stops = {
+      pickups: [
+        {
+          source: "store" as const,
+          placeName: "Elkjøp Lørenskog",
+          address: "Solheimveien 7, 1473 Lørenskog",
+          floor: null,
+          liftAvailable: false,
+          contactName: "",
+          contactPhone: "",
+          productNames: ["Vaskemaskin x2"],
+        },
+        {
+          source: "private" as const,
+          placeName: "",
+          address: "Bjerkeveien 4, 0596 Oslo",
+          floor: 3,
+          liftAvailable: false,
+          contactName: "Kari Nordmann",
+          contactPhone: "+47 911 11 111",
+          productNames: ["Tørketrommel"],
+        },
+      ],
+      delivery: { address: "Storgata 1, 2000 Lillestrøm", floor: 5, liftAvailable: true },
+    };
+
+    it("gives each pickup its own row with its type, place, address, floor and lift, contact person and products", () => {
+      const { html } = buildOrderReceivedEmail({ ...order, orderDetails: { ...details, ...stops } });
+
+      expect(html).toContain("Henting 1");
+      expect(html).toContain("Henting 2");
+      expect(html).toContain("Butikk · Elkjøp Lørenskog");
+      expect(html).toContain("Solheimveien 7, 1473 Lørenskog");
+      expect(html).toContain("Privatperson");
+      expect(html).toContain("Bjerkeveien 4, 0596 Oslo");
+      expect(html).toContain("Etasje 3, uten heis");
+      expect(html).toContain("Kontaktperson: Kari Nordmann, +47 911 11 111");
+      expect(html).toContain("Varer: Tørketrommel");
+      // A store has no floor.
+      expect(html).not.toContain("Etasje null");
+    });
+
+    it("gives the delivery address row its floor and lift", () => {
+      const { html } = buildOrderReceivedEmail({ ...order, orderDetails: { ...details, ...stops } });
+
+      expect(html).toContain("Leveringsadresse");
+      expect(html).toContain("Storgata 1, 2000 Lillestrøm");
+      expect(html).toContain("Etasje 5, med heis");
+    });
+
+    it("drops the plain pickup / extra pickup / floor rows it replaces", () => {
+      const { html } = buildOrderReceivedEmail({ ...order, orderDetails: { ...details, ...stops } });
+
+      expect(html).not.toContain("Henteadresse");
+      expect(html).not.toContain("Ekstra hentested");
+      expect(html).not.toContain("heis: Nei");
+      expect(html).not.toContain("Power Alnabru, Oslo");
+    });
+
+    it("calls a single pickup just Henting", () => {
+      const { html } = buildOrderReceivedEmail({ ...order, orderDetails: { ...details, ...stops, pickups: [stops.pickups[1]] } });
+
+      expect(html).toContain(">Henting<");
+      expect(html).not.toContain("Henting 1");
+    });
   });
 });
 
