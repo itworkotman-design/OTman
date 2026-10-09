@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { showsDashboardLogin } from "./navbarLogin";
 import Image from "next/image";
 import type { Locale, LocalizedText } from "@/lib/content/NavbarContent";
 import LanguageSwitcher from "@/app/_components/site/LanguageSwitcher";
@@ -28,6 +29,7 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
   const pathname = usePathname();
 
   const isActive = (path: string) => pathname === path;
+  const showLogin = showsDashboardLogin(pathname);
 
   return (
     <nav className="w-full start-0 z-50 shadow-sm bg-logoblue">
@@ -70,15 +72,17 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
                   </li>
                 );
               })}
-              <li className="block md:hidden border-t border-logoblue">
-                <Link
-                  href="/login"
-                  onClick={() => setOpen(false)}
-                  className="block px-3 py-6 text-lg transition-colors duration-140 text-white"
-                >
-                  {content.dashboardLabel[locale]}
-                </Link>
-              </li>
+              {showLogin && (
+                <li className="block md:hidden border-t border-logoblue">
+                  <Link
+                    href="/login"
+                    onClick={() => setOpen(false)}
+                    className="block px-3 py-6 text-lg transition-colors duration-140 text-white"
+                  >
+                    {content.dashboardLabel[locale]}
+                  </Link>
+                </li>
+              )}
               <li className={`block md:hidden px-10 py-4 md:py-0 text-lg md:text-sm transition-colors duration-140 border-t border-logoblue`}>
                 <LanguageSwitcher />
               </li>
@@ -88,12 +92,14 @@ export const Navbar = ({ locale, content }: NavbarProps) => {
 
         <div className="relative justify-self-end hidden md:flex items-center gap-4">
           <LanguageSwitcher />
-          <Link
-            href="/login"
-            className="text-logoblue flex items-center justify-center gap-4 bg-white w-22.5 h-7.75 rounded-[26px] text-sm transition-colors duration-140"
-          >
-            {content.dashboardLabel[locale]}
-          </Link>
+          {showLogin && (
+            <Link
+              href="/login"
+              className="text-logoblue flex items-center justify-center gap-4 bg-white w-22.5 h-7.75 rounded-[26px] text-sm transition-colors duration-140"
+            >
+              {content.dashboardLabel[locale]}
+            </Link>
+          )}
         </div>
       </div>
     </nav>

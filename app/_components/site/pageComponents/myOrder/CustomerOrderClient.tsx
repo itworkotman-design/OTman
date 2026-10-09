@@ -14,6 +14,7 @@ import CustomerOrderDetailsForm from "./CustomerOrderDetailsForm";
 import OrderProgressBar from "./OrderProgressBar";
 import AutoRefresh from "./AutoRefresh";
 import ContactUsCard from "./ContactUsCard";
+import CustomerProfileMenu from "./CustomerProfileMenu";
 import { progressBadge } from "./orderProgressText";
 import { orderRules } from "./orderRules";
 import {
@@ -55,6 +56,8 @@ type Props = {
     progress: OrderProgress;
   };
   products: CustomerOrderProduct[];
+  // The logged-in account, for the profile menu.
+  accountEmail: string;
   details: CustomerOrderDetails;
   permissions: { open: boolean; beforeCutoff: boolean; cutoffAt: string | null; canEditItems: boolean };
 };
@@ -98,7 +101,7 @@ function AddressBox({ address, details = [] }: { address: string; details?: (str
 // time window, then only contact details and add-ons (e.g. unpacking while
 // the crew is there). Every change goes straight onto the order and staff
 // are told.
-export default function CustomerOrderClient({ locale, order, products, details, permissions }: Props) {
+export default function CustomerOrderClient({ locale, order, products, accountEmail, details, permissions }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -193,10 +196,13 @@ export default function CustomerOrderClient({ locale, order, products, details, 
     <div className="mx-auto max-w-6xl py-10 sm:py-14">
       {!editing && <AutoRefresh />}
 
-      <Link href={`/${locale}/min-bestilling`} className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-logoblue">
-        <ArrowLeftIcon className="h-4 w-4" />
-        {t("Back to my orders", "Tilbake til mine bestillinger")}
-      </Link>
+      <div className="flex items-center justify-between gap-4">
+        <Link href={`/${locale}/min-bestilling`} className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-logoblue">
+          <ArrowLeftIcon className="h-4 w-4" />
+          {t("Back to my orders", "Tilbake til mine bestillinger")}
+        </Link>
+        <CustomerProfileMenu locale={locale} email={accountEmail} />
+      </div>
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>

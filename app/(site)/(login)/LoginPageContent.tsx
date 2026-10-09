@@ -117,6 +117,18 @@ export default function LoginPageContent() {
             />
           </div>
 
+          {/* Homepage customers have their own login ("My order"); they often
+              land here through the navbar's Login button. */}
+          <Link
+            href="/no/min-bestilling/logg-inn"
+            className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-logoblue/20 bg-logoblue/5 px-4 py-3 text-sm text-logoblue hover:bg-logoblue/10"
+          >
+            <span>
+              Vil du se eller endre bestillingen din? <span className="whitespace-nowrap font-semibold underline underline-offset-2">Logg inn her i stedet</span>
+            </span>
+            <span aria-hidden="true">&rarr;</span>
+          </Link>
+
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
               <label

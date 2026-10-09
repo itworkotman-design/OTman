@@ -44,6 +44,7 @@ export default async function MyOrderPage({ params }: { params: Promise<{ locale
       locale={locale}
       order={view.order}
       products={products}
+      accountEmail={session.email}
       details={view.details}
       permissions={{ ...view.permissions, cutoffAt: view.permissions.cutoffAt?.toISOString() ?? null }}
     />

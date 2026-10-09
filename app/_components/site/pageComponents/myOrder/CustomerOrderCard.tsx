@@ -5,7 +5,7 @@ import { getOsloDateKey } from "@/lib/dates/isoDate";
 import { localizeProductsSummary, localizeWebsiteLineLabelList } from "@/lib/content/websiteLineLabels";
 import OrderProgressBar from "./OrderProgressBar";
 import { progressBadge } from "./orderProgressText";
-import { ArrowRightIcon, CalendarIcon, DotsIcon, PinIcon, TruckIcon } from "./myOrderIcons";
+import { ArrowRightIcon, CalendarIcon, PinIcon, TruckIcon } from "./myOrderIcons";
 
 export type CustomerOrderCardOrder = {
   orderNumber: string;
@@ -92,7 +92,7 @@ export default function CustomerOrderCard({ order, locale }: Props) {
         <OrderProgressBar progress={order.progress} locale={locale} />
       </div>
 
-      <footer className="mt-8 flex items-center justify-between gap-3">
+      <footer className="mt-8">
         <Link
           href={href}
           className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-logoblue transition hover:border-logoblue"
@@ -100,25 +100,6 @@ export default function CustomerOrderCard({ order, locale }: Props) {
           <CalendarIcon className="h-5 w-5" />
           {t("See details", "Se detaljer")}
         </Link>
-        <details className="relative">
-          <summary
-            aria-label={t("More", "Mer")}
-            className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-xl bg-gray-100 text-gray-900 transition hover:bg-gray-200 [&::-webkit-details-marker]:hidden"
-          >
-            <DotsIcon className="h-6 w-6" />
-          </summary>
-          <div className="absolute bottom-full right-0 z-20 mb-2 w-52 rounded-xl border border-gray-100 bg-white py-2 text-sm shadow-lg">
-            <Link href={href} className="block px-4 py-2 hover:bg-gray-50">
-              {t("See or change the order", "Se eller endre bestillingen")}
-            </Link>
-            <Link href={`/${locale}/kontakt`} className="block px-4 py-2 hover:bg-gray-50">
-              {t("Contact us", "Kontakt oss")}
-            </Link>
-            <a href="tel:+4740284977" className="block px-4 py-2 hover:bg-gray-50">
-              {t("Call 40 28 49 77", "Ring 40 28 49 77")}
-            </a>
-          </div>
-        </details>
       </footer>
     </article>
   );

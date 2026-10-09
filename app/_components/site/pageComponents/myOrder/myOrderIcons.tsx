@@ -54,16 +54,6 @@ export function CrossIcon(props: IconProps) {
   );
 }
 
-export function DotsIcon(props: IconProps) {
-  return (
-    <Base {...props}>
-      <circle cx="5.5" cy="12" r="1" fill="currentColor" />
-      <circle cx="12" cy="12" r="1" fill="currentColor" />
-      <circle cx="18.5" cy="12" r="1" fill="currentColor" />
-    </Base>
-  );
-}
-
 export function ChatIcon(props: IconProps) {
   return (
     <Base {...props}>
@@ -147,6 +137,31 @@ export function BulbIcon(props: IconProps) {
     <Base {...props}>
       <path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3Z" />
       <path d="M12 0.8v-.3M3.5 4.5l.8.8M20.5 4.5l-.8.8M1.5 11h1M21.5 11h1" />
+    </Base>
+  );
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </Base>
+  );
+}
+
+export function KeyIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <circle cx="8" cy="15" r="4" />
+      <path d="m10.8 12.2 8.7-8.7M16.5 6.5l2.5 2.5M14 9l2 2" />
+    </Base>
+  );
+}
+
+export function LogoutIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M14 4.5H6.5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1H14M10 12h10M16.5 8.5 20 12l-3.5 3.5" />
     </Base>
   );
 }
