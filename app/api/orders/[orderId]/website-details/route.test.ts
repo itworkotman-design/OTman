@@ -178,6 +178,25 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     expect(json.order.handling).not.toHaveProperty("dontSendEmail");
   });
 
+  it("says whether the customer already has a live My order login for the order's email", async () => {
+    const openOrder = { status: "processing", statusChangedAt: null, updatedAt: new Date(), gdprHold: false };
+
+    // No login at all.
+    expect((await (await call()).json()).order.hasCustomerLogin).toBe(false);
+
+    mocks.orderFindFirstMock.mockResolvedValue({ ...whiteGoodsOrder, customerAccount: { email: "kari@example.no", orders: [openOrder] } });
+    expect((await (await call()).json()).order.hasCustomerLogin).toBe(true);
+
+    // Staff corrected the order's email: the login is for the old one, so a new login is still needed.
+    mocks.orderFindFirstMock.mockResolvedValue({ ...whiteGoodsOrder, customerAccount: { email: "old@example.no", orders: [openOrder] } });
+    expect((await (await call()).json()).order.hasCustomerLogin).toBe(false);
+
+    // Past its delete time (all orders closed days ago), just not cleaned up yet.
+    const closedLongAgo = { status: "completed", statusChangedAt: new Date("2026-01-01T00:00:00Z"), updatedAt: new Date("2026-01-01T00:00:00Z"), gdprHold: false };
+    mocks.orderFindFirstMock.mockResolvedValue({ ...whiteGoodsOrder, customerAccount: { email: "kari@example.no", orders: [closedLongAgo] } });
+    expect((await (await call()).json()).order.hasCustomerLogin).toBe(false);
+  });
+
   it("says how the order compares with what the customer has paid", async () => {
     let json = await (await call()).json();
     expect(json.order.payment).toMatchObject({ outcome: "unpaid", totalPaidIncVatNok: 0, currentTotalIncVatNok: 2855 });

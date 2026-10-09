@@ -5,7 +5,8 @@ import { useState } from "react";
 // "Send new login": emails the customer a fresh "My order" password
 // (POST /api/orders/[orderId]/customer-login). For a customer who lost it,
 // or whose login was already deleted (e.g. a no-show calling back to move
-// the date).
+// the date). The modal only shows it while the order has no live login, and
+// it hides itself once it has sent one.
 export default function WebsiteOrderCustomerLoginButton({
   orderId,
   email,
@@ -18,7 +19,8 @@ export default function WebsiteOrderCustomerLoginButton({
   onResult: (message: string) => void;
 }) {
   const [sending, setSending] = useState(false);
-  if (!email) return null;
+  const [sent, setSent] = useState(false);
+  if (!email || sent) return null;
 
   async function send() {
     if (sending) return;
@@ -29,6 +31,7 @@ export default function WebsiteOrderCustomerLoginButton({
     try {
       const res = await fetch(`/api/orders/${orderId}/customer-login`, { method: "POST", credentials: "include" });
       const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) setSent(true);
       onResult(
         res.ok && data?.ok
           ? t(`New login sent to ${data.email}.`, `Ny innlogging sendt til ${data.email}.`)

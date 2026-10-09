@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import UserModal from "@/app/_components/Dahsboard/users/UserModal";
 import { AppsRolesTab } from "@/app/_components/Dahsboard/users/AppsRolesTab";
+import { WebsiteUsersTab } from "@/app/_components/Dahsboard/users/WebsiteUsersTab";
 import { useRouter } from "next/navigation";
 import type { AppModule, Role, Membership, PendingInvite } from "@/lib/users/types";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
@@ -115,7 +116,7 @@ function formatLastSeen(lastSeenAt: string | null | undefined, isOnline: boolean
   return new Date(lastSeenAt).toLocaleDateString();
 }
 
-type PageTab = "USERS" | "APPS_ROLES";
+type PageTab = "USERS" | "APPS_ROLES" | "WEBSITE_USERS";
 
 export default function UserPage() {
   const currentUser = useCurrentUser();
@@ -346,6 +347,7 @@ export default function UserPage() {
           [
             { id: "USERS" as const, label: "Users" },
             ...(isUmAdmin ? [{ id: "APPS_ROLES" as const, label: "Apps & roles" }] : []),
+            ...(isUmAdmin ? [{ id: "WEBSITE_USERS" as const, label: "Website users" }] : []),
           ]
         ).map((tab) => (
           <button
@@ -364,6 +366,7 @@ export default function UserPage() {
       </div>
 
       {isUmAdmin && activeTab === "APPS_ROLES" && <AppsRolesTab memberships={users} />}
+      {isUmAdmin && activeTab === "WEBSITE_USERS" && <WebsiteUsersTab />}
 
     {activeTab === "USERS" && (
     <div className="mx-auto min-w-0 w-full max-w-1800">

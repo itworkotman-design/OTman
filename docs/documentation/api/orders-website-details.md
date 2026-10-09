@@ -20,3 +20,5 @@ Read-only data for the admin `WebsiteOrderModal`. It's kept separate from `GET /
 | 404 | `{ ok: false, reason: "NOT_WHITE_GOODS_WEBSITE_ORDER" }` | Any other order: a non-website order, another website request type, or an older white-goods order without details. |
 
 `DashboardOrderModal` treats every non-ok answer as "use the regular `OrderModal`".
+
+`order.hasCustomerLogin` is true when the order is linked to a live "My order" login (not past its delete time) whose email is the order's current email. The modal then hides "Send new login".

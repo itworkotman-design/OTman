@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
-import { isCustomerAccountExpired, LIFETIME_ORDER_SELECT } from "./accountLifetime";
+import { isCustomerAccountExpired, isOrderClosedForCustomer, LIFETIME_ORDER_SELECT } from "./accountLifetime";
 import { generateCustomerPassword } from "./generatedPassword";
 
 // Links a homepage order to its customer's temporary account (by email),
@@ -43,7 +43,7 @@ export async function ensureCustomerAccountForOrder(params: {
     const passwordHash = await hashPassword(newPassword);
     try {
       const created = await prisma.customerAccount.create({ data: { email, passwordHash }, select: { id: true } });
-      await linkOrder(params.orderId, created.id);
+      await linkOrder(params.orderId, created.id, email);
       return { accountId: created.id, email, newPassword };
     } catch (error) {
       // Another order for the same email created it a moment ago.
@@ -69,10 +69,28 @@ export async function ensureCustomerAccountForOrder(params: {
     });
   }
 
-  await linkOrder(params.orderId, account.id);
+  await linkOrder(params.orderId, account.id, email);
   return { accountId: account.id, email, newPassword };
 }
 
-async function linkOrder(orderId: string, customerAccountId: string) {
-  await prisma.order.update({ where: { id: orderId }, data: { customerAccountId } });
+// Links the order, and the customer's other open website orders here that
+// have no login (same email) — orders lose theirs when the login is deleted
+// (staff, or the cleanup cron before staff reopened an order), and a new
+// login must show all of them, not just the one it was sent from. Closed
+// orders stay out: they'd only bring back old jobs.
+async function linkOrder(orderId: string, customerAccountId: string, email: string) {
+  const { companyId } = await prisma.order.update({ where: { id: orderId }, data: { customerAccountId }, select: { companyId: true } });
+
+  const orphaned = await prisma.order.findMany({
+    where: {
+      companyId,
+      isWebsiteOrder: true,
+      customerAccountId: null,
+      id: { not: orderId },
+      email: { equals: email, mode: "insensitive" },
+    },
+    select: { id: true, status: true },
+  });
+  const open = orphaned.filter((order) => !isOrderClosedForCustomer(order.status)).map((order) => order.id);
+  if (open.length > 0) await prisma.order.updateMany({ where: { id: { in: open } }, data: { customerAccountId } });
 }

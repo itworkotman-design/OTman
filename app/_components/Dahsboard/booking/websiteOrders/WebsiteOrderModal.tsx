@@ -45,6 +45,8 @@ export type WebsiteOrderView = {
   subcontractor: string | null;
   gsmSentAt: string | null;
   gsmSyncStatus: string | null;
+  // The customer already has a live "My order" login for this email.
+  hasCustomerLogin: boolean;
   // Paid so far vs. the order now (compareOrderWithPayments).
   payment: OrderPaymentComparison;
   // Fields only an admin handles (driver, deviation, discount…).
@@ -181,7 +183,9 @@ export default function WebsiteOrderModal({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <WebsiteOrderCustomerLoginButton orderId={order.id} email={order.email} t={t} onResult={setEditNotice} />
+              {!order.hasCustomerLogin && (
+                <WebsiteOrderCustomerLoginButton orderId={order.id} email={order.email} t={t} onResult={setEditNotice} />
+              )}
               {canEditOrder && !editingOrder && (
                 <button
                   type="button"

@@ -1,3 +1,5 @@
+import { isCustomerAccountExpired, LIFETIME_ORDER_SELECT } from "@/lib/customerAccounts/accountLifetime";
+import { normalizeCustomerEmail } from "@/lib/customerAccounts/ensureCustomerAccount";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
@@ -88,6 +90,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       subcontractor: true,
       gsmSentAt: true,
       gsmSyncStatus: true,
+      customerAccount: { select: { email: true, orders: { select: LIFETIME_ORDER_SELECT } } },
     },
   });
   if (!order) {
@@ -154,6 +157,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       subcontractor: order.subcontractor,
       gsmSentAt: order.gsmSentAt ? order.gsmSentAt.toISOString() : null,
       gsmSyncStatus: order.gsmSyncStatus,
+      // A live "My order" login for the order's email — then "Send new login"
+      // isn't offered (password help is under User management → Website users).
+      hasCustomerLogin:
+        !!order.customerAccount &&
+        order.customerAccount.email === normalizeCustomerEmail(order.email) &&
+        !isCustomerAccountExpired(order.customerAccount.orders),
       calculator,
       // The fields only an admin handles (driver, deviation, discount…).
       handling: handlingFromOrder(order),

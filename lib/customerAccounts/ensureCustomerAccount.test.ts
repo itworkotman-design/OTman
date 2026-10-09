@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   accountCreate: vi.fn(),
   accountUpdate: vi.fn(),
   orderUpdate: vi.fn(),
+  orderFindMany: vi.fn(),
+  orderUpdateMany: vi.fn(),
   sessionUpdateMany: vi.fn(),
   hashPassword: vi.fn(),
 }));
@@ -13,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     customerAccount: { findUnique: mocks.accountFindUnique, create: mocks.accountCreate, update: mocks.accountUpdate },
-    order: { update: mocks.orderUpdate },
+    order: { update: mocks.orderUpdate, findMany: mocks.orderFindMany, updateMany: mocks.orderUpdateMany },
     customerSession: { updateMany: mocks.sessionUpdateMany },
   },
 }));
@@ -34,6 +36,8 @@ describe("ensureCustomerAccountForOrder", () => {
     vi.clearAllMocks();
     mocks.hashPassword.mockResolvedValue("hashed");
     mocks.accountCreate.mockResolvedValue({ id: "acc-new" });
+    mocks.orderUpdate.mockResolvedValue({ companyId: "c1" });
+    mocks.orderFindMany.mockResolvedValue([]);
   });
 
   it("does nothing without a usable email", async () => {
@@ -53,7 +57,7 @@ describe("ensureCustomerAccountForOrder", () => {
       data: { email: "kari@example.com", passwordHash: "hashed" },
       select: { id: true },
     });
-    expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { customerAccountId: "acc-new" } });
+    expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { customerAccountId: "acc-new" }, select: { companyId: true } });
   });
 
   it("links a returning customer's order to their live account without changing the password", async () => {
@@ -63,7 +67,7 @@ describe("ensureCustomerAccountForOrder", () => {
 
     expect(result).toEqual({ accountId: "acc-1", email: "kari@example.com", newPassword: null });
     expect(mocks.accountUpdate).not.toHaveBeenCalled();
-    expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o2" }, data: { customerAccountId: "acc-1" } });
+    expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o2" }, data: { customerAccountId: "acc-1" }, select: { companyId: true } });
   });
 
   it("gives an expired account (cron not run yet) a new password and signs out its sessions", async () => {
@@ -112,5 +116,40 @@ describe("ensureCustomerAccountForOrder", () => {
     const result = await ensureCustomerAccountForOrder({ orderId: "o2", email: "kari@example.com", now: NOW });
 
     expect(result).toEqual({ accountId: "acc-1", email: "kari@example.com", newPassword: null });
+  });
+
+  describe("the customer's other orders that lost their login", () => {
+    it("links them too: same company, same email, open, no login (e.g. after staff deleted the login)", async () => {
+      mocks.accountFindUnique.mockResolvedValue(null);
+      mocks.orderFindMany.mockResolvedValue([
+        { id: "o2", status: "processing" },
+        { id: "o3", status: "Bekreftet" },
+        { id: "o4", status: "completed" },
+        { id: "o5", status: "cancelled" },
+      ]);
+
+      await ensureCustomerAccountForOrder({ orderId: "o1", email: "Kari@Example.com", forceNewPassword: true, now: NOW });
+
+      expect(mocks.orderFindMany).toHaveBeenCalledWith({
+        where: {
+          companyId: "c1",
+          isWebsiteOrder: true,
+          customerAccountId: null,
+          id: { not: "o1" },
+          email: { equals: "kari@example.com", mode: "insensitive" },
+        },
+        select: { id: true, status: true },
+      });
+      // Closed orders stay out: they'd only show old jobs, and don't keep the login alive anyway.
+      expect(mocks.orderUpdateMany).toHaveBeenCalledWith({ where: { id: { in: ["o2", "o3"] } }, data: { customerAccountId: "acc-new" } });
+    });
+
+    it("links nothing more when there are none", async () => {
+      mocks.accountFindUnique.mockResolvedValue(liveAccount());
+
+      await ensureCustomerAccountForOrder({ orderId: "o1", email: "kari@example.com", now: NOW });
+
+      expect(mocks.orderUpdateMany).not.toHaveBeenCalled();
+    });
   });
 });
