@@ -8,7 +8,11 @@ import type { CustomerOrderDetails } from "@/lib/customerAccounts/customerOrderV
 import CustomerOrderDetailsForm from "./CustomerOrderDetailsForm";
 import CustomerLogoutButton from "./CustomerLogoutButton";
 import CustomerPasswordForm from "./CustomerPasswordForm";
-import { customerStatusLabel } from "./customerStatusLabel";
+import OrderProgressBar from "./OrderProgressBar";
+import AutoRefresh from "./AutoRefresh";
+import ContactUsCard from "./ContactUsCard";
+import { progressBadge } from "./orderProgressText";
+import type { OrderProgress } from "@/lib/customerAccounts/orderProgress";
 import { formatOrderDate } from "@/lib/orders/formatOrderDate";
 import { localizeProductsSummary } from "@/lib/content/websiteLineLabels";
 
@@ -28,6 +32,7 @@ type Props = {
     timeWindow: string | null;
     productsSummary: string | null;
     totalIncVatNok: number | null;
+    progress: OrderProgress;
   };
   details: CustomerOrderDetails;
   permissions: { open: boolean; beforeCutoff: boolean; cutoffAt: string | null; canEditItems: boolean };
@@ -97,7 +102,6 @@ export default function CustomerOrderClient({ locale, order, details, permission
   }
 
   const rows: [string, string | null][] = [
-    [t("Status", "Status"), customerStatusLabel(order.status, locale)],
     [t("Date", "Dato"), [order.deliveryDate ? formatOrderDate(order.deliveryDate, locale) : null, order.timeWindow].filter(Boolean).join(" · ") || null],
     [t("Pickup", "Henting"), [order.pickupAddress, ...order.extraPickupAddress].filter(Boolean).join("\n") || null],
     [t("Delivery", "Levering"), order.deliveryAddress],
@@ -109,18 +113,28 @@ export default function CustomerOrderClient({ locale, order, details, permission
     [t("Total (incl. VAT)", "Totalpris (inkl. MVA)"), order.totalIncVatNok !== null ? `${order.totalIncVatNok.toLocaleString("nb-NO")} kr` : null],
   ];
 
+  const badge = progressBadge(order.progress, locale);
+
   return (
     <div className="py-16">
+      {!editing && <AutoRefresh />}
       <div className="flex max-w-3xl flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">
-          {t("Order", "Bestilling")} #{orderNumber}
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold">
+            {t("Order", "Bestilling")} #{orderNumber}
+          </h1>
+          <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
+        </div>
         <div className="flex items-center gap-4">
           <Link href={`/${locale}/min-bestilling`} className="text-sm font-semibold text-logoblue">
             {t("My orders", "Mine bestillinger")}
           </Link>
           <CustomerLogoutButton locale={locale} />
         </div>
+      </div>
+
+      <div className="mt-6 max-w-3xl rounded-lg border border-gray-200 p-6">
+        <OrderProgressBar progress={order.progress} locale={locale} />
       </div>
 
       {notice && <p className="mt-6 max-w-3xl rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-800">{notice}</p>}
@@ -243,6 +257,9 @@ export default function CustomerOrderClient({ locale, order, details, permission
       )}
 
       <CustomerPasswordForm locale={locale} />
+      <div className="mt-6 max-w-3xl">
+        <ContactUsCard locale={locale} />
+      </div>
     </div>
   );
 }

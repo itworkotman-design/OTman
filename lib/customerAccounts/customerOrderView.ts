@@ -2,9 +2,28 @@ import { prisma } from "@/lib/db";
 import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import { getCustomerEditPermissions, type CustomerEditPermissions } from "@/lib/orders/customerOrderEditPolicy";
 import { editableDetailsFromOrder, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
+import { buildOrderProgress } from "./orderProgress";
 
 // A customer's own order as "My order" reads it. Orders are only ever found
 // through the logged-in account (customerAccountId) — never by number alone.
+
+// The order's status changes, for when each progress step was reached.
+const STATUS_EVENTS = {
+  where: { type: "STATUS_CHANGED" },
+  orderBy: { createdAt: "asc" },
+  select: { payload: true, createdAt: true },
+} as const;
+
+function statusEventsOf(events: { payload: unknown; createdAt: Date }[]) {
+  return events.flatMap((event) => {
+    const payload = event.payload && typeof event.payload === "object" ? (event.payload as Record<string, unknown>) : null;
+    return typeof payload?.toStatus === "string" ? [{ toStatus: payload.toStatus, createdAt: event.createdAt }] : [];
+  });
+}
+
+function progressOf(order: { status: string | null; createdAt: Date; events: { payload: unknown; createdAt: Date }[] }) {
+  return buildOrderProgress({ status: order.status, createdAt: order.createdAt, statusEvents: statusEventsOf(order.events) });
+}
 
 export const CUSTOMER_ORDER_SELECT = {
   id: true,
@@ -44,6 +63,7 @@ export const CUSTOMER_ORDER_SELECT = {
   websiteBookingDetails: true,
   productCardsSnapshot: true,
   payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
+  events: STATUS_EVENTS,
 } as const;
 
 export async function findCustomerOrder(accountId: string, orderNumber: string) {
@@ -112,6 +132,7 @@ export function customerOrderView(order: CustomerOrder, now: Date = new Date()) 
       timeWindow: order.timeWindow,
       productsSummary: order.productsSummary,
       totalIncVatNok: customerOrderTotalIncVatNok(order),
+      progress: progressOf(order),
     },
     permissions: { ...permissions, canEditItems: permissions.canEditItems && details.kind === "catalog" },
     details,
@@ -126,9 +147,15 @@ export async function listCustomerOrders(accountId: string) {
     select: {
       orderNumber: true,
       status: true,
+      createdAt: true,
       deliveryDate: true,
       timeWindow: true,
+      pickupAddress: true,
+      extraPickupAddress: true,
+      deliveryAddress: true,
       productsSummary: true,
+      deliveryTypeSummary: true,
+      events: STATUS_EVENTS,
       priceExVat: true,
       rabatt: true,
       leggTil: true,
@@ -139,9 +166,15 @@ export async function listCustomerOrders(accountId: string) {
   return orders.map((order) => ({
     orderNumber: order.orderNumber as string,
     status: order.status,
+    createdAt: order.createdAt,
     deliveryDate: order.deliveryDate,
     timeWindow: order.timeWindow,
+    pickupAddress: order.pickupAddress,
+    extraPickupCount: order.extraPickupAddress.length,
+    deliveryAddress: order.deliveryAddress,
     productsSummary: order.productsSummary,
+    deliveryTypeSummary: order.deliveryTypeSummary,
     totalIncVatNok: customerOrderTotalIncVatNok(order),
+    progress: progressOf(order),
   }));
 }

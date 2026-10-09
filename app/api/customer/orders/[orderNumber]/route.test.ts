@@ -115,6 +115,7 @@ function order(overrides: Record<string, unknown> = {}) {
     websiteBookingDetails: bookingDetails(date, timeWindow),
     productCardsSnapshot: [washerCard],
     payments: [],
+    events: [],
     ...overrides,
   };
 }

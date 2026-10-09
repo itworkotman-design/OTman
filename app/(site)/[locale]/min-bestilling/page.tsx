@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerCustomerSession } from "@/lib/customerAccounts/serverCustomerSession";
 import { listCustomerOrders } from "@/lib/customerAccounts/customerOrderView";
 import CustomerLogoutButton from "@/app/_components/site/pageComponents/myOrder/CustomerLogoutButton";
-import { customerStatusLabel } from "@/app/_components/site/pageComponents/myOrder/customerStatusLabel";
-import { formatOrderDate } from "@/lib/orders/formatOrderDate";
-import { localizeProductsSummary } from "@/lib/content/websiteLineLabels";
+import CustomerOrderCard from "@/app/_components/site/pageComponents/myOrder/CustomerOrderCard";
+import ContactUsCard from "@/app/_components/site/pageComponents/myOrder/ContactUsCard";
+import AutoRefresh from "@/app/_components/site/pageComponents/myOrder/AutoRefresh";
 
 export const metadata: Metadata = {
   title: "Min bestilling | Otman AS",
@@ -14,8 +13,16 @@ export const metadata: Metadata = {
 };
 
 const TEXT = {
-  no: { heading: "Mine bestillinger", none: "Du har ingen bestillinger her.", order: "Bestilling", date: "Dato" },
-  en: { heading: "My orders", none: "You have no orders here.", order: "Order", date: "Date" },
+  no: {
+    heading: "Mine bestillinger",
+    intro: "Her ser du en oversikt over dine bestillinger hos Otman Transport.",
+    none: "Du har ingen bestillinger her.",
+  },
+  en: {
+    heading: "My orders",
+    intro: "An overview of your orders with Otman Transport.",
+    none: "You have no orders here.",
+  },
 } as const;
 
 export default async function MyOrdersPage({ params }: { params: Promise<{ locale: "en" | "no" }> }) {
@@ -25,39 +32,26 @@ export default async function MyOrdersPage({ params }: { params: Promise<{ local
   if (!session) redirect(`/${locale}/min-bestilling/logg-inn`);
 
   const orders = await listCustomerOrders(session.accountId);
-  if (orders.length === 1) redirect(`/${locale}/min-bestilling/${encodeURIComponent(orders[0].orderNumber)}`);
 
   return (
-    <div className="py-16">
-      <div className="flex max-w-2xl items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">{t.heading}</h1>
+    <div className="mx-auto max-w-6xl py-12 sm:py-16">
+      <AutoRefresh />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">{t.heading}</h1>
+          <p className="mt-3 text-lg text-textColorThird">{t.intro}</p>
+        </div>
         <CustomerLogoutButton locale={locale} />
       </div>
-      {orders.length === 0 ? (
-        <p className="mt-6 text-textColorThird">{t.none}</p>
-      ) : (
-        <ul className="mt-6 flex max-w-2xl flex-col gap-3">
-          {orders.map((order) => (
-            <li key={order.orderNumber}>
-              <Link
-                href={`/${locale}/min-bestilling/${encodeURIComponent(order.orderNumber)}`}
-                className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4 transition hover:border-logoblue"
-              >
-                <span>
-                  <span className="font-semibold">
-                    {t.order} #{order.orderNumber}
-                  </span>
-                  <span className="block text-sm text-textColorThird">
-                    {[order.deliveryDate ? formatOrderDate(order.deliveryDate, locale) : null, order.timeWindow].filter(Boolean).join(" · ")}
-                    {order.productsSummary ? ` — ${localizeProductsSummary(order.productsSummary, locale)}` : ""}
-                  </span>
-                </span>
-                <span className="shrink-0 text-sm text-textColorThird">{customerStatusLabel(order.status, locale)}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+
+      <div className="mt-8 flex flex-col gap-6">
+        {orders.length === 0 ? (
+          <p className="rounded-2xl border border-gray-100 bg-white p-8 text-textColorThird">{t.none}</p>
+        ) : (
+          orders.map((order) => <CustomerOrderCard key={order.orderNumber} order={order} locale={locale} />)
+        )}
+        <ContactUsCard locale={locale} />
+      </div>
     </div>
   );
 }
