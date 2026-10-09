@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import { getCustomerEditPermissions, type CustomerEditPermissions } from "@/lib/orders/customerOrderEditPolicy";
 import { editableDetailsFromOrder, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
+import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildOrderProgress } from "./orderProgress";
 import { customerOrderProducts } from "./customerOrderProducts";
 
@@ -152,6 +153,9 @@ export function customerOrderView(order: CustomerOrder, now: Date = new Date()) 
       createdAt: order.createdAt,
       totalIncVatNok: customerOrderTotalIncVatNok(order),
       progress: progressOf(order),
+      // Status notes are staff notes, except on a rejection: there they're the
+      // reason, which the customer needs to know what to change.
+      rejectionNote: normalizeOrderStatus(order.status) === "rejected" ? order.statusNotes?.trim() || null : null,
     },
     permissions: { ...permissions, canEditItems: permissions.canEditItems && details.kind === "catalog" },
     details,

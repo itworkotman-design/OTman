@@ -83,7 +83,7 @@ export default function BulkUpdateBar({
     let statusNotes: string | undefined;
     if (status === "rejected") {
       const reason = window.prompt(
-        locale === "nb" ? "Grunn for avvisning (påkrevd):" : "Reason for rejecting (required):",
+        locale === "nb" ? "Hva må kunden endre? Vises for kunden (påkrevd):" : "What does the customer need to change? Shown to the customer (required):",
       );
       if (!reason?.trim()) return;
       statusNotes = reason.trim();

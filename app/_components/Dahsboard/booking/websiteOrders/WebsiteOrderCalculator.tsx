@@ -6,6 +6,8 @@ import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { getVatBreakdown } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import {
+  customerAdjustmentsToExVat,
+  customerAdjustmentsToIncVat,
   nulledLinesFromView,
   partnerMinusForDiscount,
   toggleNulledLine,
@@ -68,6 +70,12 @@ function formatKr(n: number) {
   return `${Math.round(n).toLocaleString("nb-NO")} kr`;
 }
 
+// Customer amounts on these orders are stored VAT-inclusive; the calculator
+// shows them ex. VAT like the booking app's.
+function exVat(clientAmount: number) {
+  return clientAmount / 1.25;
+}
+
 function formatQty(qty: number) {
   return String(Math.round(qty * 2) / 2);
 }
@@ -96,7 +104,11 @@ export default function WebsiteOrderCalculator({
 }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const isAdmin = calculator.partner !== null;
-  const [adj, setAdj] = useState<Adjustments>(adjustments);
+  // The inputs hold the customer discount/extra ex. VAT; they're converted back
+  // to the stored incl.-VAT form for the preview, the draft and the save.
+  const shownAdjustments = useMemo(() => customerAdjustmentsToExVat(adjustments), [adjustments]);
+  const [adj, setAdj] = useState<Adjustments>(shownAdjustments);
+  const storedAdj = useMemo(() => customerAdjustmentsToIncVat(adj), [adj]);
   // The booking app's "Set to 0" checkboxes: lines nulled per side.
   const initialNulled = useMemo(() => nulledLinesFromView(calculator), [calculator]);
   const [nulled, setNulled] = useState<WebsiteOrderNulledLines>(initialNulled);
@@ -113,23 +125,23 @@ export default function WebsiteOrderCalculator({
   // Set by a checkbox click: skip the typing delay for that preview.
   const immediatePreview = useRef(false);
 
-  const changed = JSON.stringify(adj) !== JSON.stringify(adjustments) || canonicalNulled(nulled) !== canonicalNulled(initialNulled);
+  const changed = JSON.stringify(adj) !== JSON.stringify(shownAdjustments) || canonicalNulled(nulled) !== canonicalNulled(initialNulled);
   // Same rules as the booking app: lines can only be set to 0 while there is
   // no discount / partner minus, and those inputs hide while lines are set to 0.
   const hasDiscountValue = parseNokAdjustment(adj.rabatt) !== 0 || parseNokAdjustment(adj.subcontractorMinus) !== 0;
   const anyNulled = hasNulled(nulled);
 
   useEffect(() => {
-    onDraftChange(changed ? { adjustments: adj, nulledLines: nulled } : null);
+    onDraftChange(changed ? { adjustments: storedAdj, nulledLines: nulled } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [changed, adj, nulled]);
+  }, [changed, storedAdj, nulled]);
 
   async function put(dryRun: boolean) {
     const res = await fetch(`/api/orders/${orderId}/website-items`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ handling: adj, nulledLines: nulled, dryRun }),
+      body: JSON.stringify({ handling: storedAdj, nulledLines: nulled, dryRun }),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok && !!data?.ok, data };
@@ -176,9 +188,10 @@ export default function WebsiteOrderCalculator({
     setAdj((current) => ({
       ...current,
       rabatt,
+      // rabatt is typed ex. VAT, so the subtotal it's a share of is too.
       subcontractorMinus: partnerMinusForDiscount({
         rabatt,
-        subtotal: view.customer.subtotal,
+        subtotal: exVat(view.customer.subtotal),
         partnerBase: view.partner?.base ?? 0,
       }),
     }));
@@ -216,8 +229,8 @@ export default function WebsiteOrderCalculator({
     if (
       !confirm(
         t(
-          `Change the order total from ${formatKr(storedTotal)} to ${formatKr(calculator.customer.total)}? If the customer has paid, the difference shows as due or to refund.`,
-          `Endre ordretotalen fra ${formatKr(storedTotal)} til ${formatKr(calculator.customer.total)}? Har kunden betalt, vises differansen som utestående eller til refusjon.`,
+          `Change the order total (ex. VAT) from ${formatKr(exVat(storedTotal))} to ${formatKr(exVat(calculator.customer.total))}? If the customer has paid, the difference shows as due or to refund.`,
+          `Endre ordretotalen (eks. mva) fra ${formatKr(exVat(storedTotal))} til ${formatKr(exVat(calculator.customer.total))}? Har kunden betalt, vises differansen som utestående eller til refusjon.`,
         ),
       )
     ) {
@@ -276,7 +289,7 @@ export default function WebsiteOrderCalculator({
           <span
             className={`whitespace-nowrap text-right font-medium tabular-nums text-black/70 ${isNulled ? "line-through opacity-60" : ""}`}
           >
-            {formatKr(side === "partner" ? (line.partner ?? 0) : line.customer)}
+            {formatKr(side === "partner" ? (line.partner ?? 0) : exVat(line.customer))}
           </span>
         </Fragment>
       );
@@ -307,7 +320,7 @@ export default function WebsiteOrderCalculator({
           <h3 className="text-lg font-semibold text-logoblue">{t("Calculator", "Kalkulator")}</h3>
           {previewing && <span className="text-xs text-black/50">{t("Calculating…", "Beregner…")}</span>}
         </div>
-        <p className="text-xs text-black/45">{t("Prices incl. VAT", "Priser inkl. mva")}</p>
+        <p className="text-xs text-black/45">{t("Prices ex. VAT", "Priser eks. mva")}</p>
 
         {productList("customer")}
 
@@ -315,8 +328,8 @@ export default function WebsiteOrderCalculator({
           <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
             <p>
               {t(
-                `Priced now this order comes to ${formatKr(calculator.customer.total)}, but it is saved at ${formatKr(storedTotal)} (prices have changed since).`,
-                `Priset nå blir ordren ${formatKr(calculator.customer.total)}, men den er lagret med ${formatKr(storedTotal)} (prisene er endret siden).`,
+                `Priced now this order comes to ${formatKr(exVat(calculator.customer.total))} ex. VAT, but it is saved at ${formatKr(exVat(storedTotal))} (prices have changed since).`,
+                `Priset nå blir ordren ${formatKr(exVat(calculator.customer.total))} eks. mva, men den er lagret med ${formatKr(exVat(storedTotal))} (prisene er endret siden).`,
               )}
             </p>
             {isAdmin && (
@@ -338,7 +351,7 @@ export default function WebsiteOrderCalculator({
             <span>{t("Not covered by the stored lines", "Ikke dekket av de lagrede linjene")}</span>
             <span className="whitespace-nowrap font-semibold tabular-nums">
               {missingFromLines > 0 ? "+" : ""}
-              {formatKr(missingFromLines)}
+              {formatKr(exVat(missingFromLines))}
             </span>
           </div>
         )}
@@ -347,7 +360,7 @@ export default function WebsiteOrderCalculator({
           {view.customer.discount !== 0 && (
             <div className="flex justify-between">
               <span>{t("Discount", "Rabatt")}</span>
-              <span className="tabular-nums">-{formatKr(view.customer.discount)}</span>
+              <span className="tabular-nums">-{formatKr(exVat(view.customer.discount))}</span>
             </div>
           )}
           {view.customer.extra !== 0 && (
@@ -355,21 +368,22 @@ export default function WebsiteOrderCalculator({
               <span>{t("Extra", "Tillegg")}</span>
               <span className="tabular-nums">
                 {view.customer.extra > 0 ? "+" : ""}
-                {formatKr(view.customer.extra)}
+                {formatKr(exVat(view.customer.extra))}
               </span>
             </div>
           )}
-          <div className="flex justify-between">
-            <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
-            <span className="tabular-nums">{formatKr(vat.exVat)}</span>
+          {/* Same order as the booking app's calculator: the ex-VAT total leads. */}
+          <div className="mt-1 flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-4">
+            <span className="text-base font-semibold text-logoblue">{t("Total", "Totalt")}</span>
+            <span className="whitespace-nowrap text-3xl font-bold tabular-nums text-logoblue">{formatKr(vat.exVat)}</span>
           </div>
           <div className="flex justify-between">
             <span>{t("VAT (25%)", "MVA (25%)")}</span>
             <span className="tabular-nums">{formatKr(vat.vat)}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-5">
-            <span className="text-base font-semibold text-logoblue">{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
-            <span className="whitespace-nowrap text-3xl font-bold tabular-nums text-logoblue">{formatKr(vat.incVat)}</span>
+          <div className="flex justify-between font-semibold text-black/85">
+            <span>{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
+            <span className="tabular-nums">{formatKr(vat.incVat)}</span>
           </div>
         </div>
 
@@ -377,7 +391,7 @@ export default function WebsiteOrderCalculator({
           <div className="mt-5 grid grid-cols-2 gap-3">
             {!anyNulled && (
               <label className="flex flex-col gap-1">
-                <span className={labelClass}>{t("Discount (kr)", "Rabatt (kr)")}</span>
+                <span className={labelClass}>{t("Discount ex. VAT (kr)", "Rabatt eks. mva (kr)")}</span>
                 <input
                   inputMode="decimal"
                   value={adj.rabatt}
@@ -388,7 +402,7 @@ export default function WebsiteOrderCalculator({
               </label>
             )}
             <label className="flex flex-col gap-1">
-              <span className={labelClass}>{t("Extra (kr)", "Tillegg (kr)")}</span>
+              <span className={labelClass}>{t("Extra ex. VAT (kr)", "Tillegg eks. mva (kr)")}</span>
               <input
                 inputMode="decimal"
                 value={adj.leggTil}
@@ -484,7 +498,7 @@ export default function WebsiteOrderCalculator({
             <button
               type="button"
               onClick={() => {
-                setAdj(adjustments);
+                setAdj(shownAdjustments);
                 setNulled(initialNulled);
               }}
               disabled={saving}

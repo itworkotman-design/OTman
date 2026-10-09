@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   pricingWrites: vi.fn(),
   resolveDrivingDistance: vi.fn(),
   createOrderUpdatedEvent: vi.fn(),
+  createOrderStatusChangedEvent: vi.fn(),
   createOrderNotification: vi.fn(),
   sendLifecycleEmails: vi.fn(),
 }));
@@ -30,7 +31,10 @@ vi.mock("@/lib/orders/websiteOrderRepricing", async () => {
   return { ...actual, recomputeWebsiteOrderPricing: mocks.recompute, websiteOrderPricingWrites: mocks.pricingWrites };
 });
 vi.mock("@/lib/orders/resolveDrivingDistance", () => ({ resolveDrivingDistance: mocks.resolveDrivingDistance }));
-vi.mock("@/lib/orders/orderEvents", () => ({ createOrderUpdatedEvent: mocks.createOrderUpdatedEvent }));
+vi.mock("@/lib/orders/orderEvents", () => ({
+  createOrderUpdatedEvent: mocks.createOrderUpdatedEvent,
+  createOrderStatusChangedEvent: mocks.createOrderStatusChangedEvent,
+}));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: mocks.createOrderNotification }));
 vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({ sendLifecycleEmailsForOrders: mocks.sendLifecycleEmails }));
 
@@ -186,6 +190,51 @@ describe("customer order route", () => {
       expect(json.pricingContext).toMatchObject({ expressDelivery: false, rabatt: "", leggTil: "" });
       expect(JSON.stringify(json)).not.toContain("priceSubcontractor");
       expect(JSON.stringify(json)).not.toContain("subcontractorMinus");
+    });
+  });
+
+  describe("rejected orders", () => {
+    it("shows the customer the rejection comment while the order is rejected", async () => {
+      mocks.orderFindFirst.mockResolvedValue(order({ status: "rejected", statusNotes: "Vi leverer ikke til den adressen." }));
+
+      const json = await (await GET(new Request("http://localhost"), params)).json();
+
+      expect(json.order.rejectionNote).toBe("Vi leverer ikke til den adressen.");
+    });
+
+    it("keeps status notes internal on any other status", async () => {
+      mocks.orderFindFirst.mockResolvedValue(order({ status: "processing", statusNotes: "Ring kunden før levering" }));
+
+      const json = await (await GET(new Request("http://localhost"), params)).json();
+
+      expect(json.order.rejectionNote).toBeNull();
+      expect(JSON.stringify(json)).not.toContain("Ring kunden");
+    });
+
+    it("sends a rejected order back to processing when the customer changes it", async () => {
+      mocks.orderFindFirst.mockResolvedValue(order({ status: "rejected", statusNotes: "Feil adresse" }));
+
+      const res = await put({ customer: { phone: "91234567" } });
+
+      expect(res.status).toBe(200);
+      const data = mocks.pricingWrites.mock.calls[0][2];
+      expect(data).toMatchObject({ status: "processing", statusChangedAt: expect.any(Date) });
+      expect(mocks.createOrderStatusChangedEvent).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ orderId: "order-1", fromStatus: "rejected", toStatus: "processing" }),
+      );
+      expect(mocks.createOrderNotification).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ message: expect.stringContaining("back to processing") }),
+      );
+    });
+
+    it("leaves the status alone when the order wasn't rejected", async () => {
+      const res = await put({ customer: { phone: "91234567" } });
+
+      expect(res.status).toBe(200);
+      expect(mocks.pricingWrites.mock.calls[0][2]).not.toHaveProperty("status");
+      expect(mocks.createOrderStatusChangedEvent).not.toHaveBeenCalled();
     });
   });
 

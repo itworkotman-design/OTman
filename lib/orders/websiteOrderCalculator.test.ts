@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { CalculatorResult } from "@/lib/booking/pricing/types";
 import {
+  customerAdjustmentsToExVat,
+  customerAdjustmentsToIncVat,
+  kronerExVatToIncVat,
+  kronerIncVatToExVat,
   nulledLinesFromView,
   partnerMinusForDiscount,
   toggleNulledLine,
@@ -142,5 +146,38 @@ describe("websiteItemsSaveBody — one Save for the panel and the calculator", (
       nulledLines,
       dryRun: true,
     });
+  });
+});
+
+describe("kronerIncVatToExVat / kronerExVatToIncVat", () => {
+  it("converts a stored incl.-VAT amount to ex. VAT and back", () => {
+    expect(kronerIncVatToExVat("625")).toBe("500");
+    expect(kronerExVatToIncVat("500")).toBe("625");
+    expect(kronerIncVatToExVat("99")).toBe("79.2");
+    expect(kronerExVatToIncVat("79.2")).toBe("99");
+  });
+
+  it("accepts a comma decimal and rounds to øre", () => {
+    expect(kronerExVatToIncVat("99,50")).toBe("124.38");
+  });
+
+  it("keeps empty values empty", () => {
+    expect(kronerIncVatToExVat("")).toBe("");
+    expect(kronerExVatToIncVat("  ")).toBe("");
+  });
+
+  it("passes values the server would refuse through unchanged, so its error still shows", () => {
+    expect(kronerExVatToIncVat("abc")).toBe("abc");
+    expect(kronerExVatToIncVat("-50")).toBe("-50");
+  });
+});
+
+describe("customerAdjustmentsToExVat / customerAdjustmentsToIncVat", () => {
+  it("converts only the customer discount and extra; partner amounts are left alone", () => {
+    const stored = { rabatt: "625", leggTil: "125", subcontractorMinus: "200", subcontractorPlus: "50" };
+
+    const shown = customerAdjustmentsToExVat(stored);
+    expect(shown).toEqual({ rabatt: "500", leggTil: "100", subcontractorMinus: "200", subcontractorPlus: "50" });
+    expect(customerAdjustmentsToIncVat(shown)).toEqual(stored);
   });
 });

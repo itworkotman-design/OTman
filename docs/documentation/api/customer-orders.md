@@ -40,6 +40,7 @@ Body: `{ customer?: { name, phone, email, comments }, preferredDate?, timeWindow
    - If the price changed, `shownTotal` is required (`400 SHOWN_TOTAL_REQUIRED`) and must match the new price within 0.5 kr, otherwise `409 PRICE_CHANGED` with the real `priceExVat`.
    - The order is saved with `websiteOrderPricingWrites`.
 6. **Moving or quote order:** only the contact details, comment, date and time window are written. The price doesn't change.
+   - **Rejected order:** in either case, a `rejected` order is saved back to `processing` (with `statusChangedAt`) in the same write, because the customer has made the change it needed. A status-change event (actor "Customer") is added, and the staff notification says so.
 7. After saving:
    - an order history entry (`createOrderUpdatedEvent`, actor "Customer")
    - a `MANUAL_REVIEW` notification for staff listing every change and the price difference, with a note when the order was already sent to GSM

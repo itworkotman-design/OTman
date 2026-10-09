@@ -30,7 +30,8 @@ import {
 } from "@/lib/orders/websiteOrderRepricing";
 import { buildOrderStateSnapshot, diffOrderStates, type OrderStateSource } from "@/lib/orders/paidOrderSnapshot";
 import { describeDetailChange, describeLineChange, formatKr, type ChangeLocale } from "@/lib/orders/orderChangeText";
-import { createOrderUpdatedEvent, type OrderEventChange } from "@/lib/orders/orderEvents";
+import { createOrderStatusChangedEvent, createOrderUpdatedEvent, type OrderEventChange } from "@/lib/orders/orderEvents";
+import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { sendLifecycleEmailsForOrders } from "@/lib/orders/sendCustomerLifecycleEmail";
 import { validateEmailField, validatePhoneField, validateTextField } from "@/lib/orders/websiteOrderValidation";
@@ -267,6 +268,11 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     return reject("INVALID_SCHEDULE", 422);
   }
 
+  // A rejected order "needs a change": once the customer has made one it goes
+  // back to the review queue, saved together with the change itself.
+  const wasRejected = normalizeOrderStatus(order.status) === "rejected";
+  const reopen = wasRejected ? { status: "processing", statusChangedAt: now } : {};
+
   // The order after the change, as the snapshot/notification code reads it.
   let afterOrder: OrderStateSource & { productsSummary?: string | null };
   const before = { ...order };
@@ -318,6 +324,7 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
       await prisma.$transaction(
         websiteOrderPricingWrites({ id: order.id, websiteBookingDetails: pricedOrder.websiteBookingDetails }, recomputed, {
           ...detailsUpdate.orderData,
+          ...reopen,
         }),
       );
     } catch (err) {
@@ -343,6 +350,7 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
       customerComments: customer.comments || null,
       deliveryDate: preferredDate || null,
       timeWindow: timeWindow || null,
+      ...reopen,
     };
     try {
       await prisma.order.update({ where: { id: order.id }, data });
@@ -371,12 +379,26 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     });
   });
 
+  if (wasRejected) {
+    await afterSave(async () => {
+      await createOrderStatusChangedEvent(prisma, {
+        orderId: order.id,
+        companyId: order.companyId,
+        actor: ACTOR,
+        fromStatus: order.status,
+        toStatus: "processing",
+        note: "The customer changed the rejected order.",
+      });
+    });
+  }
+
   await afterSave(async () => {
     const message = [
       `The customer changed their order themselves in "My order":`,
       ...staffLines.map((line) => `• ${line}`),
       deltaExVat !== 0 ? `Total ${deltaExVat > 0 ? "increased" : "decreased"} by ${formatKr(Math.abs(deltaExVat))}.` : "Total unchanged.",
       ...(order.gsmSentAt ? ["Already sent to GSM — update the task."] : []),
+      ...(wasRejected ? ["The order was rejected, so it is back to processing for review."] : []),
     ].join("\n");
     await createOrderNotification(prisma, {
       orderId: order.id,

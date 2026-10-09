@@ -343,7 +343,11 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className={labelClass}>{t("Status notes", "Statusnotater")}</span>
+            <span className={labelClass}>
+              {status === "rejected"
+                ? t("What the customer needs to change (shown to them)", "Hva kunden må endre (vises for kunden)")
+                : t("Status notes", "Statusnotater")}
+            </span>
             <textarea
               value={statusNotes}
               onChange={(e) => setStatusNotes(e.target.value)}

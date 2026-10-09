@@ -186,3 +186,39 @@ export function applyNulledLinesToCards<T extends { cardId: number }>(cards: T[]
     nulledLineKeysForSubcontractor: nulled.cards[card.cardId]?.subcontractor ?? [],
   }));
 }
+
+// Homepage catalog orders store the customer discount/extra VAT-inclusive (like
+// their prices), but the admin calculator works ex. VAT like the booking app's.
+// These convert at that boundary. A value the server would refuse is passed
+// through unchanged so its "amounts must be in kroner" error still shows.
+function convertKroner(value: string, factor: number): string {
+  const raw = value.trim().replace(",", ".");
+  if (!raw) return "";
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return value;
+  return String(Math.round((n * factor + Number.EPSILON) * 100) / 100);
+}
+
+export function kronerIncVatToExVat(value: string): string {
+  return convertKroner(value, 1 / 1.25);
+}
+
+export function kronerExVatToIncVat(value: string): string {
+  return convertKroner(value, 1.25);
+}
+
+type CalculatorAdjustments = {
+  rabatt: string;
+  leggTil: string;
+  subcontractorMinus: string;
+  subcontractorPlus: string;
+};
+
+// Partner amounts are what the partner is paid and carry no customer VAT.
+export function customerAdjustmentsToExVat<T extends CalculatorAdjustments>(adjustments: T): T {
+  return { ...adjustments, rabatt: kronerIncVatToExVat(adjustments.rabatt), leggTil: kronerIncVatToExVat(adjustments.leggTil) };
+}
+
+export function customerAdjustmentsToIncVat<T extends CalculatorAdjustments>(adjustments: T): T {
+  return { ...adjustments, rabatt: kronerExVatToIncVat(adjustments.rabatt), leggTil: kronerExVatToIncVat(adjustments.leggTil) };
+}

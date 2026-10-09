@@ -73,6 +73,12 @@ function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
 }
 
+// Customer amounts on these orders are stored VAT-inclusive; the product list
+// shows them ex. VAT like the booking app's calculator.
+function formatKrExVat(clientAmount: number) {
+  return formatKr(Math.round(clientAmount / 1.25));
+}
+
 // Read-only admin view of a homepage white-goods website order: every pickup
 // stop, the delivery, the customer, and the itemized price — laid out like
 // the customer's own summary page. Opened by DashboardOrderModal.
@@ -328,7 +334,7 @@ export default function WebsiteOrderModal({
                 ) : (
                 <div className="rounded-2xl border border-black/10 bg-white p-6">
                   <h3 className="text-lg font-semibold text-logoblue">{t("Products", "Varer")}</h3>
-                  <p className="text-xs text-black/45">{t("Prices incl. VAT", "Priser inkl. mva")}</p>
+                  <p className="text-xs text-black/45">{t("Prices ex. VAT", "Priser eks. mva")}</p>
 
                   {order.products.length === 0 ? (
                     <p className="mt-3 text-sm text-black/50">{t("No products.", "Ingen varer.")}</p>
@@ -339,7 +345,7 @@ export default function WebsiteOrderModal({
                           <div className="flex items-baseline justify-between gap-3">
                             <p className="font-semibold text-black/85">{product.productName}</p>
                             <p className="whitespace-nowrap font-semibold tabular-nums text-black/85">
-                              {formatKr(product.total)}
+                              {formatKrExVat(product.total)}
                             </p>
                           </div>
                           {product.items.length > 0 && (
@@ -358,7 +364,7 @@ export default function WebsiteOrderModal({
                                     )}
                                   </span>
                                   <span className="whitespace-nowrap text-right font-medium tabular-nums text-black/70">
-                                    {formatKr(item.price)}
+                                    {formatKrExVat(item.price)}
                                   </span>
                                 </Fragment>
                               ))}
@@ -389,7 +395,7 @@ export default function WebsiteOrderModal({
                               )}
                             </span>
                             <span className="whitespace-nowrap text-right font-medium tabular-nums text-black/70">
-                              {formatKr(line.price)}
+                              {formatKrExVat(line.price)}
                             </span>
                           </Fragment>
                         ))}
@@ -402,27 +408,26 @@ export default function WebsiteOrderModal({
                       <span>{t("Not covered by the lines above", "Ikke dekket av linjene over")}</span>
                       <span className="whitespace-nowrap font-semibold tabular-nums">
                         {order.totalsCheck.missingFromLines > 0 ? "+" : ""}
-                        {formatKr(order.totalsCheck.missingFromLines)}
+                        {formatKrExVat(order.totalsCheck.missingFromLines)}
                       </span>
                     </div>
                   )}
 
                   <div className="mt-4 flex flex-col gap-2 border-t border-black/10 pt-4 text-sm text-black/70">
-                    <div className="flex justify-between">
-                      <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
-                      <span className="tabular-nums">{formatKr(vat.exVat)}</span>
+                    {/* Same order as the booking app's calculator: the ex-VAT total leads. */}
+                    <div className="mt-1 flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-4">
+                      <span className="text-base font-semibold text-logoblue">{t("Total", "Totalt")}</span>
+                      <span className="whitespace-nowrap text-3xl font-bold tabular-nums text-logoblue">
+                        {formatKr(vat.exVat)}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>{t("VAT (25%)", "MVA (25%)")}</span>
                       <span className="tabular-nums">{formatKr(vat.vat)}</span>
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-5">
-                      <span className="text-base font-semibold text-logoblue">
-                        {t("Total incl. VAT", "Totalt inkl. MVA")}
-                      </span>
-                      <span className="whitespace-nowrap text-3xl font-bold tabular-nums text-logoblue">
-                        {formatKr(vat.incVat)}
-                      </span>
+                    <div className="flex justify-between font-semibold text-black/85">
+                      <span>{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
+                      <span className="tabular-nums">{formatKr(vat.incVat)}</span>
                     </div>
                   </div>
                 </div>

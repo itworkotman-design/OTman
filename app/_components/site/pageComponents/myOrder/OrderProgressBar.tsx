@@ -2,7 +2,12 @@ import type { OrderProgress, OrderProgressStepState } from "@/lib/customerAccoun
 import { CheckIcon, CrossIcon } from "./myOrderIcons";
 import { PROGRESS_NOTES, STEP_LABELS, formatStepTime } from "./orderProgressText";
 
-type Props = { progress: OrderProgress; locale: "no" | "en" };
+type Props = {
+  progress: OrderProgress;
+  locale: "no" | "en";
+  // Why the order was rejected (its status notes) — shown with "needs a change".
+  rejectionNote?: string | null;
+};
 
 const LINE_INTO: Record<OrderProgressStepState, string> = {
   done: "bg-logoblue",
@@ -55,7 +60,7 @@ function StepIcon({ state }: { state: OrderProgressStepState }) {
 // The order's steps (lib/customerAccounts/orderProgress.ts) as a progress
 // bar — horizontal from sm up (each step a fifth of the width, so a stopped
 // order's bar ends where it stopped), a vertical list on phones.
-export default function OrderProgressBar({ progress, locale }: Props) {
+export default function OrderProgressBar({ progress, locale, rejectionNote = null }: Props) {
   const steps = progress.steps;
   const note = progress.note ? PROGRESS_NOTES[progress.note][locale] : null;
 
@@ -84,13 +89,19 @@ export default function OrderProgressBar({ progress, locale }: Props) {
         })}
       </ol>
       {note && (
-        <p
+        <div
           className={`mt-5 rounded-xl px-4 py-3 text-sm ${
             progress.note === "needsChange" ? "bg-orange-50 text-orange-800" : "bg-red-50 text-red-800"
           }`}
         >
-          {note}
-        </p>
+          <p>{note}</p>
+          {progress.note === "needsChange" && rejectionNote && (
+            <p className="mt-2 whitespace-pre-line">
+              <span className="font-semibold">{locale === "no" ? "Hva som må endres: " : "What needs to change: "}</span>
+              {rejectionNote}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

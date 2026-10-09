@@ -54,6 +54,7 @@ type Props = {
     servicesSummary: string | null;
     totalIncVatNok: number | null;
     progress: OrderProgress;
+    rejectionNote: string | null;
   };
   products: CustomerOrderProduct[];
   // The logged-in account, for the profile menu.
@@ -297,7 +298,7 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
       )}
 
       <div className={`mt-6 ${CARD}`}>
-        <OrderProgressBar progress={order.progress} locale={locale} />
+        <OrderProgressBar progress={order.progress} locale={locale} rejectionNote={order.rejectionNote} />
       </div>
 
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
