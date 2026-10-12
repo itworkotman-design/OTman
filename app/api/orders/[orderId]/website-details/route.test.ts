@@ -6,7 +6,10 @@ const mocks = vi.hoisted(() => ({
   orderFindFirstMock: vi.fn(),
   recomputeMock: vi.fn(),
   resolvePricingMock: vi.fn(),
+  getWebsiteOrderCatalogMock: vi.fn(),
 }));
+
+vi.mock("@/lib/content/websiteOrderCatalog", () => ({ getWebsiteOrderCatalog: mocks.getWebsiteOrderCatalogMock }));
 
 vi.mock("@/lib/orders/websiteOrderRepricing", () => ({
   recomputeWebsiteOrderPricing: mocks.recomputeMock,
@@ -93,6 +96,7 @@ async function call() {
 describe("GET /api/orders/[orderId]/website-details", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getWebsiteOrderCatalogMock.mockReset();
     mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "u1", activeCompanyId: "c1" });
     mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN", appAccess: [] });
     mocks.orderFindFirstMock.mockResolvedValue(whiteGoodsOrder);
@@ -211,6 +215,20 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     const json = await (await call()).json();
 
     expect(json.order.savedPricesIncomplete).toEqual(["Washing machine"]);
+  });
+
+  it("loads the catalog once and prices with it every time", async () => {
+    const catalog = { products: [], specialOptions: [], priceListSettings: null };
+    mocks.getWebsiteOrderCatalogMock.mockResolvedValue(catalog);
+    mocks.orderFindFirstMock.mockResolvedValue({ ...whiteGoodsOrder, productCardsSnapshot: [{ cardId: 0, productId: "p-wm" }], items: [] });
+    mocks.resolvePricingMock.mockResolvedValue({ productOptions: {} });
+
+    await call();
+
+    expect(mocks.getWebsiteOrderCatalogMock).toHaveBeenCalledTimes(1);
+    expect(mocks.resolvePricingMock.mock.calls[0]![3]).toEqual({ catalog });
+    expect(mocks.recomputeMock).toHaveBeenCalledTimes(2);
+    for (const callArgs of mocks.recomputeMock.mock.calls) expect(callArgs[2]).toMatchObject({ catalog });
   });
 
   it("shows an older order at the prices read back from its stored lines", async () => {
@@ -383,6 +401,7 @@ describe("GET /api/orders/[orderId]/website-details", () => {
 describe("GET website-details — live order data", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getWebsiteOrderCatalogMock.mockReset();
     mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "u1", activeCompanyId: "c1" });
     mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN", appAccess: [] });
   });

@@ -341,3 +341,44 @@ describe("recomputeWebsiteOrderPricing — the customer's total incl. VAT", () =
     expect(result.pricingSnapshot.customer).toMatchObject({ totalExVat: result.priceExVat, totalIncVat: perLine });
   });
 });
+
+// A route that prices an order several times loads the catalog once and
+// hands it in, instead of each pricing loading it again.
+describe("a catalog that's already loaded", () => {
+  const washer = (price: string) => ({
+    ...otherFurniture,
+    id: "wm",
+    code: "WG_WASHING_MACHINE",
+    allowModelNumber: false,
+    allowExtraServices: true,
+    options: [{ ...option("ex", "extra"), customerPrice: price, effectiveCustomerPrice: price, subcontractorPrice: "50" }],
+  });
+  const washerCard = { ...createEmptyProductCard(0), productId: "wm", amount: 1, selectedExtraOptionIds: ["ex"] };
+  const loaded = (price: string) => ({ products: [washer(price)], specialOptions: [], priceListSettings: null }) as never;
+
+  it("prices with it and doesn't load the catalog again", async () => {
+    mocks.getWebsiteOrderCatalog.mockClear();
+    const withIt = await recomputeWebsiteOrderPricing(order, [washerCard], { catalog: loaded("100") });
+    mocks.getWebsiteOrderCatalog.mockResolvedValue(loaded("100"));
+    const loadedItself = await recomputeWebsiteOrderPricing(order, [washerCard]);
+    expect(withIt.priceExVat).toBe(loadedItself.priceExVat);
+    expect(mocks.getWebsiteOrderCatalog).toHaveBeenCalledTimes(1);
+  });
+
+  it("reading an older order's saved prices back uses it for every attempt", async () => {
+    mocks.getWebsiteOrderCatalog.mockResolvedValue(loaded("100"));
+    const saved = await recomputeWebsiteOrderPricing(order, [washerCard]);
+    const stored = { ...order, priceExVat: saved.priceExVat, priceSubcontractor: saved.priceSubcontractor };
+    const items = saved.builtItems.map((item) => ({
+      optionId: item.optionId,
+      customerPriceCents: item.customerPriceCents,
+      subcontractorPriceCents: item.subcontractorPriceCents,
+    }));
+    mocks.getWebsiteOrderCatalog.mockClear();
+
+    const pricing = await resolveSavedCatalogPricing(stored, [washerCard], items, { catalog: loaded("300") });
+
+    expect(pricing?.productOptions.ex).toMatchObject({ customerPrice: "100" });
+    expect(mocks.getWebsiteOrderCatalog).not.toHaveBeenCalled();
+  });
+});

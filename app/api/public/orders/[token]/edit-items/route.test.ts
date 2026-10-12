@@ -398,7 +398,7 @@ describe("POST /api/public/orders/[token]/edit-items", () => {
 
     expect(mocks.resolvePricingMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order1" }), [sampleCard], [
       { optionId: "o1", customerPriceCents: 100, subcontractorPriceCents: 50 },
-    ]);
+    ], { catalog: expect.anything() });
     expect(mocks.applySnapshotMock).toHaveBeenCalledWith(saved);
   });
 

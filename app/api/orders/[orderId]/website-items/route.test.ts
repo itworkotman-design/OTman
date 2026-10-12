@@ -334,10 +334,10 @@ describe("/api/orders/[orderId]/website-items", () => {
 
       expect(res.status).toBe(200);
       expect(json).toMatchObject({ ok: true, previousPriceExVat: 1000, priceExVat: 1500, emailSent: null });
-      expect(mocks.recomputeMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }), twoCards.productCards, {
+      expect(mocks.recomputeMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }), twoCards.productCards, expect.objectContaining({
         allowIncomplete: true,
         catalogPricing: FROZEN_PRICES,
-      });
+      }));
       const [, , data] = mocks.pricingWritesMock.mock.calls[0]!;
       expect(data).toEqual({ lastEditedByMembershipId: "m1" });
       expect(mocks.transactionMock).toHaveBeenCalledWith(["writes"]);
@@ -676,15 +676,15 @@ describe("/api/orders/[orderId]/website-items", () => {
     it("prices a save and its preview with the catalog prices stored on the order", async () => {
       await put({ handling: { description: "Ring først" } });
       await put({ handling: { description: "Ring først" }, dryRun: true });
-      expect(mocks.recomputeMock.mock.calls[0]![2]).toEqual({ allowIncomplete: true, catalogPricing: FROZEN_PRICES });
-      expect(mocks.recomputeMock.mock.calls[1]![2]).toEqual({ allowIncomplete: true, catalogPricing: FROZEN_PRICES });
+      expect(mocks.recomputeMock.mock.calls[0]![2]).toMatchObject({ allowIncomplete: true, catalogPricing: FROZEN_PRICES });
+      expect(mocks.recomputeMock.mock.calls[1]![2]).toMatchObject({ allowIncomplete: true, catalogPricing: FROZEN_PRICES });
     });
 
     it("prices with today's catalog only when the admin chose \"Use new price\"", async () => {
       await put({ handling: {}, useCurrentPrices: true, dryRun: true });
       await put({ handling: {}, useCurrentPrices: true });
-      expect(mocks.recomputeMock.mock.calls[0]![2]).toEqual({ allowIncomplete: true, catalogPricing: null });
-      expect(mocks.recomputeMock.mock.calls[1]![2]).toEqual({ allowIncomplete: true, catalogPricing: null });
+      expect(mocks.recomputeMock.mock.calls[0]![2]).toMatchObject({ allowIncomplete: true, catalogPricing: null });
+      expect(mocks.recomputeMock.mock.calls[1]![2]).toMatchObject({ allowIncomplete: true, catalogPricing: null });
       expect(mocks.transactionMock).toHaveBeenCalledWith(["writes"]);
     });
 
@@ -696,10 +696,16 @@ describe("/api/orders/[orderId]/website-items", () => {
       const res = await put({ handling: { rabatt: "100" } });
 
       expect(res.status).toBe(200);
-      expect(mocks.resolvePricingMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }), [card(0, "p-wm")], [
-        { optionId: "o1", customerPriceCents: 45500, subcontractorPriceCents: 20500 },
-      ]);
-      expect(mocks.recomputeMock.mock.calls[0]![2]).toEqual({ allowIncomplete: true, catalogPricing: recovered });
+      // The catalog the save loaded (to check the products) is the one every pricing uses.
+      const catalog = await mocks.getWebsiteOrderCatalogMock();
+      expect(mocks.getWebsiteOrderCatalogMock).toHaveBeenCalledTimes(2); // the save's own load + this line
+      expect(mocks.resolvePricingMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "order-1" }),
+        [card(0, "p-wm")],
+        [{ optionId: "o1", customerPriceCents: 45500, subcontractorPriceCents: 20500 }],
+        { catalog },
+      );
+      expect(mocks.recomputeMock.mock.calls[0]![2]).toEqual({ allowIncomplete: true, catalogPricing: recovered, catalog });
       expect(mocks.pricingWritesMock).toHaveBeenCalled();
     });
 

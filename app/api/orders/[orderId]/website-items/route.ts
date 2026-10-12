@@ -345,15 +345,16 @@ export async function PUT(req: Request, { params }: Params) {
   // The catalog prices the order was saved with (on its cards, or read back
   // from an older order's stored lines) — none for "Use new price", or when
   // an older order's lines can't reproduce its saved price.
-  const savedCatalogPricing = useCurrentPrices ? null : await resolveSavedCatalogPricing(order, storedCards(order), order.items ?? []);
+  const savedCatalogPricing = useCurrentPrices ? null : await resolveSavedCatalogPricing(order, storedCards(order), order.items ?? [], { catalog });
   let recomputed;
   // An older order whose saved price today's catalog no longer gives: a
   // change that leaves the price alone is saved without re-pricing it.
   let keepStoredPrice = false;
   try {
-    recomputed = await recomputeWebsiteOrderPricing(pricedOrder, cards, { allowIncomplete: true, catalogPricing: savedCatalogPricing });
+    // The catalog loaded above, for every pricing in this save.
+    recomputed = await recomputeWebsiteOrderPricing(pricedOrder, cards, { allowIncomplete: true, catalogPricing: savedCatalogPricing, catalog });
     if (!useCurrentPrices && !savedCatalogPricing) {
-      const asSaved = await recomputeWebsiteOrderPricing(order, storedCards(order), { allowIncomplete: true });
+      const asSaved = await recomputeWebsiteOrderPricing(order, storedCards(order), { allowIncomplete: true, catalog });
       const outdated = asSaved.priceExVat !== order.priceExVat || asSaved.priceSubcontractor !== order.priceSubcontractor;
       if (outdated) {
         const changesPrice =

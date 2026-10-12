@@ -14,6 +14,7 @@ import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import { handlingFromOrder } from "@/lib/orders/websiteOrderHandling";
 import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
 import { recomputeWebsiteOrderPricing, resolveSavedCatalogPricing } from "@/lib/orders/websiteOrderRepricing";
+import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { websiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
 import { normalizeSavedProductCard, type SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
@@ -134,14 +135,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
   let priceChanges: PriceChangeRow[] = [];
   const cards = Array.isArray(order.productCardsSnapshot) ? (order.productCardsSnapshot as unknown as SavedProductCard[]) : [];
   try {
-    const catalogPricing = await resolveSavedCatalogPricing(order, cards, order.items ?? []);
-    const priced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing });
+    // Loaded once: every pricing below (up to 4 for an older order) uses it.
+    const catalog = await getWebsiteOrderCatalog();
+    const catalogPricing = await resolveSavedCatalogPricing(order, cards, order.items ?? [], { catalog });
+    const priced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing, catalog });
     calculator = websiteOrderCalculatorView(priced.pricingResult, {
       includePartner: canSeePartnerPrices,
       cards: priced.cards,
       products: priced.catalogProducts,
     });
-    const current = catalogPricing ? await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true }) : priced;
+    const current = catalogPricing ? await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalog }) : priced;
     currentPricesTotal = websiteOrderCalculatorView(current.pricingResult, { includePartner: false }).customer.total;
     if (current !== priced) {
       const rows = diffCalculatorRows(priced.pricingResult, current.pricingResult);

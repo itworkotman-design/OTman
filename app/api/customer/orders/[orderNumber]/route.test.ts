@@ -210,6 +210,19 @@ describe("customer order route", () => {
     });
   });
 
+  describe("catalog", () => {
+    it("loads it once for the whole change — checking the products and every pricing", async () => {
+      const catalog = { priceListId: "pl", products: [], specialOptions: [], priceListSettings: {} };
+      mocks.getWebsiteOrderCatalog.mockResolvedValue(catalog);
+
+      await put({ productCards: [{ ...washerCard, selectedExtraOptionIds: ["unpack"] }], shownTotal: 1250 });
+
+      expect(mocks.getWebsiteOrderCatalog).toHaveBeenCalledTimes(1);
+      expect(mocks.resolvePricing.mock.calls[0]![3]).toEqual({ catalog });
+      expect(mocks.recompute.mock.calls[0]![2]).toMatchObject({ catalog });
+    });
+  });
+
   describe("pricing guard", () => {
     it("refuses a change whose prices would leave a product's delivery or option out", async () => {
       mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => ({ ...recomputed(1200, cards), missingPriceCardIds: [0] }));
@@ -382,8 +395,8 @@ describe("customer order route", () => {
 
       await put({ productCards: [{ ...washerCard, amount: 2 }], dryRun: true });
 
-      expect(mocks.resolvePricing).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }), [normalizeSavedProductCard(washerCard as never, 0)], []);
-      expect(mocks.recompute.mock.calls[0]![2]).toEqual({ catalogPricing: saved });
+      expect(mocks.resolvePricing).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }), [normalizeSavedProductCard(washerCard as never, 0)], [], { catalog: expect.anything() });
+      expect(mocks.recompute.mock.calls[0]![2]).toMatchObject({ catalogPricing: saved });
     });
 
     it("previews a change with dryRun without saving", async () => {

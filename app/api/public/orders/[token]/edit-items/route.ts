@@ -115,8 +115,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   try {
     // The order keeps the prices it was saved with; only what's new is priced
     // at today's catalog (resolveSavedCatalogPricing, like the admin editor).
-    const catalogPricing = await resolveSavedCatalogPricing(order, originalCards, order.items ?? []);
-    const recomputed = await recomputeWebsiteOrderPricing(order, submittedCards, { catalogPricing });
+    // Loaded once, for every pricing in this edit.
+    const catalog = await getWebsiteOrderCatalog();
+    const catalogPricing = await resolveSavedCatalogPricing(order, originalCards, order.items ?? [], { catalog });
+    const recomputed = await recomputeWebsiteOrderPricing(order, submittedCards, { catalogPricing, catalog });
     const previousPriceExVat = order.priceExVat;
 
     if (recomputed.priceExVat < previousPriceExVat) {

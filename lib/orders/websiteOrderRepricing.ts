@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
+import type { MergedWebsiteCatalog } from "@/lib/content/mergeWebsiteCatalogs";
 import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
 import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeDimensions";
 import {
@@ -78,9 +79,11 @@ export async function recomputeWebsiteOrderPricing(
   // catalogPricing: the catalog prices the order was saved with (the stored
   // cards' snapshot, see getSavedOrderPricingSnapshot) — the booking app's
   // frozen prices. Left out or null, today's catalog prices it.
-  options: { allowIncomplete?: boolean; catalogPricing?: CatalogPricingSnapshot | null } = {},
+  // catalog: today's catalog, already loaded by a caller that prices the
+  // order more than once — loaded here when left out.
+  options: { allowIncomplete?: boolean; catalogPricing?: CatalogPricingSnapshot | null; catalog?: MergedWebsiteCatalog } = {},
 ) {
-  const catalog = await getWebsiteOrderCatalog();
+  const catalog = options.catalog ?? (await getWebsiteOrderCatalog());
   const customDeviation =
     order.customDeviation !== undefined
       ? order.customDeviation
@@ -235,11 +238,15 @@ export async function resolveSavedCatalogPricing(
   order: RepricingOrder & { priceExVat: number | null; priceSubcontractor: number | null },
   cards: SavedProductCard[],
   storedItems: { optionId: string | null; customerPriceCents: number | null; subcontractorPriceCents: number | null }[],
+  // Today's catalog when the caller already has it (every attempt below
+  // prices with it); loaded once here otherwise.
+  { catalog: given }: { catalog?: MergedWebsiteCatalog } = {},
 ): Promise<CatalogPricingSnapshot | null> {
   const stored = getSavedOrderPricingSnapshot(cards);
   if (stored) return stored;
 
-  const current = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true });
+  const catalog = given ?? (await getWebsiteOrderCatalog());
+  const current = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalog });
   const today = current.cards[0]?.pricingSnapshot;
   if (!today) return null;
   const sameAsSaved = (priced: { priceExVat: number; priceSubcontractor: number }) =>
@@ -252,11 +259,11 @@ export async function resolveSavedCatalogPricing(
   // option prices laid over it; the first that gives the saved totals wins.
   for (const base of [today, catalogCustomerPricesExVat(today)]) {
     if (base !== today) {
-      const scaled = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing: base });
+      const scaled = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing: base, catalog });
       if (sameAsSaved(scaled)) return base;
     }
     const derived = withStoredOptionPrices(base, storedItems);
-    const repriced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing: derived });
+    const repriced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing: derived, catalog });
     if (sameAsSaved(repriced)) return derived;
   }
   return null;

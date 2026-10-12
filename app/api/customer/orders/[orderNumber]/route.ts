@@ -280,9 +280,10 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
   const before = { ...order };
 
   if (afterDetails) {
+    // Loaded once: checking the products and every pricing below use it.
+    const catalog = await getWebsiteOrderCatalog();
     let cards = submittedCards ?? beforeCards;
     if (submittedCards) {
-      const catalog = await getWebsiteOrderCatalog();
       const check = validateWebsiteOrderCards(submittedCards, catalog.products, { previousCards: normalizedCards(order.productCardsSnapshot) });
       if (!check.ok) return reject(check.reason, 422);
       cards = check.cards;
@@ -308,8 +309,8 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     try {
       // The order keeps the prices it was saved with; only what's new is priced
       // at today's catalog (resolveSavedCatalogPricing, like the admin editor).
-      const catalogPricing = await resolveSavedCatalogPricing(order, normalizedCards(order.productCardsSnapshot), order.items);
-      recomputed = await recomputeWebsiteOrderPricing(pricedOrder, cards, { catalogPricing });
+      const catalogPricing = await resolveSavedCatalogPricing(order, normalizedCards(order.productCardsSnapshot), order.items, { catalog });
+      recomputed = await recomputeWebsiteOrderPricing(pricedOrder, cards, { catalogPricing, catalog });
     } catch (err) {
       if (err instanceof SizeBracketSelectionError) return reject("SIZE_BRACKETS_REQUIRED", 422);
       if (err instanceof ItemNameRequiredError) return reject("ITEM_NAME_REQUIRED", 422);
