@@ -11,6 +11,6 @@ The homepage booking modal shell. Sections reveal one after another as each comp
 ## Props
 
 - `sections`, `finalStep`, `onClose` — the normal step-by-step flow.
-- `showAll` — every section open at once, completion callbacks ignored, no final step and no progress fill. Used by the booking flow's admin mode.
+- `showAll` — every section open at once, completion callbacks ignored, no final step and no progress fill. Used by the booking flow's customer edit mode ("My order").
 - `title` — shown next to the logo (e.g. "Editing order #…").
 - `footer` — pinned below the scrolling body (e.g. the admin save bar).

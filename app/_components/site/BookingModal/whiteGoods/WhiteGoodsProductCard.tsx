@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type {
   CatalogOption,
@@ -62,6 +63,11 @@ type Props = {
   variantNumber?: number;
   onRemove?: () => void;
   onAddAnother?: () => void;
+  // Admin editor (WebsiteOrderEditTab): extra controls in the title band (the
+  // quantity), and a last section below the options (a size-priced item's
+  // name / size / weight), numbered on from the card's own steps.
+  headerExtra?: ReactNode;
+  belowOptions?: (nextStep: number) => ReactNode;
 };
 
 function seedLabel(locale: Locale, seed: { labelEn: string; labelNo: string }) {
@@ -196,6 +202,8 @@ export function WhiteGoodsProductCard({
   variantNumber,
   onRemove,
   onAddAnother,
+  headerExtra,
+  belowOptions,
 }: Props) {
   const [open, setOpen] = useState(true);
   const t = (en: string, no: string) => (locale === "no" ? no : en);
@@ -488,6 +496,7 @@ export function WhiteGoodsProductCard({
           </h3>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {headerExtra}
           {onRemove && (
             <button
               type="button"
@@ -999,6 +1008,7 @@ export function WhiteGoodsProductCard({
                 </div>
               </div>
             )}
+            {belowOptions && <div>{belowOptions(showExtrasStep ? extrasStepNumber + 1 : extrasStepNumber)}</div>}
           </div>
         </div>
       </div>

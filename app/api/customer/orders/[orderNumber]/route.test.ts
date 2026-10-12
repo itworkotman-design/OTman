@@ -193,6 +193,25 @@ describe("customer order route", () => {
     });
   });
 
+  describe("pickup assignment", () => {
+    it("refuses a product added to a split order that no pickup stop collects", async () => {
+      const homePickup = { ...storePickup, source: "home", placeName: "", address: "Bjerkeveien 2", floor: 1, cardIds: [1] };
+      const sofaCard = { ...washerCard, cardId: 1, productId: "p-sofa" };
+      mocks.orderFindFirst.mockResolvedValue(
+        order({
+          productCardsSnapshot: [washerCard, sofaCard],
+          websiteBookingDetails: { ...bookingDetails("2026-10-10", "08:00-16:00"), pickups: [storePickup, homePickup] },
+        }),
+      );
+
+      const res = await put({ productCards: [washerCard, sofaCard, { ...washerCard, cardId: 2 }], shownTotal: 1000 });
+
+      expect(res.status).toBe(422);
+      expect((await res.json()).reason).toBe("PRODUCT_WITHOUT_PICKUP");
+      expect(mocks.transaction).not.toHaveBeenCalled();
+    });
+  });
+
   describe("rejected orders", () => {
     it("shows the customer the rejection comment while the order is rejected", async () => {
       mocks.orderFindFirst.mockResolvedValue(order({ status: "rejected", statusNotes: "Vi leverer ikke til den adressen." }));

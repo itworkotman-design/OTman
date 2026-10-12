@@ -200,6 +200,22 @@ describe("POST /api/site/white-goods-order", () => {
     expect(json.errors.productCards).toBeDefined();
   });
 
+  it("returns 422 when the order is split across pickups but a product isn't on any of them", async () => {
+    const res = await post({
+      ...validBody,
+      productCards: [
+        { cardId: 0, productId: "product-1" },
+        { cardId: 1, productId: "product-1" },
+      ],
+      pickupCardIds: [0],
+      extraPickupLocations: [{ source: "private", address: "Bjerkeveien 2, Oslo", contactName: "Ola", contactPhone: "12345678", cardIds: [] }],
+    });
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.pickups).toBeDefined();
+  });
+
   it("returns 422 for a text field containing disallowed characters", async () => {
     const res = await post({ ...validBody, notes: "<script>alert(1)</script>" });
 

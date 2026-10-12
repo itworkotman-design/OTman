@@ -17,3 +17,7 @@ Creates a homepage website order (all website catalogs: white goods, furniture, 
 Other validation errors are `422 VALIDATION_FAILED` with `errors`. Among them: `preferredDate` must be a day the booking calendar offers (`isBookableDeliveryDate`), and `timeWindow` must be a preset or a real `HH:MM-HH:MM` range (`isTimeWindowComplete`). An install add-on without the install type it needs (TV stand / feet without table mounting) is also refused.
 
 The product cards are checked with `validateWebsiteOrderCards` (the same rules a later "My order" edit gets). Once the order is saved, `welcomeWebsiteOrderCustomer` links or creates the customer's "My order" account and sends the order-received email, plus the password email for a new account. See `docs/documentation/lib/customer-accounts.md`.
+
+## Pickup assignment
+
+When the order is split across pickups (`extraPickupLocations`), every product card must be on exactly one stop (`pickupCardIds` for the first, `cardIds` for the rest), checked with `findCardsWithoutPickup`. Otherwise the route returns `422 VALIDATION_FAILED` with `errors.pickups`.

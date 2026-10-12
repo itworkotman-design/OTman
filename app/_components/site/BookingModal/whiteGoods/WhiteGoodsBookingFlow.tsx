@@ -24,11 +24,10 @@ import {
   type PickupLocationState,
 } from "./pickupLocations";
 import { adminDetailsFromFlow, pickupStateFromStops } from "./adminOrderState";
-import WebsiteOrderAdminFooter from "@/app/_components/Dahsboard/booking/websiteOrders/WebsiteOrderAdminFooter";
 import CustomerOrderEditFooter from "@/app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter";
+import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
 import type { CustomerEditDraft } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
 import type { AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
-import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { ContactDetailsCard } from "./ContactDetailsCard";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
@@ -97,17 +96,6 @@ import {
 } from "@/lib/products/priceListSettings";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 
-// The same flow, opened by an admin on an existing website order
-// (WebsiteOrderModal's "Edit order"): prefilled from the order, every section
-// open at once, nothing required, and a save bar instead of "Send order".
-export type WhiteGoodsAdminEdit = {
-  orderId: string;
-  // Shown in the header, e.g. "#G8SMMP58".
-  orderLabel: string;
-  gsmSentAt: string | null;
-  onSaved: (message: string) => void;
-};
-
 // The same flow, opened by the customer on their own order in "My order"
 // (app/(site)/[locale]/min-bestilling): prefilled from GET
 // /api/customer/orders/[orderNumber], saved through its PUT. Within 24h of
@@ -123,7 +111,6 @@ export type WhiteGoodsCustomerEdit = {
 type Props = {
   locale: Locale;
   onClose: () => void;
-  admin?: WhiteGoodsAdminEdit;
   customer?: WhiteGoodsCustomerEdit;
 };
 
@@ -158,7 +145,7 @@ function AutoAdvance({
   return null;
 }
 
-export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Props) {
+export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const bookingLocale = toBookingLocale(locale);
 
@@ -272,7 +259,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
   // compared with its payments when opened.
   const [adminReady, setAdminReady] = useState(false);
   const [adminLoadError, setAdminLoadError] = useState(false);
-  const [adminComparison, setAdminComparison] = useState<OrderPaymentComparison | null>(null);
   // The order's express / discount / extra / deviation (set in the modal's
   // "Handle order" panel, not here) — included in the live price.
   const [adminHandling, setAdminHandling] = useState<WebsiteOrderHandling | null>(null);
@@ -398,8 +384,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
   // A stable key for the effect below — extraPickupLocations gets a new
   // identity on every keystroke in any of its fields, not just address ones.
   const routeStopsKey = routeStops ? JSON.stringify(routeStops) : "";
-  // An existing order being edited (by an admin or the customer).
-  const isAdmin = !!admin || !!customer;
+  // An existing order being edited (the customer's own, in "My order").
+  const isAdmin = !!customer;
 
   useEffect(() => {
     if (isAdmin && adminInitialRouteKey.current === null) return;
@@ -536,38 +522,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
     );
   }
 
-  // Admin: load the order into the flow's own state.
-  useEffect(() => {
-    if (!admin) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/orders/${admin.orderId}/website-items`, { credentials: "include", cache: "no-store" });
-        const json = await res.json();
-        if (cancelled) return;
-        if (!json?.ok || !json.details) throw new Error(json?.reason ?? "load failed");
-        loadOrderIntoFlow({
-          products: json.catalogProducts,
-          categories: json.categories,
-          cards: json.productCards,
-          details: json.details,
-          drivingDistance: json.drivingDistance,
-        });
-        setAdminComparison(json.comparison);
-        setAdminHandling(json.handling ?? null);
-        setAdminUseFullKm(json.useFullDistanceKmPricing !== false);
-        setAdminReady(true);
-      } catch {
-        if (!cancelled) setAdminLoadError(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [admin?.orderId]);
-
-  // Customer ("My order"): the same, from their own order.
+  // Customer ("My order"): load their order into the flow's own state.
   useEffect(() => {
     if (!customer) return;
     let cancelled = false;
@@ -1105,7 +1060,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
   });
 
   const moreSections: StepSection[] =
-    (admin || chosenListCodes.length > 0) && remainingLists.length > 0 && !customerLocked
+    chosenListCodes.length > 0 && remainingLists.length > 0 && !customerLocked
       ? [
           {
             id: "more-products",
@@ -1148,9 +1103,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
         />
       ),
     },
-    // An admin (or the customer changing their order) adds categories through "any other products?" instead —
+    // The customer changing their order adds categories through "any other products?" instead —
     // picking a different start category here would empty the order.
-    ...(admin || customer ? [] : ([{
+    ...(customer ? [] : ([{
       id: "pickup-category",
       title: t("What are we picking up?", "Hva skal vi hente?"),
       render: ({ onComplete }) => (
@@ -1320,7 +1275,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
             setNotes={setNotes}
           />
 
-          {!admin && !customer && (
+          {!customer && (
           <button
             type="button"
             disabled={!canContinueContact}
@@ -1504,6 +1459,21 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
     timeWindow,
     drivingDistance,
   });
+  // The server's rule, on the stops about to be sent: once the order is split
+  // across pickups, every product needs a stop with an address.
+  const productsWithoutPickup = findCardsWithoutPickup(editedDetails.pickups, productCards).length > 0;
+  const pickupBlockedMessage = !productsWithoutPickup
+    ? null
+    : customerLocked
+      ? t(
+          "A new product needs a pickup address, and pickups can't be changed this close to the job. Contact us.",
+          "Et nytt produkt trenger en henteadresse, og henting kan ikke endres så nær oppdraget. Ta kontakt med oss.",
+        )
+      : t(
+          "Choose which pickup address every product is collected from.",
+          "Velg hvilken henteadresse hvert produkt hentes fra.",
+        );
+
   const customerDraft: CustomerEditDraft = {
     customer: { name, phone, email, comments: notes },
     preferredDate,
@@ -1560,38 +1530,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, admin, customer }: Prop
               locale={locale}
               onCancel={onClose}
               onSaved={customer.onSaved}
-            />
-          ) : null
-        }
-      />
-    );
-  }
-
-  if (admin) {
-    const adminDetails = editedDetails;
-    const adminSections: StepSection[] = adminReady ? sections : loadingSections;
-    return (
-      <SteppedModal
-        showAll
-        sections={adminSections}
-        finalStep={finalStep}
-        onClose={onClose}
-        title={
-          <span className="truncate text-base font-semibold text-logoblue">
-            {t("Editing order", "Redigerer bestilling")} {admin.orderLabel}
-          </span>
-        }
-        footer={
-          adminReady && adminComparison ? (
-            <WebsiteOrderAdminFooter
-              orderId={admin.orderId}
-              productCards={productCards}
-              details={adminDetails}
-              initialComparison={adminComparison}
-              gsmSentAt={admin.gsmSentAt}
-              locale={bookingLocale}
-              onCancel={onClose}
-              onSaved={admin.onSaved}
+              blockedMessage={pickupBlockedMessage}
             />
           ) : null
         }

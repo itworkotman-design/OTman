@@ -57,7 +57,9 @@ not translated; another size-priced product would use its own label as the prefi
   picker is `whiteGoods/SizeBracketPicker.tsx`, three numbered steps: name,
   width / height / length as tappable chips with a live computed volume, weight
   bracket cards, then an "Added to delivery" line showing the higher price and
-  whether size or weight set it); applied by
+  whether size or weight set it). In the admin "Edit order" tab the same picker
+  is the last section of the product card (`embedded`, numbered on via
+  `firstStep`, through `WhiteGoodsProductCard`'s `belowOptions`); applied by
   `whiteGoods/sizeBracketSelection.ts` (`applySizeDimension`,
   `applySizeBracketSelection`). The products step only
   completes (auto-advancing to the options step: delivery / assembly / extras)

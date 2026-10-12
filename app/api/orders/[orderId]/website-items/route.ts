@@ -34,6 +34,7 @@ import {
   type WebsiteOrderHandling,
 } from "@/lib/orders/websiteOrderHandling";
 import { parseWhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
+import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 import { createOrderUpdatedEvent, type OrderEventActor, type OrderEventChange } from "@/lib/orders/orderEvents";
 import { resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
@@ -268,7 +269,7 @@ export async function PUT(req: Request, { params }: Params) {
 
   // An admin can save anything, even an order with no products or one
   // that isn't complete yet — only products not sold on the website are
-  // refused (they can't be priced).
+  // refused (they can't be priced), and every product needs a pickup stop.
   const baseCards = Array.isArray(body?.productCards) ? (body.productCards as SavedProductCard[]) : storedCards(order);
   const cards = nulledLines ? applyNulledLinesToCards(baseCards, nulledLines) : baseCards;
   const catalog = await getWebsiteOrderCatalog();
@@ -277,6 +278,7 @@ export async function PUT(req: Request, { params }: Params) {
   // Details: validated, the route distance recalculated when a stop moved
   // (unless the admin typed one), then laid over the order for re-pricing.
   let detailsUpdate: ReturnType<typeof buildDetailsUpdate> | null = null;
+  let editedPickups: { cardIds?: number[] }[] | null = null;
   if (body?.details !== undefined) {
     const parsed = parseAdminOrderDetails(body.details);
     if (!parsed.ok) return reject(parsed.reason, 422, { errors: parsed.errors });
@@ -292,6 +294,15 @@ export async function PUT(req: Request, { params }: Params) {
       storedBookingDetails: order.websiteBookingDetails,
       storedDescription: order.description,
     });
+    editedPickups = details.pickups;
+  }
+
+  // Checked only when products or stops change, so a price-only save on an
+  // older order still goes through.
+  if (body?.productCards !== undefined || body?.details !== undefined) {
+    const pickups = editedPickups ?? parseWhiteGoodsBookingDetails(order.websiteBookingDetails)?.pickups ?? [];
+    const withoutPickup = findCardsWithoutPickup(pickups, cards);
+    if (withoutPickup.length > 0) return reject("PRODUCT_WITHOUT_PICKUP", 422, { cardIds: withoutPickup });
   }
 
   const detailsBookingDetails = detailsUpdate ? detailsUpdate.bookingDetails : order.websiteBookingDetails;

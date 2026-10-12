@@ -21,6 +21,7 @@ import {
 } from "@/lib/orders/customerOrderEditPolicy";
 import { buildDetailsUpdate, parseAdminOrderDetails, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
+import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
 import { resolveDrivingDistance } from "@/lib/orders/resolveDrivingDistance";
 import {
   ItemNameRequiredError,
@@ -285,6 +286,9 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
       if (!check.ok) return reject(check.reason, 422);
       cards = check.cards;
     }
+
+    const withoutPickup = findCardsWithoutPickup(afterDetails.pickups, cards);
+    if (withoutPickup.length > 0) return reject("PRODUCT_WITHOUT_PICKUP", 422, { cardIds: withoutPickup });
 
     const drivingDistance = await resolveDrivingDistance(order, afterDetails);
     const detailsUpdate = buildDetailsUpdate({

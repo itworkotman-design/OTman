@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { buildOrderReviewBlocks } from "@/app/_components/site/BookingModal/whiteGoods/orderReview";
@@ -9,7 +9,7 @@ import { getVatBreakdown } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import type { ProductGroup } from "@/lib/orders/websiteOrderProducts";
 import WebsiteOrderAdminActions from "./WebsiteOrderAdminActions";
-import { WhiteGoodsBookingFlow } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsBookingFlow";
+import WebsiteOrderEditTab from "./WebsiteOrderEditTab";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
@@ -93,7 +93,11 @@ export default function WebsiteOrderModal({
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [editingOrder, setEditingOrder] = useState(false);
+  // "Overview" (the order, its handling and the calculator) or "Edit order"
+  // (products, pickups, delivery and customer — WebsiteOrderEditTab).
+  const [tab, setTab] = useState<"overview" | "edit">("overview");
+  const [editDirty, setEditDirty] = useState(false);
+  const handleEditDirtyChange = useCallback((dirty: boolean) => setEditDirty(dirty), []);
   const [editNotice, setEditNotice] = useState("");
   // The calculator's unsaved changes; the one Save under "Handle order" stores them.
   const [pricingDraft, setPricingDraft] = useState<WebsiteOrderPricingDraft | null>(null);
@@ -140,6 +144,35 @@ export default function WebsiteOrderModal({
       : details.customerType === "private"
         ? t("Private", "Privat")
         : null;
+
+  function confirmDiscardEdits() {
+    return window.confirm(t("Discard your unsaved changes to the order?", "Forkaste ulagrede endringer i bestillingen?"));
+  }
+
+  function switchTab(next: "overview" | "edit") {
+    if (next === tab) return;
+    // Leaving Overview with unsaved calculator changes, or Edit with unsaved
+    // edits, would silently drop them — make that a choice.
+    if (
+      next === "edit" &&
+      pricingDraft &&
+      !window.confirm(
+        t(
+          "You have unsaved price changes in the calculator. They will be lost if you edit the order now. Continue?",
+          "Du har ulagrede prisendringer i kalkulatoren. De går tapt hvis du endrer bestillingen nå. Fortsette?",
+        ),
+      )
+    ) {
+      return;
+    }
+    if (next === "overview" && editDirty && !confirmDiscardEdits()) return;
+    if (next === "edit") {
+      setPricingDraft(null);
+      setEditNotice("");
+    }
+    setEditDirty(false);
+    setTab(next);
+  }
 
   async function handleDelete() {
     if (deleteLoading) return;
@@ -192,41 +225,40 @@ export default function WebsiteOrderModal({
               {!order.hasCustomerLogin && (
                 <WebsiteOrderCustomerLoginButton orderId={order.id} email={order.email} t={t} onResult={setEditNotice} />
               )}
-              {canEditOrder && !editingOrder && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Saving the edit reloads the order, which would silently
-                    // drop unsaved calculator changes (discount, extra, lines
-                    // set to 0) — make that a choice.
-                    if (
-                      pricingDraft &&
-                      !window.confirm(
-                        t(
-                          "You have unsaved price changes in the calculator. They will be lost if you edit the order now. Continue?",
-                          "Du har ulagrede prisendringer i kalkulatoren. De går tapt hvis du endrer bestillingen nå. Fortsette?",
-                        ),
-                      )
-                    ) {
-                      return;
-                    }
-                    setEditNotice("");
-                    setEditingOrder(true);
-                  }}
-                  className="inline-flex h-9 items-center justify-center rounded-full border border-logoblue px-4 text-sm font-semibold text-logoblue"
-                >
-                  {t("Edit order", "Endre bestilling")}
-                </button>
-              )}
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                  if (editDirty && !confirmDiscardEdits()) return;
+                  onClose();
+                }}
                 className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-logoblue text-white"
               >
                 ×
               </button>
             </div>
           </div>
+
+          {canEditOrder && (
+            <div className="flex shrink-0 gap-1 border-b bg-white px-6">
+              {(
+                [
+                  ["overview", t("Overview", "Oversikt")],
+                  ["edit", t("Edit order", "Endre bestilling")],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => switchTab(key)}
+                  className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition ${
+                    tab === key ? "border-logoblue text-logoblue" : "border-transparent text-black/50 hover:text-black/80"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
             {totalsWarnings.length > 0 && (
@@ -242,25 +274,20 @@ export default function WebsiteOrderModal({
             {editNotice && (
               <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">{editNotice}</p>
             )}
-            {/* "Edit order" opens the customer's own booking modal on top,
-                prefilled, with every section open (see WhiteGoodsBookingFlow's
-                `admin`). */}
-            {editingOrder && (
-              <WhiteGoodsBookingFlow
-                locale={locale === "nb" ? "no" : "en"}
-                onClose={() => setEditingOrder(false)}
-                admin={{
-                  orderId: order.id,
-                  orderLabel: order.orderNumber ? `#${order.orderNumber}` : `(${order.displayId})`,
-                  gsmSentAt: order.gsmSentAt,
-                  onSaved: (message) => {
-                    setEditingOrder(false);
-                    setEditNotice(message);
-                    onChanged();
-                  },
+            {tab === "edit" ? (
+              <WebsiteOrderEditTab
+                orderId={order.id}
+                locale={locale}
+                onDirtyChange={handleEditDirtyChange}
+                onCancel={() => switchTab("overview")}
+                onSaved={(message) => {
+                  setEditDirty(false);
+                  setTab("overview");
+                  setEditNotice(message);
+                  onChanged();
                 }}
               />
-            )}
+            ) : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
               <div className="flex flex-col gap-4">
                 {reviewBlocks.map((block) => (
@@ -434,7 +461,7 @@ export default function WebsiteOrderModal({
                 )}
               </div>
             </div>
-
+            )}
           </div>
         </div>
       </div>

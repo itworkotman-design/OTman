@@ -54,6 +54,8 @@ export function SizeBracketPicker({
   onSelect,
   onSelectDimension,
   onChangeItemName,
+  firstStep = 1,
+  embedded = false,
 }: {
   locale: Locale;
   // Private customers see prices incl. VAT (what they actually pay);
@@ -67,6 +69,10 @@ export function SizeBracketPicker({
   onSelect: (product: CatalogProduct, optionId: string) => void;
   onSelectDimension: (product: CatalogProduct, axis: keyof SizeDimensionsCm, valueCm: number) => void;
   onChangeItemName: (product: CatalogProduct, name: string) => void;
+  // Inside another card's numbered sections (the admin editor): carry on its
+  // step numbers, without this picker's own top border.
+  firstStep?: number;
+  embedded?: boolean;
 }) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const money = (raw: string) => {
@@ -97,11 +103,11 @@ export function SizeBracketPicker({
   const chargeBasis = chargeable === volumeBracket ? t("size", "størrelse") : t("weight", "vekt");
 
   return (
-    <div className="flex flex-col gap-5 border-t border-black/10 pt-4">
+    <div className={embedded ? "flex flex-col gap-5" : "flex flex-col gap-5 border-t border-black/10 pt-4"}>
       {/* This product is a catch-all, so the customer says what it is. */}
       <label className="block">
         <StepHeading
-          step={1}
+          step={firstStep}
           title={t("What is it?", "Hva er det?")}
           hint={t("Write what the item is, so we know what to expect.", "Skriv hva varen er, så vi vet hva vi skal forvente.")}
         />
@@ -118,7 +124,7 @@ export function SizeBracketPicker({
       {hasVolume && (
         <div>
           <StepHeading
-            step={2}
+            step={firstStep + 1}
             title={t("How big is it?", "Hvor stor er den?")}
             hint={t("Pick the closest size in centimetres — we work out the volume.", "Velg nærmeste mål i centimeter — vi beregner volumet.")}
           />
@@ -190,7 +196,7 @@ export function SizeBracketPicker({
       {weightOptions.length > 0 && (
         <div>
           <StepHeading
-            step={hasVolume ? 3 : 2}
+            step={firstStep + (hasVolume ? 2 : 1)}
             title={t("How heavy is it?", "Hvor tung er den?")}
             hint={t("Choose the bracket the item fits in.", "Velg vektklassen varen passer i.")}
           />

@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Converts between an existing website order and the booking flow's own state, for the admin editor (`WhiteGoodsBookingFlow` with `admin`).
+Converts between an existing website order and the booking flow's own state, for the customer's "My order" editor (`WhiteGoodsBookingFlow` with `customer`). `claimsPerStop` (which cards each stored stop collects, by card id or by stored product name on older orders) is also used by the admin `WebsiteOrderEditTab`.
 
 ## Functions
 

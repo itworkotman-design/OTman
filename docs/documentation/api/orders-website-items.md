@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Backs the admin mode of the booking flow (`WhiteGoodsBookingFlow` with `admin`, opened from `WebsiteOrderModal`), used for example when a customer phones in. The admin can change products (from any website category) and every detail: customer, pickup stops, delivery, floors/lifts, date/time and distance. Changes are re-priced through the booking pipeline, and the editor shows exactly how the result compares with what the customer has paid.
+Backs the admin "Edit order" tab (`WebsiteOrderEditTab` in `WebsiteOrderModal`) and the Overview calculator, used for example when a customer phones in. The admin can change products (from any website category) and every detail: customer, pickup stops, delivery, floors/lifts, date/time and distance. Changes are re-priced through the booking pipeline, and the editor shows exactly how the result compares with what the customer has paid.
 
 **Access:** a company `OWNER`/`ADMIN`, or a member with `WEBSITE_ORDERS` at `ADMIN` level. The order must be a homepage white-goods order (`websiteOrderKind = WHITE_GOODS`) in the active company, otherwise `404`. On cancelled, completed, invoiced and paid orders, products and details return `409 NOT_EDITABLE_STATUS`; `handling` can still be saved, because deviations, drivers and so on are often only known after the trip.
 
@@ -32,3 +32,7 @@ GET also returns `useFullDistanceKmPricing` (from the order's `createdAt`), so t
 - **Order extras:** passed to repricing and kept in the pricing snapshot.
 - **Finished orders:** like discounts, allowed on completed or invoiced orders.
 - **Malformed:** returns `400 INVALID_BODY`.
+
+## Pickup assignment
+
+When products or details are sent, every product must be on exactly one pickup stop with an address once the order has several stops (`findCardsWithoutPickup`, `lib/orders/pickupAssignment.ts`). Otherwise the route returns `422 PRODUCT_WITHOUT_PICKUP` with `cardIds`. The stops checked are the sent details, or the stored ones. Handling-only (calculator) saves skip the check, so older orders stay editable.

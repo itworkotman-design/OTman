@@ -18,6 +18,7 @@ import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsi
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { findWebsiteCatalogByProductCode } from "@/lib/content/websiteCatalogs";
 import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
+import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
 import { isBookableDeliveryDate } from "@/lib/orders/customerOrderEditPolicy";
 import { isTimeWindowComplete } from "@/lib/booking/timeWindows";
 import { costliestFloor, parseFloorNumber } from "@/lib/booking/floorNumber";
@@ -474,6 +475,19 @@ export async function POST(req: Request) {
   if (!("timeWindow" in errors) && !isTimeWindowComplete(str(body.timeWindow) ?? "")) errors.timeWindow = "Choose a time window";
   if (!Array.isArray(body.productCards) || body.productCards.length === 0) {
     errors.productCards = "At least one product is required";
+  }
+  // Split across several pickups: every product must be on exactly one stop.
+  const extraStops = parseExtraPickupLocations(body.extraPickupLocations);
+  if (extraStops.length > 0 && Array.isArray(body.productCards)) {
+    const firstStopCardIds = Array.isArray(body.pickupCardIds)
+      ? (body.pickupCardIds as unknown[]).filter((id): id is number => Number.isInteger(id))
+      : [];
+    const cards = (body.productCards as { cardId?: unknown; productId?: unknown }[])
+      .filter((card) => card && Number.isInteger(card.cardId))
+      .map((card) => ({ cardId: card.cardId as number, productId: typeof card.productId === "string" ? card.productId : null }));
+    if (findCardsWithoutPickup([{ cardIds: firstStopCardIds }, ...extraStops], cards).length > 0) {
+      errors.pickups = "Choose which pickup address each product is collected from";
+    }
   }
 
   if (Object.keys(errors).length > 0) {

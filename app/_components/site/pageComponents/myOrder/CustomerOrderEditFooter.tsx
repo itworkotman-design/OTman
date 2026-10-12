@@ -13,6 +13,9 @@ type Props = {
   locale: Locale;
   onCancel: () => void;
   onSaved: (message: string) => void;
+  // Why the change can't be saved yet (e.g. a product without a pickup
+  // address); Save stays disabled while it's set.
+  blockedMessage?: string | null;
 };
 
 const PREVIEW_DELAY_MS = 800;
@@ -24,7 +27,16 @@ function kr(n: number) {
 // The save bar when a customer changes their own order in "My order": every
 // change is priced by the server (dryRun), and that price is what the save
 // confirms (shownTotal) — the order is only changed at the price shown.
-export default function CustomerOrderEditFooter({ orderNumber, initial, current, beforeCutoff, locale, onCancel, onSaved }: Props) {
+export default function CustomerOrderEditFooter({
+  orderNumber,
+  initial,
+  current,
+  beforeCutoff,
+  locale,
+  onCancel,
+  onSaved,
+  blockedMessage = null,
+}: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const [preview, setPreview] = useState<{ previousPriceExVat: number; priceExVat: number } | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -60,6 +72,10 @@ export default function CustomerOrderEditFooter({ orderNumber, initial, current,
     ),
     UNKNOWN_PRODUCT: t("One of the products can't be ordered on the website.", "En av varene kan ikke bestilles på nettsiden."),
     UNAUTHORIZED: t("You have been logged out. Log in again.", "Du er logget ut. Logg inn igjen."),
+    PRODUCT_WITHOUT_PICKUP: t(
+      "Choose which pickup address every product is collected from.",
+      "Velg hvilken henteadresse hvert produkt hentes fra.",
+    ),
   };
   const errorMessage = (reason: unknown) =>
     (typeof reason === "string" && reasonText[reason]) || t("Couldn't save the changes.", "Kunne ikke lagre endringene.");
@@ -163,11 +179,11 @@ export default function CustomerOrderEditFooter({ orderNumber, initial, current,
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 lg:w-72">
-        {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+        {(blockedMessage || error) && <p className="text-sm font-medium text-red-600">{blockedMessage || error}</p>}
         <button
           type="button"
           onClick={save}
-          disabled={!hasChanges || saving || previewing || (!preview && !!error)}
+          disabled={!!blockedMessage || !hasChanges || saving || previewing || (!preview && !!error)}
           className="inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-5 text-sm font-semibold text-white disabled:opacity-50"
         >
           {saving ? t("Saving…", "Lagrer…") : t("Save changes", "Lagre endringer")}

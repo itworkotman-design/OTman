@@ -17,7 +17,7 @@ function baseName(name: string) {
 
 // Which product cards each stored stop collects: by card id (newer orders),
 // else by the product names stored at booking.
-function claimsPerStop(cards: SavedProductCard[], stops: AdminPickupStop[], nameOf: (cardId: number) => string) {
+export function claimsPerStop(cards: SavedProductCard[], stops: AdminPickupStop[], nameOf: (cardId: number) => string) {
   const pool = orderedCardIds(cards);
   const claimed = new Set<number>();
   return stops.map((stop) => {

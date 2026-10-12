@@ -209,6 +209,8 @@ async function get() {
 
 const twoCards = { productCards: [card(0, "p-wm"), card(1, "p-sofa")] };
 
+const homePickup = { ...storePickup, source: "home", placeName: "", address: "Bjerkeveien 2", floor: 1 };
+
 describe("/api/orders/[orderId]/website-items", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -727,6 +729,65 @@ describe("/api/orders/[orderId]/website-items", () => {
       expect(res.status).toBe(200);
       expect(json).toMatchObject({ ok: true, emailSent: null, emailFailed: true });
       expect(mocks.transactionMock).toHaveBeenCalled();
+    });
+  });
+
+  describe("pickup assignment", () => {
+    function twoStopOrder(cardIds: [number[], number[]]) {
+      return order({
+        productCardsSnapshot: [card(0, "p-wm"), card(1, "p-sofa")],
+        websiteBookingDetails: {
+          ...bookingDetails,
+          pickups: [
+            { ...storePickup, cardIds: cardIds[0] },
+            { ...homePickup, cardIds: cardIds[1] },
+          ],
+        },
+      });
+    }
+
+    it("refuses a product added to a split order without a pickup stop", async () => {
+      mocks.orderFindFirstMock.mockResolvedValue(twoStopOrder([[0], [1]]));
+
+      const res = await put({ productCards: [card(0, "p-wm"), card(1, "p-sofa"), card(2, "p-wm")] });
+
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({ ok: false, reason: "PRODUCT_WITHOUT_PICKUP", cardIds: [2] });
+      expect(mocks.transactionMock).not.toHaveBeenCalled();
+    });
+
+    it("refuses edited stops that leave a product unassigned", async () => {
+      mocks.orderFindFirstMock.mockResolvedValue(twoStopOrder([[0], [1]]));
+
+      const res = await put({
+        details: {
+          ...editedDetails,
+          pickups: [
+            { ...storePickup, productNames: [], cardIds: [0] },
+            { ...homePickup, productNames: [], cardIds: [] },
+          ],
+        },
+      });
+
+      expect(res.status).toBe(422);
+      expect((await res.json()).reason).toBe("PRODUCT_WITHOUT_PICKUP");
+    });
+
+    it("saves once every product is on a stop", async () => {
+      mocks.orderFindFirstMock.mockResolvedValue(twoStopOrder([[0], [1]]));
+
+      const res = await put({
+        productCards: [card(0, "p-wm"), card(1, "p-sofa"), card(2, "p-wm")],
+        details: {
+          ...editedDetails,
+          pickups: [
+            { ...storePickup, productNames: [], cardIds: [0, 2] },
+            { ...homePickup, productNames: [], cardIds: [1] },
+          ],
+        },
+      });
+
+      expect(res.status).toBe(200);
     });
   });
 });
