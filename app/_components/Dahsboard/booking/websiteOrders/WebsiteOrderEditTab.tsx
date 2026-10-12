@@ -18,6 +18,7 @@ import {
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { isSizePricedProduct } from "@/lib/booking/pricing/sizeBrackets";
 import { PRESET_TIME_WINDOWS } from "@/lib/booking/timeWindows";
+import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
 import type { AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import type { BookingCustomerType, BookingPickupSource } from "@/lib/orders/websiteBookingDetails";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
@@ -181,7 +182,14 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
     INVALID_DETAILS: t("Check the name, phone and email.", "Sjekk navn, telefon og e-post."),
     FORBIDDEN: t("Only admins can change website orders.", "Kun administratorer kan endre nettsidebestillinger."),
   };
-  const blockerText = (blocker: EditorBlocker) => reasonText[blocker];
+  // The pickup blocker names the products, so the admin knows which ones to tick.
+  const blockerText = (blocker: EditorBlocker) => {
+    if (blocker !== "PRODUCT_WITHOUT_PICKUP") return reasonText[blocker];
+    const names = findCardsWithoutPickup(stops, cards).map(cardName).join(", ");
+    return t(`Needs a pickup address: ${names}.`, `Mangler henteadresse: ${names}.`);
+  };
+  // The server's dry run reports the same rules — don't repeat a blocker already listed.
+  const showError = !!error && !blockers.some((blocker) => reasonText[blocker] === error);
 
   async function send(dryRun: boolean) {
     const res = await fetch(`/api/orders/${orderId}/website-items`, {
@@ -622,7 +630,7 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
               ))}
             </ul>
           )}
-          {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+          {showError && <p className="text-sm font-medium text-red-600">{error}</p>}
           <button
             type="button"
             className="customButtonEnabled h-11 disabled:opacity-50!"
