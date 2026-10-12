@@ -72,6 +72,8 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
   const [stops, setStops] = useState<EditorStop[]>([]);
   const [details, setDetails] = useState<Details | null>(null);
   const [initialKey, setInitialKey] = useState<string | null>(null);
+  // The order's own products open collapsed; ones added here open expanded.
+  const [collapsedCardIds, setCollapsedCardIds] = useState<Set<number>>(() => new Set());
 
   const [preview, setPreview] = useState<{ comparison: OrderPaymentComparison; calculator: WebsiteOrderCalculatorView } | null>(null);
   // The order as first priced: the calculator's baseline for its own choices.
@@ -128,6 +130,7 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
         setCatalogProducts(products);
         setCategories(json.categories ?? []);
         setCards(loadedCards);
+        setCollapsedCardIds(new Set(loadedCards.map((card) => card.cardId)));
         setStops(loadedStops);
         setDetails(rest);
         setInitialKey(JSON.stringify({ cards: loadedCards, stops: loadedStops, details: rest }));
@@ -257,6 +260,12 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
   }
 
   function removeCard(cardId: number) {
+    // A card added later may reuse this id — it should open expanded.
+    setCollapsedCardIds((current) => {
+      const next = new Set(current);
+      next.delete(cardId);
+      return next;
+    });
     const next = removeCardFromOrder(cards, stops, cardId);
     setCards(next.cards);
     setStops(next.stops);
@@ -289,6 +298,7 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
                 deliveryPreview={previewCardDeliveryOptions(cards, catalogProducts, card.cardId)}
                 onChange={updateCard}
                 onRemove={() => removeCard(card.cardId)}
+                defaultOpen={!collapsedCardIds.has(card.cardId)}
                 variantNumber={siblings.length > 1 ? siblings.indexOf(card) + 1 : undefined}
                 // Last section of the card: a size-priced item's name / size /
                 // weight (one card per item, so no quantity), else the quantity.

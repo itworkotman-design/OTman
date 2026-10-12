@@ -66,6 +66,9 @@ type Props = {
   // A last section below the options, numbered on from the card's own steps:
   // a size-priced item's name / size / weight, or (admin editor) the quantity.
   belowOptions?: (nextStep: number) => ReactNode;
+  // Whether the options start expanded (the admin editor opens an order's
+  // existing products collapsed).
+  defaultOpen?: boolean;
 };
 
 function seedLabel(locale: Locale, seed: { labelEn: string; labelNo: string }) {
@@ -202,8 +205,9 @@ export function WhiteGoodsProductCard({
   onRemove,
   onAddAnother,
   belowOptions,
+  defaultOpen = true,
 }: Props) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const money = (raw: string) => {
     const n = Number(raw);
