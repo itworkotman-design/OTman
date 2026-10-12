@@ -24,7 +24,7 @@ import { ProductIcon } from "./productIcons";
 import { buildCardSummaryChips } from "./cardSummaryChips";
 import type { DeliveryOptionPreview } from "./deliveryPricePreview";
 import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
-import { allowedDeliveryTypes, isBookedService, keepBookedServices } from "./bookedServices";
+import { isBookedService, keepBookedServices } from "./bookedServices";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { websiteCustomerPrice, type CustomerType } from "@/lib/booking/pricing/websiteVat";
 import {
@@ -70,10 +70,9 @@ type Props = {
   // Whether the options start expanded (the admin editor opens an order's
   // existing products collapsed).
   defaultOpen?: boolean;
-  // "My order" within 24h of the job: the card as booked. Its services stay
-  // (shown ticked, not clickable), only new ones can be added, the delivery
-  // type can only be upgraded, and the installation type stays as booked —
-  // see bookedServices.ts.
+  // "My order" within 24h of the job: the card as booked. The card is then
+  // just the product icon and the services that can still be added; booked
+  // ones stay on the card (keepBookedServices) without being listed.
   booked?: SavedProductCard;
 };
 
@@ -217,8 +216,6 @@ export function WhiteGoodsProductCard({
   const [open, setOpen] = useState(defaultOpen);
   const emit = (next: SavedProductCard) => onChange(booked ? keepBookedServices(booked, next) : next);
   const lockedService = (optionId: string) => !!booked && isBookedService(booked, optionId);
-  const deliveryLocked = (type: string) => !!booked && !allowedDeliveryTypes(booked).includes(type);
-  const installTypeLocked = !!booked;
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const money = (raw: string) => {
     const n = Number(raw);
@@ -297,6 +294,11 @@ export function WhiteGoodsProductCard({
     locale,
   );
   const dismantlingGroups = groupDismantlingOptions(product.options, locale);
+  // A dismantling type with either variant booked is done — the other can't
+  // replace it.
+  const visibleDismantlingGroups = dismantlingGroups.filter(
+    (group) => ![group.disposal, group.careful].some((o) => !!o && lockedService(o.id)),
+  );
   const anchoringOption =
     product.options.find((o) => o.active && o.code === "WALL_ANCHORING") ??
     null;
@@ -480,6 +482,229 @@ export function WhiteGoodsProductCard({
     sizeInfo: seedProduct?.sizeInfo ?? null,
   });
 
+  // The additional-service rows; booked ones aren't listed when `booked`.
+  const servicesList = (
+    <div className="flex flex-col gap-2">
+      {showExtras && unpackingOption && !lockedService(unpackingOption.id) && (
+        <OptionRow
+          variant="checkbox"
+          selected={value.selectedExtraOptionIds.includes(
+            unpackingOption.id,
+          )}
+          title={t(
+            "Unpack & remove packaging",
+            "Utpakking og kasting av emballasje",
+          )}
+          description={t(
+            "We unpack the product and take the packaging with us.",
+            "Vi pakker ut varen og tar med emballasjen.",
+          )}
+          price={money(unpackingOption.customerPrice)}
+          onClick={toggleUnpacking}
+        />
+      )}
+      {!booked &&
+        isFurniture &&
+        !showExtras &&
+        installSelected &&
+        unpackingOption && (
+          <OptionRow
+            variant="checkbox"
+            selected
+            disabled
+            title={t(
+              "Unpack & remove packaging",
+              "Utpakking og kasting av emballasje",
+            )}
+            description={t(
+              "Included in the assembly.",
+              "Inkludert i monteringen.",
+            )}
+            price={included}
+            priceClassName="text-logoblue"
+            onClick={() => {}}
+          />
+        )}
+      {showExtras && demontOption && !booked?.demontEnabled && (
+        <OptionRow
+          variant="checkbox"
+          selected={value.demontEnabled}
+          title={t(
+            "Dismantle old product",
+            "Demontering av gammel vare",
+          )}
+          description={t(
+            "We disconnect and remove your old product.",
+            "Vi kobler fra og fjerner den gamle varen din.",
+          )}
+          price={money(demontOption.customerPrice)}
+          onClick={() =>
+            emit({
+              ...value,
+              demontEnabled: !value.demontEnabled,
+            })
+          }
+        />
+      )}
+      {showExtras && palletPickupOption && !lockedService(palletPickupOption.id) && (
+        <OptionRow
+          variant="checkbox"
+          selected={value.selectedExtraOptionIds.includes(
+            palletPickupOption.id,
+          )}
+          title={t("Take the empty pallet", "Ta med tom pall")}
+          description={t(
+            "We take the empty pallet with us.",
+            "Vi tar med oss den tomme pallen.",
+          )}
+          price={money(palletPickupOption.customerPrice)}
+          onClick={() => toggleExtraOption(palletPickupOption.id)}
+        />
+      )}
+      {visibleDismantlingGroups.length > 0 && furnitureAddonsVisible && (
+        <div className="overflow-hidden rounded-xl border border-black/10">
+          <div className="border-b border-black/10 bg-black/2 px-4 py-3">
+            <div className="text-sm font-semibold text-black/85">
+              {t(
+                "Dismantle old furniture",
+                "Demontering av gamle møbler",
+              )}
+            </div>
+            <div className="mt-0.5 text-xs text-black/50">
+              {t(
+                "For disposal is quick removal. For reuse keeps the parts intact for reassembly.",
+                "For avhending er rask fjerning. For gjenbruk tas delene vare på for montering.",
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col divide-y divide-black/10">
+            {visibleDismantlingGroups.map((group) => {
+              const groupSelected = [
+                group.disposal,
+                group.careful,
+              ].some(
+                (o) =>
+                  !!o &&
+                  value.selectedExtraOptionIds.includes(o.id),
+              );
+              return (
+                <div
+                  key={group.key}
+                  className={[
+                    "flex flex-col gap-2 px-4 py-3 transition sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+                    groupSelected ? "bg-logoblue/5" : "",
+                  ].join(" ")}
+                >
+                  <span className="text-sm font-semibold text-black/85">
+                    {group.label}
+                  </span>
+                  <span className="grid grid-cols-2 gap-2 sm:w-80 sm:shrink-0">
+                    {[
+                      {
+                        option: group.disposal,
+                        label: t("For disposal", "For avhending"),
+                      },
+                      {
+                        option: group.careful,
+                        label: t("For reuse", "For gjenbruk"),
+                      },
+                    ].map(({ option, label }) => {
+                      if (!option) return null;
+                      const isSelected =
+                        value.selectedExtraOptionIds.includes(
+                          option.id,
+                        );
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() =>
+                            selectDismantling(group, option)
+                          }
+                          className={[
+                            "flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition",
+                            isSelected
+                              ? "border-logoblue bg-logoblue text-white"
+                              : "border-black/15 bg-white text-black/80 hover:border-logoblue/50",
+                          ].join(" ")}
+                        >
+                          <span className="flex items-center justify-between gap-2 text-xs font-semibold">
+                            <span>{label}</span>
+                            {isSelected && (
+                              <span className="text-[11px] leading-none">
+                                ✓
+                              </span>
+                            )}
+                          </span>
+                          <span className="whitespace-nowrap text-sm font-semibold">
+                            {money(option.customerPrice)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {anchoringOption && furnitureAddonsVisible && !lockedService(anchoringOption.id) && (
+        <OptionRow
+          variant="checkbox"
+          selected={value.selectedExtraOptionIds.includes(
+            anchoringOption.id,
+          )}
+          title={t(
+            "Wall anchoring / anti-tip securing",
+            "Veggforankring / veltesikring",
+          )}
+          price={money(anchoringOption.customerPrice)}
+          onClick={() => toggleExtraOption(anchoringOption.id)}
+        />
+      )}
+      {showReturn && returnOption && !booked?.selectedReturnOptionId && (
+        <OptionRow
+          variant="checkbox"
+          selected={
+            value.selectedReturnOptionId === returnOption.id
+          }
+          title={t(
+            "Return old product for recycling",
+            "Retur av gammel vare til gjenvinning",
+          )}
+          description={t(
+            "We ensure it's recycled responsibly.",
+            "Vi sørger for at den resirkuleres på en forsvarlig måte.",
+          )}
+          price={money(returnOption.customerPrice)}
+          onClick={toggleReturn}
+        />
+      )}
+    </div>
+  );
+
+  // "My order" within 24h of the job: the product's icon and name on the
+  // left, the services that can still be added on the right.
+  if (booked) {
+    return (
+      <div className="grid grid-cols-1 gap-4 rounded-2xl border border-black/10 bg-white p-4 sm:grid-cols-[140px_1fr] sm:items-start">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <div className="grid h-20 w-20 place-items-center rounded-2xl bg-logoblue/5">
+            <ProductIcon code={product.code} iconKey={product.iconKey} className="h-11 w-11 text-logoblue" />
+          </div>
+          <div className="text-sm font-semibold text-black/85">
+            {productName}
+            {variantNumber !== undefined && <span className="ml-1 text-black/50">#{variantNumber}</span>}
+          </div>
+          {value.amount > 1 && <div className="text-xs text-black/50">{value.amount}×</div>}
+        </div>
+        {servicesList}
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
       {/* Solid blue title band, so a stack of cards is easy to count. */}
@@ -591,7 +816,6 @@ export function WhiteGoodsProductCard({
                   )}
                   price={money(String(deliveryPreview.firstStep.price))}
                   onClick={() => setDeliveryType("FIRST_STEP")}
-                  disabled={deliveryLocked("FIRST_STEP")}
                 />
                 {offersCarryIn(product.deliveryTypes) && (
                 <OptionRow
@@ -608,7 +832,6 @@ export function WhiteGoodsProductCard({
                   )}
                   price={money(String(deliveryPreview.indoor.price))}
                   onClick={() => setDeliveryType("INDOOR")}
-                  disabled={deliveryLocked("INDOOR")}
                 />
                 )}
                 {installOnlyAvailable && (
@@ -637,7 +860,6 @@ export function WhiteGoodsProductCard({
                         : undefined
                     }
                     onClick={() => setDeliveryType("INSTALL_ONLY")}
-                    disabled={deliveryLocked("INSTALL_ONLY")}
                   />
                 )}
               </div>
@@ -675,7 +897,6 @@ export function WhiteGoodsProductCard({
                       "Du monterer selv.",
                     )}
                     onClick={clearInstallation}
-                    disabled={installTypeLocked}
                   />
                 )}
                 {assemblyGroups.length > 0
@@ -697,7 +918,6 @@ export function WhiteGoodsProductCard({
                             onClick={() =>
                               selectType(group.options[0].option.id)
                             }
-                            disabled={installTypeLocked}
                           />
                         );
                       }
@@ -717,7 +937,6 @@ export function WhiteGoodsProductCard({
                             )}
                             onClick={clearInstallation}
                             bare
-                            disabled={installTypeLocked}
                           />
                           {group.options.map(
                             ({ option, manufacturerLabel }) => (
@@ -732,7 +951,6 @@ export function WhiteGoodsProductCard({
                                 onClick={() => selectType(option.id)}
                                 bare
                                 nested
-                                disabled={installTypeLocked}
                               />
                             ),
                           )}
@@ -764,7 +982,6 @@ export function WhiteGoodsProductCard({
                             }
                             price={money(option.customerPrice)}
                             onClick={() => selectType(option.id)}
-                            disabled={installTypeLocked}
                           />
                         );
                       }
@@ -783,7 +1000,6 @@ export function WhiteGoodsProductCard({
                             price={money(option.customerPrice)}
                             onClick={() => selectType(option.id)}
                             bare
-                            disabled={installTypeLocked}
                           />
                           {nestedCheckboxes.map((stackOption) => {
                             const stackSeed = seedByCode.get(stackOption.code);
@@ -804,7 +1020,6 @@ export function WhiteGoodsProductCard({
                                   toggleStackableInstall(stackOption.id)
                                 }
                                 bare
-                                disabled={lockedService(stackOption.id)}
                               />
                             );
                           })}
@@ -830,215 +1045,7 @@ export function WhiteGoodsProductCard({
                     "Velg eventuelle tilleggstjenester.",
                   )}
                 />
-                <div className="flex flex-col gap-2">
-                  {showExtras && unpackingOption && (
-                    <OptionRow
-                      variant="checkbox"
-                      selected={value.selectedExtraOptionIds.includes(
-                        unpackingOption.id,
-                      )}
-                      title={t(
-                        "Unpack & remove packaging",
-                        "Utpakking og kasting av emballasje",
-                      )}
-                      description={t(
-                        "We unpack the product and take the packaging with us.",
-                        "Vi pakker ut varen og tar med emballasjen.",
-                      )}
-                      price={money(unpackingOption.customerPrice)}
-                      onClick={toggleUnpacking}
-                      disabled={lockedService(unpackingOption.id)}
-                    />
-                  )}
-                  {isFurniture &&
-                    !showExtras &&
-                    installSelected &&
-                    unpackingOption && (
-                      <OptionRow
-                        variant="checkbox"
-                        selected
-                        disabled
-                        title={t(
-                          "Unpack & remove packaging",
-                          "Utpakking og kasting av emballasje",
-                        )}
-                        description={t(
-                          "Included in the assembly.",
-                          "Inkludert i monteringen.",
-                        )}
-                        price={included}
-                        priceClassName="text-logoblue"
-                        onClick={() => {}}
-                      />
-                    )}
-                  {showExtras && demontOption && (
-                    <OptionRow
-                      variant="checkbox"
-                      selected={value.demontEnabled}
-                      title={t(
-                        "Dismantle old product",
-                        "Demontering av gammel vare",
-                      )}
-                      description={t(
-                        "We disconnect and remove your old product.",
-                        "Vi kobler fra og fjerner den gamle varen din.",
-                      )}
-                      price={money(demontOption.customerPrice)}
-                      onClick={() =>
-                        emit({
-                          ...value,
-                          demontEnabled: !value.demontEnabled,
-                        })
-                      }
-                      disabled={!!booked?.demontEnabled}
-                    />
-                  )}
-                  {showExtras && palletPickupOption && (
-                    <OptionRow
-                      variant="checkbox"
-                      selected={value.selectedExtraOptionIds.includes(
-                        palletPickupOption.id,
-                      )}
-                      title={t("Take the empty pallet", "Ta med tom pall")}
-                      description={t(
-                        "We take the empty pallet with us.",
-                        "Vi tar med oss den tomme pallen.",
-                      )}
-                      price={money(palletPickupOption.customerPrice)}
-                      onClick={() => toggleExtraOption(palletPickupOption.id)}
-                      disabled={lockedService(palletPickupOption.id)}
-                    />
-                  )}
-                  {dismantlingGroups.length > 0 && furnitureAddonsVisible && (
-                    <div className="overflow-hidden rounded-xl border border-black/10">
-                      <div className="border-b border-black/10 bg-black/2 px-4 py-3">
-                        <div className="text-sm font-semibold text-black/85">
-                          {t(
-                            "Dismantle old furniture",
-                            "Demontering av gamle møbler",
-                          )}
-                        </div>
-                        <div className="mt-0.5 text-xs text-black/50">
-                          {t(
-                            "For disposal is quick removal. For reuse keeps the parts intact for reassembly.",
-                            "For avhending er rask fjerning. For gjenbruk tas delene vare på for montering.",
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col divide-y divide-black/10">
-                        {dismantlingGroups.map((group) => {
-                          // Once either variant is booked, the other can't replace it.
-                          const groupBooked = [group.disposal, group.careful].some(
-                            (o) => !!o && lockedService(o.id),
-                          );
-                          const groupSelected = [
-                            group.disposal,
-                            group.careful,
-                          ].some(
-                            (o) =>
-                              !!o &&
-                              value.selectedExtraOptionIds.includes(o.id),
-                          );
-                          return (
-                            <div
-                              key={group.key}
-                              className={[
-                                "flex flex-col gap-2 px-4 py-3 transition sm:flex-row sm:items-center sm:justify-between sm:gap-4",
-                                groupSelected ? "bg-logoblue/5" : "",
-                              ].join(" ")}
-                            >
-                              <span className="text-sm font-semibold text-black/85">
-                                {group.label}
-                              </span>
-                              <span className="grid grid-cols-2 gap-2 sm:w-80 sm:shrink-0">
-                                {[
-                                  {
-                                    option: group.disposal,
-                                    label: t("For disposal", "For avhending"),
-                                  },
-                                  {
-                                    option: group.careful,
-                                    label: t("For reuse", "For gjenbruk"),
-                                  },
-                                ].map(({ option, label }) => {
-                                  if (!option) return null;
-                                  const isSelected =
-                                    value.selectedExtraOptionIds.includes(
-                                      option.id,
-                                    );
-                                  return (
-                                    <button
-                                      key={option.id}
-                                      type="button"
-                                      aria-pressed={isSelected}
-                                      onClick={() =>
-                                        selectDismantling(group, option)
-                                      }
-                                      disabled={groupBooked}
-                                      className={[
-                                        "flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition",
-                                        groupBooked ? "cursor-default opacity-70" : "",
-                                        isSelected
-                                          ? "border-logoblue bg-logoblue text-white"
-                                          : "border-black/15 bg-white text-black/80 hover:border-logoblue/50",
-                                      ].join(" ")}
-                                    >
-                                      <span className="flex items-center justify-between gap-2 text-xs font-semibold">
-                                        <span>{label}</span>
-                                        {isSelected && (
-                                          <span className="text-[11px] leading-none">
-                                            ✓
-                                          </span>
-                                        )}
-                                      </span>
-                                      <span className="whitespace-nowrap text-sm font-semibold">
-                                        {money(option.customerPrice)}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  {anchoringOption && furnitureAddonsVisible && (
-                    <OptionRow
-                      variant="checkbox"
-                      selected={value.selectedExtraOptionIds.includes(
-                        anchoringOption.id,
-                      )}
-                      title={t(
-                        "Wall anchoring / anti-tip securing",
-                        "Veggforankring / veltesikring",
-                      )}
-                      price={money(anchoringOption.customerPrice)}
-                      onClick={() => toggleExtraOption(anchoringOption.id)}
-                      disabled={lockedService(anchoringOption.id)}
-                    />
-                  )}
-                  {showReturn && returnOption && (
-                    <OptionRow
-                      variant="checkbox"
-                      selected={
-                        value.selectedReturnOptionId === returnOption.id
-                      }
-                      title={t(
-                        "Return old product for recycling",
-                        "Retur av gammel vare til gjenvinning",
-                      )}
-                      description={t(
-                        "We ensure it's recycled responsibly.",
-                        "Vi sørger for at den resirkuleres på en forsvarlig måte.",
-                      )}
-                      price={money(returnOption.customerPrice)}
-                      onClick={toggleReturn}
-                      disabled={!!booked?.selectedReturnOptionId}
-                    />
-                  )}
-                </div>
+                {servicesList}
               </div>
             )}
             {belowOptions && <div>{belowOptions(showExtrasStep ? extrasStepNumber + 1 : extrasStepNumber)}</div>}

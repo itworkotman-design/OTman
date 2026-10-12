@@ -158,6 +158,14 @@ export default function CustomerOrderEditFooter({
           <p className="text-black/50">{t("Make your changes above.", "Gjør endringene dine over.")}</p>
         ) : previewing ? (
           <p className="text-black/50">{t("Calculating price…", "Beregner pris…")}</p>
+        ) : preview && !beforeCutoff ? (
+          // Within 24h services can only be added: just what they cost.
+          delta > 0 ? (
+            <div className="flex justify-between gap-4 font-semibold text-logoblue">
+              <span>{t("Added services (incl. VAT)", "Tilleggstjenester (inkl. MVA)")}</span>
+              <span className="tabular-nums">+{kr(delta)}</span>
+            </div>
+          ) : null
         ) : preview ? (
           <div className="flex flex-col gap-1">
             <div className="flex justify-between gap-4">

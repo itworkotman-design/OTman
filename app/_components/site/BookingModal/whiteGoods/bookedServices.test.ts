@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyProductCard, type SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { allowedDeliveryTypes, isBookedService, keepBookedServices } from "./bookedServices";
+import {
+  createEmptyProductCard,
+  type CatalogOption,
+  type CatalogProduct,
+  type SavedProductCard,
+} from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { allowedDeliveryTypes, hasAddableServices, isBookedService, keepBookedServices } from "./bookedServices";
 
 const booked: SavedProductCard = {
   ...createEmptyProductCard(0),
@@ -54,5 +59,59 @@ describe("keepBookedServices", () => {
   it("leaves everything that isn't a service as it is", () => {
     const next = { ...booked, modelNumber: "Sofa", amount: 1 };
     expect(keepBookedServices(booked, next).modelNumber).toBe("Sofa");
+  });
+});
+
+function option(id: string, code: string): CatalogOption {
+  return {
+    id,
+    code,
+    label: code,
+    description: null,
+    category: null,
+    customerPrice: "100",
+    subcontractorPrice: "50",
+    effectiveCustomerPrice: "100",
+    active: true,
+  };
+}
+
+function product(code: string, options: CatalogOption[]): CatalogProduct {
+  return { code, options } as CatalogProduct;
+}
+
+describe("hasAddableServices", () => {
+  const dishwasher = product("WG_DISHWASHER", [
+    option("inst", "DISHWASHER_STD_WET"),
+    option("unpack", "UNPACKING"),
+    option("demont", "DEMONT"),
+    option("return", "RETURN_RECYCLING"),
+  ]);
+  const doorstep: SavedProductCard = { ...createEmptyProductCard(0), productId: "p-dw", deliveryType: "FIRST_STEP" };
+
+  it("is true while an additional service isn't booked yet", () => {
+    expect(hasAddableServices(dishwasher, doorstep)).toBe(true);
+    expect(hasAddableServices(dishwasher, { ...doorstep, selectedExtraOptionIds: ["unpack"], demontEnabled: true })).toBe(true);
+  });
+
+  it("is false once every additional service is booked", () => {
+    const full = { ...doorstep, selectedExtraOptionIds: ["unpack"], demontEnabled: true, selectedReturnOptionId: "return" };
+    expect(hasAddableServices(dishwasher, full)).toBe(false);
+  });
+
+  it("ignores extras the card doesn't offer once installation is booked (only return is left)", () => {
+    const installed = { ...doorstep, deliveryType: "INDOOR" as const, selectedInstallOptionIds: ["inst"] };
+    expect(hasAddableServices(dishwasher, installed)).toBe(true);
+    expect(hasAddableServices(dishwasher, { ...installed, selectedReturnOptionId: "return" })).toBe(false);
+  });
+
+  it("is false for a product with no additional services", () => {
+    expect(hasAddableServices(product("WG_DISHWASHER", [option("inst", "DISHWASHER_STD_WET")]), doorstep)).toBe(false);
+  });
+
+  it("counts a furniture dismantling type as booked when either variant is", () => {
+    const sofa = product("FN_SOFA", [option("disp", "DISMANTLE_DISP_SOFA"), option("car", "DISMANTLE_CAR_SOFA")]);
+    expect(hasAddableServices(sofa, doorstep)).toBe(true);
+    expect(hasAddableServices(sofa, { ...doorstep, selectedExtraOptionIds: ["car"] })).toBe(false);
   });
 });

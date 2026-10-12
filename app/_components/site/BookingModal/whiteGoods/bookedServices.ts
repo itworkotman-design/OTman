@@ -1,5 +1,7 @@
-import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_UPGRADES } from "@/lib/orders/customerOrderEditPolicy";
+import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
+import { groupDismantlingOptions } from "./optionGroups";
 
 // Within 24h of the job, "My order" only lets a customer add services to a
 // product (lib/orders/customerOrderEditPolicy.ts): what's booked stays, and
@@ -32,4 +34,30 @@ export function keepBookedServices(booked: SavedProductCard, next: SavedProductC
     selectedReturnOptionId: booked.selectedReturnOptionId ?? next.selectedReturnOptionId,
     demontEnabled: booked.demontEnabled || next.demontEnabled,
   };
+}
+
+// Whether the booked card still has an "Additional services" row to tick —
+// the same rows WhiteGoodsProductCard shows for its delivery and installation
+// as booked. "My order" within 24h only shows the cards where it does.
+export function hasAddableServices(product: CatalogProduct, booked: SavedProductCard): boolean {
+  if (booked.deliveryType === "") return false;
+  const option = (code: string) => product.options.find((o) => o.code === code) ?? null;
+  const notBooked = (id: string | undefined) => !!id && !isBookedService(booked, id);
+
+  const showExtras = booked.selectedInstallOptionIds.length === 0;
+  const seeds = findWebsiteProductSeed(product.code)?.options ?? [];
+  const returnOption = product.options.find((o) => seeds.some((s) => s.code === o.code && s.category === "return"));
+  const isFurniture = product.code.startsWith("FN_");
+  const anchoring = product.options.find((o) => o.active && o.code === "WALL_ANCHORING");
+  const dismantlingGroups = groupDismantlingOptions(product.options, "no");
+
+  return (
+    (showExtras && notBooked(option("UNPACKING")?.id)) ||
+    (showExtras && !!option("DEMONT") && !booked.demontEnabled) ||
+    (showExtras && notBooked(option("PALLET_PICKUP")?.id)) ||
+    (isFurniture &&
+      dismantlingGroups.some((g) => !isBookedService(booked, g.disposal?.id ?? "") && !isBookedService(booked, g.careful?.id ?? ""))) ||
+    (isFurniture && notBooked(anchoring?.id)) ||
+    (!!returnOption && !booked.selectedReturnOptionId)
+  );
 }

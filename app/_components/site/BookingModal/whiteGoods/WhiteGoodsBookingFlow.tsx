@@ -33,7 +33,7 @@ import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { ContactDetailsCard } from "./ContactDetailsCard";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { buildOrderReviewBlocks, type ReviewInput } from "./orderReview";
-import { LateChangeLockedSummary } from "./LateChangeLockedSummary";
+import { hasAddableServices } from "./bookedServices";
 import { PickupContactPersonsCard, type PickupContactPerson } from "./PickupContactPersonsCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
@@ -986,17 +986,25 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       ),
     };
 
+    // Within 24h of the job only the cards with a service left to add — one
+    // whose services are all booked has nothing to click.
+    const optionCards = cardsForList(productCards, listProducts).filter((card) => {
+      if (!customerLocked) return true;
+      const product = listProducts.find((p) => p.id === card.productId);
+      const booked = bookedCards.get(card.cardId);
+      return !!product && !!booked && hasAddableServices(product, booked);
+    });
     const optionsStep: StepSection = {
       id: `product-options-${code}`,
       title: t("Product options", "Produktvalg") + suffix,
       // Nothing to configure once every product of the list is unticked.
-      hidden: cardsForList(productCards, listProducts).length === 0,
+      hidden: optionCards.length === 0,
       render: ({ onComplete, onUncomplete }) => (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
+        <div className={customerLocked ? "flex flex-col gap-4" : "grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]"}>
           <div className="flex flex-col gap-4">
             <AnimatedStack
               gap={16}
-              items={cardsForList(productCards, listProducts).flatMap((card) => {
+              items={optionCards.flatMap((card) => {
                 const product = listProducts.find((p) => p.id === card.productId);
                 if (!product) return [];
                 // Cards of one product sit next to each other (see
@@ -1066,7 +1074,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
 
           {/* Every options step keeps its own calculator. It is sticky within
               its step, so scrolling past one step hands over to the next
-              step's calculator instead of the column disappearing. */}
+              step's calculator instead of the column disappearing. Within 24h
+              of the job ("My order") there is no calculator — the footer
+              shows what the added services cost. */}
+          {!customerLocked && (
           <div className="lg:sticky lg:top-0 lg:self-start">
             <WhiteGoodsOrderSummary
               locale={locale}
@@ -1077,6 +1088,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
               customerType={customerType ?? "private"}
             />
           </div>
+          )}
         </div>
       ),
     };
@@ -1350,13 +1362,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     contact: { name, phone, email, notes },
   };
   const reviewBlocks = buildOrderReviewBlocks(locale, reviewInput);
-  // Within 24h: the stops and delivery as booked, without what's still
-  // editable (contact persons) or internal (the driving distance).
-  const lockedBlocks = buildOrderReviewBlocks(locale, {
-    ...reviewInput,
-    drivingDistance: "",
-    pickups: reviewInput.pickups.map((pickup) => ({ ...pickup, contactName: "", contactPhone: "" })),
-  }).filter((block) => block.kind === "location");
 
   const finalStep: FinalStep = {
     render: ({ onBack }) =>
@@ -1572,16 +1577,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   ];
 
   if (customer) {
-    // Within 24h of the job its own set of sections: what's booked
-    // (read-only), contact details and comment, pickup contact persons, and
-    // services to add. Otherwise everything but the customer type, which was
-    // answered at booking.
+    // Within 24h of the job its own set of sections, all untitled: contact
+    // details and comment, pickup contact persons, and services to add.
+    // Otherwise everything but the customer type, which was answered at
+    // booking.
     const lateSections: StepSection[] = [
-      {
-        id: "locked-summary",
-        title: t("Your booking", "Din bestilling"),
-        render: () => <LateChangeLockedSummary locale={locale} blocks={lockedBlocks} />,
-      },
       ...sections.filter((section) => section.id === "contact"),
       {
         id: "pickup-contacts",
@@ -1590,11 +1590,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         render: () => <PickupContactPersonsCard locale={locale} stops={pickupContactPersons} />,
       },
       ...sections.filter((section) => section.id.startsWith("product-options-")),
-    ];
+    ].map((section) => ({ ...section, title: "", description: undefined }));
     const customerSections = customerLocked ? lateSections : sections.filter((section) => section.id !== "customer-type");
     return (
       <SteppedModal
         showAll
+        // The late sections are untitled, so they sit closer together.
+        sectionGap={customerLocked ? 16 : undefined}
         sections={adminReady ? customerSections : loadingSections}
         finalStep={finalStep}
         onClose={onClose}

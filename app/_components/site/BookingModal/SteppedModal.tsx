@@ -59,6 +59,9 @@ type SteppedModalProps = {
   title?: ReactNode;
   // Pinned below the scrolling body (e.g. the admin's save bar).
   footer?: ReactNode;
+  // Space between sections, in px — room for each section's title by
+  // default; smaller when the sections are untitled.
+  sectionGap?: number;
 };
 
 const TRANSITION_MS = 300;
@@ -171,7 +174,7 @@ export function AnimatedStack({ items, gap, className = "" }: { items: AnimatedS
   );
 }
 
-export function SteppedModal({ sections, finalStep, onClose, showAll = false, title, footer }: SteppedModalProps) {
+export function SteppedModal({ sections, finalStep, onClose, showAll = false, title, footer, sectionGap = 40 }: SteppedModalProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -346,16 +349,19 @@ export function SteppedModal({ sections, finalStep, onClose, showAll = false, ti
           <div className={showFinalStep ? "hidden" : ""}>
             <AnimatedStack
               // Space above each section title (below the previous section).
-              gap={40}
+              gap={sectionGap}
               className="flex flex-col"
               items={visibleSections.map((section, index) => ({
                 key: section.id,
                 hidden: section.hidden,
                 node: (
                   <div>
-                    <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
+                    {/* An empty title (e.g. "My order"'s contact details) renders untitled. */}
+                    {section.title && (
+                      <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
+                    )}
                     {section.description && <p className="mt-1 text-center text-sm text-black/60">{section.description}</p>}
-                    <div className="mt-[2rem]">
+                    <div className={section.title || section.description ? "mt-[2rem]" : ""}>
                       {section.render({
                         isActive: index === revealedCount - 1,
                         onComplete: () => handleSectionComplete(index),
