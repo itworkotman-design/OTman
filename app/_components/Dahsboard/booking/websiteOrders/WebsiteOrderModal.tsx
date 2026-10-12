@@ -1,5 +1,6 @@
 "use client";
 
+import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 import { Fragment, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
@@ -55,6 +56,10 @@ export type WebsiteOrderView = {
   calculator: WebsiteOrderCalculatorView | null;
   // The customer total at today's catalog prices — "Use new price" when it differs.
   currentPricesTotal?: number | null;
+  // What "Use new price" would change, line by line.
+  priceChanges?: PriceChangeRow[];
+  // Products whose saved prices lack their delivery type or an option.
+  savedPricesIncomplete?: string[];
 };
 
 type Props = {
@@ -306,6 +311,8 @@ export default function WebsiteOrderModal({
                 besideSave={deleteButton}
                 storedTotal={order.priceExVat}
                 currentPricesTotal={order.currentPricesTotal ?? null}
+                priceChanges={order.priceChanges ?? []}
+                savedPricesIncomplete={order.savedPricesIncomplete ?? []}
                 onSaved={(message) => {
                   setEditDirty(false);
                   setTab("overview");
@@ -381,6 +388,8 @@ export default function WebsiteOrderModal({
                     missingFromLines={order.totalsCheck.missingFromLines}
                     storedTotal={order.priceExVat}
                     currentPricesTotal={order.currentPricesTotal ?? null}
+                    priceChanges={order.priceChanges ?? []}
+                    savedPricesIncomplete={order.savedPricesIncomplete ?? []}
                     locale={locale}
                     onDraftChange={setPricingDraft}
                     priceChangeTarget={priceChangeSlot}

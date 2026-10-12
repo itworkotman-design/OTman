@@ -386,6 +386,14 @@ describe("/api/orders/[orderId]/website-items", () => {
       }
       expect(mocks.transactionMock).not.toHaveBeenCalled();
     });
+
+    it("refuses a save whose prices would leave a product's delivery or option out", async () => {
+      mocks.recomputeMock.mockResolvedValue({ ...recomputed(1500), missingPriceCardIds: [1] });
+      const res = await put(twoCards);
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({ reason: "PRICING_INCOMPLETE", cardIds: [1] });
+      expect(mocks.transactionMock).not.toHaveBeenCalled();
+    });
   });
 
   describe("PUT (save details)", () => {

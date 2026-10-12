@@ -372,6 +372,9 @@ export async function PUT(req: Request, { params }: Params) {
     console.error("[website-items] Failed to re-price order:", err);
     return reject("UPDATE_FAILED", 500);
   }
+  if (recomputed.missingPriceCardIds?.length) {
+    return reject("PRICING_INCOMPLETE", 409, { cardIds: recomputed.missingPriceCardIds });
+  }
 
   // The order as it would be after this save, against what was paid.
   const nextBookingDetails = (() => {

@@ -210,6 +210,17 @@ describe("customer order route", () => {
     });
   });
 
+  describe("pricing guard", () => {
+    it("refuses a change whose prices would leave a product's delivery or option out", async () => {
+      mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => ({ ...recomputed(1200, cards), missingPriceCardIds: [0] }));
+      const res = await put({ productCards: [{ ...washerCard, selectedExtraOptionIds: ["unpack"] }], shownTotal: 1500 });
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({ reason: "PRICING_INCOMPLETE" });
+      expect(mocks.transaction).not.toHaveBeenCalled();
+    });
+  });
+
   describe("pickup assignment", () => {
     it("refuses a product added to a split order that no pickup stop collects", async () => {
       const homePickup = { ...storePickup, source: "home", placeName: "", address: "Bjerkeveien 2", floor: 1, cardIds: [1] };

@@ -11,6 +11,7 @@ import { ProductCardNew } from "@/app/_components/Dahsboard/booking/create/Produ
 import BookingCalculatorPanel from "@/app/_components/Dahsboard/booking/create/BookingCalculatorPanel";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
+import { diffCalculatorRows } from "@/lib/booking/pricing/priceChanges";
 import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges";
 import { CUSTOM_DEVIATION_CODE, normalizeDeviationLabel } from "@/lib/booking/pricing/deviationFees";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
@@ -1397,12 +1398,14 @@ export default function BookingEditor({
   );
   const currentCatalogTotalExVat = currentOrderPricingTotals.totalExVat;
   const currentCatalogSubcontractorTotal = currentOrderPricingTotals.subcontractorTotal;
-  const hasCurrentPriceUpdates =
-    Boolean(initialValues?.id && savedPricingSnapshot) &&
-    (roundPriceRule(storedOrderPricingTotals.totalExVat) !==
-      roundPriceRule(currentOrderPricingTotals.totalExVat) ||
-      roundPriceRule(storedOrderPricingTotals.subcontractorTotal) !==
-        roundPriceRule(currentOrderPricingTotals.subcontractorTotal));
+  // "Use new price" row by row: the calculator at the saved prices against
+  // today's catalog. Only a row whose price moved counts — not a difference
+  // between the stored total and a fresh calculation.
+  const priceChangeRows = useMemo(
+    () => diffCalculatorRows(storedSnapshotPricingResult, currentCatalogPricingResult),
+    [storedSnapshotPricingResult, currentCatalogPricingResult],
+  );
+  const hasCurrentPriceUpdates = Boolean(initialValues?.id && savedPricingSnapshot) && priceChangeRows.length > 0;
 
   useEffect(() => {
     if (!initialValues?.legacyWordpressOrderId) {
@@ -2595,6 +2598,7 @@ export default function BookingEditor({
               priceUpdateAvailable={hasCurrentPriceUpdates}
               priceUpdateStoredTotalExVat={priceExVat}
               priceUpdateCurrentTotalExVat={currentCatalogTotalExVat}
+              priceChangeRows={priceChangeRows}
               onUseCurrentPrices={handleUseCurrentPrices}
               sidebarMode
               locale={locale}
@@ -2624,6 +2628,7 @@ export default function BookingEditor({
             priceUpdateAvailable={hasCurrentPriceUpdates}
             priceUpdateStoredTotalExVat={priceExVat}
             priceUpdateCurrentTotalExVat={currentCatalogTotalExVat}
+            priceChangeRows={priceChangeRows}
             onUseCurrentPrices={handleUseCurrentPrices}
             locale={locale}
             forcedTotalExVat={initialValues?.id ? priceExVat : undefined}

@@ -15,7 +15,10 @@ import { handlingFromOrder } from "@/lib/orders/websiteOrderHandling";
 import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
 import { recomputeWebsiteOrderPricing, resolveSavedCatalogPricing } from "@/lib/orders/websiteOrderRepricing";
 import { websiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
-import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { normalizeSavedProductCard, type SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
+import { findMissingSnapshotPrices } from "@/lib/orders/websitePriceChanges";
+import { diffCalculatorRows, type PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 
 // Read-only view of a homepage white-goods website order for the admin
 // WebsiteOrderModal. Kept separate from GET /api/orders/[orderId] (which backs
@@ -127,8 +130,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
   // (resolveSavedCatalogPricing), else priced with today's catalog.
   let calculator = null;
   let currentPricesTotal: number | null = null;
+  // What "Use new price" would change, line by line.
+  let priceChanges: PriceChangeRow[] = [];
+  const cards = Array.isArray(order.productCardsSnapshot) ? (order.productCardsSnapshot as unknown as SavedProductCard[]) : [];
   try {
-    const cards = Array.isArray(order.productCardsSnapshot) ? (order.productCardsSnapshot as unknown as SavedProductCard[]) : [];
     const catalogPricing = await resolveSavedCatalogPricing(order, cards, order.items ?? []);
     const priced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing });
     calculator = websiteOrderCalculatorView(priced.pricingResult, {
@@ -138,9 +143,26 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
     });
     const current = catalogPricing ? await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true }) : priced;
     currentPricesTotal = websiteOrderCalculatorView(current.pricingResult, { includePartner: false }).customer.total;
+    if (current !== priced) {
+      const rows = diffCalculatorRows(priced.pricingResult, current.pricingResult);
+      // Partner prices only for who may see them.
+      priceChanges = canSeePartnerPrices
+        ? rows
+        : rows.filter((row) => row.saved !== row.now).map((row) => ({ ...row, savedPartner: null, nowPartner: null }));
+    }
   } catch (err) {
     console.error("[website-details] Couldn't price the order for the calculator:", err);
   }
+  // Products whose saved prices lack their delivery type or an option — the
+  // order may be stored without that charge.
+  const savedSnapshot = getSavedOrderPricingSnapshot(cards);
+  const storedLines = pricingLinesFromSnapshot(order.pricingSnapshot);
+  const savedPricesIncomplete = savedSnapshot
+    ? findMissingSnapshotPrices(
+        cards.map((card, i) => normalizeSavedProductCard(card, i)),
+        savedSnapshot,
+      ).map((cardId) => storedLines.find((line) => line.cardId === cardId)?.productName ?? `#${cardId + 1}`)
+    : [];
 
   return NextResponse.json({
     ok: true,
@@ -183,6 +205,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       calculator,
       // The customer total at today's catalog prices ("Use new price" when it differs).
       currentPricesTotal,
+      priceChanges,
+      savedPricesIncomplete,
       // The fields only an admin handles (driver, deviation, discount…).
       handling: handlingFromOrder(order),
       // Paid so far vs. the order now: what changed and what's due/refundable.

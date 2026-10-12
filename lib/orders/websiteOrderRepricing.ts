@@ -24,6 +24,7 @@ import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges
 import { normalizePriceListSettings } from "@/lib/products/priceListSettings";
 import { floorPricingInputs, parseWhiteGoodsBookingDetails, type OrderExtraLine } from "@/lib/orders/websiteBookingDetails";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { findMissingSnapshotPrices } from "@/lib/orders/websitePriceChanges";
 
 // Re-prices an existing website order from a new set of product cards —
 // shared by the customer's "Forgot something?" edit link
@@ -213,6 +214,9 @@ export async function recomputeWebsiteOrderPricing(
     orderExtras,
     // Every line with its customer and partner price, for the admin calculator.
     pricingResult,
+    // Cards these prices would leave a delivery type or option out of (the
+    // catalog had no price for it) — a save must refuse them, not store less.
+    missingPriceCardIds: findMissingSnapshotPrices(submittedCards, catalogPricing),
   };
 }
 

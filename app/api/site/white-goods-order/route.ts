@@ -16,6 +16,7 @@ import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
+import { findMissingSnapshotPrices } from "@/lib/orders/websitePriceChanges";
 import { findWebsiteCatalogByProductCode } from "@/lib/content/websiteCatalogs";
 import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
 import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
@@ -111,6 +112,12 @@ class PriceChangedError extends Error {
   }
 }
 
+class PricingIncompleteError extends Error {
+  constructor(readonly cardIds: number[]) {
+    super("The catalog has no price for part of the order");
+  }
+}
+
 class SizeBracketSelectionError extends Error {
   constructor() {
     super("A product priced by size needs exactly one volume and one weight bracket");
@@ -167,6 +174,11 @@ async function createWhiteGoodsOrder(
     catalogSpecialOptions: pricingSource.catalogSpecialOptions,
     priceListSettings: pricingSource.priceListSettings,
   });
+
+  // A product the catalog has no price for (its delivery type or an option)
+  // would be booked without that charge — refused instead.
+  const missingPriceCardIds = findMissingSnapshotPrices(productCards, catalogPricing);
+  if (missingPriceCardIds.length > 0) throw new PricingIncompleteError(missingPriceCardIds);
 
   const summaries = buildOrderSummaries(
     productCards,
@@ -519,6 +531,10 @@ export async function POST(req: Request) {
   } catch (err) {
     if (err instanceof ShownTotalRequiredError) {
       return NextResponse.json({ ok: false, reason: "SHOWN_TOTAL_REQUIRED" }, { status: 400 });
+    }
+    if (err instanceof PricingIncompleteError) {
+      console.error("[white-goods-order] Catalog has no price for cards", err.cardIds);
+      return NextResponse.json({ ok: false, reason: "PRICING_INCOMPLETE" }, { status: 409 });
     }
     if (err instanceof PriceChangedError) {
       return NextResponse.json({ ok: false, reason: "PRICE_CHANGED", total: err.total }, { status: 409 });

@@ -12,6 +12,7 @@ Creates a homepage website order (all website catalogs: white goods, furniture, 
 
 - missing → `400 SHOWN_TOTAL_REQUIRED`
 - differs from the calculated total by 0.5 kr or more → `409 { reason: "PRICE_CHANGED", total }`, and nothing is stored. The booking flow then tells the customer the real price and asks them to reload.
+- the catalog has no price for a product's delivery type or a selected option (`findMissingSnapshotPrices` on the prices it would freeze) → `409 { reason: "PRICING_INCOMPLETE" }`, and nothing is stored: the order would otherwise be booked without that charge.
 - equal → the order is stored at that total, and `shownTotal` is kept in `websiteBookingDetails` for the admin's sanity check (`checkWebsiteOrderTotals`).
 
 Other validation errors are `422 VALIDATION_FAILED` with `errors`. Among them: `preferredDate` must be a day the booking calendar offers (`isBookableDeliveryDate`), and `timeWindow` must be a preset or a real `HH:MM-HH:MM` range (`isTimeWindowComplete`). An install add-on without the install type it needs (TV stand / feet without table mounting) is also refused.

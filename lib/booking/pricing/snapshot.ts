@@ -39,7 +39,7 @@ export type OrderPricingSnapshot = {
   priceListSettings: PriceListSettings;
 };
 
-function deliveryTypeSnapshotKey(productId: string, deliveryTypeKey: string) {
+export function deliveryTypeSnapshotKey(productId: string, deliveryTypeKey: string) {
   return `${productId}:${deliveryTypeKey}`;
 }
 

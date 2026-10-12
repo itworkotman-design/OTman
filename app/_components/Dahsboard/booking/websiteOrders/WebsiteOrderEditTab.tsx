@@ -1,5 +1,6 @@
 "use client";
 
+import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
@@ -61,6 +62,8 @@ type Props = {
   // calculator offers "Use new price" when they differ, as on the Overview.
   storedTotal: number;
   currentPricesTotal: number | null;
+  priceChanges?: PriceChangeRow[];
+  savedPricesIncomplete?: string[];
 };
 
 type Category = { code: string; labelEn: string; labelNo: string; productIds: string[] };
@@ -91,6 +94,8 @@ export default function WebsiteOrderEditTab({
   besideSave,
   storedTotal,
   currentPricesTotal,
+  priceChanges = [],
+  savedPricesIncomplete = [],
 }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const cardLocale = locale === "nb" ? "no" : "en";
@@ -861,6 +866,8 @@ export default function WebsiteOrderEditTab({
             missingFromLines={0}
             storedTotal={storedTotal}
             currentPricesTotal={currentPricesTotal}
+            priceChanges={priceChanges}
+            savedPricesIncomplete={savedPricesIncomplete}
             locale={locale}
             onDraftChange={setPricingDraft}
             externalPricing={{

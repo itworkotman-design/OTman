@@ -8,6 +8,7 @@ import {
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
+import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 
 type Props = {
   calcOpen: boolean;
@@ -30,6 +31,8 @@ type Props = {
   priceUpdateAvailable?: boolean;
   priceUpdateStoredTotalExVat?: number;
   priceUpdateCurrentTotalExVat?: number;
+  // Each row priced differently at today's catalog than at the saved prices.
+  priceChangeRows?: PriceChangeRow[];
   onUseCurrentPrices?: () => void;
   sidebarMode?: boolean;
   locale?: BookingUiLocale;
@@ -56,6 +59,7 @@ export default function BookingCalculatorPanel({
   priceUpdateAvailable = false,
   priceUpdateStoredTotalExVat,
   priceUpdateCurrentTotalExVat,
+  priceChangeRows = [],
   onUseCurrentPrices,
   sidebarMode = false,
   locale = "en",
@@ -74,6 +78,8 @@ export default function BookingCalculatorPanel({
       subcontractorPlus: nextPlus,
     });
   }
+  // Partner prices are for admins only.
+  const visiblePriceChangeRows = adminView ? priceChangeRows : priceChangeRows.filter((row) => row.saved !== row.now);
   const priceUpdateNotice = priceUpdateAvailable ? (
     <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
       <p className="font-semibold">{locale === "nb" ? "Dette bestillinger har endret pris." : "Hey, this order changed prices."}</p>
@@ -83,6 +89,23 @@ export default function BookingCalculatorPanel({
           {formatPrice(priceUpdateCurrentTotalExVat)}
         </p>
       ) : null}
+      {visiblePriceChangeRows.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-1">
+          {visiblePriceChangeRows.map((row) => (
+            <li key={`${row.productName ?? ""}|${row.label}`} className="flex justify-between gap-3">
+              <span>{row.productName ? `${row.productName}: ${row.label}` : row.label}</span>
+              <span className="whitespace-nowrap text-right tabular-nums">
+                {row.saved !== row.now && `${formatPrice(row.saved)} → ${formatPrice(row.now)}`}
+                {adminView && row.savedPartner !== null && row.nowPartner !== null && row.savedPartner !== row.nowPartner && (
+                  <span className="block text-xs text-red-800/80">
+                    {locale === "nb" ? "UL" : "Partner"}: {formatPrice(row.savedPartner)} → {formatPrice(row.nowPartner)}
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       <button
         type="button"
         className="mt-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"

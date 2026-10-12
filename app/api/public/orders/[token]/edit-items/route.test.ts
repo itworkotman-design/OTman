@@ -57,6 +57,7 @@ vi.mock("@/lib/booking/pricing/snapshot", () => ({
     return { catalogProducts: input.catalogProducts, catalogSpecialOptions: input.catalogSpecialOptions };
   },
   buildOrderPricingSnapshot: () => ({ frozen: true }),
+  deliveryTypeSnapshotKey: (productId: string, key: string) => `${productId}:${key}`,
 }));
 vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
   buildOrderItemsFromCards: mocks.buildOrderItemsFromCardsMock,

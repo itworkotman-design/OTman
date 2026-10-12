@@ -1,5 +1,6 @@
 "use client";
 
+import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
@@ -34,6 +35,10 @@ type Props = {
   // The customer total at today's catalog prices: when it differs from the
   // saved one, "Use new price" is offered. Missing: the calculator's own total.
   currentPricesTotal?: number | null;
+  // Each line priced differently today (named under "Use new price"), and the
+  // products whose saved prices lack their delivery type or an option.
+  priceChanges?: PriceChangeRow[];
+  savedPricesIncomplete?: string[];
   locale: BookingUiLocale;
   // The unsaved changes (null when there are none); the modal's Save stores them.
   onDraftChange: (draft: WebsiteOrderPricingDraft | null) => void;
@@ -103,6 +108,8 @@ export default function WebsiteOrderCalculator({
   missingFromLines,
   storedTotal,
   currentPricesTotal = null,
+  priceChanges = [],
+  savedPricesIncomplete = [],
   locale,
   onDraftChange,
   priceChangeTarget = null,
@@ -211,7 +218,10 @@ export default function WebsiteOrderCalculator({
 
   // Today's catalog prices the order differently from what's saved.
   const currentTotal = currentPricesTotal ?? calculator.customer.total;
-  const priceOutdated = Math.round(currentTotal) !== Math.round(storedTotal) && !externalPricing?.useNewPrice;
+  // Row by row (priceChanges, from website-details): only a row whose price
+  // moved since the order was saved offers "Use new price" — not a difference
+  // between the stored total and a fresh calculation.
+  const priceOutdated = priceChanges.length > 0 && !externalPricing?.useNewPrice;
 
   // The VAT is what the per-line incl.-VAT total adds (websiteVat.ts).
   const vat = { exVat: view.customer.total, incVat: view.customer.totalIncVat, vat: Math.round((view.customer.totalIncVat - view.customer.total) * 100) / 100 };
@@ -307,6 +317,23 @@ export default function WebsiteOrderCalculator({
                 `Priset nå blir ordren ${formatKr(currentTotal)} eks. mva, men den er lagret med ${formatKr(storedTotal)} (prisene er endret siden).`,
               )}
             </p>
+            {priceChanges.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1 font-normal">
+                {priceChanges.map((change) => (
+                  <li key={`${change.productName ?? ""}|${change.label}`} className="flex justify-between gap-3">
+                    <span>{change.productName ? `${change.productName}: ${change.label}` : change.label}</span>
+                    <span className="whitespace-nowrap text-right tabular-nums">
+                      {change.saved !== change.now && `${formatKr(change.saved)} → ${formatKr(change.now)}`}
+                      {change.savedPartner !== null && change.nowPartner !== null && change.savedPartner !== change.nowPartner && (
+                        <span className="block text-xs font-normal text-red-800/80">
+                          {t("Partner", "Partner")}: {formatKr(change.savedPartner)} → {formatKr(change.nowPartner)}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {isAdmin && (
               // Only marks the new price as a change — "Price after this change"
               // shows it, and it's stored when Save is pressed (or dropped by Reset).
@@ -319,6 +346,15 @@ export default function WebsiteOrderCalculator({
               </button>
             )}
           </div>
+        )}
+
+        {savedPricesIncomplete.length > 0 && !changed && (
+          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+            {t(
+              `The saved prices are missing a delivery or service price for: ${savedPricesIncomplete.join(", ")}. The order may be stored without that charge — check the lines, or use the new price.`,
+              `De lagrede prisene mangler en leverings- eller tjenestepris for: ${savedPricesIncomplete.join(", ")}. Ordren kan være lagret uten den kostnaden — sjekk linjene, eller bruk ny pris.`,
+            )}
+          </p>
         )}
 
         {missingFromLines !== 0 && !changed && (

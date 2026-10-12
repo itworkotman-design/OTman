@@ -160,6 +160,59 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     expect(json.order.currentPricesTotal).toBe(1099);
   });
 
+  it("names each line priced differently today, so 'Use new price' says what changed", async () => {
+    const frozen = { productOptions: {}, specialOptions: {}, deliveryTypes: { "p-wm:INDOOR": { price: "690", xtraPrice: "235" } } };
+    mocks.orderFindFirstMock.mockResolvedValue({
+      ...whiteGoodsOrder,
+      productCardsSnapshot: [{ cardId: 0, productId: "p-wm", deliveryType: "INDOOR", pricingSnapshot: frozen }],
+    });
+    const base = await mocks.recomputeMock();
+    const install = (lineTotal: number) => ({
+      breakdowns: [
+        {
+          productName: "Washing machine",
+          cardId: 0,
+          lines: [{ label: "Install – approved wet room", code: "WM_WET", qty: 2, unitPrice: lineTotal / 2, lineTotal, subcontractorLineTotal: 600 }],
+        },
+      ],
+      totals: { ...base.pricingResult.totals, totalExVat: lineTotal },
+    });
+    mocks.recomputeMock.mockImplementation(async (_order: unknown, _cards: unknown, options: { catalogPricing?: unknown }) => ({
+      ...base,
+      pricingResult: install(options.catalogPricing ? 1220 : 1230),
+    }));
+
+    const json = await (await call()).json();
+
+    expect(json.order.priceChanges).toEqual([
+      { productName: "Washing machine", label: "Install – approved wet room", saved: 1220, now: 1230, savedPartner: 600, nowPartner: 600 },
+    ]);
+    expect(json.order.savedPricesIncomplete).toEqual([]);
+
+    // A viewer who can't see partner prices gets the customer side only.
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      role: "USER",
+      appAccess: [{ module: "WEBSITE_ORDERS", enabled: true, level: "VIEWER" }],
+    });
+    const viewer = await (await call()).json();
+    expect(viewer.order.priceChanges).toEqual([
+      { productName: "Washing machine", label: "Install – approved wet room", saved: 1220, now: 1230, savedPartner: null, nowPartner: null },
+    ]);
+  });
+
+  it("warns when the order's saved prices are missing a product's delivery or option", async () => {
+    const frozen = { productOptions: {}, specialOptions: {}, deliveryTypes: {} };
+    mocks.orderFindFirstMock.mockResolvedValue({
+      ...whiteGoodsOrder,
+      productCardsSnapshot: [{ cardId: 0, productId: "p-wm", deliveryType: "INDOOR", pricingSnapshot: frozen }],
+      pricingSnapshot: { lines: [{ cardId: 0, productName: "Washing machine", itemType: "PRODUCT_CARD" }] },
+    });
+
+    const json = await (await call()).json();
+
+    expect(json.order.savedPricesIncomplete).toEqual(["Washing machine"]);
+  });
+
   it("shows an older order at the prices read back from its stored lines", async () => {
     const recovered = { productOptions: { recovered: true } };
     mocks.orderFindFirstMock.mockResolvedValue({ ...whiteGoodsOrder, productCardsSnapshot: [{ cardId: 0, productId: "p-wm" }], items: [] });

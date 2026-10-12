@@ -316,6 +316,10 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
       console.error("[customer order] Failed to re-price order:", err);
       return reject("UPDATE_FAILED", 500);
     }
+    if (recomputed.missingPriceCardIds?.length) {
+      console.error("[customer order] Prices missing for cards", recomputed.missingPriceCardIds);
+      return reject("PRICING_INCOMPLETE", 409);
+    }
 
     const previousPriceExVat = order.priceExVat;
     // Refunds aren't built: once something is paid the order can't get cheaper here.

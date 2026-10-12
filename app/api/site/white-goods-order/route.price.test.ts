@@ -240,4 +240,29 @@ describe("POST /api/site/white-goods-order — the price the customer saw", () =
       [`p-wm:${DELIVERY_TYPES.INDOOR}`]: { price: "690" },
     });
   });
+
+  it("refuses an order the catalog has no price for (a delivery type missing), instead of storing it without that charge", async () => {
+    const noCarryIn = { ...washer, deliveryTypes: [] };
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ priceListId: "pl-1", products: [noCarryIn], specialOptions: [], priceListSettings });
+    const shownTotal = priceWebsiteOrder({
+      cards,
+      catalogProducts: [noCarryIn],
+      catalogSpecialOptions: [],
+      priceListSettings,
+      drivingDistance: "171.12",
+      expressDelivery: false,
+      extraPickups: [],
+      pickupFloor: 0,
+      deliveryFloor: 0,
+      pickupLiftAvailable: true,
+      deliveryLiftAvailable: false,
+      extraPickupFloors: [],
+    }).customerTotals.totalIncVat;
+
+    const res = await post(body({ shownTotal }));
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).reason).toBe("PRICING_INCOMPLETE");
+    expect(mocks.orderCreate).not.toHaveBeenCalled();
+  });
 });
