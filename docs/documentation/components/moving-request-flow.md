@@ -9,8 +9,13 @@ The homepage "Flytting" (Moving) tile's real flow, replacing the placeholder
 — price comes from a flat size-bracket lookup
 (`GET /api/site/moving-request/catalog`, `lib/content/getMovingCatalog.ts`),
 not the shared `calculateBookingPricing` engine. Reuses the Privat/Bedrift
-`CustomerTypeStep`/`getVatDisplayTotal` from the white-goods flow (see
-`docs/homepage-ordering-roadmap.md` §2) for consistent totals display.
+`CustomerTypeStep` from the white-goods flow (see
+`docs/homepage-ordering-roadmap.md` §2). The moving price list's prices are
+ex. VAT like every website price: a private customer sees each size's price
++25%, rounded to whole kroner (`websiteCustomerPrice`), and the total via
+`websiteCustomerTotalDisplay` (`lib/booking/pricing/websiteVat.ts`); a
+business customer sees ex. VAT. The payment link charges that same incl.-VAT
+amount (`lib/orders/movingOrderPricing.ts`).
 Submits to `POST /api/site/moving-request`.
 
 ## Functions

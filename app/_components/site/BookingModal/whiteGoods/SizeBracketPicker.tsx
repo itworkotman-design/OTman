@@ -15,7 +15,7 @@ import {
   type SizeDimensionsCm,
 } from "@/lib/booking/pricing/sizeDimensions";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
-import { getVatDisplayAmount, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import { websiteCustomerPrice, type CustomerType } from "@/lib/booking/pricing/websiteVat";
 import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 function optionLabel(locale: Locale, product: CatalogProduct, option: CatalogOption) {
@@ -60,7 +60,7 @@ export function SizeBracketPicker({
   locale: Locale;
   // Private customers see prices incl. VAT (what they actually pay);
   // business customers see ex-VAT (what they reclaim) — see
-  // getVatDisplayAmount.
+  // websiteCustomerPrice (prices are stored ex. VAT).
   customerType: CustomerType;
   product: CatalogProduct;
   selectedIds: string[];
@@ -77,7 +77,7 @@ export function SizeBracketPicker({
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const money = (raw: string) => {
     const n = Number(raw);
-    return Number.isFinite(n) ? `${getVatDisplayAmount(n, customerType).toLocaleString("nb-NO")} kr` : raw;
+    return Number.isFinite(n) ? `${websiteCustomerPrice(n, customerType).toLocaleString("nb-NO")} kr` : raw;
   };
   const weightOptions = product.options.filter((o) => o.active && o.category === SIZE_WEIGHT_CATEGORY);
   const volumeOptions = product.options.filter((o) => o.active && o.category === SIZE_VOLUME_CATEGORY);

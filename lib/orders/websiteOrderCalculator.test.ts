@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { CalculatorResult } from "@/lib/booking/pricing/types";
 import { createEmptyProductCard, type CatalogProduct } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import {
-  customerAdjustmentsToExVat,
-  customerAdjustmentsToIncVat,
-  kronerExVatToIncVat,
-  kronerIncVatToExVat,
   nulledLinesFromView,
   partnerMinusForDiscount,
   toggleNulledLine,
@@ -65,8 +61,9 @@ describe("websiteOrderCalculatorView", () => {
           lines: [{ label: "Etasjetillegg", code: null, qty: 1, customer: 200, partner: 0, lineKey: "code:FLOOR", nulledCustomer: false, nulledPartner: false }],
         },
       ],
-      // Website prices already include VAT: `total` is what the customer pays.
-      customer: { subtotal: 1150, discount: 100, extra: 50, total: 1100 },
+      // Website prices are ex. VAT; totalIncVat is what the customer pays:
+      // each line incl. VAT rounded (863 + 0 + 250), − discount 125 + extra 63.
+      customer: { subtotal: 1150, discount: 100, extra: 50, total: 1100, totalIncVat: 1051 },
       partner: { base: 420, minus: 37, plus: 10, total: 393 },
     });
   });
@@ -153,39 +150,6 @@ describe("websiteItemsSaveBody — one Save for the panel and the calculator", (
     const adjustments = { rabatt: "", leggTil: "", subcontractorMinus: "", subcontractorPlus: "" };
     expect(websiteItemsSaveBody({}, { adjustments, nulledLines, useCurrentPrices: true })).toMatchObject({ useCurrentPrices: true });
     expect(websiteItemsSaveBody({}, { adjustments, nulledLines })).not.toHaveProperty("useCurrentPrices");
-  });
-});
-
-describe("kronerIncVatToExVat / kronerExVatToIncVat", () => {
-  it("converts a stored incl.-VAT amount to ex. VAT and back", () => {
-    expect(kronerIncVatToExVat("625")).toBe("500");
-    expect(kronerExVatToIncVat("500")).toBe("625");
-    expect(kronerIncVatToExVat("99")).toBe("79.2");
-    expect(kronerExVatToIncVat("79.2")).toBe("99");
-  });
-
-  it("accepts a comma decimal and rounds to øre", () => {
-    expect(kronerExVatToIncVat("99,50")).toBe("124.38");
-  });
-
-  it("keeps empty values empty", () => {
-    expect(kronerIncVatToExVat("")).toBe("");
-    expect(kronerExVatToIncVat("  ")).toBe("");
-  });
-
-  it("passes values the server would refuse through unchanged, so its error still shows", () => {
-    expect(kronerExVatToIncVat("abc")).toBe("abc");
-    expect(kronerExVatToIncVat("-50")).toBe("-50");
-  });
-});
-
-describe("customerAdjustmentsToExVat / customerAdjustmentsToIncVat", () => {
-  it("converts only the customer discount and extra; partner amounts are left alone", () => {
-    const stored = { rabatt: "625", leggTil: "125", subcontractorMinus: "200", subcontractorPlus: "50" };
-
-    const shown = customerAdjustmentsToExVat(stored);
-    expect(shown).toEqual({ rabatt: "500", leggTil: "100", subcontractorMinus: "200", subcontractorPlus: "50" });
-    expect(customerAdjustmentsToIncVat(shown)).toEqual(stored);
   });
 });
 

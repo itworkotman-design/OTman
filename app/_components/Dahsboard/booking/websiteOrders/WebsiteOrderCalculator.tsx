@@ -3,11 +3,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
-import { getVatBreakdown } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import {
-  customerAdjustmentsToExVat,
-  customerAdjustmentsToIncVat,
   nulledLinesFromView,
   partnerMinusForDiscount,
   toggleNulledLine,
@@ -83,12 +80,6 @@ function formatKr(n: number) {
   return `${Math.round(n).toLocaleString("nb-NO")} kr`;
 }
 
-// Customer amounts on these orders are stored VAT-inclusive; the calculator
-// shows them ex. VAT like the booking app's.
-function exVat(clientAmount: number) {
-  return clientAmount / 1.25;
-}
-
 function formatQty(qty: number) {
   return String(Math.round(qty * 2) / 2);
 }
@@ -120,11 +111,11 @@ export default function WebsiteOrderCalculator({
   const external = !!externalPricing;
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const isAdmin = calculator.partner !== null;
-  // The inputs hold the customer discount/extra ex. VAT; they're converted back
-  // to the stored incl.-VAT form for the preview, the draft and the save.
-  const shownAdjustments = useMemo(() => customerAdjustmentsToExVat(adjustments), [adjustments]);
+  // Every amount here is ex. VAT, as stored (website prices are ex. VAT, like
+  // the booking app's); only the total incl. VAT adds 25%, per line.
+  const shownAdjustments = adjustments;
   const [adj, setAdj] = useState<Adjustments>(shownAdjustments);
-  const storedAdj = useMemo(() => customerAdjustmentsToIncVat(adj), [adj]);
+  const storedAdj = adj;
   // The booking app's "Set to 0" checkboxes: lines nulled per side.
   const initialNulled = useMemo(() => nulledLinesFromView(calculator), [calculator]);
   const [nulled, setNulled] = useState<WebsiteOrderNulledLines>(initialNulled);
@@ -209,10 +200,10 @@ export default function WebsiteOrderCalculator({
     setAdj((current) => ({
       ...current,
       rabatt,
-      // rabatt is typed ex. VAT, so the subtotal it's a share of is too.
+      // rabatt and the subtotal it's a share of are both ex. VAT.
       subcontractorMinus: partnerMinusForDiscount({
         rabatt,
-        subtotal: exVat(view.customer.subtotal),
+        subtotal: view.customer.subtotal,
         partnerBase: view.partner?.base ?? 0,
       }),
     }));
@@ -222,7 +213,8 @@ export default function WebsiteOrderCalculator({
   const currentTotal = currentPricesTotal ?? calculator.customer.total;
   const priceOutdated = Math.round(currentTotal) !== Math.round(storedTotal) && !externalPricing?.useNewPrice;
 
-  const vat = getVatBreakdown(view.customer.total);
+  // The VAT is what the per-line incl.-VAT total adds (websiteVat.ts).
+  const vat = { exVat: view.customer.total, incVat: view.customer.totalIncVat, vat: Math.round((view.customer.totalIncVat - view.customer.total) * 100) / 100 };
   const fieldClass = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black/85";
   const labelClass = "text-sm font-medium text-black/60";
 
@@ -272,7 +264,7 @@ export default function WebsiteOrderCalculator({
           <span
             className={`whitespace-nowrap text-right font-medium tabular-nums text-black/70 ${isNulled ? "line-through opacity-60" : ""}`}
           >
-            {formatKr(side === "partner" ? (line.partner ?? 0) : exVat(line.customer))}
+            {formatKr(side === "partner" ? (line.partner ?? 0) : line.customer)}
           </span>
         </Fragment>
       );
@@ -311,8 +303,8 @@ export default function WebsiteOrderCalculator({
           <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
             <p>
               {t(
-                `Priced now this order comes to ${formatKr(exVat(currentTotal))} ex. VAT, but it is saved at ${formatKr(exVat(storedTotal))} (prices have changed since).`,
-                `Priset nå blir ordren ${formatKr(exVat(currentTotal))} eks. mva, men den er lagret med ${formatKr(exVat(storedTotal))} (prisene er endret siden).`,
+                `Priced now this order comes to ${formatKr(currentTotal)} ex. VAT, but it is saved at ${formatKr(storedTotal)} (prices have changed since).`,
+                `Priset nå blir ordren ${formatKr(currentTotal)} eks. mva, men den er lagret med ${formatKr(storedTotal)} (prisene er endret siden).`,
               )}
             </p>
             {isAdmin && (
@@ -334,7 +326,7 @@ export default function WebsiteOrderCalculator({
             <span>{t("Not covered by the stored lines", "Ikke dekket av de lagrede linjene")}</span>
             <span className="whitespace-nowrap font-semibold tabular-nums">
               {missingFromLines > 0 ? "+" : ""}
-              {formatKr(exVat(missingFromLines))}
+              {formatKr(missingFromLines)}
             </span>
           </div>
         )}
@@ -343,7 +335,7 @@ export default function WebsiteOrderCalculator({
           {view.customer.discount !== 0 && (
             <div className="flex justify-between">
               <span>{t("Discount", "Rabatt")}</span>
-              <span className="tabular-nums">-{formatKr(exVat(view.customer.discount))}</span>
+              <span className="tabular-nums">-{formatKr(view.customer.discount)}</span>
             </div>
           )}
           {view.customer.extra !== 0 && (
@@ -351,7 +343,7 @@ export default function WebsiteOrderCalculator({
               <span>{t("Extra", "Tillegg")}</span>
               <span className="tabular-nums">
                 {view.customer.extra > 0 ? "+" : ""}
-                {formatKr(exVat(view.customer.extra))}
+                {formatKr(view.customer.extra)}
               </span>
             </div>
           )}

@@ -45,6 +45,9 @@ export const CUSTOMER_ORDER_SELECT = {
   actionToken: true,
   emailThreadToken: true,
   priceExVat: true,
+  // With the lines' prices below: an older order's saved catalog prices are
+  // read back from them when the customer edits it (never sent to the page).
+  priceSubcontractor: true,
   productsSummary: true,
   deliveryTypeSummary: true,
   servicesSummary: true,
@@ -79,6 +82,9 @@ export const CUSTOMER_ORDER_SELECT = {
       optionLabel: true,
       quantity: true,
       rawData: true,
+      optionId: true,
+      customerPriceCents: true,
+      subcontractorPriceCents: true,
     },
   },
 } as const;

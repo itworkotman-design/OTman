@@ -11,6 +11,7 @@ import {
   ItemNameRequiredError,
   SizeBracketSelectionError,
   recomputeWebsiteOrderPricing,
+  resolveSavedCatalogPricing,
   websiteOrderPricingWrites,
 } from "@/lib/orders/websiteOrderRepricing";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
@@ -112,7 +113,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   }
 
   try {
-    const recomputed = await recomputeWebsiteOrderPricing(order, submittedCards);
+    // The order keeps the prices it was saved with; only what's new is priced
+    // at today's catalog (resolveSavedCatalogPricing, like the admin editor).
+    const catalogPricing = await resolveSavedCatalogPricing(order, originalCards, order.items ?? []);
+    const recomputed = await recomputeWebsiteOrderPricing(order, submittedCards, { catalogPricing });
     const previousPriceExVat = order.priceExVat;
 
     if (recomputed.priceExVat < previousPriceExVat) {

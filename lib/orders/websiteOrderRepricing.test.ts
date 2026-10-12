@@ -237,6 +237,17 @@ describe("recomputeWebsiteOrderPricing — frozen catalog prices", () => {
     expect(current.cards[0].pricingSnapshot?.productOptions.ex).toMatchObject({ customerPrice: "300" });
   });
 
+  it("freezes the order-level charges too (km, floors, extra pickups — the price-list settings)", async () => {
+    const saved = await savedAt("100");
+    const frozen = saved.cards[0].pricingSnapshot!;
+    const otherKm = {
+      ...frozen,
+      priceListSettings: { ...frozen.priceListSettings, kmFrom21: { ...frozen.priceListSettings.kmFrom21, price: "1000" } },
+    };
+    const withFrozenKm = await recomputeWebsiteOrderPricing(order, [washerCard], { catalogPricing: otherKm });
+    expect(withFrozenKm.priceExVat).toBeGreaterThan(saved.priceExVat);
+  });
+
   it("never prices with a snapshot that came in on the submitted cards", async () => {
     const saved = await savedAt("100");
     mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer("300")], specialOptions: [], priceListSettings: null });
@@ -288,6 +299,18 @@ describe("resolveSavedCatalogPricing", () => {
     const repriced = await recomputeWebsiteOrderPricing(stored, [washerCard], { catalogPricing: pricing });
     expect(repriced.priceExVat).toBe(stored.priceExVat);
     expect(repriced.priceSubcontractor).toBe(stored.priceSubcontractor);
+  });
+
+  // An order converted to ex. VAT (scripts/convert-website-orders-to-ex-vat.ts)
+  // was booked when the same catalog numbers meant incl. VAT: its prices are
+  // today's catalog with every customer price ÷ 1.25 (partner prices as they are).
+  it("reads a converted order's prices back as today's catalog ÷ 1.25 for the customer", async () => {
+    const { order: stored } = await savedOrder("364", "40");
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer("455", "40")], specialOptions: [], priceListSettings: null });
+
+    const pricing = await resolveSavedCatalogPricing(stored, [washerCard], []);
+
+    expect(pricing?.productOptions.ex).toMatchObject({ customerPrice: "364", effectiveCustomerPrice: "364", subcontractorPrice: "40" });
   });
 
   it("gives up (null) when the stored lines can't reproduce the saved totals", async () => {

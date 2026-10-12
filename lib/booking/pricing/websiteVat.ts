@@ -1,4 +1,13 @@
-import type { CustomerType, VatDisplayTotal } from "./vatDisplayTotal";
+// Private customers see what they pay (incl. VAT); business customers the
+// price ex. VAT (they reclaim the VAT).
+export type CustomerType = "private" | "business";
+
+export type VatDisplayTotal = {
+  // Which total is shown large/first; the other is shown smaller/secondary.
+  primary: "incVat" | "exVat";
+  primaryAmount: number;
+  secondaryAmount: number;
+};
 
 // VAT for homepage (website catalog) orders. The website price lists hold
 // prices ex. VAT, like the booking app's, and orders store everything ex. VAT.

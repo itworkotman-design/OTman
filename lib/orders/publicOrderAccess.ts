@@ -54,12 +54,14 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       floorNo: true,
       lift: true,
       websiteBookingDetails: true,
-      // Homepage catalog orders are charged their VAT-inclusive client total
-      // (see getOrderChargeAmountIncVatNok).
+      // Which kind of order it is (a homepage catalog order is "WHITE_GOODS").
       websiteOrderKind: true,
       // An admin-set deviation fee, kept when the customer re-prices.
       deviation: true,
       extraPickupAddress: true,
+      // The stored lines' prices — an older order's saved catalog prices are
+      // read back from them (resolveSavedCatalogPricing) when it's edited.
+      items: { select: { optionId: true, customerPriceCents: true, subcontractorPriceCents: true } },
       actionToken: true,
       stripeCheckoutSessionId: true,
       stripePaymentIntentId: true,

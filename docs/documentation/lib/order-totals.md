@@ -8,7 +8,7 @@
 
 Shared money helpers for order totals: discount/extra adjustments, reading the stored `pricingSnapshot`, and the amount to charge the customer.
 
-**Homepage orders are different.** A homepage catalog order (`websiteOrderKind` `WHITE_GOODS`) is priced in VAT-inclusive catalog prices. Its `priceExVat` and the snapshot's `customer.totalExVat` therefore already hold the incl.-VAT total. The snapshot's own `vat` / `totalIncVat` add 25% on top and must not be used for these orders. Read them through `getOrderChargeAmountIncVatNok` or `getPricingSnapshotCustomerVatTotals`.
+**Homepage orders** (`websiteOrderKind` `WHITE_GOODS`) store ex. VAT like every other order. Their snapshot's `totalIncVat` is passed in as `customerTotalIncVat`, summed per line and rounded to whole kroner (`lib/booking/pricing/websiteVat.ts`), rather than 25% on the total. Such a snapshot is marked `vatBasis: "exVat"`; website orders without it predate the switch and are converted by `scripts/convert-website-orders-to-ex-vat.ts`. `getOrderChargeAmountIncVatNok` and `getPricingSnapshotCustomerVatTotals` treat every order the same: the snapshot's `totalIncVat`, else ex. VAT plus 25%.
 
 ## Functions
 

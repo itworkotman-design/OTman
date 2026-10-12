@@ -25,7 +25,7 @@ import { buildCardSummaryChips } from "./cardSummaryChips";
 import type { DeliveryOptionPreview } from "./deliveryPricePreview";
 import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
-import { getVatDisplayAmount, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import { websiteCustomerPrice, type CustomerType } from "@/lib/booking/pricing/websiteVat";
 import {
   hasExtrasStepContent,
   hasInstallStepContent,
@@ -45,7 +45,7 @@ type Props = {
   locale: Locale;
   // Private customers see prices incl. VAT (what they actually pay);
   // business customers see ex-VAT (what they reclaim) — see
-  // getVatDisplayAmount.
+  // websiteCustomerPrice (prices are stored ex. VAT).
   customerType: CustomerType;
   product: CatalogProduct;
   value: SavedProductCard;
@@ -211,7 +211,7 @@ export function WhiteGoodsProductCard({
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const money = (raw: string) => {
     const n = Number(raw);
-    return Number.isFinite(n) ? `${getVatDisplayAmount(n, customerType).toLocaleString("nb-NO")} kr` : raw;
+    return Number.isFinite(n) ? `${websiteCustomerPrice(n, customerType).toLocaleString("nb-NO")} kr` : raw;
   };
 
   const seedProduct = useMemo(

@@ -72,7 +72,8 @@ describe("welcomeWebsiteOrderCustomer", () => {
       deliveryTypeSummary: "Delivery with carry-in",
       servicesSummary: "",
       customerComments: null,
-      priceExVat: 4990,
+      // Stored ex. VAT; the customer pays 4990 incl. VAT.
+      priceExVat: 3992,
       rabatt: null,
       leggTil: null,
       pricingSnapshot: null,

@@ -129,7 +129,9 @@ function order(overrides: Record<string, unknown> = {}) {
     leggTil: null,
     subcontractorMinus: null,
     subcontractorPlus: null,
-    pricingSnapshot: { customer: { totalExVat: 1000 }, lines: [] },
+    // VAT maths is covered by websiteVat/orderTotals tests; here the amount the
+    // customer pays (totalIncVat) is simply set equal to the price.
+    pricingSnapshot: { customer: { totalExVat: 1000, totalIncVat: 1000 }, lines: [] },
     pickupAddress: "Strømmen 1",
     deliveryAddress: "Kirkegata 5",
     deliveryDate: "2026-10-10",
@@ -152,7 +154,7 @@ function recomputed(priceExVat: number) {
     cards: [card(0, "p-wm"), card(1, "p-sofa")],
     builtItems: [],
     summaries: { productsSummary: "Vaskemaskin, Sofa" },
-    pricingSnapshot: { customer: { totalExVat: priceExVat, totalIncVat: priceExVat * 1.25 }, lines: [] },
+    pricingSnapshot: { customer: { totalExVat: priceExVat, totalIncVat: priceExVat }, lines: [] },
     priceExVat,
     priceSubcontractor: 0,
     orderExtras: [],

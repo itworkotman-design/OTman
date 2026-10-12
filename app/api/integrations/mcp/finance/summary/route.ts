@@ -11,8 +11,8 @@ function roundNok(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-// Incl. VAT. Homepage orders are VAT-inclusive already — see
-// getPricingSnapshotCustomerVatTotals.
+// Incl. VAT, from the order's pricing snapshot (homepage orders store their
+// incl.-VAT total there like the rest — getPricingSnapshotCustomerVatTotals).
 function getRevenue(pricingSnapshot: unknown, websiteOrderKind: string | null | undefined): number {
   return getPricingSnapshotCustomerVatTotals(pricingSnapshot, websiteOrderKind)?.totalIncVat ?? 0;
 }

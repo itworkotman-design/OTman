@@ -13,6 +13,11 @@ type PricedOrderLine = {
 
 export type OrderPricingSnapshot = {
   version: 1;
+  // "exVat": a website order priced with ex-VAT prices and its incl.-VAT
+  // total summed per line (websiteVat.ts). Website orders without it are
+  // from before the switch, when their prices were stored incl. VAT
+  // (scripts/convert-website-orders-to-ex-vat.ts).
+  vatBasis?: "exVat";
   nulledOrderExtraKeysForCustomer: string[];
   nulledOrderExtraKeysForSubcontractor: string[];
   customDeviationPrice: number | null;
@@ -301,6 +306,7 @@ export function buildOrderPricingSnapshot(params: {
 
   return {
     version: 1,
+    ...(typeof params.customerTotalIncVat === "number" ? { vatBasis: "exVat" as const } : {}),
     nulledOrderExtraKeysForCustomer: params.nulledOrderExtraKeysForCustomer ?? [],
     nulledOrderExtraKeysForSubcontractor: params.nulledOrderExtraKeysForSubcontractor ?? [],
     customDeviationPrice: params.customDeviationPrice ?? null,

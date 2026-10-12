@@ -239,15 +239,16 @@ describe("GET /api/orders/[orderId]/website-details", () => {
   });
 
   it("says how the order compares with what the customer has paid", async () => {
+    // Stored ex. VAT (2855); no saved incl.-VAT total here, so the customer pays 25% on top.
     let json = await (await call()).json();
-    expect(json.order.payment).toMatchObject({ outcome: "unpaid", totalPaidIncVatNok: 0, currentTotalIncVatNok: 2855 });
+    expect(json.order.payment).toMatchObject({ outcome: "unpaid", totalPaidIncVatNok: 0, currentTotalIncVatNok: 3568.75 });
 
     mocks.orderFindFirstMock.mockResolvedValue({
       ...whiteGoodsOrder,
       payments: [{ amountChargedCents: 200000, createdAt: new Date("2026-10-03T10:00:00Z"), orderSnapshot: null }],
     });
     json = await (await call()).json();
-    expect(json.order.payment).toMatchObject({ outcome: "due", totalPaidIncVatNok: 2000, differenceIncVatNok: 855 });
+    expect(json.order.payment).toMatchObject({ outcome: "due", totalPaidIncVatNok: 2000, differenceIncVatNok: 1568.75 });
   });
 
   it("returns 401 without a session", async () => {

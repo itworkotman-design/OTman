@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   buildOrderSummariesMock: vi.fn(),
   buildOrderPricingSnapshotMock: vi.fn(),
   buildWhiteGoodsCalculatorBreakdownsMock: vi.fn(() => []),
+  resolvePricingMock: vi.fn(),
+  applySnapshotMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -50,10 +52,10 @@ vi.mock("@/lib/orders/orderNotifications", () => ({
 // enforcement, decrease-rejection, alerting), so everything downstream of
 // "what's the new total" is mocked directly.
 vi.mock("@/lib/booking/pricing/snapshot", () => ({
-  applyOrderPricingSnapshot: ({ catalogProducts, catalogSpecialOptions }: { catalogProducts: unknown; catalogSpecialOptions: unknown }) => ({
-    catalogProducts,
-    catalogSpecialOptions,
-  }),
+  applyOrderPricingSnapshot: (input: { catalogProducts: unknown; catalogSpecialOptions: unknown; pricingSnapshot: unknown }) => {
+    mocks.applySnapshotMock(input.pricingSnapshot);
+    return { catalogProducts: input.catalogProducts, catalogSpecialOptions: input.catalogSpecialOptions };
+  },
   buildOrderPricingSnapshot: () => ({ frozen: true }),
 }));
 vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
@@ -93,6 +95,12 @@ vi.mock("@/lib/booking/pricing/priceLookup", () => ({
 vi.mock("@/lib/products/priceListSettings", () => ({
   normalizePriceListSettings: (settings: unknown) => settings,
 }));
+
+// The saved catalog prices are looked up for real elsewhere; here just stubbed.
+vi.mock("@/lib/orders/websiteOrderRepricing", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/orders/websiteOrderRepricing")>("@/lib/orders/websiteOrderRepricing");
+  return { ...actual, resolveSavedCatalogPricing: mocks.resolvePricingMock };
+});
 
 import { GET, POST } from "./route";
 
@@ -376,6 +384,21 @@ describe("POST /api/public/orders/[token]/edit-items", () => {
     expect(res.status).toBe(422);
     await expect(res.json()).resolves.toEqual({ ok: false, reason: "WOULD_DECREASE_PRICE" });
     expect(mocks.transactionMock).not.toHaveBeenCalled();
+  });
+
+  // The order keeps the prices it was saved with; only what's new is priced
+  // at today's catalog (like the admin editor and "My order").
+  it("prices the change with the order's saved catalog prices", async () => {
+    const saved = { productOptions: { saved: true } };
+    mocks.resolvePricingMock.mockResolvedValue(saved);
+    mocks.getOrderByActionTokenMock.mockResolvedValue({ ...baseOrder, items: [{ optionId: "o1", customerPriceCents: 100, subcontractorPriceCents: 50 }] });
+
+    await postCall({ productCards: [submittedCard] });
+
+    expect(mocks.resolvePricingMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order1" }), [sampleCard], [
+      { optionId: "o1", customerPriceCents: 100, subcontractorPriceCents: 50 },
+    ]);
+    expect(mocks.applySnapshotMock).toHaveBeenCalledWith(saved);
   });
 
   it("applies the change, persists it, and alerts staff when the total increases", async () => {

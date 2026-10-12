@@ -124,8 +124,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       orders: orders.map((order) => {
         const snapshot = getPricingSnapshot(order.pricingSnapshot);
-        // Homepage orders are VAT-inclusive — no VAT on top (see
-        // getPricingSnapshotCustomerVatTotals).
+        // The snapshot's own incl.-VAT total and VAT, homepage orders included
+        // (see getPricingSnapshotCustomerVatTotals).
         const vatTotals = getPricingSnapshotCustomerVatTotals(order.pricingSnapshot, order.websiteOrderKind);
 
         return {

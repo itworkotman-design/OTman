@@ -19,3 +19,12 @@ Two families, deliberately separate so a seed can never hit the wrong database:
   `/dashboard/booking/editPrices` (Moving, parcel/pallet, and furniture's
   `staffPriced` "Other furniture" size brackets) never have those prices
   overwritten on reseed.
+
+## `scripts/convert-website-orders-to-ex-vat.ts`
+
+One-time data conversion for the switch to ex-VAT website prices (`lib/orders/websiteOrderExVatConversion.ts`). It is a dry run by default and prints the target database host and each order's before/after. It writes only with `--apply`. For every order it checks that the amount the customer is charged stays exactly the same, and refuses that order otherwise. Already-converted orders are skipped, so it is safe to run twice. It must run together with the deploy of the ex-VAT code: until an old order is converted, its stored incl.-VAT snapshot would be charged 25% on top.
+
+```bash
+DOTENV_CONFIG_PATH=.env.local npx tsx --tsconfig tsconfig.json scripts/convert-website-orders-to-ex-vat.ts           # dry run
+DOTENV_CONFIG_PATH=.env.local npx tsx --tsconfig tsconfig.json scripts/convert-website-orders-to-ex-vat.ts --apply   # write
+```

@@ -8,7 +8,7 @@ the order's editable product cards + live catalog from `GET
 product's delivery type/addons via the existing
 `WhiteGoodsProductCard` (quantity shown read-only, no new-product picker),
 then submits to `POST` on the same route. On success it shows the
-previous/new total and, if the total increased, a link to
+previous/new total incl. VAT (`previousTotalIncVat` / `newTotalIncVat`, labelled "inkl. MVA") and, if the total increased, a link to
 `/betaling/[token]` (the existing top-up payment flow) to pay the
 difference — no live client-side price preview is computed while editing,
 since the server is the only source of truth for the recomputed total.

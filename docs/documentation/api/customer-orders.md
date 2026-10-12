@@ -36,7 +36,7 @@ Body: `{ customer?: { name, phone, email, comments }, preferredDate?, timeWindow
    - Cards are checked with `validateWebsiteOrderCards` (`422` with the reason).
    - The distance comes from `resolveDrivingDistance`, the details from `buildDetailsUpdate`, and the price from `recomputeWebsiteOrderPricing` (strict).
    - A lower price on an order that already has payments returns `422 WOULD_DECREASE_PRICE`, because refunds aren't built.
-   - `dryRun` returns `{ previousPriceExVat, priceExVat }` without saving.
+   - `dryRun` returns `{ previousPriceExVat, priceExVat, previousTotalIncVat, totalIncVat }` without saving. The `…IncVat` totals are what the customer sees and confirms: incl. VAT, summed per line (`websiteVat.ts`). `shownTotal` is compared with `totalIncVat`, and `PRICE_CHANGED` returns it. A change is priced with the order's saved catalog prices (`resolveSavedCatalogPricing`); only what's new is priced at today's catalog.
    - If the price changed, `shownTotal` is required (`400 SHOWN_TOTAL_REQUIRED`) and must match the new price within 0.5 kr, otherwise `409 PRICE_CHANGED` with the real `priceExVat`.
    - The order is saved with `websiteOrderPricingWrites`.
 6. **Moving or quote order:** only the contact details, comment, date and time window are written. The price doesn't change.

@@ -10,6 +10,7 @@ import {
   type OrderPricingSnapshot as CatalogPricingSnapshot,
 } from "@/lib/booking/pricing/snapshot";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
+import { catalogCustomerPricesExVat } from "@/lib/orders/websiteOrderExVatConversion";
 import {
   buildOrderPricingSnapshot,
   getPricingSnapshotCustomDeviationDescription,
@@ -118,7 +119,9 @@ export async function recomputeWebsiteOrderPricing(
   });
 
   const summaries = buildOrderSummaries(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
-  const normalizedPriceListSettings = normalizePriceListSettings(catalog.priceListSettings);
+  // The frozen price-list settings (km, floors, extra pickups…) when the
+  // caller gave the order's saved catalog prices; otherwise today's.
+  const normalizedPriceListSettings = normalizePriceListSettings(pricingSource.priceListSettings);
 
   const drivingDistanceStr = order.drivingDistance ?? "";
   // Each stop's own floor/lift from the booking details when the order has
@@ -233,12 +236,34 @@ export async function resolveSavedCatalogPricing(
   if (stored) return stored;
 
   const current = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true });
-  const base = current.cards[0]?.pricingSnapshot;
-  if (!base) return null;
+  const today = current.cards[0]?.pricingSnapshot;
+  if (!today) return null;
   const sameAsSaved = (priced: { priceExVat: number; priceSubcontractor: number }) =>
     priced.priceExVat === order.priceExVat && priced.priceSubcontractor === order.priceSubcontractor;
-  if (sameAsSaved(current)) return base;
+  if (sameAsSaved(current)) return today;
 
+  // Candidates for what the catalog was: today's, and — for an order converted
+  // to ex. VAT (booked when the same catalog numbers meant incl. VAT) — today's
+  // with every customer price ÷ 1.25. Each also with the stored lines' own
+  // option prices laid over it; the first that gives the saved totals wins.
+  for (const base of [today, catalogCustomerPricesExVat(today)]) {
+    if (base !== today) {
+      const scaled = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing: base });
+      if (sameAsSaved(scaled)) return base;
+    }
+    const derived = withStoredOptionPrices(base, storedItems);
+    const repriced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing: derived });
+    if (sameAsSaved(repriced)) return derived;
+  }
+  return null;
+}
+
+// The stored lines' option prices (unit price, customer and partner, by
+// option id) laid over a catalog snapshot.
+function withStoredOptionPrices(
+  base: CatalogPricingSnapshot,
+  storedItems: { optionId: string | null; customerPriceCents: number | null; subcontractorPriceCents: number | null }[],
+): CatalogPricingSnapshot {
   const toKroner = (cents: number | null, fallback: string) => (cents === null ? fallback : String(cents / 100));
   const productOptions = { ...base.productOptions };
   const specialOptions = { ...base.specialOptions };
@@ -257,9 +282,7 @@ export async function resolveSavedCatalogPricing(
       };
     }
   }
-  const derived: CatalogPricingSnapshot = { ...base, productOptions, specialOptions };
-  const repriced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing: derived });
-  return sameAsSaved(repriced) ? derived : null;
+  return { ...base, productOptions, specialOptions };
 }
 
 // The writes that store a re-priced order: the new cards, snapshot, totals,

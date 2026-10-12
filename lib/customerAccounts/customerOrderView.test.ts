@@ -18,7 +18,8 @@ const row = {
   deliveryAddress: "Vinterstien 12, 1364 Fornebu",
   productsSummary: "Washing machine x2",
   deliveryTypeSummary: "Delivery with carry-in x2",
-  priceExVat: 4990,
+  // Stored ex. VAT; the customer pays 4990 incl. VAT.
+  priceExVat: 3992,
   rabatt: null,
   leggTil: null,
   pricingSnapshot: null,

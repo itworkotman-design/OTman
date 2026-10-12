@@ -2,6 +2,7 @@ import { deriveDiscountSync } from "@/lib/booking/pricing/discountSync";
 import type { CalculatorResult } from "@/lib/booking/pricing/types";
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getCalculatorProductName } from "@/app/_components/site/BookingModal/whiteGoods/productDisplayName";
+import { websiteCustomerTotals } from "@/lib/booking/pricing/websiteVat";
 
 // The calculator in WebsiteOrderModal, shown like the booking app's
 // (CalculatorDisplayNew + SubcontractorCalculatorDisplay): every priced line
@@ -9,8 +10,9 @@ import { getCalculatorProductName } from "@/app/_components/site/BookingModal/wh
 // adjustments and total. Built from the same priceWebsiteOrder result the
 // order is stored at, so it always matches the saved price.
 //
-// Website prices already include VAT, so the customer's `total` is what they
-// pay (Order.priceExVat holds it as-is for WHITE_GOODS orders).
+// Website prices are ex. VAT, like the booking app's: `total` is the
+// customer's total ex. VAT and `totalIncVat` what they pay — each line with
+// 25% VAT, rounded to whole kroner, summed (lib/booking/pricing/websiteVat.ts).
 
 export type WebsiteOrderCalculatorLine = {
   label: string;
@@ -35,7 +37,7 @@ export type WebsiteOrderNulledLines = {
 
 export type WebsiteOrderCalculatorView = {
   products: { name: string; isOrderExtras: boolean; cardId: number | null; lines: WebsiteOrderCalculatorLine[] }[];
-  customer: { subtotal: number; discount: number; extra: number; total: number };
+  customer: { subtotal: number; discount: number; extra: number; total: number; totalIncVat: number };
   partner: { base: number; minus: number; plus: number; total: number } | null;
 };
 
@@ -79,6 +81,7 @@ export function websiteOrderCalculatorView(
       discount: totals.discount,
       extra: totals.extra,
       total: totals.totalExVat,
+      totalIncVat: websiteCustomerTotals(result).totalIncVat,
     },
     partner: includePartner
       ? {
@@ -208,38 +211,3 @@ export function applyNulledLinesToCards<T extends { cardId: number }>(cards: T[]
   }));
 }
 
-// Homepage catalog orders store the customer discount/extra VAT-inclusive (like
-// their prices), but the admin calculator works ex. VAT like the booking app's.
-// These convert at that boundary. A value the server would refuse is passed
-// through unchanged so its "amounts must be in kroner" error still shows.
-function convertKroner(value: string, factor: number): string {
-  const raw = value.trim().replace(",", ".");
-  if (!raw) return "";
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0) return value;
-  return String(Math.round((n * factor + Number.EPSILON) * 100) / 100);
-}
-
-export function kronerIncVatToExVat(value: string): string {
-  return convertKroner(value, 1 / 1.25);
-}
-
-export function kronerExVatToIncVat(value: string): string {
-  return convertKroner(value, 1.25);
-}
-
-type CalculatorAdjustments = {
-  rabatt: string;
-  leggTil: string;
-  subcontractorMinus: string;
-  subcontractorPlus: string;
-};
-
-// Partner amounts are what the partner is paid and carry no customer VAT.
-export function customerAdjustmentsToExVat<T extends CalculatorAdjustments>(adjustments: T): T {
-  return { ...adjustments, rabatt: kronerIncVatToExVat(adjustments.rabatt), leggTil: kronerIncVatToExVat(adjustments.leggTil) };
-}
-
-export function customerAdjustmentsToIncVat<T extends CalculatorAdjustments>(adjustments: T): T {
-  return { ...adjustments, rabatt: kronerExVatToIncVat(adjustments.rabatt), leggTil: kronerExVatToIncVat(adjustments.leggTil) };
-}

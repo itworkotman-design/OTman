@@ -27,6 +27,7 @@ import {
   ItemNameRequiredError,
   SizeBracketSelectionError,
   recomputeWebsiteOrderPricing,
+  resolveSavedCatalogPricing,
   websiteOrderPricingWrites,
 } from "@/lib/orders/websiteOrderRepricing";
 import { buildOrderStateSnapshot, diffOrderStates, type OrderStateSource } from "@/lib/orders/paidOrderSnapshot";
@@ -301,7 +302,10 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
 
     let recomputed;
     try {
-      recomputed = await recomputeWebsiteOrderPricing(pricedOrder, cards);
+      // The order keeps the prices it was saved with; only what's new is priced
+      // at today's catalog (resolveSavedCatalogPricing, like the admin editor).
+      const catalogPricing = await resolveSavedCatalogPricing(order, normalizedCards(order.productCardsSnapshot), order.items);
+      recomputed = await recomputeWebsiteOrderPricing(pricedOrder, cards, { catalogPricing });
     } catch (err) {
       if (err instanceof SizeBracketSelectionError) return reject("SIZE_BRACKETS_REQUIRED", 422);
       if (err instanceof ItemNameRequiredError) return reject("ITEM_NAME_REQUIRED", 422);

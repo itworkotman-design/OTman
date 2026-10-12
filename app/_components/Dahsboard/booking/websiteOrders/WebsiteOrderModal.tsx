@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { buildOrderReviewBlocks } from "@/app/_components/site/BookingModal/whiteGoods/orderReview";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
-import { getVatBreakdown } from "@/lib/booking/pricing/vatDisplayTotal";
 import type { WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import type { ProductGroup } from "@/lib/orders/websiteOrderProducts";
 import WebsiteOrderAdminActions from "./WebsiteOrderAdminActions";
@@ -76,11 +75,6 @@ function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
 }
 
-// Customer amounts on these orders are stored VAT-inclusive; the product list
-// shows them ex. VAT like the booking app's calculator.
-function formatKrExVat(clientAmount: number) {
-  return formatKr(Math.round(clientAmount / 1.25));
-}
 
 // Read-only admin view of a homepage white-goods website order: every pickup
 // stop, the delivery, the customer, and the itemized price — laid out like
@@ -141,7 +135,13 @@ export default function WebsiteOrderModal({
       notes: order.customerComments ?? "",
     },
   });
-  const vat = getVatBreakdown(order.priceExVat);
+  // Stored ex. VAT; what the customer pays (incl. VAT, summed per line) is the
+  // payment comparison's current total.
+  const vat = {
+    exVat: order.priceExVat,
+    incVat: order.payment.currentTotalIncVatNok,
+    vat: Math.round((order.payment.currentTotalIncVatNok - order.priceExVat) * 100) / 100,
+  };
   // The calculator's four fields; "Handle order" saves everything else.
   const { rabatt, leggTil, subcontractorMinus, subcontractorPlus, ...panelHandling } = order.handling;
   const calculatorAdjustments = { rabatt, leggTil, subcontractorMinus, subcontractorPlus };
@@ -399,7 +399,7 @@ export default function WebsiteOrderModal({
                           <div className="flex items-baseline justify-between gap-3">
                             <p className="font-semibold text-black/85">{product.productName}</p>
                             <p className="whitespace-nowrap font-semibold tabular-nums text-black/85">
-                              {formatKrExVat(product.total)}
+                              {formatKr(product.total)}
                             </p>
                           </div>
                           {product.items.length > 0 && (
@@ -418,7 +418,7 @@ export default function WebsiteOrderModal({
                                     )}
                                   </span>
                                   <span className="whitespace-nowrap text-right font-medium tabular-nums text-black/70">
-                                    {formatKrExVat(item.price)}
+                                    {formatKr(item.price)}
                                   </span>
                                 </Fragment>
                               ))}
@@ -449,7 +449,7 @@ export default function WebsiteOrderModal({
                               )}
                             </span>
                             <span className="whitespace-nowrap text-right font-medium tabular-nums text-black/70">
-                              {formatKrExVat(line.price)}
+                              {formatKr(line.price)}
                             </span>
                           </Fragment>
                         ))}
@@ -462,7 +462,7 @@ export default function WebsiteOrderModal({
                       <span>{t("Not covered by the lines above", "Ikke dekket av linjene over")}</span>
                       <span className="whitespace-nowrap font-semibold tabular-nums">
                         {order.totalsCheck.missingFromLines > 0 ? "+" : ""}
-                        {formatKrExVat(order.totalsCheck.missingFromLines)}
+                        {formatKr(order.totalsCheck.missingFromLines)}
                       </span>
                     </div>
                   )}

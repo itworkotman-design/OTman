@@ -4,8 +4,7 @@ import { Fragment, type ReactNode } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { WhiteGoodsLineCategory } from "@/lib/content/whiteGoodsLineCategory";
 import { ProductIcon } from "./productIcons";
-import type { CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
-import { websiteCustomerPrice, websiteCustomerTotalDisplay } from "@/lib/booking/pricing/websiteVat";
+import { websiteCustomerPrice, websiteCustomerTotalDisplay, type CustomerType } from "@/lib/booking/pricing/websiteVat";
 
 export type OrderSummaryLine = {
   label: string;

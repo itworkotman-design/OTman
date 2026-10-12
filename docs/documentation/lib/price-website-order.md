@@ -21,6 +21,8 @@ So what the customer is shown is exactly what is stored and charged. Previously 
 
 The tests check that the lines + order extras equal the total, within and over 100 km.
 
+`priceWebsiteOrder` also returns `customerTotals` (`websiteCustomerTotals`): the total ex. VAT as priced, and the total incl. VAT summed per line. That incl. total is what the customer sees and pays.
+
 ## Km rule
 
 `useFullDistanceKmPricing` (default `true`) picks the km rule in `distanceCharges.ts`. With the new rule, the whole distance is billed once it is over 20 km. With the old rule, only the km above 20 are billed. New orders use the default. Re-pricing an existing order passes `usesFullDistanceKmPricing(order.createdAt)`, so orders made before `FULL_DISTANCE_KM_PRICING_FROM` keep the price the customer saw.

@@ -137,13 +137,14 @@ describe("GET /api/integrations/mcp/orders/list", () => {
     });
   });
 
-  it("reports a homepage (WHITE_GOODS) order's total and VAT without adding VAT again", async () => {
+  // Homepage orders store ex. VAT with their incl.-VAT total (summed per line) and VAT beside it.
+  it("reports a homepage (WHITE_GOODS) order's stored total and VAT", async () => {
     mocks.orderFindManyMock.mockResolvedValue([
-      { displayId: 1, websiteOrderKind: "WHITE_GOODS", pricingSnapshot: { customer: { totalExVat: 1250, vat: 312.5, totalIncVat: 1562.5 } } },
+      { displayId: 1, websiteOrderKind: "WHITE_GOODS", pricingSnapshot: { customer: { totalExVat: 1250, vat: 313, totalIncVat: 1563 } } },
     ]);
 
     const json = await (await createRequest("")).json();
 
-    expect(json.orders[0]).toEqual(expect.objectContaining({ totalPrice: 1250, vat: 250 }));
+    expect(json.orders[0]).toEqual(expect.objectContaining({ totalPrice: 1563, vat: 313 }));
   });
 });

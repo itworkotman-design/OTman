@@ -161,7 +161,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       // Lines vs total vs what the customer was shown — any mismatch is a
       // warning in the modal (the customer pays what they were shown).
       totalsCheck: checkWebsiteOrderTotals({
-        total: getOrderChargeAmountIncVatNok(order),
+        // Lines and total ex. VAT (as stored); the shown total against what's charged.
+        total: order.priceExVat,
+        chargedIncVat: getOrderChargeAmountIncVatNok(order),
         products,
         orderExtras: details.orderExtras,
         rabatt: order.rabatt,

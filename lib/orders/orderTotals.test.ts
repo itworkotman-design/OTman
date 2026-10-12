@@ -15,6 +15,14 @@ describe("buildOrderPricingSnapshot — a website order's total incl. VAT", () =
     });
     expect(snapshot.customer).toMatchObject({ totalExVat: 2256, totalIncVat: 2821, vat: 565 });
   });
+
+  // Marks a snapshot priced ex. VAT, so the one-time conversion of older
+  // (incl.-VAT) website orders never touches it.
+  it("marks it as priced ex. VAT", () => {
+    const base = { lines: [], rabatt: null, leggTil: null, subcontractorMinus: null, subcontractorPlus: null };
+    expect(buildOrderPricingSnapshot({ ...base, customerTotalIncVat: 100 }).vatBasis).toBe("exVat");
+    expect(buildOrderPricingSnapshot(base).vatBasis).toBeUndefined();
+  });
 });
 
 describe("buildOrderPricingSnapshot", () => {

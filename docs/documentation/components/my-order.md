@@ -42,6 +42,6 @@ What **Endre bestilling** opens depends on the order:
 - **White-goods order:** `WhiteGoodsBookingFlow` in `customer` mode (see `white-goods-booking-flow.md`).
 - **Moving or quote order:** `CustomerOrderDetailsForm`, with contact details, notes, and the date and time window until the cutoff.
 
-**`CustomerOrderEditFooter`** prices every change on the server (debounced `dryRun`). It shows the old and new totals and saves with `shownTotal` set to that price. If the server answers `PRICE_CHANGED`, it updates the price and asks the customer to save again. While `blockedMessage` is set (a product without a pickup address), that message is shown and Save is disabled. `PRODUCT_WITHOUT_PICKUP` from the server shows the same kind of message.
+**`CustomerOrderEditFooter`** prices every change on the server (debounced `dryRun`). It shows the old and new totals incl. VAT (`previousTotalIncVat` / `totalIncVat`) and saves with `shownTotal` set to that total. If the server answers `PRICE_CHANGED`, it updates the price and asks the customer to save again. While `blockedMessage` is set (a product without a pickup address), that message is shown and Save is disabled. `PRODUCT_WITHOUT_PICKUP` from the server shows the same kind of message.
 
 **`buildCustomerEditPayload`** sends only the parts that differ from the order as loaded. After the cutoff it never sends the date, the stops or the delivery.

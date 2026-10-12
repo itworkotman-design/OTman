@@ -96,10 +96,12 @@ describe("checkWebsiteOrderTotals", () => {
     expect(checkWebsiteOrderTotals({ ...base, total: 942.42 }).missingFromLines).toBe(-200);
   });
 
-  it("compares the order total with what the customer was shown at booking", () => {
-    expect(checkWebsiteOrderTotals({ ...base, total: 1142.42, shownTotal: 1142.42 }).differsFromShown).toBe(0);
-    expect(checkWebsiteOrderTotals({ ...base, total: 1142.42, shownTotal: 2302.42 })).toMatchObject({
-      shownTotal: 2302.42,
+  // Lines and total are ex. VAT; what the customer was shown (and pays) is
+  // incl. VAT, so that comparison uses the charged total.
+  it("compares what the customer pays (incl. VAT) with what they were shown at booking", () => {
+    expect(checkWebsiteOrderTotals({ ...base, total: 1142.42, chargedIncVat: 1428, shownTotal: 1428 }).differsFromShown).toBe(0);
+    expect(checkWebsiteOrderTotals({ ...base, total: 1142.42, chargedIncVat: 1428, shownTotal: 2588 })).toMatchObject({
+      shownTotal: 2588,
       differsFromShown: -1160,
     });
   });

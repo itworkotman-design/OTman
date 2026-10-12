@@ -8,7 +8,7 @@
 
 Records what an order looked like when the customer paid, and compares the order as it is now against that. The Stripe webhook stores a snapshot on each `OrderPayment.orderSnapshot`. The admin modal, the admin editor's preview, the customer pay page and the balance-due email all read the comparison. Both sides are built by the same function, so they compare like for like.
 
-Amounts are what the customer is charged (`getOrderChargeAmountIncVatNok`). Homepage orders use VAT-inclusive catalog prices.
+Amounts are what the customer is charged (`getOrderChargeAmountIncVatNok`), incl. VAT. A homepage order stores its lines, extras and discount/extra ex. VAT, so each is turned into the customer's incl.-VAT amount (`websiteInclVat`, rounded per line). That way a converted old order still matches the payment snapshots taken when everything was stored incl. VAT.
 
 ## Functions
 

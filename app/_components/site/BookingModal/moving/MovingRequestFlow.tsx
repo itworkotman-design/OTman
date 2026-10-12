@@ -6,7 +6,12 @@ import { CustomerTypeStep } from "../whiteGoods/CustomerTypeStep";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import { transportTimeWindows } from "@/lib/content/TransportRequestConfig";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
-import { getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import {
+  websiteCustomerPrice,
+  websiteCustomerTotalDisplay,
+  websiteInclVat,
+  type CustomerType,
+} from "@/lib/booking/pricing/websiteVat";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 import {
   isValidEmail,
@@ -74,7 +79,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   // would be redundant. Still display-only (never affects actual pricing).
   // Starts `null` (unanswered) rather than defaulting to "private" so the
   // first step's tiles open with neither one highlighted —
-  // getVatDisplayTotal already treats "private" as its own default
+  // websiteCustomerTotalDisplay already treats "private" as its own default
   // whenever this is null.
   const [customerType, setCustomerType] = useState<CustomerType | null>(null);
 
@@ -83,10 +88,15 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
   const selectedOption = catalogOptions.find((o) => o.code === sizeOptionCode) ?? null;
-  // customerPriceCents is the catalog price, stored/entered as what the
-  // client actually pays (VAT-inclusive) — see getVatDisplayTotal.
-  const clientTotal = selectedOption ? selectedOption.customerPriceCents / 100 : 0;
-  const vatDisplay = getVatDisplayTotal({ total: clientTotal, customerType: customerType ?? undefined });
+  // customerPriceCents is the price list's price, ex. VAT like every website
+  // price; a private customer pays it + 25%, rounded to whole kroner — what
+  // the order's payment link charges (lib/orders/movingOrderPricing.ts).
+  const priceExVat = selectedOption ? selectedOption.customerPriceCents / 100 : 0;
+  const vatDisplay = websiteCustomerTotalDisplay({
+    totalExVat: priceExVat,
+    totalIncVat: websiteInclVat(priceExVat),
+    customerType: customerType ?? undefined,
+  });
 
   const canContinueDetails = !!pickupAddress.trim() && !!deliveryAddress.trim() && !!sizeOptionCode;
   const canContinueTiming = !!preferredDate && !!timeWindow;
@@ -176,10 +186,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           <div className="grid gap-2 sm:grid-cols-2">
             {catalogOptions.map((option) => {
               const active = sizeOptionCode === option.code;
-              const optionVat = getVatDisplayTotal({
-                total: option.customerPriceCents / 100,
-                customerType: customerType ?? undefined,
-              });
+              const optionPrice = websiteCustomerPrice(option.customerPriceCents / 100, customerType ?? "private");
               return (
                 <button
                   key={option.code}
@@ -190,7 +197,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
                   }`}
                 >
                   <span className="font-semibold">{locale === "no" ? option.labelNo : option.labelEn}</span>
-                  <span className={active ? "text-white/90" : "text-black/50"}>{formatKr(optionVat.primaryAmount)}</span>
+                  <span className={active ? "text-white/90" : "text-black/50"}>{formatKr(optionPrice)}</span>
                 </button>
               );
             })}

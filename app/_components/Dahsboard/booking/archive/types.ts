@@ -92,8 +92,8 @@ export type OrderRow = {
   subcontractor: string;
   priceListId: string;
   priceListName: string;
-  // "WHITE_GOODS" = a homepage catalog order, whose priceExVat holds the
-  // VAT-inclusive client total (see getEffectiveArchiveCustomerTotal).
+  // "WHITE_GOODS" = a homepage catalog order (priced ex. VAT like the rest;
+  // see lib/booking/pricing/websiteVat.ts).
   websiteOrderKind?: string | null;
   // Placed through the public website (shown with a blue tint).
   isWebsiteOrder?: boolean;

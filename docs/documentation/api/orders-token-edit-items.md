@@ -42,4 +42,6 @@ unbuilt feature.
 
 ## Floors and booking details
 
+The response also has `previousTotalIncVat`, `newTotalIncVat` and `deltaIncVat`, which are what the customer is shown and pays (incl. VAT, summed per line). The edit is priced with the order's saved catalog prices (`resolveSavedCatalogPricing`); only what the customer changes is priced at today's catalog.
+
 For homepage orders with `websiteBookingDetails`, re-pricing uses each stop's own floor and lift (`floorPricingInputs`): the first pickup, every extra pickup stop and the delivery. Older orders keep the one combined `floorNo`/`lift` on both ends. The re-priced order-extra lines are written back to `websiteBookingDetails.orderExtras`, so the admin `WebsiteOrderModal` stays in step with the new total.

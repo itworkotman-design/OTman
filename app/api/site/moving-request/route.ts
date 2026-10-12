@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { movingOrderPricing } from "@/lib/orders/movingOrderPricing";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
@@ -76,6 +78,7 @@ async function createMovingRequest(
 
   const descriptionParts = [`Approximate size: ${sizeOption.labelEn}`, str(body.notes)].filter(Boolean);
 
+  const movingPricing = movingOrderPricing(sizeOption);
   const order = await prisma.order.create({
     data: {
       companyId: membership.companyId,
@@ -93,8 +96,9 @@ async function createMovingRequest(
       deliveryDate: str(body.preferredDate),
       timeWindow: str(body.timeWindow),
       description: descriptionParts.join("\n\n") || null,
-      priceExVat: Math.round(sizeOption.customerPriceCents / 100),
-      priceSubcontractor: Math.round(sizeOption.subcontractorPriceCents / 100),
+      // Ex. VAT, with what the customer pays (incl. VAT, whole kroner) in the snapshot.
+      ...movingPricing,
+      pricingSnapshot: movingPricing.pricingSnapshot as unknown as Prisma.InputJsonValue,
       productsSummary: `Moving (${sizeOption.labelEn})`,
     },
   });

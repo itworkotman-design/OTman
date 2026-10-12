@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getWebsiteOrderCatalog: vi.fn(),
   validateWebsiteOrderCards: vi.fn(),
   recompute: vi.fn(),
+  resolvePricing: vi.fn(),
   pricingWrites: vi.fn(),
   resolveDrivingDistance: vi.fn(),
   createOrderUpdatedEvent: vi.fn(),
@@ -28,7 +29,12 @@ vi.mock("@/lib/orders/validateWebsiteOrderCards", () => ({ validateWebsiteOrderC
 // The pricing pipeline has its own tests; here only this route's decisions.
 vi.mock("@/lib/orders/websiteOrderRepricing", async () => {
   const actual = await vi.importActual<typeof import("@/lib/orders/websiteOrderRepricing")>("@/lib/orders/websiteOrderRepricing");
-  return { ...actual, recomputeWebsiteOrderPricing: mocks.recompute, websiteOrderPricingWrites: mocks.pricingWrites };
+  return {
+    ...actual,
+    recomputeWebsiteOrderPricing: mocks.recompute,
+    resolveSavedCatalogPricing: mocks.resolvePricing,
+    websiteOrderPricingWrites: mocks.pricingWrites,
+  };
 });
 vi.mock("@/lib/orders/resolveDrivingDistance", () => ({ resolveDrivingDistance: mocks.resolveDrivingDistance }));
 vi.mock("@/lib/orders/orderEvents", () => ({
@@ -317,11 +323,24 @@ describe("customer order route", () => {
 
       expect(res.status).toBe(200);
       expect(json).toMatchObject({ ok: true, previousPriceExVat: 1000, priceExVat: 1300, previousTotalIncVat: 1250, totalIncVat: 1625 });
-      expect(mocks.recompute).toHaveBeenCalledWith(expect.anything(), [normalizeSavedProductCard(cards[0] as never, 0)]);
+      expect(mocks.recompute).toHaveBeenCalledWith(expect.anything(), [normalizeSavedProductCard(cards[0] as never, 0)], expect.anything());
       expect(mocks.createOrderNotification).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ message: expect.stringContaining("300") }),
       );
+    });
+
+    // Like the admin editor: the order keeps the prices it was saved with —
+    // only what the customer adds is priced at today's catalog.
+    it("prices a change with the order's saved catalog prices", async () => {
+      const saved = { productOptions: { saved: true } };
+      mocks.resolvePricing.mockResolvedValue(saved);
+      mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(1300, cards));
+
+      await put({ productCards: [{ ...washerCard, amount: 2 }], dryRun: true });
+
+      expect(mocks.resolvePricing).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }), [normalizeSavedProductCard(washerCard as never, 0)], []);
+      expect(mocks.recompute.mock.calls[0]![2]).toEqual({ catalogPricing: saved });
     });
 
     it("previews a change with dryRun without saving", async () => {

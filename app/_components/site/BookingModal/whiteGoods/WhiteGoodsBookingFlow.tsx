@@ -40,8 +40,12 @@ import {
   type OrderSummaryExtraLine,
   type OrderSummaryProduct,
 } from "./WhiteGoodsOrderSummary";
-import type { CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
-import { websiteCustomerPrice, websiteCustomerTotalDisplay, websiteCustomerTotals } from "@/lib/booking/pricing/websiteVat";
+import {
+  websiteCustomerPrice,
+  websiteCustomerTotalDisplay,
+  websiteCustomerTotals,
+  type CustomerType,
+} from "@/lib/booking/pricing/websiteVat";
 import {
   addAnotherProductCard,
   applyProductQuantity,

@@ -52,10 +52,13 @@ export function pricingLinesFromSnapshot(snapshot: unknown): PricingLine[] {
 // - missingFromLines: what the order total holds beyond its own priced lines
 //   (+ booked order extras ± manual discount/surcharge) — lines missing or
 //   mispriced (e.g. returns stored at 0 kr).
-// - differsFromShown: order total − the total the customer was shown when
+// - differsFromShown: what the customer pays − the total they were shown when
 //   booking (only while the order hasn't been re-priced since).
+// `total` and the lines are ex. VAT (how website orders are stored);
+// `chargedIncVat` is what the customer pays, compared with the shown total.
 export function checkWebsiteOrderTotals(params: {
   total: number;
+  chargedIncVat?: number;
   products: ProductGroup[];
   orderExtras: { price: number }[];
   rabatt: string | null | undefined;
@@ -69,7 +72,7 @@ export function checkWebsiteOrderTotals(params: {
   const explained = linesTotal - parseNokAdjustment(params.rabatt) + parseNokAdjustment(params.leggTil);
   const missing = roundNok(params.total - explained);
   const shownTotal = typeof params.shownTotal === "number" ? params.shownTotal : null;
-  const differsFromShown = shownTotal === null ? 0 : roundNok(params.total - shownTotal);
+  const differsFromShown = shownTotal === null ? 0 : roundNok((params.chargedIncVat ?? params.total) - shownTotal);
   return {
     linesTotal,
     // Under a krone is rounding of the stored total.

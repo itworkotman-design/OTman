@@ -9,7 +9,9 @@ white-goods/furniture — the client sends a `sizeOptionCode`, which this route
 re-resolves to a real price server-side via `getMovingCatalog()`/
 `findMovingSizeOption()` rather than trusting whatever price the client
 displayed. Creates an `Order` (`isWebsiteOrder: true`, real `priceExVat`/
-`priceSubcontractor`, `status: "processing"`) + one `OrderItem` — same `Order`
+`priceSubcontractor` and a `pricingSnapshot` from `movingOrderPricing`: the
+price list's price is ex. VAT, and the customer pays it +25% rounded to whole
+kroner, `status: "processing"`) + one `OrderItem` — same `Order`
 model, same dashboard review UI, same approve/reject/Stripe pipeline as every
 other website order; no new status value or schema change. A staff member
 still reviews and approves before the customer gets a payment link, same gate
