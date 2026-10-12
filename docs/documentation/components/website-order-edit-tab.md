@@ -11,7 +11,7 @@ The admin editor for a homepage (white-goods) order: the **Edit order** tab of `
 
 ## Behaviour
 
-The left column runs Products → Pickup addresses → Delivery → Customer. The right column has the two calculators and the save buttons.
+The left column runs Products → Pickup addresses → Delivery → Customer. It ends, like the Overview, with the save blockers and one row: the modal's red "Delete order" (passed in as `besideSave`, the same button the Overview uses), Cancel (back to Overview), and "Save changes" filling the rest. The right column has the calculator and the payment preview.
 
 - **Load:** `GET /api/orders/[orderId]/website-items` returns the cards, details, website catalog and categories. Stops become editor stops through `stopsFromDetails`, which places products by card id, or by stored product name on older orders.
 - **Customer:** a bordered card headed by the customer's name, with phone · email as its summary and a house or building badge. Private / Business are icon buttons (`ChoiceButton`), then name, phone (`tel`), email (`email`) and the customer's comments.

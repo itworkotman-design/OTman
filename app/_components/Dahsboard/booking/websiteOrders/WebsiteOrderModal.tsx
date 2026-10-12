@@ -195,6 +195,18 @@ export default function WebsiteOrderModal({
     }
   }
 
+  // Left of Save on both tabs (Overview and Edit order).
+  const deleteButton = canDelete ? (
+    <button
+      type="button"
+      onClick={handleDelete}
+      disabled={deleteLoading}
+      className="inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-red-600 px-5 text-base font-semibold text-white disabled:opacity-50"
+    >
+      {deleteLoading ? bookingText(locale, "Deleting...") : bookingText(locale, "Delete order")}
+    </button>
+  ) : null;
+
   return createPortal(
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
       <div className="flex min-h-full items-center justify-center px-3 py-6 lg:px-6 lg:py-10">
@@ -274,12 +286,16 @@ export default function WebsiteOrderModal({
             {editNotice && (
               <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">{editNotice}</p>
             )}
+            {tab === "edit" && deleteError && (
+              <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{deleteError}</p>
+            )}
             {tab === "edit" ? (
               <WebsiteOrderEditTab
                 orderId={order.id}
                 locale={locale}
                 onDirtyChange={handleEditDirtyChange}
                 onCancel={() => switchTab("overview")}
+                besideSave={deleteButton}
                 onSaved={(message) => {
                   setEditDirty(false);
                   setTab("overview");
@@ -321,18 +337,7 @@ export default function WebsiteOrderModal({
                   onChanged={onChanged}
                   pricingDraft={pricingDraft}
                   priceChangeSlotRef={setPriceChangeSlot}
-                  besideSave={
-                    canDelete ? (
-                      <button
-                        type="button"
-                        onClick={handleDelete}
-                        disabled={deleteLoading}
-                        className="inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-red-600 px-5 text-base font-semibold text-white disabled:opacity-50"
-                      >
-                        {deleteLoading ? bookingText(locale, "Deleting...") : bookingText(locale, "Delete order")}
-                      </button>
-                    ) : null
-                  }
+                  besideSave={deleteButton}
                 >
                   <WebsiteOrderAttachments orderId={order.id} locale={locale} />
                 </WebsiteOrderAdminActions>
@@ -354,7 +359,6 @@ export default function WebsiteOrderModal({
                     missingFromLines={order.totalsCheck.missingFromLines}
                     storedTotal={order.priceExVat}
                     locale={locale}
-                    onChanged={onChanged}
                     onDraftChange={setPricingDraft}
                     priceChangeTarget={priceChangeSlot}
                   />

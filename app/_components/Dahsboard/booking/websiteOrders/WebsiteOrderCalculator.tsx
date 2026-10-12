@@ -35,8 +35,6 @@ type Props = {
   // The saved total — the calculator re-prices, so a difference is flagged.
   storedTotal: number;
   locale: BookingUiLocale;
-  // After a save — reload the order.
-  onChanged: () => void;
   // The unsaved changes (null when there are none); the modal's Save stores them.
   onDraftChange: (draft: WebsiteOrderPricingDraft | null) => void;
   // Where to show "Price after this change" (above the modal's Save); inline when absent.
@@ -93,9 +91,10 @@ function formatQty(qty: number) {
 // (partnerMinusForDiscount), which can then be overridden.
 //
 // Changes are priced live (a `dryRun` of PUT /api/orders/[orderId]/website-items
-// with just these four `handling` fields) and compared with what was paid;
-// "Save prices" stores them. The partner side and the inputs are only there
-// for admins (the server leaves `partner` out for viewers).
+// with just these four `handling` fields) and compared with what was paid.
+// Nothing here ever writes the order: every change, "Use new price" included,
+// goes up as a draft and only the modal's Save stores it. The partner side and
+// the inputs are only there for admins (the server leaves `partner` out for viewers).
 export default function WebsiteOrderCalculator({
   orderId,
   calculator,
@@ -103,7 +102,6 @@ export default function WebsiteOrderCalculator({
   missingFromLines,
   storedTotal,
   locale,
-  onChanged,
   onDraftChange,
   priceChangeTarget = null,
   externalPricing,
@@ -125,16 +123,16 @@ export default function WebsiteOrderCalculator({
   const view = externalPricing ? (externalPricing.view ?? calculator) : ownView;
   const previewing = externalPricing ? externalPricing.previewing : ownPreviewing;
   const [previewFailed, setPreviewFailed] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{
-    tone: "ok" | "error";
-    text: string;
-  } | null>(null);
+  // "Use new price" pressed: re-price at today's prices on the next Save. A
+  // save with the calculator's draft re-prices the order, so the draft alone
+  // (even with unchanged amounts) carries it.
+  const [useNewPrice, setUseNewPrice] = useState(false);
   const previewSeq = useRef(0);
   // Set by a checkbox click: skip the typing delay for that preview.
   const immediatePreview = useRef(false);
 
-  const changed = JSON.stringify(adj) !== JSON.stringify(shownAdjustments) || canonicalNulled(nulled) !== canonicalNulled(initialNulled);
+  const changed =
+    useNewPrice || JSON.stringify(adj) !== JSON.stringify(shownAdjustments) || canonicalNulled(nulled) !== canonicalNulled(initialNulled);
   // Same rules as the booking app: lines can only be set to 0 while there is
   // no discount / partner minus, and those inputs hide while lines are set to 0.
   const hasDiscountValue = parseNokAdjustment(adj.rabatt) !== 0 || parseNokAdjustment(adj.subcontractorMinus) !== 0;
@@ -145,18 +143,19 @@ export default function WebsiteOrderCalculator({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [changed, storedAdj, nulled]);
 
-  async function put(dryRun: boolean) {
+  // Always a dry run — this component never saves.
+  async function pricePreview() {
     const res = await fetch(`/api/orders/${orderId}/website-items`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ handling: storedAdj, nulledLines: nulled, dryRun }),
+      body: JSON.stringify({ handling: storedAdj, nulledLines: nulled, dryRun: true }),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok && !!data?.ok, data };
   }
 
-  const previewKey = changed ? JSON.stringify(adj) + canonicalNulled(nulled) : "";
+  const previewKey = changed ? JSON.stringify(adj) + canonicalNulled(nulled) + (useNewPrice ? "|new-price" : "") : "";
   useEffect(() => {
     if (external) return;
     const seq = ++previewSeq.current;
@@ -172,7 +171,7 @@ export default function WebsiteOrderCalculator({
     const timer = setTimeout(async () => {
       setPreviewing(true);
       try {
-        const { ok, data } = await put(true);
+        const { ok, data } = await pricePreview();
         if (seq !== previewSeq.current) return;
         setPreviewFailed(!ok);
         if (ok) {
@@ -207,47 +206,8 @@ export default function WebsiteOrderCalculator({
     }));
   }
 
-  async function handleSave() {
-    setMessage(null);
-    try {
-      setSaving(true);
-      const { ok } = await put(false);
-      if (!ok) {
-        setMessage({
-          tone: "error",
-          text: t("Couldn't save — amounts must be in kroner.", "Kunne ikke lagre — beløp må være i kroner."),
-        });
-        return;
-      }
-      onChanged();
-    } catch {
-      setMessage({
-        tone: "error",
-        text: t("Couldn't save the prices.", "Kunne ikke lagre prisene."),
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
-
   // The order re-priced now (today's catalog) differs from what's saved.
   const priceOutdated = !external && Math.round(calculator.customer.total) !== Math.round(storedTotal);
-
-  // Re-saves the order unchanged, which re-prices it at today's prices — like
-  // the booking app's "Use new price". What was paid is compared as usual.
-  async function handleUseNewPrice() {
-    if (
-      !confirm(
-        t(
-          `Change the order total (ex. VAT) from ${formatKr(exVat(storedTotal))} to ${formatKr(exVat(calculator.customer.total))}? If the customer has paid, the difference shows as due or to refund.`,
-          `Endre ordretotalen (eks. mva) fra ${formatKr(exVat(storedTotal))} til ${formatKr(exVat(calculator.customer.total))}? Har kunden betalt, vises differansen som utestående eller til refusjon.`,
-        ),
-      )
-    ) {
-      return;
-    }
-    await handleSave();
-  }
 
   const vat = getVatBreakdown(view.customer.total);
   const fieldClass = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black/85";
@@ -343,16 +303,16 @@ export default function WebsiteOrderCalculator({
               )}
             </p>
             {isAdmin && (
+              // Only marks the new price as a change — "Price after this change"
+              // shows it, and it's stored when Save is pressed (or dropped by Reset).
               <button
                 type="button"
-                onClick={handleUseNewPrice}
-                disabled={saving}
-                className="mt-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+                onClick={() => setUseNewPrice(true)}
+                className="mt-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"
               >
-                {saving ? t("Saving…", "Lagrer…") : t("Use new price", "Bruk ny pris")}
+                {t("Use new price", "Bruk ny pris")}
               </button>
             )}
-            {message && !changed && <p className="mt-2 text-sm font-medium text-red-700">{message.text}</p>}
           </div>
         )}
 
@@ -510,8 +470,8 @@ export default function WebsiteOrderCalculator({
               onClick={() => {
                 setAdj(shownAdjustments);
                 setNulled(initialNulled);
+                setUseNewPrice(false);
               }}
-              disabled={saving}
               className="inline-flex h-10 items-center justify-center rounded-full border border-logoblue px-5 text-sm font-semibold text-logoblue disabled:opacity-50"
             >
               {t("Reset prices", "Tilbakestill priser")}

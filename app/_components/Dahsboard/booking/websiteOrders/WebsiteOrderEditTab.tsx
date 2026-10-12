@@ -53,6 +53,8 @@ type Props = {
   onCancel: () => void;
   // Tells the modal whether there are unsaved edits (to confirm before leaving).
   onDirtyChange: (dirty: boolean) => void;
+  // Shown left of Save in the same row (the modal's "Delete order"), as on the Overview.
+  besideSave?: ReactNode;
 };
 
 type Category = { code: string; labelEn: string; labelNo: string; productIds: string[] };
@@ -74,7 +76,7 @@ const SOURCE_ICONS: Record<BookingPickupSource, ReactNode> = {
 // rules as the customer's booking flow) and pickup addresses that each list the
 // products collected there. Priced and saved through
 // /api/orders/[orderId]/website-items, like before.
-export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel, onDirtyChange }: Props) {
+export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel, onDirtyChange, besideSave }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const cardLocale = locale === "nb" ? "no" : "en";
 
@@ -745,6 +747,38 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
             </label>
           </div>
         </section>
+
+        {/* Last in the left column, like the Overview: what blocks saving, then
+            [Delete order] [Cancel] [Save changes] in one row. */}
+        <div className="flex flex-col gap-2">
+          {blockers.length > 0 && (
+            <ul className="list-disc pl-5 text-sm font-medium text-red-600">
+              {blockers.map((blocker) => (
+                <li key={blocker}>{blockerText(blocker)}</li>
+              ))}
+            </ul>
+          )}
+          {showError && <p className="text-sm font-medium text-red-600">{error}</p>}
+          <div className="flex flex-wrap items-center gap-3">
+            {besideSave}
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={saving}
+              className="inline-flex h-12 shrink-0 items-center justify-center rounded-full border border-black/15 px-5 text-base font-semibold text-black/70 hover:bg-black/5 disabled:opacity-50"
+            >
+              {t("Cancel", "Avbryt")}
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!dirty || saving || blockers.length > 0}
+              className="inline-flex h-12 flex-1 items-center justify-center rounded-full bg-logoblue px-5 text-base font-semibold text-white disabled:opacity-50"
+            >
+              {saving ? t("Saving…", "Lagrer…") : t("Save changes", "Lagre endringer")}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* The Overview's calculator (set to 0, discount, extra, partner minus/plus),
@@ -758,7 +792,6 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
             missingFromLines={0}
             storedTotal={firstCalculator.customer.total}
             locale={locale}
-            onChanged={() => {}}
             onDraftChange={setPricingDraft}
             externalPricing={{ view: preview?.calculator ?? null, previewing }}
           />
@@ -780,28 +813,6 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
             />
           </section>
         )}
-
-        <section className={sectionClass}>
-          {blockers.length > 0 && (
-            <ul className="list-disc pl-5 text-sm font-medium text-red-600">
-              {blockers.map((blocker) => (
-                <li key={blocker}>{blockerText(blocker)}</li>
-              ))}
-            </ul>
-          )}
-          {showError && <p className="text-sm font-medium text-red-600">{error}</p>}
-          <button
-            type="button"
-            className="customButtonEnabled h-11 disabled:opacity-50!"
-            onClick={handleSave}
-            disabled={!dirty || saving || blockers.length > 0}
-          >
-            {saving ? t("Saving…", "Lagrer…") : t("Save changes", "Lagre endringer")}
-          </button>
-          <button type="button" className="customButtonDefault h-11" onClick={onCancel} disabled={saving}>
-            {t("Cancel", "Avbryt")}
-          </button>
-        </section>
       </div>
     </div>
   );
