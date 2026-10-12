@@ -14,6 +14,9 @@ Returns today's delivery-date range in ISO format.
 ### `getTomorrowRange()`
 Returns tomorrow's delivery-date range in ISO format.
 
+### `getAfterTomorrowRange()`
+Returns the day-after-tomorrow delivery-date range in ISO format.
+
 ### `getThisWeekRange()`
 Returns the current Monday-through-Sunday delivery-date range in ISO format.
 

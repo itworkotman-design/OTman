@@ -191,6 +191,7 @@ const NB_TEXT: Record<string, string> = {
   Submit: "Send inn",
   "This month": "Denne måneden",
   "This week": "Denne uken",
+  "After tomorrow": "I overmorgen",
   "Time window": "Tidsvindu",
   To: "Til",
   Today: "I dag",

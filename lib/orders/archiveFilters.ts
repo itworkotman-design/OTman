@@ -36,6 +36,13 @@ export function getTomorrowRange() {
   return { fromDate: iso, toDate: iso };
 }
 
+export function getAfterTomorrowRange() {
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
+  const iso = toIsoDate(d);
+  return { fromDate: iso, toDate: iso };
+}
+
 export function getThisWeekRange() {
   const d = new Date();
   const day = d.getDay();

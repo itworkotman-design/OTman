@@ -6,6 +6,7 @@ import type { BookingArchiveFilters, BookingArchiveOption } from "./types";
 import {
   DEFAULT_BOOKING_ARCHIVE_FILTERS,
   NONE_FILTER_VALUE,
+  getAfterTomorrowRange,
   getLastMonthRange,
   getThisMonthRange,
   getThisWeekRange,
@@ -279,6 +280,12 @@ export default function BookingFilters({
     applyRange(range.fromDate, range.toDate);
   };
 
+  const setAfterTomorrow = () => {
+    const range = getAfterTomorrowRange();
+    setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
+    applyRange(range.fromDate, range.toDate);
+  };
+
   const setThisWeek = () => {
     const range = getThisWeekRange();
     setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
@@ -329,6 +336,7 @@ export default function BookingFilters({
   const dateQuickFilters = [
     { key: "today", label: t("Today"), onClick: setToday },
     { key: "tomorrow", label: t("Tomorrow"), onClick: setTomorrow },
+    { key: "afterTomorrow", label: t("After tomorrow"), onClick: setAfterTomorrow },
     { key: "thisWeek", label: t("This week"), onClick: setThisWeek },
     { key: "thisMonth", label: t("This month"), onClick: setThisMonth },
     {
@@ -529,7 +537,7 @@ export default function BookingFilters({
           </Field>
 
           <div>
-            {/* Phone: 2-up grid so the 5 quick filters stretch evenly; the odd one out is centered on its own row */}
+            {/* Phone: 2-up grid; center the final button only when the count is odd. */}
             <div className="grid grid-cols-2 gap-2 sm:hidden">
               {dateQuickFilters.map((filter, index) => (
                 <button
@@ -537,7 +545,7 @@ export default function BookingFilters({
                   type="button"
                   onClick={filter.onClick}
                   className={`customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape ${
-                    index === dateQuickFilters.length - 1
+                    dateQuickFilters.length % 2 === 1 && index === dateQuickFilters.length - 1
                       ? "col-span-2 w-[calc(50%-0.25rem)] justify-self-center"
                       : "w-full"
                   }`}
