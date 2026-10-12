@@ -172,7 +172,7 @@ function cardConfig(card: CustomerEditCard) {
 }
 
 // Delivery types in increasing service — moving up the list only adds work.
-const DELIVERY_UPGRADES: Record<string, string[]> = { FIRST_STEP: ["INDOOR"] };
+export const DELIVERY_UPGRADES: Record<string, string[]> = { FIRST_STEP: ["INDOOR"] };
 
 // Whether `after` only adds to `before`: every list a superset, a return /
 // dismantling only switched on, the delivery type the same or an upgrade, and

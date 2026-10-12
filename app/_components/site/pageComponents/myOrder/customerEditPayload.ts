@@ -36,6 +36,24 @@ export function buildCustomerEditPayload(
     }
     if (current.pickups && changed(initial.pickups, current.pickups)) payload.pickups = current.pickups;
     if (current.delivery !== undefined && changed(initial.delivery, current.delivery)) payload.delivery = current.delivery;
+  } else if (initial.pickups && current.pickups) {
+    // A pickup's contact person can still change: sent on the stops exactly
+    // as loaded, so nothing else about them can slip through.
+    const withContacts = withPickupContacts(initial.pickups, current.pickups);
+    if (changed(withPickupContacts(initial.pickups, initial.pickups), withContacts)) payload.pickups = withContacts;
   }
   return payload;
+}
+
+type Stop = Record<string, unknown>;
+
+// The stops as the server sent them, with only each one's contact person
+// taken from the form — what's compared and sent within 24h of the job, so a
+// stop the page rebuilt slightly differently (e.g. card ids worked out from
+// an older order's product names) never reads as an address change.
+export function withPickupContacts(loaded: unknown[], form: unknown[]): Stop[] {
+  return loaded.map((stop, i) => {
+    const now = (form[i] ?? {}) as Stop;
+    return { ...(stop as Stop), contactName: now.contactName ?? "", contactPhone: now.contactPhone ?? "" };
+  });
 }

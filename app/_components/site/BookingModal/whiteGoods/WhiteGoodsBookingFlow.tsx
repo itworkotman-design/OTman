@@ -27,12 +27,14 @@ import {
 import { adminDetailsFromFlow, pickupStateFromStops } from "./adminOrderState";
 import CustomerOrderEditFooter from "@/app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter";
 import { findCardsWithoutPickup, findPickupsWithoutProducts } from "@/lib/orders/pickupAssignment";
-import type { CustomerEditDraft } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
+import { withPickupContacts, type CustomerEditDraft } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
 import type { AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { ContactDetailsCard } from "./ContactDetailsCard";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
-import { buildOrderReviewBlocks } from "./orderReview";
+import { buildOrderReviewBlocks, type ReviewInput } from "./orderReview";
+import { LateChangeLockedSummary } from "./LateChangeLockedSummary";
+import { PickupContactPersonsCard, type PickupContactPerson } from "./PickupContactPersonsCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
 import {
@@ -271,8 +273,17 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const adminInitialRouteKey = useRef<string | null>(null);
   // Customer editing: the order as loaded, to send only what they changed.
   const [customerInitialDraft, setCustomerInitialDraft] = useState<CustomerEditDraft | null>(null);
-  // Within 24h of the job: only product options and contact details.
+  // Within 24h of the job: only contact details (incl. pickup contact
+  // persons) and added services — the "late change" sections below.
   const customerLocked = !!customer && !customer.beforeCutoff;
+  // The stops exactly as the server sent them: within 24h only their contact
+  // persons are changed and sent (withPickupContacts).
+  const customerLoadedPickups = useRef<unknown[] | null>(null);
+  // Each product card as booked — within 24h its services can only be added to.
+  const bookedCards = useMemo(
+    () => new Map(((customerInitialDraft?.productCards ?? []) as SavedProductCard[]).map((card) => [card.cardId, card])),
+    [customerInitialDraft],
+  );
 
   // Every card on the order — the pool the first pickup location's
   // checklist offers, before any of it gets claimed.
@@ -536,6 +547,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         const json = await res.json();
         if (cancelled) return;
         if (!json?.ok || json.details?.kind !== "catalog" || !json.catalog) throw new Error(json?.reason ?? "load failed");
+        customerLoadedPickups.current = Array.isArray(json.details.pickups) ? json.details.pickups : [];
         loadOrderIntoFlow({
           products: json.catalog.products,
           categories: json.categories,
@@ -1007,6 +1019,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                         deliveryPreview={previewCardDeliveryOptions(productCards, catalogProducts, card.cardId)}
                         onChange={(next) => updateCard(card.cardId, next)}
                         variantNumber={isSplit ? siblings.indexOf(card) + 1 : undefined}
+                        booked={customerLocked ? bookedCards.get(card.cardId) : undefined}
                         onRemove={isSplit && !customerLocked ? () => removeCard(card.cardId) : undefined}
                         onAddAnother={
                           isLastOfProduct && !isSizePricedProduct(product) && !customerLocked
@@ -1304,7 +1317,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
 
   // Product names per pickup follow the same rule as the submitted payload:
   // the first location only lists its products once the order is split.
-  const reviewBlocks = buildOrderReviewBlocks(locale, {
+  const reviewInput: ReviewInput = {
     pickups: [
       {
         source: pickupSource,
@@ -1335,7 +1348,15 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     timeWindow,
     drivingDistance,
     contact: { name, phone, email, notes },
-  });
+  };
+  const reviewBlocks = buildOrderReviewBlocks(locale, reviewInput);
+  // Within 24h: the stops and delivery as booked, without what's still
+  // editable (contact persons) or internal (the driving distance).
+  const lockedBlocks = buildOrderReviewBlocks(locale, {
+    ...reviewInput,
+    drivingDistance: "",
+    pickups: reviewInput.pickups.map((pickup) => ({ ...pickup, contactName: "", contactPhone: "" })),
+  }).filter((block) => block.kind === "location");
 
   const finalStep: FinalStep = {
     render: ({ onBack }) =>
@@ -1499,7 +1520,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     customer: { name, phone, email, comments: notes },
     preferredDate,
     timeWindow,
-    pickups: editedDetails.pickups,
+    pickups:
+      customerLocked && customerLoadedPickups.current
+        ? withPickupContacts(customerLoadedPickups.current, editedDetails.pickups)
+        : editedDetails.pickups,
     delivery: editedDetails.delivery,
     productCards,
   };
@@ -1514,6 +1538,31 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     return () => clearTimeout(timer);
   }, [customer, adminReady, customerInitialDraft, customerDraftKey]);
 
+  // The pickups with a contact person (private / business, not a store).
+  const numberedPickups = extraPickupLocations.length > 0;
+  const pickupContactPersons: (PickupContactPerson & { source: PickupSource | null })[] = [
+    {
+      key: "first",
+      source: pickupSource,
+      title: numberedPickups ? `${t("Pickup", "Henting")} 1` : t("Pickup", "Henting"),
+      address: pickupAddress,
+      name: pickupContactName,
+      phone: pickupContactPhone,
+      onName: setPickupContactName,
+      onPhone: setPickupContactPhone,
+    },
+    ...extraPickupLocations.map((loc, i) => ({
+      key: String(loc.id),
+      source: loc.source,
+      title: `${t("Pickup", "Henting")} ${i + 2}`,
+      address: loc.address,
+      name: loc.contactName,
+      phone: loc.contactPhone,
+      onName: (contactName: string) => updateExtraPickupLocation(loc.id, { contactName }),
+      onPhone: (contactPhone: string) => updateExtraPickupLocation(loc.id, { contactPhone }),
+    })),
+  ].filter((stop) => stop.source !== "store");
+
   const loadingSections: StepSection[] = [
     {
       id: "admin-loading",
@@ -1523,13 +1572,26 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   ];
 
   if (customer) {
-    // The customer type was answered at booking; within 24h only the
-    // product options and contact details are left.
-    const customerSections = sections.filter(
-      (section) =>
-        section.id !== "customer-type" &&
-        (!customerLocked || section.id.startsWith("product-options-") || section.id === "contact"),
-    );
+    // Within 24h of the job its own set of sections: what's booked
+    // (read-only), contact details and comment, pickup contact persons, and
+    // services to add. Otherwise everything but the customer type, which was
+    // answered at booking.
+    const lateSections: StepSection[] = [
+      {
+        id: "locked-summary",
+        title: t("Your booking", "Din bestilling"),
+        render: () => <LateChangeLockedSummary locale={locale} blocks={lockedBlocks} />,
+      },
+      ...sections.filter((section) => section.id === "contact"),
+      {
+        id: "pickup-contacts",
+        title: t("Contact person at pickup", "Kontaktperson ved henting"),
+        hidden: pickupContactPersons.length === 0,
+        render: () => <PickupContactPersonsCard locale={locale} stops={pickupContactPersons} />,
+      },
+      ...sections.filter((section) => section.id.startsWith("product-options-")),
+    ];
+    const customerSections = customerLocked ? lateSections : sections.filter((section) => section.id !== "customer-type");
     return (
       <SteppedModal
         showAll

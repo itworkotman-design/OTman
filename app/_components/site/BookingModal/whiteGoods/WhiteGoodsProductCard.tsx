@@ -24,6 +24,7 @@ import { ProductIcon } from "./productIcons";
 import { buildCardSummaryChips } from "./cardSummaryChips";
 import type { DeliveryOptionPreview } from "./deliveryPricePreview";
 import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
+import { allowedDeliveryTypes, isBookedService, keepBookedServices } from "./bookedServices";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { websiteCustomerPrice, type CustomerType } from "@/lib/booking/pricing/websiteVat";
 import {
@@ -69,6 +70,11 @@ type Props = {
   // Whether the options start expanded (the admin editor opens an order's
   // existing products collapsed).
   defaultOpen?: boolean;
+  // "My order" within 24h of the job: the card as booked. Its services stay
+  // (shown ticked, not clickable), only new ones can be added, the delivery
+  // type can only be upgraded, and the installation type stays as booked —
+  // see bookedServices.ts.
+  booked?: SavedProductCard;
 };
 
 function seedLabel(locale: Locale, seed: { labelEn: string; labelNo: string }) {
@@ -206,8 +212,13 @@ export function WhiteGoodsProductCard({
   onAddAnother,
   belowOptions,
   defaultOpen = true,
+  booked,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
+  const emit = (next: SavedProductCard) => onChange(booked ? keepBookedServices(booked, next) : next);
+  const lockedService = (optionId: string) => !!booked && isBookedService(booked, optionId);
+  const deliveryLocked = (type: string) => !!booked && !allowedDeliveryTypes(booked).includes(type);
+  const installTypeLocked = !!booked;
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const money = (raw: string) => {
     const n = Number(raw);
@@ -320,7 +331,7 @@ export function WhiteGoodsProductCard({
   const defaultInstallOptionId = pickDefaultInstallOptionId({ assemblyGroups, typeOptions });
 
   function setDeliveryType(next: SavedProductCard["deliveryType"]) {
-    onChange({
+    emit({
       ...value,
       deliveryType: next,
       selectedInstallOptionIds:
@@ -335,7 +346,7 @@ export function WhiteGoodsProductCard({
 
   function clearInstallation() {
     if (deliveryType === "INSTALL_ONLY") return;
-    onChange({
+    emit({
       ...value,
       selectedInstallOptionIds: [],
     });
@@ -349,7 +360,7 @@ export function WhiteGoodsProductCard({
     const stackableSelected = value.selectedInstallOptionIds.filter((id) =>
       stackableInstallOptions.some((o) => o.id === id && isInstallAddOnAllowed(o.code, option?.code)),
     );
-    onChange({
+    emit({
       ...value,
       // Installation implies carry-in — picking an install type while
       // doorstep delivery (or nothing) is selected switches delivery to
@@ -365,7 +376,7 @@ export function WhiteGoodsProductCard({
   function toggleStackableInstall(optionId: string) {
     const has = value.selectedInstallOptionIds.includes(optionId);
     if (has && deliveryType === "INSTALL_ONLY" && value.selectedInstallOptionIds.length === 1) return;
-    onChange({
+    emit({
       ...value,
       selectedInstallOptionIds: has
         ? value.selectedInstallOptionIds.filter((id) => id !== optionId)
@@ -376,7 +387,7 @@ export function WhiteGoodsProductCard({
   function toggleUnpacking() {
     if (!unpackingOption) return;
     const has = value.selectedExtraOptionIds.includes(unpackingOption.id);
-    onChange({
+    emit({
       ...value,
       selectedExtraOptionIds: has
         ? value.selectedExtraOptionIds.filter((id) => id !== unpackingOption.id)
@@ -386,7 +397,7 @@ export function WhiteGoodsProductCard({
 
   function toggleExtraOption(optionId: string) {
     const has = value.selectedExtraOptionIds.includes(optionId);
-    onChange({
+    emit({
       ...value,
       selectedExtraOptionIds: has
         ? value.selectedExtraOptionIds.filter((id) => id !== optionId)
@@ -404,7 +415,7 @@ export function WhiteGoodsProductCard({
     const rest = value.selectedExtraOptionIds.filter(
       (id) => id !== option.id && id !== counterpartId,
     );
-    onChange({
+    emit({
       ...value,
       selectedExtraOptionIds: has ? rest : [...rest, option.id],
     });
@@ -412,7 +423,7 @@ export function WhiteGoodsProductCard({
 
   function toggleReturn() {
     if (!returnOption) return;
-    onChange({
+    emit({
       ...value,
       selectedReturnOptionId:
         value.selectedReturnOptionId === returnOption.id
@@ -580,6 +591,7 @@ export function WhiteGoodsProductCard({
                   )}
                   price={money(String(deliveryPreview.firstStep.price))}
                   onClick={() => setDeliveryType("FIRST_STEP")}
+                  disabled={deliveryLocked("FIRST_STEP")}
                 />
                 {offersCarryIn(product.deliveryTypes) && (
                 <OptionRow
@@ -596,6 +608,7 @@ export function WhiteGoodsProductCard({
                   )}
                   price={money(String(deliveryPreview.indoor.price))}
                   onClick={() => setDeliveryType("INDOOR")}
+                  disabled={deliveryLocked("INDOOR")}
                 />
                 )}
                 {installOnlyAvailable && (
@@ -624,6 +637,7 @@ export function WhiteGoodsProductCard({
                         : undefined
                     }
                     onClick={() => setDeliveryType("INSTALL_ONLY")}
+                    disabled={deliveryLocked("INSTALL_ONLY")}
                   />
                 )}
               </div>
@@ -661,6 +675,7 @@ export function WhiteGoodsProductCard({
                       "Du monterer selv.",
                     )}
                     onClick={clearInstallation}
+                    disabled={installTypeLocked}
                   />
                 )}
                 {assemblyGroups.length > 0
@@ -682,6 +697,7 @@ export function WhiteGoodsProductCard({
                             onClick={() =>
                               selectType(group.options[0].option.id)
                             }
+                            disabled={installTypeLocked}
                           />
                         );
                       }
@@ -701,6 +717,7 @@ export function WhiteGoodsProductCard({
                             )}
                             onClick={clearInstallation}
                             bare
+                            disabled={installTypeLocked}
                           />
                           {group.options.map(
                             ({ option, manufacturerLabel }) => (
@@ -715,6 +732,7 @@ export function WhiteGoodsProductCard({
                                 onClick={() => selectType(option.id)}
                                 bare
                                 nested
+                                disabled={installTypeLocked}
                               />
                             ),
                           )}
@@ -746,6 +764,7 @@ export function WhiteGoodsProductCard({
                             }
                             price={money(option.customerPrice)}
                             onClick={() => selectType(option.id)}
+                            disabled={installTypeLocked}
                           />
                         );
                       }
@@ -764,6 +783,7 @@ export function WhiteGoodsProductCard({
                             price={money(option.customerPrice)}
                             onClick={() => selectType(option.id)}
                             bare
+                            disabled={installTypeLocked}
                           />
                           {nestedCheckboxes.map((stackOption) => {
                             const stackSeed = seedByCode.get(stackOption.code);
@@ -784,6 +804,7 @@ export function WhiteGoodsProductCard({
                                   toggleStackableInstall(stackOption.id)
                                 }
                                 bare
+                                disabled={lockedService(stackOption.id)}
                               />
                             );
                           })}
@@ -826,6 +847,7 @@ export function WhiteGoodsProductCard({
                       )}
                       price={money(unpackingOption.customerPrice)}
                       onClick={toggleUnpacking}
+                      disabled={lockedService(unpackingOption.id)}
                     />
                   )}
                   {isFurniture &&
@@ -863,11 +885,12 @@ export function WhiteGoodsProductCard({
                       )}
                       price={money(demontOption.customerPrice)}
                       onClick={() =>
-                        onChange({
+                        emit({
                           ...value,
                           demontEnabled: !value.demontEnabled,
                         })
                       }
+                      disabled={!!booked?.demontEnabled}
                     />
                   )}
                   {showExtras && palletPickupOption && (
@@ -883,6 +906,7 @@ export function WhiteGoodsProductCard({
                       )}
                       price={money(palletPickupOption.customerPrice)}
                       onClick={() => toggleExtraOption(palletPickupOption.id)}
+                      disabled={lockedService(palletPickupOption.id)}
                     />
                   )}
                   {dismantlingGroups.length > 0 && furnitureAddonsVisible && (
@@ -903,6 +927,10 @@ export function WhiteGoodsProductCard({
                       </div>
                       <div className="flex flex-col divide-y divide-black/10">
                         {dismantlingGroups.map((group) => {
+                          // Once either variant is booked, the other can't replace it.
+                          const groupBooked = [group.disposal, group.careful].some(
+                            (o) => !!o && lockedService(o.id),
+                          );
                           const groupSelected = [
                             group.disposal,
                             group.careful,
@@ -946,8 +974,10 @@ export function WhiteGoodsProductCard({
                                       onClick={() =>
                                         selectDismantling(group, option)
                                       }
+                                      disabled={groupBooked}
                                       className={[
                                         "flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition",
+                                        groupBooked ? "cursor-default opacity-70" : "",
                                         isSelected
                                           ? "border-logoblue bg-logoblue text-white"
                                           : "border-black/15 bg-white text-black/80 hover:border-logoblue/50",
@@ -986,6 +1016,7 @@ export function WhiteGoodsProductCard({
                       )}
                       price={money(anchoringOption.customerPrice)}
                       onClick={() => toggleExtraOption(anchoringOption.id)}
+                      disabled={lockedService(anchoringOption.id)}
                     />
                   )}
                   {showReturn && returnOption && (
@@ -1004,6 +1035,7 @@ export function WhiteGoodsProductCard({
                       )}
                       price={money(returnOption.customerPrice)}
                       onClick={toggleReturn}
+                      disabled={!!booked?.selectedReturnOptionId}
                     />
                   )}
                 </div>

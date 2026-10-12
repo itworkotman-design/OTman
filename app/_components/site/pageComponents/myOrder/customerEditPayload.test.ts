@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCustomerEditPayload, type CustomerEditDraft } from "./customerEditPayload";
+import { buildCustomerEditPayload, withPickupContacts, type CustomerEditDraft } from "./customerEditPayload";
 
 const initial: CustomerEditDraft = {
   customer: { name: "Kari", phone: "87654321", email: "kari@example.no", comments: "" },
@@ -38,5 +38,32 @@ describe("buildCustomerEditPayload", () => {
       pickups: [{ address: "Elsewhere" }],
     };
     expect(buildCustomerEditPayload(initial, current, false)).toEqual({});
+  });
+
+  it("after the cutoff sends a changed pickup contact person — on the stops as loaded, nothing else changed", () => {
+    const current = {
+      ...structuredClone(initial),
+      pickups: [{ address: "Elsewhere", contactName: "Ola", contactPhone: "12345678" }],
+    };
+    expect(buildCustomerEditPayload(initial, current, false)).toEqual({
+      pickups: [{ address: "Strømmen 1", contactName: "Ola", contactPhone: "12345678" }],
+    });
+  });
+});
+
+describe("withPickupContacts", () => {
+  it("keeps each stop as loaded and only takes its contact person from the form", () => {
+    const loaded = [
+      { address: "Strømmen 1", productNames: ["Vaskemaskin"], contactName: "", contactPhone: "" },
+      { address: "Bjerkeveien 2", contactName: "Kari", contactPhone: "87654321" },
+    ];
+    const form = [
+      { address: "Strømmen 1", cardIds: [0], contactName: "Ola", contactPhone: "12345678" },
+      { address: "Bjerkeveien 2", cardIds: [1], contactName: "Kari", contactPhone: "87654321" },
+    ];
+    expect(withPickupContacts(loaded, form)).toEqual([
+      { address: "Strømmen 1", productNames: ["Vaskemaskin"], contactName: "Ola", contactPhone: "12345678" },
+      { address: "Bjerkeveien 2", contactName: "Kari", contactPhone: "87654321" },
+    ]);
   });
 });
