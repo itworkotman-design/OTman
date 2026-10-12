@@ -114,7 +114,9 @@ export type EditorBlocker =
   | "PRODUCT_WITHOUT_PICKUP"
   | "SIZE_BRACKETS_REQUIRED"
   | "ITEM_NAME_REQUIRED"
-  | "INSTALL_OPTION_REQUIRED";
+  | "INSTALL_OPTION_REQUIRED"
+  // Added by WebsiteOrderEditTab itself: "Custom time" chosen without a valid from/to.
+  | "TIME_WINDOW_INCOMPLETE";
 
 // What keeps Save disabled — the customer flow's own completeness rules.
 export function editorBlockers(cards: SavedProductCard[], stops: EditorStop[], catalogProducts: CatalogProduct[]): EditorBlocker[] {

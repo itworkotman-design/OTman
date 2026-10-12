@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
-import { BuildingIcon, HomeIcon, PlusIcon, SearchIcon, StorefrontIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
+import { BuildingIcon, HomeIcon, PlusIcon, SearchIcon, StorefrontIcon, TruckIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { SectionHeader, WhiteGoodsProductCard } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsProductCard";
 import { SizeBracketPicker } from "@/app/_components/site/BookingModal/whiteGoods/SizeBracketPicker";
 import { productLabel } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsProductGrid";
@@ -18,10 +18,16 @@ import {
 } from "@/app/_components/site/BookingModal/whiteGoods/sizeBracketSelection";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { isSizePricedProduct } from "@/lib/booking/pricing/sizeBrackets";
-import { PRESET_TIME_WINDOWS } from "@/lib/booking/timeWindows";
+import {
+  PRESET_TIME_WINDOWS,
+  buildTimeWindowValue,
+  isTimeWindowComplete,
+  parseTimeWindowValue,
+  type PresetTimeWindow,
+} from "@/lib/booking/timeWindows";
 import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
 import type { AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
-import type { BookingCustomerType, BookingPickupSource } from "@/lib/orders/websiteBookingDetails";
+import type { BookingPickupSource } from "@/lib/orders/websiteBookingDetails";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
@@ -78,6 +84,9 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
   const [cards, setCards] = useState<SavedProductCard[]>([]);
   const [stops, setStops] = useState<EditorStop[]>([]);
   const [details, setDetails] = useState<Details | null>(null);
+  // Set while "Custom time" is chosen: its from/to, kept even while half-filled
+  // (a stored "12:00-" can't be read back as a custom range).
+  const [customTime, setCustomTime] = useState<{ from: string; to: string } | null>(null);
   const [initialKey, setInitialKey] = useState<string | null>(null);
   // The order's own products open collapsed; ones added here open expanded.
   const [collapsedCardIds, setCollapsedCardIds] = useState<Set<number>>(() => new Set());
@@ -140,6 +149,8 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
         setCollapsedCardIds(new Set(loadedCards.map((card) => card.cardId)));
         setStops(loadedStops);
         setDetails(rest);
+        const storedTime = parseTimeWindowValue(rest.timeWindow);
+        setCustomTime(storedTime.selectedTimeWindow === "custom" ? { from: storedTime.customTimeFrom, to: storedTime.customTimeTo } : null);
         setInitialKey(JSON.stringify({ cards: loadedCards, stops: loadedStops, details: rest }));
         const handling = json.handling ?? {};
         setAdjustments({
@@ -176,10 +187,28 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cards, stops, details, catalogProducts, pricingDraft]);
 
-  const blockers = details ? editorBlockers(cards, stops, catalogProducts) : [];
+  const blockers: EditorBlocker[] = details
+    ? [
+        ...editorBlockers(cards, stops, catalogProducts),
+        ...(customTime && !isTimeWindowComplete(details.timeWindow) ? (["TIME_WINDOW_INCOMPLETE"] as const) : []),
+      ]
+    : [];
+  // A stored window that's neither a preset nor a from-to range (older free text).
+  const storedWindow = parseTimeWindowValue(details?.timeWindow);
+  const legacyTimeWindow =
+    !customTime && storedWindow.selectedTimeWindow && storedWindow.selectedTimeWindow !== "custom" && !PRESET_TIME_WINDOWS.includes(storedWindow.selectedTimeWindow as PresetTimeWindow)
+      ? storedWindow.selectedTimeWindow
+      : null;
+
+  function setCustomTimeRange(range: { from: string; to: string }) {
+    setCustomTime(range);
+    const timeWindow = buildTimeWindowValue({ selectedTimeWindow: "custom", customTimeFrom: range.from, customTimeTo: range.to });
+    setDetails((current) => (current ? { ...current, timeWindow } : current));
+  }
 
   const reasonText: Record<string, string> = {
     PRODUCT_WITHOUT_PICKUP: t("Every product needs a pickup address.", "Hvert produkt må ha en henteadresse."),
+    TIME_WINDOW_INCOMPLETE: t("Choose a start and end time, with the end after the start.", "Velg start- og sluttid, der slutten er etter starten."),
     SIZE_BRACKETS_REQUIRED: t("Choose the size and weight of every item.", "Velg størrelse og vekt for alle varer."),
     ITEM_NAME_REQUIRED: t("Say what each item is.", "Skriv hva hver vare er."),
     INSTALL_OPTION_REQUIRED: t("Installation only needs an installation chosen.", "Kun montering krever at en montering er valgt."),
@@ -402,52 +431,38 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
           </div>
           {stops.map((stop, index) => (
             <div key={index} className="rounded-xl border border-neutral-200 p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-logoblue text-sm font-semibold text-white">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-black/80">
-                      {t("Pickup", "Henting")} {index + 1}
-                    </p>
-                    {(stop.placeName || stop.address) && (
-                      <p className="truncate text-xs text-black/50">{[stop.placeName, stop.address].filter(Boolean).join(" · ")}</p>
-                    )}
-                  </div>
-                </div>
-                {isSplit && (
-                  <button
-                    type="button"
-                    onClick={() => setStops((current) => removeStop(current, cards, index))}
-                    className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full border hover:bg-red-700 hover:text-white"
-                    aria-label={`${t("Remove pickup", "Fjern henting")} ${index + 1}`}
-                  >
-                    -
-                  </button>
-                )}
-              </div>
+              <CardHeading
+                icon={index + 1}
+                title={`${t("Pickup", "Henting")} ${index + 1}`}
+                summary={[stop.placeName, stop.address].filter(Boolean).join(" · ")}
+                action={
+                  isSplit && (
+                    <button
+                      type="button"
+                      onClick={() => setStops((current) => removeStop(current, cards, index))}
+                      className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full border hover:bg-red-700 hover:text-white"
+                      aria-label={`${t("Remove pickup", "Fjern henting")} ${index + 1}`}
+                    >
+                      -
+                    </button>
+                  )
+                }
+              />
 
               <div className="mb-3">
                 <span className={labelClass}>{t("Type", "Type")}</span>
                 <div className="grid grid-cols-3 gap-2">
-                  {SOURCES.map((source) => {
-                    const selected = stop.source === source;
-                    return (
-                      <button
-                        key={source}
-                        type="button"
-                        aria-pressed={selected}
-                        onClick={() => updateStop(index, source === "store" ? { source, floor: null, liftAvailable: false } : { source })}
-                        className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-colors ${
-                          selected ? "border-logoblue bg-logoblue/10 text-logoblue" : "border-neutral-200 text-black/60 hover:border-logoblue/50"
-                        }`}
-                      >
-                        {SOURCE_ICONS[source]}
-                        {source === "store" ? t("Store", "Butikk") : source === "private" ? t("Private", "Privat") : t("Business", "Bedrift")}
-                      </button>
-                    );
-                  })}
+                  {SOURCES.map((source) => (
+                    <ChoiceButton
+                      key={source}
+                      wide
+                      selected={stop.source === source}
+                      onClick={() => updateStop(index, source === "store" ? { source, floor: null, liftAvailable: false } : { source })}
+                    >
+                      {SOURCE_ICONS[source]}
+                      {source === "store" ? t("Store", "Butikk") : source === "private" ? t("Private", "Privat") : t("Business", "Bedrift")}
+                    </ChoiceButton>
+                  ))}
                 </div>
               </div>
 
@@ -558,93 +573,173 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
           </button>
         </section>
 
-        {/* Delivery */}
+        {/* Delivery — same card style as the pickup stops */}
         <section className={sectionClass}>
           <h3 className="text-lg font-semibold text-logoblue">{t("Delivery", "Levering")}</h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="sm:col-span-2">
+          <div className="rounded-xl border border-neutral-200 p-4">
+            <CardHeading
+              icon={<TruckIcon />}
+              title={t("Delivery address", "Leveringsadresse")}
+              summary={[details.delivery.address, details.preferredDate, details.timeWindow].filter(Boolean).join(" · ")}
+            />
+
+            <div className="mb-3">
               <span className={labelClass}>{t("Address", "Adresse")}</span>
               <AddressAutocompleteInput
                 value={details.delivery.address}
                 onChange={(address) => updateDetails({ delivery: { ...details.delivery, address } })}
+                placeholder={t("Enter a location", "Skriv inn et sted")}
                 locale={locale}
+                icon={<SearchIcon />}
               />
             </div>
-            <label>
-              <span className={labelClass}>{t("Floor", "Etasje")}</span>
-              <input
-                type="number"
-                className={fieldClass}
-                value={details.delivery.floor ?? ""}
-                onChange={(e) =>
-                  updateDetails({
-                    delivery: { ...details.delivery, floor: e.target.value === "" || e.target.value === "0" ? null : Number(e.target.value) },
-                  })
-                }
-              />
-            </label>
-            <label className="flex items-end gap-2 pb-2 text-sm">
-              <input
-                type="checkbox"
-                checked={details.delivery.liftAvailable}
-                onChange={(e) => updateDetails({ delivery: { ...details.delivery, liftAvailable: e.target.checked } })}
-              />
-              {t("Lift available", "Heis tilgjengelig")}
-            </label>
-            <label>
-              <span className={labelClass}>{t("Date", "Dato")}</span>
-              <input type="date" className={fieldClass} value={details.preferredDate} onChange={(e) => updateDetails({ preferredDate: e.target.value })} />
-            </label>
-            <label>
-              <span className={labelClass}>{t("Time window", "Tidsvindu")}</span>
-              <select className={fieldClass} value={details.timeWindow} onChange={(e) => updateDetails({ timeWindow: e.target.value })}>
-                {!PRESET_TIME_WINDOWS.includes(details.timeWindow as (typeof PRESET_TIME_WINDOWS)[number]) && (
-                  <option value={details.timeWindow}>{details.timeWindow || "-"}</option>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label>
+                <span className={labelClass}>{t("Floor", "Etasje")}</span>
+                <input
+                  type="number"
+                  className={fieldClass}
+                  value={details.delivery.floor ?? ""}
+                  onChange={(e) =>
+                    updateDetails({
+                      delivery: { ...details.delivery, floor: e.target.value === "" || e.target.value === "0" ? null : Number(e.target.value) },
+                    })
+                  }
+                />
+              </label>
+              <label className="flex items-end gap-2 pb-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={details.delivery.liftAvailable}
+                  onChange={(e) => updateDetails({ delivery: { ...details.delivery, liftAvailable: e.target.checked } })}
+                />
+                {t("Lift available", "Heis tilgjengelig")}
+              </label>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 border-t border-neutral-200 pt-4">
+              <label>
+                <span className={labelClass}>{t("Date", "Dato")}</span>
+                <input type="date" className={fieldClass} value={details.preferredDate} onChange={(e) => updateDetails({ preferredDate: e.target.value })} />
+              </label>
+              <div>
+                <span className={labelClass}>{t("Time window", "Tidsvindu")}</span>
+                {/* The presets, a specific time (any from/to — admins aren't limited like
+                    customers), and an older free-text window kept as its own option.
+                    Equal-width buttons across the card. */}
+                <div className="grid grid-cols-1 gap-2 sm:auto-cols-fr sm:grid-flow-col">
+                  {[...(legacyTimeWindow ? [legacyTimeWindow] : []), ...PRESET_TIME_WINDOWS].map((window) => (
+                    <ChoiceButton
+                      key={window}
+                      wide
+                      selected={!customTime && details.timeWindow === window}
+                      onClick={() => {
+                        setCustomTime(null);
+                        updateDetails({ timeWindow: window });
+                      }}
+                    >
+                      {window}
+                    </ChoiceButton>
+                  ))}
+                  <ChoiceButton wide selected={!!customTime} onClick={() => setCustomTimeRange(customTime ?? { from: "", to: "" })}>
+                    {t("Custom time", "Eget tidspunkt")}
+                  </ChoiceButton>
+                </div>
+                {customTime && (
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <label>
+                      <span className={labelClass}>{t("From", "Fra")}</span>
+                      <input
+                        type="time"
+                        className={fieldClass}
+                        value={customTime.from}
+                        onChange={(e) => setCustomTimeRange({ ...customTime, from: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      <span className={labelClass}>{t("To", "Til")}</span>
+                      <input
+                        type="time"
+                        className={fieldClass}
+                        value={customTime.to}
+                        onChange={(e) => setCustomTimeRange({ ...customTime, to: e.target.value })}
+                      />
+                    </label>
+                  </div>
                 )}
-                {PRESET_TIME_WINDOWS.map((window) => (
-                  <option key={window} value={window}>
-                    {window}
-                  </option>
-                ))}
-              </select>
-            </label>
+              </div>
+            </div>
           </div>
         </section>
 
         {/* Customer */}
         <section className={sectionClass}>
           <h3 className="text-lg font-semibold text-logoblue">{t("Customer", "Kunde")}</h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label>
-              <span className={labelClass}>{t("Name", "Navn")}</span>
-              <input className={fieldClass} value={details.customer.name} onChange={(e) => updateDetails({ customer: { ...details.customer, name: e.target.value } })} />
-            </label>
-            <label>
+          <div className="rounded-xl border border-neutral-200 p-4">
+            <CardHeading
+              icon={details.customer.customerType === "business" ? <BuildingIcon /> : <HomeIcon />}
+              title={details.customer.name || t("Customer", "Kunde")}
+              summary={[details.customer.phone, details.customer.email].filter(Boolean).join(" · ")}
+            />
+
+            <div className="mb-3">
               <span className={labelClass}>{t("Customer type", "Kundetype")}</span>
-              <select
-                className={fieldClass}
-                value={details.customer.customerType ?? ""}
-                onChange={(e) => updateDetails({ customer: { ...details.customer, customerType: (e.target.value || null) as BookingCustomerType | null } })}
-              >
-                <option value="">-</option>
-                <option value="private">{t("Private", "Privat")}</option>
-                <option value="business">{t("Business", "Bedrift")}</option>
-              </select>
-            </label>
-            <label>
-              <span className={labelClass}>{t("Phone", "Telefon")}</span>
-              <input className={fieldClass} value={details.customer.phone} onChange={(e) => updateDetails({ customer: { ...details.customer, phone: e.target.value } })} />
-            </label>
-            <label>
-              <span className={labelClass}>{t("Email", "E-post")}</span>
-              <input className={fieldClass} value={details.customer.email} onChange={(e) => updateDetails({ customer: { ...details.customer, email: e.target.value } })} />
-            </label>
-            <label className="sm:col-span-2">
+              <div className="grid grid-cols-2 gap-2">
+                {(["private", "business"] as const).map((type) => (
+                  <ChoiceButton
+                    key={type}
+                    wide
+                    selected={details.customer.customerType === type}
+                    onClick={() => updateDetails({ customer: { ...details.customer, customerType: type } })}
+                  >
+                    {type === "private" ? <HomeIcon /> : <BuildingIcon />}
+                    {type === "private" ? t("Private", "Privat") : t("Business", "Bedrift")}
+                  </ChoiceButton>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="sm:col-span-2">
+                <span className={labelClass}>{t("Name", "Navn")}</span>
+                <input
+                  autoComplete="off"
+                  className={fieldClass}
+                  value={details.customer.name}
+                  onChange={(e) => updateDetails({ customer: { ...details.customer, name: e.target.value } })}
+                />
+              </label>
+              <label>
+                <span className={labelClass}>{t("Phone", "Telefon")}</span>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="off"
+                  className={fieldClass}
+                  value={details.customer.phone}
+                  onChange={(e) => updateDetails({ customer: { ...details.customer, phone: e.target.value } })}
+                />
+              </label>
+              <label>
+                <span className={labelClass}>{t("Email", "E-post")}</span>
+                <input
+                  type="email"
+                  autoComplete="off"
+                  className={fieldClass}
+                  value={details.customer.email}
+                  onChange={(e) => updateDetails({ customer: { ...details.customer, email: e.target.value } })}
+                />
+              </label>
+            </div>
+
+            <label className="mt-4 block border-t border-neutral-200 pt-4">
               <span className={labelClass}>{t("Customer comments", "Kundens kommentar")}</span>
               <textarea
-                rows={2}
+                rows={3}
                 className={`${fieldClass} resize-none`}
                 value={details.customer.comments}
+                placeholder={t("No comments from the customer.", "Ingen kommentar fra kunden.")}
                 onChange={(e) => updateDetails({ customer: { ...details.customer, comments: e.target.value } })}
               />
             </label>
@@ -709,6 +804,51 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
         </section>
       </div>
     </div>
+  );
+}
+
+// Top of a pickup / delivery / customer card: a round blue badge (a number or
+// an icon), the title, and a one-line summary of what's filled in.
+function CardHeading({ icon, title, summary, action }: { icon: ReactNode; title: string; summary: string; action?: ReactNode }) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-logoblue text-sm font-semibold text-white [&_svg]:h-4 [&_svg]:w-4">
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <p className="font-semibold text-black/80">{title}</p>
+          {summary && <p className="truncate text-xs text-black/50">{summary}</p>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+// A toggle button for picking one of a few options (type, time window).
+function ChoiceButton({
+  selected,
+  onClick,
+  wide = false,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-colors ${wide ? "" : "px-4"} ${
+        selected ? "border-logoblue bg-logoblue/10 text-logoblue" : "border-neutral-200 text-black/60 hover:border-logoblue/50"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
