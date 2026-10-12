@@ -132,12 +132,10 @@ function getProtectedCancelledSubcontractorTotal(
 
 type CustomerTotalRow = Pick<OrderRow, "status" | "priceExVat" | "pricingSnapshot" | "rabatt" | "leggTil" | "calculatorItems" | "websiteOrderKind">;
 
-// Homepage catalog orders ("WHITE_GOODS") store the VAT-inclusive client
-// total in priceExVat (see getOrderChargeAmountIncVatNok) — the "Price ex.
-// VAT" column, selection sum and export show it without the 25% VAT.
+// The "Price ex. VAT" column, selection sum and export. Every order —
+// homepage (WHITE_GOODS) ones included — stores its total ex. VAT.
 export function getEffectiveArchiveCustomerTotal(row: CustomerTotalRow): number {
-  const total = getStoredArchiveCustomerTotal(row);
-  return row.websiteOrderKind === "WHITE_GOODS" ? Math.round((total / 1.25) * 100) / 100 : total;
+  return getStoredArchiveCustomerTotal(row);
 }
 
 function getStoredArchiveCustomerTotal(row: CustomerTotalRow): number {

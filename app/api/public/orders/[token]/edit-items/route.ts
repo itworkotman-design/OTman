@@ -6,6 +6,7 @@ import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { validateOrderItemEdits } from "@/lib/orders/validateOrderItemEdits";
 import { createOrderUpdatedEvent } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
+import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import {
   ItemNameRequiredError,
   SizeBracketSelectionError,
@@ -153,11 +154,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
           : `Customer changed delivery/addon selections on their order — total is unchanged.`,
     });
 
+    // Prices are ex. VAT; the customer sees (and pays the difference of) the
+    // totals incl. VAT, summed per line (lib/booking/pricing/websiteVat.ts).
+    const previousTotalIncVat = getOrderChargeAmountIncVatNok(order);
+    const newTotalIncVat = recomputed.customerTotals.totalIncVat;
     return NextResponse.json({
       ok: true,
       previousPriceExVat,
       newPriceExVat: recomputed.priceExVat,
       deltaExVat,
+      previousTotalIncVat,
+      newTotalIncVat,
+      deltaIncVat: Math.round((newTotalIncVat - previousTotalIncVat) * 100) / 100,
     });
   } catch (err) {
     if (err instanceof PriceWouldDecreaseError) {

@@ -463,16 +463,16 @@ describe("pricelist column (includePricelist option)", () => {
 });
 
 describe("homepage (WHITE_GOODS) orders in the Price ex. VAT column", () => {
-  // Their stored total is the VAT-inclusive client total (see
-  // getOrderChargeAmountIncVatNok) — the column must show it without VAT.
-  it("shows the total without the 25% VAT", () => {
-    expect(getEffectiveArchiveCustomerTotal(buildOrderRow({ websiteOrderKind: "WHITE_GOODS", priceExVat: 43945 }))).toBe(35156);
+  // Website orders store their prices ex. VAT like every other order, so the
+  // column shows the stored total as it is.
+  it("shows the stored total ex. VAT", () => {
+    expect(getEffectiveArchiveCustomerTotal(buildOrderRow({ websiteOrderKind: "WHITE_GOODS", priceExVat: 35156 }))).toBe(35156);
   });
 
   it("uses the pricing snapshot's total the same way", () => {
     expect(
       getEffectiveArchiveCustomerTotal(
-        buildOrderRow({ websiteOrderKind: "WHITE_GOODS", priceExVat: 1, pricingSnapshot: { customer: { totalExVat: 1250 } } }),
+        buildOrderRow({ websiteOrderKind: "WHITE_GOODS", priceExVat: 1, pricingSnapshot: { customer: { totalExVat: 1000 } } }),
       ),
     ).toBe(1000);
   });
@@ -482,8 +482,8 @@ describe("homepage (WHITE_GOODS) orders in the Price ex. VAT column", () => {
     expect(getEffectiveArchiveSubcontractorTotal(buildOrderRow({ websiteOrderKind: "WHITE_GOODS", priceSubcontractor: 567 }))).toBe(567);
   });
 
-  it("sums the selection without VAT too", () => {
-    const rows = [buildOrderRow({ id: "a", websiteOrderKind: "WHITE_GOODS", priceExVat: 1250 }), buildOrderRow({ id: "b", priceExVat: 100 })];
+  it("sums the selection ex. VAT too", () => {
+    const rows = [buildOrderRow({ id: "a", websiteOrderKind: "WHITE_GOODS", priceExVat: 1000 }), buildOrderRow({ id: "b", priceExVat: 100 })];
     expect(getSelectedArchiveOrdersPriceTotal(rows, ["a", "b"], "ADMIN")).toBe(1100);
   });
 });

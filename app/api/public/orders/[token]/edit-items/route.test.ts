@@ -380,6 +380,10 @@ describe("POST /api/public/orders/[token]/edit-items", () => {
 
   it("applies the change, persists it, and alerts staff when the total increases", async () => {
     mocks.getOrderByActionTokenMock.mockResolvedValue(baseOrder);
+    mocks.calculateBookingPricingMock.mockReturnValue({
+      totals: { totalExVat: 1200, subcontractorTotal: 800, discount: 0, extra: 0 },
+      breakdowns: [{ lines: [{ label: "Levering", lineTotal: 1200, qty: 1 }] }],
+    });
 
     const res = await postCall({ productCards: [submittedCard] });
     const json = await res.json();
@@ -390,6 +394,10 @@ describe("POST /api/public/orders/[token]/edit-items", () => {
       previousPriceExVat: 1000,
       newPriceExVat: 1200,
       deltaExVat: 200,
+      // What the customer is shown and pays: incl. VAT.
+      previousTotalIncVat: 1250,
+      newTotalIncVat: 1500,
+      deltaIncVat: 250,
     });
 
     expect(mocks.transactionMock).toHaveBeenCalledTimes(1);

@@ -24,7 +24,8 @@ const details = {
   preferredDate: "2026-10-10",
   timeWindow: "08:00-16:00",
   drivingDistance: "21",
-  orderExtras: [{ label: "Etasjetillegg", price: 200, qty: 1 }],
+  // Stored ex. VAT, like every website price (160 → 200 incl. VAT).
+  orderExtras: [{ label: "Etasjetillegg", price: 160, qty: 1 }],
 };
 
 const line = (cardId: number, productName: string, optionLabel: string, total: number, quantity = 1) => ({
@@ -44,13 +45,14 @@ const line = (cardId: number, productName: string, optionLabel: string, total: n
 
 function order(overrides: Record<string, unknown> = {}) {
   return {
-    priceExVat: 1099,
+    // A website order stores ex. VAT (720 + 160); the customer pays 900 + 200.
+    priceExVat: 880,
     rabatt: null,
     leggTil: null,
     websiteOrderKind: "WHITE_GOODS",
     pricingSnapshot: {
-      customer: { totalExVat: 1099, totalIncVat: 1373.75 },
-      lines: [line(0, "Vaskemaskin", "Levering med innbæring", 899)],
+      customer: { totalExVat: 880, totalIncVat: 1100 },
+      lines: [line(0, "Vaskemaskin", "Levering med innbæring", 720)],
     },
     websiteBookingDetails: details,
     pickupAddress: "Strømmen 1",
@@ -67,10 +69,11 @@ describe("buildOrderStateSnapshot", () => {
   it("records the charged total, every priced line and the stops/date", () => {
     const snapshot = buildOrderStateSnapshot(order());
     expect(snapshot.version).toBe(1);
-    // Homepage order: the VAT-inclusive client total, not +25%.
-    expect(snapshot.totalIncVatNok).toBe(1099);
+    // What the customer pays: the total and every line incl. VAT (each line
+    // rounded to whole kroner), so it compares with what was paid.
+    expect(snapshot.totalIncVatNok).toBe(1100);
     expect(snapshot.lines).toEqual([
-      { key: "Vaskemaskin::Levering med innbæring", group: "Vaskemaskin", label: "Levering med innbæring", qty: 1, price: 899 },
+      { key: "Vaskemaskin::Levering med innbæring", group: "Vaskemaskin", label: "Levering med innbæring", qty: 1, price: 900 },
       { key: "extras::Etasjetillegg", group: "extras", label: "Etasjetillegg", qty: 1, price: 200 },
     ]);
     expect(snapshot.details).toEqual(
@@ -90,8 +93,8 @@ describe("buildOrderStateSnapshot", () => {
     const snapshot = buildOrderStateSnapshot(order({ rabatt: "100", leggTil: "50" }));
     expect(snapshot.lines).toEqual(
       expect.arrayContaining([
-        { key: "adjustment::discount", group: "adjustment", label: "discount", qty: 1, price: -100 },
-        { key: "adjustment::surcharge", group: "adjustment", label: "surcharge", qty: 1, price: 50 },
+        { key: "adjustment::discount", group: "adjustment", label: "discount", qty: 1, price: -125 },
+        { key: "adjustment::surcharge", group: "adjustment", label: "surcharge", qty: 1, price: 63 },
       ]),
     );
   });
@@ -118,15 +121,15 @@ describe("compareOrderWithPayments", () => {
     expect(result).toMatchObject({
       outcome: "unpaid",
       totalPaidIncVatNok: 0,
-      currentTotalIncVatNok: 1099,
-      differenceIncVatNok: 1099,
+      currentTotalIncVatNok: 1100,
+      differenceIncVatNok: 1100,
       lineChanges: [],
       detailChanges: [],
     });
   });
 
   it("is 'settled' when the current order is what was paid", () => {
-    const result = compareOrderWithPayments({ payments: [payment(109900, paidSnapshot)], current: paidSnapshot });
+    const result = compareOrderWithPayments({ payments: [payment(110000, paidSnapshot)], current: paidSnapshot });
     expect(result).toMatchObject({ outcome: "settled", differenceIncVatNok: 0, hasPaidSnapshot: true });
     expect(result.lineChanges).toEqual([]);
   });
@@ -134,23 +137,24 @@ describe("compareOrderWithPayments", () => {
   it("lists added, removed and changed lines and the amount due", () => {
     const current = buildOrderStateSnapshot(
       order({
-        priceExVat: 1749,
+        // Ex. VAT 800 + 440; the customer pays 1000 + 550.
+        priceExVat: 1240,
         pricingSnapshot: {
-          customer: { totalExVat: 1749 },
+          customer: { totalExVat: 1240, totalIncVat: 1550 },
           lines: [
-            line(0, "Vaskemaskin", "Levering med innbæring", 999),
-            line(1, "Tørketrommel", "Levering på dørstokken", 550),
+            line(0, "Vaskemaskin", "Levering med innbæring", 800),
+            line(1, "Tørketrommel", "Levering på dørstokken", 440),
           ],
         },
         websiteBookingDetails: { ...details, orderExtras: [] },
       }),
     );
-    const result = compareOrderWithPayments({ payments: [payment(109900, paidSnapshot)], current });
+    const result = compareOrderWithPayments({ payments: [payment(110000, paidSnapshot)], current });
 
     expect(result.outcome).toBe("due");
-    expect(result.totalPaidIncVatNok).toBe(1099);
-    expect(result.currentTotalIncVatNok).toBe(1749);
-    expect(result.differenceIncVatNok).toBe(650);
+    expect(result.totalPaidIncVatNok).toBe(1100);
+    expect(result.currentTotalIncVatNok).toBe(1550);
+    expect(result.differenceIncVatNok).toBe(450);
     expect(result.lineChanges).toEqual([
       {
         kind: "changed",
@@ -158,8 +162,8 @@ describe("compareOrderWithPayments", () => {
         label: "Levering med innbæring",
         qtyBefore: 1,
         qtyAfter: 1,
-        priceBefore: 899,
-        priceAfter: 999,
+        priceBefore: 900,
+        priceAfter: 1000,
         delta: 100,
       },
       {
@@ -193,7 +197,7 @@ describe("compareOrderWithPayments", () => {
         websiteBookingDetails: { ...details, delivery: { address: "Storgata 1", floor: 1, liftAvailable: true } },
       }),
     );
-    const result = compareOrderWithPayments({ payments: [payment(109900, paidSnapshot)], current });
+    const result = compareOrderWithPayments({ payments: [payment(110000, paidSnapshot)], current });
     expect(result.detailChanges).toEqual(
       expect.arrayContaining([
         { key: "delivery.address", before: "Kirkegata 5", after: "Storgata 1" },
@@ -206,23 +210,23 @@ describe("compareOrderWithPayments", () => {
   });
 
   it("flags a refund when the order now costs less than was paid", () => {
-    const current = buildOrderStateSnapshot(order({ priceExVat: 899, pricingSnapshot: { customer: { totalExVat: 899 }, lines: [] } }));
-    const result = compareOrderWithPayments({ payments: [payment(109900, paidSnapshot)], current });
+    const current = buildOrderStateSnapshot(order({ priceExVat: 720, pricingSnapshot: { customer: { totalExVat: 720, totalIncVat: 900 }, lines: [] } }));
+    const result = compareOrderWithPayments({ payments: [payment(110000, paidSnapshot)], current });
     expect(result).toMatchObject({ outcome: "refund", differenceIncVatNok: -200 });
   });
 
   it("sums every payment, comparing against the latest one's snapshot", () => {
     const later = buildOrderStateSnapshot(
-      order({ priceExVat: 1749, pricingSnapshot: { customer: { totalExVat: 1749 }, lines: [] } }),
+      order({ priceExVat: 1400, pricingSnapshot: { customer: { totalExVat: 1400, totalIncVat: 1750 }, lines: [] } }),
     );
     const result = compareOrderWithPayments({
-      payments: [payment(65000, later, "2026-10-04T10:00:00Z"), payment(109900, paidSnapshot, "2026-10-03T10:00:00Z")],
+      payments: [payment(65000, later, "2026-10-04T10:00:00Z"), payment(110000, paidSnapshot, "2026-10-03T10:00:00Z")],
       current: later,
     });
     expect(result).toMatchObject({
       outcome: "settled",
-      totalPaidIncVatNok: 1749,
-      paidSnapshotTotalIncVatNok: 1749,
+      totalPaidIncVatNok: 1750,
+      paidSnapshotTotalIncVatNok: 1750,
       paidAt: "2026-10-04T10:00:00.000Z",
     });
   });
@@ -232,7 +236,7 @@ describe("compareOrderWithPayments", () => {
     expect(result).toMatchObject({
       hasPaidSnapshot: false,
       outcome: "due",
-      differenceIncVatNok: 99,
+      differenceIncVatNok: 100,
       lineChanges: [],
       detailChanges: [],
     });

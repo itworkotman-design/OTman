@@ -1,3 +1,4 @@
+import { websiteCustomerTotals } from "./websiteVat";
 import type {
   CatalogProduct,
   CatalogSpecialOption,
@@ -109,6 +110,9 @@ export function priceWebsiteOrder(input: WebsiteOrderPricingInput) {
 
   return {
     result,
+    // Website prices are ex. VAT: the customer's total incl. VAT is summed per
+    // line, rounded to whole kroner (websiteVat.ts) — what they see and pay.
+    customerTotals: websiteCustomerTotals(result),
     // The order-level lines (floor surcharge, extra pickups, distance…) as the
     // summary shows them — stored on the booking details.
     orderExtras: (result.breakdowns?.find((b) => b.isOrderExtras)?.lines ?? []).map((line) => ({

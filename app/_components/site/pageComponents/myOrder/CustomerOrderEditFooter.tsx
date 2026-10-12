@@ -38,7 +38,8 @@ export default function CustomerOrderEditFooter({
   blockedMessage = null,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
-  const [preview, setPreview] = useState<{ previousPriceExVat: number; priceExVat: number } | null>(null);
+  // The totals the customer sees and confirms: incl. VAT (prices are stored ex. VAT).
+  const [preview, setPreview] = useState<{ previousTotal: number; total: number } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -105,7 +106,7 @@ export default function CustomerOrderEditFooter({
         const { ok, json } = await send({ dryRun: true });
         if (seq !== previewSeq.current) return;
         if (ok) {
-          setPreview({ previousPriceExVat: json.previousPriceExVat, priceExVat: json.priceExVat });
+          setPreview({ previousTotal: json.previousTotalIncVat, total: json.totalIncVat });
           setError("");
         } else {
           setPreview(null);
@@ -126,10 +127,10 @@ export default function CustomerOrderEditFooter({
     setError("");
     setSaving(true);
     try {
-      const { ok, json } = await send(preview ? { shownTotal: preview.priceExVat } : {});
+      const { ok, json } = await send(preview ? { shownTotal: preview.total } : {});
       if (!ok) {
-        if (json?.reason === "PRICE_CHANGED" && typeof json.priceExVat === "number") {
-          setPreview((p) => (p ? { ...p, priceExVat: json.priceExVat } : p));
+        if (json?.reason === "PRICE_CHANGED" && typeof json.totalIncVat === "number") {
+          setPreview((p) => (p ? { ...p, total: json.totalIncVat } : p));
           setError(t("The price was updated — check it and save again.", "Prisen er oppdatert — sjekk den og lagre på nytt."));
           return;
         }
@@ -137,8 +138,8 @@ export default function CustomerOrderEditFooter({
         return;
       }
       onSaved(
-        json.priceExVat !== json.previousPriceExVat
-          ? t(`Your order is updated. New total: ${kr(json.priceExVat)}.`, `Bestillingen er oppdatert. Ny totalpris: ${kr(json.priceExVat)}.`)
+        json.totalIncVat !== json.previousTotalIncVat
+          ? t(`Your order is updated. New total: ${kr(json.totalIncVat)}.`, `Bestillingen er oppdatert. Ny totalpris: ${kr(json.totalIncVat)}.`)
           : t("Your order is updated.", "Bestillingen er oppdatert."),
       );
     } catch {
@@ -148,7 +149,7 @@ export default function CustomerOrderEditFooter({
     }
   }
 
-  const delta = preview ? preview.priceExVat - preview.previousPriceExVat : 0;
+  const delta = preview ? preview.total - preview.previousTotal : 0;
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
@@ -161,11 +162,11 @@ export default function CustomerOrderEditFooter({
           <div className="flex flex-col gap-1">
             <div className="flex justify-between gap-4">
               <span className="text-black/60">{t("Price before", "Pris før")}</span>
-              <span className="tabular-nums">{kr(preview.previousPriceExVat)}</span>
+              <span className="tabular-nums">{kr(preview.previousTotal)}</span>
             </div>
             <div className="flex justify-between gap-4 font-semibold text-logoblue">
               <span>{t("New total (incl. VAT)", "Ny totalpris (inkl. MVA)")}</span>
-              <span className="tabular-nums">{kr(preview.priceExVat)}</span>
+              <span className="tabular-nums">{kr(preview.total)}</span>
             </div>
             {delta !== 0 && (
               <p className="text-xs text-black/60">

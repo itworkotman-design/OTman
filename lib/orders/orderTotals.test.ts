@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { buildOrderPricingSnapshot, getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok, getPricingSnapshotCustomerVatTotals } from "@/lib/orders/orderTotals";
 
+describe("buildOrderPricingSnapshot — a website order's total incl. VAT", () => {
+  it("keeps the incl.-VAT total it's given (summed per line) and the VAT in it", () => {
+    const snapshot = buildOrderPricingSnapshot({
+      lines: [],
+      rabatt: null,
+      leggTil: null,
+      subcontractorMinus: null,
+      subcontractorPlus: null,
+      fallbackCustomerTotalExVat: 2256,
+      fallbackSubcontractorTotal: 0,
+      customerTotalIncVat: 2821,
+    });
+    expect(snapshot.customer).toMatchObject({ totalExVat: 2256, totalIncVat: 2821, vat: 565 });
+  });
+});
+
 describe("buildOrderPricingSnapshot", () => {
   it("uses submitted totals as authoritative when line prices are partial", () => {
     const snapshot = buildOrderPricingSnapshot({
@@ -114,27 +130,28 @@ describe("getOrderRemainingBalanceIncVatNok", () => {
 });
 
 describe("getOrderChargeAmountIncVatNok for homepage website orders", () => {
-  // Homepage catalog prices are stored VAT-inclusive (see vatDisplayTotal.ts),
-  // so the client total the customer saw is what they pay — no extra 25%.
+  // Website orders store their prices ex. VAT like every other order; the
+  // customer pays the snapshot's incl.-VAT total (summed per line, rounded
+  // to whole kroner — see lib/booking/pricing/websiteVat.ts).
   const websiteOrder = {
-    priceExVat: 2855,
+    priceExVat: 2284,
     rabatt: null,
     leggTil: null,
-    pricingSnapshot: { customer: { totalExVat: 2855, totalIncVat: 3568.75 } },
+    pricingSnapshot: { customer: { totalExVat: 2284, totalIncVat: 2856 } },
     websiteOrderKind: "WHITE_GOODS",
   };
 
-  it("charges the client total as-is, not plus VAT", () => {
-    expect(getOrderChargeAmountIncVatNok(websiteOrder)).toBe(2855);
+  it("charges the snapshot's total incl. VAT", () => {
+    expect(getOrderChargeAmountIncVatNok(websiteOrder)).toBe(2856);
   });
 
-  it("falls back to the adjusted priceExVat, without adding VAT, when there's no snapshot", () => {
+  it("falls back to the adjusted priceExVat plus VAT when there's no snapshot", () => {
     const order = { ...websiteOrder, priceExVat: 1000, rabatt: "100", pricingSnapshot: null };
-    expect(getOrderChargeAmountIncVatNok(order)).toBe(900);
+    expect(getOrderChargeAmountIncVatNok(order)).toBe(1125);
   });
 
-  it("uses the client total for the remaining balance too", () => {
-    expect(getOrderRemainingBalanceIncVatNok(websiteOrder, 200000)).toBe(855);
+  it("uses the total incl. VAT for the remaining balance too", () => {
+    expect(getOrderRemainingBalanceIncVatNok(websiteOrder, 200000)).toBe(856);
   });
 
   it("leaves other orders charging their ex-VAT total plus VAT", () => {
@@ -146,8 +163,8 @@ describe("getOrderChargeAmountIncVatNok for homepage website orders", () => {
 describe("getPricingSnapshotCustomerVatTotals", () => {
   const snapshot = { customer: { totalExVat: 44255, vat: 11063.75, totalIncVat: 55318.75 } };
 
-  it("treats a homepage (WHITE_GOODS) total as VAT-inclusive — no VAT on top", () => {
-    expect(getPricingSnapshotCustomerVatTotals(snapshot, "WHITE_GOODS")).toEqual({ totalIncVat: 44255, vat: 8851 });
+  it("uses the snapshot's own VAT for a homepage (WHITE_GOODS) order too — stored ex. VAT like the rest", () => {
+    expect(getPricingSnapshotCustomerVatTotals(snapshot, "WHITE_GOODS")).toEqual({ totalIncVat: 55318.75, vat: 11063.75 });
   });
 
   it("uses the snapshot's own VAT for every other order", () => {

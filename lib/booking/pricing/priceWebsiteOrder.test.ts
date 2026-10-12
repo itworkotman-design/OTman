@@ -110,6 +110,16 @@ function linesTotal(i: WebsiteOrderPricingInput) {
 }
 
 describe("priceWebsiteOrder", () => {
+  // Website prices are ex. VAT; what the customer pays is each line incl. VAT
+  // rounded to whole kroner, summed (lib/booking/pricing/websiteVat.ts).
+  it("gives the customer's totals: ex. VAT as priced, incl. VAT summed per line", () => {
+    const { result, customerTotals } = priceWebsiteOrder(input("21"));
+    const perLine = result.breakdowns.flatMap((b) => b.lines).reduce((sum, l) => sum + Math.round(l.lineTotal * 1.25), 0);
+    expect(customerTotals.totalExVat).toBe(result.totals.totalExVat);
+    expect(customerTotals.totalIncVat).toBe(perLine);
+    expect(customerTotals.vat).toBe(customerTotals.totalIncVat - customerTotals.totalExVat);
+  });
+
   it("charges base delivery within 100 km (the second item at the extra-item rate)", () => {
     const { result } = priceWebsiteOrder(input("21"));
     const deliveryLines = result.breakdowns.flatMap((b) => b.lines).filter((l) => l.label === "Delivery with carry-in");

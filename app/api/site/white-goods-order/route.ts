@@ -204,7 +204,7 @@ async function createWhiteGoodsOrder(
 
   // THE price — the same function the customer's summary used
   // (priceWebsiteOrder), so the total below is the one they were shown.
-  const { result: pricingResult, orderExtras } = priceWebsiteOrder({
+  const { result: pricingResult, orderExtras, customerTotals } = priceWebsiteOrder({
     cards: productCards,
     catalogProducts: pricingSource.catalogProducts,
     catalogSpecialOptions: pricingSource.catalogSpecialOptions,
@@ -222,15 +222,17 @@ async function createWhiteGoodsOrder(
   // The customer pays what they were shown, so the order is only stored when
   // that is exactly the price calculated here. Anything else (stale catalog,
   // a pricing bug, a tampered request) is refused with the real price rather
-  // than stored at a total the customer never saw.
+  // than stored at a total the customer never saw. Prices are ex. VAT; the
+  // total compared is what the customer pays — incl. VAT, summed per line
+  // (websiteVat.ts) — while the order itself is stored ex. VAT.
   const shownTotal = typeof body.shownTotal === "number" && Number.isFinite(body.shownTotal) ? body.shownTotal : null;
   if (shownTotal === null) throw new ShownTotalRequiredError();
-  if (Math.abs(shownTotal - pricingResult.totals.totalExVat) >= 0.5) {
+  if (Math.abs(shownTotal - customerTotals.totalIncVat) >= 0.5) {
     console.error("[white-goods-order] Shown total differs from server total", {
       shownTotal,
-      serverTotal: pricingResult.totals.totalExVat,
+      serverTotal: customerTotals.totalIncVat,
     });
-    throw new PriceChangedError(pricingResult.totals.totalExVat);
+    throw new PriceChangedError(customerTotals.totalIncVat);
   }
 
   const builtItems = buildWebsiteOrderItems(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
@@ -245,6 +247,7 @@ async function createWhiteGoodsOrder(
     subcontractorPlus: null,
     fallbackCustomerTotalExVat: pricingResult.totals.totalExVat,
     fallbackSubcontractorTotal: pricingResult.totals.subcontractorTotal,
+    customerTotalIncVat: customerTotals.totalIncVat,
   });
 
   const displayId = await reserveNextManualOrderNumber(membership.companyId);

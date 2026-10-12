@@ -40,12 +40,8 @@ import {
   type OrderSummaryExtraLine,
   type OrderSummaryProduct,
 } from "./WhiteGoodsOrderSummary";
-import {
-  getVatBreakdown,
-  getVatDisplayAmount,
-  getVatDisplayTotal,
-  type CustomerType,
-} from "@/lib/booking/pricing/vatDisplayTotal";
+import type { CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import { websiteCustomerPrice, websiteCustomerTotalDisplay, websiteCustomerTotals } from "@/lib/booking/pricing/websiteVat";
 import {
   addAnotherProductCard,
   applyProductQuantity,
@@ -231,7 +227,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   // headline number vs. the smaller secondary one, never affects actual
   // pricing. Starts `null` (unanswered) rather than defaulting to "private"
   // so the first step's tiles open with neither one highlighted —
-  // getVatDisplayTotal already treats "private" as its own default
+  // websiteCustomerTotalDisplay already treats "private" as its own default
   // whenever this is null.
   const [customerType, setCustomerType] = useState<CustomerType | null>(null);
   // Who the pickup address belongs to (store / private individual /
@@ -735,15 +731,16 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     adminUseFullKm,
   ]);
 
-  // pricing.totals.totalExVat is the sum of the raw, unmodified line prices
-  // — which, per the shared catalog convention, IS the client (VAT-inclusive)
-  // total. Its engine-internal name doesn't change here; only how the
-  // website displays it does.
-  const finalVatDisplay = getVatDisplayTotal({
-    total: pricing.totals.totalExVat,
+  // Website prices are ex. VAT: the customer's total incl. VAT is each line
+  // with 25% added, rounded to whole kroner, summed (websiteVat.ts) — the
+  // same rule the server checks shownTotal against.
+  const customerTotals = useMemo(() => websiteCustomerTotals(pricing), [pricing]);
+  const finalVatDisplay = websiteCustomerTotalDisplay({
+    totalExVat: customerTotals.totalExVat,
+    totalIncVat: customerTotals.totalIncVat,
     customerType: customerType ?? undefined,
   });
-  const finalVatBreakdown = getVatBreakdown(pricing.totals.totalExVat);
+  const finalVatBreakdown = { exVat: customerTotals.totalExVat, vat: customerTotals.vat, incVat: customerTotals.totalIncVat };
 
   // Charges not tied to a specific product card (floor surcharge,
   // long-distance delivery, …) — see buildWhiteGoodsCalculatorBreakdowns.
@@ -764,7 +761,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   // Converted here (rather than in FloorLiftField) since this is the one
   // place in the tree that already holds customerType — the badge itself
   // just renders whatever amount it's given.
-  const floorSurchargePerFloor = getVatDisplayAmount(
+  const floorSurchargePerFloor = websiteCustomerPrice(
     parsePriceSetting(normalizedSettings.floorSurcharge.price),
     customerType ?? "private",
   );
@@ -868,7 +865,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           customerType,
           // The total shown above — the server only accepts the order at
           // this price (see app/api/site/white-goods-order).
-          shownTotal: pricing.totals.totalExVat,
+          // What the customer saw and pays: incl. VAT, summed per line.
+          shownTotal: customerTotals.totalIncVat,
           // Only present once the order was actually split across more than
           // one pickup address — omitted for the common single-location
           // case so that payload stays exactly as it always has been.
@@ -1057,7 +1055,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
               locale={locale}
               products={summaryProducts}
               orderExtras={orderExtraLines}
-              total={pricing.totals.totalExVat}
+              totalExVat={customerTotals.totalExVat}
+              totalIncVat={customerTotals.totalIncVat}
               customerType={customerType ?? "private"}
             />
           </div>
@@ -1388,7 +1387,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                 locale={locale}
                 products={summaryProducts}
                 orderExtras={orderExtraLines}
-                total={pricing.totals.totalExVat}
+                totalExVat={customerTotals.totalExVat}
+                totalIncVat={customerTotals.totalIncVat}
                 customerType={customerType ?? "private"}
                 totalFooter={
                   <div className="flex flex-col gap-2 text-sm text-black/70">

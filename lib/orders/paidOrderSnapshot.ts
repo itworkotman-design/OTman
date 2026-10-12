@@ -1,6 +1,7 @@
 import { getOrderChargeAmountIncVatNok, parseNokAdjustment, roundNok } from "./orderTotals";
 import { parseWhiteGoodsBookingDetails, withLiveOrderFields, type WhiteGoodsBookingDetails } from "./websiteBookingDetails";
 import { groupPricingLinesByCard, pricingLinesFromSnapshot } from "./websiteOrderProducts";
+import { websiteInclVat } from "@/lib/booking/pricing/websiteVat";
 
 // What an order looked like when the customer paid for it — stored on each
 // OrderPayment (orderSnapshot) by the Stripe webhook — and how the order as it
@@ -8,8 +9,9 @@ import { groupPricingLinesByCard, pricingLinesFromSnapshot } from "./websiteOrde
 // and whether the customer owes more or is due a refund. Both sides are built
 // by the same buildOrderStateSnapshot, so they compare like for like.
 //
-// Amounts are what the customer is charged (getOrderChargeAmountIncVatNok);
-// for homepage orders the lines are the VAT-inclusive catalog prices.
+// Amounts are what the customer is charged (getOrderChargeAmountIncVatNok):
+// incl. VAT. A homepage order stores its lines ex. VAT, so each is shown incl.
+// VAT the way the customer sees it (rounded per line, websiteVat.ts).
 
 export type OrderStateLine = { key: string; group: string; label: string; qty: number; price: number };
 // Keys: pickup.<n>.address|place|floor|lift|contact, delivery.address|floor|lift,
@@ -100,15 +102,17 @@ export function buildOrderStateSnapshot(order: OrderStateSource): OrderStateSnap
       })
     : null;
 
+  // A homepage order's amounts are stored ex. VAT; the customer's are incl.
+  const customerAmount = (amount: number) => (order.websiteOrderKind === "WHITE_GOODS" ? websiteInclVat(amount) : amount);
   const lines: OrderStateLine[] = [];
   for (const group of groupPricingLinesByCard(pricingLinesFromSnapshot(order.pricingSnapshot))) {
-    for (const item of group.items) lines.push(makeLine(group.productName, item.label, item.qty, item.price));
+    for (const item of group.items) lines.push(makeLine(group.productName, item.label, item.qty, customerAmount(item.price)));
   }
-  for (const extra of details?.orderExtras ?? []) lines.push(makeLine(EXTRAS_GROUP, extra.label, extra.qty, extra.price));
+  for (const extra of details?.orderExtras ?? []) lines.push(makeLine(EXTRAS_GROUP, extra.label, extra.qty, customerAmount(extra.price)));
   const discount = parseNokAdjustment(order.rabatt);
-  if (discount) lines.push(makeLine(ADJUSTMENT_GROUP, "discount", 1, -discount));
+  if (discount) lines.push(makeLine(ADJUSTMENT_GROUP, "discount", 1, -customerAmount(discount)));
   const surcharge = parseNokAdjustment(order.leggTil);
-  if (surcharge) lines.push(makeLine(ADJUSTMENT_GROUP, "surcharge", 1, surcharge));
+  if (surcharge) lines.push(makeLine(ADJUSTMENT_GROUP, "surcharge", 1, customerAmount(surcharge)));
 
   return {
     version: 1,

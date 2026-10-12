@@ -4,7 +4,8 @@ import { Fragment, type ReactNode } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { WhiteGoodsLineCategory } from "@/lib/content/whiteGoodsLineCategory";
 import { ProductIcon } from "./productIcons";
-import { getVatDisplayAmount, getVatDisplayTotal, type CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import type { CustomerType } from "@/lib/booking/pricing/vatDisplayTotal";
+import { websiteCustomerPrice, websiteCustomerTotalDisplay } from "@/lib/booking/pricing/websiteVat";
 
 export type OrderSummaryLine = {
   label: string;
@@ -42,8 +43,10 @@ type Props = {
   locale: Locale;
   products: OrderSummaryProduct[];
   orderExtras?: OrderSummaryExtraLine[];
-  // The order's client (VAT-inclusive) total — see getVatDisplayTotal.
-  total: number;
+  // The order's totals: ex. VAT as priced, and incl. VAT summed per line
+  // (websiteCustomerTotals) — what a private customer pays.
+  totalExVat: number;
+  totalIncVat: number;
   // Answered once as the modal's first step (CustomerTypeStep) — no toggle
   // here anymore, just used to pick which VAT total leads.
   customerType: CustomerType;
@@ -60,12 +63,16 @@ export function WhiteGoodsOrderSummary({
   locale,
   products,
   orderExtras = [],
-  total,
+  totalExVat,
+  totalIncVat,
   customerType,
   totalFooter,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
-  const vatDisplay = getVatDisplayTotal({ total, customerType });
+  const vatDisplay = websiteCustomerTotalDisplay({ totalExVat, totalIncVat, customerType });
+  // Every price is stored ex. VAT; a private customer sees each line incl.
+  // VAT (rounded per line), and a product's total is the sum of its lines.
+  const shown = (amountExVat: number) => websiteCustomerPrice(amountExVat, customerType);
   const secondaryLabel =
     vatDisplay.primary === "incVat" ? t("ex. VAT", "eks. mva") : t("incl. VAT", "inkl. mva");
 
@@ -91,7 +98,7 @@ export function WhiteGoodsOrderSummary({
                   </p>
                 </div>
                 <p className="shrink-0 whitespace-nowrap text-base font-semibold text-black/85">
-                  {formatKr(getVatDisplayAmount(product.total, customerType))}
+                  {formatKr(product.lines.reduce((sum, line) => sum + shown(line.price), 0))}
                 </p>
               </div>
 
@@ -123,7 +130,7 @@ export function WhiteGoodsOrderSummary({
                           ? line.blankWhenFree
                             ? null
                             : t("Included", "Inkludert")
-                          : formatKr(getVatDisplayAmount(line.price, customerType))}
+                          : formatKr(shown(line.price))}
                       </span>
                     </Fragment>
                   ))}
@@ -154,7 +161,7 @@ export function WhiteGoodsOrderSummary({
                   )}
                 </span>
                 <span className="whitespace-nowrap text-right font-medium tabular-nums text-black/70">
-                  {formatKr(getVatDisplayAmount(line.price, customerType))}
+                  {formatKr(shown(line.price))}
                 </span>
               </Fragment>
             ))}

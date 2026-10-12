@@ -159,18 +159,14 @@ export function getPricingSnapshotCustomerTotalIncVat(snapshot: unknown): number
 }
 
 // The customer total incl. VAT and the VAT in it, from a stored snapshot.
-// A homepage catalog order ("WHITE_GOODS") is priced VAT-inclusive, so its
-// snapshot "totalExVat" already IS the incl.-VAT total (its stored vat /
-// totalIncVat add 25% on top and must not be used) — same rule as
-// getOrderChargeAmountIncVatNok.
+// Every order — homepage (WHITE_GOODS) ones included — stores its prices ex.
+// VAT with the incl.-VAT total beside them. (websiteOrderKind is kept for the
+// callers; it no longer changes anything.)
 export function getPricingSnapshotCustomerVatTotals(
   snapshot: unknown,
-  websiteOrderKind: string | null | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  websiteOrderKind?: string | null,
 ): { totalIncVat: number; vat: number } | null {
-  if (websiteOrderKind === "WHITE_GOODS") {
-    const total = getPricingSnapshotCustomerTotal(snapshot);
-    return total === null ? null : { totalIncVat: total, vat: roundNok(total - total / 1.25) };
-  }
   const root = getSnapshotRecord(snapshot);
   const customer = getSnapshotRecord(root?.customer);
   const totalIncVat = getSnapshotNumber(customer?.totalIncVat);
@@ -191,19 +187,10 @@ type ChargeableOrder = {
 // own pricingSnapshot (computed once at order creation/edit time) and only
 // recomputes from the raw fields as a fallback for orders that predate it.
 //
-// Homepage catalog orders are priced in VAT-inclusive catalog prices (see
-// lib/booking/pricing/vatDisplayTotal.ts) — their stored "ex-VAT" total is
-// really the client total the customer saw, so that is charged as-is.
-// Every other order stores a real ex-VAT total and is charged it plus 25%
-// Norwegian VAT.
+// Every order stores a real ex-VAT total and is charged it plus 25%
+// Norwegian VAT. A homepage (WHITE_GOODS) order's snapshot holds its total
+// incl. VAT summed per line (lib/booking/pricing/websiteVat.ts).
 export function getOrderChargeAmountIncVatNok(order: ChargeableOrder): number {
-  if (order.websiteOrderKind === "WHITE_GOODS") {
-    return (
-      getPricingSnapshotCustomerTotal(order.pricingSnapshot) ??
-      getAdjustedCustomerTotal({ subtotal: order.priceExVat, rabatt: order.rabatt, leggTil: order.leggTil })
-    );
-  }
-
   const snapshotTotal = getPricingSnapshotCustomerTotalIncVat(order.pricingSnapshot);
   if (snapshotTotal !== null) {
     return snapshotTotal;
@@ -274,6 +261,10 @@ export function buildOrderPricingSnapshot(params: {
   customDeviationPrice?: number | null;
   customDeviationSubcontractorPrice?: number | null;
   customDeviationDescription?: string | null;
+  // A website order's total incl. VAT, summed per line (websiteCustomerTotals)
+  // — kept as is instead of 25% on the total, so it's exactly what the
+  // customer saw and pays.
+  customerTotalIncVat?: number;
 }): OrderPricingSnapshot {
   const totals = getOrderLinePriceTotals(params.lines);
   const discount = roundNok(parseNokAdjustment(params.rabatt));
@@ -304,7 +295,9 @@ export function buildOrderPricingSnapshot(params: {
   const subcontractorSubtotal = hasSubmittedSubcontractorTotal
     ? roundNok(subcontractorTotal + minus - plus)
     : totals.subcontractorSubtotal ?? 0;
-  const vat = roundNok(totalExVat * 0.25);
+  const totalIncVat =
+    typeof params.customerTotalIncVat === "number" ? roundNok(params.customerTotalIncVat) : roundNok(totalExVat + roundNok(totalExVat * 0.25));
+  const vat = roundNok(totalIncVat - totalExVat);
 
   return {
     version: 1,
@@ -319,7 +312,7 @@ export function buildOrderPricingSnapshot(params: {
       extra,
       totalExVat,
       vat,
-      totalIncVat: roundNok(totalExVat + vat),
+      totalIncVat,
     },
     subcontractor: {
       subtotal: subcontractorSubtotal,

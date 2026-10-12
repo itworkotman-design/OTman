@@ -296,3 +296,25 @@ describe("resolveSavedCatalogPricing", () => {
     expect(await resolveSavedCatalogPricing({ ...stored, priceExVat: stored.priceExVat + 7 }, [washerCard], items)).toBeNull();
   });
 });
+
+// Website prices are ex. VAT; the stored snapshot keeps the customer's total
+// incl. VAT summed per line (what they pay — getOrderChargeAmountIncVatNok).
+describe("recomputeWebsiteOrderPricing — the customer's total incl. VAT", () => {
+  const washer = {
+    ...otherFurniture,
+    id: "wm",
+    code: "WG_WASHING_MACHINE",
+    allowModelNumber: false,
+    allowExtraServices: true,
+    options: [{ ...option("ex", "extra"), customerPrice: "365", effectiveCustomerPrice: "365" }],
+  };
+  const washerCard = { ...createEmptyProductCard(0), productId: "wm", amount: 1, selectedExtraOptionIds: ["ex"] };
+
+  it("stores it in the pricing snapshot and returns it", async () => {
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer], specialOptions: [], priceListSettings: null });
+    const result = await recomputeWebsiteOrderPricing(order, [washerCard]);
+    const perLine = result.pricingResult.breakdowns.flatMap((b) => b.lines).reduce((sum, l) => sum + Math.round(l.lineTotal * 1.25), 0);
+    expect(result.customerTotals.totalIncVat).toBe(perLine);
+    expect(result.pricingSnapshot.customer).toMatchObject({ totalExVat: result.priceExVat, totalIncVat: perLine });
+  });
+});

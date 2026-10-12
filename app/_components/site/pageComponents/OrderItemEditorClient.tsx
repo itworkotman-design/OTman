@@ -30,8 +30,8 @@ const TEXT = {
     decreaseError: "Denne endringen ville redusert totalprisen. Ta kontakt med oss om du ønsker en refusjon.",
     noChange: "Bestillingen din er oppdatert. Ingen prisendring.",
     increased: "Bestillingen din er oppdatert. Du må betale differansen under.",
-    previousTotal: "Tidligere pris (eks. MVA)",
-    newTotal: "Ny pris (eks. MVA)",
+    previousTotal: "Tidligere pris (inkl. MVA)",
+    newTotal: "Ny pris (inkl. MVA)",
     difference: "Differanse",
     payDifference: "Betal differansen",
     close: "Lukk",
@@ -45,8 +45,8 @@ const TEXT = {
     decreaseError: "This change would have reduced the total price. Contact us if you'd like a refund.",
     noChange: "Your order has been updated. No price change.",
     increased: "Your order has been updated. Please pay the difference below.",
-    previousTotal: "Previous price (ex. VAT)",
-    newTotal: "New price (ex. VAT)",
+    previousTotal: "Previous price (incl. VAT)",
+    newTotal: "New price (incl. VAT)",
     difference: "Difference",
     payDifference: "Pay the difference",
     close: "Close",
@@ -58,7 +58,8 @@ export default function OrderItemEditorClient({ token, locale }: Props) {
   const [data, setData] = useState<LoadedData | null>(null);
   const [cards, setCards] = useState<SavedProductCard[]>([]);
   const [submitError, setSubmitError] = useState("");
-  const [result, setResult] = useState<{ previousPriceExVat: number; newPriceExVat: number; deltaExVat: number } | null>(null);
+  // The totals the customer is shown and pays: incl. VAT (prices are stored ex. VAT).
+  const [result, setResult] = useState<{ previousTotal: number; newTotal: number; delta: number } | null>(null);
   const t = TEXT[locale];
 
   useEffect(() => {
@@ -123,9 +124,9 @@ export default function OrderItemEditorClient({ token, locale }: Props) {
       }
 
       setResult({
-        previousPriceExVat: json.previousPriceExVat,
-        newPriceExVat: json.newPriceExVat,
-        deltaExVat: json.deltaExVat,
+        previousTotal: json.previousTotalIncVat,
+        newTotal: json.newTotalIncVat,
+        delta: json.deltaIncVat,
       });
       setPhase("result");
     } catch {
@@ -158,23 +159,23 @@ export default function OrderItemEditorClient({ token, locale }: Props) {
     return (
       <div className="mt-6 rounded-lg border border-gray-200 p-6">
         <p className="text-sm font-medium text-green-700">
-          {result.deltaExVat > 0 ? t.increased : t.noChange}
+          {result.delta > 0 ? t.increased : t.noChange}
         </p>
         <dl className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between">
             <dt className="text-textColorThird">{t.previousTotal}</dt>
-            <dd className="font-medium">{result.previousPriceExVat.toLocaleString("nb-NO")} kr</dd>
+            <dd className="font-medium">{result.previousTotal.toLocaleString("nb-NO")} kr</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-textColorThird">{t.newTotal}</dt>
-            <dd className="font-medium">{result.newPriceExVat.toLocaleString("nb-NO")} kr</dd>
+            <dd className="font-medium">{result.newTotal.toLocaleString("nb-NO")} kr</dd>
           </div>
           <div className="flex justify-between border-t border-gray-200 pt-2">
             <dt className="text-textColorThird">{t.difference}</dt>
-            <dd className="font-semibold">{result.deltaExVat.toLocaleString("nb-NO")} kr</dd>
+            <dd className="font-semibold">{result.delta.toLocaleString("nb-NO")} kr</dd>
           </div>
         </dl>
-        {result.deltaExVat > 0 && (
+        {result.delta > 0 && (
           <a href={`/${locale}/betaling/${token}`} className="customButtonEnabled mt-4 flex h-11 items-center justify-center px-6">
             {t.payDifference}
           </a>
@@ -198,9 +199,8 @@ export default function OrderItemEditorClient({ token, locale }: Props) {
               key={card.cardId}
               locale={locale}
               // This screen has no stored customerType for the order being
-              // edited — "private" shows each option's catalog price
-              // unchanged (see getVatDisplayAmount), matching what the
-              // customer saw when they originally placed the order.
+              // edited — "private" shows each price incl. VAT (see
+              // websiteCustomerPrice), what the customer pays.
               customerType="private"
               product={product}
               value={card}

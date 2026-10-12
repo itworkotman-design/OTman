@@ -313,14 +313,18 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     // Refunds aren't built: once something is paid the order can't get cheaper here.
     if (recomputed.priceExVat < previousPriceExVat && order.payments.length > 0) return reject("WOULD_DECREASE_PRICE", 422);
 
+    // Prices are ex. VAT; the customer is shown — and confirms — the totals
+    // incl. VAT (summed per line, lib/booking/pricing/websiteVat.ts).
+    const previousTotalIncVat = customerOrderTotalIncVatNok(order);
+    const totalIncVat = recomputed.customerTotals.totalIncVat;
     if (dryRun) {
-      return NextResponse.json({ ok: true, dryRun: true, previousPriceExVat, priceExVat: recomputed.priceExVat });
+      return NextResponse.json({ ok: true, dryRun: true, previousPriceExVat, priceExVat: recomputed.priceExVat, previousTotalIncVat, totalIncVat });
     }
 
     if (recomputed.priceExVat !== previousPriceExVat) {
       if (shownTotal === null) return reject("SHOWN_TOTAL_REQUIRED", 400);
-      if (Math.abs(shownTotal - recomputed.priceExVat) >= 0.5) {
-        return reject("PRICE_CHANGED", 409, { priceExVat: recomputed.priceExVat });
+      if (Math.abs(shownTotal - totalIncVat) >= 0.5) {
+        return reject("PRICE_CHANGED", 409, { priceExVat: recomputed.priceExVat, totalIncVat });
       }
     }
 
@@ -345,7 +349,15 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     };
   } else {
     if (dryRun) {
-      return NextResponse.json({ ok: true, dryRun: true, previousPriceExVat: order.priceExVat, priceExVat: order.priceExVat });
+      const totalIncVat = customerOrderTotalIncVatNok(order);
+      return NextResponse.json({
+        ok: true,
+        dryRun: true,
+        previousPriceExVat: order.priceExVat,
+        priceExVat: order.priceExVat,
+        previousTotalIncVat: totalIncVat,
+        totalIncVat,
+      });
     }
     const data = {
       customerName: customer.name,
@@ -433,6 +445,9 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     changed: true,
     previousPriceExVat: order.priceExVat,
     priceExVat: afterOrder.priceExVat,
+    // What the customer sees: incl. VAT.
+    previousTotalIncVat: customerOrderTotalIncVatNok(order),
+    totalIncVat: customerOrderTotalIncVatNok({ ...order, ...afterOrder }),
     changes: customerLines,
     details: customerOrderDetails({ ...order, ...afterOrder } as CustomerOrder),
   });

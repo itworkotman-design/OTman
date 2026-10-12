@@ -128,8 +128,19 @@ function order(overrides: Record<string, unknown> = {}) {
 // After the cutoff: job tomorrow at 10:00 Oslo, cutoff today 08:00Z.
 const afterCutoff = { deliveryDate: "2026-10-06", timeWindow: "10:00-16:00" };
 
+// Prices are ex. VAT; the customer sees and confirms the total incl. VAT.
 function recomputed(priceExVat: number, cards: unknown[] = [washerCard]) {
-  return { cards, builtItems: [], summaries: {}, pricingSnapshot: null, priceExVat, priceSubcontractor: 0, orderExtras: [], pricingResult: {} };
+  return {
+    cards,
+    builtItems: [],
+    summaries: {},
+    pricingSnapshot: null,
+    priceExVat,
+    priceSubcontractor: 0,
+    orderExtras: [],
+    pricingResult: {},
+    customerTotals: { totalExVat: priceExVat, totalIncVat: priceExVat * 1.25, vat: priceExVat * 0.25 },
+  };
 }
 
 const params = { params: Promise.resolve({ orderNumber: "583920" }) };
@@ -301,11 +312,11 @@ describe("customer order route", () => {
       mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(1300, cards));
       const cards = [{ ...washerCard, selectedExtraOptionIds: ["UNPACKING"] }];
 
-      const res = await put({ productCards: cards, shownTotal: 1300 });
+      const res = await put({ productCards: cards, shownTotal: 1625 });
       const json = await res.json();
 
       expect(res.status).toBe(200);
-      expect(json).toMatchObject({ ok: true, previousPriceExVat: 1000, priceExVat: 1300 });
+      expect(json).toMatchObject({ ok: true, previousPriceExVat: 1000, priceExVat: 1300, previousTotalIncVat: 1250, totalIncVat: 1625 });
       expect(mocks.recompute).toHaveBeenCalledWith(expect.anything(), [normalizeSavedProductCard(cards[0] as never, 0)]);
       expect(mocks.createOrderNotification).toHaveBeenCalledWith(
         expect.anything(),
@@ -318,7 +329,15 @@ describe("customer order route", () => {
 
       const res = await put({ productCards: [{ ...washerCard, amount: 2 }], dryRun: true });
 
-      expect(await res.json()).toEqual({ ok: true, dryRun: true, previousPriceExVat: 1000, priceExVat: 1300 });
+      expect(await res.json()).toEqual({
+        ok: true,
+        dryRun: true,
+        previousPriceExVat: 1000,
+        priceExVat: 1300,
+        // What the customer is shown: incl. VAT.
+        previousTotalIncVat: 1250,
+        totalIncVat: 1625,
+      });
       expect(mocks.transaction).not.toHaveBeenCalled();
     });
 
@@ -327,9 +346,12 @@ describe("customer order route", () => {
       const cards = [{ ...washerCard, amount: 2 }];
 
       expect((await put({ productCards: cards })).status).toBe(400);
+      // The ex-VAT price isn't what the customer saw — the incl.-VAT total is.
+      const exVat = await put({ productCards: cards, shownTotal: 1300 });
+      expect(exVat.status).toBe(409);
       const stale = await put({ productCards: cards, shownTotal: 1200 });
       expect(stale.status).toBe(409);
-      expect(await stale.json()).toEqual({ ok: false, reason: "PRICE_CHANGED", priceExVat: 1300 });
+      expect(await stale.json()).toEqual({ ok: false, reason: "PRICE_CHANGED", priceExVat: 1300, totalIncVat: 1625 });
       expect(mocks.transaction).not.toHaveBeenCalled();
     });
 
@@ -337,7 +359,7 @@ describe("customer order route", () => {
       const cards = [washerCard, { ...washerCard, cardId: 1, productId: "p-dryer" }];
       mocks.recompute.mockImplementation(async (_order: unknown, c: unknown[]) => recomputed(1800, c));
 
-      const res = await put({ productCards: cards, shownTotal: 1800 });
+      const res = await put({ productCards: cards, shownTotal: 2250 });
 
       expect(res.status).toBe(200);
     });
@@ -363,7 +385,7 @@ describe("customer order route", () => {
 
     it("lets an unpaid order get cheaper", async () => {
       mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(800, cards));
-      const res = await put({ productCards: [{ ...washerCard, selectedExtraOptionIds: ["NO_PACKAGING_REMOVAL"] }], shownTotal: 800 });
+      const res = await put({ productCards: [{ ...washerCard, selectedExtraOptionIds: ["NO_PACKAGING_REMOVAL"] }], shownTotal: 1000 });
       expect(res.status).toBe(200);
     });
 

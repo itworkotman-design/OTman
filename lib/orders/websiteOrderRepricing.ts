@@ -132,7 +132,7 @@ export async function recomputeWebsiteOrderPricing(
   const extraPickupsForPricing = (order.extraPickupAddress ?? []).map((address) => ({ address }));
 
   // The same priceWebsiteOrder the customer's summary and order creation use.
-  const { result: pricingResult, orderExtras } = priceWebsiteOrder({
+  const { result: pricingResult, orderExtras, customerTotals } = priceWebsiteOrder({
     cards: submittedCards,
     catalogProducts: pricingSource.catalogProducts,
     catalogSpecialOptions: pricingSource.catalogSpecialOptions,
@@ -179,6 +179,8 @@ export async function recomputeWebsiteOrderPricing(
     customDeviationDescription: customDeviation?.description ?? null,
     nulledOrderExtraKeysForCustomer: nulledOrderExtras.customer,
     nulledOrderExtraKeysForSubcontractor: nulledOrderExtras.subcontractor,
+    // What the customer pays: incl. VAT, summed per line (websiteVat.ts).
+    customerTotalIncVat: customerTotals.totalIncVat,
   });
 
   // The catalog prices this pricing used, stored on every card so the next
@@ -201,6 +203,8 @@ export async function recomputeWebsiteOrderPricing(
     pricingSnapshot,
     priceExVat: Math.round(pricingResult.totals.totalExVat),
     priceSubcontractor: Math.round(pricingResult.totals.subcontractorTotal),
+    // The customer's totals: ex. VAT as stored, incl. VAT as they see and pay it.
+    customerTotals,
     // Same lines the homepage summary shows — kept on the booking details so
     // the admin view stays in step with the new price.
     orderExtras,

@@ -79,7 +79,9 @@ const cards = [
   { ...createEmptyProductCard(0), productId: "p-wm", amount: 1, deliveryType: DELIVERY_TYPES.INDOOR, selectedReturnOptionId: "ret-1" },
 ];
 
-function serverTotal(drivingDistance: string) {
+// The server's price: ex. VAT (stored) and incl. VAT summed per line (what the
+// customer is shown and confirms as shownTotal).
+function serverPrice(drivingDistance: string) {
   return priceWebsiteOrder({
     cards,
     catalogProducts: [washer],
@@ -93,7 +95,11 @@ function serverTotal(drivingDistance: string) {
     pickupLiftAvailable: true,
     deliveryLiftAvailable: false,
     extraPickupFloors: [],
-  }).result.totals.totalExVat;
+  }).customerTotals;
+}
+
+function serverTotal(drivingDistance: string) {
+  return serverPrice(drivingDistance).totalIncVat;
 }
 
 function body(overrides: Record<string, unknown> = {}) {
@@ -134,14 +140,17 @@ describe("POST /api/site/white-goods-order — the price the customer saw", () =
     mocks.orderItemCreateMany.mockResolvedValue({ count: 0 });
   });
 
-  it("stores the order at exactly the total the customer was shown, with lines that add up to it", async () => {
-    const total = serverTotal("171.12");
-    const res = await post(body({ shownTotal: total }));
+  it("stores the order ex. VAT, charging exactly the total incl. VAT the customer was shown, with lines that add up", async () => {
+    const { totalExVat, totalIncVat } = serverPrice("171.12");
+    expect(totalIncVat).toBeGreaterThan(totalExVat);
+    const res = await post(body({ shownTotal: totalIncVat }));
     expect(res.status).toBe(200);
 
     const data = mocks.orderCreate.mock.calls[0]![0].data;
-    expect(data.priceExVat).toBe(Math.round(total));
-    expect(data.websiteBookingDetails.shownTotal).toBe(total);
+    expect(data.priceExVat).toBe(Math.round(totalExVat));
+    expect(data.pricingSnapshot.customer).toMatchObject({ totalExVat, totalIncVat });
+    expect(data.websiteBookingDetails.shownTotal).toBe(totalIncVat);
+    const total = totalExVat;
 
     const items = mocks.orderItemCreateMany.mock.calls[0]![0].data as { customerPriceCents: number | null; itemType: string }[];
     expect(items).toEqual(
