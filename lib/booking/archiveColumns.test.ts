@@ -137,6 +137,12 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
     expect(driverColumn?.getExportValue?.(buildOrderRow({ driver: "RONALDS" }))).toBe(
       "Ronalds",
     );
+    expect(
+      getBookingArchiveColumns("SUBCONTRACTOR").map((column) => column.id),
+    ).not.toContain("driver");
+    expect(
+      getBookingArchiveColumns("ORDER_CREATOR").map((column) => column.id),
+    ).not.toContain("driver");
   });
 
   it("uses the driver-column visibility version only for admin layouts", () => {

@@ -547,11 +547,6 @@ export default function BookingArchiveTable({
                     {t("Customer notes")}
                   </th>
                 ) : null}
-                {isColumnVisible("driver") ? (
-                  <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
-                    {t("Drivers")}
-                  </th>
-                ) : null}
                 {isColumnVisible("createdBy") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">{t("Store")}</th>
                 ) : null}
@@ -914,11 +909,6 @@ export default function BookingArchiveTable({
                   {isColumnVisible("customerComments") ? (
                     <td className="max-w-[220] border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
                       <Cell>{formatCell(order.customerComments)}</Cell>
-                    </td>
-                  ) : null}
-                  {isColumnVisible("driver") ? (
-                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{getDriverDisplayLabel(order.driver, t("No driver"))}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("createdBy") ? (

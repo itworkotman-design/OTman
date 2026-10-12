@@ -503,13 +503,6 @@ const subcontractorColumns: BookingArchiveColumn[] = [
     getExportValue: (row) => formatCell(row.customerComments),
   },
   {
-    id: "driver",
-    label: "Drivers",
-    exportHeader: "Drivers",
-    exportWidth: 18,
-    getExportValue: (row) => getDriverDisplayLabel(row.driver),
-  },
-  {
     id: "createdBy",
     label: "Store",
     exportHeader: "Store",

@@ -146,7 +146,9 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
       if (filters.subcontractorId)
         params.set("subcontractorId", filters.subcontractorId);
       if (filters.createdById) params.set("createdById", filters.createdById);
-      if (filters.driver) params.set("driver", filters.driver);
+      if (access.viewMode === "ADMIN" && filters.driver) {
+        params.set("driver", filters.driver);
+      }
       if (filters.pricelistId) params.set("pricelistId", filters.pricelistId);
       if (filters.customPickupAddressId)
         params.set("customPickupAddressId", filters.customPickupAddressId);
@@ -285,6 +287,11 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
   }
 
   async function loadDriverOptions() {
+    if (access.viewMode !== "ADMIN") {
+      setDrivers([]);
+      return;
+    }
+
     try {
       const res = await fetch("/api/orders/drivers", {
         credentials: "include",

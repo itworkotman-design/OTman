@@ -27,11 +27,14 @@ export async function GET(req: Request) {
       status: "ACTIVE",
     },
     select: {
-      id: true,
+      role: true,
     },
   });
 
-  if (!membership) {
+  if (
+    !membership ||
+    (membership.role !== "OWNER" && membership.role !== "ADMIN")
+  ) {
     return NextResponse.json(
       { ok: false, reason: "FORBIDDEN" },
       { status: 403 },

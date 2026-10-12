@@ -747,6 +747,63 @@ describe("routes in /api/orders", () => {
     ]);
   });
 
+  it("GET ignores the driver filter for non-admin members", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "user-membership",
+      role: "USER",
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const candidateBase = {
+      displayId: 20001,
+      deliveryDate: "2030-01-15",
+      timeWindow: "08-12",
+      extraPickupAddress: [],
+      needsEmailAttention: false,
+      unreadInboundEmailCount: 0,
+      needsNotificationAttention: false,
+      unreadNotificationCount: 0,
+      createdByMembership: {
+        user: { username: "creator", email: "creator@example.com" },
+      },
+      customerMembership: null,
+    };
+    const candidates = [
+      { ...candidateBase, id: "order-1", driver: "Ronalds" },
+      { ...candidateBase, id: "order-2", displayId: 20002, driver: "Alice" },
+    ];
+    const fullOrders = candidates.map((candidate) => ({
+      ...candidate,
+      status: "processing",
+      items: [],
+      customerLabel: "Acme",
+      customerName: "Customer",
+      createdAt: new Date("2030-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2030-01-02T00:00:00.000Z"),
+      createdByMembershipId: "user-membership",
+      customerMembershipId: "user-membership",
+      lastEditedByMembershipId: null,
+      lastEditedByMembership: null,
+      legacyWordpressAuthorId: null,
+      events: [],
+    }));
+    mocks.orderFindManyMock
+      .mockResolvedValueOnce(candidates)
+      .mockResolvedValueOnce(fullOrders);
+
+    const res = await GET(
+      new Request("http://localhost/api/orders?driver=Ronalds&page=1&rowsPerPage=10"),
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.orders).toHaveLength(2);
+  });
+
   it("GET resolves the pricelist name for orders that reference one", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

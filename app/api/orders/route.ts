@@ -953,7 +953,7 @@ export async function GET(req: Request) {
   const customPickupAddressId = optionalString(
     searchParams.get("customPickupAddressId"),
   );
-  const driver = optionalString(searchParams.get("driver"));
+  const requestedDriver = optionalString(searchParams.get("driver"));
   const fromDate = optionalString(searchParams.get("fromDate"));
   const toDate = optionalString(searchParams.get("toDate"));
   const search = optionalString(searchParams.get("search"));
@@ -968,6 +968,7 @@ export async function GET(req: Request) {
 
   const isAdminOrOwner =
     membership.role === "OWNER" || membership.role === "ADMIN";
+  const driver = isAdminOrOwner ? requestedDriver : null;
   const isOrderCreator =
     !isAdminOrOwner && canCreateOrders(membership.role, permissions);
 

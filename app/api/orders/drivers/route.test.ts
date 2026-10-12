@@ -30,12 +30,12 @@ describe("GET /api/orders/drivers", () => {
     expect(response.status).toBe(401);
   });
 
-  it("returns the configured drivers for an active company member", async () => {
+  it("returns the configured drivers for an active admin", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "admin-user",
       activeCompanyId: "company-1",
     });
-    mocks.membershipFindFirstMock.mockResolvedValue({ id: "admin-membership" });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN" });
 
     const response = await GET(new Request("http://localhost/api/orders/drivers"));
     const data = await response.json();
@@ -53,6 +53,18 @@ describe("GET /api/orders/drivers", () => {
       activeCompanyId: "company-1",
     });
     mocks.membershipFindFirstMock.mockResolvedValue(null);
+
+    const response = await GET(new Request("http://localhost/api/orders/drivers"));
+
+    expect(response.status).toBe(403);
+  });
+
+  it("returns 403 for a non-admin active member", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "USER" });
 
     const response = await GET(new Request("http://localhost/api/orders/drivers"));
 
