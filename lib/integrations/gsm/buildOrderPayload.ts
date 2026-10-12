@@ -59,6 +59,23 @@ function normalizePhones(...values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((value) => normalizePhone(value)).filter((value) => value.length > 0)));
 }
 
+function buildAddressContact(
+  name?: string | null,
+  phone?: string | null,
+): GsmContact | undefined {
+  const normalizedName = name?.trim() || undefined;
+  const phones = normalizePhones(phone);
+
+  if (!normalizedName && phones.length === 0) {
+    return undefined;
+  }
+
+  return {
+    name: normalizedName,
+    phones,
+  };
+}
+
 function normalizePickupAddress(value?: string | null) {
   const normalized = value?.trim() ?? "";
 
@@ -412,20 +429,15 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   const timeWindow = getTimeWindowIso(order);
 
   const customerContact: GsmContact = {
-    name: order.customerName?.trim() ? `Kunde: ${order.customerName.trim()}` : undefined,
+    name: order.customerName?.trim() || undefined,
     emails: order.email ? [order.email.trim()] : [],
     phones: normalizePhones(order.phone, order.phoneTwo),
-  };
-
-  const cashierContact: GsmContact = {
-    name: order.cashierName?.trim() || undefined,
-    phones: normalizePhones(order.cashierPhone),
   };
 
   const orderer: GsmContact = {
     name: order.customerLabel?.trim() || order.customerName?.trim() || undefined,
     emails: [],
-    phones: normalizePhones(order.cashierPhone),
+    phones: normalizePhones(order.customPickupAddressPhone),
   };
 
   const metafields: Record<string, string> = {
@@ -466,7 +478,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   if (pickupAddress) {
     tasks.push(
       makeTask("pick_up", pickupAddress, {
-        contact: cashierContact,
+        contact: buildAddressContact(order.customPickupAddressName, order.customPickupAddressPhone),
         location: toGsmLocation(order.pickupLatitude, order.pickupLongitude),
         description: appendWarehouseContactNote(pickupTaskDescription, order.customPickupAddressName, order.customPickupAddressPhone),
       }),
@@ -479,7 +491,10 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
       const coordinate = getExtraPickupCoordinates(order.extraPickupContacts, index);
       tasks.push(
         makeTask("pick_up", value, {
-          contact: cashierContact,
+          contact: buildAddressContact(
+            coordinate?.customPickupAddressName,
+            coordinate?.customPickupAddressPhone,
+          ),
           location: toGsmLocation(coordinate?.latitude, coordinate?.longitude),
           description: appendWarehouseContactNote(
             pickupTaskDescription,
@@ -512,7 +527,7 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   if (order.returnAddress?.trim()) {
     tasks.push(
       makeTask("drop_off", order.returnAddress.trim(), {
-        contact: orderer,
+        contact: buildAddressContact(order.customReturnAddressName, order.customReturnAddressPhone),
         location: toGsmLocation(order.returnLatitude, order.returnLongitude),
         description: appendWarehouseContactNote(returnTaskDescription, order.customReturnAddressName, order.customReturnAddressPhone),
       }),

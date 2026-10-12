@@ -145,6 +145,99 @@ describe("buildOrderPayload", () => {
     delete process.env.GOOGLE_REVIEW_QR_URL;
   });
 
+  it("uses the custom pickup address phone for the orderer instead of the cashier phone", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        customerLabel: "POWER Slependen",
+        cashierPhone: "92918768",
+        customPickupAddressName: "POWER Slependen",
+        customPickupAddressPhone: "+47 22 33 44 55",
+      }),
+    );
+
+    expect(payload.orderer).toEqual({
+      name: "POWER Slependen",
+      emails: [],
+      phones: ["+4722334455"],
+    });
+  });
+
+  it("leaves the orderer phone list empty when the custom pickup address has no phone", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        customerLabel: "POWER Slependen",
+        cashierPhone: "92918768",
+        customPickupAddressName: "POWER Slependen",
+        customPickupAddressPhone: null,
+      }),
+    );
+
+    expect(payload.orderer.phones).toEqual([]);
+  });
+
+  it("uses custom address contacts for pickup and return receivers", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        customerLabel: "POWER Slependen",
+        cashierName: "Cashier who placed the order",
+        cashierPhone: "92918768",
+        customPickupAddressName: "POWER Slependen",
+        customPickupAddressPhone: null,
+        returnAddress: "Return 1",
+        customReturnAddressName: "POWER Slependen returns",
+        customReturnAddressPhone: "+47 11 22 33 44",
+      }),
+    );
+
+    const pickupTask = payload.tasks_data.find((task) => task.address.raw_address === "Pickup 1");
+    const returnTask = payload.tasks_data.find((task) => task.address.raw_address === "Return 1");
+
+    expect(pickupTask?.contact).toEqual({
+      name: "POWER Slependen",
+      phones: [],
+    });
+    expect(returnTask?.contact).toEqual({
+      name: "POWER Slependen returns",
+      phones: ["+4711223344"],
+    });
+  });
+
+  it("uses the unprefixed customer contact only for the delivery receiver", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        customerName: "Roshan Jalal",
+        phone: "41210060",
+        phoneTwo: "41210061",
+        email: "jalalroshan@hotmail.com",
+        customPickupAddressName: "POWER Slependen",
+        customPickupAddressPhone: null,
+        returnAddress: "Return 1",
+        customReturnAddressName: "POWER Slependen",
+        customReturnAddressPhone: null,
+      }),
+    );
+
+    const pickupTask = payload.tasks_data.find((task) => task.address.raw_address === "Pickup 1");
+    const deliveryTask = payload.tasks_data.find((task) => task.address.raw_address === "Delivery 1");
+    const returnTask = payload.tasks_data.find((task) => task.address.raw_address === "Return 1");
+
+    expect(deliveryTask?.contact).toEqual({
+      name: "Roshan Jalal",
+      emails: ["jalalroshan@hotmail.com"],
+      phones: ["41210060", "41210061"],
+    });
+    expect(pickupTask?.contact?.name).toBe("POWER Slependen");
+    expect(returnTask?.contact?.name).toBe("POWER Slependen");
+  });
+
   it("omits the pickup task when the order only has the pickup placeholder", () => {
     process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
 
@@ -855,8 +948,10 @@ describe("buildOrderPayload", () => {
 
     expect(taskA?.description).toContain("Hentested: Statlager Oslo");
     expect(taskA?.description).toContain("Telefon lager: 22334455");
+    expect(taskA?.contact).toEqual({ name: "Statlager Oslo", phones: ["22334455"] });
     expect(taskB?.description).not.toContain("Telefon lager:");
     expect(taskB?.description).not.toContain("Hentested:");
+    expect(taskB?.contact).toBeUndefined();
   });
 
   it("only shows an imprecise-address note on the task for the address field it's actually about", () => {
