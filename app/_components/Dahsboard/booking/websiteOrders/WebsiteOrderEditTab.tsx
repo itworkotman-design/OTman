@@ -1,8 +1,9 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
+import { BuildingIcon, HomeIcon, PlusIcon, SearchIcon, StorefrontIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { SectionHeader, WhiteGoodsProductCard } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsProductCard";
 import { SizeBracketPicker } from "@/app/_components/site/BookingModal/whiteGoods/SizeBracketPicker";
 import { productLabel } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsProductGrid";
@@ -56,6 +57,11 @@ const NO_ADJUSTMENTS: CalculatorAdjustments = { rabatt: "", leggTil: "", subcont
 
 const PREVIEW_DELAY_MS = 800;
 const SOURCES: BookingPickupSource[] = ["store", "private", "business"];
+const SOURCE_ICONS: Record<BookingPickupSource, ReactNode> = {
+  store: <StorefrontIcon />,
+  private: <HomeIcon />,
+  business: <BuildingIcon />,
+};
 
 // The admin's own editor for a homepage order, inside WebsiteOrderModal's
 // "Edit order" tab: dashboard-style fields, the website's product cards (same
@@ -383,57 +389,89 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
           )}
         </section>
 
-        {/* Pickup addresses, each with the products collected there */}
+        {/* Pickup addresses, each with the products collected there — styled
+            like the booking app's PickupLocations (bordered stops, dashed add). */}
         <section className={sectionClass}>
-          <div className="flex items-center justify-between gap-3">
+          <div>
             <h3 className="text-lg font-semibold text-logoblue">{t("Pickup addresses", "Henteadresser")}</h3>
-            <button type="button" className="customButtonDefault" onClick={() => setStops((current) => addStop(current))}>
-              + {t("Add pickup address", "Legg til henteadresse")}
-            </button>
+            {isSplit && (
+              <p className="text-sm text-black/50">
+                {t("Choose which products are collected at each address.", "Velg hvilke produkter som hentes på hver adresse.")}
+              </p>
+            )}
           </div>
           {stops.map((stop, index) => (
-            <div key={index} className="rounded-xl border border-black/10 p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="font-semibold text-black/80">
-                  {t("Pickup", "Henting")} {index + 1}
-                </p>
+            <div key={index} className="rounded-xl border border-neutral-200 p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-logoblue text-sm font-semibold text-white">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-black/80">
+                      {t("Pickup", "Henting")} {index + 1}
+                    </p>
+                    {(stop.placeName || stop.address) && (
+                      <p className="truncate text-xs text-black/50">{[stop.placeName, stop.address].filter(Boolean).join(" · ")}</p>
+                    )}
+                  </div>
+                </div>
                 {isSplit && (
                   <button
                     type="button"
-                    className="text-sm font-semibold text-red-600"
                     onClick={() => setStops((current) => removeStop(current, cards, index))}
+                    className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-full border hover:bg-red-700 hover:text-white"
+                    aria-label={`${t("Remove pickup", "Fjern henting")} ${index + 1}`}
                   >
-                    {t("Remove", "Fjern")}
+                    -
                   </button>
                 )}
               </div>
+
+              <div className="mb-3">
+                <span className={labelClass}>{t("Type", "Type")}</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {SOURCES.map((source) => {
+                    const selected = stop.source === source;
+                    return (
+                      <button
+                        key={source}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => updateStop(index, source === "store" ? { source, floor: null, liftAvailable: false } : { source })}
+                        className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-colors ${
+                          selected ? "border-logoblue bg-logoblue/10 text-logoblue" : "border-neutral-200 text-black/60 hover:border-logoblue/50"
+                        }`}
+                      >
+                        {SOURCE_ICONS[source]}
+                        {source === "store" ? t("Store", "Butikk") : source === "private" ? t("Private", "Privat") : t("Business", "Bedrift")}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <span className={labelClass}>{t("Address", "Adresse")}</span>
+                <AddressAutocompleteInput
+                  value={stop.address}
+                  onChange={(address) => updateStop(index, { address })}
+                  placeholder={t("Enter a location", "Skriv inn et sted")}
+                  locale={locale}
+                  icon={<SearchIcon />}
+                />
+                {isSplit && stop.cardIds.length > 0 && !stop.address.trim() && (
+                  <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {t("Add an address — the products here have no pickup yet.", "Legg til en adresse — produktene her har ingen henting ennå.")}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label>
-                  <span className={labelClass}>{t("Type", "Type")}</span>
-                  <select
-                    className={fieldClass}
-                    value={stop.source ?? ""}
-                    onChange={(e) => {
-                      const source = (e.target.value || null) as BookingPickupSource | null;
-                      updateStop(index, source === "store" ? { source, floor: null, liftAvailable: false } : { source });
-                    }}
-                  >
-                    <option value="">-</option>
-                    {SOURCES.map((source) => (
-                      <option key={source} value={source}>
-                        {source === "store" ? t("Store", "Butikk") : source === "private" ? t("Private", "Privatperson") : t("Business", "Bedrift")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
+                <label className="sm:col-span-2">
                   <span className={labelClass}>{t("Place name", "Stedsnavn")}</span>
                   <input className={fieldClass} value={stop.placeName} onChange={(e) => updateStop(index, { placeName: e.target.value })} />
                 </label>
-                <div className="sm:col-span-2">
-                  <span className={labelClass}>{t("Address", "Adresse")}</span>
-                  <AddressAutocompleteInput value={stop.address} onChange={(address) => updateStop(index, { address })} locale={locale} />
-                </div>
                 {stop.source !== "store" && (
                   <>
                     <label>
@@ -457,34 +495,51 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
                 </label>
                 <label>
                   <span className={labelClass}>{t("Contact phone", "Kontakttelefon")}</span>
-                  <input className={fieldClass} value={stop.contactPhone} onChange={(e) => updateStop(index, { contactPhone: e.target.value })} />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    className={fieldClass}
+                    value={stop.contactPhone}
+                    onChange={(e) => updateStop(index, { contactPhone: e.target.value })}
+                  />
                 </label>
               </div>
 
-              <div className="mt-4">
+              <div className="mt-4 border-t border-neutral-200 pt-4">
                 <p className={labelClass}>{t("Products picked up here", "Produkter som hentes her")}</p>
                 {!isSplit ? (
                   <p className="text-sm text-black/60">{t("All products are picked up here.", "Alle produkter hentes her.")}</p>
                 ) : productCards.length === 0 ? (
                   <p className="text-sm text-black/50">{t("No products yet.", "Ingen produkter ennå.")}</p>
                 ) : (
-                  <div className="flex flex-col gap-1.5">
+                  // Chips: filled = here, red = on no pickup yet, grey = at another pickup.
+                  <div className="flex flex-wrap gap-2">
                     {productCards.map((card) => {
+                      const here = stop.cardIds.includes(card.cardId);
                       const elsewhere = stops.findIndex((s, i) => i !== index && s.cardIds.includes(card.cardId));
+                      const unassigned = !here && elsewhere === -1;
                       return (
-                        <label key={card.cardId} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={stop.cardIds.includes(card.cardId)}
-                            onChange={(e) => setStops((current) => toggleCardOnStop(current, index, card.cardId, e.target.checked))}
-                          />
+                        <button
+                          key={card.cardId}
+                          type="button"
+                          aria-pressed={here}
+                          onClick={() => setStops((current) => toggleCardOnStop(current, index, card.cardId, !here))}
+                          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                            here
+                              ? "border-logoblue bg-logoblue text-white"
+                              : unassigned
+                                ? "border-red-300 bg-red-50 text-red-700 hover:border-red-500"
+                                : "border-neutral-200 text-black/50 hover:border-logoblue/50"
+                          }`}
+                        >
+                          <span aria-hidden="true">{here ? "✓" : "+"}</span>
                           <span>{cardName(card.cardId)}</span>
-                          {elsewhere !== -1 && (
-                            <span className="text-xs text-black/40">
-                              ({t("now at pickup", "nå på henting")} {elsewhere + 1})
+                          {elsewhere !== -1 && !here && (
+                            <span className="text-xs opacity-70">
+                              ({t("pickup", "henting")} {elsewhere + 1})
                             </span>
                           )}
-                        </label>
+                        </button>
                       );
                     })}
                   </div>
@@ -492,6 +547,15 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
               </div>
             </div>
           ))}
+
+          <button
+            type="button"
+            onClick={() => setStops((current) => addStop(current))}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-lineSecondary bg-logoblue/5 p-4 font-medium text-logoblue hover:border-logoblue/50"
+          >
+            <PlusIcon />
+            {t("Add pickup address", "Legg til henteadresse")}
+          </button>
         </section>
 
         {/* Delivery */}
