@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { SteppedModal, AnimatedStack, type FinalStep, type StepSection } from "../SteppedModal";
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
+import { SizeBracketPicker } from "./SizeBracketPicker";
 import { CustomerTypeStep } from "./CustomerTypeStep";
 import { PickupSourceStep, pickupAddressPlaceholder, type PickupSource } from "./PickupSourceStep";
 import { PickupContactCard, isPickupContactStepReady, type PickupProductPoolSection } from "./PickupContactCard";
@@ -943,18 +944,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
 
           <WhiteGoodsProductGrid
             locale={locale}
-            customerType={customerType ?? "private"}
             products={listProducts}
             quantities={quantitiesByProductId}
             onChangeQuantity={setProductQuantity}
-            sizeSelections={Object.fromEntries(listProducts.map((p) => [p.id, getSelectedSizeOptionIds(productCards, p)]))}
-            onSelectSizeBracket={selectSizeBracket}
-            sizeDimensions={Object.fromEntries(listProducts.map((p) => [p.id, getSizeDimensions(productCards, p)]))}
-            onSelectSizeDimension={selectSizeDimension}
-            itemNames={Object.fromEntries(
-              listProducts.map((p) => [p.id, productCards.find((c) => c.productId === p.id)?.modelNumber ?? ""]),
-            )}
-            onChangeItemName={changeItemName}
           />
 
           {index > 0 && (
@@ -972,11 +964,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
               ownCount: cardsForList(productCards, listProducts).length,
               orderCount: productCards.length,
               wasPopulated: populatedListCodes.includes(code),
-              // Other furniture: this step only finishes once its tile has a
-              // name, a size and a weight, then moves on to the options.
-              sizeBracketsComplete:
-                findCardsWithSizeBracketProblems(cardsForList(productCards, listProducts), listProducts).length === 0 &&
-                findSizePricedCardsMissingName(cardsForList(productCards, listProducts), listProducts).length === 0,
             })}
             onReady={onComplete}
             onRetract={onUncomplete}
@@ -1000,8 +987,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                 if (!product) return [];
                 // Cards of one product sit next to each other (see
                 // addAnotherProductCard). Size-priced products (Other furniture)
-                // are configured in their grid tile, one per product, so they
-                // can't be split.
+                // have one card per product (their size is the item's own), so
+                // they can't be split; their name, size and weight are the
+                // card's last section.
                 const siblings = productCards.filter((c) => c.productId === card.productId);
                 const isSplit = siblings.length > 1;
                 const isLastOfProduct = siblings.at(-1)?.cardId === card.cardId;
@@ -1021,6 +1009,27 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                         onAddAnother={
                           isLastOfProduct && !isSizePricedProduct(product) && !customerLocked
                             ? () => addAnotherCard(product.id)
+                            : undefined
+                        }
+                        // Within 24h of the job the size stays as booked (a
+                        // change there is staff-mediated).
+                        belowOptions={
+                          isSizePricedProduct(product) && !customerLocked
+                            ? (nextStep) => (
+                                <SizeBracketPicker
+                                  embedded
+                                  firstStep={nextStep}
+                                  locale={locale}
+                                  customerType={customerType ?? "private"}
+                                  product={product}
+                                  selectedIds={getSelectedSizeOptionIds(productCards, product)}
+                                  dimensions={getSizeDimensions(productCards, product)}
+                                  itemName={card.modelNumber}
+                                  onSelect={selectSizeBracket}
+                                  onSelectDimension={selectSizeDimension}
+                                  onChangeItemName={changeItemName}
+                                />
+                              )
                             : undefined
                         }
                       />

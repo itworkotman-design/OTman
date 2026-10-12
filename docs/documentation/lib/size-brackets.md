@@ -52,19 +52,17 @@ not translated; another size-priced product would use its own label as the prefi
 - Enforcement: `app/api/site/white-goods-order` (422 if a brackets is missing /
   duplicated — else the surcharge could be dodged by not choosing) and
   `app/api/public/orders/[token]/edit-items` (422 `SIZE_BRACKETS_REQUIRED`).
-- UI: chosen in the **"Choose products" tile** itself — selecting a size-priced
-  product grows its tile to the full row (`WhiteGoodsProductGrid`; the
-  picker is `whiteGoods/SizeBracketPicker.tsx`, three numbered steps: name,
-  width / height / length as tappable chips with a live computed volume, weight
-  bracket cards, then an "Added to delivery" line showing the higher price and
-  whether size or weight set it). In the admin "Edit order" tab the same picker
-  is the last section of the product card (`embedded`, numbered on via
-  `firstStep`, through `WhiteGoodsProductCard`'s `belowOptions`); applied by
-  `whiteGoods/sizeBracketSelection.ts` (`applySizeDimension`,
-  `applySizeBracketSelection`). The products step only
-  completes (auto-advancing to the options step: delivery / assembly / extras)
-  once both are chosen (`isProductsStepReady({ sizeBracketsComplete })`); the
-  options card no longer has a size step but keeps the brackets when delivery
-  type changes. `isListConfigured` / submit stay gated as a safety net. Not
-  editable in the customer post-payment editor (no product tile there) — a size
-  change on a paid order is staff-mediated.
+- UI: the "Choose products" grid is just tiles with a quantity stepper. The
+  name, size and weight are the **last section of the product's options card**
+  (`WhiteGoodsProductCard`'s `belowOptions`), after Delivery / Installation /
+  Extras. The picker is `whiteGoods/SizeBracketPicker.tsx` (`embedded`, its
+  step numbers carrying on via `firstStep`): the item's name, width / height /
+  length as tappable chips with a live computed volume, weight bracket cards, then
+  an "Added to delivery" line showing the higher price and whether size or weight
+  set it. The same card is used by the customer's booking flow and the admin
+  "Edit order" tab. Choices are applied by `whiteGoods/sizeBracketSelection.ts`
+  (`applySizeDimension`, `applySizeBracketSelection`, `applyItemName`), and
+  changing the delivery type keeps them. The options step only completes once all
+  three are chosen (`isListConfigured`), and submit stays gated as a safety net.
+  Within 24h of the job the customer's "My order" editor hides the section (a
+  size change then is staff-mediated).

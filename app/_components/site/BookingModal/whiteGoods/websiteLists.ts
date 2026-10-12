@@ -48,22 +48,18 @@ export function isListConfigured(cards: SavedProductCard[], listProducts: Catalo
 // list's selection with them. A list that never had products (just added) still
 // waits for its first one, and an order with nothing in it waits everywhere.
 //
-// sizeBracketsComplete: false while a size-priced product on this list (Other
-// furniture) still has no volume/weight chosen — its tile asks for them, and
-// the step only finishes (moving on to the options) once they are. Omitted for
-// lists that have nothing to choose.
+// Other furniture's name, size and weight are asked in its options card, so
+// they hold the options step (isListConfigured), not this one.
 export function isProductsStepReady({
   ownCount,
   orderCount,
   wasPopulated,
-  sizeBracketsComplete = true,
 }: {
   ownCount: number;
   orderCount: number;
   wasPopulated: boolean;
-  sizeBracketsComplete?: boolean;
 }): boolean {
-  if (ownCount > 0) return sizeBracketsComplete;
+  if (ownCount > 0) return true;
   return wasPopulated && orderCount > 0;
 }
 

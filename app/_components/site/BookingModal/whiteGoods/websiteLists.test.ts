@@ -78,12 +78,30 @@ describe("list step readiness (a list emptied later must not collapse the order)
     expect(isProductsStepReady({ ownCount: 2, orderCount: 3, wasPopulated: true })).toBe(true);
   });
 
-  it("products step: a list with size-priced products waits until every one has its volume and weight chosen", () => {
-    expect(isProductsStepReady({ ownCount: 1, orderCount: 1, wasPopulated: false, sizeBracketsComplete: false })).toBe(false);
-    expect(isProductsStepReady({ ownCount: 1, orderCount: 1, wasPopulated: true, sizeBracketsComplete: false })).toBe(false);
-    expect(isProductsStepReady({ ownCount: 1, orderCount: 1, wasPopulated: false, sizeBracketsComplete: true })).toBe(true);
-    // omitted = nothing to choose (ordinary lists)
+  it("products step: done as soon as the list has a product — Other furniture's name, size and weight are asked in its options card", () => {
     expect(isProductsStepReady({ ownCount: 1, orderCount: 1, wasPopulated: false })).toBe(true);
+  });
+
+  it("options step: an Other furniture card holds it until its name, size and weight are chosen", () => {
+    const sized = [
+      {
+        id: "s",
+        options: [
+          { id: "v1", category: "size_volume", active: true, customerPrice: "0" },
+          { id: "w1", category: "size_weight", active: true, customerPrice: "0" },
+        ],
+      },
+    ] as unknown as CatalogProduct[];
+    const sizedCard = { ...createEmptyProductCard(0), productId: "s", deliveryType: "FIRST_STEP" } as SavedProductCard;
+
+    expect(isListOptionsStepReady({ cards: [sizedCard], listProducts: sized, wasPopulated: false })).toBe(false);
+    expect(
+      isListOptionsStepReady({
+        cards: [{ ...sizedCard, selectedExtraOptionIds: ["v1", "w1"], modelNumber: "Piano" }],
+        listProducts: sized,
+        wasPopulated: false,
+      }),
+    ).toBe(true);
   });
 
   it("products step: a list that had products and was emptied is NOT holding the order back while other lists have products", () => {

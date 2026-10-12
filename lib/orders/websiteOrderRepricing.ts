@@ -174,6 +174,8 @@ export async function recomputeWebsiteOrderPricing(
   return {
     // The cards with their derived size brackets — what gets persisted.
     cards: submittedCards,
+    // What they were priced against (e.g. to name lines in the calculator).
+    catalogProducts: pricingSource.catalogProducts,
     builtItems,
     summaries,
     pricingSnapshot,

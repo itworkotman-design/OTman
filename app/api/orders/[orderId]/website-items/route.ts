@@ -351,7 +351,11 @@ export async function PUT(req: Request, { params }: Params) {
       priceExVat: recomputed.priceExVat,
       drivingDistance: pricedOrder.drivingDistance,
       comparison,
-      calculator: websiteOrderCalculatorView(recomputed.pricingResult, { includePartner: true }),
+      calculator: websiteOrderCalculatorView(recomputed.pricingResult, {
+        includePartner: true,
+        cards: recomputed.cards,
+        products: recomputed.catalogProducts,
+      }),
     });
   }
 

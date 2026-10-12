@@ -122,7 +122,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
   try {
     const cards = Array.isArray(order.productCardsSnapshot) ? (order.productCardsSnapshot as unknown as SavedProductCard[]) : [];
     const priced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true });
-    calculator = websiteOrderCalculatorView(priced.pricingResult, { includePartner: canSeePartnerPrices });
+    calculator = websiteOrderCalculatorView(priced.pricingResult, {
+      includePartner: canSeePartnerPrices,
+      cards: priced.cards,
+      products: priced.catalogProducts,
+    });
   } catch (err) {
     console.error("[website-details] Couldn't price the order for the calculator:", err);
   }

@@ -1,5 +1,7 @@
 import { deriveDiscountSync } from "@/lib/booking/pricing/discountSync";
 import type { CalculatorResult } from "@/lib/booking/pricing/types";
+import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { getCalculatorProductName } from "@/app/_components/site/BookingModal/whiteGoods/productDisplayName";
 
 // The calculator in WebsiteOrderModal, shown like the booking app's
 // (CalculatorDisplayNew + SubcontractorCalculatorDisplay): every priced line
@@ -37,14 +39,26 @@ export type WebsiteOrderCalculatorView = {
   partner: { base: number; minus: number; plus: number; total: number } | null;
 };
 
+// With the order's cards and catalog products, a size-priced item (Other
+// furniture) is titled with what it is ("A.M: Piano"), like the customer's
+// calculator (getCalculatorProductName); otherwise the catalog name is kept.
 export function websiteOrderCalculatorView(
   result: CalculatorResult,
-  { includePartner }: { includePartner: boolean },
+  {
+    includePartner,
+    cards = [],
+    products = [],
+  }: { includePartner: boolean; cards?: Pick<SavedProductCard, "cardId" | "productId" | "modelNumber">[]; products?: CatalogProduct[] },
 ): WebsiteOrderCalculatorView {
   const { totals } = result;
+  const nameOf = (cardId: number | undefined, label: string) => {
+    const card = cardId === undefined ? undefined : cards.find((c) => c.cardId === cardId);
+    const product = card?.productId ? products.find((p) => p.id === card.productId) : undefined;
+    return product ? getCalculatorProductName({ product, itemName: card?.modelNumber, label }) : label;
+  };
   return {
     products: (result.breakdowns ?? []).map((product) => ({
-      name: product.productName,
+      name: product.isOrderExtras ? product.productName : nameOf(product.cardId ?? undefined, product.productName),
       isOrderExtras: product.isOrderExtras === true,
       cardId: product.isOrderExtras ? null : (product.cardId ?? null),
       lines: product.lines.map((line) => ({

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CalculatorResult } from "@/lib/booking/pricing/types";
+import { createEmptyProductCard, type CatalogProduct } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import {
   customerAdjustmentsToExVat,
   customerAdjustmentsToIncVat,
@@ -179,5 +180,35 @@ describe("customerAdjustmentsToExVat / customerAdjustmentsToIncVat", () => {
     const shown = customerAdjustmentsToExVat(stored);
     expect(shown).toEqual({ rabatt: "500", leggTil: "100", subcontractorMinus: "200", subcontractorPlus: "50" });
     expect(customerAdjustmentsToIncVat(shown)).toEqual(stored);
+  });
+});
+
+describe("websiteOrderCalculatorView — Other furniture names", () => {
+  const other = {
+    id: "p-other",
+    code: "FN_OTHER_FURNITURE",
+    options: [{ id: "v1", category: "size_volume", active: true }],
+  } as unknown as CatalogProduct;
+  const washer = { id: "p-wm", code: "WG_WASHING_MACHINE", options: [] } as unknown as CatalogProduct;
+  const named: CalculatorResult = {
+    ...result,
+    breakdowns: [
+      { productName: "Andre møbler", cardId: 0, lines: [] },
+      { productName: "Vaskemaskin", cardId: 1, lines: [] },
+    ],
+  };
+  const cards = [
+    { ...createEmptyProductCard(0), productId: "p-other", modelNumber: "Piano" },
+    { ...createEmptyProductCard(1), productId: "p-wm", modelNumber: "WM-123" },
+  ];
+
+  it("titles a size-priced item with what it is, like the customer's calculator", () => {
+    const view = websiteOrderCalculatorView(named, { includePartner: false, cards, products: [other, washer] });
+    expect(view.products.map((p) => p.name)).toEqual(["A.M: Piano", "Vaskemaskin"]);
+  });
+
+  it("keeps the catalog name when it can't look the card up", () => {
+    const view = websiteOrderCalculatorView(named, { includePartner: false });
+    expect(view.products.map((p) => p.name)).toEqual(["Andre møbler", "Vaskemaskin"]);
   });
 });
