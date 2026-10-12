@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
-import { WhiteGoodsProductCard } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsProductCard";
+import { SectionHeader, WhiteGoodsProductCard } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsProductCard";
 import { SizeBracketPicker } from "@/app/_components/site/BookingModal/whiteGoods/SizeBracketPicker";
 import { productLabel } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsProductGrid";
 import { getCalculatorProductName } from "@/app/_components/site/BookingModal/whiteGoods/productDisplayName";
@@ -15,15 +15,15 @@ import {
   getSelectedSizeOptionIds,
   getSizeDimensions,
 } from "@/app/_components/site/BookingModal/whiteGoods/sizeBracketSelection";
-import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { isSizePricedProduct } from "@/lib/booking/pricing/sizeBrackets";
-import { getVatBreakdown } from "@/lib/booking/pricing/vatDisplayTotal";
 import { PRESET_TIME_WINDOWS } from "@/lib/booking/timeWindows";
 import type { AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import type { BookingCustomerType, BookingPickupSource } from "@/lib/orders/websiteBookingDetails";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
-import type { WebsiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
+import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
+import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import {
   addProductToOrder,
   addStop,
@@ -49,19 +49,12 @@ type Props = {
 
 type Category = { code: string; labelEn: string; labelNo: string; productIds: string[] };
 type Details = Omit<AdminOrderDetails, "pickups" | "drivingDistanceOverride">;
+type CalculatorAdjustments = WebsiteOrderPricingDraft["adjustments"];
+
+const NO_ADJUSTMENTS: CalculatorAdjustments = { rabatt: "", leggTil: "", subcontractorMinus: "", subcontractorPlus: "" };
 
 const PREVIEW_DELAY_MS = 800;
 const SOURCES: BookingPickupSource[] = ["store", "private", "business"];
-
-function formatKr(n: number) {
-  return `${Math.round(n).toLocaleString("nb-NO")} kr`;
-}
-
-// Customer amounts on these orders are stored VAT-inclusive; shown ex. VAT
-// like the booking app's calculator.
-function exVat(clientAmount: number) {
-  return clientAmount / 1.25;
-}
 
 // The admin's own editor for a homepage order, inside WebsiteOrderModal's
 // "Edit order" tab: dashboard-style fields, the website's product cards (same
@@ -81,6 +74,11 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
   const [initialKey, setInitialKey] = useState<string | null>(null);
 
   const [preview, setPreview] = useState<{ comparison: OrderPaymentComparison; calculator: WebsiteOrderCalculatorView } | null>(null);
+  // The order as first priced: the calculator's baseline for its own choices.
+  const [firstCalculator, setFirstCalculator] = useState<WebsiteOrderCalculatorView | null>(null);
+  // Discount / extra / partner minus-plus as stored, and the calculator's unsaved changes to them.
+  const [adjustments, setAdjustments] = useState<CalculatorAdjustments>(NO_ADJUSTMENTS);
+  const [pricingDraft, setPricingDraft] = useState<WebsiteOrderPricingDraft | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -133,6 +131,13 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
         setStops(loadedStops);
         setDetails(rest);
         setInitialKey(JSON.stringify({ cards: loadedCards, stops: loadedStops, details: rest }));
+        const handling = json.handling ?? {};
+        setAdjustments({
+          rabatt: handling.rabatt ?? "",
+          leggTil: handling.leggTil ?? "",
+          subcontractorMinus: handling.subcontractorMinus ?? "",
+          subcontractorPlus: handling.subcontractorPlus ?? "",
+        });
       } catch {
         if (!cancelled) setLoadError(true);
       }
@@ -143,7 +148,7 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
   }, [orderId]);
 
   const currentKey = details ? JSON.stringify({ cards, stops, details }) : null;
-  const dirty = !!initialKey && currentKey !== initialKey;
+  const dirty = (!!initialKey && currentKey !== initialKey) || !!pricingDraft;
   useEffect(() => {
     onDirtyChange(dirty);
   }, [dirty, onDirtyChange]);
@@ -151,10 +156,15 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
   const payload = useMemo(() => {
     if (!details) return null;
     const saveDetails: AdminOrderDetails = { ...details, pickups: stopsForSave(stops, cardName), drivingDistanceOverride: null };
-    return { productCards: cards, details: saveDetails };
+    return {
+      productCards: cards,
+      details: saveDetails,
+      // The calculator's own choices ride along, so they're priced and saved with the edits.
+      ...(pricingDraft ? { handling: pricingDraft.adjustments, nulledLines: pricingDraft.nulledLines } : {}),
+    };
     // cardName reads cards/catalogProducts, both already dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cards, stops, details, catalogProducts]);
+  }, [cards, stops, details, catalogProducts, pricingDraft]);
 
   const blockers = details ? editorBlockers(cards, stops, catalogProducts) : [];
 
@@ -192,6 +202,7 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
         const { ok, json } = await send(true);
         if (seq !== previewSeq.current) return;
         setPreview(ok ? { comparison: json.comparison, calculator: json.calculator } : null);
+        if (ok) setFirstCalculator((current) => current ?? json.calculator);
         setError(ok ? "" : (json?.reason && reasonText[json.reason]) || t("Couldn't price the order.", "Kunne ikke prise bestillingen."));
       } catch {
         if (seq === previewSeq.current) setPreview(null);
@@ -255,7 +266,6 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
     setCards((current) => current.map((card) => (card.cardId === next.cardId ? next : card)));
   }
 
-  const vat = preview ? getVatBreakdown(preview.calculator.customer.total) : null;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -280,20 +290,8 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
                 onChange={updateCard}
                 onRemove={() => removeCard(card.cardId)}
                 variantNumber={siblings.length > 1 ? siblings.indexOf(card) + 1 : undefined}
-                headerExtra={
-                  sizePriced ? null : (
-                    <label className="flex items-center gap-1.5 text-xs font-semibold text-white/80">
-                      {t("Qty", "Antall")}
-                      <input
-                        type="number"
-                        min={1}
-                        className="h-8 w-16 rounded-lg border-0 bg-white px-2 text-sm text-black/85"
-                        value={card.amount}
-                        onChange={(e) => updateCard({ ...card, amount: Math.max(1, Math.floor(Number(e.target.value) || 1)) })}
-                      />
-                    </label>
-                  )
-                }
+                // Last section of the card: a size-priced item's name / size /
+                // weight (one card per item, so no quantity), else the quantity.
                 belowOptions={
                   sizePriced
                     ? (nextStep) => (
@@ -311,7 +309,24 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
                           onChangeItemName={(p, name) => setCards((current) => applyItemName(current, p, name))}
                         />
                       )
-                    : undefined
+                    : (nextStep) => (
+                        // Numbered like the card's own sections; the field itself is
+                        // the booking app's (ProductCardNew), full width.
+                        <div>
+                          <SectionHeader
+                            step={nextStep}
+                            title={bookingText(locale, "Product amount")}
+                            subtitle={t("How many of this product, with these choices?", "Hvor mange av dette produktet, med disse valgene?")}
+                          />
+                          <input
+                            type="number"
+                            min={1}
+                            className="customInput w-full"
+                            value={card.amount}
+                            onChange={(e) => updateCard({ ...card, amount: Math.max(1, Math.floor(Number(e.target.value) || 1)) })}
+                          />
+                        </div>
+                      )
                 }
               />
             );
@@ -555,115 +570,37 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
         </section>
       </div>
 
-      {/* Price after the changes, priced by the server */}
-      <div className="flex flex-col gap-4 lg:sticky lg:top-0 lg:self-start">
-        <section className={sectionClass}>
-          <div className="flex items-baseline justify-between gap-3">
-            <h3 className="text-lg font-semibold text-logoblue">{t("Calculator", "Kalkulator")}</h3>
-            {previewing && <span className="text-xs text-black/50">{t("Calculating…", "Beregner…")}</span>}
-          </div>
-          <p className="-mt-3 text-xs text-black/45">{t("Prices ex. VAT", "Priser eks. mva")}</p>
-          {preview && vat ? (
-            <>
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-sm">
-                {preview.calculator.products.map((product, i) => (
-                  <Fragment key={i}>
-                    <span className="col-span-2 mt-2 font-semibold text-black/80">
-                      {product.isOrderExtras ? t("Order extras", "Tillegg til ordren") : product.name}
-                    </span>
-                    {product.lines.map((line, j) => (
-                      <Fragment key={j}>
-                        <span className="min-w-0 text-black/60 [overflow-wrap:anywhere]">
-                          {line.qty > 1 && <span className="mr-1 opacity-70">x{line.qty}</span>}
-                          {line.label}
-                        </span>
-                        <span className="text-right tabular-nums text-black/70">{formatKr(exVat(line.customer))}</span>
-                      </Fragment>
-                    ))}
-                  </Fragment>
-                ))}
-              </div>
-              <div className="flex flex-col gap-2 border-t border-black/10 pt-3 text-sm text-black/70">
-                {preview.calculator.customer.discount !== 0 && (
-                  <div className="flex justify-between">
-                    <span>{t("Discount", "Rabatt")}</span>
-                    <span className="tabular-nums">-{formatKr(exVat(preview.calculator.customer.discount))}</span>
-                  </div>
-                )}
-                {preview.calculator.customer.extra !== 0 && (
-                  <div className="flex justify-between">
-                    <span>{t("Extra", "Tillegg")}</span>
-                    <span className="tabular-nums">
-                      {preview.calculator.customer.extra > 0 ? "+" : ""}
-                      {formatKr(exVat(preview.calculator.customer.extra))}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-3">
-                  <span className="font-semibold text-logoblue">{t("Total", "Totalt")}</span>
-                  <span className="text-2xl font-bold tabular-nums text-logoblue">{formatKr(vat.exVat)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>{t("VAT (25%)", "MVA (25%)")}</span>
-                  <span className="tabular-nums">{formatKr(vat.vat)}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-black/85">
-                  <span>{t("Total incl. VAT", "Totalt inkl. MVA")}</span>
-                  <span className="tabular-nums">{formatKr(vat.incVat)}</span>
-                </div>
-              </div>
-              <div className="border-t border-black/10 pt-3">
-                <WebsiteOrderPaymentSummary
-                  comparison={preview.comparison}
-                  locale={locale}
-                  totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
-                />
-              </div>
-            </>
-          ) : (
-            !previewing && <p className="text-sm text-black/50">{t("No price yet.", "Ingen pris ennå.")}</p>
-          )}
-        </section>
+      {/* The Overview's calculator (set to 0, discount, extra, partner minus/plus),
+          priced together with the edits above and saved with them. */}
+      <div className="flex flex-col gap-4 lg:self-start">
+        {firstCalculator ? (
+          <WebsiteOrderCalculator
+            orderId={orderId}
+            calculator={firstCalculator}
+            adjustments={adjustments}
+            missingFromLines={0}
+            storedTotal={firstCalculator.customer.total}
+            locale={locale}
+            onChanged={() => {}}
+            onDraftChange={setPricingDraft}
+            externalPricing={{ view: preview?.calculator ?? null, previewing }}
+          />
+        ) : (
+          <section className={sectionClass}>
+            <p className="text-sm text-black/50">
+              {previewing ? t("Calculating…", "Beregner…") : t("No price yet.", "Ingen pris ennå.")}
+            </p>
+          </section>
+        )}
 
-        {preview?.calculator.partner && (
-          <section className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-amber-800">{t("Partner view", "Partnervisning")}</h3>
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-sm">
-              {preview.calculator.products.map((product, i) => (
-                <Fragment key={i}>
-                  <span className="col-span-2 mt-2 font-semibold text-black/80">
-                    {product.isOrderExtras ? t("Order extras", "Tillegg til ordren") : product.name}
-                  </span>
-                  {product.lines.map((line, j) => (
-                    <Fragment key={j}>
-                      <span className="min-w-0 text-black/60 [overflow-wrap:anywhere]">
-                        {line.qty > 1 && <span className="mr-1 opacity-70">x{line.qty}</span>}
-                        {line.label}
-                      </span>
-                      <span className="text-right tabular-nums text-black/70">{formatKr(line.partner ?? 0)}</span>
-                    </Fragment>
-                  ))}
-                </Fragment>
-              ))}
-            </div>
-            <div className="flex flex-col gap-2 border-t border-amber-200 pt-3 text-sm text-black/70">
-              {preview.calculator.partner.minus !== 0 && (
-                <div className="flex justify-between">
-                  <span>{t("Minus", "Minus")}</span>
-                  <span className="tabular-nums">-{formatKr(preview.calculator.partner.minus)}</span>
-                </div>
-              )}
-              {preview.calculator.partner.plus !== 0 && (
-                <div className="flex justify-between">
-                  <span>{t("Plus", "Pluss")}</span>
-                  <span className="tabular-nums">+{formatKr(preview.calculator.partner.plus)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-base font-bold text-amber-900">{t("Total", "Totalt")}</span>
-                <span className="text-2xl font-bold tabular-nums text-amber-900">{formatKr(preview.calculator.partner.total)}</span>
-              </div>
-            </div>
+        {preview && (
+          <section className={sectionClass}>
+            <h3 className="text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
+            <WebsiteOrderPaymentSummary
+              comparison={preview.comparison}
+              locale={locale}
+              totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
+            />
           </section>
         )}
 

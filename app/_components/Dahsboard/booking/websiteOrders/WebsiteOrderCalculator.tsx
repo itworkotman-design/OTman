@@ -41,6 +41,11 @@ type Props = {
   onDraftChange: (draft: WebsiteOrderPricingDraft | null) => void;
   // Where to show "Price after this change" (above the modal's Save); inline when absent.
   priceChangeTarget?: HTMLElement | null;
+  // The "Edit order" tab prices products, stops and these choices together
+  // and saves them in one go: then this calculator doesn't fetch or save — it
+  // shows the parent's latest pricing and only reports its draft. `calculator`
+  // stays the order as first priced (what "changed" compares against).
+  externalPricing?: { view: WebsiteOrderCalculatorView | null; previewing: boolean };
 };
 
 const PREVIEW_DELAY_MS = 700;
@@ -101,7 +106,9 @@ export default function WebsiteOrderCalculator({
   onChanged,
   onDraftChange,
   priceChangeTarget = null,
+  externalPricing,
 }: Props) {
+  const external = !!externalPricing;
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const isAdmin = calculator.partner !== null;
   // The inputs hold the customer discount/extra ex. VAT; they're converted back
@@ -112,9 +119,11 @@ export default function WebsiteOrderCalculator({
   // The booking app's "Set to 0" checkboxes: lines nulled per side.
   const initialNulled = useMemo(() => nulledLinesFromView(calculator), [calculator]);
   const [nulled, setNulled] = useState<WebsiteOrderNulledLines>(initialNulled);
-  const [view, setView] = useState<WebsiteOrderCalculatorView>(calculator);
+  const [ownView, setView] = useState<WebsiteOrderCalculatorView>(calculator);
   const [preview, setPreview] = useState<OrderPaymentComparison | null>(null);
-  const [previewing, setPreviewing] = useState(false);
+  const [ownPreviewing, setPreviewing] = useState(false);
+  const view = externalPricing ? (externalPricing.view ?? calculator) : ownView;
+  const previewing = externalPricing ? externalPricing.previewing : ownPreviewing;
   const [previewFailed, setPreviewFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -149,6 +158,7 @@ export default function WebsiteOrderCalculator({
 
   const previewKey = changed ? JSON.stringify(adj) + canonicalNulled(nulled) : "";
   useEffect(() => {
+    if (external) return;
     const seq = ++previewSeq.current;
     if (!previewKey) {
       setView(calculator);
@@ -221,7 +231,7 @@ export default function WebsiteOrderCalculator({
   }
 
   // The order re-priced now (today's catalog) differs from what's saved.
-  const priceOutdated = Math.round(calculator.customer.total) !== Math.round(storedTotal);
+  const priceOutdated = !external && Math.round(calculator.customer.total) !== Math.round(storedTotal);
 
   // Re-saves the order unchanged, which re-prices it at today's prices — like
   // the booking app's "Use new price". What was paid is compared as usual.
@@ -476,7 +486,7 @@ export default function WebsiteOrderCalculator({
         </div>
       )}
 
-      {isAdmin && changed && withPriceChangeTarget(
+      {isAdmin && changed && !external && withPriceChangeTarget(
         <div className="rounded-2xl border border-logoblue/20 bg-logoblue/5 p-4">
           <p className="mb-2 text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
           {preview && !previewFailed ? (

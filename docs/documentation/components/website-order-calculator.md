@@ -27,3 +27,7 @@ These work like the booking app's:
 - **Discount inputs:** while any line is zeroed, the Discount and Partner minus inputs are hidden.
 - **Clearing:** typing a discount or partner minus clears every zeroed line.
 - **Saving:** choices are previewed and saved with the rest as `nulledLines`. "Reset prices" restores the saved choices.
+
+## External pricing (Edit order tab)
+
+With `externalPricing: { view, previewing }`, the calculator doesn't run its own dry-run or save. It shows the parent's latest `view` (falling back to `calculator`, the baseline its "changed" check compares against) and only reports its draft through `onDraftChange`. "Use new price" and the "Price after this change" box are hidden in this mode, because the parent shows the payment comparison and saves everything together.

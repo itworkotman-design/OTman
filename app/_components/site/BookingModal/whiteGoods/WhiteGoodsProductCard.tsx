@@ -63,10 +63,8 @@ type Props = {
   variantNumber?: number;
   onRemove?: () => void;
   onAddAnother?: () => void;
-  // Admin editor (WebsiteOrderEditTab): extra controls in the title band (the
-  // quantity), and a last section below the options (a size-priced item's
-  // name / size / weight), numbered on from the card's own steps.
-  headerExtra?: ReactNode;
+  // A last section below the options, numbered on from the card's own steps:
+  // a size-priced item's name / size / weight, or (admin editor) the quantity.
   belowOptions?: (nextStep: number) => ReactNode;
 };
 
@@ -170,7 +168,8 @@ function OptionRow({
   );
 }
 
-function SectionHeader({
+// Also used for sections added through `belowOptions` (admin editor).
+export function SectionHeader({
   step,
   title,
   subtitle,
@@ -202,7 +201,6 @@ export function WhiteGoodsProductCard({
   variantNumber,
   onRemove,
   onAddAnother,
-  headerExtra,
   belowOptions,
 }: Props) {
   const [open, setOpen] = useState(true);
@@ -496,7 +494,6 @@ export function WhiteGoodsProductCard({
           </h3>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {headerExtra}
           {onRemove && (
             <button
               type="button"
