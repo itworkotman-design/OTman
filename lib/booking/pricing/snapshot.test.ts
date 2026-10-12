@@ -189,6 +189,31 @@ describe("order pricing snapshots", () => {
     expect(Object.keys(snapshot.productOptions)).toEqual(["install-1"]);
   });
 
+  // A return kept on the product itself (category "return", e.g. the website
+  // catalogs) is priced from product.options, so it must be frozen there too.
+  it("freezes a selected return option that lives on the product", () => {
+    const product = buildProduct("300");
+    product.options.push({
+      id: "return-1",
+      code: "RETURN_RECYCLING",
+      label: "Return",
+      description: "Return",
+      category: "return",
+      customerPrice: "260",
+      subcontractorPrice: "155",
+      effectiveCustomerPrice: "260",
+      active: true,
+    });
+    const snapshot = buildOrderPricingSnapshot({
+      productCards: [{ ...buildCard(), selectedReturnOptionId: "return-1" }],
+      catalogProducts: [product],
+      catalogSpecialOptions: specialOptions,
+      priceListSettings: createDefaultPriceListSettings(),
+    });
+
+    expect(snapshot.productOptions["return-1"]).toMatchObject({ customerPrice: "260", subcontractorPrice: "155" });
+  });
+
   it("ignores unselected prices from older saved snapshots", () => {
     const card = buildCard();
     const priceListSettings = createDefaultPriceListSettings();

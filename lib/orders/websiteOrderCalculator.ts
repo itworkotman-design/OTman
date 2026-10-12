@@ -158,6 +158,8 @@ export function parseNulledLines(raw: unknown): WebsiteOrderNulledLines | null {
 export type WebsiteOrderPricingDraft = {
   adjustments: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string };
   nulledLines: WebsiteOrderNulledLines;
+  // "Use new price": the Save prices the order with today's catalog.
+  useCurrentPrices?: boolean;
 };
 
 // The body for PUT /api/orders/[orderId]/website-items: the "Handle order"
@@ -168,7 +170,12 @@ export function websiteItemsSaveBody(
   extra: Record<string, unknown> = {},
 ) {
   if (!draft) return { handling: panelHandling, ...extra };
-  return { handling: { ...panelHandling, ...draft.adjustments }, nulledLines: draft.nulledLines, ...extra };
+  return {
+    handling: { ...panelHandling, ...draft.adjustments },
+    nulledLines: draft.nulledLines,
+    ...(draft.useCurrentPrices ? { useCurrentPrices: true } : {}),
+    ...extra,
+  };
 }
 
 // One checkbox click, with the booking app's rules (BookingEditor's

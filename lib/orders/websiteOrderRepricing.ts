@@ -3,7 +3,12 @@ import { prisma } from "@/lib/db";
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
 import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeDimensions";
-import { applyOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
+import {
+  applyOrderPricingSnapshot,
+  buildOrderPricingSnapshot as buildCatalogPricingSnapshot,
+  getSavedOrderPricingSnapshot,
+  type OrderPricingSnapshot as CatalogPricingSnapshot,
+} from "@/lib/booking/pricing/snapshot";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import {
   buildOrderPricingSnapshot,
@@ -68,7 +73,10 @@ export async function recomputeWebsiteOrderPricing(
   rawCards: SavedProductCard[],
   // Admin saves: an admin may save an order that isn't complete yet (e.g. an
   // Other-furniture item without its size), priced with what is there.
-  options: { allowIncomplete?: boolean } = {},
+  // catalogPricing: the catalog prices the order was saved with (the stored
+  // cards' snapshot, see getSavedOrderPricingSnapshot) — the booking app's
+  // frozen prices. Left out or null, today's catalog prices it.
+  options: { allowIncomplete?: boolean; catalogPricing?: CatalogPricingSnapshot | null } = {},
 ) {
   const catalog = await getWebsiteOrderCatalog();
   const customDeviation =
@@ -97,14 +105,16 @@ export async function recomputeWebsiteOrderPricing(
     throw new ItemNameRequiredError();
   }
 
-  // Never trust a per-card frozen pricingSnapshot here — a "Forgot
-  // something?" edit should always price against the current live catalog,
-  // not whatever was frozen at original booking time.
+  // Never trust a pricingSnapshot that came in on the submitted cards — only
+  // the caller's catalogPricing (read from the stored order) freezes prices;
+  // without it, today's catalog prices the order. Anything the frozen prices
+  // don't cover (a product added since) is priced from today's catalog, as in
+  // the booking app.
   const pricingSource = applyOrderPricingSnapshot({
     catalogProducts: catalog.products,
     catalogSpecialOptions: catalog.specialOptions,
     priceListSettings: catalog.priceListSettings,
-    pricingSnapshot: null,
+    pricingSnapshot: options.catalogPricing ?? null,
   });
 
   const summaries = buildOrderSummaries(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions);
@@ -171,9 +181,19 @@ export async function recomputeWebsiteOrderPricing(
     nulledOrderExtraKeysForSubcontractor: nulledOrderExtras.subcontractor,
   });
 
+  // The catalog prices this pricing used, stored on every card so the next
+  // save prices the order the same way (until "Use new price").
+  const catalogPricing = buildCatalogPricingSnapshot({
+    productCards: submittedCards,
+    catalogProducts: pricingSource.catalogProducts,
+    catalogSpecialOptions: pricingSource.catalogSpecialOptions,
+    priceListSettings: pricingSource.priceListSettings,
+  });
+
   return {
-    // The cards with their derived size brackets — what gets persisted.
-    cards: submittedCards,
+    // The cards with their derived size brackets and the catalog prices they
+    // were priced with — what gets persisted.
+    cards: submittedCards.map((card) => ({ ...card, pricingSnapshot: catalogPricing })),
     // What they were priced against (e.g. to name lines in the calculator).
     catalogProducts: pricingSource.catalogProducts,
     builtItems,
@@ -187,6 +207,55 @@ export async function recomputeWebsiteOrderPricing(
     // Every line with its customer and partner price, for the admin calculator.
     pricingResult,
   };
+}
+
+type RepricingOrder = Parameters<typeof recomputeWebsiteOrderPricing>[0];
+
+// The catalog prices an order was saved with — what admin saves and the
+// calculator price it with (see `catalogPricing` above). Orders saved since
+// cards keep them have them on their cards. Older ones don't: their prices
+// are read back from the stored order lines (each option's unit price for the
+// customer and the partner, by option id), on top of today's catalog for
+// anything the lines don't carry (delivery types, price-list settings). That is
+// only trusted when it gives exactly the order's saved customer and partner
+// totals; otherwise null (the caller then treats the order as having no
+// saved prices).
+export async function resolveSavedCatalogPricing(
+  order: RepricingOrder & { priceExVat: number | null; priceSubcontractor: number | null },
+  cards: SavedProductCard[],
+  storedItems: { optionId: string | null; customerPriceCents: number | null; subcontractorPriceCents: number | null }[],
+): Promise<CatalogPricingSnapshot | null> {
+  const stored = getSavedOrderPricingSnapshot(cards);
+  if (stored) return stored;
+
+  const current = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true });
+  const base = current.cards[0]?.pricingSnapshot;
+  if (!base) return null;
+  const sameAsSaved = (priced: { priceExVat: number; priceSubcontractor: number }) =>
+    priced.priceExVat === order.priceExVat && priced.priceSubcontractor === order.priceSubcontractor;
+  if (sameAsSaved(current)) return base;
+
+  const toKroner = (cents: number | null, fallback: string) => (cents === null ? fallback : String(cents / 100));
+  const productOptions = { ...base.productOptions };
+  const specialOptions = { ...base.specialOptions };
+  for (const item of storedItems) {
+    // A line stored at 0 on both sides may just be set to 0 — today's price stays.
+    if (!item.optionId || (!item.customerPriceCents && !item.subcontractorPriceCents)) continue;
+    for (const prices of [productOptions, specialOptions]) {
+      const today = prices[item.optionId];
+      if (!today) continue;
+      const customerPrice = toKroner(item.customerPriceCents, String(today.effectiveCustomerPrice));
+      prices[item.optionId] = {
+        ...today,
+        customerPrice,
+        effectiveCustomerPrice: customerPrice,
+        subcontractorPrice: toKroner(item.subcontractorPriceCents, String(today.subcontractorPrice)),
+      };
+    }
+  }
+  const derived: CatalogPricingSnapshot = { ...base, productOptions, specialOptions };
+  const repriced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing: derived });
+  return sameAsSaved(repriced) ? derived : null;
 }
 
 // The writes that store a re-priced order: the new cards, snapshot, totals,

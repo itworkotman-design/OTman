@@ -148,6 +148,12 @@ describe("websiteItemsSaveBody — one Save for the panel and the calculator", (
       dryRun: true,
     });
   });
+
+  it("asks for today's prices only when the calculator's \"Use new price\" was chosen", () => {
+    const adjustments = { rabatt: "", leggTil: "", subcontractorMinus: "", subcontractorPlus: "" };
+    expect(websiteItemsSaveBody({}, { adjustments, nulledLines, useCurrentPrices: true })).toMatchObject({ useCurrentPrices: true });
+    expect(websiteItemsSaveBody({}, { adjustments, nulledLines })).not.toHaveProperty("useCurrentPrices");
+  });
 });
 
 describe("kronerIncVatToExVat / kronerExVatToIncVat", () => {

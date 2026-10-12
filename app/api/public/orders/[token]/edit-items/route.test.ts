@@ -54,6 +54,7 @@ vi.mock("@/lib/booking/pricing/snapshot", () => ({
     catalogProducts,
     catalogSpecialOptions,
   }),
+  buildOrderPricingSnapshot: () => ({ frozen: true }),
 }));
 vi.mock("@/lib/orders/buildOrderItemsFromCards", () => ({
   buildOrderItemsFromCards: mocks.buildOrderItemsFromCardsMock,

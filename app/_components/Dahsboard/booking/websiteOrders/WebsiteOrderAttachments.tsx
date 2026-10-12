@@ -3,22 +3,33 @@
 import { useEffect, useState } from "react";
 import OrderAttachmentsSection from "@/app/_components/Dahsboard/booking/create/OrderAttachmentsSection";
 import type { AttachmentCategory, AttachmentItem } from "@/lib/orders/attachmentCategories";
+import {
+  hasAttachmentChanges,
+  stageAttachmentRemoval,
+  stageAttachmentUpload,
+  visibleAttachments,
+  type AttachmentDraft,
+} from "@/lib/orders/attachmentDraft";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type Props = {
   orderId: string;
   locale: BookingUiLocale;
+  // The unsaved file changes — held by the modal, applied by its Save.
+  draft: AttachmentDraft;
+  onDraftChange: (draft: AttachmentDraft) => void;
 };
 
+const MAX_ATTACHMENTS = 10;
+
 // Attachments of a website order (no receipts — those are for the regular
-// booking flow), straight in WebsiteOrderModal
-// — the same section and endpoints the regular order editor uses
-// (/api/orders/[orderId]/attachments, /api/orders/attachments/[id]). Uploads
-// and deletes take effect immediately; there is no form to save.
-export default function WebsiteOrderAttachments({ orderId, locale }: Props) {
+// booking flow), straight in WebsiteOrderModal — the same section the regular
+// order editor uses. Picking or removing a file changes nothing yet: the
+// changes are an AttachmentDraft that the modal's Save uploads/deletes
+// (applyAttachmentDraft), like every other change to the order.
+export default function WebsiteOrderAttachments({ orderId, locale, draft, onDraftChange }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
-  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [saved, setSaved] = useState<AttachmentItem[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -26,7 +37,7 @@ export default function WebsiteOrderAttachments({ orderId, locale }: Props) {
     fetch(`/api/orders/${orderId}/attachments`, { credentials: "include", cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (!cancelled && data?.ok) setAttachments(data.attachments ?? []);
+        if (!cancelled && data?.ok) setSaved(data.attachments ?? []);
       })
       .catch(() => {});
     return () => {
@@ -34,55 +45,34 @@ export default function WebsiteOrderAttachments({ orderId, locale }: Props) {
     };
   }, [orderId]);
 
-  async function upload(file: File, category: AttachmentCategory) {
-    try {
-      setUploading(true);
-      setError("");
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("category", category);
-      const res = await fetch(`/api/orders/${orderId}/attachments`, { method: "POST", body: formData, credentials: "include" });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) {
-        setError(data?.reason || t("Upload failed", "Opplasting feilet"));
-        return;
-      }
-      setAttachments((current) => [data.attachment, ...current]);
-    } catch {
-      setError(t("Upload failed", "Opplasting feilet"));
-    } finally {
-      setUploading(false);
-    }
-  }
+  const shown = visibleAttachments(saved, draft);
 
-  async function remove(attachmentId: string) {
-    if (!confirm(t("Delete this file?", "Slette denne filen?"))) return;
-    try {
-      setError("");
-      const res = await fetch(`/api/orders/attachments/${attachmentId}`, { method: "DELETE", credentials: "include" });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) {
-        setError(data?.reason || t("Delete failed", "Sletting feilet"));
-        return;
-      }
-      setAttachments((current) => current.filter((item) => item.id !== attachmentId));
-    } catch {
-      setError(t("Delete failed", "Sletting feilet"));
+  function pick(file: File, category: AttachmentCategory) {
+    if (shown.length >= MAX_ATTACHMENTS) {
+      setError(t("Max 10 attachments allowed", "Maks 10 vedlegg"));
+      return;
     }
+    setError("");
+    onDraftChange(stageAttachmentUpload(draft, file, category, { id: `local-${crypto.randomUUID()}`, url: URL.createObjectURL(file) }));
   }
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-6">
       <h3 className="mb-4 text-base font-semibold text-logoblue">{t("Attachments", "Vedlegg")}</h3>
       <OrderAttachmentsSection
-        attachments={attachments}
-        uploading={uploading}
+        attachments={shown}
+        uploading={false}
         error={error}
-        onUpload={upload}
-        onDelete={remove}
+        onUpload={pick}
+        onDelete={(attachmentId) => onDraftChange(stageAttachmentRemoval(draft, attachmentId))}
         locale={locale}
         categories={["ATTACHMENT"]}
       />
+      {hasAttachmentChanges(draft) && (
+        <p className="mt-3 text-xs text-black/55">
+          {t("File changes are stored when you press Save.", "Filendringene lagres når du trykker Lagre.")}
+        </p>
+      )}
     </div>
   );
 }

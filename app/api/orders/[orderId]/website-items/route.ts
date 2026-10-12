@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { getModuleAccess } from "@/lib/users/access";
@@ -9,6 +10,7 @@ import {
   ItemNameRequiredError,
   SizeBracketSelectionError,
   recomputeWebsiteOrderPricing,
+  resolveSavedCatalogPricing,
   websiteOrderPricingWrites,
 } from "@/lib/orders/websiteOrderRepricing";
 import { planWebsiteOrderPaymentLink } from "@/lib/orders/websiteOrderPaymentLink";
@@ -58,6 +60,15 @@ import {
 // planWebsiteOrderPaymentLink), the balance-due one spelling out the
 // difference; an order not yet approved is approved first.
 //
+// Prices: a save never moves the order to today's prices by itself. It is
+// priced with the catalog prices stored on its cards (like the booking app's
+// pricing snapshot); only `useCurrentPrices` (the calculator's "Use new
+// price") prices it with today's catalog. Older orders saved before their
+// cards kept prices: while today's catalog still gives their saved price they
+// save normally (and get it frozen); otherwise a change to the price is
+// refused (409 PRICES_OUTDATED) until "Use new price", and any other change is
+// saved without re-pricing.
+//
 // Unlike the customer's own edit link, the price may go down — an admin
 // decides. Nothing is refunded automatically; the comparison flags it.
 
@@ -90,6 +101,7 @@ const ORDER_SELECT = {
   emailThreadToken: true,
   paymentRequestSentAt: true,
   priceExVat: true,
+  priceSubcontractor: true,
   productsSummary: true,
   rabatt: true,
   leggTil: true,
@@ -108,6 +120,8 @@ const ORDER_SELECT = {
   websiteOrderKind: true,
   websiteBookingDetails: true,
   productCardsSnapshot: true,
+  // The stored lines' prices — an older order's saved catalog prices are read back from them.
+  items: { select: { optionId: true, customerPriceCents: true, subcontractorPriceCents: true } },
   payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
 } as const;
 
@@ -152,6 +166,13 @@ type WebsiteOrder = NonNullable<Awaited<ReturnType<typeof findWhiteGoodsOrder>>>
 
 function storedCards(order: WebsiteOrder): SavedProductCard[] {
   return Array.isArray(order.productCardsSnapshot) ? (order.productCardsSnapshot as unknown as SavedProductCard[]) : [];
+}
+
+// The same products and choices, whatever prices they carry.
+function sameCards(a: SavedProductCard[], b: SavedProductCard[]) {
+  const comparable = (cards: SavedProductCard[]) =>
+    JSON.stringify(cards.map((card, index) => ({ ...normalizeSavedProductCard(card, index), pricingSnapshot: null })));
+  return comparable(a) === comparable(b);
 }
 
 export async function GET(req: Request, { params }: Params) {
@@ -236,6 +257,8 @@ export async function PUT(req: Request, { params }: Params) {
     nulledLines?: unknown;
     sendPaymentLink?: unknown;
     dryRun?: unknown;
+    // The calculator's "Use new price": price with today's catalog.
+    useCurrentPrices?: unknown;
   } | null;
   if (body?.productCards !== undefined && !Array.isArray(body.productCards)) {
     return reject("INVALID_BODY", 400);
@@ -244,6 +267,7 @@ export async function PUT(req: Request, { params }: Params) {
   if (body?.nulledLines !== undefined && !nulledLines) return reject("INVALID_BODY", 400);
   const sendPaymentLink = body?.sendPaymentLink === true;
   const dryRun = body?.dryRun === true;
+  const useCurrentPrices = body?.useCurrentPrices === true;
 
   const { orderId } = await params;
   const order = await findWhiteGoodsOrder(orderId, companyId);
@@ -318,9 +342,30 @@ export async function PUT(req: Request, { params }: Params) {
     ...(nulledLines ? { nulledOrderExtras: nulledLines.orderExtras } : {}),
   };
 
+  // The catalog prices the order was saved with (on its cards, or read back
+  // from an older order's stored lines) — none for "Use new price", or when
+  // an older order's lines can't reproduce its saved price.
+  const savedCatalogPricing = useCurrentPrices ? null : await resolveSavedCatalogPricing(order, storedCards(order), order.items ?? []);
   let recomputed;
+  // An older order whose saved price today's catalog no longer gives: a
+  // change that leaves the price alone is saved without re-pricing it.
+  let keepStoredPrice = false;
   try {
-    recomputed = await recomputeWebsiteOrderPricing(pricedOrder, cards, { allowIncomplete: true });
+    recomputed = await recomputeWebsiteOrderPricing(pricedOrder, cards, { allowIncomplete: true, catalogPricing: savedCatalogPricing });
+    if (!useCurrentPrices && !savedCatalogPricing) {
+      const asSaved = await recomputeWebsiteOrderPricing(order, storedCards(order), { allowIncomplete: true });
+      const outdated = asSaved.priceExVat !== order.priceExVat || asSaved.priceSubcontractor !== order.priceSubcontractor;
+      if (outdated) {
+        const changesPrice =
+          recomputed.priceExVat !== asSaved.priceExVat ||
+          recomputed.priceSubcontractor !== asSaved.priceSubcontractor ||
+          !sameCards(cards, storedCards(order));
+        if (changesPrice) {
+          return reject("PRICES_OUTDATED", 409, { storedPriceExVat: order.priceExVat, currentPriceExVat: asSaved.priceExVat });
+        }
+        keepStoredPrice = true;
+      }
+    }
   } catch (err) {
     if (err instanceof SizeBracketSelectionError) return reject("SIZE_BRACKETS_REQUIRED", 422);
     if (err instanceof ItemNameRequiredError) return reject("ITEM_NAME_REQUIRED", 422);
@@ -335,20 +380,28 @@ export async function PUT(req: Request, { params }: Params) {
   })();
   const comparison = compareOrderWithPayments({
     payments: order.payments,
-    current: buildOrderStateSnapshot({
-      ...pricedOrder,
-      priceExVat: recomputed.priceExVat,
-      pricingSnapshot: recomputed.pricingSnapshot,
-      websiteBookingDetails: nextBookingDetails,
-    }),
+    current: buildOrderStateSnapshot(
+      keepStoredPrice
+        ? pricedOrder
+        : {
+            ...pricedOrder,
+            priceExVat: recomputed.priceExVat,
+            pricingSnapshot: recomputed.pricingSnapshot,
+            websiteBookingDetails: nextBookingDetails,
+          },
+    ),
   });
+  // What the order's price and products read after this save.
+  const saved = keepStoredPrice
+    ? { priceExVat: order.priceExVat, productsSummary: order.productsSummary }
+    : { priceExVat: recomputed.priceExVat, productsSummary: recomputed.summaries.productsSummary };
 
   if (dryRun) {
     return NextResponse.json({
       ok: true,
       dryRun: true,
       previousPriceExVat: order.priceExVat,
-      priceExVat: recomputed.priceExVat,
+      priceExVat: saved.priceExVat,
       drivingDistance: pricedOrder.drivingDistance,
       comparison,
       calculator: websiteOrderCalculatorView(recomputed.pricingResult, {
@@ -377,15 +430,29 @@ export async function PUT(req: Request, { params }: Params) {
   // (same as the bulk approve) when the order doesn't have one yet.
   const actionToken = plan ? (order.actionToken ?? createOrderActionToken()) : order.actionToken;
 
+  const data = {
+    lastEditedByMembershipId: membership.id,
+    ...(detailsUpdate?.orderData ?? {}),
+    ...(handling ?? {}),
+    ...(approve ? { status: "approved", approvedAt: now, statusChangedAt: now } : {}),
+    ...(actionToken !== order.actionToken ? { actionToken } : {}),
+  };
   try {
     await prisma.$transaction(
-      websiteOrderPricingWrites({ id: order.id, websiteBookingDetails: pricedOrder.websiteBookingDetails }, recomputed, {
-        lastEditedByMembershipId: membership.id,
-        ...(detailsUpdate?.orderData ?? {}),
-        ...(handling ?? {}),
-        ...(approve ? { status: "approved", approvedAt: now, statusChangedAt: now } : {}),
-        ...(actionToken !== order.actionToken ? { actionToken } : {}),
-      }),
+      keepStoredPrice
+        ? [
+            // Price, products, pricing and order lines stay exactly as saved.
+            prisma.order.update({
+              where: { id: order.id },
+              data: {
+                ...data,
+                ...(pricedOrder.websiteBookingDetails !== order.websiteBookingDetails
+                  ? { websiteBookingDetails: pricedOrder.websiteBookingDetails as Prisma.InputJsonValue }
+                  : {}),
+              },
+            }),
+          ]
+        : websiteOrderPricingWrites({ id: order.id, websiteBookingDetails: pricedOrder.websiteBookingDetails }, recomputed, data),
     );
   } catch (err) {
     console.error("[website-items] Failed to save order:", err);
@@ -440,13 +507,13 @@ export async function PUT(req: Request, { params }: Params) {
       field: "productsSummary",
       label: "Products",
       previousValue: order.productsSummary ?? "",
-      nextValue: recomputed.summaries.productsSummary ?? "",
+      nextValue: saved.productsSummary ?? "",
     },
     {
       field: "priceExVat",
       label: "Price (ex VAT)",
       previousValue: String(order.priceExVat),
-      nextValue: String(recomputed.priceExVat),
+      nextValue: String(saved.priceExVat),
     },
     ...(approve ? [{ field: "status" as const, label: "Status", previousValue: order.status ?? "", nextValue: "approved" }] : []),
   ];
@@ -484,7 +551,7 @@ export async function PUT(req: Request, { params }: Params) {
   return NextResponse.json({
     ok: true,
     previousPriceExVat: order.priceExVat,
-    priceExVat: recomputed.priceExVat,
+    priceExVat: saved.priceExVat,
     drivingDistance: pricedOrder.drivingDistance,
     comparison,
     emailSent,

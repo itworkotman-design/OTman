@@ -120,10 +120,16 @@ export default function OrderModal({
     if (!res.ok || !data?.ok) {
       throw new Error(data?.message || data?.reason || "Failed to update order");
     }
+    // Not closed yet: the editor still uploads/deletes the attachment changes
+    // and then calls handleAfterSave.
+  }
 
-    // 👇 ADD THIS HERE
+  // The whole Save is done (order + attachments). The list reloads either way;
+  // the modal only closes when every file change went through, so a failed
+  // upload stays visible with its error and Save can retry it.
+  function handleAfterSave({ attachmentsSaved }: { attachmentsSaved: boolean }) {
     onSaved?.();
-    onClose();
+    if (attachmentsSaved) onClose();
   }
 
   async function handleDelete() {
@@ -198,6 +204,7 @@ export default function OrderModal({
             ) : (
               <BookingEditor
                 onSubmit={handleSave}
+                onAfterSave={handleAfterSave}
                 initialValues={bookingEditorInitialValues}
                 locale={locale}
                 isOrderCreator={false}

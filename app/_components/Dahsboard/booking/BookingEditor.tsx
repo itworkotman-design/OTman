@@ -36,6 +36,14 @@ import { createDefaultPriceListSettings, normalizePriceListSettings, type PriceL
 import { applyOrderPricingSnapshot, buildOrderPricingSnapshot, getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
 import { calculateCurrentTotalsWithFrozenExternalLines } from "@/lib/booking/pricing/frozenOrderPricing";
 import { type AttachmentCategory, type AttachmentItem } from "@/lib/orders/attachmentCategories";
+import {
+  EMPTY_ATTACHMENT_DRAFT,
+  applyAttachmentDraft,
+  stageAttachmentRemoval,
+  stageAttachmentUpload,
+  visibleAttachments,
+  type AttachmentDraft,
+} from "@/lib/orders/attachmentDraft";
 import { ORDER_SLOT_LIMIT } from "@/lib/orders/capacity";
 import { isNoPickupAddress, resolvePickupForSubmit, restorePickupAfterUnlock } from "@/lib/orders/noPickupAddress";
 import { shouldApplyCustomerPickup } from "@/lib/orders/customerPickupSync";
@@ -156,6 +164,10 @@ type Props = {
   dataset?: "default" | "power";
   hideSubmitButton?: boolean;
   onSubmit?: (payload: OrderFormPayload) => void | Promise<void>;
+  // After the whole Save finished — the order and its attachment changes.
+  // `attachmentsSaved` is false when some file change failed (the editor then
+  // shows the error and keeps them for the next Save).
+  onAfterSave?: (result: { attachmentsSaved: boolean }) => void;
   locale?: BookingUiLocale;
   isOrderCreator: boolean;
   initialValues?: Partial<OrderFormPayload> & {
@@ -400,6 +412,7 @@ export default function BookingEditor({
   dataset = "default",
   hideSubmitButton = false,
   onSubmit,
+  onAfterSave,
   locale = "en",
   isOrderCreator,
   initialValues,
@@ -553,7 +566,8 @@ export default function BookingEditor({
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [attachmentsUploading, setAttachmentsUploading] = useState(false);
   const [attachmentsError, setAttachmentsError] = useState("");
-  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>([]);
+  // An existing order's picked and removed files, applied only by Save.
+  const [attachmentDraft, setAttachmentDraft] = useState<AttachmentDraft>(EMPTY_ATTACHMENT_DRAFT);
   const { effectiveHidden, effectiveHideDontSendEmail } = getCreateOrderViewConfig(role, permissions, hidden, hideDontSendEmail);
   const allowPastDeliveryDates = role === "OWNER" || role === "ADMIN";
   const allowUnrestrictedCustomTime = role === "OWNER" || role === "ADMIN";
@@ -1976,9 +1990,20 @@ export default function BookingEditor({
   // Attachments
   const existingOrderId = initialValues?.id ?? null;
 
+  // An existing order shows its saved files with the unsaved changes laid over.
+  const shownAttachments = existingOrderId ? visibleAttachments(attachments, attachmentDraft) : attachments;
+
   async function handleUploadAttachment(file: File, category: AttachmentCategory) {
-    if (attachments.length >= 10) {
+    if (shownAttachments.length >= 10) {
       setAttachmentsError("Max 10 attachments allowed");
+      return;
+    }
+    // An existing order: held until Save uploads it, like a removed file.
+    if (existingOrderId) {
+      setAttachmentsError("");
+      setAttachmentDraft((current) =>
+        stageAttachmentUpload(current, file, category, { id: `local-${crypto.randomUUID()}`, url: URL.createObjectURL(file) }),
+      );
       return;
     }
     try {
@@ -2011,10 +2036,19 @@ export default function BookingEditor({
     }
   }
 
+  async function reloadSavedAttachments(orderId: string) {
+    try {
+      const res = await fetch(`/api/orders/${orderId}/attachments`, { credentials: "include", cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) setAttachments(data.attachments ?? []);
+    } catch {
+      // keep the list as it is
+    }
+  }
+
   async function handleDeleteAttachment(attachmentId: string) {
     if (existingOrderId) {
-      setDeletedAttachmentIds((prev) => (prev.includes(attachmentId) ? prev : [...prev, attachmentId]));
-      setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
+      setAttachmentDraft((current) => stageAttachmentRemoval(current, attachmentId));
       return;
     }
 
@@ -2044,7 +2078,7 @@ export default function BookingEditor({
       try {
         setAttachments([]);
         setAttachmentsError("");
-        setDeletedAttachmentIds([]);
+        setAttachmentDraft(EMPTY_ATTACHMENT_DRAFT);
 
         const url = existingOrderId ? `/api/orders/${existingOrderId}/attachments` : "/api/orders/pending-attachments";
 
@@ -2236,32 +2270,30 @@ export default function BookingEditor({
       } else {
         await handleCreateOrder(payload);
       }
-      if (existingOrderId && deletedAttachmentIds.length > 0) {
-        const deleteResults = await Promise.all(
-          deletedAttachmentIds.map((attachmentId) =>
-            fetch(`/api/orders/attachments/${attachmentId}`, {
-              method: "DELETE",
-              credentials: "include",
-            }).catch(() => null),
-          ),
-        );
-
-        const deleteFailed = deleteResults.some((res) => !res || !res.ok);
-
-        if (deleteFailed) {
-          setAttachmentsError("Some attachments could not be deleted.");
-        } else {
-          setDeletedAttachmentIds([]);
-          setAttachmentsError("");
+      // The order saved: now its picked files are uploaded and removed ones
+      // deleted — awaited, so the caller (OrderModal) only closes afterwards.
+      if (existingOrderId) {
+        const result = await applyAttachmentDraft(existingOrderId, attachmentDraft);
+        if (!result.ok) {
+          // Stay open: only the failed changes are kept, so Save retries just
+          // those; the list reloads to show what did go through.
+          setAttachmentDraft(result.remaining);
+          const filesError = `The order was saved, but ${result.failed} attachment change(s) could not be saved. Press Save to try again.`;
+          setAttachmentsError(filesError);
+          // Next to the Save button too, where the admin is looking.
+          setSubmitError(filesError);
+          await reloadSavedAttachments(existingOrderId);
+          onAfterSave?.({ attachmentsSaved: false });
+          return;
         }
-      } else {
-        setDeletedAttachmentIds([]);
-        setAttachmentsError("");
+        setAttachmentDraft(EMPTY_ATTACHMENT_DRAFT);
       }
+      setAttachmentsError("");
 
       setAttachments([]);
       setDidAttemptSubmit(false);
       scrollToPageTop();
+      onAfterSave?.({ attachmentsSaved: true });
     } catch (error) {
       setSubmitError(error instanceof Error && error.message ? error.message : "Failed to save order");
     } finally {
@@ -2527,7 +2559,7 @@ export default function BookingEditor({
             setStatus={setStatus}
             dontSendEmail={dontSendEmail}
             setDontSendEmail={setDontSendEmail}
-            attachments={attachments}
+            attachments={shownAttachments}
             attachmentsUploading={attachmentsUploading}
             attachmentsError={attachmentsError}
             onUploadAttachment={handleUploadAttachment}

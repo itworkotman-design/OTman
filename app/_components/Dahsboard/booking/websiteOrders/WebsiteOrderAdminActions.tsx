@@ -11,6 +11,12 @@ import { websiteItemsSaveBody, type WebsiteOrderPricingDraft } from "@/lib/order
 import { CUSTOM_DEVIATION_CODE, DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import DatePicker from "@/app/_components/utils/DatePicker";
 import { TimeWindowField } from "@/app/_components/site/BookingModal/whiteGoods/timeWindowField";
+import {
+  EMPTY_ATTACHMENT_DRAFT,
+  applyAttachmentDraft,
+  hasAttachmentChanges,
+  type AttachmentDraft,
+} from "@/lib/orders/attachmentDraft";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 
 type Partner = { id: string; name: string };
@@ -37,6 +43,11 @@ type Props = {
   pricingDraft?: WebsiteOrderPricingDraft | null;
   // An empty spot right above Save the calculator renders its price preview into.
   priceChangeSlotRef?: (el: HTMLDivElement | null) => void;
+  // Picked/removed attachments (WebsiteOrderAttachments), applied by this Save too.
+  attachmentDraft?: AttachmentDraft;
+  // After this Save applied them: what's left — only the file changes that
+  // failed (empty when all went through), kept for the next Save.
+  onAttachmentsApplied?: (remaining: AttachmentDraft) => void;
 };
 
 const CUSTOM_DEVIATION_LABEL = DEVIATION_FEE_OPTIONS.find((o) => o.code === CUSTOM_DEVIATION_CODE)?.englishLabel ?? "Custom";
@@ -49,7 +60,17 @@ const PREVIEW_DELAY_MS = 700;
 // /api/orders/[orderId]/website-items with `handling`, which re-prices —
 // express and the deviation change the total, previewed
 // against what was paid before saving).
-export default function WebsiteOrderAdminActions({ order, locale, onChanged, children, besideSave, pricingDraft = null, priceChangeSlotRef }: Props) {
+export default function WebsiteOrderAdminActions({
+  order,
+  locale,
+  onChanged,
+  children,
+  besideSave,
+  pricingDraft = null,
+  priceChangeSlotRef,
+  attachmentDraft = EMPTY_ATTACHMENT_DRAFT,
+  onAttachmentsApplied,
+}: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const initial = {
     status: normalizeOrderStatus(order.status),
@@ -64,6 +85,8 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [preview, setPreview] = useState<OrderPaymentComparison | null>(null);
+  // Why the preview failed (the server's reason), shown in its place.
+  const [previewReason, setPreviewReason] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const previewSeq = useRef(0);
 
@@ -93,14 +116,15 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify(websiteItemsSaveBody(panelFields, extra.dryRun ? null : pricingDraft, extra)),
+      // The preview prices exactly what Save would store, calculator changes included.
+      body: JSON.stringify(websiteItemsSaveBody(panelFields, pricingDraft, extra)),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok && !!data?.ok, data };
   }
 
   // Express and the deviation change the price: preview it.
-  const previewKey = change.affectsPrice ? JSON.stringify(handling) : "";
+  const previewKey = change.affectsPrice ? JSON.stringify([handling, pricingDraft]) : "";
   useEffect(() => {
     const seq = ++previewSeq.current;
     if (!previewKey) {
@@ -112,7 +136,10 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
       setPreviewing(true);
       try {
         const { ok, data } = await putHandling({ dryRun: true });
-        if (seq === previewSeq.current) setPreview(ok ? data.comparison : null);
+        if (seq === previewSeq.current) {
+          setPreview(ok ? data.comparison : null);
+          setPreviewReason(ok ? null : (data?.reason ?? null));
+        }
       } catch {
         if (seq === previewSeq.current) setPreview(null);
       } finally {
@@ -135,6 +162,10 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
       "Check the date, the deviation and the amounts (in kroner).",
       "Sjekk datoen, avviket og beløpene (i kroner).",
     ),
+    PRICES_OUTDATED: t(
+      "This order was saved with older prices, so its price can't be changed as it is. Press \"Use new price\" in the calculator first.",
+      "Denne bestillingen ble lagret med eldre priser, så prisen kan ikke endres slik den er. Trykk «Bruk ny pris» i kalkulatoren først.",
+    ),
   };
 
   async function handleSave() {
@@ -146,7 +177,8 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
       return;
     }
     const pricesChanged = !!pricingDraft;
-    if (!statusChanged && !change.changed && !pricesChanged) {
+    const filesChanged = hasAttachmentChanges(attachmentDraft);
+    if (!statusChanged && !change.changed && !pricesChanged && !filesChanged) {
       setMessage({ tone: "error", text: t("Nothing to save.", "Ingenting å lagre.") });
       return;
     }
@@ -185,6 +217,22 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
           const reason = data?.reason as string | undefined;
           setMessage({ tone: "error", text: (reason && reasonText[reason]) || t("Couldn't save the status.", "Kunne ikke lagre statusen.") });
           if (change.changed || pricesChanged) onChanged();
+          return;
+        }
+      }
+      // Last, once the order itself saved: the picked files go up, removed ones go.
+      if (filesChanged) {
+        const files = await applyAttachmentDraft(order.id, attachmentDraft);
+        onAttachmentsApplied?.(files.remaining);
+        if (!files.ok) {
+          setMessage({
+            tone: "error",
+            text: t(
+              `Saved, but ${files.failed} file change(s) didn't go through — press Save to try them again.`,
+              `Lagret, men ${files.failed} filendring(er) gikk ikke gjennom — trykk Lagre for å prøve igjen.`,
+            ),
+          });
+          onChanged();
           return;
         }
       }
@@ -375,7 +423,7 @@ export default function WebsiteOrderAdminActions({ order, locale, onChanged, chi
                 totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
               />
             ) : (
-              !previewing && <p className="text-xs text-black/50">{reasonText.INVALID_HANDLING}</p>
+              !previewing && <p className="text-xs text-black/50">{(previewReason && reasonText[previewReason]) || reasonText.INVALID_HANDLING}</p>
             )}
           </div>
         )}

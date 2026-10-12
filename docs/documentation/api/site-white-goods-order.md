@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Creates a homepage website order (all website catalogs: white goods, furniture, parcel/pallet). It validates the request, prices it with `priceWebsiteOrder`, and stores the order, its lines (`buildWebsiteOrderItems`) and its `websiteBookingDetails`.
+Creates a homepage website order (all website catalogs: white goods, furniture, parcel/pallet). It validates the request, prices it with `priceWebsiteOrder`, and stores the order, its lines (`buildWebsiteOrderItems`) and its `websiteBookingDetails`. It always prices with today's catalog: a `pricingSnapshot` sent on the browser's cards is ignored. Each saved card keeps the catalog prices it was charged (`pricingSnapshot`, the booking app's `OrderPricingSnapshot`), so later admin saves keep them until "Use new price" (see `orders-website-items.md`).
 
 **The customer pays what they were shown.** The request must include `shownTotal`, the total the booking summary displayed:
 

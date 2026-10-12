@@ -12,7 +12,7 @@ Builds, applies, and compares frozen order pricing snapshots so saved orders kee
 
 | Function | Description |
 | --- | --- |
-| `buildOrderPricingSnapshot` | Captures the prices relevant to the selected product cards from the current catalog and price-list settings. |
+| `buildOrderPricingSnapshot` | Captures the prices relevant to the selected product cards from the current catalog and price-list settings. The selected return option is frozen both as a special option and as a product option, because the website catalogs keep returns on the product itself (category `return`). Before this, those return prices were never frozen. |
 | `applyOrderPricingSnapshot` | Overlays saved prices onto a loaded catalog and price-list settings object. |
 | `getSavedOrderPricingSnapshot` | Reads the first saved pricing snapshot from a product-card array. |
 | `pricingSnapshotsEqual` | Compares two pricing snapshots with stable key ordering, cents-normalized prices, and current selected snapshot keys so unselected saved option prices do not trigger warnings. |

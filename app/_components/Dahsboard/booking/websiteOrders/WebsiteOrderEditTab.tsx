@@ -55,6 +55,10 @@ type Props = {
   onDirtyChange: (dirty: boolean) => void;
   // Shown left of Save in the same row (the modal's "Delete order"), as on the Overview.
   besideSave?: ReactNode;
+  // The order's saved total and its total at today's catalog prices: the
+  // calculator offers "Use new price" when they differ, as on the Overview.
+  storedTotal: number;
+  currentPricesTotal: number | null;
 };
 
 type Category = { code: string; labelEn: string; labelNo: string; productIds: string[] };
@@ -76,7 +80,16 @@ const SOURCE_ICONS: Record<BookingPickupSource, ReactNode> = {
 // rules as the customer's booking flow) and pickup addresses that each list the
 // products collected there. Priced and saved through
 // /api/orders/[orderId]/website-items, like before.
-export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel, onDirtyChange, besideSave }: Props) {
+export default function WebsiteOrderEditTab({
+  orderId,
+  locale,
+  onSaved,
+  onCancel,
+  onDirtyChange,
+  besideSave,
+  storedTotal,
+  currentPricesTotal,
+}: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const cardLocale = locale === "nb" ? "no" : "en";
 
@@ -99,6 +112,10 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
   // Discount / extra / partner minus-plus as stored, and the calculator's unsaved changes to them.
   const [adjustments, setAdjustments] = useState<CalculatorAdjustments>(NO_ADJUSTMENTS);
   const [pricingDraft, setPricingDraft] = useState<WebsiteOrderPricingDraft | null>(null);
+  // "Use new price": this save prices the order with today's catalog.
+  const [useNewPrices, setUseNewPrices] = useState(false);
+  // The server refused the edit's price: the order was saved with older prices.
+  const [pricesOutdated, setPricesOutdated] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -171,7 +188,7 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
   }, [orderId]);
 
   const currentKey = details ? JSON.stringify({ cards, stops, details }) : null;
-  const dirty = (!!initialKey && currentKey !== initialKey) || !!pricingDraft;
+  const dirty = (!!initialKey && currentKey !== initialKey) || !!pricingDraft || useNewPrices;
   useEffect(() => {
     onDirtyChange(dirty);
   }, [dirty, onDirtyChange]);
@@ -184,10 +201,13 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
       details: saveDetails,
       // The calculator's own choices ride along, so they're priced and saved with the edits.
       ...(pricingDraft ? { handling: pricingDraft.adjustments, nulledLines: pricingDraft.nulledLines } : {}),
+      // Today's catalog prices only when the admin chose "Use new price";
+      // otherwise the order keeps the prices it was saved with.
+      ...(useNewPrices ? { useCurrentPrices: true } : {}),
     };
     // cardName reads cards/catalogProducts, both already dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cards, stops, details, catalogProducts, pricingDraft]);
+  }, [cards, stops, details, catalogProducts, pricingDraft, useNewPrices]);
 
   const blockers: EditorBlocker[] = details
     ? [
@@ -218,6 +238,10 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
     NOT_EDITABLE_STATUS: t("This order is closed and can't be changed.", "Denne bestillingen er avsluttet og kan ikke endres."),
     INVALID_DETAILS: t("Check the name, phone and email.", "Sjekk navn, telefon og e-post."),
     FORBIDDEN: t("Only admins can change website orders.", "Kun administratorer kan endre nettsidebestillinger."),
+    PRICES_OUTDATED: t(
+      "This order was saved with older prices, so this change can't be priced as it is.",
+      "Denne bestillingen ble lagret med eldre priser, så endringen kan ikke prises slik den er.",
+    ),
   };
   // The pickup blocker names the products, so the admin knows which ones to tick.
   const blockerText = (blocker: EditorBlocker) => {
@@ -252,6 +276,7 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
         setPreview(ok ? { comparison: json.comparison, calculator: json.calculator } : null);
         if (ok) setFirstCalculator((current) => current ?? json.calculator);
         setError(ok ? "" : (json?.reason && reasonText[json.reason]) || t("Couldn't price the order.", "Kunne ikke prise bestillingen."));
+        setPricesOutdated(!ok && json?.reason === "PRICES_OUTDATED");
       } catch {
         if (seq === previewSeq.current) setPreview(null);
       } finally {
@@ -263,7 +288,7 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
   }, [payloadKey]);
 
   async function handleSave() {
-    if (blockers.length > 0 || saving) return;
+    if (blockers.length > 0 || saving || (pricesOutdated && !useNewPrices)) return;
     setError("");
     setSaving(true);
     try {
@@ -759,6 +784,33 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
             </ul>
           )}
           {showError && <p className="text-sm font-medium text-red-600">{error}</p>}
+          {/* Prices never move by themselves: an older order whose saved prices
+              today's catalog no longer gives can only be re-priced on purpose. */}
+          {pricesOutdated && !useNewPrices && (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+              <p>
+                {t(
+                  "Use today's prices for this order? Its total changes when you press Save, not before.",
+                  "Bruke dagens priser for denne bestillingen? Totalen endres når du trykker Lagre, ikke før.",
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => setUseNewPrices(true)}
+                className="mt-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"
+              >
+                {t("Use new price", "Bruk ny pris")}
+              </button>
+            </div>
+          )}
+          {useNewPrices && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-logoblue/20 bg-logoblue/5 px-3 py-2 text-sm text-logoblue">
+              <span>{t("This save uses today's prices.", "Denne lagringen bruker dagens priser.")}</span>
+              <button type="button" onClick={() => setUseNewPrices(false)} className="font-semibold underline">
+                {t("Keep the saved prices", "Behold de lagrede prisene")}
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             {besideSave}
             <button
@@ -772,7 +824,7 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
             <button
               type="button"
               onClick={handleSave}
-              disabled={!dirty || saving || blockers.length > 0}
+              disabled={!dirty || saving || blockers.length > 0 || (pricesOutdated && !useNewPrices)}
               className="inline-flex h-12 flex-1 items-center justify-center rounded-full bg-logoblue px-5 text-base font-semibold text-white disabled:opacity-50"
             >
               {saving ? t("Saving…", "Lagrer…") : t("Save changes", "Lagre endringer")}
@@ -790,10 +842,16 @@ export default function WebsiteOrderEditTab({ orderId, locale, onSaved, onCancel
             calculator={firstCalculator}
             adjustments={adjustments}
             missingFromLines={0}
-            storedTotal={firstCalculator.customer.total}
+            storedTotal={storedTotal}
+            currentPricesTotal={currentPricesTotal}
             locale={locale}
             onDraftChange={setPricingDraft}
-            externalPricing={{ view: preview?.calculator ?? null, previewing }}
+            externalPricing={{
+              view: preview?.calculator ?? null,
+              previewing,
+              useNewPrice: useNewPrices,
+              onUseNewPrice: () => setUseNewPrices(true),
+            }}
           />
         ) : (
           <section className={sectionClass}>

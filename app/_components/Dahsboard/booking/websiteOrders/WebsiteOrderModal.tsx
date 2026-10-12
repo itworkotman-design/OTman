@@ -14,6 +14,7 @@ import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import WebsiteOrderAttachments from "./WebsiteOrderAttachments";
+import { EMPTY_ATTACHMENT_DRAFT, hasAttachmentChanges, type AttachmentDraft } from "@/lib/orders/attachmentDraft";
 import WebsiteOrderCustomerLoginButton from "./WebsiteOrderCustomerLoginButton";
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
@@ -53,6 +54,8 @@ export type WebsiteOrderView = {
   handling: WebsiteOrderHandling;
   // Customer and partner price per line (null when the order can't be priced).
   calculator: WebsiteOrderCalculatorView | null;
+  // The customer total at today's catalog prices — "Use new price" when it differs.
+  currentPricesTotal?: number | null;
 };
 
 type Props = {
@@ -101,6 +104,10 @@ export default function WebsiteOrderModal({
   const [editNotice, setEditNotice] = useState("");
   // The calculator's unsaved changes; the one Save under "Handle order" stores them.
   const [pricingDraft, setPricingDraft] = useState<WebsiteOrderPricingDraft | null>(null);
+  // Picked/removed attachments — stored by the Overview's Save, never before.
+  const [attachmentDraft, setAttachmentDraft] = useState<AttachmentDraft>(EMPTY_ATTACHMENT_DRAFT);
+  // Bumped after that Save so the attachment list reloads what was stored.
+  const [attachmentsVersion, setAttachmentsVersion] = useState(0);
   // Above the left column's Save: where the calculator shows its price preview.
   const [priceChangeSlot, setPriceChangeSlot] = useState<HTMLDivElement | null>(null);
   const check = order.totalsCheck;
@@ -240,7 +247,8 @@ export default function WebsiteOrderModal({
               <button
                 type="button"
                 onClick={() => {
-                  if (editDirty && !confirmDiscardEdits()) return;
+                  const unsaved = editDirty || !!pricingDraft || hasAttachmentChanges(attachmentDraft);
+                  if (unsaved && !confirmDiscardEdits()) return;
                   onClose();
                 }}
                 className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-logoblue text-white"
@@ -296,6 +304,8 @@ export default function WebsiteOrderModal({
                 onDirtyChange={handleEditDirtyChange}
                 onCancel={() => switchTab("overview")}
                 besideSave={deleteButton}
+                storedTotal={order.priceExVat}
+                currentPricesTotal={order.currentPricesTotal ?? null}
                 onSaved={(message) => {
                   setEditDirty(false);
                   setTab("overview");
@@ -336,10 +346,22 @@ export default function WebsiteOrderModal({
                   locale={locale}
                   onChanged={onChanged}
                   pricingDraft={pricingDraft}
+                  attachmentDraft={attachmentDraft}
+                  onAttachmentsApplied={(remaining) => {
+                    // Only failed file changes stay pending; the list reloads what was stored.
+                    setAttachmentDraft(remaining);
+                    setAttachmentsVersion((version) => version + 1);
+                  }}
                   priceChangeSlotRef={setPriceChangeSlot}
                   besideSave={deleteButton}
                 >
-                  <WebsiteOrderAttachments orderId={order.id} locale={locale} />
+                  <WebsiteOrderAttachments
+                    key={attachmentsVersion}
+                    orderId={order.id}
+                    locale={locale}
+                    draft={attachmentDraft}
+                    onDraftChange={setAttachmentDraft}
+                  />
                 </WebsiteOrderAdminActions>
                 {deleteError ? <p className="text-center text-sm font-medium text-red-600">{deleteError}</p> : null}
               </div>
@@ -358,6 +380,7 @@ export default function WebsiteOrderModal({
                     adjustments={calculatorAdjustments}
                     missingFromLines={order.totalsCheck.missingFromLines}
                     storedTotal={order.priceExVat}
+                    currentPricesTotal={order.currentPricesTotal ?? null}
                     locale={locale}
                     onDraftChange={setPricingDraft}
                     priceChangeTarget={priceChangeSlot}

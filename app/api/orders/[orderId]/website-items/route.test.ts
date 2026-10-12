@@ -5,9 +5,11 @@ const mocks = vi.hoisted(() => ({
   membershipFindFirstMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
   transactionMock: vi.fn(),
+  orderUpdateMock: vi.fn(),
   getWebsiteOrderCatalogMock: vi.fn(),
   listSeededWebsiteCatalogsMock: vi.fn(),
   recomputeMock: vi.fn(),
+  resolvePricingMock: vi.fn(),
   pricingWritesMock: vi.fn(),
   sendLifecycleEmailsMock: vi.fn(),
   createOrderUpdatedEventMock: vi.fn(),
@@ -22,7 +24,7 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     membership: { findFirst: mocks.membershipFindFirstMock },
-    order: { findFirst: mocks.orderFindFirstMock },
+    order: { findFirst: mocks.orderFindFirstMock, update: mocks.orderUpdateMock },
     $transaction: mocks.transactionMock,
   },
 }));
@@ -42,6 +44,7 @@ vi.mock("@/lib/orders/websiteOrderRepricing", async () => {
   return {
     ...actual,
     recomputeWebsiteOrderPricing: mocks.recomputeMock,
+    resolveSavedCatalogPricing: mocks.resolvePricingMock,
     websiteOrderPricingWrites: mocks.pricingWritesMock,
   };
 });
@@ -70,6 +73,10 @@ const washer = { id: "p-wm", code: "WG_WASHING_MACHINE", productName: "Vaskemask
 const sofa = { id: "p-sofa", code: "FN_SOFA", productName: "Sofa", options: [] };
 
 const card = (cardId: number, productId: string) => ({ ...createEmptyProductCard(cardId), productId, amount: 1 });
+
+// The catalog prices an order was saved with, kept on its cards (like the booking app).
+const FROZEN_PRICES = { productOptions: { frozen: true } };
+const frozenCard = (cardId: number, productId: string) => ({ ...card(cardId, productId), pricingSnapshot: FROZEN_PRICES });
 
 const storePickup = {
   source: "store",
@@ -116,6 +123,7 @@ function order(overrides: Record<string, unknown> = {}) {
     emailThreadToken: null,
     paymentRequestSentAt: null,
     priceExVat: 1000,
+    priceSubcontractor: 400,
     productsSummary: "Vaskemaskin",
     rabatt: null,
     leggTil: null,
@@ -133,7 +141,7 @@ function order(overrides: Record<string, unknown> = {}) {
     extraPickupAddress: [],
     websiteOrderKind: "WHITE_GOODS",
     websiteBookingDetails: bookingDetails,
-    productCardsSnapshot: [card(0, "p-wm")],
+    productCardsSnapshot: [frozenCard(0, "p-wm")],
     payments: [],
     ...overrides,
   };
@@ -228,6 +236,10 @@ describe("/api/orders/[orderId]/website-items", () => {
       { catalog: { priceListCode: "FN", labelEn: "Furniture", labelNo: "Møbler", products: [{ code: sofa.code }] } },
     ]);
     mocks.recomputeMock.mockResolvedValue(recomputed(1500));
+    // The real lookup reads the cards' snapshot, else the stored lines — here just the cards'.
+    mocks.resolvePricingMock.mockImplementation(async (_order: unknown, cards: { pricingSnapshot?: unknown }[]) =>
+      cards.find((c) => c.pricingSnapshot)?.pricingSnapshot ?? null,
+    );
     mocks.pricingWritesMock.mockReturnValue(["writes"]);
     mocks.transactionMock.mockResolvedValue([]);
     mocks.sendLifecycleEmailsMock.mockResolvedValue({ sentCount: 1, failedOrderIds: [] });
@@ -322,6 +334,7 @@ describe("/api/orders/[orderId]/website-items", () => {
       expect(json).toMatchObject({ ok: true, previousPriceExVat: 1000, priceExVat: 1500, emailSent: null });
       expect(mocks.recomputeMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }), twoCards.productCards, {
         allowIncomplete: true,
+        catalogPricing: FROZEN_PRICES,
       });
       const [, , data] = mocks.pricingWritesMock.mock.calls[0]!;
       expect(data).toEqual({ lastEditedByMembershipId: "m1" });
@@ -377,7 +390,7 @@ describe("/api/orders/[orderId]/website-items", () => {
     it("keeps the stored products when only details are sent", async () => {
       const res = await put({ details: editedDetails });
       expect(res.status).toBe(200);
-      expect(mocks.recomputeMock.mock.calls[0]![1]).toEqual([card(0, "p-wm")]);
+      expect(mocks.recomputeMock.mock.calls[0]![1]).toEqual([frozenCard(0, "p-wm")]);
     });
 
     it("writes the edited columns and re-prices with the new stops, recalculating the route when an address changed", async () => {
@@ -498,7 +511,7 @@ describe("/api/orders/[orderId]/website-items", () => {
       expect(res.status).toBe(200);
 
       const [pricedOrder, cards] = mocks.recomputeMock.mock.calls[0]!;
-      expect(cards).toEqual([card(0, "p-wm")]);
+      expect(cards).toEqual([frozenCard(0, "p-wm")]);
       expect(pricedOrder).toMatchObject({
         expressDelivery: true,
         rabatt: "100",
@@ -646,6 +659,94 @@ describe("/api/orders/[orderId]/website-items", () => {
     });
   });
 
+  // Only Save changes an order, and a save never moves it to today's prices
+  // by itself: it prices with the catalog prices stored on its cards, like the
+  // booking app, until the admin picks "Use new price".
+  describe("PUT (frozen prices)", () => {
+    it("prices a save and its preview with the catalog prices stored on the order", async () => {
+      await put({ handling: { description: "Ring først" } });
+      await put({ handling: { description: "Ring først" }, dryRun: true });
+      expect(mocks.recomputeMock.mock.calls[0]![2]).toEqual({ allowIncomplete: true, catalogPricing: FROZEN_PRICES });
+      expect(mocks.recomputeMock.mock.calls[1]![2]).toEqual({ allowIncomplete: true, catalogPricing: FROZEN_PRICES });
+    });
+
+    it("prices with today's catalog only when the admin chose \"Use new price\"", async () => {
+      await put({ handling: {}, useCurrentPrices: true, dryRun: true });
+      await put({ handling: {}, useCurrentPrices: true });
+      expect(mocks.recomputeMock.mock.calls[0]![2]).toEqual({ allowIncomplete: true, catalogPricing: null });
+      expect(mocks.recomputeMock.mock.calls[1]![2]).toEqual({ allowIncomplete: true, catalogPricing: null });
+      expect(mocks.transactionMock).toHaveBeenCalledWith(["writes"]);
+    });
+
+    it("prices an older order with the prices read back from its stored lines, from the order's own lines", async () => {
+      const recovered = { productOptions: { recovered: true } };
+      mocks.orderFindFirstMock.mockResolvedValue(order({ productCardsSnapshot: [card(0, "p-wm")], items: [{ optionId: "o1", customerPriceCents: 45500, subcontractorPriceCents: 20500 }] }));
+      mocks.resolvePricingMock.mockResolvedValue(recovered);
+
+      const res = await put({ handling: { rabatt: "100" } });
+
+      expect(res.status).toBe(200);
+      expect(mocks.resolvePricingMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }), [card(0, "p-wm")], [
+        { optionId: "o1", customerPriceCents: 45500, subcontractorPriceCents: 20500 },
+      ]);
+      expect(mocks.recomputeMock.mock.calls[0]![2]).toEqual({ allowIncomplete: true, catalogPricing: recovered });
+      expect(mocks.pricingWritesMock).toHaveBeenCalled();
+    });
+
+    describe("an older order, saved before its cards kept their prices", () => {
+      const olderOrder = () => order({ productCardsSnapshot: [card(0, "p-wm")] });
+
+      beforeEach(() => {
+        mocks.orderFindFirstMock.mockResolvedValue(olderOrder());
+      });
+
+      it("saves normally while today's catalog still gives its saved price", async () => {
+        mocks.recomputeMock.mockResolvedValue({ ...recomputed(1000), priceSubcontractor: 400 });
+        const res = await put({ handling: { rabatt: "100" } });
+        expect(res.status).toBe(200);
+        expect(mocks.pricingWritesMock).toHaveBeenCalled();
+      });
+
+      it("refuses a change to its price (and its preview) until \"Use new price\" is chosen", async () => {
+        // The edit priced (1500), then the order as saved priced today (1200 — not its 1000).
+        mocks.recomputeMock.mockImplementation(async (_order: unknown, cards: unknown[]) =>
+          cards.length === 2 ? recomputed(1500) : { ...recomputed(1200), priceSubcontractor: 400 },
+        );
+
+        for (const dryRun of [true, false]) {
+          const res = await put({ ...twoCards, dryRun });
+          expect(res.status).toBe(409);
+          expect(await res.json()).toMatchObject({ ok: false, reason: "PRICES_OUTDATED", storedPriceExVat: 1000, currentPriceExVat: 1200 });
+        }
+        expect(mocks.transactionMock).not.toHaveBeenCalled();
+      });
+
+      it("saves a change that doesn't touch the price without re-pricing the order", async () => {
+        mocks.recomputeMock.mockResolvedValue({ ...recomputed(1200), priceSubcontractor: 400 });
+        mocks.orderUpdateMock.mockReturnValue("order-update");
+
+        const res = await put({ handling: { description: "Ring først" } });
+
+        expect(res.status).toBe(200);
+        expect(await res.json()).toMatchObject({ ok: true, previousPriceExVat: 1000, priceExVat: 1000 });
+        expect(mocks.pricingWritesMock).not.toHaveBeenCalled();
+        expect(mocks.transactionMock).toHaveBeenCalledWith(["order-update"]);
+        const { data } = mocks.orderUpdateMock.mock.calls[0]![0];
+        expect(data).toMatchObject({ lastEditedByMembershipId: "m1", description: "Ring først" });
+        expect(data).not.toHaveProperty("priceExVat");
+        expect(data).not.toHaveProperty("pricingSnapshot");
+        expect(data).not.toHaveProperty("productCardsSnapshot");
+      });
+
+      it("re-prices it at today's prices once \"Use new price\" is chosen", async () => {
+        mocks.recomputeMock.mockResolvedValue(recomputed(1500));
+        const res = await put({ ...twoCards, useCurrentPrices: true });
+        expect(res.status).toBe(200);
+        expect(mocks.pricingWritesMock).toHaveBeenCalled();
+      });
+    });
+  });
+
   describe("PUT (save & send payment link)", () => {
     it("approves a new order, mints its action token and sends the payment request", async () => {
       const res = await put({ ...twoCards, sendPaymentLink: true });
@@ -735,7 +836,7 @@ describe("/api/orders/[orderId]/website-items", () => {
   describe("pickup assignment", () => {
     function twoStopOrder(cardIds: [number[], number[]]) {
       return order({
-        productCardsSnapshot: [card(0, "p-wm"), card(1, "p-sofa")],
+        productCardsSnapshot: [frozenCard(0, "p-wm"), frozenCard(1, "p-sofa")],
         websiteBookingDetails: {
           ...bookingDetails,
           pickups: [

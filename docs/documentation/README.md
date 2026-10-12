@@ -247,6 +247,7 @@ Each documentation file should include:
 ### Lib — General
 
 - [Lib: attachment categories](./lib/attachment-categories.md)
+- [Lib: attachment draft](./lib/attachment-draft.md)
 - [Lib: catalog](./lib/catalog.md)
 - [Lib: chart utils](./lib/chart-utils.md)
 - [Lib: database client](./lib/db.md)

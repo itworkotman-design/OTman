@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   applyOrderPricingSnapshot,
-  getSavedOrderPricingSnapshot,
+  buildOrderPricingSnapshot as buildCatalogPricingSnapshot,
 } from "@/lib/booking/pricing/snapshot";
 import { buildOrderSummaries } from "@/lib/orders/buildOrderSummaries";
 import { buildOrderPricingSnapshot } from "@/lib/orders/orderTotals";
@@ -157,7 +157,15 @@ async function createWhiteGoodsOrder(
     catalogProducts: catalog.products,
     catalogSpecialOptions: catalog.specialOptions,
     priceListSettings: catalog.priceListSettings,
-    pricingSnapshot: getSavedOrderPricingSnapshot(productCards),
+    // Always today's catalog — never prices sent from the browser.
+    pricingSnapshot: null,
+  });
+
+  const catalogPricing = buildCatalogPricingSnapshot({
+    productCards,
+    catalogProducts: pricingSource.catalogProducts,
+    catalogSpecialOptions: pricingSource.catalogSpecialOptions,
+    priceListSettings: pricingSource.priceListSettings,
   });
 
   const summaries = buildOrderSummaries(
@@ -338,7 +346,12 @@ async function createWhiteGoodsOrder(
       }),
       priceExVat: Math.round(pricingResult.totals.totalExVat),
       priceSubcontractor: Math.round(pricingResult.totals.subcontractorTotal),
-      productCardsSnapshot: productCards as unknown as Prisma.InputJsonValue,
+      // Each card keeps the catalog prices it was charged (the booking app's
+      // pricing snapshot): admin saves keep them until "Use new price".
+      productCardsSnapshot: productCards.map((card) => ({
+        ...card,
+        pricingSnapshot: catalogPricing,
+      })) as unknown as Prisma.InputJsonValue,
       pricingSnapshot: pricingSnapshot as unknown as Prisma.InputJsonValue,
       ...summaries,
     },

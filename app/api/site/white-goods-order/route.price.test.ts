@@ -204,4 +204,31 @@ describe("POST /api/site/white-goods-order — the price the customer saw", () =
     expect((await res.json()).reason).toBe("SHOWN_TOTAL_REQUIRED");
     expect(mocks.orderCreate).not.toHaveBeenCalled();
   });
+
+  // The booking app's pricing snapshot: an admin save keeps these prices
+  // until someone picks "Use new price".
+  it("freezes the catalog prices it charged on every saved card", async () => {
+    await post(body({ shownTotal: serverTotal("171.12") }));
+    const saved = mocks.orderCreate.mock.calls[0]![0].data.productCardsSnapshot;
+    expect(saved[0].pricingSnapshot).toMatchObject({
+      deliveryTypes: { [`p-wm:${DELIVERY_TYPES.INDOOR}`]: { price: "690" } },
+      specialOptions: {},
+    });
+  });
+
+  it("never prices with catalog prices sent from the browser", async () => {
+    const cheap = {
+      productOptions: {},
+      specialOptions: {},
+      deliveryTypes: { [`p-wm:${DELIVERY_TYPES.INDOOR}`]: { price: "1", subcontractorPrice: "1", xtraPrice: "1", xtraSubcontractorPrice: "1" } },
+      autoDeliveryPrices: {},
+      customSectionOptions: {},
+      priceListSettings,
+    };
+    const res = await post(body({ productCards: [{ ...cards[0], pricingSnapshot: cheap }], shownTotal: serverTotal("171.12") }));
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreate.mock.calls[0]![0].data.productCardsSnapshot[0].pricingSnapshot.deliveryTypes).toMatchObject({
+      [`p-wm:${DELIVERY_TYPES.INDOOR}`]: { price: "690" },
+    });
+  });
 });

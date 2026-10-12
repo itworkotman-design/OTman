@@ -5,10 +5,12 @@ const mocks = vi.hoisted(() => ({
   membershipFindFirstMock: vi.fn(),
   orderFindFirstMock: vi.fn(),
   recomputeMock: vi.fn(),
+  resolvePricingMock: vi.fn(),
 }));
 
 vi.mock("@/lib/orders/websiteOrderRepricing", () => ({
   recomputeWebsiteOrderPricing: mocks.recomputeMock,
+  resolveSavedCatalogPricing: mocks.resolvePricingMock,
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -94,6 +96,9 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "u1", activeCompanyId: "c1" });
     mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN", appAccess: [] });
     mocks.orderFindFirstMock.mockResolvedValue(whiteGoodsOrder);
+    mocks.resolvePricingMock.mockImplementation(async (_order: unknown, cards: { pricingSnapshot?: unknown }[]) =>
+      cards.find((c) => c.pricingSnapshot)?.pricingSnapshot ?? null,
+    );
     mocks.recomputeMock.mockResolvedValue({
       pricingResult: {
         breakdowns: [
@@ -123,13 +128,49 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     expect(mocks.recomputeMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: "order-1" }),
       [{ cardId: 0, productId: "p-wm" }],
-      { allowIncomplete: true },
+      { allowIncomplete: true, catalogPricing: null },
     );
     expect(json.order.calculator).toMatchObject({
       products: [{ name: "Vaskemaskin", lines: [{ customer: 899, partner: 400 }] }],
       customer: { total: 899 },
       partner: { total: 400 },
     });
+  });
+
+  // Like the booking app: the order is shown at the catalog prices it was
+  // saved with; today's total is only offered ("Use new price").
+  it("prices the calculator with the order's saved catalog prices and gives today's total separately", async () => {
+    const frozen = { productOptions: { frozen: true } };
+    mocks.orderFindFirstMock.mockResolvedValue({
+      ...whiteGoodsOrder,
+      productCardsSnapshot: [{ cardId: 0, productId: "p-wm", pricingSnapshot: frozen }],
+    });
+    const base = await mocks.recomputeMock();
+    mocks.recomputeMock.mockClear();
+    mocks.recomputeMock.mockImplementation(async (_order: unknown, _cards: unknown, options: { catalogPricing?: unknown }) =>
+      options.catalogPricing
+        ? base
+        : { pricingResult: { ...base.pricingResult, totals: { ...base.pricingResult.totals, totalExVat: 1099, totalIncVat: 1099 } } },
+    );
+
+    const json = await (await call()).json();
+
+    expect(mocks.recomputeMock.mock.calls[0]![2]).toEqual({ allowIncomplete: true, catalogPricing: frozen });
+    expect(json.order.calculator.customer.total).toBe(899);
+    expect(json.order.currentPricesTotal).toBe(1099);
+  });
+
+  it("shows an older order at the prices read back from its stored lines", async () => {
+    const recovered = { productOptions: { recovered: true } };
+    mocks.orderFindFirstMock.mockResolvedValue({ ...whiteGoodsOrder, productCardsSnapshot: [{ cardId: 0, productId: "p-wm" }], items: [] });
+    mocks.resolvePricingMock.mockResolvedValue(recovered);
+    await call();
+    expect(mocks.recomputeMock.mock.calls[0]![2]).toEqual({ allowIncomplete: true, catalogPricing: recovered });
+  });
+
+  it("gives the calculator's own total as today's for an order saved before it kept its prices", async () => {
+    const json = await (await call()).json();
+    expect(json.order.currentPricesTotal).toBe(json.order.calculator.customer.total);
   });
 
   it("hides partner prices from someone who can only view website orders", async () => {

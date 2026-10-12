@@ -13,7 +13,7 @@ import {
 import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import { handlingFromOrder } from "@/lib/orders/websiteOrderHandling";
 import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
-import { recomputeWebsiteOrderPricing } from "@/lib/orders/websiteOrderRepricing";
+import { recomputeWebsiteOrderPricing, resolveSavedCatalogPricing } from "@/lib/orders/websiteOrderRepricing";
 import { websiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 
@@ -62,6 +62,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       customerComments: true,
       statusNotes: true,
       priceExVat: true,
+      priceSubcontractor: true,
       rabatt: true,
       leggTil: true,
       subcontractorMinus: true,
@@ -69,6 +70,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       floorNo: true,
       lift: true,
       productCardsSnapshot: true,
+      // An older order's saved catalog prices are read back from these.
+      items: { select: { optionId: true, customerPriceCents: true, subcontractorPriceCents: true } },
       driver: true,
       secondDriver: true,
       driverInfo: true,
@@ -118,15 +121,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
   // The calculator: the stored order priced the way it's saved, every line
   // with its customer and partner price. An order that can't be priced still
   // opens, just without it.
+  // Priced with the catalog prices saved on its cards (like the booking app);
+  // today's total is only offered, for "Use new price". Older orders saved
+  // before their cards kept prices: read back from their stored lines
+  // (resolveSavedCatalogPricing), else priced with today's catalog.
   let calculator = null;
+  let currentPricesTotal: number | null = null;
   try {
     const cards = Array.isArray(order.productCardsSnapshot) ? (order.productCardsSnapshot as unknown as SavedProductCard[]) : [];
-    const priced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true });
+    const catalogPricing = await resolveSavedCatalogPricing(order, cards, order.items ?? []);
+    const priced = await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true, catalogPricing });
     calculator = websiteOrderCalculatorView(priced.pricingResult, {
       includePartner: canSeePartnerPrices,
       cards: priced.cards,
       products: priced.catalogProducts,
     });
+    const current = catalogPricing ? await recomputeWebsiteOrderPricing(order, cards, { allowIncomplete: true }) : priced;
+    currentPricesTotal = websiteOrderCalculatorView(current.pricingResult, { includePartner: false }).customer.total;
   } catch (err) {
     console.error("[website-details] Couldn't price the order for the calculator:", err);
   }
@@ -168,6 +179,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
         order.customerAccount.email === normalizeCustomerEmail(order.email) &&
         !isCustomerAccountExpired(order.customerAccount.orders),
       calculator,
+      // The customer total at today's catalog prices ("Use new price" when it differs).
+      currentPricesTotal,
       // The fields only an admin handles (driver, deviation, discount…).
       handling: handlingFromOrder(order),
       // Paid so far vs. the order now: what changed and what's due/refundable.

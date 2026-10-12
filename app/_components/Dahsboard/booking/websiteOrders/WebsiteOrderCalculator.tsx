@@ -32,8 +32,11 @@ type Props = {
   adjustments: Adjustments;
   // What the stored lines don't explain (checkWebsiteOrderTotals), shown in red.
   missingFromLines: number;
-  // The saved total — the calculator re-prices, so a difference is flagged.
+  // The saved total.
   storedTotal: number;
+  // The customer total at today's catalog prices: when it differs from the
+  // saved one, "Use new price" is offered. Missing: the calculator's own total.
+  currentPricesTotal?: number | null;
   locale: BookingUiLocale;
   // The unsaved changes (null when there are none); the modal's Save stores them.
   onDraftChange: (draft: WebsiteOrderPricingDraft | null) => void;
@@ -43,7 +46,14 @@ type Props = {
   // and saves them in one go: then this calculator doesn't fetch or save — it
   // shows the parent's latest pricing and only reports its draft. `calculator`
   // stays the order as first priced (what "changed" compares against).
-  externalPricing?: { view: WebsiteOrderCalculatorView | null; previewing: boolean };
+  // "Use new price" is the parent's too there: useNewPrice says whether it's
+  // chosen, onUseNewPrice chooses it (the note hides once it is).
+  externalPricing?: {
+    view: WebsiteOrderCalculatorView | null;
+    previewing: boolean;
+    useNewPrice?: boolean;
+    onUseNewPrice?: () => void;
+  };
 };
 
 const PREVIEW_DELAY_MS = 700;
@@ -101,6 +111,7 @@ export default function WebsiteOrderCalculator({
   adjustments,
   missingFromLines,
   storedTotal,
+  currentPricesTotal = null,
   locale,
   onDraftChange,
   priceChangeTarget = null,
@@ -122,7 +133,8 @@ export default function WebsiteOrderCalculator({
   const [ownPreviewing, setPreviewing] = useState(false);
   const view = externalPricing ? (externalPricing.view ?? calculator) : ownView;
   const previewing = externalPricing ? externalPricing.previewing : ownPreviewing;
-  const [previewFailed, setPreviewFailed] = useState(false);
+  // false, or why the preview failed (the server's reason, or true when unknown).
+  const [previewFailed, setPreviewFailed] = useState<false | true | string>(false);
   // "Use new price" pressed: re-price at today's prices on the next Save. A
   // save with the calculator's draft re-prices the order, so the draft alone
   // (even with unchanged amounts) carries it.
@@ -139,9 +151,9 @@ export default function WebsiteOrderCalculator({
   const anyNulled = hasNulled(nulled);
 
   useEffect(() => {
-    onDraftChange(changed ? { adjustments: storedAdj, nulledLines: nulled } : null);
+    onDraftChange(changed ? { adjustments: storedAdj, nulledLines: nulled, ...(useNewPrice ? { useCurrentPrices: true } : {}) } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [changed, storedAdj, nulled]);
+  }, [changed, storedAdj, nulled, useNewPrice]);
 
   // Always a dry run — this component never saves.
   async function pricePreview() {
@@ -149,7 +161,7 @@ export default function WebsiteOrderCalculator({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ handling: storedAdj, nulledLines: nulled, dryRun: true }),
+      body: JSON.stringify({ handling: storedAdj, nulledLines: nulled, dryRun: true, ...(useNewPrice ? { useCurrentPrices: true } : {}) }),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok && !!data?.ok, data };
@@ -173,7 +185,7 @@ export default function WebsiteOrderCalculator({
       try {
         const { ok, data } = await pricePreview();
         if (seq !== previewSeq.current) return;
-        setPreviewFailed(!ok);
+        setPreviewFailed(ok ? false : (data?.reason ?? true));
         if (ok) {
           setView(data.calculator);
           setPreview(data.comparison);
@@ -206,8 +218,9 @@ export default function WebsiteOrderCalculator({
     }));
   }
 
-  // The order re-priced now (today's catalog) differs from what's saved.
-  const priceOutdated = !external && Math.round(calculator.customer.total) !== Math.round(storedTotal);
+  // Today's catalog prices the order differently from what's saved.
+  const currentTotal = currentPricesTotal ?? calculator.customer.total;
+  const priceOutdated = Math.round(currentTotal) !== Math.round(storedTotal) && !externalPricing?.useNewPrice;
 
   const vat = getVatBreakdown(view.customer.total);
   const fieldClass = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black/85";
@@ -298,8 +311,8 @@ export default function WebsiteOrderCalculator({
           <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
             <p>
               {t(
-                `Priced now this order comes to ${formatKr(exVat(calculator.customer.total))} ex. VAT, but it is saved at ${formatKr(exVat(storedTotal))} (prices have changed since).`,
-                `Priset nå blir ordren ${formatKr(exVat(calculator.customer.total))} eks. mva, men den er lagret med ${formatKr(exVat(storedTotal))} (prisene er endret siden).`,
+                `Priced now this order comes to ${formatKr(exVat(currentTotal))} ex. VAT, but it is saved at ${formatKr(exVat(storedTotal))} (prices have changed since).`,
+                `Priset nå blir ordren ${formatKr(exVat(currentTotal))} eks. mva, men den er lagret med ${formatKr(exVat(storedTotal))} (prisene er endret siden).`,
               )}
             </p>
             {isAdmin && (
@@ -307,7 +320,7 @@ export default function WebsiteOrderCalculator({
               // shows it, and it's stored when Save is pressed (or dropped by Reset).
               <button
                 type="button"
-                onClick={() => setUseNewPrice(true)}
+                onClick={() => (externalPricing ? externalPricing.onUseNewPrice?.() : setUseNewPrice(true))}
                 className="mt-2 rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"
               >
                 {t("Use new price", "Bruk ny pris")}
@@ -459,7 +472,12 @@ export default function WebsiteOrderCalculator({
             !previewing &&
             previewFailed && (
               <p className="text-xs text-red-700">
-                {t("Amounts must be in kroner (e.g. 500 or 99,50).", "Beløp må være i kroner (f.eks. 500 eller 99,50).")}
+                {previewFailed === "PRICES_OUTDATED"
+                  ? t(
+                      "This order was saved with older prices, so its price can't be changed as it is. Press \"Use new price\" first.",
+                      "Denne bestillingen ble lagret med eldre priser, så prisen kan ikke endres slik den er. Trykk «Bruk ny pris» først.",
+                    )
+                  : t("Amounts must be in kroner (e.g. 500 or 99,50).", "Beløp må være i kroner (f.eks. 500 eller 99,50).")}
               </p>
             )
           )}

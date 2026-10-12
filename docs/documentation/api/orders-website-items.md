@@ -36,3 +36,12 @@ GET also returns `useFullDistanceKmPricing` (from the order's `createdAt`), so t
 ## Pickup assignment
 
 When products or details are sent, every product must be on exactly one pickup stop with an address once the order has several stops (`findCardsWithoutPickup`, `lib/orders/pickupAssignment.ts`). Otherwise the route returns `422 PRODUCT_WITHOUT_PICKUP` with `cardIds`. The stops checked are the sent details, or the stored ones. Handling-only (calculator) saves skip the check, so older orders stay editable.
+
+## Prices only move on purpose
+
+A save never moves the order to today's prices by itself. Like the booking app, the order is priced with the catalog prices it was saved with (`resolveSavedCatalogPricing` → `recomputeWebsiteOrderPricing`'s `catalogPricing`), and every save stores them on its cards. They come from the cards, or for an older order from its stored lines (only when they reproduce the saved totals exactly). The order's `items` are loaded for that.
+
+- **`useCurrentPrices: true`** (the calculator's "Use new price", or the edit tab's button) prices the save or its preview with today's catalog.
+- **Older orders whose lines can't reproduce their saved price** have no saved prices. The order as saved is priced with today's catalog:
+  - If that gives its saved `priceExVat` / `priceSubcontractor`, the save goes through as usual and the prices get frozen.
+  - If it doesn't, a change that would move the price, or that changes the products, is refused with `409 PRICES_OUTDATED` (`storedPriceExVat`, `currentPriceExVat`), for previews too, until `useCurrentPrices`. Any other change (driver, description, customer details, an address that doesn't change the price) is saved without re-pricing: only the edited columns and booking details are written, while the price, pricing snapshot, cards and order lines stay as they are.

@@ -211,6 +211,9 @@ export function buildOrderPricingSnapshot(params: {
 
     if (card.selectedReturnOptionId) {
       selectedSpecialOptionIds.add(card.selectedReturnOptionId);
+      // A return can also be a plain option on the product (category
+      // "return", see findSelectedReturnOption) — freeze it there too.
+      selectedProductOptionIds.add(card.selectedReturnOptionId);
     }
 
     if (card.deliveryType) {

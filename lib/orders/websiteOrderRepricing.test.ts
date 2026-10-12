@@ -5,7 +5,7 @@ vi.mock("@/lib/db", () => ({ prisma: {} }));
 vi.mock("@/lib/content/websiteOrderCatalog", () => ({ getWebsiteOrderCatalog: mocks.getWebsiteOrderCatalog }));
 
 import { createEmptyProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
-import { SizeBracketSelectionError, recomputeWebsiteOrderPricing } from "./websiteOrderRepricing";
+import { SizeBracketSelectionError, recomputeWebsiteOrderPricing, resolveSavedCatalogPricing } from "./websiteOrderRepricing";
 import { createDefaultPriceListSettings } from "@/lib/products/priceListSettings";
 
 const option = (id: string, category: string) => ({
@@ -196,5 +196,103 @@ describe("recomputeWebsiteOrderPricing — order extras set to 0", () => {
     );
     expect(result.pricingSnapshot).toMatchObject({ nulledOrderExtraKeysForCustomer: [kmKey(settings)] });
     expect(result.orderExtras.find((line) => /km/i.test(line.label))?.price).toBe(0);
+  });
+});
+
+// Like the booking app: an order keeps the catalog prices it was saved with
+// (OrderPricingSnapshot on its cards) until an admin picks "Use new price".
+describe("recomputeWebsiteOrderPricing — frozen catalog prices", () => {
+  const washer = (price: string) => ({
+    ...otherFurniture,
+    id: "wm",
+    code: "WG_WASHING_MACHINE",
+    allowModelNumber: false,
+    allowExtraServices: true,
+    options: [{ ...option("ex", "extra"), customerPrice: price, effectiveCustomerPrice: price }],
+  });
+  const washerCard = { ...createEmptyProductCard(0), productId: "wm", amount: 1, selectedExtraOptionIds: ["ex"] };
+
+  async function savedAt(price: string) {
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer(price)], specialOptions: [], priceListSettings: null });
+    return recomputeWebsiteOrderPricing(order, [washerCard]);
+  }
+
+  it("stores the catalog prices it priced with on every card", async () => {
+    const saved = await savedAt("100");
+    expect(saved.cards[0].pricingSnapshot?.productOptions.ex).toMatchObject({ customerPrice: "100" });
+  });
+
+  it("prices with the frozen prices it's given, not today's catalog, and keeps them on the cards", async () => {
+    const saved = await savedAt("100");
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer("300")], specialOptions: [], priceListSettings: null });
+
+    const frozen = await recomputeWebsiteOrderPricing(order, [washerCard], {
+      catalogPricing: saved.cards[0].pricingSnapshot ?? null,
+    });
+    const current = await recomputeWebsiteOrderPricing(order, [washerCard]);
+
+    expect(frozen.priceExVat).toBe(saved.priceExVat);
+    expect(current.priceExVat - frozen.priceExVat).toBe(200);
+    expect(frozen.cards[0].pricingSnapshot?.productOptions.ex).toMatchObject({ customerPrice: "100" });
+    expect(current.cards[0].pricingSnapshot?.productOptions.ex).toMatchObject({ customerPrice: "300" });
+  });
+
+  it("never prices with a snapshot that came in on the submitted cards", async () => {
+    const saved = await savedAt("100");
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer("300")], specialOptions: [], priceListSettings: null });
+    const result = await recomputeWebsiteOrderPricing(order, [{ ...washerCard, pricingSnapshot: saved.cards[0].pricingSnapshot }]);
+    expect(result.priceExVat - saved.priceExVat).toBe(200);
+  });
+});
+
+// Orders saved before cards kept their catalog prices: the prices are read
+// back from the stored order lines (unit price per option), and only trusted
+// when they give exactly the saved customer and partner totals.
+describe("resolveSavedCatalogPricing", () => {
+  const washer = (price: string, partner = "50") => ({
+    ...otherFurniture,
+    id: "wm",
+    code: "WG_WASHING_MACHINE",
+    allowModelNumber: false,
+    allowExtraServices: true,
+    options: [{ ...option("ex", "extra"), customerPrice: price, effectiveCustomerPrice: price, subcontractorPrice: partner }],
+  });
+  const washerCard = { ...createEmptyProductCard(0), productId: "wm", amount: 1, selectedExtraOptionIds: ["ex"] };
+
+  async function savedOrder(price: string, partner = "50") {
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer(price, partner)], specialOptions: [], priceListSettings: null });
+    const saved = await recomputeWebsiteOrderPricing(order, [washerCard]);
+    return {
+      order: { ...order, priceExVat: saved.priceExVat, priceSubcontractor: saved.priceSubcontractor },
+      items: saved.builtItems.map((item) => ({
+        optionId: item.optionId,
+        customerPriceCents: item.customerPriceCents,
+        subcontractorPriceCents: item.subcontractorPriceCents,
+      })),
+    };
+  }
+
+  it("uses the catalog prices already stored on the cards", async () => {
+    const stored = (await savedOrder("100")).order;
+    const frozen = { productOptions: { frozen: true } } as never;
+    expect(await resolveSavedCatalogPricing(stored, [{ ...washerCard, pricingSnapshot: frozen }], [])).toBe(frozen);
+  });
+
+  it("reads an older order's prices back from its stored lines when the catalog has changed since", async () => {
+    const { order: stored, items } = await savedOrder("100", "40");
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer("300", "90")], specialOptions: [], priceListSettings: null });
+
+    const pricing = await resolveSavedCatalogPricing(stored, [washerCard], items);
+
+    expect(pricing?.productOptions.ex).toMatchObject({ customerPrice: "100", effectiveCustomerPrice: "100", subcontractorPrice: "40" });
+    const repriced = await recomputeWebsiteOrderPricing(stored, [washerCard], { catalogPricing: pricing });
+    expect(repriced.priceExVat).toBe(stored.priceExVat);
+    expect(repriced.priceSubcontractor).toBe(stored.priceSubcontractor);
+  });
+
+  it("gives up (null) when the stored lines can't reproduce the saved totals", async () => {
+    const { order: stored, items } = await savedOrder("100");
+    mocks.getWebsiteOrderCatalog.mockResolvedValue({ products: [washer("300")], specialOptions: [], priceListSettings: null });
+    expect(await resolveSavedCatalogPricing({ ...stored, priceExVat: stored.priceExVat + 7 }, [washerCard], items)).toBeNull();
   });
 });
