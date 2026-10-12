@@ -19,6 +19,7 @@ import {
   getOrderStatusStyle,
 } from "@/lib/orders/statusPresentation";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
+import { getDriverDisplayLabel } from "@/lib/orders/driverNormalization";
 import {
   bookingStatusText,
   bookingText,
@@ -438,6 +439,11 @@ export default function BookingArchiveTable({
                     {t("Partner")}
                   </th>
                 ) : null}
+                {isColumnVisible("driver") ? (
+                  <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
+                    {t("Drivers")}
+                  </th>
+                ) : null}
                 {isColumnVisible("createdAt") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
                     {t("Created at")}
@@ -543,7 +549,7 @@ export default function BookingArchiveTable({
                 ) : null}
                 {isColumnVisible("driver") ? (
                   <th className="whitespace-nowrap border-r border-black/3 px-2 py-3 font-medium padding-weird-landscape text-weird-landscape">
-                    {t("Driver")}
+                    {t("Drivers")}
                   </th>
                 ) : null}
                 {isColumnVisible("createdBy") ? (
@@ -776,6 +782,11 @@ export default function BookingArchiveTable({
                       <Cell>{formatCell(order.subcontractor)}</Cell>
                     </td>
                   ) : null}
+                  {isColumnVisible("driver") ? (
+                    <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
+                      <Cell>{getDriverDisplayLabel(order.driver, t("No driver"))}</Cell>
+                    </td>
+                  ) : null}
                   {isColumnVisible("createdAt") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
                       <Cell>{formatDisplayDateTime(order.createdAt)}</Cell>
@@ -907,7 +918,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("driver") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatCell(order.driver)}</Cell>
+                      <Cell>{getDriverDisplayLabel(order.driver, t("No driver"))}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("createdBy") ? (

@@ -13,6 +13,7 @@ export type BookingArchiveFilters = {
 
   subcontractorId: string;
   createdById: string;
+  driver: string;
   pricelistId: string;
   customPickupAddressId: string;
 

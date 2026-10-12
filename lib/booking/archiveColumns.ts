@@ -11,10 +11,10 @@ import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
 import {
   getAdjustedCustomerTotal,
   getAdjustedSubcontractorTotal,
-  parseNokAdjustment,
   getPricingSnapshotCustomerTotal,
   getPricingSnapshotSubcontractorTotal,
 } from "@/lib/orders/orderTotals";
+import { getDriverDisplayLabel } from "@/lib/orders/driverNormalization";
 
 export type BookingArchiveColumnId =
   | "displayId"
@@ -355,6 +355,13 @@ const adminColumns: BookingArchiveColumn[] = [
     getExportValue: (row) => formatCell(row.subcontractor),
   },
   {
+    id: "driver",
+    label: "Drivers",
+    exportHeader: "Drivers",
+    exportWidth: 18,
+    getExportValue: (row) => getDriverDisplayLabel(row.driver),
+  },
+  {
     id: "createdAt",
     label: "Created at",
     exportHeader: "Created at",
@@ -497,10 +504,10 @@ const subcontractorColumns: BookingArchiveColumn[] = [
   },
   {
     id: "driver",
-    label: "Driver",
-    exportHeader: "Driver",
+    label: "Drivers",
+    exportHeader: "Drivers",
     exportWidth: 18,
-    getExportValue: (row) => formatCell(row.driver),
+    getExportValue: (row) => getDriverDisplayLabel(row.driver),
   },
   {
     id: "createdBy",
@@ -682,5 +689,7 @@ export function getBookingArchiveExportColumns(
 export function getBookingArchiveVisibilityStorageKey(
   viewMode: BookingArchiveViewMode,
 ): string {
-  return `booking-archive-visible-columns:${viewMode}`;
+  return viewMode === "ADMIN"
+    ? "booking-archive-visible-columns:ADMIN:v2"
+    : `booking-archive-visible-columns:${viewMode}`;
 }

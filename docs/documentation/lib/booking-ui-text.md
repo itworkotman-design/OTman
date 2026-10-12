@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Stores short booking UI translations and maps status labels for the supported booking locales, including the required order-number validation copy and the day-after-tomorrow quick-filter label.
+Stores short booking UI translations and maps status labels for the supported booking locales, including singular/plural driver labels, the required order-number validation copy, and the day-after-tomorrow quick-filter label.
 
 ## Functions
 

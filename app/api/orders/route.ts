@@ -48,6 +48,10 @@ import {
 } from "@/lib/integrations/wordpress/orderMeta";
 import { buildArchiveCalculatorItems } from "@/lib/orders/buildArchiveCalculatorItems";
 import { NONE_FILTER_VALUE } from "@/lib/orders/archiveFilters";
+import {
+  getDriverDisplayLabel,
+  matchesDriverFilter,
+} from "@/lib/orders/driverNormalization";
 
 const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   id: true,
@@ -949,6 +953,7 @@ export async function GET(req: Request) {
   const customPickupAddressId = optionalString(
     searchParams.get("customPickupAddressId"),
   );
+  const driver = optionalString(searchParams.get("driver"));
   const fromDate = optionalString(searchParams.get("fromDate"));
   const toDate = optionalString(searchParams.get("toDate"));
   const search = optionalString(searchParams.get("search"));
@@ -1067,9 +1072,12 @@ export async function GET(req: Request) {
 
   const todayDateKey = getTodayDateKey();
   const sortedOrders = orderCandidates.toSorted(compareArchiveOrders(todayDateKey));
-  const matchedOrders = normalizedSearch
+  const searchMatchedOrders = normalizedSearch
     ? sortedOrders.filter((order) => orderMatchesSearch(order, normalizedSearch))
     : sortedOrders;
+  const matchedOrders = driver
+    ? searchMatchedOrders.filter((order) => matchesDriverFilter(order.driver, driver))
+    : searchMatchedOrders;
   const pageOrderIds = matchedOrders
     .slice((page - 1) * rowsPerPage, page * rowsPerPage)
     .map((order) => order.id);
@@ -1226,7 +1234,7 @@ export async function GET(req: Request) {
         driverInfo: order.driverInfo ?? "",
         subcontractorMembershipId: order.subcontractorMembershipId ?? "",
         subcontractor: order.subcontractor ?? "",
-        driver: order.driver ?? "",
+        driver: getDriverDisplayLabel(order.driver, ""),
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
         lastInboundEmailAt: order.lastInboundEmailAt,

@@ -42,6 +42,11 @@ type OrdersApiResponse = {
   orders?: OrderRow[];
 };
 
+type DriverOptionsApiResponse = {
+  ok?: boolean;
+  drivers?: BookingArchiveOption[];
+};
+
 type Props = {
   // Insurance cases page: the same order list, locked to the one store
   // (membership) that handles every insurance case — no Store filter, no
@@ -109,6 +114,7 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
   );
   const [creators, setCreators] = useState<BookingArchiveOption[]>([]);
   const [allCreators, setAllCreators] = useState<BookingArchiveOption[]>([]);
+  const [drivers, setDrivers] = useState<BookingArchiveOption[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState("");
   const [customerActionLoading, setCustomerActionLoading] = useState(false);
@@ -140,6 +146,7 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
       if (filters.subcontractorId)
         params.set("subcontractorId", filters.subcontractorId);
       if (filters.createdById) params.set("createdById", filters.createdById);
+      if (filters.driver) params.set("driver", filters.driver);
       if (filters.pricelistId) params.set("pricelistId", filters.pricelistId);
       if (filters.customPickupAddressId)
         params.set("customPickupAddressId", filters.customPickupAddressId);
@@ -274,6 +281,22 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
       }
     } catch {
       setAllCreators([]);
+    }
+  }
+
+  async function loadDriverOptions() {
+    try {
+      const res = await fetch("/api/orders/drivers", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = (await res.json().catch(() => null)) as DriverOptionsApiResponse | null;
+
+      if (res.ok && data?.ok) {
+        setDrivers(data.drivers ?? []);
+      }
+    } catch {
+      setDrivers([]);
     }
   }
 
@@ -573,6 +596,7 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
     if (!insuranceCases) void loadAllCreators();
     void loadPricelistOptions();
     void loadPickupAddressOptions();
+    void loadDriverOptions();
     return () => {
       orderLoadAbortRef.current?.abort();
     };
@@ -717,13 +741,18 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
           access={access}
           subcontractors={subcontractors}
           creators={creators}
+          drivers={drivers}
+          showDriverFilter={access.viewMode === "ADMIN"}
           pricelists={pricelists}
           showPricelistFilter={showPricelistColumn}
           pickupAddresses={pickupAddresses}
           showPickupAddressFilter={pickupAddresses.length > 0}
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
-          onRefresh={() => void loadOrders(appliedFilters)}
+          onRefresh={() => {
+            void loadOrders(appliedFilters);
+            void loadDriverOptions();
+          }}
           displayedOrderCount={!loading && !error ? orders.length : undefined}
           locale={locale}
         />
@@ -796,7 +825,10 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
                 <button
                   type="button"
                   className={`customButtonDefault${changeFlags.hasNewOrders || changeFlags.hasChangedOrders ? " bg-red-600! text-white! border-red-600!" : ""}`}
-                  onClick={() => void loadOrders(appliedFilters)}
+                  onClick={() => {
+                    void loadOrders(appliedFilters);
+                    void loadDriverOptions();
+                  }}
                   disabled={loading}
                 >
                   {bookingText(locale, "Refresh")}
@@ -856,13 +888,17 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
             setModalOpen(false);
             setSelectedOrderId(null);
           }}
-          onSaved={() => void loadOrders(appliedFilters)}
+          onSaved={() => {
+            void loadOrders(appliedFilters);
+            void loadDriverOptions();
+          }}
           canDelete
           locale={locale}
           onDeleted={() => {
             setModalOpen(false);
             setSelectedOrderId(null);
             void loadOrders(appliedFilters);
+            void loadDriverOptions();
           }}
         />
       ) : (

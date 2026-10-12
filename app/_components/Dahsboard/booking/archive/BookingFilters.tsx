@@ -30,6 +30,8 @@ type Props = {
   };
   subcontractors: BookingArchiveOption[];
   creators: BookingArchiveOption[];
+  drivers?: BookingArchiveOption[];
+  showDriverFilter?: boolean;
   pricelists?: BookingArchiveOption[];
   showPricelistFilter?: boolean;
   pickupAddresses?: BookingArchiveOption[];
@@ -137,6 +139,8 @@ export default function BookingFilters({
   access,
   subcontractors,
   creators,
+  drivers = [],
+  showDriverFilter = false,
   pricelists = [],
   showPricelistFilter = false,
   pickupAddresses = [],
@@ -162,6 +166,7 @@ export default function BookingFilters({
   const [subcontractorId, setSubcontractorId] = useState(
     access.lockedSubcontractorId ?? initialApplied.subcontractorId,
   );
+  const [driver, setDriver] = useState(initialApplied.driver);
   const [pricelistId, setPricelistId] = useState(initialApplied.pricelistId);
   const [customPickupAddressId, setCustomPickupAddressId] = useState(
     initialApplied.customPickupAddressId,
@@ -213,6 +218,7 @@ export default function BookingFilters({
         status,
         createdById: access.lockedCreatedById ?? createdById,
         subcontractorId: access.lockedSubcontractorId ?? subcontractorId,
+        driver,
         pricelistId,
         customPickupAddressId,
         fromDate,
@@ -229,6 +235,7 @@ export default function BookingFilters({
     access.lockedSubcontractorId,
     createdById,
     customPickupAddressId,
+    driver,
     fromDate,
     pricelistId,
     rowsPerPage,
@@ -248,6 +255,7 @@ export default function BookingFilters({
       access.lockedSubcontractorId ??
         DEFAULT_BOOKING_ARCHIVE_FILTERS.subcontractorId,
     );
+    setDriver(DEFAULT_BOOKING_ARCHIVE_FILTERS.driver);
     setPricelistId(DEFAULT_BOOKING_ARCHIVE_FILTERS.pricelistId);
     setCustomPickupAddressId(DEFAULT_BOOKING_ARCHIVE_FILTERS.customPickupAddressId);
     setFromDate(DEFAULT_BOOKING_ARCHIVE_FILTERS.fromDate);
@@ -330,6 +338,7 @@ export default function BookingFilters({
 
   const showStore = access.canFilterCreatedBy;
   const showPartner = access.canFilterSubcontractor;
+  const showDriver = showDriverFilter;
   const showPricelist = showPricelistFilter;
   const showPickupAddress = showPickupAddressFilter;
 
@@ -411,8 +420,14 @@ export default function BookingFilters({
             )}
           </div>
 
-          {showPartner || showStore ? (
-            <div className={`grid grid-cols-1 gap-3 ${showPartner && showStore ? "sm:grid-cols-2" : ""}`}>
+          {showPartner || showStore || showDriver ? (
+            <div
+              className={`grid grid-cols-1 gap-3 ${
+                [showPartner, showStore, showDriver].filter(Boolean).length > 1
+                  ? "sm:grid-cols-2"
+                  : ""
+              }`}
+            >
               {showPartner && (
                 <Field label={t("Partner")}>
                   <select
@@ -441,6 +456,24 @@ export default function BookingFilters({
                     <option value="">{t("All stores")}</option>
                     <option value={NONE_FILTER_VALUE}>{t("No store")}</option>
                     {creators.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
+              {showDriver && (
+                <Field label={t("Drivers")}>
+                  <select
+                    value={driver}
+                    onChange={(e) => setDriver(e.target.value)}
+                    className="customInput padding-weird-landscape text-weird-landscape w-full"
+                  >
+                    <option value="">{t("All drivers")}</option>
+                    <option value={NONE_FILTER_VALUE}>{t("No driver")}</option>
+                    {drivers.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.label}
                       </option>
