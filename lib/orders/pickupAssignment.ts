@@ -22,3 +22,12 @@ export function findCardsWithoutPickup(
 
   return cards.filter((card) => card.productId && claims.get(card.cardId) !== 1).map((card) => card.cardId);
 }
+
+// The other side of the same rule: once split, every pickup stop must collect
+// something — an empty one means the products weren't divided up yet.
+// Returns the stops' indexes. Older orders without cardIds pass, as above.
+export function findPickupsWithoutProducts(pickups: { cardIds?: number[] }[]): number[] {
+  if (pickups.length <= 1) return [];
+  if (pickups.some((stop) => !Array.isArray(stop.cardIds))) return [];
+  return pickups.flatMap((stop, i) => (stop.cardIds!.length === 0 ? [i] : []));
+}

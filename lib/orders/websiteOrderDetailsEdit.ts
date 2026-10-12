@@ -115,8 +115,9 @@ export function parseAdminOrderDetails(raw: unknown): ParsedAdminOrderDetails {
       address: text(s.address),
       floor: isStore ? null : floorOf(s.floor),
       liftAvailable: isStore ? false : s.liftAvailable === true,
-      contactName: text(s.contactName),
-      contactPhone: text(s.contactPhone),
+      // A store has no contact person (the booking flow never asks for one).
+      contactName: isStore ? "" : text(s.contactName),
+      contactPhone: isStore ? "" : text(s.contactPhone),
       productNames: names(s.productNames),
     };
     const cardIds = cardIdList(s.cardIds);

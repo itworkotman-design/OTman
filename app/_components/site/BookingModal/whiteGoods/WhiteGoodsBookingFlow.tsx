@@ -26,7 +26,7 @@ import {
 } from "./pickupLocations";
 import { adminDetailsFromFlow, pickupStateFromStops } from "./adminOrderState";
 import CustomerOrderEditFooter from "@/app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter";
-import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
+import { findCardsWithoutPickup, findPickupsWithoutProducts } from "@/lib/orders/pickupAssignment";
 import type { CustomerEditDraft } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
 import type { AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
@@ -1312,8 +1312,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         address: pickupAddress,
         floor: pickupFloor,
         liftAvailable: pickupLiftAvailable,
-        contactName: pickupContactName,
-        contactPhone: pickupContactPhone,
+        contactName: pickupSource === "store" ? "" : pickupContactName,
+        contactPhone: pickupSource === "store" ? "" : pickupContactPhone,
         productNames:
           !allProductsPickedUpHere && poolCardIds.length > 1 ? location0Claimed.map(pickupChecklistName) : undefined,
       },
@@ -1323,8 +1323,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         address: loc.address,
         floor: loc.floor,
         liftAvailable: loc.liftAvailable,
-        contactName: loc.contactName,
-        contactPhone: loc.contactPhone,
+        contactName: loc.source === "store" ? "" : loc.contactName,
+        contactPhone: loc.source === "store" ? "" : loc.contactPhone,
         productNames: claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds).map(
           pickupChecklistName,
         ),
@@ -1448,8 +1448,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       address: pickupAddress,
       floor: pickupSource === "store" ? null : pickupFloor,
       liftAvailable: pickupSource === "store" ? false : pickupLiftAvailable,
-      contactName: pickupContactName,
-      contactPhone: pickupContactPhone,
+      contactName: pickupSource === "store" ? "" : pickupContactName,
+      contactPhone: pickupSource === "store" ? "" : pickupContactPhone,
       cardIds: location0Claimed,
       productNames: location0Claimed.map(pickupChecklistName),
     },
@@ -1461,8 +1461,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         address: loc.address,
         floor: loc.source === "store" ? null : loc.floor,
         liftAvailable: loc.source === "store" ? false : loc.liftAvailable,
-        contactName: loc.contactName,
-        contactPhone: loc.contactPhone,
+        contactName: loc.source === "store" ? "" : loc.contactName,
+        contactPhone: loc.source === "store" ? "" : loc.contactPhone,
         cardIds: claimed,
         productNames: claimed.map(pickupChecklistName),
       };
@@ -1474,10 +1474,12 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   });
   // The server's rule, on the stops about to be sent: once the order is split
   // across pickups, every product needs a stop with an address.
+  // ...and every pickup address collects something (only while pickups can
+  // still be changed — after the cutoff the customer couldn't fix it anyway).
   const productsWithoutPickup = findCardsWithoutPickup(editedDetails.pickups, productCards).length > 0;
-  const pickupBlockedMessage = !productsWithoutPickup
-    ? null
-    : customerLocked
+  const emptyPickups = customerLocked ? [] : findPickupsWithoutProducts(editedDetails.pickups);
+  const pickupBlockedMessage = productsWithoutPickup
+    ? customerLocked
       ? t(
           "A new product needs a pickup address, and pickups can't be changed this close to the job. Contact us.",
           "Et nytt produkt trenger en henteadresse, og henting kan ikke endres så nær oppdraget. Ta kontakt med oss.",
@@ -1485,7 +1487,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       : t(
           "Choose which pickup address every product is collected from.",
           "Velg hvilken henteadresse hvert produkt hentes fra.",
-        );
+        )
+    : emptyPickups.length > 0
+      ? t(
+          `Pickup address ${emptyPickups.map((i) => i + 1).join(", ")} has no products. Choose what is collected there, or remove it.`,
+          `Henteadresse ${emptyPickups.map((i) => i + 1).join(", ")} har ingen produkter. Velg hva som hentes der, eller fjern den.`,
+        )
+      : null;
 
   const customerDraft: CustomerEditDraft = {
     customer: { name, phone, email, comments: notes },

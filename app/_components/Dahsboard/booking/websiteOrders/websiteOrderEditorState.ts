@@ -1,6 +1,6 @@
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import type { AdminPickupStop } from "@/lib/orders/websiteOrderDetailsEdit";
-import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
+import { findCardsWithoutPickup, findPickupsWithoutProducts } from "@/lib/orders/pickupAssignment";
 import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
 import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyRequirement";
 import { claimsPerStop } from "@/app/_components/site/BookingModal/whiteGoods/adminOrderState";
@@ -106,12 +106,35 @@ export function removeStop(stops: EditorStop[], cards: SavedProductCard[], stopI
   );
 }
 
+// Which fields a stop asks for, by who it's picked up from — same as the
+// customer's PickupContactCard. A stop without a type (older orders) shows all.
+export function pickupFieldsFor(source: EditorStop["source"]): { placeName: boolean; contactPerson: boolean; floor: boolean } {
+  return {
+    placeName: source !== "private",
+    contactPerson: source !== "store",
+    floor: source !== "store",
+  };
+}
+
+// A store stop has no contact person (hidden fields can still hold one typed
+// before the type was switched to store).
 export function stopsForSave(stops: EditorStop[], nameOf: (cardId: number) => string): AdminPickupStop[] {
-  return stops.map((stop) => ({ ...stop, productNames: stop.cardIds.map(nameOf) }));
+  return stops.map((stop) => ({
+    ...stop,
+    ...(stop.source === "store" ? { contactName: "", contactPhone: "" } : {}),
+    productNames: stop.cardIds.map(nameOf),
+  }));
+}
+
+// Pickup stops (by index) that collect no products — a sign the products
+// weren't split across the addresses yet. A lone stop collects everything.
+export function stopsWithoutProducts(stops: EditorStop[]): number[] {
+  return findPickupsWithoutProducts(stops);
 }
 
 export type EditorBlocker =
   | "PRODUCT_WITHOUT_PICKUP"
+  | "PICKUP_WITHOUT_PRODUCT"
   | "SIZE_BRACKETS_REQUIRED"
   | "ITEM_NAME_REQUIRED"
   | "INSTALL_OPTION_REQUIRED"
@@ -122,6 +145,7 @@ export type EditorBlocker =
 export function editorBlockers(cards: SavedProductCard[], stops: EditorStop[], catalogProducts: CatalogProduct[]): EditorBlocker[] {
   const blockers: EditorBlocker[] = [];
   if (findCardsWithoutPickup(stops, cards).length > 0) blockers.push("PRODUCT_WITHOUT_PICKUP");
+  if (stopsWithoutProducts(stops).length > 0) blockers.push("PICKUP_WITHOUT_PRODUCT");
   if (findCardsWithSizeBracketProblems(cards, catalogProducts).length > 0) blockers.push("SIZE_BRACKETS_REQUIRED");
   if (findSizePricedCardsMissingName(cards, catalogProducts).length > 0) blockers.push("ITEM_NAME_REQUIRED");
   if (findInstallOnlyCardsMissingInstall(cards, catalogProducts).length > 0) blockers.push("INSTALL_OPTION_REQUIRED");

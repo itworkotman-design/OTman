@@ -227,6 +227,38 @@ describe("customer order route", () => {
       expect((await res.json()).reason).toBe("PRODUCT_WITHOUT_PICKUP");
       expect(mocks.transaction).not.toHaveBeenCalled();
     });
+
+    it("refuses a pickup address that collects no products", async () => {
+      const res = await put({ pickups: [storePickup, { ...storePickup, address: "Bjerkeveien 2", cardIds: [] }] });
+
+      expect(res.status).toBe(422);
+      expect(await res.json()).toMatchObject({ reason: "PICKUP_WITHOUT_PRODUCT", pickups: [1] });
+      expect(mocks.transaction).not.toHaveBeenCalled();
+    });
+
+    it("still lets an older order that already has an empty pickup change its contact details", async () => {
+      mocks.orderFindFirst.mockResolvedValue(
+        order({
+          websiteBookingDetails: {
+            ...bookingDetails("2026-10-10", "08:00-16:00"),
+            pickups: [storePickup, { ...storePickup, address: "Bjerkeveien 2", cardIds: [] }],
+          },
+        }),
+      );
+
+      const res = await put({ customer: { name: "Kari Nordmann" } });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ ok: true, changed: true });
+    });
+
+    it("doesn't save a contact person on a store pickup", async () => {
+      const res = await put({ pickups: [{ ...storePickup, contactName: "Ola", contactPhone: "12345678" }] });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ ok: true, changed: false });
+      expect(mocks.transaction).not.toHaveBeenCalled();
+    });
   });
 
   describe("rejected orders", () => {

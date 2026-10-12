@@ -36,10 +36,12 @@ import {
   addProductToOrder,
   addStop,
   editorBlockers,
+  pickupFieldsFor,
   removeCardFromOrder,
   removeStop,
   stopsForSave,
   stopsFromDetails,
+  stopsWithoutProducts,
   toggleCardOnStop,
   type EditorBlocker,
   type EditorStop,
@@ -245,6 +247,10 @@ export default function WebsiteOrderEditTab({
   };
   // The pickup blocker names the products, so the admin knows which ones to tick.
   const blockerText = (blocker: EditorBlocker) => {
+    if (blocker === "PICKUP_WITHOUT_PRODUCT") {
+      const numbers = stopsWithoutProducts(stops).map((i) => i + 1).join(", ");
+      return t(`Choose the products collected at pickup ${numbers}, or remove it.`, `Velg produktene som hentes på henting ${numbers}, eller fjern den.`);
+    }
     if (blocker !== "PRODUCT_WITHOUT_PICKUP") return reasonText[blocker];
     const names = findCardsWithoutPickup(stops, cards).map(cardName).join(", ");
     return t(`Needs a pickup address: ${names}.`, `Mangler henteadresse: ${names}.`);
@@ -510,11 +516,13 @@ export default function WebsiteOrderEditTab({
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="sm:col-span-2">
-                  <span className={labelClass}>{t("Place name", "Stedsnavn")}</span>
-                  <input className={fieldClass} value={stop.placeName} onChange={(e) => updateStop(index, { placeName: e.target.value })} />
-                </label>
-                {stop.source !== "store" && (
+                {pickupFieldsFor(stop.source).placeName && (
+                  <label className="sm:col-span-2">
+                    <span className={labelClass}>{t("Place name", "Stedsnavn")}</span>
+                    <input className={fieldClass} value={stop.placeName} onChange={(e) => updateStop(index, { placeName: e.target.value })} />
+                  </label>
+                )}
+                {pickupFieldsFor(stop.source).floor && (
                   <>
                     <label>
                       <span className={labelClass}>{t("Floor", "Etasje")}</span>
@@ -531,20 +539,24 @@ export default function WebsiteOrderEditTab({
                     </label>
                   </>
                 )}
-                <label>
-                  <span className={labelClass}>{t("Contact name", "Kontaktperson")}</span>
-                  <input className={fieldClass} value={stop.contactName} onChange={(e) => updateStop(index, { contactName: e.target.value })} />
-                </label>
-                <label>
-                  <span className={labelClass}>{t("Contact phone", "Kontakttelefon")}</span>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    className={fieldClass}
-                    value={stop.contactPhone}
-                    onChange={(e) => updateStop(index, { contactPhone: e.target.value })}
-                  />
-                </label>
+                {pickupFieldsFor(stop.source).contactPerson && (
+                  <>
+                    <label>
+                      <span className={labelClass}>{t("Contact name", "Kontaktperson")}</span>
+                      <input className={fieldClass} value={stop.contactName} onChange={(e) => updateStop(index, { contactName: e.target.value })} />
+                    </label>
+                    <label>
+                      <span className={labelClass}>{t("Contact phone", "Kontakttelefon")}</span>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        className={fieldClass}
+                        value={stop.contactPhone}
+                        onChange={(e) => updateStop(index, { contactPhone: e.target.value })}
+                      />
+                    </label>
+                  </>
+                )}
               </div>
 
               <div className="mt-4 border-t border-neutral-200 pt-4">
@@ -584,6 +596,11 @@ export default function WebsiteOrderEditTab({
                         </button>
                       );
                     })}
+                  </div>
+                )}
+                {isSplit && stop.cardIds.length === 0 && (
+                  <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {t("Choose the products collected here, or remove this pickup.", "Velg produktene som hentes her, eller fjern denne hentingen.")}
                   </div>
                 )}
               </div>

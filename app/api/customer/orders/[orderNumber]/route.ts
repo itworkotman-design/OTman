@@ -21,7 +21,7 @@ import {
 } from "@/lib/orders/customerOrderEditPolicy";
 import { buildDetailsUpdate, parseAdminOrderDetails, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
-import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
+import { findCardsWithoutPickup, findPickupsWithoutProducts } from "@/lib/orders/pickupAssignment";
 import { resolveDrivingDistance } from "@/lib/orders/resolveDrivingDistance";
 import {
   ItemNameRequiredError,
@@ -290,6 +290,10 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
 
     const withoutPickup = findCardsWithoutPickup(afterDetails.pickups, cards);
     if (withoutPickup.length > 0) return reject("PRODUCT_WITHOUT_PICKUP", 422, { cardIds: withoutPickup });
+    // Only checked when the stops change, so an older order that already has
+    // an empty one can still change e.g. its contact details.
+    const emptyPickups = kinds.includes("addresses") ? findPickupsWithoutProducts(afterDetails.pickups) : [];
+    if (emptyPickups.length > 0) return reject("PICKUP_WITHOUT_PRODUCT", 422, { pickups: emptyPickups });
 
     const drivingDistance = await resolveDrivingDistance(order, afterDetails);
     const detailsUpdate = buildDetailsUpdate({

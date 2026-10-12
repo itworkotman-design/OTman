@@ -5,10 +5,12 @@ import {
   addProductToOrder,
   addStop,
   editorBlockers,
+  pickupFieldsFor,
   removeCardFromOrder,
   removeStop,
   stopsForSave,
   stopsFromDetails,
+  stopsWithoutProducts,
   toggleCardOnStop,
   type EditorStop,
 } from "./websiteOrderEditorState";
@@ -143,6 +145,43 @@ describe("stopsForSave", () => {
       expect.objectContaining({ address: "Bjerkeveien 2", cardIds: [2], productNames: ["Sofa"] }),
     ]);
   });
+
+  it("drops the contact person on a store stop — the booking flow never asks for one there", () => {
+    const [saved] = stopsForSave([editorStop([0], { contactName: "Kari", contactPhone: "12345678" })], nameOf);
+    expect(saved).toEqual(expect.objectContaining({ contactName: "", contactPhone: "" }));
+  });
+
+  it("keeps the contact person on private and business stops", () => {
+    const saved = stopsForSave(
+      [
+        editorStop([0], { source: "private", contactName: "Kari", contactPhone: "123" }),
+        editorStop([2], { source: "business", contactName: "Ola", contactPhone: "456" }),
+      ],
+      nameOf,
+    );
+    expect(saved.map((s) => [s.contactName, s.contactPhone])).toEqual([
+      ["Kari", "123"],
+      ["Ola", "456"],
+    ]);
+  });
+});
+
+describe("pickupFieldsFor", () => {
+  it("a store asks for its name only", () => {
+    expect(pickupFieldsFor("store")).toEqual({ placeName: true, contactPerson: false, floor: false });
+  });
+
+  it("a private pickup asks for a contact person and floor, no place name", () => {
+    expect(pickupFieldsFor("private")).toEqual({ placeName: false, contactPerson: true, floor: true });
+  });
+
+  it("a business asks for everything", () => {
+    expect(pickupFieldsFor("business")).toEqual({ placeName: true, contactPerson: true, floor: true });
+  });
+
+  it("an older stop with no type shows every field", () => {
+    expect(pickupFieldsFor(null)).toEqual({ placeName: true, contactPerson: true, floor: true });
+  });
 });
 
 describe("editorBlockers", () => {
@@ -153,8 +192,16 @@ describe("editorBlockers", () => {
   });
 
   it("flags a product without a pickup stop", () => {
+    // The second stop is then empty too.
     expect(editorBlockers([card(0), card(1)], [editorStop([0]), editorStop([], { address: "Bjerkeveien 2" })], [washer])).toEqual([
       "PRODUCT_WITHOUT_PICKUP",
+      "PICKUP_WITHOUT_PRODUCT",
+    ]);
+  });
+
+  it("flags a pickup address that collects no products", () => {
+    expect(editorBlockers([card(0), card(1)], [editorStop([0, 1]), editorStop([], { address: "Bjerkeveien 2" })], [washer])).toEqual([
+      "PICKUP_WITHOUT_PRODUCT",
     ]);
   });
 
@@ -162,5 +209,15 @@ describe("editorBlockers", () => {
     expect(editorBlockers([card(0), card(1)], [editorStop([0]), editorStop([1], { address: "" })], [washer])).toEqual([
       "PRODUCT_WITHOUT_PICKUP",
     ]);
+  });
+});
+
+describe("stopsWithoutProducts", () => {
+  it("lists the (0-based) stops that collect nothing", () => {
+    expect(stopsWithoutProducts([editorStop([0]), editorStop([]), editorStop([1]), editorStop([])])).toEqual([1, 3]);
+  });
+
+  it("a lone stop always collects everything, so it's never listed", () => {
+    expect(stopsWithoutProducts([editorStop([])])).toEqual([]);
   });
 });

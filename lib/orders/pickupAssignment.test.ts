@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findCardsWithoutPickup } from "@/lib/orders/pickupAssignment";
+import { findCardsWithoutPickup, findPickupsWithoutProducts } from "@/lib/orders/pickupAssignment";
 
 const cards = [
   { cardId: 0, productId: "p-wm" },
@@ -34,5 +34,19 @@ describe("findCardsWithoutPickup", () => {
 
   it("can't check older orders whose stops only stored product names", () => {
     expect(findCardsWithoutPickup([{ cardIds: [0] }, {}], cards)).toEqual([]);
+  });
+});
+
+describe("findPickupsWithoutProducts", () => {
+  it("is never a problem with a single pickup stop — everything is collected there", () => {
+    expect(findPickupsWithoutProducts([{ cardIds: [] }])).toEqual([]);
+  });
+
+  it("lists the (0-based) stops of a split order that collect nothing", () => {
+    expect(findPickupsWithoutProducts([{ cardIds: [0] }, { cardIds: [] }, { cardIds: [1] }, { cardIds: [] }])).toEqual([1, 3]);
+  });
+
+  it("can't check older orders whose stops have no card ids, and passes them", () => {
+    expect(findPickupsWithoutProducts([{ cardIds: [0] }, {}])).toEqual([]);
   });
 });

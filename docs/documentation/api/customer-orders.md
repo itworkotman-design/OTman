@@ -41,7 +41,7 @@ Body: `{ customer?: { name, phone, email, comments }, preferredDate?, timeWindow
    - The order is saved with `websiteOrderPricingWrites`.
 6. **Moving or quote order:** only the contact details, comment, date and time window are written. The price doesn't change.
    - **Rejected order:** in either case, a `rejected` order is saved back to `processing` (with `statusChangedAt`) in the same write, because the customer has made the change it needed. A status-change event (actor "Customer") is added, and the staff notification says so.
-   - **Pickup assignment:** before saving a catalog order, `findCardsWithoutPickup` checks the final stops and cards. A product without a pickup stop returns `422 PRODUCT_WITHOUT_PICKUP` with `cardIds`.
+   - **Pickup assignment:** before saving a catalog order, `findCardsWithoutPickup` checks the final stops and cards. A product without a pickup stop returns `422 PRODUCT_WITHOUT_PICKUP` with `cardIds`. When the stops change, a stop that collects no products returns `422 PICKUP_WITHOUT_PRODUCT` with `pickups` (stop indexes), via `findPickupsWithoutProducts`; an older order that already has an empty stop can still change e.g. its contact details. A contact person sent on a store pickup is dropped by `parseAdminOrderDetails`.
 7. After saving:
    - an order history entry (`createOrderUpdatedEvent`, actor "Customer")
    - a `MANUAL_REVIEW` notification for staff listing every change and the price difference, with a note when the order was already sent to GSM

@@ -10,7 +10,7 @@ Admin editing of a homepage website order's details: the customer, the pickup st
 
 ## Functions
 
-- `parseAdminOrderDetails(raw)` — trims the form; nothing is required (an admin can save anything empty). Only filled-in values are checked for format, with errors per field (`customer.phone`, `customer.email`, `pickup.2.contactPhone`, `drivingDistanceOverride`). A store pickup never has a floor or lift. Each stop's `cardIds` are kept.
+- `parseAdminOrderDetails(raw)` — trims the form; nothing is required (an admin can save anything empty). Only filled-in values are checked for format, with errors per field (`customer.phone`, `customer.email`, `pickup.2.contactPhone`, `drivingDistanceOverride`). A store pickup never has a floor, lift or contact person (they are cleared). Each stop's `cardIds` are kept.
 - `routeAddressesChanged(stored, details)` — whether any stop's address, or the number of stops, changed (so the distance must be recalculated).
 - `buildDetailsUpdate({ details, drivingDistance, storedBookingDetails, storedDescription })` — returns:
   - `orderData`: customer, addresses, extra pickups, date, time, distance, the combined `floorNo`/`lift` pair, and the description. In the description, the previously generated pickup notes are swapped for new ones (`buildPickupNoteLines`) and staff text is kept. Old-format notes on orders booked before the new format are recognised and replaced too.

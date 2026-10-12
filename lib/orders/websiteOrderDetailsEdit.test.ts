@@ -59,7 +59,7 @@ describe("parseAdminOrderDetails", () => {
     const result = parseAdminOrderDetails({
       ...valid,
       customer: { ...valid.customer, phone: "abc", email: "not-an-email" },
-      pickups: [{ ...valid.pickups[0], contactPhone: "xyz" }],
+      pickups: [{ ...valid.pickups[0], source: "private", contactPhone: "xyz" }],
     });
     expect(result).toMatchObject({
       ok: false,
@@ -97,6 +97,25 @@ describe("parseAdminOrderDetails", () => {
       pickups: [{ ...valid.pickups[0], floor: 4, liftAvailable: true }],
     });
     expect(result).toMatchObject({ ok: true, details: { pickups: [{ floor: null, liftAvailable: false }] } });
+  });
+
+  it("never gives a store pickup a contact person — the booking flow doesn't ask for one", () => {
+    const result = parseAdminOrderDetails({
+      ...valid,
+      pickups: [
+        { ...valid.pickups[0], source: "store", contactName: "Ola", contactPhone: "12345678" },
+        { ...valid.pickups[0], source: "private", contactName: "Kari", contactPhone: "87654321" },
+      ],
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      details: {
+        pickups: [
+          { contactName: "", contactPhone: "" },
+          { contactName: "Kari", contactPhone: "87654321" },
+        ],
+      },
+    });
   });
 
   it("rejects anything that isn't an object", () => {
