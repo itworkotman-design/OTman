@@ -1,3 +1,4 @@
+import { movingAdjustmentsFromOrder } from "@/lib/orders/movingOrderCalculator";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
@@ -139,7 +140,7 @@ export async function GET(req: Request, { params }: Params) {
           drivingDistance: order.drivingDistance ?? "",
         },
         sizeOptions,
-        partner: partnerPricesFromMovingItems(order.items, order.priceSubcontractor),
+        partner: partnerPricesFromMovingItems(order.items, order.priceSubcontractor, movingAdjustmentsFromOrder(order)),
       },
     });
   }

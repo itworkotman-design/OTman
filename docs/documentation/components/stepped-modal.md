@@ -26,3 +26,11 @@ screens); sections before and after stay full width. Grouping is `asideSectionGr
 Opt-in (the moving and delivery/white-goods flows use it): every revealed section before the one being answered fades to 50%
 opacity (`isSectionDimmed` in `steppedModalLogic.ts`), back to full on hover or focus-within so earlier
 answers can still be edited. Never applies with `showAll`; the `aside` column is never dimmed.
+
+## Scrolling to new sections (`scrollToNewSections`)
+Opt-in (the moving flow uses it): once a section is revealed for the first time and has animated open, the body
+smoothly scrolls down just enough to show it (`newSectionScrollTop` — never up, never past the section's top; instant
+with `prefers-reduced-motion`). "First time" is past the furthest the flow has ever been revealed
+(`revealsUnseenSection`, both in `steppedModalLogic.ts`, tested): going back, changing an answer that retracts the
+later sections and re-revealing them leaves the view where it is. Never applies with `showAll`. Each section's
+wrapper carries `data-step-section={id}` for the lookup.

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import type { CustomerEditKind } from "./customerOrderEditPolicy";
 import { buildMovingBookingDetails, parseMovingBookingDetails } from "./movingBookingDetails";
 import { movingOrderDescription } from "./movingOrderDescription";
+import { movingOrderAdjustedPricing, type MovingAdjustments } from "./movingOrderCalculator";
 import { movingOrderItemRows, type MovingQuote } from "./movingOrderQuote";
 import { parseMovingProperty, type MovingProperty, type MovingPropertyDraft } from "./movingProperty";
 import type { BookingCustomerType } from "./websiteBookingDetails";
@@ -107,8 +108,13 @@ export function movingOrderSaveData(params: {
   // The customer's notes (Order.customerComments), kept in the description.
   notes: string | null;
   customerType: BookingCustomerType | null;
+  // The order's discount/extra and partner minus/plus (the admin calculator),
+  // kept on the re-priced lines. None: priced as booked.
+  adjustments?: MovingAdjustments;
 }) {
   const { quote, parsed } = params;
+  const itemRows = movingOrderItemRows(quote);
+  const pricing = params.adjustments ? movingOrderAdjustedPricing(itemRows, params.adjustments) : quote.pricing;
   const bookingDetails = buildMovingBookingDetails({
     customerType: params.customerType,
     origin: parsed.origin,
@@ -120,9 +126,9 @@ export function movingOrderSaveData(params: {
       pickupAddress: parsed.edit.pickupAddress,
       deliveryAddress: parsed.edit.deliveryAddress,
       drivingDistance: params.drivingDistance || null,
-      priceExVat: quote.pricing.priceExVat,
-      priceSubcontractor: quote.pricing.priceSubcontractor,
-      pricingSnapshot: quote.pricing.pricingSnapshot as unknown as Prisma.InputJsonValue,
+      priceExVat: pricing.priceExVat,
+      priceSubcontractor: pricing.priceSubcontractor,
+      pricingSnapshot: pricing.pricingSnapshot as unknown as Prisma.InputJsonValue,
       productsSummary: quote.summary,
       description: movingOrderDescription({
         originLine: quote.originLine,
@@ -132,6 +138,8 @@ export function movingOrderSaveData(params: {
       }),
       websiteBookingDetails: bookingDetails as unknown as Prisma.InputJsonValue,
     },
-    itemRows: movingOrderItemRows(quote),
+    itemRows,
+    // The totals stored above, typed (the snapshot is JSON in orderData).
+    pricing,
   };
 }

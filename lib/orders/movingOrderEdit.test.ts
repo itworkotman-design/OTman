@@ -118,4 +118,21 @@ describe("movingOrderSaveData", () => {
     expect(save.orderData.description).toContain("Piano");
     expect(save.itemRows.map((r) => r.optionCode)).toEqual(["SIZE_UNDER_40", "SERVICE_NEDPAKKING", "KM_FROM_21"]);
   });
+
+  it("keeps the order's discount and extra on the re-priced move", () => {
+    const parsed = parseMovingEdit(edit);
+    if (!parsed.ok) throw new Error("not ok");
+    const quote = priceMovingOrder(catalog, { ...parsed, serviceCodes: edit.serviceCodes, drivingDistance: "" });
+    if (!quote.ok) throw new Error("not ok");
+    const save = movingOrderSaveData({
+      quote,
+      parsed,
+      drivingDistance: "",
+      notes: null,
+      customerType: "private",
+      adjustments: { rabatt: "1000", leggTil: "250", subcontractorMinus: null, subcontractorPlus: null },
+    });
+    expect(save.orderData.priceExVat).toBe(9000 - 1000 + 250);
+    expect(save.orderData.pricingSnapshot).toMatchObject({ customer: { discount: 1000, extra: 250, totalExVat: 8250 } });
+  });
 });

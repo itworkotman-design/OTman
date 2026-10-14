@@ -25,6 +25,9 @@ Read-only data for the admin `WebsiteOrderModal`. It's kept separate from `GET /
 
 ## Homepage moves
 A `MOVING` order with stored answers returns `{ kind: "moving", moving: { edit, customerType, preferredDate, timeWindow,
-drivingDistance }, sizeOptions, products, orderExtras, totalsCheck, partner (admins only), calculator: null }` — its lines read
-from `Order.items` (`movingOrderPriceView`), no white-goods calculator. The fields every website order shares are built once
+drivingDistance }, sizeOptions, products, orderExtras, totalsCheck, calculator }` — its lines read
+from `Order.items` (`movingOrderPriceView`), and `calculator` the same calculator view a delivery order has
+(`movingOrderCalculatorView` with the stored discount/extra, partner minus/plus and lines set to 0; partner side for admins only;
+`totalsCheck` counts a line set to 0 at 0), plus `currentPricesTotal`/`priceChanges` for "Use new price" (`movingCurrentPriceRows`
++ `movingPriceChanges`). The fields every website order shares are built once
 (`base`). A move booked before its answers were stored still answers `NOT_WHITE_GOODS_WEBSITE_ORDER` (regular modal).

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, newSectionScrollTop, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, revealsUnseenSection, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -75,6 +75,10 @@ type SteppedModalProps = {
   // (isSectionDimmed), back to full on hover/focus so they can still be
   // edited. Opt-in — the moving and delivery flows use it.
   dimCompleted?: boolean;
+  // Smoothly scrolls the body down to each section the first time it
+  // appears (revealsUnseenSection) — not when going back to change an
+  // earlier answer re-reveals the ones it retracted. Opt-in — the moving flow.
+  scrollToNewSections?: boolean;
 };
 
 const TRANSITION_MS = 300;
@@ -199,6 +203,7 @@ export function SteppedModal({
   sectionGap = 40,
   aside,
   dimCompleted = false,
+  scrollToNewSections = false,
 }: SteppedModalProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -358,6 +363,38 @@ export function SteppedModal({
     }, 450);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [structureKey]);
+  // The furthest the flow has been revealed, so only a section appearing for
+  // the first time scrolls into view. The scroll waits for its open animation
+  // (RevealSection), so its full height is measured.
+  const furthestRevealedRef = useRef(revealedCount);
+  const newSectionScrollTimerRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!scrollToNewSections || showAll) return;
+    const unseen = revealsUnseenSection({ furthestRevealed: furthestRevealedRef.current, revealedCount });
+    furthestRevealedRef.current = Math.max(furthestRevealedRef.current, revealedCount);
+    window.clearTimeout(newSectionScrollTimerRef.current);
+    const section = sections[revealedCount - 1];
+    if (!unseen || !section || section.hidden) return;
+    newSectionScrollTimerRef.current = window.setTimeout(() => {
+      const scroller = scrollRef.current;
+      const el = scroller?.querySelector<HTMLElement>(`[data-step-section="${CSS.escape(section.id)}"]`);
+      if (!scroller || !el) return;
+      const scrollerTop = scroller.getBoundingClientRect().top + scroller.clientTop;
+      const rect = el.getBoundingClientRect();
+      const target = newSectionScrollTop({
+        scrollTop: scroller.scrollTop,
+        viewportHeight: scroller.clientHeight,
+        sectionTop: rect.top - scrollerTop + scroller.scrollTop,
+        sectionBottom: rect.bottom - scrollerTop + scroller.scrollTop,
+        padding: 24,
+      });
+      if (target === null) return;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      scroller.scrollTo({ top: target, behavior: reduceMotion ? "auto" : "smooth" });
+    }, TRANSITION_MS + 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealedCount]);
+  useEffect(() => () => window.clearTimeout(newSectionScrollTimerRef.current), []);
   // +1 for the final review/payment step, so the bar only completes once
   // the user actually reaches it, not while the last question section is
   // still being answered.
@@ -385,6 +422,7 @@ export function SteppedModal({
         hidden: section.hidden,
         node: (
           <div
+            data-step-section={section.id}
             className={`transition-opacity duration-300 ${dimmed ? "opacity-50 hover:opacity-100 focus-within:opacity-100" : ""}`}
           >
             {/* An empty title (e.g. "My order"'s contact details) renders untitled. */}

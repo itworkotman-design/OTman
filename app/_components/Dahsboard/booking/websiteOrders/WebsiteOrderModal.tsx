@@ -8,7 +8,6 @@ import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { BookingCustomerType, OrderExtraLine, WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 import type { MovingEdit } from "@/lib/orders/movingOrderEdit";
-import type { MovingOrderPriceView } from "@/lib/orders/movingOrderView";
 import { buildMovingReviewBlocks } from "@/app/_components/site/BookingModal/moving/movingReview";
 import { OrderReviewBlocks } from "@/app/_components/site/BookingModal/whiteGoods/OrderReviewParts";
 import MovingOrderEditTab from "./MovingOrderEditTab";
@@ -60,7 +59,7 @@ type WebsiteOrderBase = {
 };
 
 // …plus, for a homepage move, its answers and its lines read from the order
-// (no white-goods calculator; edited in MovingOrderEditTab).
+// (edited in MovingOrderEditTab), with the same calculator as a delivery.
 export type MovingWebsiteOrderView = WebsiteOrderBase & {
   kind: "moving";
   moving: {
@@ -72,9 +71,11 @@ export type MovingWebsiteOrderView = WebsiteOrderBase & {
   };
   sizeOptions: MovingCatalogOption[];
   orderExtras: OrderExtraLine[];
-  // The partner's price per line — null for who may not see it.
-  partner: MovingOrderPriceView | null;
-  calculator: null;
+  // Customer and partner price per line (the partner side null for who may not see it).
+  calculator: WebsiteOrderCalculatorView;
+  // The move's answers at today's prices — "Use new price" when priceChanges lists any.
+  currentPricesTotal?: number | null;
+  priceChanges?: PriceChangeRow[];
 };
 
 export type WebsiteOrderView = MovingWebsiteOrderView | WhiteGoodsWebsiteOrderView;
@@ -359,7 +360,14 @@ export default function WebsiteOrderModal({
                 initial={{
                   edit: order.moving.edit,
                   customer: { name: contact.name, phone: contact.phone, email: contact.email, comments: contact.notes },
+                  customerType: order.moving.customerType,
+                  schedule: { preferredDate: order.moving.preferredDate, timeWindow: order.moving.timeWindow },
                 }}
+                calculator={order.calculator}
+                adjustments={calculatorAdjustments}
+                storedTotal={order.priceExVat}
+                currentPricesTotal={order.currentPricesTotal ?? null}
+                priceChanges={order.priceChanges ?? []}
                 onDirtyChange={handleEditDirtyChange}
                 onCancel={() => switchTab("overview")}
                 besideSave={deleteButton}
@@ -436,7 +444,9 @@ export default function WebsiteOrderModal({
                   <h3 className="mb-3 text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
                   <WebsiteOrderPaymentSummary comparison={order.payment} locale={locale} />
                 </div>
-                {order.kind !== "moving" && order.calculator ? (
+                {/* The same calculator for a delivery and a move — set to 0,
+                    discount/extra, partner minus/plus and "Use new price". */}
+                {order.calculator ? (
                   <WebsiteOrderCalculator
                     key={`${order.priceExVat}|${JSON.stringify(order.calculator)}|${JSON.stringify(calculatorAdjustments)}`}
                     orderId={order.id}
@@ -446,7 +456,9 @@ export default function WebsiteOrderModal({
                     storedTotal={order.priceExVat}
                     currentPricesTotal={order.currentPricesTotal ?? null}
                     priceChanges={order.priceChanges ?? []}
-                    savedPricesIncomplete={order.savedPricesIncomplete ?? []}
+                    {...(order.kind === "moving"
+                      ? { previewEndpoint: `/api/orders/${order.id}/moving-details` }
+                      : { savedPricesIncomplete: order.savedPricesIncomplete ?? [] })}
                     locale={locale}
                     onDraftChange={setPricingDraft}
                     priceChangeTarget={priceChangeSlot}
@@ -551,25 +563,6 @@ export default function WebsiteOrderModal({
                     </div>
                   </div>
                 </div>
-                )}
-                {/* A move's partner price, line by line (admins only). */}
-                {order.kind === "moving" && order.partner && (
-                  <div className="rounded-2xl border border-black/10 bg-white p-6">
-                    <h3 className="text-lg font-semibold text-logoblue">{t("Partner", "Partner")}</h3>
-                    <p className="text-xs text-black/45">{t("What the partner is paid, ex. VAT", "Hva partneren får, eks. mva")}</p>
-                    <div className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 text-sm">
-                      {[...order.partner.products.flatMap((product) => product.items), ...order.partner.orderExtras].map((line, index) => (
-                        <Fragment key={index}>
-                          <span className="text-black/60">{line.label}</span>
-                          <span className="text-right font-medium tabular-nums text-black/70">{formatKr(line.price)}</span>
-                        </Fragment>
-                      ))}
-                    </div>
-                    <div className="mt-3 flex justify-between border-t border-black/10 pt-3 font-semibold text-black/85">
-                      <span>{t("Partner total", "Partner totalt")}</span>
-                      <span className="tabular-nums">{formatKr(order.partner.total)}</span>
-                    </div>
-                  </div>
                 )}
               </div>
             </div>

@@ -119,3 +119,28 @@ export function isSectionDimmed(params: { index: number; revealedCount: number; 
   if (!params.enabled || params.showAll) return false;
   return params.index < params.revealedCount - 1;
 }
+
+// Whether a reveal brings a section on screen for the first time
+// (SteppedModal's `scrollToNewSections`): past the furthest the flow has
+// ever been revealed. Going back and changing an answer retracts the
+// sections after it; revealing those again is not new, so the view stays put.
+export function revealsUnseenSection(params: { furthestRevealed: number; revealedCount: number }): boolean {
+  return params.revealedCount > params.furthestRevealed;
+}
+
+// Where to scroll the modal body to bring a newly revealed section into view
+// (positions are in the scroller's content coordinates): down just enough to
+// show all of it plus `padding`, but never past its top (a section taller
+// than the view starts at the top). Null when no downward scroll is needed.
+export function newSectionScrollTop(params: {
+  scrollTop: number;
+  viewportHeight: number;
+  sectionTop: number;
+  sectionBottom: number;
+  padding: number;
+}): number | null {
+  const { scrollTop, viewportHeight, sectionTop, sectionBottom, padding } = params;
+  const showBottom = sectionBottom + padding - viewportHeight;
+  const target = Math.min(sectionTop - padding, Math.max(scrollTop, showBottom));
+  return target > scrollTop ? target : null;
+}

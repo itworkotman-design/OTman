@@ -24,6 +24,7 @@ import { getMovingCatalog } from "@/lib/content/getMovingCatalog";
 import { lookUpMovingDrivingDistance } from "@/lib/orders/movingDrivingDistance";
 import { classifyMovingEdit, movingOrderSaveData, parseMovingEdit } from "@/lib/orders/movingOrderEdit";
 import { priceMovingOrder } from "@/lib/orders/movingOrderQuote";
+import { movingAdjustmentsFromOrder } from "@/lib/orders/movingOrderCalculator";
 import { movingOrderSaveWrites } from "@/lib/orders/movingOrderWrites";
 import { buildDetailsUpdate, parseAdminOrderDetails, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
@@ -91,6 +92,16 @@ export async function GET(req: Request, { params }: Params): Promise<NextRespons
 
   const view = customerOrderView(order);
   // The white-goods catalog only for a delivery order (a move uses the moving one, loaded by its flow).
+  // A move: what staff set on its price, so the flow's live price matches the
+  // server's (movingCustomerLiveTotals) — the partner side is left out.
+  if (view.details.kind === "moving") {
+    const staff = movingAdjustmentsFromOrder(order);
+    return NextResponse.json({
+      ok: true,
+      ...view,
+      pricingContext: { rabatt: order.rabatt ?? "", leggTil: order.leggTil ?? "", nulledLineKeys: staff.nulledLines.customer },
+    });
+  }
   if (!view.permissions.canEditItems || view.details.kind !== "catalog") return NextResponse.json({ ok: true, ...view });
 
   const [catalog, seeded] = await Promise.all([getWebsiteOrderCatalog(), listSeededWebsiteCatalogs()]);
@@ -394,29 +405,33 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     });
     if (!quote.ok) return reject("INVALID_DETAILS", 422, { errors: quote.errors });
 
-    const previousPriceExVat = order.priceExVat;
-    // Refunds aren't built: once something is paid the order can't get cheaper here.
-    if (quote.pricing.priceExVat < previousPriceExVat && order.payments.length > 0) return reject("WOULD_DECREASE_PRICE", 422);
-
-    const previousTotalIncVat = customerOrderTotalIncVatNok(order);
-    const totalIncVat = quote.pricing.pricingSnapshot.customer.totalIncVat;
-    if (dryRun) {
-      return NextResponse.json({ ok: true, dryRun: true, previousPriceExVat, priceExVat: quote.pricing.priceExVat, previousTotalIncVat, totalIncVat });
-    }
-    if (quote.pricing.priceExVat !== previousPriceExVat) {
-      if (shownTotal === null) return reject("SHOWN_TOTAL_REQUIRED", 400);
-      if (Math.abs(shownTotal - totalIncVat) >= 0.5) {
-        return reject("PRICE_CHANGED", 409, { priceExVat: quote.pricing.priceExVat, totalIncVat });
-      }
-    }
-
+    // Re-priced with any discount/extra staff gave the move (admin calculator).
     const save = movingOrderSaveData({
       quote,
       parsed: movingEdit,
       drivingDistance,
       notes: customer.comments || null,
       customerType: details.customerType,
+      // Discount/extra, partner minus/plus and lines set to 0, as staff left them.
+      adjustments: movingAdjustmentsFromOrder(order),
     });
+    const priceExVat = save.pricing.priceExVat;
+
+    const previousPriceExVat = order.priceExVat;
+    // Refunds aren't built: once something is paid the order can't get cheaper here.
+    if (priceExVat < previousPriceExVat && order.payments.length > 0) return reject("WOULD_DECREASE_PRICE", 422);
+
+    const previousTotalIncVat = customerOrderTotalIncVatNok(order);
+    const totalIncVat = save.pricing.pricingSnapshot.customer.totalIncVat;
+    if (dryRun) {
+      return NextResponse.json({ ok: true, dryRun: true, previousPriceExVat, priceExVat, previousTotalIncVat, totalIncVat });
+    }
+    if (priceExVat !== previousPriceExVat) {
+      if (shownTotal === null) return reject("SHOWN_TOTAL_REQUIRED", 400);
+      if (Math.abs(shownTotal - totalIncVat) >= 0.5) {
+        return reject("PRICE_CHANGED", 409, { priceExVat, totalIncVat });
+      }
+    }
     const contactAndSchedule = {
       customerName: customer.name,
       phone: customer.phone,

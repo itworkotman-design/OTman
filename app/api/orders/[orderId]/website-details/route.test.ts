@@ -7,9 +7,14 @@ const mocks = vi.hoisted(() => ({
   recomputeMock: vi.fn(),
   resolvePricingMock: vi.fn(),
   getWebsiteOrderCatalogMock: vi.fn(),
+  getMovingCatalogMock: vi.fn(),
 }));
 
 vi.mock("@/lib/content/websiteOrderCatalog", () => ({ getWebsiteOrderCatalog: mocks.getWebsiteOrderCatalogMock }));
+vi.mock("@/lib/content/getMovingCatalog", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/content/getMovingCatalog")>("@/lib/content/getMovingCatalog");
+  return { ...actual, getMovingCatalog: mocks.getMovingCatalogMock };
+});
 
 vi.mock("@/lib/orders/websiteOrderRepricing", () => ({
   recomputeWebsiteOrderPricing: mocks.recomputeMock,
@@ -501,7 +506,11 @@ describe("GET /api/orders/[orderId]/website-details — a homepage move", () => 
     });
     expect(order.products[0].items.map((i: { label: string }) => i.label)).toEqual(["Under 40 m²", "Move-out cleaning"]);
     expect(order.orderExtras).toEqual([{ label: "Distance (43 km)", qty: 43, price: 1243 }]);
-    expect(order.partner.total).toBe(3000 + 2500 + 710);
+    // The same calculator a delivery order has: every line with its code, both sides.
+    expect(order.calculator.products.map((p: { name: string }) => p.name)).toEqual(["Moving", "Order extras"]);
+    expect(order.calculator.products[0].lines[0]).toMatchObject({ code: "Under 40 m²", customer: 5000, partner: 3000 });
+    expect(order.calculator.customer).toMatchObject({ subtotal: 11043, discount: 0, extra: 0, total: 11043 });
+    expect(order.calculator.partner.total).toBe(3000 + 2500 + 710);
     // The lines add up to the stored total — no price warning.
     expect(order.totalsCheck.missingFromLines).toBe(0);
     expect(mocks.recomputeMock).not.toHaveBeenCalled();
@@ -509,7 +518,61 @@ describe("GET /api/orders/[orderId]/website-details — a homepage move", () => 
 
   it("hides the partner's side from someone who can only view website orders", async () => {
     mocks.membershipFindFirstMock.mockResolvedValue({ role: "USER", appAccess: [{ module: "WEBSITE_ORDERS", enabled: true, level: "VIEWER" }] });
-    expect((await (await call()).json()).order.partner).toBeNull();
+    expect((await (await call()).json()).order.calculator.partner).toBeNull();
+  });
+
+  it("shows the move's stored discount, extra and partner minus/plus in its calculator", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({ ...move, rabatt: "1043", leggTil: "200", subcontractorMinus: "500", subcontractorPlus: "100", priceExVat: 10200 });
+    const { order } = await (await call()).json();
+    expect(order.calculator.customer).toMatchObject({ discount: 1043, extra: 200, total: 10200 });
+    expect(order.calculator.partner).toMatchObject({ minus: 500, plus: 100, total: 6210 - 500 + 100 });
+    expect(order.totalsCheck.missingFromLines).toBe(0);
+  });
+
+  it("shows the move's lines set to 0 at 0 kr, still explaining the stored total", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({
+      ...move,
+      priceExVat: 11043 - 4800,
+      pricingSnapshot: { ...move.pricingSnapshot, movingNulledLines: { customer: ["MOVING_ADDITIONAL_SERVICES:Move-out cleaning"], subcontractor: [] } },
+    });
+    const { order } = await (await call()).json();
+    expect(order.calculator.products[0].lines[1]).toMatchObject({ customer: 0, nulledCustomer: true, lineKey: "MOVING_ADDITIONAL_SERVICES:Move-out cleaning" });
+    expect(order.calculator.customer.total).toBe(6243);
+    expect(order.totalsCheck.missingFromLines).toBe(0);
+  });
+
+  describe("\"Use new price\" on a move", () => {
+    const sizeOnly = {
+      ...move,
+      websiteBookingDetails: { ...move.websiteBookingDetails, serviceCodes: [] },
+      drivingDistance: "",
+      priceExVat: 5000,
+      items: [{ ...move.items[0], optionCode: "SIZE_UNDER_40" }],
+    };
+    const catalogAt = (customerPriceCents: number) => ({
+      priceListId: "pl",
+      options: [{ code: "SIZE_UNDER_40", labelEn: "Under 40 m²", labelNo: "Under 40 m²", customerPriceCents, subcontractorPriceCents: 300000 }],
+      services: [],
+      floorSurcharge: null,
+      carrySurcharges: [],
+      distanceRates: null,
+    });
+
+    it("names the lines priced differently today and gives today's total", async () => {
+      mocks.orderFindFirstMock.mockResolvedValue(sizeOnly);
+      mocks.getMovingCatalogMock.mockResolvedValue(catalogAt(550000));
+      const { order } = await (await call()).json();
+      expect(order.priceChanges).toEqual([{ productName: "Moving", label: "Under 40 m²", saved: 5000, now: 5500, savedPartner: 3000, nowPartner: 3000 }]);
+      expect(order.currentPricesTotal).toBe(5500);
+    });
+
+    it("has nothing to offer when the prices haven't moved", async () => {
+      mocks.orderFindFirstMock.mockResolvedValue(sizeOnly);
+      mocks.getMovingCatalogMock.mockResolvedValue(catalogAt(500000));
+      const { order } = await (await call()).json();
+      expect(order.priceChanges).toEqual([]);
+      expect(order.currentPricesTotal).toBe(5000);
+    });
   });
 
   it("a move booked before its answers were stored still isn't a website-modal order", async () => {

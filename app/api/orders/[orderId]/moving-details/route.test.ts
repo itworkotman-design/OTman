@@ -41,6 +41,17 @@ const opt = (code: string, labelEn: string, customerPriceCents: number, subcontr
 
 const apartment = { homeType: "APARTMENT", sizeOptionCode: "SIZE_UNDER_40", floors: 1, floorNumber: 1, hasLift: null, parking: "OUTSIDE" };
 const house = { homeType: "DETACHED", sizeOptionCode: "SIZE_UNDER_40", floors: 2, floorNumber: null, hasLift: null, parking: "OUTSIDE" };
+const sizeItem = {
+  cardId: 0,
+  productCode: "MOVING_BY_SIZE",
+  productName: "Moving",
+  itemType: "product",
+  optionCode: "SIZE_UNDER_40",
+  optionLabel: "Under 40 m²",
+  quantity: 1,
+  customerPriceCents: 500000,
+  subcontractorPriceCents: 300000,
+};
 
 function storedOrder(overrides: Record<string, unknown> = {}) {
   return {
@@ -74,6 +85,7 @@ function storedOrder(overrides: Record<string, unknown> = {}) {
     priceSubcontractor: 3000,
     pricingSnapshot: { customer: { totalExVat: 5000, totalIncVat: 6250 }, lines: [] },
     productsSummary: "Moving (Under 40 m²)",
+    items: [sizeItem],
     payments: [],
     ...overrides,
   };
@@ -162,6 +174,9 @@ describe("PUT /api/orders/[orderId]/moving-details (admin edit of a homepage mov
     expect(data).not.toHaveProperty("expressDelivery");
     expect(data).not.toHaveProperty("deviation");
     expect(mocks.getMovingCatalog).not.toHaveBeenCalled();
+    // Nothing that changes the price was sent, so it isn't re-priced.
+    expect(data).not.toHaveProperty("priceExVat");
+    expect(data).not.toHaveProperty("rabatt");
   });
 
   it("saves the contact details and schedule with an edit", async () => {
@@ -169,5 +184,107 @@ describe("PUT /api/orders/[orderId]/moving-details (admin edit of a homepage mov
     const data = mocks.orderUpdate.mock.calls[0][0].data;
     expect(data).toMatchObject({ customerName: "Kari N", phone: "+47 87654321", customerComments: "Piano", deliveryDate: "2026-10-25", timeWindow: "16:00-21:00" });
     expect(data.description).toContain("Piano");
+  });
+
+  it("stores the calculator's discount, extra and partner minus/plus, re-pricing the stored lines with them", async () => {
+    const res = await put({
+      handling: { rabatt: "500", leggTil: "100", subcontractorMinus: "300", subcontractorPlus: "50" },
+      nulledLines: { cards: {}, orderExtras: { customer: [], subcontractor: [] } },
+    });
+    expect((await res.json()).ok).toBe(true);
+    const data = mocks.orderUpdate.mock.calls[0][0].data;
+    expect(data).toMatchObject({ rabatt: "500", leggTil: "100", subcontractorMinus: "300", subcontractorPlus: "50" });
+    expect(data.priceExVat).toBe(5000 - 500 + 100);
+    expect(data.priceSubcontractor).toBe(3000 - 300 + 50);
+    expect(data.pricingSnapshot.customer).toMatchObject({ discount: 500, extra: 100, totalExVat: 4600, totalIncVat: 6250 - 625 + 125 });
+    expect(mocks.getMovingCatalog).not.toHaveBeenCalled();
+  });
+
+  it("keeps the stored discount when an edit re-prices the move", async () => {
+    mocks.orderFindFirst.mockResolvedValue(storedOrder({ rabatt: "500", subcontractorMinus: "300" }));
+    const json = await (await put({ edit: { ...edit, serviceCodes: ["SERVICE_FLYTTEVASK"] } })).json();
+    expect(json.priceExVat).toBe(9800 - 500);
+    expect(mocks.orderUpdate.mock.calls[0][0].data.priceSubcontractor).toBe(5500 - 300);
+  });
+
+  it("previews the calculator (dryRun) — the same view the Overview shows", async () => {
+    const json = await (await put({ handling: { rabatt: "500" }, dryRun: true })).json();
+    expect(json.calculator.customer).toMatchObject({ subtotal: 5000, discount: 500, total: 4500 });
+    expect(json.calculator.partner).toEqual({ base: 3000, minus: 0, plus: 0, total: 3000 });
+    expect(json.calculator.products[0].lines[0]).toMatchObject({ code: "SIZE_UNDER_40", customer: 5000, partner: 3000 });
+    expect(json.comparison.currentTotalIncVatNok).toBe(6250 - 625);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.orderUpdate).not.toHaveBeenCalled();
+  });
+
+  it("previews an edit with the calculator re-priced from the catalog", async () => {
+    const json = await (await put({ edit: { ...edit, serviceCodes: ["SERVICE_FLYTTEVASK"] }, dryRun: true })).json();
+    expect(json.calculator.customer.total).toBe(9800);
+    expect(json.calculator.products[0].lines.map((l: { code: string }) => l.code)).toEqual(["SIZE_UNDER_40", "SERVICE_FLYTTEVASK"]);
+  });
+
+  it("stores the calculator's lines set to 0 and re-prices without them", async () => {
+    const key = "MOVING_BY_SIZE:SIZE_UNDER_40";
+    await put({ handling: {}, nulledLines: { cards: { 0: { customer: [key], subcontractor: [] } }, orderExtras: { customer: [], subcontractor: [] } } });
+    const data = mocks.orderUpdate.mock.calls[0][0].data;
+    expect(data.priceExVat).toBe(0);
+    expect(data.priceSubcontractor).toBe(3000);
+    expect(data.pricingSnapshot.movingNulledLines).toEqual({ customer: [key], subcontractor: [] });
+  });
+
+  it("keeps the lines set to 0 when an edit re-prices the move", async () => {
+    const key = "MOVING_BY_SIZE:SIZE_UNDER_40";
+    mocks.orderFindFirst.mockResolvedValue(storedOrder({ pricingSnapshot: { customer: { totalExVat: 0, totalIncVat: 0 }, lines: [], movingNulledLines: { customer: [key], subcontractor: [] } } }));
+    const json = await (await put({ edit: { ...edit, serviceCodes: ["SERVICE_FLYTTEVASK"] } })).json();
+    expect(json.priceExVat).toBe(4800);
+  });
+
+  describe("\"Use new price\"", () => {
+    // Saved before the size went from 4 000 to 5 000 kr.
+    const outdated = () => storedOrder({ items: [{ ...sizeItem, customerPriceCents: 400000 }], priceExVat: 4000 });
+
+    it("re-prices the move's own answers at today's catalog", async () => {
+      mocks.orderFindFirst.mockResolvedValue(outdated());
+      const json = await (await put({ handling: {}, useCurrentPrices: true })).json();
+      expect(json).toMatchObject({ ok: true, previousPriceExVat: 4000, priceExVat: 5000 });
+      const ops = mocks.transaction.mock.calls[0][0];
+      expect(ops.map((op: { op: string }) => op.op)).toEqual(["items.deleteMany", "items.createMany", "order.update"]);
+    });
+
+    it("refuses an edit of a move saved at older prices until it's chosen, like a delivery", async () => {
+      mocks.orderFindFirst.mockResolvedValue(outdated());
+      const refused = await put({ edit: { ...edit, serviceCodes: ["SERVICE_FLYTTEVASK"] }, dryRun: true });
+      expect(refused.status).toBe(409);
+      expect((await refused.json()).reason).toBe("PRICES_OUTDATED");
+      const json = await (await put({ edit: { ...edit, serviceCodes: ["SERVICE_FLYTTEVASK"] }, useCurrentPrices: true, dryRun: true })).json();
+      expect(json).toMatchObject({ ok: true, priceExVat: 9800 });
+    });
+
+    it("still lets the amounts change on the stored lines without it", async () => {
+      mocks.orderFindFirst.mockResolvedValue(outdated());
+      const json = await (await put({ handling: { rabatt: "100" } })).json();
+      expect(json.priceExVat).toBe(3900);
+    });
+  });
+
+  it("saves the customer type, without re-pricing the move", async () => {
+    await put({ customerType: "business" });
+    const data = mocks.orderUpdate.mock.calls[0][0].data;
+    expect(data.websiteBookingDetails).toMatchObject({ customerType: "business", origin: apartment, destination: house });
+    expect(data).not.toHaveProperty("priceExVat");
+    expect(mocks.getMovingCatalog).not.toHaveBeenCalled();
+  });
+
+  it("keeps a new customer type on an edited move", async () => {
+    await put({ edit: { ...edit, serviceCodes: ["SERVICE_FLYTTEVASK"] }, customerType: "business" });
+    expect(mocks.orderUpdate.mock.calls[0][0].data.websiteBookingDetails.customerType).toBe("business");
+  });
+
+  it("rejects an unknown customer type", async () => {
+    expect((await put({ customerType: "vip" })).status).toBe(422);
+  });
+
+  it("rejects an amount that isn't kroner", async () => {
+    expect((await put({ handling: { rabatt: "abc" } })).status).toBe(422);
   });
 });

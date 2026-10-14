@@ -57,3 +57,7 @@ The server re-does the lookup itself on submit.
 into the flow, every section open (`showAll`), saved from `CustomerOrderEditFooter` (server-priced, confirmed total). Within
 24h of the job only the additional services (booked ones can't be removed) and the contact details. The booking-only buttons
 ("Gå til oppsummering", "Send bestilling") are hidden; the edit bar takes over.
+
+The booking modal passes `scrollToNewSections` to `SteppedModal`, so each newly revealed step scrolls smoothly into view (not when re-revealing steps after going back to edit an earlier one).
+
+In "My order" (`customer`), what staff set on the move's price (`pricingContext`: discount, extra, lines set to 0) is applied to the live calculator and the summary page: each line is keyed like its stored line (`movingLineKeyFor`), a line set to 0 shows 0 kr, the discount/extra get their own rows (`buildOrderAdjustmentLines`), and the totals come from `movingCustomerLiveTotals` — the price the server prices the change at.

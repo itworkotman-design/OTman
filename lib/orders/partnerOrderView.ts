@@ -1,6 +1,7 @@
 import { hasFullAccess, hasPermission } from "@/lib/users/access";
 import type { AppPermission, Role } from "@/lib/users/types";
-import { movingOrderPriceView, type MovingOrderItem } from "./movingOrderView";
+import { movingOrderCalculatorView, type MovingAdjustments } from "./movingOrderCalculator";
+import type { MovingOrderItem } from "./movingOrderView";
 import { roundNok } from "./orderTotals";
 import type { WebsiteOrderCalculatorView } from "./websiteOrderCalculator";
 
@@ -59,12 +60,12 @@ export function partnerPricesFromCalculator(calculator: WebsiteOrderCalculatorVi
   return withTotal(adjustments.length > 0 ? [...groups, { name: "Justering", lines: adjustments }] : groups, storedTotal);
 }
 
-// A move: its stored lines' partner prices (movingOrderPriceView).
-export function partnerPricesFromMovingItems(items: MovingOrderItem[], storedTotal: number): PartnerPriceView {
-  const view = movingOrderPriceView(items, "partner");
-  const groups = [
-    ...view.products.map((product) => ({ name: product.productName, lines: product.items })),
-    ...(view.orderExtras.length > 0 ? [{ name: "Order extras", lines: view.orderExtras }] : []),
-  ];
-  return withTotal(groups, storedTotal);
+// A move: its stored lines' partner prices, plus the partner minus/plus set
+// in the admin calculator (the same view, movingOrderCalculatorView).
+export function partnerPricesFromMovingItems(
+  items: MovingOrderItem[],
+  storedTotal: number,
+  adjustments: MovingAdjustments = { rabatt: null, leggTil: null, subcontractorMinus: null, subcontractorPlus: null },
+): PartnerPriceView {
+  return partnerPricesFromCalculator(movingOrderCalculatorView(items, adjustments, { includePartner: true }), storedTotal);
 }

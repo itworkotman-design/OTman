@@ -6,6 +6,8 @@ import {
   finalStepScrollTarget,
   isFinalStepShown,
   isSectionDimmed,
+  newSectionScrollTop,
+  revealsUnseenSection,
   progressPercent,
   showsBottomSpace,
   retractedRevealedCount,
@@ -245,5 +247,40 @@ describe("isSectionDimmed", () => {
   it("dims nothing unless the modal opts in, or with every section open at once", () => {
     expect(isSectionDimmed({ ...base, index: 0, enabled: false })).toBe(false);
     expect(isSectionDimmed({ ...base, index: 0, showAll: true })).toBe(false);
+  });
+});
+
+describe("revealsUnseenSection", () => {
+  it("is true when the reveal goes past the furthest section ever shown", () => {
+    expect(revealsUnseenSection({ furthestRevealed: 2, revealedCount: 3 })).toBe(true);
+  });
+
+  it("is false when re-revealing sections that were retracted after going back", () => {
+    expect(revealsUnseenSection({ furthestRevealed: 6, revealedCount: 3 })).toBe(false);
+    expect(revealsUnseenSection({ furthestRevealed: 6, revealedCount: 6 })).toBe(false);
+  });
+
+  it("is true again once the reveal goes past the earlier furthest point", () => {
+    expect(revealsUnseenSection({ furthestRevealed: 6, revealedCount: 7 })).toBe(true);
+  });
+});
+
+describe("newSectionScrollTop", () => {
+  const base = { scrollTop: 0, viewportHeight: 500, padding: 24 };
+
+  it("scrolls down just enough to show the whole new section", () => {
+    expect(newSectionScrollTop({ ...base, sectionTop: 400, sectionBottom: 700 })).toBe(224);
+  });
+
+  it("aligns a section taller than the view with the top, so its start isn't skipped", () => {
+    expect(newSectionScrollTop({ ...base, sectionTop: 400, sectionBottom: 1200 })).toBe(376);
+  });
+
+  it("doesn't scroll when the new section is already fully visible", () => {
+    expect(newSectionScrollTop({ ...base, sectionTop: 100, sectionBottom: 300 })).toBeNull();
+  });
+
+  it("never scrolls the view up", () => {
+    expect(newSectionScrollTop({ ...base, scrollTop: 600, sectionTop: 400, sectionBottom: 700 })).toBeNull();
   });
 });

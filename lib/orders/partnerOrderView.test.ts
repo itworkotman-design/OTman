@@ -94,4 +94,17 @@ describe("partnerPricesFromMovingItems (a move)", () => {
       mismatch: 0,
     });
   });
+
+  it("lists the admin calculator's partner minus and plus, so the lines add up to the stored partner price", () => {
+    const items = [item("MOVING_BY_SIZE", "Under 40 m²", 1, 300000)];
+    const view = partnerPricesFromMovingItems(items, 2800, { rabatt: null, leggTil: null, subcontractorMinus: "300", subcontractorPlus: "100" });
+    expect(view.groups.at(-1)).toEqual({
+      name: "Justering",
+      lines: [
+        { label: "Partner minus", qty: 1, price: -300 },
+        { label: "Partner plus", qty: 1, price: 100 },
+      ],
+    });
+    expect(view.mismatch).toBe(0);
+  });
 });

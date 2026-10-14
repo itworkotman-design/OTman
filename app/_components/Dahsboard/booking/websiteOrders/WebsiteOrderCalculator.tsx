@@ -44,6 +44,9 @@ type Props = {
   onDraftChange: (draft: WebsiteOrderPricingDraft | null) => void;
   // Where to show "Price after this change" (above the modal's Save); inline when absent.
   priceChangeTarget?: HTMLElement | null;
+  // Where its dry-run preview is priced — a move previews through
+  // /api/orders/[orderId]/moving-details (same body and answer) instead.
+  previewEndpoint?: string;
   // The "Edit order" tab prices products, stops and these choices together
   // and saves them in one go: then this calculator doesn't fetch or save — it
   // shows the parent's latest pricing and only reports its draft. `calculator`
@@ -113,6 +116,7 @@ export default function WebsiteOrderCalculator({
   locale,
   onDraftChange,
   priceChangeTarget = null,
+  previewEndpoint,
   externalPricing,
 }: Props) {
   const external = !!externalPricing;
@@ -155,7 +159,7 @@ export default function WebsiteOrderCalculator({
 
   // Always a dry run — this component never saves.
   async function pricePreview() {
-    const res = await fetch(`/api/orders/${orderId}/website-items`, {
+    const res = await fetch(previewEndpoint ?? `/api/orders/${orderId}/website-items`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",

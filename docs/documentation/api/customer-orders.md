@@ -63,7 +63,9 @@ Body `{ message? }`.
 A `MOVING` order with stored answers is edited as a whole move (`moving`: addresses, both ends, services —
 `lib/orders/movingOrderEdit.ts`), classified into a delivery order's change kinds so the same 24h policy applies: anything
 until 24h before the job, then only contact details and adding services. A change is re-priced like a booking
-(`priceMovingOrder`, distance looked up again when an address moved), must confirm the shown total (`shownTotal`, else
+(`priceMovingOrder`, distance looked up again when an address moved) keeping any discount/extra staff gave it
+(`movingOrderSaveData` with `movingAdjustmentsFromOrder`, lines set to 0 included), must confirm the shown total (`shownTotal`, else
 `SHOWN_TOTAL_REQUIRED`/`PRICE_CHANGED`), never makes a paid order cheaper (`WOULD_DECREASE_PRICE`), and is followed by the same
-history event, staff notification and "order updated" email as a delivery order. `GET` skips the white-goods catalog for a move.
+history event, staff notification and "order updated" email as a delivery order. `GET` skips the white-goods catalog for a move
+and returns `pricingContext: { rabatt, leggTil, nulledLineKeys }` (customer side only) for the flow's live price.
 Tested in `route.moving.test.ts`.

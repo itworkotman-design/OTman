@@ -23,6 +23,13 @@ import { diffCalculatorRows, type PriceChangeRow } from "@/lib/booking/pricing/p
 import { MOVING_ORDER_KIND, parseMovingBookingDetails } from "@/lib/orders/movingBookingDetails";
 import { movingEditFromOrder } from "@/lib/orders/movingOrderEdit";
 import { movingOrderPriceView } from "@/lib/orders/movingOrderView";
+import {
+  movingAdjustmentsFromOrder,
+  movingOrderAdjustedPricing,
+  movingOrderCalculatorView,
+  movingPriceChanges,
+} from "@/lib/orders/movingOrderCalculator";
+import { movingCurrentPriceRows } from "@/lib/orders/movingCurrentPrices";
 import { getMovingCatalog, type MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 
 // Read-only view of a homepage white-goods website order for the admin
@@ -85,6 +92,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
           customerPriceCents: true,
           subcontractorPriceCents: true,
           // A move's lines are shown straight from these (movingOrderPriceView).
+          cardId: true,
+          productName: true,
+          itemType: true,
           productCode: true,
           optionCode: true,
           optionLabel: true,
@@ -152,14 +162,26 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
   };
 
   // A homepage move: its answers (editable as a whole) and its priced lines,
-  // read from the order's stored lines — no white-goods calculator.
+  // read from the order's stored lines, in the delivery calculator's shape.
   const movingEdit = order.websiteOrderKind === MOVING_ORDER_KIND ? movingEditFromOrder(order) : null;
   if (movingEdit) {
     const customer = movingOrderPriceView(order.items, "customer");
-    // The size names for the move's cards; the order opens without them.
+    const adjustments = movingAdjustmentsFromOrder(order);
+    // The same calculator a delivery order has (partner side for admins only).
+    const calculator = movingOrderCalculatorView(order.items, adjustments, { includePartner: canSeePartnerPrices });
+    // The size names for the move's cards, and its answers at today's prices
+    // ("Use new price"); the order opens without them.
     let sizeOptions: MovingCatalogOption[] = [];
+    let currentPricesTotal: number | null = null;
+    let priceChanges: PriceChangeRow[] = [];
     try {
-      sizeOptions = (await getMovingCatalog())?.options ?? [];
+      const catalog = await getMovingCatalog();
+      sizeOptions = catalog?.options ?? [];
+      const current = catalog ? movingCurrentPriceRows(catalog, order) : null;
+      if (current) {
+        currentPricesTotal = movingOrderAdjustedPricing(current, adjustments).priceExVat;
+        priceChanges = movingPriceChanges(order.items, current, { includePartner: canSeePartnerPrices });
+      }
     } catch (err) {
       console.error("[website-details] Couldn't load the moving catalog:", err);
     }
@@ -178,18 +200,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
         sizeOptions,
         products: customer.products,
         orderExtras: customer.orderExtras,
+        // Checked against the calculator's lines, so a line set to 0 counts at 0.
         totalsCheck: checkWebsiteOrderTotals({
           total: order.priceExVat,
           chargedIncVat: getOrderChargeAmountIncVatNok(order),
-          products: customer.products,
-          orderExtras: customer.orderExtras,
+          products: [],
+          orderExtras: calculator.products.flatMap((product) => product.lines.map((line) => ({ price: line.customer }))),
           rabatt: order.rabatt,
           leggTil: order.leggTil,
           shownTotal: null,
         }),
-        // The partner's price per line — admins only.
-        partner: canSeePartnerPrices ? movingOrderPriceView(order.items, "partner") : null,
-        calculator: null,
+        calculator,
+        currentPricesTotal,
+        priceChanges,
       },
     });
   }

@@ -7,6 +7,15 @@ import { MOVING_ORDER_KIND, parseMovingBookingDetails } from "@/lib/orders/movin
 import { lookUpMovingDrivingDistance } from "@/lib/orders/movingDrivingDistance";
 import { movingEditFromOrder, movingOrderSaveData, parseMovingEdit } from "@/lib/orders/movingOrderEdit";
 import { priceMovingOrder } from "@/lib/orders/movingOrderQuote";
+import {
+  movingAdjustmentsFromOrder,
+  movingNulledFromDraft,
+  movingOrderAdjustedPricing,
+  movingOrderCalculatorView,
+  type MovingAdjustments,
+} from "@/lib/orders/movingOrderCalculator";
+import { movingPricesOutdated } from "@/lib/orders/movingCurrentPrices";
+import { parseNulledLines } from "@/lib/orders/websiteOrderCalculator";
 import { movingOrderSaveWrites } from "@/lib/orders/movingOrderWrites";
 import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
 import { createOrderUpdatedEvent, type OrderEventChange } from "@/lib/orders/orderEvents";
@@ -18,11 +27,12 @@ import { validateTextField } from "@/lib/orders/websiteOrderValidation";
 // MOVING): the move itself — addresses, both ends, services (`edit`),
 // re-priced from the moving catalog like a booking (priceMovingOrder) with the
 // distance re-checked when an address moved — the customer's contact details
-// and schedule, and the "Handle order" panel's fields that don't change a
-// move's price (`handling`: drivers, plate, internal description, date). The
-// white-goods price fields (express, deviation, calculator) don't apply to a
-// move and are never written here. `dryRun` previews the price against what
-// was paid, without saving. Status and partner save through /api/orders/bulk.
+// and schedule, and the "Handle order" panel's fields (`handling`: drivers,
+// plate, internal description, date) with the calculator's discount/extra and
+// partner minus/plus, which re-price the move's lines (movingOrderCalculator).
+// Express and the deviation are white-goods prices, never written here.
+// `dryRun` previews the price against what was paid, and the calculator,
+// without saving. Status and partner save through /api/orders/bulk.
 
 const LOCKED_STATUSES = new Set(["cancelled", "completed", "invoiced", "paid"]);
 
@@ -57,6 +67,20 @@ const ORDER_SELECT = {
   priceSubcontractor: true,
   pricingSnapshot: true,
   productsSummary: true,
+  // The move's priced lines — re-priced with the calculator's amounts.
+  items: {
+    select: {
+      cardId: true,
+      productCode: true,
+      productName: true,
+      itemType: true,
+      optionCode: true,
+      optionLabel: true,
+      quantity: true,
+      customerPriceCents: true,
+      subcontractorPriceCents: true,
+    },
+  },
   payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
 } as const;
 
@@ -104,6 +128,10 @@ const LOGGED_FIELDS = [
   ["driverInfo", "Info for the driver"],
   ["licensePlate", "License plate"],
   ["description", "Description"],
+  ["rabatt", "Discount"],
+  ["leggTil", "Extra"],
+  ["subcontractorMinus", "Partner minus"],
+  ["subcontractorPlus", "Partner plus"],
 ] as const;
 
 export async function PUT(req: Request, { params }: Params) {
@@ -119,18 +147,26 @@ export async function PUT(req: Request, { params }: Params) {
   const order = await prisma.order.findFirst({ where: { id: orderId, companyId }, select: ORDER_SELECT });
   if (!order || order.websiteOrderKind !== MOVING_ORDER_KIND) return reject("NOT_FOUND", 404);
 
-  const changesOrder = body.edit !== undefined || body.customer !== undefined || body.preferredDate !== undefined || body.timeWindow !== undefined;
+  const changesOrder =
+    body.edit !== undefined || body.customer !== undefined || body.preferredDate !== undefined || body.timeWindow !== undefined || body.customerType !== undefined;
   if (changesOrder && LOCKED_STATUSES.has(normalizeOrderStatus(order.status))) return reject("NOT_EDITABLE_STATUS", 409);
 
   const data: Record<string, unknown> = { lastEditedByMembershipId: membership.id };
 
-  // "Handle order": only what doesn't change a move's price.
+  // The calculator's discount/extra, partner minus/plus and lines set to 0:
+  // the stored ones unless this save sends its own.
+  const storedAdjustments = movingAdjustmentsFromOrder(order);
+  let adjustments: MovingAdjustments = storedAdjustments;
+  let adjustmentsChanged = false;
+  // "Use new price": the move's answers priced at today's catalog.
+  const useCurrentPrices = body.useCurrentPrices === true;
+
+  // "Handle order": the panel's fields and the calculator's amounts.
   if (body.handling !== undefined) {
-    // The white-goods price fields are dropped before validating: they're
-    // never stored on a move, so they mustn't fail its save either.
+    // Express and the deviation are white-goods prices — dropped before
+    // validating: never stored on a move, so they mustn't fail its save either.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { deviation, customDeviation, expressDelivery, rabatt, leggTil, subcontractorMinus, subcontractorPlus, ...sent } =
-      record(body.handling) ?? {};
+    const { deviation, customDeviation, expressDelivery, ...sent } = record(body.handling) ?? {};
     const parsed = parseWebsiteOrderHandling(sent, handlingFromOrder(order));
     if (!parsed.ok) return reject(parsed.reason, 422, { errors: parsed.errors });
     const h = parsed.handling;
@@ -143,6 +179,30 @@ export async function PUT(req: Request, { params }: Params) {
       deliveryDate: h.deliveryDate || null,
       timeWindow: h.timeWindow || null,
     });
+    const amounts = {
+      rabatt: h.rabatt || null,
+      leggTil: h.leggTil || null,
+      subcontractorMinus: h.subcontractorMinus || null,
+      subcontractorPlus: h.subcontractorPlus || null,
+    };
+    if ((Object.keys(amounts) as (keyof typeof amounts)[]).some((key) => amounts[key] !== (storedAdjustments[key] ?? null))) {
+      adjustmentsChanged = true;
+      adjustments = { ...adjustments, ...amounts };
+      Object.assign(data, amounts);
+    }
+  }
+
+  // The calculator's "Set to 0" boxes (a move's card and its order extras).
+  if (body.nulledLines !== undefined) {
+    const parsed = parseNulledLines(body.nulledLines);
+    if (!parsed) return reject("INVALID_NULLED_LINES", 422);
+    const nulledLines = movingNulledFromDraft(parsed);
+    const sorted = (keys: string[]) => JSON.stringify([...keys].sort());
+    const stored = storedAdjustments.nulledLines;
+    if (sorted(nulledLines.customer) !== sorted(stored.customer) || sorted(nulledLines.subcontractor) !== sorted(stored.subcontractor)) {
+      adjustmentsChanged = true;
+      adjustments = { ...adjustments, nulledLines };
+    }
   }
 
   // The customer's contact details and schedule (an admin may leave a field empty).
@@ -161,12 +221,24 @@ export async function PUT(req: Request, { params }: Params) {
   if (body.preferredDate !== undefined) data.deliveryDate = text(body.preferredDate) || null;
   if (body.timeWindow !== undefined) data.timeWindow = text(body.timeWindow) || null;
 
-  // The move itself, re-priced.
+  // Private or business (the Edit tab's customer card) — only what the
+  // customer is shown (VAT display); it never changes the price.
+  const storedDetails = parseMovingBookingDetails(order.websiteBookingDetails);
+  let customerType = storedDetails?.customerType ?? null;
+  if (body.customerType !== undefined) {
+    if (body.customerType !== "private" && body.customerType !== "business") {
+      return reject("INVALID_DETAILS", 422, { errors: { customerType: "Invalid" } });
+    }
+    customerType = body.customerType;
+  }
+
+  // The move itself, re-priced from the catalog: an edit, or "Use new price"
+  // on the move as it is.
   let save: ReturnType<typeof movingOrderSaveData> | null = null;
-  if (body.edit !== undefined) {
-    const parsed = parseMovingEdit(body.edit);
-    if (!parsed.ok) return reject("INVALID_DETAILS", 422, { errors: parsed.errors });
+  if (body.edit !== undefined || useCurrentPrices) {
     const before = movingEditFromOrder(order);
+    const parsed = parseMovingEdit(body.edit !== undefined ? body.edit : before);
+    if (!parsed.ok) return reject("INVALID_DETAILS", 422, { errors: parsed.errors });
     const addressesMoved =
       !before ||
       before.pickupAddress.trim() !== parsed.edit.pickupAddress ||
@@ -177,6 +249,11 @@ export async function PUT(req: Request, { params }: Params) {
 
     const catalog = await getMovingCatalog();
     if (!catalog) return reject("CATALOG_UNAVAILABLE", 500);
+    // As with a delivery: an edit re-prices at today's catalog, so a move
+    // saved at older prices needs "Use new price" chosen first.
+    if (!useCurrentPrices && movingPricesOutdated(catalog, order)) {
+      return reject("PRICES_OUTDATED", 409, { storedPriceExVat: order.priceExVat });
+    }
     const quote = priceMovingOrder(catalog, {
       origin: parsed.origin,
       destination: parsed.destination,
@@ -190,15 +267,31 @@ export async function PUT(req: Request, { params }: Params) {
       parsed,
       drivingDistance,
       notes,
-      customerType: parseMovingBookingDetails(order.websiteBookingDetails)?.customerType ?? null,
+      customerType,
+      adjustments,
     });
+  } else if (adjustmentsChanged) {
+    // Only the amounts changed: the stored lines, re-priced with them.
+    Object.assign(data, movingOrderAdjustedPricing(order.items, adjustments));
+  }
+  // A new customer type on a move that isn't re-priced: just its answers.
+  if (!save && storedDetails && customerType !== storedDetails.customerType) {
+    data.websiteBookingDetails = { ...(order.websiteBookingDetails as Record<string, unknown>), customerType };
   }
 
   // The order after this save, against what was paid.
   const after = { ...order, ...data, ...(save?.orderData ?? {}) } as typeof order;
   const comparison = compareOrderWithPayments({ payments: order.payments, current: buildOrderStateSnapshot(after) });
   if (dryRun) {
-    return NextResponse.json({ ok: true, dryRun: true, previousPriceExVat: order.priceExVat, priceExVat: after.priceExVat, comparison });
+    return NextResponse.json({
+      ok: true,
+      dryRun: true,
+      previousPriceExVat: order.priceExVat,
+      priceExVat: after.priceExVat,
+      comparison,
+      // The admin calculator as it would read after this save (WebsiteOrderCalculator).
+      calculator: movingOrderCalculatorView(save?.itemRows ?? order.items, adjustments, { includePartner: true }),
+    });
   }
 
   try {

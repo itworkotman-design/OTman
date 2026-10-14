@@ -38,7 +38,7 @@ vi.mock("@/lib/orders/orderEvents", () => ({
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: mocks.createOrderNotification }));
 vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({ sendLifecycleEmailsForOrders: mocks.sendLifecycleEmails }));
 
-import { PUT } from "./route";
+import { GET, PUT } from "./route";
 
 const NOW = new Date("2026-10-05T10:00:00Z");
 const opt = (code: string, labelEn: string, customerPriceCents: number, subcontractorPriceCents = 0) => ({
@@ -142,6 +142,16 @@ describe("customer order route — a homepage move", () => {
     expect(mocks.orderUpdate.mock.calls[0][0].data).toMatchObject({ deliveryAddress: "Bragernes torg 1, Drammen", drivingDistance: "42.86" });
   });
 
+  it("keeps a discount staff gave the move when the customer changes it", async () => {
+    mocks.orderFindFirst.mockResolvedValue(order({ rabatt: "1000", priceExVat: 8000, pricingSnapshot: { customer: { totalExVat: 8000, totalIncVat: 10000 }, lines: [] } }));
+    const add = { ...moving, serviceCodes: ["SERVICE_NEDPAKKING", "SERVICE_FLYTTEVASK"] };
+    const preview = await (await put({ moving: add, dryRun: true })).json();
+    // 5 000 + 4 000 + 4 800 − 1 000 ex. VAT; 6 250 + 5 000 + 6 000 − 1 250 incl.
+    expect(preview).toMatchObject({ priceExVat: 12800, previousTotalIncVat: 10000, totalIncVat: 16000 });
+    await put({ moving: add, shownTotal: 16000 });
+    expect(mocks.orderUpdate.mock.calls[0][0].data).toMatchObject({ priceExVat: 12800 });
+  });
+
   it("confirms the price the customer was shown, like a delivery order", async () => {
     const add = { ...moving, serviceCodes: ["SERVICE_NEDPAKKING", "SERVICE_FLYTTEVASK"] };
     expect((await put({ moving: add })).status).toBe(400);
@@ -181,5 +191,48 @@ describe("customer order route — a homepage move", () => {
     await put({ customer: { name: "Kari Nordmann", phone: "+47 12345678", email: "kari@example.no", comments: "" } });
     expect(mocks.getMovingCatalog).not.toHaveBeenCalled();
     expect(mocks.orderUpdate).toHaveBeenCalled();
+  });
+});
+
+describe("customer order route — a homepage move's staff pricing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    mocks.getCustomerSession.mockResolvedValue({ sessionId: "s1", accountId: "acc-1", email: "kari@example.no" });
+    mocks.transaction.mockResolvedValue([]);
+    mocks.getMovingCatalog.mockResolvedValue({
+      priceListId: "pl",
+      options: [opt("SIZE_UNDER_40", "Under 40 m²", 500000)],
+      services: [opt("SERVICE_NEDPAKKING", "Packing", 400000), opt("SERVICE_FLYTTEVASK", "Move-out cleaning", 480000)],
+      floorSurcharge: null,
+      carrySurcharges: [],
+      distanceRates: { kmFrom21: opt("KM_FROM_21", "Per km", 2890), kmOver100: opt("KM_OVER_100", "Per km", 2890) },
+    });
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  const packingKey = "MOVING_ADDITIONAL_SERVICES:SERVICE_NEDPAKKING";
+  const withStaffPricing = () =>
+    order({
+      rabatt: "500",
+      leggTil: "100",
+      priceExVat: 4600,
+      pricingSnapshot: { customer: { totalExVat: 4600, totalIncVat: 5750 }, lines: [], movingNulledLines: { customer: [packingKey], subcontractor: [] } },
+    });
+
+  it("gives the page the discount, extra and lines set to 0, so its live price matches", async () => {
+    mocks.orderFindFirst.mockResolvedValue(withStaffPricing());
+    const json = await (await GET(new Request("http://localhost/api/customer/orders/583920"), params)).json();
+    expect(json.pricingContext).toEqual({ rabatt: "500", leggTil: "100", nulledLineKeys: [packingKey] });
+  });
+
+  it("keeps a line staff set to 0 when the customer changes the move", async () => {
+    mocks.orderFindFirst.mockResolvedValue(withStaffPricing());
+    const add = { ...moving, serviceCodes: ["SERVICE_NEDPAKKING", "SERVICE_FLYTTEVASK"] };
+    const preview = await (await put({ moving: add, dryRun: true })).json();
+    // 5 000 + 0 (packing set to 0) + 4 800 − 500 + 100.
+    expect(preview.priceExVat).toBe(9400);
   });
 });

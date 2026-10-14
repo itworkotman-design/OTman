@@ -15,10 +15,18 @@ import {
   type CustomerType,
 } from "@/lib/booking/pricing/websiteVat";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
-import { MOVING_SERVICE_OPTIONS } from "@/lib/content/movingCatalog";
+import {
+  MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
+  MOVING_DISTANCE_ITEM_CODE,
+  MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
+  MOVING_PRODUCT_CODE,
+  MOVING_SERVICE_OPTIONS,
+  MOVING_SERVICES_PRODUCT_CODE,
+} from "@/lib/content/movingCatalog";
+import { movingCustomerLiveTotals, movingLineKeyFor } from "@/lib/orders/movingOrderCalculator";
+import { buildOrderAdjustmentLines } from "../whiteGoods/orderSummaryLines";
 import {
   movingCarrySurchargeLines,
-  movingCustomerTotals,
   movingDistanceLines,
   movingFloorSurchargeLines,
 } from "@/lib/orders/movingOrderPricing";
@@ -178,6 +186,9 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
   // The order as loaded — what the edit bar compares the flow with.
   const [customerInitialDraft, setCustomerInitialDraft] = useState<CustomerEditDraft | null>(null);
   const [customerSummaryOpen, setCustomerSummaryOpen] = useState(false);
+  // What staff set on the move's price (discount, extra, lines set to 0), from
+  // the order — applied to the live price below.
+  const [staffPricing, setStaffPricing] = useState<{ rabatt: string; leggTil: string; nulledLineKeys: string[] } | null>(null);
   useEffect(() => {
     if (!customer) return;
     let cancelled = false;
@@ -214,6 +225,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
         setEmail(details.customer.email);
         setNotes(details.customer.comments);
         setCustomerType(details.customerType ?? "private");
+        setStaffPricing(data.pricingContext ?? null);
         setCustomerInitialDraft({
           customer: details.customer,
           preferredDate: details.preferredDate,
@@ -245,28 +257,42 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
   // One entry per end with chargeable floors, priced like the server prices
   // them (movingFloorSurchargeLines) — `end` labels the summary row.
   const floorLines = [
-    { end: t("from", "fra"), chargeableFloors: chargeableFloors(origin) },
-    { end: t("to", "til"), chargeableFloors: chargeableFloors(destination) },
-  ].flatMap(({ end, chargeableFloors }) =>
-    movingFloorSurchargeLines(floorSurchargeOption, [{ label: end, chargeableFloors }]).map((line) => ({ ...line, end })),
+    { end: t("from", "fra"), endKey: "from" as const, chargeableFloors: chargeableFloors(origin) },
+    { end: t("to", "til"), endKey: "to" as const, chargeableFloors: chargeableFloors(destination) },
+  ].flatMap(({ end, endKey, chargeableFloors }) =>
+    movingFloorSurchargeLines(floorSurchargeOption, [{ label: end, chargeableFloors }]).map((line) => ({ ...line, end, endKey })),
   );
   // Carrying-distance surcharge per end, from its parking answer (right
   // outside is free) — also priced like the server prices it.
   const carryLines = [
-    { end: t("from", "fra"), parking: origin.parking },
-    { end: t("to", "til"), parking: destination.parking },
-  ].flatMap(({ end, parking }) =>
+    { end: t("from", "fra"), endKey: "from" as const, parking: origin.parking },
+    { end: t("to", "til"), endKey: "to" as const, parking: destination.parking },
+  ].flatMap(({ end, endKey, parking }) =>
     movingCarrySurchargeLines(carrySurcharges, [{ label: end, parking }]).map((line) => {
       const option = carrySurcharges.find((o) => o.code === line.code);
-      return { ...line, end, labelNo: option?.labelNo ?? line.labelEn, labelEn: option?.labelEn ?? line.labelEn };
+      return { ...line, end, endKey, labelNo: option?.labelNo ?? line.labelEn, labelEn: option?.labelEn ?? line.labelEn };
     }),
   );
   // The km charge (same rule as delivery — movingDistanceLines), from the
   // driving distance looked up below. The server looks it up again itself.
   const distanceLines = movingDistanceLines(distanceRates, parseDistanceKm(drivingDistance));
-  const totals = movingCustomerTotals(
-    selectedOption ? [selectedOption, ...selectedServices, ...floorLines, ...carryLines, ...distanceLines] : [],
-  );
+  // Every priced line with its key (movingLineKeyFor — the same as its stored
+  // line's), so what staff set on a booked move ("My order": staffPricing) can
+  // be applied: a line set to 0 shows and counts at 0 kr, a discount/extra
+  // gets its own row — the price the server prices the change at
+  // (movingCustomerLiveTotals). Booking a new move, staffPricing is null.
+  const keyedLines = selectedOption
+    ? [
+        { key: movingLineKeyFor(MOVING_PRODUCT_CODE, selectedOption.code), customerPriceCents: selectedOption.customerPriceCents },
+        ...selectedServices.map((s) => ({ key: movingLineKeyFor(MOVING_SERVICES_PRODUCT_CODE, s.code), customerPriceCents: s.customerPriceCents })),
+        ...floorLines.map((l) => ({ key: movingLineKeyFor(MOVING_FLOOR_SURCHARGE_PRODUCT_CODE, l.code, l.endKey), customerPriceCents: l.customerPriceCents })),
+        ...carryLines.map((l) => ({ key: movingLineKeyFor(MOVING_CARRY_SURCHARGE_PRODUCT_CODE, l.code, l.endKey), customerPriceCents: l.customerPriceCents })),
+        ...distanceLines.map((l) => ({ key: movingLineKeyFor(MOVING_DISTANCE_ITEM_CODE, l.code), customerPriceCents: l.customerPriceCents })),
+      ]
+    : [];
+  const totals = movingCustomerLiveTotals(keyedLines, staffPricing);
+  const zeroed = <T extends { customerPriceCents: number }>(line: T, key: string): T =>
+    totals.nulledKeys.includes(key) ? { ...line, customerPriceCents: 0 } : line;
   const vatDisplay = websiteCustomerTotalDisplay({
     totalExVat: totals.totalExVat,
     totalIncVat: totals.totalIncVat,
@@ -279,12 +305,21 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
   // details" (SteppedModal's `aside`), following them in a sticky right
   // column instead of each step carrying its own. "Where are you moving
   // from?" (address + type) stays full width above it.
-  const summary = movingSummary({ locale, sizeOption: selectedOption, services: selectedServices, floorLines, carryLines, distanceLines });
+  const summary = movingSummary({
+    locale,
+    sizeOption: selectedOption && zeroed(selectedOption, movingLineKeyFor(MOVING_PRODUCT_CODE, selectedOption.code)),
+    services: selectedServices.map((s) => zeroed(s, movingLineKeyFor(MOVING_SERVICES_PRODUCT_CODE, s.code))),
+    floorLines: floorLines.map((l) => zeroed(l, movingLineKeyFor(MOVING_FLOOR_SURCHARGE_PRODUCT_CODE, l.code, l.endKey))),
+    carryLines: carryLines.map((l) => zeroed(l, movingLineKeyFor(MOVING_CARRY_SURCHARGE_PRODUCT_CODE, l.code, l.endKey))),
+    distanceLines: distanceLines.map((l) => zeroed(l, movingLineKeyFor(MOVING_DISTANCE_ITEM_CODE, l.code))),
+  });
+  // A staff discount / extra as rows, so the lines add up to the total (as the delivery flow).
+  const summaryOrderExtras = [...summary.orderExtras, ...buildOrderAdjustmentLines(totals, locale)];
   const calculator = (
     <WhiteGoodsOrderSummary
       locale={locale}
       products={summary.products}
-      orderExtras={summary.orderExtras}
+      orderExtras={summaryOrderExtras}
       totalExVat={totals.totalExVat}
       totalIncVat={totals.totalIncVat}
       customerType={customerType ?? "private"}
@@ -633,7 +668,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
               <WhiteGoodsOrderSummary
                 locale={locale}
                 products={summary.products}
-                orderExtras={summary.orderExtras}
+                orderExtras={summaryOrderExtras}
                 totalExVat={totals.totalExVat}
                 totalIncVat={totals.totalIncVat}
                 customerType={customerType ?? "private"}
@@ -745,6 +780,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
       onClose={onClose}
       aside={{ node: calculator, fromId: "moving-from-details", untilId: "your-details" }}
       dimCompleted
+      scrollToNewSections
     />
   );
 }

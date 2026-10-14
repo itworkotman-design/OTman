@@ -33,6 +33,7 @@ import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
+import { CardHeading, ChoiceButton } from "./EditTabParts";
 import {
   addProductToOrder,
   addStop,
@@ -899,49 +900,3 @@ export default function WebsiteOrderEditTab({
     </div>
   );
 }
-
-// Top of a pickup / delivery / customer card: a round blue badge (a number or
-// an icon), the title, and a one-line summary of what's filled in.
-function CardHeading({ icon, title, summary, action }: { icon: ReactNode; title: string; summary: string; action?: ReactNode }) {
-  return (
-    <div className="mb-4 flex items-center justify-between gap-3">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-logoblue text-sm font-semibold text-white [&_svg]:h-4 [&_svg]:w-4">
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <p className="font-semibold text-black/80">{title}</p>
-          {summary && <p className="truncate text-xs text-black/50">{summary}</p>}
-        </div>
-      </div>
-      {action}
-    </div>
-  );
-}
-
-// A toggle button for picking one of a few options (type, time window).
-function ChoiceButton({
-  selected,
-  onClick,
-  wide = false,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  wide?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onClick}
-      className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-colors ${wide ? "" : "px-4"} ${
-        selected ? "border-logoblue bg-logoblue/10 text-logoblue" : "border-neutral-200 text-black/60 hover:border-logoblue/50"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
