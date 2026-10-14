@@ -17,7 +17,7 @@ The homepage booking modal shell. Sections reveal one after another as each comp
 
 ## Shared side column (`aside`)
 Optional `aside={{ node, fromId, untilId }}`: the revealed sections from `fromId` up to, not including,
-`untilId` render in a `lg:grid-cols-[1fr_400px]` row beside one `node`, vertically centred beside them and sticky at both top and bottom so it stays in view once they outgrow the screen (stacked under them on small
+`untilId` render in a `lg:grid-cols-[1fr_400px]` row beside one `node`, vertically centred in the part of that row visible on screen — a sticky box sized on scroll/resize (`--aside-viewport`: from the row top or the scroll area top, whichever is lower, to the scroll area bottom, capped at the row height), so mid-scroll it sits in the middle of the screen (stacked under them on small
 screens); sections before and after stay full width. Grouping is `asideSectionGroups`
 (`steppedModalLogic.ts`, tested). The moving flow uses it for its one calculator, from "moving-from-details" until
 "your-details".

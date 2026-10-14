@@ -68,7 +68,7 @@ type SteppedModalProps = {
   // One side column shared by a run of sections — from `fromId` up to, not
   // including, `untilId` — instead of each section carrying its own (e.g.
   // the moving flow's calculator, from "moving from" until "your details").
-  // Centred vertically and sticky in a 400px right column on large screens, under those sections on
+  // Sticky in a 400px right column on large screens, centred in the visible part of its row, under those sections on
   // small ones; it appears with the first of them.
   aside?: { node: ReactNode; fromId: string; untilId: string };
   // Fades the sections already answered to 50% once the next one opens
@@ -236,6 +236,45 @@ export function SteppedModal({
   // True from when a reveal starts holding the height until that hold is released.
   const holdPendingRef = useRef(false);
   const releaseTimerRef = useRef<number | undefined>(undefined);
+  // The `aside` column's sticky box spans the part of its row the user can
+  // see — from the row's top (or the scroll area's top, once scrolled past it)
+  // to the scroll area's bottom, inside its padding (sticky elements stop at
+  // the padding edge) — so the calculator centred in it sits in the middle of
+  // what's on screen. Kept up to date on scroll and on any resize, written
+  // straight to the element so scrolling doesn't re-render.
+  const asideCellRef = useRef<HTMLDivElement>(null);
+  const asideBoxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const content = contentRef.current;
+    if (!scroller || !content) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const cell = asideCellRef.current;
+      const box = asideBoxRef.current;
+      if (!cell || !box) return;
+      const style = getComputedStyle(scroller);
+      const inner = scroller.getBoundingClientRect().top + scroller.clientTop;
+      const top = inner + parseFloat(style.paddingTop);
+      const bottom = inner + scroller.clientHeight - parseFloat(style.paddingBottom);
+      const visible = bottom - Math.max(top, cell.getBoundingClientRect().top);
+      box.style.setProperty("--aside-viewport", `${Math.max(0, visible)}px`);
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    const observer = new ResizeObserver(schedule);
+    observer.observe(scroller);
+    observer.observe(content);
+    scroller.addEventListener("scroll", schedule, { passive: true });
+    schedule();
+    return () => {
+      observer.disconnect();
+      scroller.removeEventListener("scroll", schedule);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
@@ -417,10 +456,16 @@ export function SteppedModal({
                   className="flex min-w-0 flex-col"
                   items={stackItems(sectionGroups.within, sectionGroups.before.length)}
                 />
-                {/* Centred beside the (usually taller) sections; sticky at both
-                    edges, so once they outgrow the screen it still stays in view. */}
-                <div className="lg:flex lg:flex-col lg:justify-center">
-                  <div className="lg:sticky lg:top-0 lg:bottom-0">
+                {/* Centred in the part of the modal the user can see, not in
+                    the sections beside it: a sticky box as tall as the visible
+                    part of this row (--aside-viewport, set above; capped at the
+                    row's height, so it never adds blank space below short
+                    content) with the calculator centred inside. */}
+                <div ref={asideCellRef}>
+                  <div
+                    ref={asideBoxRef}
+                    className="lg:sticky lg:top-0 lg:flex lg:h-[min(var(--aside-viewport),100%)] lg:flex-col lg:justify-center-safe"
+                  >
                     <RevealSection>{aside?.node}</RevealSection>
                   </div>
                 </div>
