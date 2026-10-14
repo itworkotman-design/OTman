@@ -57,3 +57,27 @@ describe("movingSummary — carrying distance", () => {
     expect(orderExtras).toEqual([{ label: "Bæreavstand: lenger unna, til", price: 1500, qty: 1 }]);
   });
 });
+
+describe("movingSummary — distance", () => {
+  it("lists the km charge under order extras with the distance", () => {
+    const { orderExtras } = movingSummary({
+      locale: "no",
+      sizeOption: size,
+      services: [],
+      floorLines: [],
+      distanceLines: [{ quantity: 35, customerPriceCents: 101150 }],
+    });
+    expect(orderExtras).toEqual([{ label: "Kjøring (35 km)", price: 1012, qty: 35 }]);
+  });
+
+  it("speaks English on the English site", () => {
+    const { orderExtras } = movingSummary({
+      locale: "en",
+      sizeOption: size,
+      services: [],
+      floorLines: [],
+      distanceLines: [{ quantity: 130, customerPriceCents: 325000 }],
+    });
+    expect(orderExtras[0].label).toBe("Distance (130 km)");
+  });
+});

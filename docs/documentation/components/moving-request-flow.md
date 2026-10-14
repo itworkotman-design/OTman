@@ -47,3 +47,8 @@ Each end of the move is two sections (`PropertyWhereSection` then `PropertyDetai
 (address + type), "Om stedet du flytter fra" (size, floors, lift, floor, parking — priced), then the same for
 "Hvor flytter du til?" / "Om stedet du flytter til". Section ids: `moving-from`, `moving-from-details`,
 `moving-to`, `moving-to-details`; the calculator `aside` runs from `moving-from-details` until `your-details`.
+
+Driving distance: once both addresses are picked from the suggestions, the flow looks up pickup → delivery via
+`POST /api/site/route-distance` (debounced 700 ms, like the delivery modal) and adds the km charge
+(`movingDistanceLines` with the catalog's `distanceRates`) to the live calculator, the total and the review step.
+The server re-does the lookup itself on submit.

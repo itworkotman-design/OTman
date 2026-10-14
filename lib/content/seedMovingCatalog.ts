@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/db";
+import { parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
+import { WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "@/lib/content/whiteGoodsElectronics";
+import { parsePriceListSettings, serializePriceListSettings } from "@/lib/products/priceListSettings";
 import {
   MOVING_CARRY_SURCHARGE_OPTIONS,
   MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
@@ -35,6 +38,7 @@ export async function seedMovingCatalog() {
     update: {},
     create: { name: "Website — Moving", code: MOVING_PRICE_LIST_CODE },
   });
+  await seedDistanceRates(priceList);
 
   const sizes = await seedFlatProduct(priceList.id, {
     code: MOVING_PRODUCT_CODE,
@@ -75,6 +79,28 @@ export async function seedMovingCatalog() {
     servicesProductId: services.productId,
     servicesUpserted: services.optionsUpserted,
   };
+}
+
+// The per-km rates (KM_FROM_21/KM_OVER_100) live in the price list's own
+// settings, like every price list's. They start at the delivery (white goods)
+// rate; staff can change them for moving in /dashboard/booking/editPrices.
+// Like the item prices above, only a rate still at 0 kr is filled in — one
+// staff have set is never overwritten.
+async function seedDistanceRates(priceList: { id: string; description?: string | null }) {
+  const settings = parsePriceListSettings(priceList.description);
+  let changed = false;
+  for (const key of ["kmFrom21", "kmOver100"] as const) {
+    if (parsePriceSetting(settings[key].price) !== 0) continue;
+    const seed = WHITE_GOODS_ORDER_LEVEL_EXTRAS[key];
+    settings[key] = { ...settings[key], price: String(seed.customerPrice), subcontractorPrice: String(seed.subcontractorPrice) };
+    changed = true;
+  }
+  if (changed) {
+    await prisma.priceList.update({
+      where: { id: priceList.id },
+      data: { description: serializePriceListSettings(settings) },
+    });
+  }
 }
 
 async function seedFlatProduct(

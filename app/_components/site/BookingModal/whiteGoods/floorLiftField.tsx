@@ -12,8 +12,9 @@ function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
 }
 
-// A floor number field with a stacked up/down chevron stepper on the right,
-// instead of the browser's default (and inconsistently styled) number spinner.
+// A floor number field with a stacked up/down chevron stepper on the right (or
+// the left, `stepperLeft`), instead of the browser's default (and
+// inconsistently styled) number spinner.
 // Starts empty (null); accepts only digits and a leading minus (basements),
 // never 0 — see floorValue.ts. Also used on its own by the moving flow's
 // "which floor?" question (PropertySection).
@@ -24,6 +25,7 @@ export function FloorInput({
   hasError,
   placeholder,
   large = false,
+  stepperLeft = false,
 }: {
   value: number | null;
   onChange: (value: number | null) => void;
@@ -33,6 +35,10 @@ export function FloorInput({
   // About 10% taller (h-12 instead of h-11) — the moving flow's
   // stand-alone "which floor?" box.
   large?: boolean;
+  // Stepper on the left edge — the moving flow, where a question appears to
+  // the right of the box as the floor changes and would otherwise move the
+  // buttons away from under the pointer while stepping.
+  stepperLeft?: boolean;
 }) {
   // The box's own text, so in-between states like a lone "-" survive while
   // typing. Re-synced whenever the floor changes from outside (the stepper).
@@ -60,11 +66,15 @@ export function FloorInput({
         }}
         onBlur={onBlur}
         placeholder={placeholder}
-        className={`${large ? fieldClass(hasError).replace("h-11", "h-12") : fieldClass(hasError)} pr-9`}
+        className={`${large ? fieldClass(hasError).replace("h-11", "h-12") : fieldClass(hasError)} ${stepperLeft ? "pl-9" : "pr-9"}`}
       />
-      {/* Flush with the box's right edge, full height (inside its 1px border),
-          split in two — no inset from the top or right. */}
-      <div className="absolute inset-y-px right-px flex flex-col overflow-hidden rounded-r-[11px] border-l border-black/10">
+      {/* Flush with the box's right (or left) edge, full height (inside its 1px
+          border), split in two — no inset from the top or side. */}
+      <div
+        className={`absolute inset-y-px flex flex-col overflow-hidden border-black/10 ${
+          stepperLeft ? "left-px rounded-l-[11px] border-r" : "right-px rounded-r-[11px] border-l"
+        }`}
+      >
         <button
           type="button"
           aria-label="Increase"

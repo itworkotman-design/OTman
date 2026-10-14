@@ -8,6 +8,7 @@ import {
   MOVING_HOME_TYPES,
   MOVING_PARKING_OPTIONS,
   movingLiftApplies,
+  movingLiftRequired,
   isMovingEndReady,
   isMovingEndWhereReady,
   type MovingPropertyDraft,
@@ -183,6 +184,7 @@ export function PropertyDetailsSection({
   const set = (patch: Partial<MovingPropertyDraft>) => onChange({ ...value, ...patch });
   const isReady = isMovingEndReady({ address, addressSelected, property: value });
   const [floorTouched, setFloorTouched] = useState(false);
+  const liftAsked = movingLiftRequired(value.floorNumber);
   const stepButton =
     "flex h-8 w-8 items-center justify-center rounded-full border border-logoblue/30 bg-white text-lg font-semibold text-logoblue transition hover:border-logoblue disabled:pointer-events-none disabled:opacity-35";
 
@@ -215,9 +217,15 @@ export function PropertyDetailsSection({
 
         {/* Apartments/offices: which floor + lift side by side in one row.
             Without a lift the floor costs extra (same rule and floor box as
-            the delivery modal). */}
+            the delivery modal). On the ground floor the lift isn't asked
+            (movingLiftRequired): its column animates to zero width and the
+            floor box takes the whole row; any other floor eases it back. */}
         {movingLiftApplies(value.homeType) && (
-          <div className="grid grid-cols-2 gap-3">
+          <div
+            className={`grid transition-[grid-template-columns,column-gap] duration-300 ease-in-out ${
+              liftAsked ? "grid-cols-[1fr_1fr] gap-x-3" : "grid-cols-[1fr_0fr] gap-x-0"
+            }`}
+          >
             <div className="flex min-w-0 flex-col gap-2">
               <SubHeading>{t("Which floor?", "Hvilken etasje?")}</SubHeading>
               <FloorInput
@@ -227,9 +235,16 @@ export function PropertyDetailsSection({
                 hasError={floorTouched && value.floorNumber === null}
                 placeholder={t("e.g. 1", "f.eks. 1")}
                 large
+                stepperLeft
               />
             </div>
-            <div className="flex min-w-0 flex-col gap-2">
+            <div
+              className={`flex min-w-0 flex-col gap-2 overflow-hidden whitespace-nowrap transition-opacity duration-300 ${
+                liftAsked ? "opacity-100" : "opacity-0"
+              }`}
+              // Off screen: out of the tab order and the accessibility tree.
+              inert={!liftAsked}
+            >
               <SubHeading>{t("Lift?", "Heis?")}</SubHeading>
               <div className="grid grid-cols-2 gap-2">
                 <Chip active={value.hasLift === true} onClick={() => set({ hasLift: true })} className="h-12">

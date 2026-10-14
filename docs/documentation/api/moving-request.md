@@ -63,3 +63,10 @@ floor) and listed in `productsSummary`. Not seeded → no surcharge.
 Each end's `parking` answer maps to a carrying-distance line (`MOVING_PARKING_OPTIONS[].surchargeCode`; right
 outside is free). `movingCarrySurchargeLines` prices them from the catalog's `carrySurcharges`; each is added
 to the price, saved as an `OrderItem` (`productCode: MOVING_CARRY_SURCHARGE`) and listed in `productsSummary`.
+
+## Driving distance (km)
+The route looks the driving distance pickup → delivery up itself (`getRouteDistance`, Mapbox) — any distance the
+client sends is ignored — stores it on `Order.drivingDistance` and prices it with `movingDistanceLines` from the
+catalog's `distanceRates` (same km rule as delivery; the size price stays). Stored as an order item
+(`productCode: MOVING_DISTANCE_ITEM_CODE`, unit = per-km rate, quantity = km). A failed lookup is logged and charges
+no km; staff review every website order before approving it.

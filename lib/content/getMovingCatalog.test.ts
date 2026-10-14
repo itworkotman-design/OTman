@@ -10,6 +10,7 @@ vi.mock("@/lib/db", () => ({
 
 import { findMovingServiceOptions, findMovingSizeOption, getMovingCatalog } from "./getMovingCatalog";
 import { MOVING_SERVICES_PRODUCT_CODE } from "./movingCatalog";
+import { createDefaultPriceListSettings, serializePriceListSettings } from "@/lib/products/priceListSettings";
 
 describe("getMovingCatalog", () => {
   beforeEach(() => {
@@ -219,5 +220,30 @@ describe("getMovingCatalog — carrying distance", () => {
 
     expect(result?.options.map((o) => o.code)).toEqual(["SIZE_UNDER_20"]);
     expect(result?.carrySurcharges.map((o) => [o.code, o.customerPriceCents])).toEqual([["CARRY_FURTHER", 150000]]);
+  });
+});
+
+describe("getMovingCatalog — distance rates", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("reads the per-km rates from the moving price list's own settings (kr → øre)", async () => {
+    const settings = createDefaultPriceListSettings();
+    settings.kmFrom21 = { ...settings.kmFrom21, price: "28.896", subcontractorPrice: "16.512" };
+    settings.kmOver100 = { ...settings.kmOver100, price: "25", subcontractorPrice: "15" };
+    mocks.priceListFindUniqueMock.mockResolvedValue({ id: "pl-moving", description: serializePriceListSettings(settings), items: [] });
+
+    const result = await getMovingCatalog();
+
+    expect(result?.distanceRates.kmFrom21).toMatchObject({ code: "KM_FROM_21", customerPriceCents: 2890, subcontractorPriceCents: 1651 });
+    expect(result?.distanceRates.kmOver100).toMatchObject({ code: "KM_OVER_100", customerPriceCents: 2500, subcontractorPriceCents: 1500 });
+  });
+
+  it("is 0 kr (no km charge) on a price list without settings", async () => {
+    mocks.priceListFindUniqueMock.mockResolvedValue({ id: "pl-moving", description: null, items: [] });
+
+    const result = await getMovingCatalog();
+
+    expect(result?.distanceRates.kmFrom21.customerPriceCents).toBe(0);
+    expect(result?.distanceRates.kmOver100.customerPriceCents).toBe(0);
   });
 });

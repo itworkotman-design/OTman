@@ -72,6 +72,13 @@ export type MovingProperty = {
   parking: MovingParkingOption;
 };
 
+// The lift answer is optional on the ground floor (floor 1) — nothing to
+// carry up or down, so no floor surcharge either way. Everywhere else
+// (upper floors, basements) an apartment/office must answer it.
+export function movingLiftRequired(floorNumber: unknown): boolean {
+  return floorNumber !== 1;
+}
+
 export function parseMovingProperty(
   v: unknown,
 ): { ok: true; property: MovingProperty } | { ok: false; errors: Record<string, string> } {
@@ -89,7 +96,8 @@ export function parseMovingProperty(
   if (!floorsOk) errors.floors = floors == null ? "Required" : "Invalid";
 
   const liftApplies = movingLiftApplies(homeType?.code ?? null);
-  if (liftApplies && typeof input.hasLift !== "boolean") errors.hasLift = "Required";
+  const liftAnswered = typeof input.hasLift === "boolean";
+  if (liftApplies && !liftAnswered && movingLiftRequired(input.floorNumber)) errors.hasLift = "Required";
 
   const floorAsked = liftApplies;
   const floorNumber = input.floorNumber;
@@ -112,7 +120,7 @@ export function parseMovingProperty(
       homeType,
       sizeOptionCode,
       floors: floors as number,
-      hasLift: liftApplies ? (input.hasLift as boolean) : null,
+      hasLift: liftApplies && liftAnswered ? (input.hasLift as boolean) : null,
       floorNumber: floorAsked ? (floorNumber as number) : null,
       parking,
     },

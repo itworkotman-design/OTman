@@ -9,7 +9,7 @@ customer sees while picking a size) and `app/api/site/moving-request/route.ts`
 client-sent value) — one query, one source of truth for both.
 
 ## Functions
-- `getMovingCatalog()` — `{ priceListId, options, services, floorSurcharge, carrySurcharges }` or `null` if the
+- `getMovingCatalog()` — `{ priceListId, options, services, floorSurcharge, carrySurcharges, distanceRates }` or `null` if the
   `WEBSITE_MOVING` price list hasn't been seeded yet
   (`npm run seed:moving-catalog`). Options are active-only, sorted by
   `sortOrder`. Options on the `MOVING_SERVICES_PRODUCT_CODE` product go to
@@ -20,3 +20,7 @@ client-sent value) — one query, one source of truth for both.
 - `findMovingServiceOptions(services, codes)` — resolves submitted
   `serviceCodes` in catalog order; missing → `[]`, anything but a list of
   distinct known codes → `null` (route answers 422 `errors.serviceCodes`).
+
+`distanceRates` (`{ kmFrom21, kmOver100 }`, øre per km) come from the moving price list's own settings
+(`parsePriceListSettings(priceList.description)`) — the KM_FROM_21/KM_OVER_100 settings every price list has,
+edited in `/dashboard/booking/editPrices`. 0 kr when no settings are saved (no km charge).

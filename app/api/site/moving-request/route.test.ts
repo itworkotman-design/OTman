@@ -15,6 +15,7 @@ vi.mock("@/lib/db", () => ({
 
 const mocks = vi.hoisted(() => ({
   getMovingCatalogMock: vi.fn(),
+  getRouteDistanceMock: vi.fn(),
 }));
 
 vi.mock("@/lib/content/getMovingCatalog", async () => {
@@ -23,6 +24,8 @@ vi.mock("@/lib/content/getMovingCatalog", async () => {
   );
   return { ...actual, getMovingCatalog: mocks.getMovingCatalogMock };
 });
+
+vi.mock("@/lib/integrations/mapbox/routeDistance", () => ({ getRouteDistance: mocks.getRouteDistanceMock }));
 
 // The route module keeps its rate limiter as module-level state, so each
 // test re-imports a fresh module instance to avoid one test's request
@@ -233,5 +236,35 @@ describe("POST /api/site/moving-request", () => {
 
     expect(res.status).toBe(429);
     await expect(res.json()).resolves.toEqual({ ok: false, reason: "RATE_LIMIT_MINUTE" });
+  });
+});
+
+describe("POST /api/site/moving-request — driving distance", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getMovingCatalogMock.mockResolvedValue({
+      priceListId: "pl-moving",
+      options: [
+        { code: "SIZE_UNDER_20", labelEn: "Under 20 m²", labelNo: "Under 20 m²", customerPriceCents: 800000, subcontractorPriceCents: 0 },
+        { code: "SIZE_UNDER_40", labelEn: "Under 40 m²", labelNo: "Under 40 m²", customerPriceCents: 1400000, subcontractorPriceCents: 0 },
+      ],
+      services: [],
+      floorSurcharge: null,
+      carrySurcharges: [],
+      distanceRates: {
+        kmFrom21: { code: "KM_FROM_21", labelEn: "Per km", labelNo: "Per km", customerPriceCents: 2890, subcontractorPriceCents: 1651 },
+        kmOver100: { code: "KM_OVER_100", labelEn: "Per km", labelNo: "Per km", customerPriceCents: 2890, subcontractorPriceCents: 1651 },
+      },
+    });
+    mocks.getRouteDistanceMock.mockResolvedValue({ distanceKm: "35", stopAddresses: [] });
+  });
+
+  it("looks the distance up itself from the two addresses, ignoring any distance the client sends", async () => {
+    await post({ ...validBody, drivingDistance: "1" });
+
+    expect(mocks.getRouteDistanceMock).toHaveBeenCalledWith({
+      pickupAddress: validBody.pickupAddress,
+      deliveryAddress: validBody.deliveryAddress,
+    });
   });
 });

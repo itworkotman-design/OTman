@@ -7,6 +7,7 @@ import { AutoAdvance } from "../AutoAdvance";
 import { DateTimeWindowFields } from "../whiteGoods/DateTimeWindowFields";
 import { WhiteGoodsOrderSummary } from "../whiteGoods/WhiteGoodsOrderSummary";
 import { isTimeWindowComplete } from "@/lib/booking/timeWindows";
+import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import {
   websiteCustomerPrice,
@@ -18,6 +19,7 @@ import { MOVING_SERVICE_OPTIONS } from "@/lib/content/movingCatalog";
 import {
   movingCarrySurchargeLines,
   movingCustomerTotals,
+  movingDistanceLines,
   movingFloorSurchargeLines,
 } from "@/lib/orders/movingOrderPricing";
 import {
@@ -53,6 +55,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [serviceOptions, setServiceOptions] = useState<MovingCatalogOption[]>([]);
   const [floorSurchargeOption, setFloorSurchargeOption] = useState<MovingCatalogOption | null>(null);
   const [carrySurcharges, setCarrySurcharges] = useState<MovingCatalogOption[]>([]);
+  const [distanceRates, setDistanceRates] = useState<{ kmFrom21: MovingCatalogOption; kmOver100: MovingCatalogOption } | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -70,6 +73,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
         setServiceOptions(data.services ?? []);
         setFloorSurchargeOption(data.floorSurcharge ?? null);
         setCarrySurcharges(data.carrySurcharges ?? []);
+        setDistanceRates(data.distanceRates ?? null);
       } catch (err) {
         if ((err as { name?: string })?.name !== "AbortError") {
           setCatalogError(t("Could not load pricing", "Kunne ikke laste priser"));
@@ -93,6 +97,40 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [origin, setOrigin] = useState<MovingPropertyDraft>(emptyMovingProperty);
   const [destination, setDestination] = useState<MovingPropertyDraft>(emptyMovingProperty);
   const [serviceCodes, setServiceCodes] = useState<string[]>([]);
+
+  // Driving distance pickup → delivery via Mapbox, like the delivery modal:
+  // only once both addresses are picked from the suggestions (a free-typed
+  // one is never geocoded and priced), debounced.
+  const [drivingDistance, setDrivingDistance] = useState("");
+  const routeKey =
+    pickupAddressSelected && deliveryAddressSelected && pickupAddress.trim() && deliveryAddress.trim()
+      ? JSON.stringify({ pickupAddress: pickupAddress.trim(), deliveryAddress: deliveryAddress.trim() })
+      : "";
+  useEffect(() => {
+    if (!routeKey) {
+      setDrivingDistance("");
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/site/route-distance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: routeKey,
+          signal: controller.signal,
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.ok && typeof data.distanceKm === "string") setDrivingDistance(data.distanceKm);
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) setDrivingDistance("");
+      }
+    }, 700);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [routeKey]);
 
   const [preferredDate, setPreferredDate] = useState("");
   const [timeWindow, setTimeWindow] = useState("");
@@ -147,8 +185,11 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
       return { ...line, end, labelNo: option?.labelNo ?? line.labelEn, labelEn: option?.labelEn ?? line.labelEn };
     }),
   );
+  // The km charge (same rule as delivery — movingDistanceLines), from the
+  // driving distance looked up below. The server looks it up again itself.
+  const distanceLines = movingDistanceLines(distanceRates, parseDistanceKm(drivingDistance));
   const totals = movingCustomerTotals(
-    selectedOption ? [selectedOption, ...selectedServices, ...floorLines, ...carryLines] : [],
+    selectedOption ? [selectedOption, ...selectedServices, ...floorLines, ...carryLines, ...distanceLines] : [],
   );
   const vatDisplay = websiteCustomerTotalDisplay({
     totalExVat: totals.totalExVat,
@@ -162,7 +203,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   // details" (SteppedModal's `aside`), following them in a sticky right
   // column instead of each step carrying its own. "Where are you moving
   // from?" (address + type) stays full width above it.
-  const summary = movingSummary({ locale, sizeOption: selectedOption, services: selectedServices, floorLines, carryLines });
+  const summary = movingSummary({ locale, sizeOption: selectedOption, services: selectedServices, floorLines, carryLines, distanceLines });
   const calculator = (
     <WhiteGoodsOrderSummary
       locale={locale}
@@ -518,6 +559,14 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
                 <div key={line.end} className="flex justify-between gap-4">
                   <span>
                     {locale === "no" ? line.labelNo : line.labelEn}, {line.end}
+                  </span>
+                  <span>+ {formatKr(linePrice(line))}</span>
+                </div>
+              ))}
+              {distanceLines.map((line) => (
+                <div key={line.code} className="flex justify-between gap-4">
+                  <span>
+                    {t("Distance", "Kjøring")} ({line.quantity} km)
                   </span>
                   <span>+ {formatKr(linePrice(line))}</span>
                 </div>

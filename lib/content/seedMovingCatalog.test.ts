@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   priceListUpsert: vi.fn(),
+  priceListUpdate: vi.fn(),
   productUpsert: vi.fn(),
   productOptionUpsert: vi.fn(),
   productOptionUpdateMany: vi.fn(),
@@ -11,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    priceList: { upsert: mocks.priceListUpsert },
+    priceList: { upsert: mocks.priceListUpsert, update: mocks.priceListUpdate },
     product: { upsert: mocks.productUpsert },
     productOption: { upsert: mocks.productOptionUpsert, updateMany: mocks.productOptionUpdateMany },
     priceListItem: { upsert: mocks.priceListItemUpsert, updateMany: mocks.priceListItemUpdateMany },
@@ -30,6 +31,8 @@ import {
   MOVING_SERVICE_OPTIONS,
   MOVING_SIZE_OPTIONS,
 } from "./movingCatalog";
+import { WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
+import { createDefaultPriceListSettings, parsePriceListSettings, serializePriceListSettings } from "@/lib/products/priceListSettings";
 
 describe("seedMovingCatalog", () => {
   beforeEach(() => {
@@ -267,5 +270,41 @@ describe("seedMovingCatalog — carrying distance", () => {
       .map(([arg]) => arg)
       .filter((arg) => arg.create.productId === `p-${MOVING_CARRY_SURCHARGE_PRODUCT_CODE}`);
     expect(options.map((arg) => arg.create.description)).toEqual(["Bæreavstand: innen 50 m", "Bæreavstand: lenger unna"]);
+  });
+});
+
+describe("seedMovingCatalog — per-km rates", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+    mocks.productUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({ id: `p-${arg.create.code}` }));
+    mocks.productOptionUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({ id: `o-${arg.create.code}` }));
+    mocks.priceListItemUpsert.mockResolvedValue({});
+    mocks.priceListItemUpdateMany.mockResolvedValue({ count: 0 });
+    mocks.productOptionUpdateMany.mockResolvedValue({ count: 0 });
+  });
+
+  it("starts the moving price list's km rates at the delivery rate", async () => {
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving", description: null });
+
+    await seedMovingCatalog();
+
+    expect(mocks.priceListUpdate).toHaveBeenCalledTimes(1);
+    const { where, data } = mocks.priceListUpdate.mock.calls[0][0];
+    expect(where).toEqual({ id: "pl-moving" });
+    const settings = parsePriceListSettings(data.description);
+    expect(Number(settings.kmFrom21.price)).toBeCloseTo(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmFrom21.customerPrice);
+    expect(Number(settings.kmFrom21.subcontractorPrice)).toBeCloseTo(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmFrom21.subcontractorPrice);
+    expect(Number(settings.kmOver100.price)).toBeCloseTo(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmOver100.customerPrice);
+  });
+
+  it("never overwrites km rates staff have set", async () => {
+    const settings = createDefaultPriceListSettings();
+    settings.kmFrom21 = { ...settings.kmFrom21, price: "35", subcontractorPrice: "20" };
+    settings.kmOver100 = { ...settings.kmOver100, price: "30", subcontractorPrice: "18" };
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving", description: serializePriceListSettings(settings) });
+
+    await seedMovingCatalog();
+
+    expect(mocks.priceListUpdate).not.toHaveBeenCalled();
   });
 });

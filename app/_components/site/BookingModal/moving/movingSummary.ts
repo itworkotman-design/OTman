@@ -20,6 +20,8 @@ export function movingSummary(params: {
   floorLines: { end: string; quantity: number; customerPriceCents: number }[];
   // Carrying-distance surcharge per end with one (movingCarrySurchargeLines).
   carryLines?: { end: string; labelNo: string; labelEn: string; customerPriceCents: number }[];
+  // The driving-distance charge (movingDistanceLines) — `quantity` is the km.
+  distanceLines?: { quantity: number; customerPriceCents: number }[];
 }): { products: OrderSummaryProduct[]; orderExtras: OrderSummaryExtraLine[] } {
   const no = params.locale === "no";
   const label = (option: MovingCatalogOption) => (no ? option.labelNo : option.labelEn);
@@ -59,6 +61,11 @@ export function movingSummary(params: {
         label: `${no ? line.labelNo : line.labelEn}, ${line.end}`,
         price: kr(line.customerPriceCents),
         qty: 1,
+      })),
+      ...(params.distanceLines ?? []).map((line) => ({
+        label: `${no ? "Kjøring" : "Distance"} (${line.quantity} km)`,
+        price: kr(line.customerPriceCents),
+        qty: line.quantity,
       })),
     ],
   };

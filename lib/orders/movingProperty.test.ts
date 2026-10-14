@@ -60,6 +60,27 @@ describe("parseMovingProperty", () => {
     expect(result.errors.hasLift).toBeDefined();
   });
 
+  it("doesn't require the lift answer on the ground floor (floor 1)", () => {
+    const result = parseMovingProperty({ ...apartment, floorNumber: 1, hasLift: null });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.property.hasLift).toBeNull();
+  });
+
+  it("keeps a lift answer given on the ground floor anyway", () => {
+    const result = parseMovingProperty({ ...apartment, floorNumber: 1, hasLift: false });
+    expect(result.ok && result.property.hasLift).toBe(false);
+  });
+
+  it("still requires it in the basement", () => {
+    expect(parseMovingProperty({ ...apartment, floorNumber: -1, hasLift: null }).ok).toBe(false);
+  });
+
+  it("lets a ground-floor apartment end be ready without a lift answer", () => {
+    const property = { ...emptyMovingProperty(), homeType: "APARTMENT" as const, sizeOptionCode: "SIZE_UNDER_40", floorNumber: 1, parking: "OUTSIDE" as const };
+    expect(isMovingEndReady({ address: "Storgata 1, Oslo", addressSelected: true, property })).toBe(true);
+  });
+
   it("ignores (nulls) a lift answer for a house — the question isn't shown", () => {
     const result = parseMovingProperty({ ...apartment, homeType: "DETACHED", hasLift: true });
     expect(result.ok).toBe(true);

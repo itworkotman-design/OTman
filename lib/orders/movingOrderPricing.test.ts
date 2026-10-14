@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getOrderChargeAmountIncVatNok } from "./orderTotals";
-import { movingCarrySurchargeLines, movingCustomerTotals, movingFloorSurchargeLines, movingOrderPricing } from "./movingOrderPricing";
+import { movingCarrySurchargeLines, movingCustomerTotals, movingDistanceLines, movingFloorSurchargeLines, movingOrderPricing } from "./movingOrderPricing";
 
 // The moving price list holds prices ex. VAT, like every website price list:
 // the customer pays the size bracket's price + 25%, rounded to whole kroner.
@@ -111,5 +111,51 @@ describe("movingCarrySurchargeLines", () => {
   it("skips an unanswered end or a surcharge missing from the price list", () => {
     expect(movingCarrySurchargeLines(surcharges, [{ label: "moving from", parking: null }])).toEqual([]);
     expect(movingCarrySurchargeLines([], [{ label: "moving from", parking: "WITHIN_50M" }])).toEqual([]);
+  });
+});
+
+// Same km rule as delivery (lib/booking/pricing/distanceCharges.ts): free up
+// to 20 km, then every started km of the whole distance — at the 21–100 km
+// rate, or the over-100 km rate beyond that. The size price always stays.
+describe("movingDistanceLines", () => {
+  const rates = {
+    kmFrom21: { code: "KM_FROM_21", labelEn: "Per km, 21–100 km", customerPriceCents: 2890, subcontractorPriceCents: 1651 },
+    kmOver100: { code: "KM_OVER_100", labelEn: "Per km, over 100 km", customerPriceCents: 2500, subcontractorPriceCents: 1500 },
+  };
+
+  it("charges nothing up to 20 km, or without a distance", () => {
+    expect(movingDistanceLines(rates, 0)).toEqual([]);
+    expect(movingDistanceLines(rates, 20)).toEqual([]);
+    expect(movingDistanceLines(rates, Number.NaN)).toEqual([]);
+  });
+
+  it("bills the whole distance (started km) at the 21–100 km rate once over 20 km", () => {
+    expect(movingDistanceLines(rates, 34.2)).toEqual([
+      {
+        code: "KM_FROM_21",
+        labelEn: "Distance (35 km)",
+        quantity: 35,
+        customerPriceCents: 2890 * 35,
+        subcontractorPriceCents: 1651 * 35,
+      },
+    ]);
+  });
+
+  it("switches to the over-100 km rate beyond 100 km", () => {
+    const [line] = movingDistanceLines(rates, 130);
+    expect(line.code).toBe("KM_OVER_100");
+    expect(line.quantity).toBe(130);
+    expect(line.customerPriceCents).toBe(2500 * 130);
+  });
+
+  it("charges nothing while the rate is unset (0 kr) or there are no rates", () => {
+    const free = { ...rates, kmFrom21: { ...rates.kmFrom21, customerPriceCents: 0, subcontractorPriceCents: 0 } };
+    expect(movingDistanceLines(free, 50)).toEqual([]);
+    expect(movingDistanceLines(null, 50)).toEqual([]);
+  });
+
+  it("adds to the size price in the stored total", () => {
+    const size = { code: "SIZE_UNDER_40", labelEn: "Under 40 m²", customerPriceCents: 500000, subcontractorPriceCents: 0 };
+    expect(movingOrderPricing(size, movingDistanceLines(rates, 35)).priceExVat).toBe(5000 + Math.round((2890 * 35) / 100));
   });
 });

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { movingCarrySurchargeLines, movingFloorSurchargeLines, movingOrderPricing } from "@/lib/orders/movingOrderPricing";
+import { movingCarrySurchargeLines, movingDistanceLines, movingFloorSurchargeLines, movingOrderPricing } from "@/lib/orders/movingOrderPricing";
+import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
+import { getRouteDistance } from "@/lib/integrations/mapbox/routeDistance";
 import { movingOrderDescription } from "@/lib/orders/movingOrderDescription";
 import { movingChargeableFloors, movingPropertyLine, parseMovingProperty } from "@/lib/orders/movingProperty";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
@@ -17,6 +19,7 @@ import {
 } from "@/lib/content/getMovingCatalog";
 import {
   MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
+  MOVING_DISTANCE_ITEM_CODE,
   MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
   MOVING_SERVICES_PRODUCT_CODE,
 } from "@/lib/content/movingCatalog";
@@ -64,6 +67,18 @@ function str(v: unknown): string | null {
   return s || null;
 }
 
+// Driving distance pickup → delivery (km, as Mapbox returns it), or "" when
+// the lookup fails.
+async function lookUpDrivingDistance(pickupAddress: string, deliveryAddress: string): Promise<string> {
+  try {
+    const result = await getRouteDistance({ pickupAddress: pickupAddress.trim(), deliveryAddress: deliveryAddress.trim() });
+    return result?.distanceKm ?? "";
+  } catch (err) {
+    console.error("[moving-request] Driving distance lookup failed:", err);
+    return "";
+  }
+}
+
 class CatalogNotSeededError extends Error {
   constructor() {
     super("Moving catalog not seeded — run `npm run seed:moving-catalog`");
@@ -79,6 +94,8 @@ async function createMovingRequest(
     services,
     floorSurchargeLines,
     carrySurchargeLines,
+    drivingDistance,
+    distanceLines,
   }: {
     // The origin's size bracket — what the move is priced on.
     sizeOption: MovingCatalogOption;
@@ -89,6 +106,10 @@ async function createMovingRequest(
     floorSurchargeLines: ReturnType<typeof movingFloorSurchargeLines>;
     // Carrying-distance surcharge, one line per end (movingCarrySurchargeLines).
     carrySurchargeLines: ReturnType<typeof movingCarrySurchargeLines>;
+    // Driving distance pickup → delivery as looked up here ("" if it failed),
+    // and its km charge (movingDistanceLines).
+    drivingDistance: string;
+    distanceLines: ReturnType<typeof movingDistanceLines>;
   },
 ): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
@@ -118,9 +139,10 @@ async function createMovingRequest(
     ...services.map((service) => service.labelEn),
     ...floorSurchargeLines.map((line) => line.labelEn),
     ...carrySurchargeLines.map((line) => line.labelEn),
+    ...distanceLines.map((line) => line.labelEn),
   ].join(" + ");
 
-  const movingPricing = movingOrderPricing(sizeOption, [...services, ...floorSurchargeLines, ...carrySurchargeLines]);
+  const movingPricing = movingOrderPricing(sizeOption, [...services, ...floorSurchargeLines, ...carrySurchargeLines, ...distanceLines]);
   const order = await prisma.order.create({
     data: {
       companyId: membership.companyId,
@@ -132,6 +154,7 @@ async function createMovingRequest(
       isWebsiteOrder: true,
       pickupAddress: str(body.pickupAddress),
       deliveryAddress: str(body.deliveryAddress),
+      drivingDistance: drivingDistance || null,
       customerName: str(body.name),
       phone: str(body.phone),
       email: str(body.email),
@@ -208,6 +231,24 @@ async function createMovingRequest(
         quantity: 1,
         customerPriceCents: line.customerPriceCents,
         subcontractorPriceCents: line.subcontractorPriceCents,
+      },
+    });
+  }
+
+  for (const line of distanceLines) {
+    await prisma.orderItem.create({
+      data: {
+        orderId: order.id,
+        cardId: 0,
+        productCode: MOVING_DISTANCE_ITEM_CODE,
+        productName: "Driving distance",
+        itemType: "product",
+        optionCode: line.code,
+        optionLabel: line.labelEn,
+        // Per-km rate × chargeable km.
+        quantity: line.quantity,
+        customerPriceCents: line.customerPriceCents / line.quantity,
+        subcontractorPriceCents: line.subcontractorPriceCents / line.quantity,
       },
     });
   }
@@ -329,6 +370,11 @@ export async function POST(req: Request) {
       );
     }
 
+    // The km charge comes from the distance looked up here, never from the
+    // client. A failed lookup charges no km (logged) — staff review every
+    // website order before approving it anyway.
+    const drivingDistance = await lookUpDrivingDistance(s(body.pickupAddress), s(body.deliveryAddress));
+
     const result = await createMovingRequest(body, {
       sizeOption: originSize,
       originLine: movingPropertyLine(origin, originSize.labelEn),
@@ -342,6 +388,8 @@ export async function POST(req: Request) {
         { label: "moving from", parking: origin.parking.code },
         { label: "moving to", parking: destination.parking.code },
       ]),
+      drivingDistance,
+      distanceLines: movingDistanceLines(catalog.distanceRates ?? null, parseDistanceKm(drivingDistance)),
     });
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {

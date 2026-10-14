@@ -84,6 +84,11 @@ export const MOVING_FLOOR_SURCHARGE_OPTION: MovingSizeOptionSeed = {
   subcontractorPrice: 0,
 };
 
+// The driving-distance (km) charge's order-item code. Not a product: its
+// per-km rates are the moving price list's own KM_FROM_21/KM_OVER_100
+// settings (getMovingCatalog's distanceRates), priced like delivery's.
+export const MOVING_DISTANCE_ITEM_CODE = "MOVING_DISTANCE";
+
 // Carrying-distance surcharge by the parking answer ("Hvor nær kan vi
 // parkere?"), charged per end of the move; right outside is free. Codes match
 // MOVING_PARKING_OPTIONS' surchargeCode (lib/orders/movingProperty.ts).

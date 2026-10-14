@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
+import { parsePriceListSettings, type PriceListChargeSetting } from "@/lib/products/priceListSettings";
 import {
   MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
   MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
@@ -26,7 +28,22 @@ export type MovingCatalog = {
   // Carrying-distance surcharges by parking answer (MOVING_CARRY_SURCHARGE_PRODUCT_CODE);
   // a missing line charges nothing.
   carrySurcharges: MovingCatalogOption[];
+  // Per-km rates for the driving distance (movingDistanceLines), from the
+  // moving price list's own settings — the same KM_FROM_21/KM_OVER_100
+  // settings every price list has, edited in /dashboard/booking/editPrices.
+  // 0 kr (no settings saved) charges nothing.
+  distanceRates: { kmFrom21: MovingCatalogOption; kmOver100: MovingCatalogOption };
 };
+
+function distanceRate(setting: PriceListChargeSetting, labelNo: string): MovingCatalogOption {
+  return {
+    code: setting.code,
+    labelEn: setting.description,
+    labelNo,
+    customerPriceCents: Math.round(parsePriceSetting(setting.price) * 100),
+    subcontractorPriceCents: Math.round(parsePriceSetting(setting.subcontractorPrice) * 100),
+  };
+}
 
 // Shared by the public catalog-fetch route (app/api/site/moving-request/
 // catalog/route.ts, for the live price the customer sees while picking a
@@ -38,6 +55,8 @@ export async function getMovingCatalog(): Promise<MovingCatalog | null> {
     where: { code: MOVING_PRICE_LIST_CODE },
     select: {
       id: true,
+      // Holds the price list's settings, incl. the per-km rates.
+      description: true,
       items: {
         select: {
           customerPriceCents: true,
@@ -58,6 +77,7 @@ export async function getMovingCatalog(): Promise<MovingCatalog | null> {
   });
 
   if (!priceList) return null;
+  const settings = parsePriceListSettings(priceList.description);
 
   const active = priceList.items
     .filter((item) => item.productOption.isActive)
@@ -80,6 +100,10 @@ export async function getMovingCatalog(): Promise<MovingCatalog | null> {
     services: active.filter(isService).map(toOption),
     floorSurcharge: active.filter(isFloorSurcharge).map(toOption)[0] ?? null,
     carrySurcharges: active.filter(isCarrySurcharge).map(toOption),
+    distanceRates: {
+      kmFrom21: distanceRate(settings.kmFrom21, "Per km, 21–100 km"),
+      kmOver100: distanceRate(settings.kmOver100, "Per km, over 100 km"),
+    },
   };
 }
 

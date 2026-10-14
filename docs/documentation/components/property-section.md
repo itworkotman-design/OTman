@@ -8,7 +8,7 @@ reveals too much at once:
    section via `AutoAdvance` once `isMovingEndWhereReady`.
 2. `PropertyDetailsSection` — size tiles (no prices — the live calculator shows them), `HouseIllustration` +
    floors stepper; for Leilighet/Kontor (`movingLiftApplies`) "Hvilken etasje?" and "Heis?" side by side in one row (the delivery
-   modal's `FloorInput`, `large`, pre-filled with 1, no price beside it; Ja/Nei chips at the same `h-12`
+   modal's `FloorInput`, `large`, `stepperLeft`, pre-filled with 1, no price beside it; Ja/Nei chips at the same `h-12` (not asked on floor 1 — `movingLiftRequired`: the row animates `grid-template-columns` `1fr 0fr` ⇄ `1fr 1fr`, so the floor box fills the row and the lift column collapses to zero width, faded out and `inert`)
    height — the floor surcharge only applies on "Nei"); and "Hvor nær kan vi parkere?" (no prices on the
    pills — the live calculator shows the carrying-distance surcharge). Opens the next section once `isMovingEndReady`.
 Both close the sections after them again (`onRetract`) if an answer is cleared.

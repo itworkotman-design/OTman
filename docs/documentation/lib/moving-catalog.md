@@ -28,3 +28,4 @@ Subcontractor prices stay 0.
 - `MOVING_CARRY_SURCHARGE_PRODUCT_CODE` — `"MOVING_CARRY_SURCHARGE"`, a fourth product: the carrying-distance
   surcharge by parking answer, `MOVING_CARRY_SURCHARGE_OPTIONS` — `CARRY_WITHIN_50M` ("Bæreavstand: innen 50 m",
   500 kr ex. VAT) and `CARRY_FURTHER` ("Bæreavstand: lenger unna", 1 500 kr ex. VAT). Parking right outside is free.
+- `MOVING_DISTANCE_ITEM_CODE` — `"MOVING_DISTANCE"`, the order-item code of the driving-distance (km) line. Not a product: the per-km rates are the moving price list's own KM_FROM_21/KM_OVER_100 settings.

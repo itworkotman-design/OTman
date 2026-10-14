@@ -64,6 +64,18 @@ describe("GET /api/site/moving-request/catalog", () => {
     expect(json.carrySurcharges).toEqual(carrySurcharges);
   });
 
+  it("returns the per-km distance rates", async () => {
+    const distanceRates = {
+      kmFrom21: { code: "KM_FROM_21", labelEn: "Per km", labelNo: "Per km", customerPriceCents: 2890, subcontractorPriceCents: 1651 },
+      kmOver100: { code: "KM_OVER_100", labelEn: "Per km", labelNo: "Per km", customerPriceCents: 2890, subcontractorPriceCents: 1651 },
+    };
+    mocks.getMovingCatalogMock.mockResolvedValue({ priceListId: "pl-moving", options: [], services: [], floorSurcharge: null, carrySurcharges: [], distanceRates });
+
+    const json = await (await GET()).json();
+
+    expect(json.distanceRates).toEqual(distanceRates);
+  });
+
   it("returns 404 when the moving price list hasn't been seeded", async () => {
     mocks.getMovingCatalogMock.mockResolvedValue(null);
 

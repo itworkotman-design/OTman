@@ -1,3 +1,4 @@
+import { getFullChargeableKilometers } from "@/lib/booking/pricing/distanceCharges";
 import { websiteInclVat } from "@/lib/booking/pricing/websiteVat";
 import { buildOrderPricingSnapshot } from "./orderTotals";
 import { MOVING_PARKING_OPTIONS, type MovingParkingCode } from "./movingProperty";
@@ -69,6 +70,30 @@ export function movingFloorSurchargeLines(
       customerPriceCents: perFloor.customerPriceCents * end.chargeableFloors,
       subcontractorPriceCents: perFloor.subcontractorPriceCents * end.chargeableFloors,
     }));
+}
+
+// The driving-distance charge (pickup → delivery) as a priced line, by the
+// same km rule as delivery (getFullChargeableKilometers): free up to 20 km,
+// then every started km of the whole distance — at the 21–100 km rate, or the
+// over-100 km rate beyond that. Unlike delivery, the size price is kept at any
+// distance (it's the moving work itself). A rate of 0 kr charges nothing.
+export function movingDistanceLines(
+  rates: { kmFrom21: MovingPricedLine; kmOver100: MovingPricedLine } | null,
+  distanceKm: number,
+): (MovingPricedLine & { quantity: number })[] {
+  const km = getFullChargeableKilometers(distanceKm);
+  if (!rates || km === 0) return [];
+  const rate = distanceKm > 100 ? rates.kmOver100 : rates.kmFrom21;
+  if (rate.customerPriceCents === 0 && rate.subcontractorPriceCents === 0) return [];
+  return [
+    {
+      code: rate.code,
+      labelEn: `Distance (${km} km)`,
+      quantity: km,
+      customerPriceCents: rate.customerPriceCents * km,
+      subcontractorPriceCents: rate.subcontractorPriceCents * km,
+    },
+  ];
 }
 
 // The carrying-distance surcharge as priced lines, one per end whose parking
