@@ -20,3 +20,6 @@ Prices are seeded at 0 — a placeholder for staff to set via
   (`SERVICE_NEDPAKKING`) and Flyttevask (`SERVICE_FLYTTEVASK`) — Mellomlagring
   is left out for now; flat price each (seeded at 0, set by staff), plus
   `blurbEn`/`blurbNo` tile copy used by `MovingRequestFlow` (not stored in the DB).
+- `MOVING_FLOOR_SURCHARGE_PRODUCT_CODE` — `"MOVING_FLOOR_SURCHARGE"`, a third product on the same price list
+  with one option, `MOVING_FLOOR_SURCHARGE_OPTION` (`FLOOR_SURCHARGE_PER_FLOOR`, "Etasjetillegg (per etasje,
+  uten heis)"): the price per chargeable floor with no lift, seeded at 0 and set by staff.

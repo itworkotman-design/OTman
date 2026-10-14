@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { movingOrderPricing } from "@/lib/orders/movingOrderPricing";
+import { movingFloorSurchargeLines, movingOrderPricing } from "@/lib/orders/movingOrderPricing";
 import { movingOrderDescription } from "@/lib/orders/movingOrderDescription";
-import { movingPropertyLine, parseMovingProperty } from "@/lib/orders/movingProperty";
+import { movingChargeableFloors, movingPropertyLine, parseMovingProperty } from "@/lib/orders/movingProperty";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
@@ -15,7 +15,7 @@ import {
   getMovingCatalog,
   type MovingCatalogOption,
 } from "@/lib/content/getMovingCatalog";
-import { MOVING_SERVICES_PRODUCT_CODE } from "@/lib/content/movingCatalog";
+import { MOVING_FLOOR_SURCHARGE_PRODUCT_CODE, MOVING_SERVICES_PRODUCT_CODE } from "@/lib/content/movingCatalog";
 import {
   validateEmailField,
   validatePhoneField,
@@ -73,12 +73,15 @@ async function createMovingRequest(
     originLine,
     destinationLine,
     services,
+    floorSurchargeLines,
   }: {
     // The origin's size bracket — what the move is priced on.
     sizeOption: MovingCatalogOption;
     originLine: string;
     destinationLine: string;
     services: MovingCatalogOption[];
+    // No-lift floor surcharge, one line per end (movingFloorSurchargeLines).
+    floorSurchargeLines: ReturnType<typeof movingFloorSurchargeLines>;
   },
 ): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
@@ -103,9 +106,13 @@ async function createMovingRequest(
     serviceLabels: services.map((service) => service.labelEn),
     notes: str(body.notes),
   });
-  const summary = [`Moving (${sizeOption.labelEn})`, ...services.map((service) => service.labelEn)].join(" + ");
+  const summary = [
+    `Moving (${sizeOption.labelEn})`,
+    ...services.map((service) => service.labelEn),
+    ...floorSurchargeLines.map((line) => line.labelEn),
+  ].join(" + ");
 
-  const movingPricing = movingOrderPricing(sizeOption, services);
+  const movingPricing = movingOrderPricing(sizeOption, [...services, ...floorSurchargeLines]);
   const order = await prisma.order.create({
     data: {
       companyId: membership.companyId,
@@ -158,6 +165,24 @@ async function createMovingRequest(
         quantity: 1,
         customerPriceCents: service.customerPriceCents,
         subcontractorPriceCents: service.subcontractorPriceCents,
+      },
+    });
+  }
+
+  for (const line of floorSurchargeLines) {
+    await prisma.orderItem.create({
+      data: {
+        orderId: order.id,
+        cardId: 0,
+        productCode: MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
+        productName: "Floor surcharge",
+        itemType: "product",
+        optionCode: line.code,
+        optionLabel: line.labelEn,
+        // Unit price per floor × chargeable floors.
+        quantity: line.quantity,
+        customerPriceCents: line.customerPriceCents / line.quantity,
+        subcontractorPriceCents: line.subcontractorPriceCents / line.quantity,
       },
     });
   }
@@ -284,6 +309,10 @@ export async function POST(req: Request) {
       originLine: movingPropertyLine(origin, originSize.labelEn),
       destinationLine: movingPropertyLine(destination, destinationSize.labelEn),
       services,
+      floorSurchargeLines: movingFloorSurchargeLines(catalog.floorSurcharge, [
+        { label: "moving from", chargeableFloors: movingChargeableFloors(origin) },
+        { label: "moving to", chargeableFloors: movingChargeableFloors(destination) },
+      ]),
     });
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {

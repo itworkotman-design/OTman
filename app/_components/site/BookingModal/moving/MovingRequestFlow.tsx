@@ -14,9 +14,15 @@ import {
 } from "@/lib/booking/pricing/websiteVat";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 import { MOVING_SERVICE_OPTIONS } from "@/lib/content/movingCatalog";
-import { movingCustomerTotals } from "@/lib/orders/movingOrderPricing";
-import { emptyMovingProperty, isMovingEndReady, type MovingPropertyDraft } from "@/lib/orders/movingProperty";
-import { PropertySection, propertySummary } from "./PropertySection";
+import { movingCustomerTotals, movingFloorSurchargeLines } from "@/lib/orders/movingOrderPricing";
+import {
+  emptyMovingProperty,
+  isMovingEndReady,
+  movingChargeableFloors,
+  parseMovingProperty,
+  type MovingPropertyDraft,
+} from "@/lib/orders/movingProperty";
+import { PropertySection, floorsLabel, propertySummary } from "./PropertySection";
 import {
   isValidEmail,
   sanitizeEmailInput,
@@ -40,6 +46,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
 
   const [catalogOptions, setCatalogOptions] = useState<MovingCatalogOption[]>([]);
   const [serviceOptions, setServiceOptions] = useState<MovingCatalogOption[]>([]);
+  const [floorSurchargeOption, setFloorSurchargeOption] = useState<MovingCatalogOption | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -55,6 +62,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
         }
         setCatalogOptions(data.options ?? []);
         setServiceOptions(data.services ?? []);
+        setFloorSurchargeOption(data.floorSurcharge ?? null);
       } catch (err) {
         if ((err as { name?: string })?.name !== "AbortError") {
           setCatalogError(t("Could not load pricing", "Kunne ikke laste priser"));
@@ -108,14 +116,34 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   // price; a private customer pays each line + 25%, rounded to whole kroner —
   // movingCustomerTotals is what the order's payment link charges too
   // (lib/orders/movingOrderPricing.ts).
-  const totals = movingCustomerTotals(selectedOption ? [selectedOption, ...selectedServices] : []);
+  // No-lift floor surcharge per end — from the parsed property, so an answer
+  // left over from an earlier type (e.g. "no lift, 5th floor" before switching
+  // to Enebolig) never shows a charge the server wouldn't make.
+  const chargeableFloors = (draft: MovingPropertyDraft) => {
+    const parsed = parseMovingProperty(draft);
+    return parsed.ok ? movingChargeableFloors(parsed.property) : 0;
+  };
+  // One entry per end with chargeable floors, priced like the server prices
+  // them (movingFloorSurchargeLines) — `end` labels the summary row.
+  const floorLines = [
+    { end: t("from", "fra"), chargeableFloors: chargeableFloors(origin) },
+    { end: t("to", "til"), chargeableFloors: chargeableFloors(destination) },
+  ].flatMap(({ end, chargeableFloors }) =>
+    movingFloorSurchargeLines(floorSurchargeOption, [{ label: end, chargeableFloors }]).map((line) => ({ ...line, end })),
+  );
+  const totals = movingCustomerTotals(selectedOption ? [selectedOption, ...selectedServices, ...floorLines] : []);
   const vatDisplay = websiteCustomerTotalDisplay({
     totalExVat: totals.totalExVat,
     totalIncVat: totals.totalIncVat,
     customerType: customerType ?? undefined,
   });
-  const linePrice = (option: MovingCatalogOption) =>
+  const linePrice = (option: { customerPriceCents: number }) =>
     websiteCustomerPrice(option.customerPriceCents / 100, customerType ?? "private");
+  // What the "which floor?" pill shows for this many chargeable floors.
+  const floorSurchargeLabel = (floors: number) => {
+    const [line] = movingFloorSurchargeLines(floorSurchargeOption, [{ label: "", chargeableFloors: floors }]);
+    return line && line.customerPriceCents > 0 ? formatKr(linePrice(line)) : null;
+  };
   const toggleService = (code: string) =>
     setServiceCodes((codes) => (codes.includes(code) ? codes.filter((c) => c !== code) : [...codes, code]));
 
@@ -200,6 +228,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           onChange={setOrigin}
           sizeOptions={catalogOptions}
           sizePrice={(option) => formatKr(linePrice(option))}
+          floorSurchargeLabel={floorSurchargeLabel}
           catalogLoading={catalogLoading}
           catalogError={catalogError}
           onReady={onComplete}
@@ -227,6 +256,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           value={destination}
           onChange={setDestination}
           sizeOptions={catalogOptions}
+          floorSurchargeLabel={floorSurchargeLabel}
           catalogLoading={catalogLoading}
           catalogError={catalogError}
           onReady={onComplete}
@@ -421,6 +451,14 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
                 <div key={service.code} className="flex justify-between gap-4">
                   <span>{locale === "no" ? service.labelNo : service.labelEn}</span>
                   <span>+ {formatKr(linePrice(service))}</span>
+                </div>
+              ))}
+              {floorLines.map((line) => (
+                <div key={line.end} className="flex justify-between gap-4">
+                  <span>
+                    {t("Floor surcharge", "Etasjetillegg")}, {line.end} ({floorsLabel(locale, line.quantity)})
+                  </span>
+                  <span>+ {formatKr(linePrice(line))}</span>
                 </div>
               ))}
               <div className="flex justify-between gap-4">

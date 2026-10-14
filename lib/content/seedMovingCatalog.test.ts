@@ -19,6 +19,8 @@ vi.mock("@/lib/db", () => ({
 
 import { seedMovingCatalog } from "./seedMovingCatalog";
 import {
+  MOVING_FLOOR_SURCHARGE_OPTION,
+  MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
   MOVING_PRICE_LIST_CODE,
   MOVING_PRODUCT_CODE,
   MOVING_SERVICES_PRODUCT_CODE,
@@ -31,7 +33,12 @@ describe("seedMovingCatalog", () => {
     Object.values(mocks).forEach((mock) => mock.mockReset());
     mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving" });
     mocks.productUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({
-      id: arg.create.code === MOVING_SERVICES_PRODUCT_CODE ? "p-services" : "p-moving",
+      id:
+        arg.create.code === MOVING_SERVICES_PRODUCT_CODE
+          ? "p-services"
+          : arg.create.code === MOVING_FLOOR_SURCHARGE_PRODUCT_CODE
+            ? "p-floor"
+            : "p-moving",
     }));
     mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
     mocks.priceListItemUpsert.mockResolvedValue({});
@@ -84,7 +91,8 @@ describe("seedMovingCatalog", () => {
     expect(serviceOptions.every((arg) => arg.create.category === "service")).toBe(true);
     expect(result.servicesUpserted).toBe(MOVING_SERVICE_OPTIONS.length);
     // Same price list, same "never overwrite staff prices" rule as sizes.
-    expect(mocks.priceListItemUpsert).toHaveBeenCalledTimes(MOVING_SIZE_OPTIONS.length + MOVING_SERVICE_OPTIONS.length);
+    // + the per-floor surcharge line.
+    expect(mocks.priceListItemUpsert).toHaveBeenCalledTimes(MOVING_SIZE_OPTIONS.length + MOVING_SERVICE_OPTIONS.length + 1);
   });
 
   it("includes Nedpakking and Flyttevask (Mellomlagring left out for now)", () => {
@@ -123,7 +131,12 @@ describe("seedMovingCatalog — options removed from code", () => {
     Object.values(mocks).forEach((mock) => mock.mockReset());
     mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving" });
     mocks.productUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({
-      id: arg.create.code === MOVING_SERVICES_PRODUCT_CODE ? "p-services" : "p-moving",
+      id:
+        arg.create.code === MOVING_SERVICES_PRODUCT_CODE
+          ? "p-services"
+          : arg.create.code === MOVING_FLOOR_SURCHARGE_PRODUCT_CODE
+            ? "p-floor"
+            : "p-moving",
     }));
     mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
     mocks.priceListItemUpsert.mockResolvedValue({});
@@ -152,5 +165,26 @@ describe("seedMovingCatalog — options removed from code", () => {
     for (const [arg] of mocks.productOptionUpsert.mock.calls) {
       expect(arg.update.isActive).toBe(true);
     }
+  });
+});
+
+describe("seedMovingCatalog — floor surcharge", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving" });
+    mocks.productUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({ id: `p-${arg.create.code}` }));
+    mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
+    mocks.priceListItemUpsert.mockResolvedValue({});
+    mocks.productOptionUpdateMany.mockResolvedValue({ count: 0 });
+  });
+
+  it("seeds a per-floor surcharge line on the moving price list, for staff to price", async () => {
+    await seedMovingCatalog();
+
+    const option = mocks.productOptionUpsert.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg.create.productId === `p-${MOVING_FLOOR_SURCHARGE_PRODUCT_CODE}`);
+    expect(option.create.code).toBe(MOVING_FLOOR_SURCHARGE_OPTION.code);
+    expect(option.create.description).toBe("Etasjetillegg (per etasje, uten heis)");
   });
 });

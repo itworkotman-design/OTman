@@ -4,6 +4,7 @@ import {
   MOVING_PARKING_OPTIONS,
   emptyMovingProperty,
   isMovingEndReady,
+  movingChargeableFloors,
   movingLiftApplies,
   movingPropertyLine,
   parseMovingProperty,
@@ -115,5 +116,62 @@ describe("isMovingEndReady", () => {
     expect(
       isMovingEndReady({ address: "Storgata 1, Oslo", addressSelected: true, property: { ...complete, parking: null } }),
     ).toBe(false);
+  });
+});
+
+describe("floor number (no lift)", () => {
+  const noLift = { ...apartment, hasLift: false, floorNumber: 4 };
+
+  it("asks which floor when an apartment/office has no lift", () => {
+    const result = parseMovingProperty({ ...noLift, floorNumber: null });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.floorNumber).toBe("Required");
+  });
+
+  it("accepts a whole, non-zero floor (negative = basement)", () => {
+    expect(parseMovingProperty(noLift).ok).toBe(true);
+    expect(parseMovingProperty({ ...noLift, floorNumber: -2 }).ok).toBe(true);
+    expect(parseMovingProperty({ ...noLift, floorNumber: 0 }).ok).toBe(false);
+    expect(parseMovingProperty({ ...noLift, floorNumber: 2.5 }).ok).toBe(false);
+    expect(parseMovingProperty({ ...noLift, floorNumber: 1000 }).ok).toBe(false);
+  });
+
+  it("ignores (nulls) the floor when there is a lift or no lift question", () => {
+    const withLift = parseMovingProperty({ ...noLift, hasLift: true });
+    const house = parseMovingProperty({ ...noLift, homeType: "DETACHED", hasLift: null });
+    expect(withLift.ok && withLift.property.floorNumber).toBeNull();
+    expect(house.ok && house.property.floorNumber).toBeNull();
+  });
+
+  it("charges floors like delivery: free up to the 2nd, then per floor above it", () => {
+    const at = (floorNumber: number) => {
+      const result = parseMovingProperty({ ...noLift, floorNumber });
+      if (!result.ok) throw new Error("expected ok");
+      return movingChargeableFloors(result.property);
+    };
+    expect(at(1)).toBe(0);
+    expect(at(2)).toBe(0);
+    expect(at(4)).toBe(2);
+    expect(at(-1)).toBe(0);
+    expect(at(-3)).toBe(2);
+  });
+
+  it("charges nothing with a lift", () => {
+    const result = parseMovingProperty({ ...noLift, hasLift: true });
+    if (!result.ok) throw new Error("expected ok");
+    expect(movingChargeableFloors(result.property)).toBe(0);
+  });
+
+  it("mentions the floor in the staff line", () => {
+    const result = parseMovingProperty(noLift);
+    if (!result.ok) throw new Error("expected ok");
+    expect(movingPropertyLine(result.property, "Under 40 m²")).toBe(
+      "Apartment, Under 40 m², 1 floor, lift: no (on floor 4), parking: within 50 m",
+    );
+  });
+
+  it("starts empty in the flow's draft", () => {
+    expect(emptyMovingProperty().floorNumber).toBeNull();
   });
 });

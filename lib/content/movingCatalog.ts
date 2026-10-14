@@ -63,3 +63,18 @@ export const MOVING_SERVICE_OPTIONS: MovingServiceOptionSeed[] = [
   // Mellomlagring (interim storage) is left out for now — when it comes back
   // it likely needs a duration, not one flat price.
 ];
+
+// Per-floor surcharge when there's no lift (apartment/office, either end of
+// the move) — charged per chargeable floor by the delivery modal's rule
+// (movingChargeableFloors). Its own product on the moving price list so staff
+// price it in /dashboard/booking/editPrices; a move is far heavier than one
+// appliance, so it doesn't reuse the white-goods floor surcharge.
+export const MOVING_FLOOR_SURCHARGE_PRODUCT_CODE = "MOVING_FLOOR_SURCHARGE";
+
+export const MOVING_FLOOR_SURCHARGE_OPTION: MovingSizeOptionSeed = {
+  code: "FLOOR_SURCHARGE_PER_FLOOR",
+  labelEn: "Floor surcharge (per floor, no lift)",
+  labelNo: "Etasjetillegg (per etasje, uten heis)",
+  customerPrice: 0,
+  subcontractorPrice: 0,
+};

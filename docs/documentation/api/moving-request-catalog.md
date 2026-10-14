@@ -12,5 +12,5 @@ DB, unscoped — see the "Catalog not price-list-scoped" note in
 re-resolution.
 
 ## Functions
-- `GET` — `{ ok, priceListId, options, services }`, or `404 NOT_SEEDED` if
+- `GET` — `{ ok, priceListId, options, services, floorSurcharge }`, or `404 NOT_SEEDED` if
   `npm run seed:moving-catalog` hasn't been run yet.

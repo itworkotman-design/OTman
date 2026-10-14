@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getOrderChargeAmountIncVatNok } from "./orderTotals";
-import { movingCustomerTotals, movingOrderPricing } from "./movingOrderPricing";
+import { movingCustomerTotals, movingFloorSurchargeLines, movingOrderPricing } from "./movingOrderPricing";
 
 // The moving price list holds prices ex. VAT, like every website price list:
 // the customer pays the size bracket's price + 25%, rounded to whole kroner.
@@ -51,5 +51,36 @@ describe("movingCustomerTotals", () => {
 
   it("is zero for no lines", () => {
     expect(movingCustomerTotals([])).toEqual({ totalExVat: 0, totalIncVat: 0 });
+  });
+});
+
+describe("movingFloorSurchargeLines", () => {
+  const perFloor = { code: "FLOOR_SURCHARGE_PER_FLOOR", labelEn: "Floor surcharge", customerPriceCents: 30000, subcontractorPriceCents: 20000 };
+
+  it("makes one line per end with chargeable floors, priced per floor", () => {
+    const lines = movingFloorSurchargeLines(perFloor, [
+      { label: "moving from", chargeableFloors: 2 },
+      { label: "moving to", chargeableFloors: 0 },
+    ]);
+    expect(lines).toEqual([
+      {
+        code: "FLOOR_SURCHARGE_PER_FLOOR",
+        labelEn: "Floor surcharge, moving from (2 floors)",
+        quantity: 2,
+        customerPriceCents: 60000,
+        subcontractorPriceCents: 40000,
+      },
+    ]);
+  });
+
+  it("charges nothing when the surcharge isn't in the price list", () => {
+    expect(movingFloorSurchargeLines(null, [{ label: "moving from", chargeableFloors: 3 }])).toEqual([]);
+  });
+
+  it("adds to the total with VAT rounded on the line, like every website line", () => {
+    const size = { code: "SIZE_UNDER_40", labelEn: "Under 40 m²", customerPriceCents: 499000, subcontractorPriceCents: 300000 };
+    const lines = movingFloorSurchargeLines({ ...perFloor, customerPriceCents: 29900 }, [{ label: "moving from", chargeableFloors: 3 }]);
+    // 4990 → 6238, 3 × 299 = 897 → 1121 (1121.25)
+    expect(movingOrderPricing(size, lines).pricingSnapshot.customer).toMatchObject({ totalExVat: 4990 + 897, totalIncVat: 6238 + 1121 });
   });
 });

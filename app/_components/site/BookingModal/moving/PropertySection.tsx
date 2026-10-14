@@ -9,10 +9,12 @@ import {
   MOVING_PARKING_OPTIONS,
   movingLiftApplies,
   isMovingEndReady,
+  movingChargeableFloors,
   type MovingPropertyDraft,
 } from "@/lib/orders/movingProperty";
 import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 import { AutoAdvance } from "../AutoAdvance";
+import { FloorInput } from "../whiteGoods/floorLiftField";
 import { HouseIllustration } from "./HouseIllustration";
 import { HOUSE_MAX_FLOORS, HOUSE_MIN_FLOORS, clampFloors } from "./houseGeometry";
 
@@ -30,6 +32,11 @@ type Props = {
   // Shown on the size tiles when given (the origin is what's priced);
   // omitted for the destination, whose size is information for staff only.
   sizePrice?: (option: MovingCatalogOption) => string;
+  // The customer-facing surcharge for this many chargeable floors, formatted
+  // (VAT mode applied by the caller, rounded on the line like the charge),
+  // or null for none — shown live next to the "which floor?" box, like the
+  // delivery modal.
+  floorSurchargeLabel: (chargeableFloors: number) => string | null;
   catalogLoading: boolean;
   catalogError: string | null;
   // SteppedModal's onComplete/onUncomplete: the next section appears as
@@ -97,6 +104,7 @@ export function PropertySection({
   onChange,
   sizeOptions,
   sizePrice,
+  floorSurchargeLabel,
   catalogLoading,
   catalogError,
   onReady,
@@ -107,6 +115,8 @@ export function PropertySection({
   const isReady = isMovingEndReady({ address, addressSelected, property: value });
   const [addressTouched, setAddressTouched] = useState(false);
   const addressNotSelected = addressTouched && !!address.trim() && !addressSelected;
+  const [floorTouched, setFloorTouched] = useState(false);
+  const floorSurcharge = floorSurchargeLabel(movingChargeableFloors(value));
   const stepButton =
     "flex h-8 w-8 items-center justify-center rounded-full border border-logoblue/30 bg-white text-lg font-semibold text-logoblue transition hover:border-logoblue disabled:pointer-events-none disabled:opacity-35";
 
@@ -204,6 +214,36 @@ export function PropertySection({
               {t("No", "Nei")}
             </Chip>
           </div>
+
+          {/* No lift → which floor, since carrying up/down stairs is what
+              costs extra (same rule and floor box as the delivery modal). */}
+          {value.hasLift === false && (
+            <>
+              <SubHeading>{t("Which floor is it on?", "Hvilken etasje ligger den i?")}</SubHeading>
+              <div className="mx-auto flex w-full max-w-sm items-center gap-2">
+                <div className="flex-1">
+                  <FloorInput
+                    value={value.floorNumber}
+                    onChange={(floorNumber) => set({ floorNumber })}
+                    onBlur={() => setFloorTouched(true)}
+                    hasError={floorTouched && value.floorNumber === null}
+                    placeholder={t("e.g. 1 for the ground floor", "f.eks. 1 for bakkeplan")}
+                  />
+                </div>
+                {floorSurcharge && (
+                  <span className="shrink-0 whitespace-nowrap rounded-lg bg-amber-50 px-2.5 py-2 text-sm font-semibold text-amber-700">
+                    +{floorSurcharge}
+                  </span>
+                )}
+              </div>
+              <p className="-mt-1 text-center text-xs text-black/45">
+                {t(
+                  "1 is the ground floor, -1 the basement. Without a lift, floors above the 2nd or below the 1st basement add a surcharge.",
+                  "1. etasje er bakkeplan, -1 er kjeller. Uten heis tilkommer et tillegg for etasjer over 2. og under -1.",
+                )}
+              </p>
+            </>
+          )}
         </>
       )}
 

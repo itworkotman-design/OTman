@@ -53,7 +53,7 @@ const validBody = {
   deliveryAddress: "Storgata 2, Oslo",
   preferredDate: "2026-10-01",
   timeWindow: "08:00-16:00",
-  origin: { homeType: "APARTMENT", sizeOptionCode: "SIZE_UNDER_40", floors: 1, hasLift: false, parking: "WITHIN_50M" },
+  origin: { homeType: "APARTMENT", sizeOptionCode: "SIZE_UNDER_40", floors: 1, hasLift: false, floorNumber: 3, parking: "WITHIN_50M" },
   destination: { homeType: "DETACHED", sizeOptionCode: "SIZE_UNDER_20", floors: 2, parking: "OUTSIDE" },
   notes: "Piano in the living room.",
 };
@@ -189,6 +189,13 @@ describe("POST /api/site/moving-request", () => {
     expect(res.status).toBe(422);
     const json = await res.json();
     expect(json.errors.notes).toBeDefined();
+  });
+
+  it("returns 422 when an apartment without a lift doesn't say which floor it's on", async () => {
+    const res = await post({ ...validBody, origin: { ...validBody.origin, floorNumber: null } });
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors["origin.floorNumber"]).toBe("Required");
   });
 
   it("returns 422 for an unknown property type", async () => {

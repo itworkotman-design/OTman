@@ -49,3 +49,23 @@ export function movingOrderPricing(sizeOption: MovingPricedLine, services: Movin
     }),
   };
 }
+
+// The no-lift floor surcharge as priced lines, one per end of the move that
+// has chargeable floors (movingChargeableFloors), each priced per floor — so
+// VAT is rounded on the line like every other website line. A missing
+// surcharge price (not seeded yet) charges nothing.
+export function movingFloorSurchargeLines(
+  perFloor: MovingPricedLine | null,
+  ends: { label: string; chargeableFloors: number }[],
+): (MovingPricedLine & { quantity: number })[] {
+  if (!perFloor) return [];
+  return ends
+    .filter((end) => end.chargeableFloors > 0)
+    .map((end) => ({
+      code: perFloor.code,
+      labelEn: `Floor surcharge, ${end.label} (${end.chargeableFloors} ${end.chargeableFloors === 1 ? "floor" : "floors"})`,
+      quantity: end.chargeableFloors,
+      customerPriceCents: perFloor.customerPriceCents * end.chargeableFloors,
+      subcontractorPriceCents: perFloor.subcontractorPriceCents * end.chargeableFloors,
+    }));
+}

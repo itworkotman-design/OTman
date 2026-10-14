@@ -6,7 +6,11 @@
 // client's "can continue" check and the server's 422 can't disagree.
 // Client-safe — no database import.
 
+import { getChargeableFloors } from "@/lib/booking/pricing/buildWhiteGoodsCalculatorBreakdowns";
+
 export const MOVING_MAX_FLOORS = 4;
+// Same 3-digit limit as the delivery modal's floor box (floorValue.ts).
+const MOVING_MAX_FLOOR_NUMBER = 999;
 
 export const MOVING_HOME_TYPES = [
   { code: "APARTMENT", labelEn: "Apartment", labelNo: "Leilighet" },
@@ -40,11 +44,15 @@ export type MovingPropertyDraft = {
   sizeOptionCode: string | null;
   floors: number;
   hasLift: boolean | null;
+  // Which floor the apartment/office is on — only asked (and required) when
+  // there is no lift, since that is what costs extra (movingChargeableFloors).
+  // Counts like the delivery modal: 1 = ground floor, -1 = first basement.
+  floorNumber: number | null;
   parking: MovingParkingCode | null;
 };
 
 export function emptyMovingProperty(): MovingPropertyDraft {
-  return { homeType: null, sizeOptionCode: null, floors: 1, hasLift: null, parking: null };
+  return { homeType: null, sizeOptionCode: null, floors: 1, hasLift: null, floorNumber: null, parking: null };
 }
 
 export type MovingProperty = {
@@ -54,6 +62,8 @@ export type MovingProperty = {
   floors: number;
   // null when the lift question doesn't apply (movingLiftApplies).
   hasLift: boolean | null;
+  // null unless there is no lift (see MovingPropertyDraft.floorNumber).
+  floorNumber: number | null;
   parking: MovingParkingOption;
 };
 
@@ -76,6 +86,17 @@ export function parseMovingProperty(
   const liftApplies = movingLiftApplies(homeType?.code ?? null);
   if (liftApplies && typeof input.hasLift !== "boolean") errors.hasLift = "Required";
 
+  const floorAsked = liftApplies && input.hasLift === false;
+  const floorNumber = input.floorNumber;
+  if (floorAsked) {
+    const floorOk =
+      typeof floorNumber === "number" &&
+      Number.isInteger(floorNumber) &&
+      floorNumber !== 0 &&
+      Math.abs(floorNumber) <= MOVING_MAX_FLOOR_NUMBER;
+    if (!floorOk) errors.floorNumber = floorNumber == null ? "Required" : "Invalid";
+  }
+
   const parking = MOVING_PARKING_OPTIONS.find((p) => p.code === input.parking);
   if (!parking) errors.parking = input.parking == null ? "Required" : "Invalid";
 
@@ -87,6 +108,7 @@ export function parseMovingProperty(
       sizeOptionCode,
       floors: floors as number,
       hasLift: liftApplies ? (input.hasLift as boolean) : null,
+      floorNumber: floorAsked ? (floorNumber as number) : null,
       parking,
     },
   };
@@ -99,7 +121,9 @@ export function movingPropertyLine(property: MovingProperty, sizeLabel: string):
     property.homeType.labelEn,
     sizeLabel,
     `${property.floors} ${property.floors === 1 ? "floor" : "floors"}`,
-    property.hasLift === null ? null : `lift: ${property.hasLift ? "yes" : "no"}`,
+    property.hasLift === null
+      ? null
+      : `lift: ${property.hasLift ? "yes" : "no"}${property.floorNumber === null ? "" : ` (on floor ${property.floorNumber})`}`,
     `parking: ${property.parking.labelEn.toLowerCase()}`,
   ]
     .filter(Boolean)
@@ -116,4 +140,12 @@ export function isMovingEndReady(params: {
   property: MovingPropertyDraft;
 }): boolean {
   return params.address.trim().length > 0 && params.addressSelected && parseMovingProperty(params.property).ok;
+}
+
+// Floors that cost extra at this end: the delivery modal's rule
+// (getChargeableFloors) — free up to the 2nd floor and down to the 1st
+// basement, then per floor — only ever with no lift.
+export function movingChargeableFloors(property: Pick<MovingProperty, "hasLift" | "floorNumber">): number {
+  if (property.hasLift !== false || property.floorNumber === null) return 0;
+  return getChargeableFloors(property.floorNumber, false);
 }

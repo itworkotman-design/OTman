@@ -52,3 +52,9 @@ the price via `movingOrderPricing(sizeOption, services)`, listed in
 `Order.description` ("Additional services: …") and in `productsSummary` /
 the notification title (`Moving (Under 40 m²) + Move-out cleaning`).
 
+
+## Floor surcharge (no lift)
+An apartment/office end with no lift must send `floorNumber`. Each end's `movingChargeableFloors` ×
+the catalog's `floorSurcharge` price becomes a line (`movingFloorSurchargeLines`), added to the price,
+saved as an `OrderItem` (`productCode: MOVING_FLOOR_SURCHARGE`, `quantity` = floors, unit price per
+floor) and listed in `productsSummary`. Not seeded → no surcharge.

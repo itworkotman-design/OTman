@@ -15,8 +15,9 @@ function formatKr(n: number) {
 // A floor number field with a stacked up/down chevron stepper on the right,
 // instead of the browser's default (and inconsistently styled) number spinner.
 // Starts empty (null); accepts only digits and a leading minus (basements),
-// never 0 — see floorValue.ts.
-function FloorInput({
+// never 0 — see floorValue.ts. Also used on its own by the moving flow's
+// "which floor?" question (PropertySection).
+export function FloorInput({
   value,
   onChange,
   onBlur,

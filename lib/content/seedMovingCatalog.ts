@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import {
+  MOVING_FLOOR_SURCHARGE_OPTION,
+  MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
   MOVING_PRICE_LIST_CODE,
   MOVING_PRODUCT_CODE,
   MOVING_SERVICES_PRODUCT_CODE,
@@ -45,6 +47,14 @@ export async function seedMovingCatalog() {
     sortOrder: 2,
     category: "service",
     options: MOVING_SERVICE_OPTIONS,
+  });
+
+  await seedFlatProduct(priceList.id, {
+    code: MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
+    name: "Moving — floor surcharge",
+    sortOrder: 3,
+    category: "surcharge",
+    options: [MOVING_FLOOR_SURCHARGE_OPTION],
   });
 
   return {

@@ -167,3 +167,34 @@ describe("findMovingSizeOption", () => {
     expect(findMovingSizeOption(options, "")).toBeNull();
   });
 });
+
+describe("getMovingCatalog — floor surcharge", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const item = (code: string, productCode: string, cents: number) => ({
+    customerPriceCents: cents,
+    subcontractorPriceCents: cents / 2,
+    productOption: { code, label: code, description: code, sortOrder: 1, isActive: true, product: { code: productCode } },
+  });
+
+  it("returns the per-floor surcharge separately from sizes and services", async () => {
+    mocks.priceListFindUniqueMock.mockResolvedValue({
+      id: "pl-moving",
+      items: [item("SIZE_UNDER_20", "MOVING_BY_SIZE", 800000), item("FLOOR_SURCHARGE_PER_FLOOR", "MOVING_FLOOR_SURCHARGE", 30000)],
+    });
+
+    const result = await getMovingCatalog();
+
+    expect(result?.options.map((o) => o.code)).toEqual(["SIZE_UNDER_20"]);
+    expect(result?.services).toEqual([]);
+    expect(result?.floorSurcharge?.customerPriceCents).toBe(30000);
+  });
+
+  it("is null when it hasn't been seeded", async () => {
+    mocks.priceListFindUniqueMock.mockResolvedValue({ id: "pl-moving", items: [item("SIZE_UNDER_20", "MOVING_BY_SIZE", 800000)] });
+
+    expect((await getMovingCatalog())?.floorSurcharge).toBeNull();
+  });
+});

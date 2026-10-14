@@ -44,6 +44,15 @@ describe("GET /api/site/moving-request/catalog", () => {
     expect(json.services).toEqual(services);
   });
 
+  it("returns the no-lift per-floor surcharge", async () => {
+    const floorSurcharge = { code: "FLOOR_SURCHARGE_PER_FLOOR", labelEn: "Floor surcharge", labelNo: "Etasjetillegg", customerPriceCents: 30000, subcontractorPriceCents: 20000 };
+    mocks.getMovingCatalogMock.mockResolvedValue({ priceListId: "pl-moving", options: [], services: [], floorSurcharge });
+
+    const json = await (await GET()).json();
+
+    expect(json.floorSurcharge).toEqual(floorSurcharge);
+  });
+
   it("returns 404 when the moving price list hasn't been seeded", async () => {
     mocks.getMovingCatalogMock.mockResolvedValue(null);
 
