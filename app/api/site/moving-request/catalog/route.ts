@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getMovingCatalog } from "@/lib/content/getMovingCatalog";
 
 // Public, unauthenticated pricing fetch for the Moving quote-request flow's
-// size-bracket picker. Deliberately its own small route, not the generic
+// size-bracket picker and additional-services step. Deliberately its own small route, not the generic
 // /api/booking/catalog (env-gated to exactly one public price list) or
 // lib/booking/catalog/getBookingCatalog (returns every product in the DB,
 // unscoped) — see getMovingCatalog for the query itself, shared with the
@@ -14,5 +14,5 @@ export async function GET() {
     return NextResponse.json({ ok: false, reason: "NOT_SEEDED" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, priceListId: catalog.priceListId, options: catalog.options }, { status: 200 });
+  return NextResponse.json({ ok: true, priceListId: catalog.priceListId, options: catalog.options, services: catalog.services }, { status: 200 });
 }

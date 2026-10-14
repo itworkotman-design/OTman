@@ -3,16 +3,19 @@
 import { useEffect, useState } from "react";
 import { SteppedModal, type FinalStep, type StepSection } from "../SteppedModal";
 import { CustomerTypeStep } from "../whiteGoods/CustomerTypeStep";
+import { TileSelectStep } from "../whiteGoods/TileSelectStep";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import { transportTimeWindows } from "@/lib/content/TransportRequestConfig";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import {
   websiteCustomerPrice,
   websiteCustomerTotalDisplay,
-  websiteInclVat,
   type CustomerType,
 } from "@/lib/booking/pricing/websiteVat";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
+import { MOVING_SERVICE_OPTIONS } from "@/lib/content/movingCatalog";
+import { movingCustomerTotals } from "@/lib/orders/movingOrderPricing";
+import { MOVING_HOME_TYPES, type MovingHomeType } from "@/lib/orders/movingOrderDescription";
 import { HouseIllustration } from "./HouseIllustration";
 import { HOUSE_MAX_FLOORS, HOUSE_MIN_FLOORS, clampFloors } from "./houseGeometry";
 import {
@@ -37,6 +40,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
   const [catalogOptions, setCatalogOptions] = useState<MovingCatalogOption[]>([]);
+  const [serviceOptions, setServiceOptions] = useState<MovingCatalogOption[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -51,6 +55,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           return;
         }
         setCatalogOptions(data.options ?? []);
+        setServiceOptions(data.services ?? []);
       } catch (err) {
         if ((err as { name?: string })?.name !== "AbortError") {
           setCatalogError(t("Could not load pricing", "Kunne ikke laste priser"));
@@ -66,7 +71,9 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [sizeOptionCode, setSizeOptionCode] = useState<string | null>(null);
+  const [homeType, setHomeType] = useState<MovingHomeType["code"] | null>(null);
   const [floors, setFloors] = useState(HOUSE_MIN_FLOORS);
+  const [serviceCodes, setServiceCodes] = useState<string[]>([]);
   const floorsLabel = (n: number) =>
     locale === "no" ? `${n} ${n === 1 ? "etasje" : "etasjer"}` : `${n} ${n === 1 ? "floor" : "floors"}`;
 
@@ -79,7 +86,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [notes, setNotes] = useState("");
 
   // Set once by the very first step ("customer-type", below) so the
-  // size-tile prices shown on the very next step are already in the right
+  // size-tile prices shown a couple of steps later are already in the right
   // VAT mode — no toggle to change it again later, since asking twice
   // would be redundant. Still display-only (never affects actual pricing).
   // Starts `null` (unanswered) rather than defaulting to "private" so the
@@ -93,15 +100,22 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
   const selectedOption = catalogOptions.find((o) => o.code === sizeOptionCode) ?? null;
+  const selectedHomeType = MOVING_HOME_TYPES.find((h) => h.code === homeType) ?? null;
+  const selectedServices = serviceOptions.filter((o) => serviceCodes.includes(o.code));
   // customerPriceCents is the price list's price, ex. VAT like every website
-  // price; a private customer pays it + 25%, rounded to whole kroner — what
-  // the order's payment link charges (lib/orders/movingOrderPricing.ts).
-  const priceExVat = selectedOption ? selectedOption.customerPriceCents / 100 : 0;
+  // price; a private customer pays each line + 25%, rounded to whole kroner —
+  // movingCustomerTotals is what the order's payment link charges too
+  // (lib/orders/movingOrderPricing.ts).
+  const totals = movingCustomerTotals(selectedOption ? [selectedOption, ...selectedServices] : []);
   const vatDisplay = websiteCustomerTotalDisplay({
-    totalExVat: priceExVat,
-    totalIncVat: websiteInclVat(priceExVat),
+    totalExVat: totals.totalExVat,
+    totalIncVat: totals.totalIncVat,
     customerType: customerType ?? undefined,
   });
+  const linePrice = (option: MovingCatalogOption) =>
+    websiteCustomerPrice(option.customerPriceCents / 100, customerType ?? "private");
+  const toggleService = (code: string) =>
+    setServiceCodes((codes) => (codes.includes(code) ? codes.filter((c) => c !== code) : [...codes, code]));
 
   const canContinueDetails = !!pickupAddress.trim() && !!deliveryAddress.trim() && !!sizeOptionCode;
   const canContinueTiming = !!preferredDate && !!timeWindow;
@@ -110,6 +124,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
     validatePhoneField(phone) === null &&
     isValidEmail(email) &&
     !!sizeOptionCode &&
+    !!homeType &&
     !submitLoading;
 
   async function handleSubmit() {
@@ -123,7 +138,9 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           pickupAddress,
           deliveryAddress,
           sizeOptionCode,
+          homeType,
           floors,
+          serviceCodes,
           preferredDate,
           timeWindow,
           name,
@@ -157,6 +174,20 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           value={customerType}
           onPick={(next) => {
             setCustomerType(next);
+            onComplete();
+          }}
+        />
+      ),
+    },
+    {
+      id: "home-type",
+      title: t("What are you moving from?", "Hva flytter du fra?"),
+      render: ({ onComplete }) => (
+        <TileSelectStep
+          options={MOVING_HOME_TYPES.map((h) => ({ id: h.code, label: locale === "no" ? h.labelNo : h.labelEn }))}
+          value={homeType}
+          onPick={(next) => {
+            setHomeType(next);
             onComplete();
           }}
         />
@@ -245,6 +276,70 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             className="self-start inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
           >
             {t("Continue", "Fortsett")}
+          </button>
+        </div>
+      ),
+    },
+    {
+      // Always present (even before the catalog loads or with no services
+      // priced) — SteppedModal tracks progress by position, so a step
+      // appearing later would shift the ones after it.
+      id: "additional-services",
+      title: t("Additional services", "Tilleggstjenester"),
+      description: t(
+        "Optional — pick anything you'd like us to take care of as well.",
+        "Valgfritt — velg det du vil at vi skal ta oss av i tillegg.",
+      ),
+      render: ({ onComplete }) => (
+        <div className="flex flex-col gap-3">
+          {serviceOptions.length === 0 && !catalogLoading && (
+            <p className="text-sm text-black/50">
+              {t("No additional services are available right now.", "Ingen tilleggstjenester er tilgjengelige akkurat nå.")}
+            </p>
+          )}
+          <div className="grid gap-2 sm:grid-cols-2">
+            {serviceOptions.map((option) => {
+              const active = serviceCodes.includes(option.code);
+              const blurb = MOVING_SERVICE_OPTIONS.find((s) => s.code === option.code);
+              return (
+                <button
+                  key={option.code}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => toggleService(option.code)}
+                  className={`flex flex-col gap-1.5 rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                    active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-white text-textColor"
+                  }`}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">{locale === "no" ? option.labelNo : option.labelEn}</span>
+                    <span
+                      aria-hidden="true"
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs ${
+                        active ? "border-white bg-white text-logoblue" : "border-black/20"
+                      }`}
+                    >
+                      {active ? "✓" : ""}
+                    </span>
+                  </span>
+                  {blurb && (
+                    <span className={active ? "text-white/80" : "text-black/50"}>
+                      {locale === "no" ? blurb.blurbNo : blurb.blurbEn}
+                    </span>
+                  )}
+                  <span className={`font-semibold ${active ? "text-white/90" : "text-logoblue"}`}>
+                    + {formatKr(linePrice(option))}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={onComplete}
+            className="self-start inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+          >
+            {serviceCodes.length > 0 ? t("Continue", "Fortsett") : t("Skip", "Hopp over")}
           </button>
         </div>
       ),
@@ -378,6 +473,12 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
                 <span>{t("To", "Til")}</span>
                 <span className="text-right">{deliveryAddress || "—"}</span>
               </div>
+              {selectedHomeType && (
+                <div className="flex justify-between gap-4">
+                  <span>{t("Property type", "Type lokale")}</span>
+                  <span>{locale === "no" ? selectedHomeType.labelNo : selectedHomeType.labelEn}</span>
+                </div>
+              )}
               {selectedOption && (
                 <div className="flex justify-between gap-4">
                   <span>{t("Approximate size", "Omtrentlig størrelse")}</span>
@@ -388,6 +489,12 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
                 <span>{t("Floors", "Etasjer")}</span>
                 <span>{floors}</span>
               </div>
+              {selectedServices.map((service) => (
+                <div key={service.code} className="flex justify-between gap-4">
+                  <span>{locale === "no" ? service.labelNo : service.labelEn}</span>
+                  <span>+ {formatKr(linePrice(service))}</span>
+                </div>
+              ))}
               <div className="flex justify-between gap-4">
                 <span>{t("Date", "Dato")}</span>
                 <span>

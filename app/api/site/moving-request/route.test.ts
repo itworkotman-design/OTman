@@ -66,6 +66,9 @@ describe("POST /api/site/moving-request", () => {
         { code: "SIZE_UNDER_20", labelEn: "Under 20 m²", labelNo: "Under 20 m²", customerPriceCents: 800000, subcontractorPriceCents: 500000 },
         { code: "SIZE_UNDER_40", labelEn: "Under 40 m²", labelNo: "Under 40 m²", customerPriceCents: 1400000, subcontractorPriceCents: 900000 },
       ],
+      services: [
+        { code: "SERVICE_FLYTTEVASK", labelEn: "Move-out cleaning", labelNo: "Flyttevask", customerPriceCents: 250000, subcontractorPriceCents: 150000 },
+      ],
     });
   });
 
@@ -162,11 +165,32 @@ describe("POST /api/site/moving-request", () => {
     expect(json.errors.notes).toBeDefined();
   });
 
+  it("returns 422 for an unknown home type", async () => {
+    const res = await post({ ...validBody, homeType: "CASTLE" });
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.homeType).toBeDefined();
+  });
+
   it("returns 422 when floors is out of range", async () => {
     const res = await post({ ...validBody, floors: 9 });
     expect(res.status).toBe(422);
     const json = await res.json();
     expect(json.errors.floors).toBeDefined();
+  });
+
+  it("returns 422 for an unknown additional service", async () => {
+    const res = await post({ ...validBody, serviceCodes: ["SERVICE_NOT_REAL"] });
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.serviceCodes).toBeDefined();
+  });
+
+  it("returns 422 when serviceCodes isn't a list", async () => {
+    const res = await post({ ...validBody, serviceCodes: "SERVICE_FLYTTEVASK" });
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.serviceCodes).toBeDefined();
   });
 
   it("returns 429 on a second request within a minute", async () => {

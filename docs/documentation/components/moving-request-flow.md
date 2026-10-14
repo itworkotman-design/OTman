@@ -20,12 +20,17 @@ Submits to `POST /api/site/moving-request`.
 
 ## Functions
 ### `MovingRequestFlow({ locale, onClose })`
-Four sections — Privat/Bedrift (`CustomerTypeStep`, asked first and only
-once, so the size-tier tile prices shown on the very next step are already
-in the right VAT mode), move details (addresses + size-bracket picker with
+Six sections — Privat/Bedrift (`CustomerTypeStep`, asked first and only
+once, so the size-tier tile prices shown later are already
+in the right VAT mode), home type (`TileSelectStep` with
+`MOVING_HOME_TYPES` — Leilighet/Rekkehus/Enebolig/Kontor, auto-advances on pick,
+sent as `homeType`, required to submit), move details (addresses + size-bracket picker with
 live prices, with a `HouseIllustration` preview + floors stepper (1–4,
-starts at 1) to its right, sent as `floors`), timing, contact details — plus
+starts at 1) to its right, sent as `floors`), additional services (optional
+toggle tiles for Nedpakking/Flyttevask with price + blurb, sent
+as `serviceCodes`; always present so step positions never shift), timing,
+contact details — plus
 a final review/submit step
-showing the selected bracket's total. Copy makes clear the price is based
+showing the size + selected services total (`movingCustomerTotals`). Copy makes clear the price is based
 on the self-reported size and gets confirmed on staff review, not
 literally instant.

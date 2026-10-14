@@ -8,7 +8,8 @@ vi.mock("@/lib/db", () => ({
   prisma: { priceList: { findUnique: mocks.priceListFindUniqueMock } },
 }));
 
-import { findMovingSizeOption, getMovingCatalog } from "./getMovingCatalog";
+import { findMovingServiceOptions, findMovingSizeOption, getMovingCatalog } from "./getMovingCatalog";
+import { MOVING_SERVICES_PRODUCT_CODE } from "./movingCatalog";
 
 describe("getMovingCatalog", () => {
   beforeEach(() => {
@@ -66,6 +67,83 @@ describe("getMovingCatalog", () => {
     const result = await getMovingCatalog();
 
     expect(result?.options).toEqual([]);
+  });
+});
+
+describe("getMovingCatalog — additional services", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("splits additional-service options out of the size options", async () => {
+    mocks.priceListFindUniqueMock.mockResolvedValue({
+      id: "pl-moving",
+      items: [
+        {
+          customerPriceCents: 800000,
+          subcontractorPriceCents: 500000,
+          productOption: {
+            code: "SIZE_UNDER_20",
+            label: "Under 20 m²",
+            description: "Under 20 m²",
+            sortOrder: 1,
+            isActive: true,
+            product: { code: "MOVING_BY_SIZE" },
+          },
+        },
+        {
+          customerPriceCents: 150000,
+          subcontractorPriceCents: 100000,
+          productOption: {
+            code: "SERVICE_FLYTTEVASK",
+            label: "Move-out cleaning",
+            description: "Flyttevask",
+            sortOrder: 2,
+            isActive: true,
+            product: { code: MOVING_SERVICES_PRODUCT_CODE },
+          },
+        },
+      ],
+    });
+
+    const result = await getMovingCatalog();
+
+    expect(result?.options.map((o) => o.code)).toEqual(["SIZE_UNDER_20"]);
+    expect(result?.services).toEqual([
+      {
+        code: "SERVICE_FLYTTEVASK",
+        labelEn: "Move-out cleaning",
+        labelNo: "Flyttevask",
+        customerPriceCents: 150000,
+        subcontractorPriceCents: 100000,
+      },
+    ]);
+  });
+});
+
+describe("findMovingServiceOptions", () => {
+  const services = [
+    { code: "SERVICE_NEDPAKKING", labelEn: "Packing", labelNo: "Nedpakking", customerPriceCents: 100000, subcontractorPriceCents: 0 },
+    { code: "SERVICE_FLYTTEVASK", labelEn: "Move-out cleaning", labelNo: "Flyttevask", customerPriceCents: 150000, subcontractorPriceCents: 0 },
+  ];
+
+  it("treats a missing list as no services (older clients)", () => {
+    expect(findMovingServiceOptions(services, undefined)).toEqual([]);
+    expect(findMovingServiceOptions(services, null)).toEqual([]);
+  });
+
+  it("resolves known codes in catalog order", () => {
+    expect(findMovingServiceOptions(services, ["SERVICE_FLYTTEVASK", "SERVICE_NEDPAKKING"])?.map((s) => s.code)).toEqual([
+      "SERVICE_NEDPAKKING",
+      "SERVICE_FLYTTEVASK",
+    ]);
+  });
+
+  it("rejects unknown codes, duplicates and non-arrays", () => {
+    expect(findMovingServiceOptions(services, ["NOPE"])).toBeNull();
+    expect(findMovingServiceOptions(services, ["SERVICE_NEDPAKKING", "SERVICE_NEDPAKKING"])).toBeNull();
+    expect(findMovingServiceOptions(services, "SERVICE_NEDPAKKING")).toBeNull();
+    expect(findMovingServiceOptions(services, [1])).toBeNull();
   });
 });
 

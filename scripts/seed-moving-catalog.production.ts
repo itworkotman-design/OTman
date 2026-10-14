@@ -12,7 +12,7 @@ async function main() {
 
   const result = await seedMovingCatalog();
   console.log(
-    `PRODUCTION moving catalog seeded: priceListId=${result.priceListId}, productId=${result.productId}, options=${result.optionsUpserted}`,
+    `PRODUCTION moving catalog seeded: priceListId=${result.priceListId}, productId=${result.productId}, options=${result.optionsUpserted}, services=${result.servicesUpserted}`,
   );
 }
 

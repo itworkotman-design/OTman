@@ -5,7 +5,7 @@ import { seedMovingCatalog } from "../lib/content/seedMovingCatalog";
 async function main() {
   const result = await seedMovingCatalog();
   console.log(
-    `Moving catalog seeded: priceListId=${result.priceListId}, productId=${result.productId}, options=${result.optionsUpserted}. ` +
+    `Moving catalog seeded: priceListId=${result.priceListId}, productId=${result.productId}, options=${result.optionsUpserted}, services=${result.servicesUpserted}. ` +
       `Prices default to 0 kr — set real prices via /dashboard/booking/editPrices before this goes live.`,
   );
 }

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { MOVING_PRICE_LIST_CODE } from "@/lib/content/movingCatalog";
+import { MOVING_PRICE_LIST_CODE, MOVING_SERVICES_PRODUCT_CODE } from "@/lib/content/movingCatalog";
 
 export type MovingCatalogOption = {
   code: string;
@@ -12,6 +12,9 @@ export type MovingCatalogOption = {
 export type MovingCatalog = {
   priceListId: string;
   options: MovingCatalogOption[];
+  // Additional services (MOVING_SERVICES_PRODUCT_CODE), same shape, kept apart
+  // from the size brackets so they never show up as a size tile.
+  services: MovingCatalogOption[];
 };
 
 // Shared by the public catalog-fetch route (app/api/site/moving-request/
@@ -29,7 +32,14 @@ export async function getMovingCatalog(): Promise<MovingCatalog | null> {
           customerPriceCents: true,
           subcontractorPriceCents: true,
           productOption: {
-            select: { code: true, label: true, description: true, sortOrder: true, isActive: true },
+            select: {
+              code: true,
+              label: true,
+              description: true,
+              sortOrder: true,
+              isActive: true,
+              product: { select: { code: true } },
+            },
           },
         },
       },
@@ -38,18 +48,38 @@ export async function getMovingCatalog(): Promise<MovingCatalog | null> {
 
   if (!priceList) return null;
 
-  const options = priceList.items
+  const active = priceList.items
     .filter((item) => item.productOption.isActive)
-    .sort((a, b) => a.productOption.sortOrder - b.productOption.sortOrder)
-    .map((item) => ({
-      code: item.productOption.code,
-      labelEn: item.productOption.label ?? item.productOption.code,
-      labelNo: item.productOption.description ?? item.productOption.label ?? item.productOption.code,
-      customerPriceCents: item.customerPriceCents,
-      subcontractorPriceCents: item.subcontractorPriceCents,
-    }));
+    .sort((a, b) => a.productOption.sortOrder - b.productOption.sortOrder);
+  const isService = (item: (typeof active)[number]) =>
+    item.productOption.product?.code === MOVING_SERVICES_PRODUCT_CODE;
+  const toOption = (item: (typeof active)[number]): MovingCatalogOption => ({
+    code: item.productOption.code,
+    labelEn: item.productOption.label ?? item.productOption.code,
+    labelNo: item.productOption.description ?? item.productOption.label ?? item.productOption.code,
+    customerPriceCents: item.customerPriceCents,
+    subcontractorPriceCents: item.subcontractorPriceCents,
+  });
 
-  return { priceListId: priceList.id, options };
+  return {
+    priceListId: priceList.id,
+    options: active.filter((item) => !isService(item)).map(toOption),
+    services: active.filter(isService).map(toOption),
+  };
+}
+
+// Resolves the submitted additional-service codes against the catalog, in
+// catalog order. Missing → none (clients from before the services step);
+// anything that isn't a list of distinct, known codes → null (reject).
+export function findMovingServiceOptions(
+  services: MovingCatalogOption[],
+  codes: unknown,
+): MovingCatalogOption[] | null {
+  if (codes === undefined || codes === null) return [];
+  if (!Array.isArray(codes) || !codes.every((code) => typeof code === "string")) return null;
+  if (new Set(codes).size !== codes.length) return null;
+  if (!codes.every((code) => services.some((service) => service.code === code))) return null;
+  return services.filter((service) => codes.includes(service.code));
 }
 
 // Used both to price the client's live selection server-side on submit (see

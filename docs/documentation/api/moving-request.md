@@ -39,3 +39,18 @@ bracket.
 Optional `floors` (integer 1–4, from the flow's house stepper) is validated by
 `parseMovingFloors` and written into `Order.description` as `Floors: N` via
 `movingOrderDescription` (`lib/orders/movingOrderDescription.ts`).
+
+## Additional services
+Optional `serviceCodes` (string array) is resolved with
+`findMovingServiceOptions` against the catalog's `services`; unknown codes,
+duplicates or a non-array → 422 `errors.serviceCodes`. Each service becomes
+its own `OrderItem` (`productCode: MOVING_ADDITIONAL_SERVICES`), is added to
+the price via `movingOrderPricing(sizeOption, services)`, listed in
+`Order.description` ("Additional services: …") and in `productsSummary` /
+the notification title (`Moving (Under 40 m²) + Move-out cleaning`).
+
+## Home type
+Optional `homeType` (`APARTMENT`/`TOWNHOUSE`/`DETACHED`/`OFFICE`, see
+`MOVING_HOME_TYPES`) is validated by `parseMovingHomeType` and written into
+`Order.description` as `Property type: …`. Required by the flow, optional here
+for older clients, like `floors`.

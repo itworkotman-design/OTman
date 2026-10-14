@@ -17,13 +17,21 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { seedMovingCatalog } from "./seedMovingCatalog";
-import { MOVING_PRICE_LIST_CODE, MOVING_PRODUCT_CODE, MOVING_SIZE_OPTIONS } from "./movingCatalog";
+import {
+  MOVING_PRICE_LIST_CODE,
+  MOVING_PRODUCT_CODE,
+  MOVING_SERVICES_PRODUCT_CODE,
+  MOVING_SERVICE_OPTIONS,
+  MOVING_SIZE_OPTIONS,
+} from "./movingCatalog";
 
 describe("seedMovingCatalog", () => {
   beforeEach(() => {
     Object.values(mocks).forEach((mock) => mock.mockReset());
     mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving" });
-    mocks.productUpsert.mockResolvedValue({ id: "p-moving" });
+    mocks.productUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({
+      id: arg.create.code === MOVING_SERVICES_PRODUCT_CODE ? "p-services" : "p-moving",
+    }));
     mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
     mocks.priceListItemUpsert.mockResolvedValue({});
   });
@@ -52,10 +60,34 @@ describe("seedMovingCatalog", () => {
   it("seeds one option per size bracket", async () => {
     const result = await seedMovingCatalog();
 
-    expect(mocks.productOptionUpsert).toHaveBeenCalledTimes(MOVING_SIZE_OPTIONS.length);
     expect(result.optionsUpserted).toBe(MOVING_SIZE_OPTIONS.length);
-    const codes = mocks.productOptionUpsert.mock.calls.map(([arg]) => arg.create.code);
+    const codes = mocks.productOptionUpsert.mock.calls
+      .filter(([arg]) => arg.create.productId === "p-moving")
+      .map(([arg]) => arg.create.code);
     expect(codes).toEqual(MOVING_SIZE_OPTIONS.map((o) => o.code));
+  });
+
+  it("seeds a separate additional-services product on the same price list, one option per service", async () => {
+    const result = await seedMovingCatalog();
+
+    const servicesProduct = mocks.productUpsert.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg.create.code === MOVING_SERVICES_PRODUCT_CODE);
+    expect(servicesProduct).toBeDefined();
+    expect(servicesProduct.create.allowQuantity).toBe(false);
+
+    const serviceOptions = mocks.productOptionUpsert.mock.calls
+      .map(([arg]) => arg)
+      .filter((arg) => arg.create.productId === "p-services");
+    expect(serviceOptions.map((arg) => arg.create.code)).toEqual(MOVING_SERVICE_OPTIONS.map((o) => o.code));
+    expect(serviceOptions.every((arg) => arg.create.category === "service")).toBe(true);
+    expect(result.servicesUpserted).toBe(MOVING_SERVICE_OPTIONS.length);
+    // Same price list, same "never overwrite staff prices" rule as sizes.
+    expect(mocks.priceListItemUpsert).toHaveBeenCalledTimes(MOVING_SIZE_OPTIONS.length + MOVING_SERVICE_OPTIONS.length);
+  });
+
+  it("includes Nedpakking and Flyttevask (Mellomlagring left out for now)", () => {
+    expect(MOVING_SERVICE_OPTIONS.map((o) => o.labelNo)).toEqual(["Nedpakking", "Flyttevask"]);
   });
 
   it("sets an initial (placeholder) price only when creating a price list item, never on update", async () => {

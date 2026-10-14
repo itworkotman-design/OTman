@@ -2,7 +2,7 @@
 
 ## Purpose
 Public, unauthenticated GET endpoint returning the Moving flow's size-bracket
-options and their current prices, for `MovingRequestFlow.tsx`'s live price
+options and additional services with their current prices, for `MovingRequestFlow.tsx`'s live price
 display. Deliberately its own small route rather than the generic
 `/api/booking/catalog` (env-gated to exactly one public price list) or
 `lib/booking/catalog/getBookingCatalog` (returns every active product in the
@@ -12,5 +12,5 @@ DB, unscoped — see the "Catalog not price-list-scoped" note in
 re-resolution.
 
 ## Functions
-- `GET` — `{ ok, priceListId, options }`, or `404 NOT_SEEDED` if
+- `GET` — `{ ok, priceListId, options, services }`, or `404 NOT_SEEDED` if
   `npm run seed:moving-catalog` hasn't been run yet.

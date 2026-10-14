@@ -2,13 +2,19 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { movingOrderPricing } from "@/lib/orders/movingOrderPricing";
-import { movingOrderDescription, parseMovingFloors } from "@/lib/orders/movingOrderDescription";
+import { movingOrderDescription, parseMovingFloors, parseMovingHomeType } from "@/lib/orders/movingOrderDescription";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
-import { findMovingSizeOption, getMovingCatalog } from "@/lib/content/getMovingCatalog";
+import {
+  findMovingServiceOptions,
+  findMovingSizeOption,
+  getMovingCatalog,
+  type MovingCatalogOption,
+} from "@/lib/content/getMovingCatalog";
+import { MOVING_SERVICES_PRODUCT_CODE } from "@/lib/content/movingCatalog";
 import {
   validateEmailField,
   validatePhoneField,
@@ -17,7 +23,9 @@ import {
 
 // Priced by size bracket (WEBSITE_MOVING price list — see
 // lib/content/movingCatalog.ts / getMovingCatalog.ts), re-resolved server
-// side from the submitted `sizeOptionCode` rather than trusting a client-sent
+// side from the submitted `sizeOptionCode` (plus optional `serviceCodes` —
+// Nedpakking/Flyttevask, flat prices on the same list) rather
+// than trusting a client-sent
 // price. Lands on the same Order model, same dashboard review UI, same
 // approve/reject/Stripe pipeline as every other website order — no new
 // status value or schema change. A staff member still reviews before
@@ -59,7 +67,8 @@ class CatalogNotSeededError extends Error {
 
 async function createMovingRequest(
   body: RequestBody,
-  sizeOption: { code: string; labelEn: string; customerPriceCents: number; subcontractorPriceCents: number },
+  sizeOption: MovingCatalogOption,
+  services: MovingCatalogOption[],
 ): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
   if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
@@ -78,13 +87,17 @@ async function createMovingRequest(
   const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
   const floors = parseMovingFloors(body.floors);
+  const homeType = parseMovingHomeType(body.homeType);
   const description = movingOrderDescription({
     sizeLabel: sizeOption.labelEn,
+    homeTypeLabel: homeType.ok ? homeType.homeType?.labelEn : null,
     floors: floors.ok ? floors.floors : null,
+    serviceLabels: services.map((service) => service.labelEn),
     notes: str(body.notes),
   });
+  const summary = [`Moving (${sizeOption.labelEn})`, ...services.map((service) => service.labelEn)].join(" + ");
 
-  const movingPricing = movingOrderPricing(sizeOption);
+  const movingPricing = movingOrderPricing(sizeOption, services);
   const order = await prisma.order.create({
     data: {
       companyId: membership.companyId,
@@ -105,7 +118,7 @@ async function createMovingRequest(
       // Ex. VAT, with what the customer pays (incl. VAT, whole kroner) in the snapshot.
       ...movingPricing,
       pricingSnapshot: movingPricing.pricingSnapshot as unknown as Prisma.InputJsonValue,
-      productsSummary: `Moving (${sizeOption.labelEn})`,
+      productsSummary: summary,
     },
   });
 
@@ -123,6 +136,23 @@ async function createMovingRequest(
       subcontractorPriceCents: sizeOption.subcontractorPriceCents,
     },
   });
+
+  for (const service of services) {
+    await prisma.orderItem.create({
+      data: {
+        orderId: order.id,
+        cardId: 0,
+        productCode: MOVING_SERVICES_PRODUCT_CODE,
+        productName: "Additional service",
+        itemType: "product",
+        optionCode: service.code,
+        optionLabel: service.labelEn,
+        quantity: 1,
+        customerPriceCents: service.customerPriceCents,
+        subcontractorPriceCents: service.subcontractorPriceCents,
+      },
+    });
+  }
 
   await createOrderCreatedEvent(prisma, {
     orderId: order.id,
@@ -149,7 +179,7 @@ async function createMovingRequest(
     orderId: order.id,
     companyId: order.companyId,
     type: "MANUAL_REVIEW",
-    title: `WEBSITE ORDER - Moving (${sizeOption.labelEn})`,
+    title: `WEBSITE ORDER - ${summary}`,
     message: `Moving request placed via the homepage. Customer: ${order.customerName ?? "—"}, Phone: ${order.phone ?? "—"}, Email: ${order.email ?? "—"}.`,
   });
 
@@ -205,6 +235,7 @@ export async function POST(req: Request) {
   if (!str(body.name)) errors.name = "Required";
   if (!str(body.sizeOptionCode)) errors.sizeOptionCode = "Required";
   if (!parseMovingFloors(body.floors).ok) errors.floors = "Invalid";
+  if (!parseMovingHomeType(body.homeType).ok) errors.homeType = "Invalid";
 
   if (Object.keys(errors).length > 0) {
     return NextResponse.json({ ok: false, reason: "VALIDATION_FAILED", errors }, { status: 422 });
@@ -222,7 +253,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await createMovingRequest(body, sizeOption);
+    const services = findMovingServiceOptions(catalog.services, body.serviceCodes);
+    if (!services) {
+      return NextResponse.json(
+        { ok: false, reason: "VALIDATION_FAILED", errors: { serviceCodes: "Unknown additional service" } },
+        { status: 422 },
+      );
+    }
+
+    const result = await createMovingRequest(body, sizeOption, services);
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
     console.error("[moving-request] Order creation failed:", err);

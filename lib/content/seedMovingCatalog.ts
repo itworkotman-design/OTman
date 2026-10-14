@@ -1,9 +1,18 @@
 import { prisma } from "@/lib/db";
-import { MOVING_PRICE_LIST_CODE, MOVING_PRODUCT_CODE, MOVING_SIZE_OPTIONS } from "@/lib/content/movingCatalog";
+import {
+  MOVING_PRICE_LIST_CODE,
+  MOVING_PRODUCT_CODE,
+  MOVING_SERVICES_PRODUCT_CODE,
+  MOVING_SERVICE_OPTIONS,
+  MOVING_SIZE_OPTIONS,
+  type MovingSizeOptionSeed,
+} from "@/lib/content/movingCatalog";
 
 // Seeds the website Moving catalog on its own WEBSITE_MOVING price list — a
-// single bare product with one option per size bracket, each carrying a flat
-// price. Deliberately NOT built on seedWebsiteCatalog: that helper (and the
+// bare product with one option per size bracket, plus a second bare product
+// for the optional additional services (Nedpakking, Flyttevask), each
+// option carrying a flat price. Deliberately NOT built
+// on seedWebsiteCatalog: that helper (and the
 // WhiteGoodsProductSeed/FurnitureProductSeed shape it takes) always builds a
 // delivery-type + install-option + extras product, which doesn't fit a flat
 // "pick one bracket" price at all. Run standalone via
@@ -22,9 +31,38 @@ export async function seedMovingCatalog() {
     create: { name: "Website — Moving", code: MOVING_PRICE_LIST_CODE },
   });
 
-  const productData = {
+  const sizes = await seedFlatProduct(priceList.id, {
+    code: MOVING_PRODUCT_CODE,
     name: "Moving (by size)",
     sortOrder: 1,
+    category: "size",
+    options: MOVING_SIZE_OPTIONS,
+  });
+
+  const services = await seedFlatProduct(priceList.id, {
+    code: MOVING_SERVICES_PRODUCT_CODE,
+    name: "Moving — additional services",
+    sortOrder: 2,
+    category: "service",
+    options: MOVING_SERVICE_OPTIONS,
+  });
+
+  return {
+    priceListId: priceList.id,
+    productId: sizes.productId,
+    optionsUpserted: sizes.optionsUpserted,
+    servicesProductId: services.productId,
+    servicesUpserted: services.optionsUpserted,
+  };
+}
+
+async function seedFlatProduct(
+  priceListId: string,
+  seed: { code: string; name: string; sortOrder: number; category: string; options: MovingSizeOptionSeed[] },
+) {
+  const productData = {
+    name: seed.name,
+    sortOrder: seed.sortOrder,
     productType: "PHYSICAL" as const,
     allowDeliveryTypes: false,
     allowInstallOptions: false,
@@ -38,19 +76,19 @@ export async function seedMovingCatalog() {
   };
 
   const product = await prisma.product.upsert({
-    where: { code: MOVING_PRODUCT_CODE },
+    where: { code: seed.code },
     update: productData,
-    create: { ...productData, code: MOVING_PRODUCT_CODE },
+    create: { ...productData, code: seed.code },
   });
 
   let optionsUpserted = 0;
 
-  for (const [index, optionSeed] of MOVING_SIZE_OPTIONS.entries()) {
+  for (const [index, optionSeed] of seed.options.entries()) {
     const optionData = {
       label: optionSeed.labelEn,
       description: optionSeed.labelNo,
       descriptionEn: optionSeed.labelEn,
-      category: "size",
+      category: seed.category,
       sortOrder: index + 1,
     };
 
@@ -63,14 +101,14 @@ export async function seedMovingCatalog() {
     await prisma.priceListItem.upsert({
       where: {
         priceListId_productOptionId: {
-          priceListId: priceList.id,
+          priceListId,
           productOptionId: option.id,
         },
       },
       // Never overwrite an existing row's price on reseed — see file comment.
       update: {},
       create: {
-        priceListId: priceList.id,
+        priceListId,
         productOptionId: option.id,
         customerPriceCents: Math.round(optionSeed.customerPrice * 100),
         subcontractorPriceCents: Math.round(optionSeed.subcontractorPrice * 100),
@@ -79,5 +117,5 @@ export async function seedMovingCatalog() {
     optionsUpserted += 1;
   }
 
-  return { priceListId: priceList.id, productId: product.id, optionsUpserted };
+  return { productId: product.id, optionsUpserted };
 }

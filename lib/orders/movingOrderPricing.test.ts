@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getOrderChargeAmountIncVatNok } from "./orderTotals";
-import { movingOrderPricing } from "./movingOrderPricing";
+import { movingCustomerTotals, movingOrderPricing } from "./movingOrderPricing";
 
 // The moving price list holds prices ex. VAT, like every website price list:
 // the customer pays the size bracket's price + 25%, rounded to whole kroner.
@@ -18,5 +18,38 @@ describe("movingOrderPricing", () => {
   it("charges exactly what the customer was shown", () => {
     const pricing = movingOrderPricing(size);
     expect(getOrderChargeAmountIncVatNok({ ...pricing, rabatt: null, leggTil: null, websiteOrderKind: null })).toBe(6238);
+  });
+
+  describe("with additional services", () => {
+    const services = [
+      { code: "SERVICE_NEDPAKKING", labelEn: "Packing", customerPriceCents: 99900, subcontractorPriceCents: 60000 },
+      { code: "SERVICE_FLYTTEVASK", labelEn: "Move-out cleaning", customerPriceCents: 249900, subcontractorPriceCents: 150000 },
+    ];
+
+    it("adds each service to the ex. VAT and subcontractor totals", () => {
+      const pricing = movingOrderPricing(size, services);
+      expect(pricing.priceExVat).toBe(4990 + 999 + 2499);
+      expect(pricing.priceSubcontractor).toBe(3000 + 600 + 1500);
+    });
+
+    it("rounds VAT per line, like every website order", () => {
+      // 4990 → 6238 (6237.5), 999 → 1249 (1248.75), 2499 → 3124 (3123.75)
+      const pricing = movingOrderPricing(size, services);
+      expect(pricing.pricingSnapshot.customer).toMatchObject({ totalIncVat: 6238 + 1249 + 3124 });
+      expect(getOrderChargeAmountIncVatNok({ ...pricing, rabatt: null, leggTil: null, websiteOrderKind: null })).toBe(
+        6238 + 1249 + 3124,
+      );
+    });
+  });
+});
+
+describe("movingCustomerTotals", () => {
+  it("matches what movingOrderPricing charges, so the flow shows the real total", () => {
+    const lines = [{ customerPriceCents: 499000 }, { customerPriceCents: 99900 }];
+    expect(movingCustomerTotals(lines)).toEqual({ totalExVat: 5989, totalIncVat: 6238 + 1249 });
+  });
+
+  it("is zero for no lines", () => {
+    expect(movingCustomerTotals([])).toEqual({ totalExVat: 0, totalIncVat: 0 });
   });
 });

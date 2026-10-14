@@ -28,3 +28,38 @@ export const MOVING_SIZE_OPTIONS: MovingSizeOptionSeed[] = [
   { code: "SIZE_UNDER_100", labelEn: "Under 100 m²", labelNo: "Under 100 m²", customerPrice: 0, subcontractorPrice: 0 },
   { code: "SIZE_OVER_100", labelEn: "Over 100 m²", labelNo: "Over 100 m²", customerPrice: 0, subcontractorPrice: 0 },
 ];
+
+// Optional extras on a move, picked on their own step after the size. A
+// separate product on the same WEBSITE_MOVING price list so staff price them
+// in /dashboard/booking/editPrices next to the sizes; each is one flat price,
+// added on top of the size bracket's price.
+export const MOVING_SERVICES_PRODUCT_CODE = "MOVING_ADDITIONAL_SERVICES";
+
+export type MovingServiceOptionSeed = MovingSizeOptionSeed & {
+  // Short explainer under the tile — site copy, not stored in the DB.
+  blurbEn: string;
+  blurbNo: string;
+};
+
+export const MOVING_SERVICE_OPTIONS: MovingServiceOptionSeed[] = [
+  {
+    code: "SERVICE_NEDPAKKING",
+    labelEn: "Packing",
+    labelNo: "Nedpakking",
+    blurbEn: "We pack your belongings into boxes before the move.",
+    blurbNo: "Vi pakker ned eiendelene dine i esker før flyttingen.",
+    customerPrice: 0,
+    subcontractorPrice: 0,
+  },
+  {
+    code: "SERVICE_FLYTTEVASK",
+    labelEn: "Move-out cleaning",
+    labelNo: "Flyttevask",
+    blurbEn: "A thorough clean of the home you're moving out of.",
+    blurbNo: "Grundig vask av boligen du flytter fra.",
+    customerPrice: 0,
+    subcontractorPrice: 0,
+  },
+  // Mellomlagring (interim storage) is left out for now — when it comes back
+  // it likely needs a duration, not one flat price.
+];

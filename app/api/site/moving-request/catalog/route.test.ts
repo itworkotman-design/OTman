@@ -33,6 +33,17 @@ describe("GET /api/site/moving-request/catalog", () => {
     ]);
   });
 
+  it("returns the additional services with their prices", async () => {
+    const services = [
+      { code: "SERVICE_FLYTTEVASK", labelEn: "Move-out cleaning", labelNo: "Flyttevask", customerPriceCents: 250000, subcontractorPriceCents: 150000 },
+    ];
+    mocks.getMovingCatalogMock.mockResolvedValue({ priceListId: "pl-moving", options: [], services });
+
+    const json = await (await GET()).json();
+
+    expect(json.services).toEqual(services);
+  });
+
   it("returns 404 when the moving price list hasn't been seeded", async () => {
     mocks.getMovingCatalogMock.mockResolvedValue(null);
 
