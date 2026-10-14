@@ -1,4 +1,4 @@
-import { MOVING_MAX_FLOORS, type MovingHomeType } from "@/lib/orders/movingOrderDescription";
+import { MOVING_MAX_FLOORS, type MovingHomeTypeCode } from "@/lib/orders/movingProperty";
 
 // Pure geometry behind HouseIllustration.tsx: the house gets wider with the
 // picked size bracket (lib/content/movingCatalog.ts codes) and taller with
@@ -52,7 +52,7 @@ export type HouseGeometry = {
 
 export type HouseVariant = "house" | "townhouse" | "apartment" | "office";
 
-const VARIANTS: Record<MovingHomeType["code"], HouseVariant> = {
+const VARIANTS: Record<MovingHomeTypeCode, HouseVariant> = {
   DETACHED: "house",
   TOWNHOUSE: "townhouse",
   APARTMENT: "apartment",
@@ -62,7 +62,7 @@ const VARIANTS: Record<MovingHomeType["code"], HouseVariant> = {
 export function houseGeometry(
   sizeCode: string | null,
   floorCount: number,
-  homeType: MovingHomeType["code"] | null = null,
+  homeType: MovingHomeTypeCode | null = null,
 ): HouseGeometry {
   const variant = homeType ? VARIANTS[homeType] : "house";
   const flat = variant === "apartment" || variant === "office";

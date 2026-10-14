@@ -89,6 +89,7 @@ async function seedFlatProduct(
       description: optionSeed.labelNo,
       descriptionEn: optionSeed.labelEn,
       category: seed.category,
+      isActive: true,
       sortOrder: index + 1,
     };
 
@@ -116,6 +117,14 @@ async function seedFlatProduct(
     });
     optionsUpserted += 1;
   }
+
+  // Options dropped from the code (e.g. Mellomlagring) are deactivated, not
+  // deleted — past orders keep pointing at them, and getMovingCatalog only
+  // lists active options, so a reseed is enough to take one off the site.
+  await prisma.productOption.updateMany({
+    where: { productId: product.id, code: { notIn: seed.options.map((o) => o.code) } },
+    data: { isActive: false },
+  });
 
   return { productId: product.id, optionsUpserted };
 }

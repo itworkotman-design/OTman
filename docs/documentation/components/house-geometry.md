@@ -12,6 +12,6 @@ Rounds and clamps to `HOUSE_MIN_FLOORS`..`HOUSE_MAX_FLOORS` (1..`MOVING_MAX_FLOO
 Width + windows per floor from the size bracket code (`lib/content/movingCatalog.ts`;
 unknown/null → the `SIZE_UNDER_60` shape), floor rects (index 0 = ground, identical for
 every type), `variant` (`house`/`townhouse`/`apartment`/`office` from `MOVING_HOME_TYPES`
-codes; null → `house`) and `roof` — `style: "gable"` (rise scales with width,
+codes from `lib/orders/movingProperty.ts`; null → `house`) and `roof` — `style: "gable"` (rise scales with width,
 `ROOF_PITCH`) or `"flat"` (apartment/office, just a parapet). A townhouse is centred
 on its front face (its side wall is hidden by the neighbour); everything else on front + side.

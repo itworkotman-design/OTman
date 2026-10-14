@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { SteppedModal, type FinalStep, type StepSection } from "../SteppedModal";
 import { CustomerTypeStep } from "../whiteGoods/CustomerTypeStep";
-import { TileSelectStep } from "../whiteGoods/TileSelectStep";
-import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
-import { transportTimeWindows } from "@/lib/content/TransportRequestConfig";
+import { AutoAdvance } from "../AutoAdvance";
+import { DateTimeWindowFields } from "../whiteGoods/DateTimeWindowFields";
+import { isTimeWindowComplete } from "@/lib/booking/timeWindows";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import {
   websiteCustomerPrice,
@@ -15,9 +15,8 @@ import {
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 import { MOVING_SERVICE_OPTIONS } from "@/lib/content/movingCatalog";
 import { movingCustomerTotals } from "@/lib/orders/movingOrderPricing";
-import { MOVING_HOME_TYPES, type MovingHomeType } from "@/lib/orders/movingOrderDescription";
-import { HouseIllustration } from "./HouseIllustration";
-import { HOUSE_MAX_FLOORS, HOUSE_MIN_FLOORS, clampFloors } from "./houseGeometry";
+import { emptyMovingProperty, isMovingEndReady, type MovingPropertyDraft } from "@/lib/orders/movingProperty";
+import { PropertySection, propertySummary } from "./PropertySection";
 import {
   isValidEmail,
   sanitizeEmailInput,
@@ -70,15 +69,19 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
 
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [sizeOptionCode, setSizeOptionCode] = useState<string | null>(null);
-  const [homeType, setHomeType] = useState<MovingHomeType["code"] | null>(null);
-  const [floors, setFloors] = useState(HOUSE_MIN_FLOORS);
+  // Picked from the autocomplete suggestions (not free-typed) — required to
+  // move on, as in the delivery modal. Every keystroke resets it.
+  const [pickupAddressSelected, setPickupAddressSelected] = useState(false);
+  const [deliveryAddressSelected, setDeliveryAddressSelected] = useState(false);
+  // Both ends of the move get the same questions (PropertySection). The
+  // origin's size is what the move is priced on.
+  const [origin, setOrigin] = useState<MovingPropertyDraft>(emptyMovingProperty);
+  const [destination, setDestination] = useState<MovingPropertyDraft>(emptyMovingProperty);
   const [serviceCodes, setServiceCodes] = useState<string[]>([]);
-  const floorsLabel = (n: number) =>
-    locale === "no" ? `${n} ${n === 1 ? "etasje" : "etasjer"}` : `${n} ${n === 1 ? "floor" : "floors"}`;
 
   const [preferredDate, setPreferredDate] = useState("");
   const [timeWindow, setTimeWindow] = useState("");
+  const [timingTouched, setTimingTouched] = useState(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -86,7 +89,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [notes, setNotes] = useState("");
 
   // Set once by the very first step ("customer-type", below) so the
-  // size-tile prices shown a couple of steps later are already in the right
+  // size-tile prices shown on the very next step are already in the right
   // VAT mode — no toggle to change it again later, since asking twice
   // would be redundant. Still display-only (never affects actual pricing).
   // Starts `null` (unanswered) rather than defaulting to "private" so the
@@ -99,8 +102,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
-  const selectedOption = catalogOptions.find((o) => o.code === sizeOptionCode) ?? null;
-  const selectedHomeType = MOVING_HOME_TYPES.find((h) => h.code === homeType) ?? null;
+  const selectedOption = catalogOptions.find((o) => o.code === origin.sizeOptionCode) ?? null;
   const selectedServices = serviceOptions.filter((o) => serviceCodes.includes(o.code));
   // customerPriceCents is the price list's price, ex. VAT like every website
   // price; a private customer pays each line + 25%, rounded to whole kroner —
@@ -117,14 +119,13 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const toggleService = (code: string) =>
     setServiceCodes((codes) => (codes.includes(code) ? codes.filter((c) => c !== code) : [...codes, code]));
 
-  const canContinueDetails = !!pickupAddress.trim() && !!deliveryAddress.trim() && !!sizeOptionCode;
-  const canContinueTiming = !!preferredDate && !!timeWindow;
+  const canContinueTiming = !!preferredDate && isTimeWindowComplete(timeWindow);
   const canSubmit =
     !!name.trim() &&
     validatePhoneField(phone) === null &&
     isValidEmail(email) &&
-    !!sizeOptionCode &&
-    !!homeType &&
+    isMovingEndReady({ address: pickupAddress, addressSelected: pickupAddressSelected, property: origin }) &&
+    isMovingEndReady({ address: deliveryAddress, addressSelected: deliveryAddressSelected, property: destination }) &&
     !submitLoading;
 
   async function handleSubmit() {
@@ -137,9 +138,8 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
         body: JSON.stringify({
           pickupAddress,
           deliveryAddress,
-          sizeOptionCode,
-          homeType,
-          floors,
+          origin,
+          destination,
           serviceCodes,
           preferredDate,
           timeWindow,
@@ -180,104 +180,58 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
       ),
     },
     {
-      id: "home-type",
-      title: t("What are you moving from?", "Hva flytter du fra?"),
-      render: ({ onComplete }) => (
-        <TileSelectStep
-          options={MOVING_HOME_TYPES.map((h) => ({ id: h.code, label: locale === "no" ? h.labelNo : h.labelEn }))}
-          value={homeType}
-          onPick={(next) => {
-            setHomeType(next);
-            onComplete();
+      id: "moving-from",
+      title: t("Where are you moving from?", "Hvor flytter du fra?"),
+      description: t(
+        "Tell us about the place you're moving out of — the price is based on its size.",
+        "Fortell oss om stedet du flytter fra — prisen er basert på størrelsen.",
+      ),
+      render: ({ onComplete, onUncomplete }) => (
+        <PropertySection
+          locale={locale}
+          address={pickupAddress}
+          addressSelected={pickupAddressSelected}
+          onAddressChange={(address, selected) => {
+            setPickupAddress(address);
+            setPickupAddressSelected(selected);
           }}
+          addressPlaceholder={t("Moving from (address)", "Flytter fra (adresse)")}
+          value={origin}
+          onChange={setOrigin}
+          sizeOptions={catalogOptions}
+          sizePrice={(option) => formatKr(linePrice(option))}
+          catalogLoading={catalogLoading}
+          catalogError={catalogError}
+          onReady={onComplete}
+          onRetract={onUncomplete}
         />
       ),
     },
     {
-      id: "move-details",
-      title: t("Where are you moving?", "Hvor skal du flytte?"),
+      id: "moving-to",
+      title: t("Where are you moving to?", "Hvor flytter du til?"),
       description: t(
-        "Tell us the addresses and roughly how much needs to move.",
-        "Fortell oss adressene og omtrent hvor mye som skal flyttes.",
+        "And the place you're moving into, so we know what to expect on arrival.",
+        "Og stedet du flytter til, så vi vet hva som venter ved levering.",
       ),
-      render: ({ onComplete }) => (
-        <div className="flex flex-col gap-3">
-          <AddressAutocompleteInput
-            value={pickupAddress}
-            onChange={(v) => setPickupAddress(sanitizeTextInput(v))}
-            placeholder={t("Moving from (address)", "Flytter fra (adresse)")}
-          />
-          <AddressAutocompleteInput
-            value={deliveryAddress}
-            onChange={(v) => setDeliveryAddress(sanitizeTextInput(v))}
-            placeholder={t("Moving to (address)", "Flytter til (adresse)")}
-          />
-
-          <p className="pt-1 text-xs font-semibold uppercase tracking-[0.18em] text-black/40">
-            {t("Approximate size", "Omtrentlig størrelse")}
-          </p>
-
-          {catalogLoading && <p className="text-sm text-black/50">{t("Loading pricing…", "Laster priser…")}</p>}
-          {catalogError && <p className="text-sm text-red-600">{catalogError}</p>}
-
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center">
-            <div className="grid gap-2 md:grid-cols-2">
-              {catalogOptions.map((option) => {
-                const active = sizeOptionCode === option.code;
-                const optionPrice = websiteCustomerPrice(option.customerPriceCents / 100, customerType ?? "private");
-                return (
-                  <button
-                    key={option.code}
-                    type="button"
-                    onClick={() => setSizeOptionCode(option.code)}
-                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                      active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-white text-textColor"
-                    }`}
-                  >
-                    <span className="font-semibold">{locale === "no" ? option.labelNo : option.labelEn}</span>
-                    <span className={active ? "text-white/90" : "text-black/50"}>{formatKr(optionPrice)}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex flex-col items-center gap-2 rounded-2xl bg-logoblue/5 px-3 py-3">
-              <HouseIllustration sizeCode={sizeOptionCode} floors={floors} homeType={homeType} className="h-auto w-full max-w-50" />
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFloors((n) => clampFloors(n - 1))}
-                  disabled={floors <= HOUSE_MIN_FLOORS}
-                  aria-label={t("Remove a floor", "Fjern en etasje")}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-logoblue/30 bg-white text-lg font-semibold text-logoblue transition hover:border-logoblue disabled:pointer-events-none disabled:opacity-35"
-                >
-                  −
-                </button>
-                <span className="min-w-18 text-center text-sm font-semibold text-logoblue" aria-live="polite">
-                  {floorsLabel(floors)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setFloors((n) => clampFloors(n + 1))}
-                  disabled={floors >= HOUSE_MAX_FLOORS}
-                  aria-label={t("Add a floor", "Legg til en etasje")}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-logoblue/30 bg-white text-lg font-semibold text-logoblue transition hover:border-logoblue disabled:pointer-events-none disabled:opacity-35"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            disabled={!canContinueDetails}
-            onClick={onComplete}
-            className="self-start inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
-          >
-            {t("Continue", "Fortsett")}
-          </button>
-        </div>
+      render: ({ onComplete, onUncomplete }) => (
+        <PropertySection
+          locale={locale}
+          address={deliveryAddress}
+          addressSelected={deliveryAddressSelected}
+          onAddressChange={(address, selected) => {
+            setDeliveryAddress(address);
+            setDeliveryAddressSelected(selected);
+          }}
+          addressPlaceholder={t("Moving to (address)", "Flytter til (adresse)")}
+          value={destination}
+          onChange={setDestination}
+          sizeOptions={catalogOptions}
+          catalogLoading={catalogLoading}
+          catalogError={catalogError}
+          onReady={onComplete}
+          onRetract={onUncomplete}
+        />
       ),
     },
     {
@@ -290,7 +244,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
         "Optional — pick anything you'd like us to take care of as well.",
         "Valgfritt — velg det du vil at vi skal ta oss av i tillegg.",
       ),
-      render: ({ onComplete }) => (
+      render: ({ onComplete, onUncomplete }) => (
         <div className="flex flex-col gap-3">
           {serviceOptions.length === 0 && !catalogLoading && (
             <p className="text-sm text-black/50">
@@ -334,13 +288,8 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={onComplete}
-            className="self-start inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg"
-          >
-            {serviceCodes.length > 0 ? t("Continue", "Fortsett") : t("Skip", "Hopp over")}
-          </button>
+          {/* Nothing here is required, so the next section opens right away. */}
+          <AutoAdvance ready onReady={onComplete} onRetract={onUncomplete} />
         </div>
       ),
     },
@@ -351,40 +300,26 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
         "Pick a preferred date and window — we'll confirm the exact time once your booking is approved.",
         "Velg en foretrukket dato og et tidsvindu — vi bekrefter eksakt tidspunkt når bestillingen er godkjent.",
       ),
-      render: ({ onComplete }) => (
-        <div className="flex flex-col gap-3">
-          <input
-            type="date"
-            value={preferredDate}
-            min={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => setPreferredDate(e.target.value)}
-            className="h-11 rounded-lg border border-black/15 px-2 text-sm"
+      render: ({ onComplete, onUncomplete }) => (
+        // Same card, date picker and time windows as the delivery modal's
+        // order details (DateTimeWindowFields) — fields only turn red once
+        // focus has left the card with them still unanswered.
+        <div
+          className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6"
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setTimingTouched(true);
+          }}
+        >
+          <DateTimeWindowFields
+            locale={locale}
+            preferredDate={preferredDate}
+            setPreferredDate={setPreferredDate}
+            timeWindow={timeWindow}
+            setTimeWindow={setTimeWindow}
+            dateError={timingTouched && !preferredDate}
+            timeWindowError={timingTouched && !isTimeWindowComplete(timeWindow)}
           />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {transportTimeWindows.map((window) => {
-              const active = timeWindow === window;
-              return (
-                <button
-                  key={window}
-                  type="button"
-                  onClick={() => setTimeWindow(window)}
-                  className={`rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition ${
-                    active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-white text-logoblue"
-                  }`}
-                >
-                  {window.replace(/:00/g, "")}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            disabled={!canContinueTiming}
-            onClick={onComplete}
-            className="self-start inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
-          >
-            {t("Continue", "Fortsett")}
-          </button>
+          <AutoAdvance ready={canContinueTiming} onReady={onComplete} onRetract={onUncomplete} />
         </div>
       ),
     },
@@ -419,18 +354,21 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             onChange={(e) => setNotes(sanitizeTextInput(e.target.value))}
             rows={3}
             placeholder={t(
-              "Anything else? Floors, lift access, particularly heavy or fragile items…",
-              "Noe annet vi bør vite? Etasjer, heis, spesielt tunge eller skjøre gjenstander …",
+              "Anything else? Particularly heavy or fragile items, a piano, a storage room…",
+              "Noe annet vi bør vite? Spesielt tunge eller skjøre gjenstander, piano, bod …",
             )}
             className="rounded-lg border border-black/15 px-2 py-1.5 text-sm"
           />
+          {/* The one explicit button, as in the delivery modal: moving on swaps
+              the modal to the summary, so it mustn't fire the moment the email
+              first parses as valid while still being typed, or before notes. */}
           <button
             type="button"
             disabled={!canSubmit}
             onClick={onComplete}
-            className="self-start inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
+            className="self-center inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
           >
-            {t("Continue", "Fortsett")}
+            {t("Go to summary", "Gå til oppsummering")}
           </button>
         </div>
       ),
@@ -465,30 +403,20 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
               {t("Summary", "Oppsummering")}
             </h4>
             <div className="mt-3 flex flex-col gap-1 text-sm text-black/70">
-              <div className="flex justify-between gap-4">
-                <span>{t("From", "Fra")}</span>
-                <span className="text-right">{pickupAddress || "—"}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span>{t("To", "Til")}</span>
-                <span className="text-right">{deliveryAddress || "—"}</span>
-              </div>
-              {selectedHomeType && (
-                <div className="flex justify-between gap-4">
-                  <span>{t("Property type", "Type lokale")}</span>
-                  <span>{locale === "no" ? selectedHomeType.labelNo : selectedHomeType.labelEn}</span>
+              {[
+                { label: t("From", "Fra"), address: pickupAddress, property: origin },
+                { label: t("To", "Til"), address: deliveryAddress, property: destination },
+              ].map((end) => (
+                <div key={end.label} className="flex justify-between gap-4">
+                  <span>{end.label}</span>
+                  <span className="text-right">
+                    {end.address || "—"}
+                    <span className="block text-xs text-black/45">
+                      {propertySummary(locale, end.property, catalogOptions)}
+                    </span>
+                  </span>
                 </div>
-              )}
-              {selectedOption && (
-                <div className="flex justify-between gap-4">
-                  <span>{t("Approximate size", "Omtrentlig størrelse")}</span>
-                  <span>{locale === "no" ? selectedOption.labelNo : selectedOption.labelEn}</span>
-                </div>
-              )}
-              <div className="flex justify-between gap-4">
-                <span>{t("Floors", "Etasjer")}</span>
-                <span>{floors}</span>
-              </div>
+              ))}
               {selectedServices.map((service) => (
                 <div key={service.code} className="flex justify-between gap-4">
                   <span>{locale === "no" ? service.labelNo : service.labelEn}</span>

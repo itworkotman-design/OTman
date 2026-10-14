@@ -11,7 +11,7 @@ export type StepSectionRenderProps = {
   isActive: boolean;
   onComplete: () => void;
   // For sections whose completion is condition-driven rather than a one-off
-  // button click (see AutoAdvance in WhiteGoodsBookingFlow): call this when
+  // button click (see AutoAdvance.tsx): call this when
   // that condition stops being satisfied, to retract any sections revealed
   // after it (and back out of the final step, if it was reached).
   onUncomplete: () => void;

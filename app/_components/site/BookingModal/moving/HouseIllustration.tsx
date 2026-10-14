@@ -1,11 +1,11 @@
 import { useId } from "react";
-import type { MovingHomeType } from "@/lib/orders/movingOrderDescription";
+import type { MovingHomeTypeCode } from "@/lib/orders/movingProperty";
 import { houseGeometry, type HouseGeometry } from "./houseGeometry";
 
 type Props = {
   sizeCode: string | null;
   floors: number;
-  homeType?: MovingHomeType["code"] | null;
+  homeType?: MovingHomeTypeCode | null;
   className?: string;
 };
 

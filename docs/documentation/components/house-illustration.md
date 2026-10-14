@@ -3,8 +3,8 @@
 ## Purpose
 Decorative 3D (oblique) SVG building shown to the right of the moving flow's
 size tiles (`MovingRequestFlow.tsx`). Wider for a bigger size bracket, one
-stacked floor per story, styled by the property type picked on the flow's
-home-type step:
+stacked floor per story, styled by the property type picked in the flow's
+`PropertySection` (used for both ends of the move):
 - Enebolig (`DETACHED`, also the default before a type is picked): gable-roof house, chimney, door on the left.
 - Rekkehus (`TOWNHOUSE`): the same unit with washed-out neighbouring units attached on both sides
   (an `feColorMatrix` filter, not opacity, so the right neighbour solidly hides this unit's side wall).

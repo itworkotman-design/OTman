@@ -17,4 +17,5 @@ entered and maintained by staff via `/dashboard/booking/editPrices` — a
 reseed (e.g. a fresh dev DB setup) must never silently reset them back to 0.
 
 ## Functions
+- Options no longer in the code are set `isActive: false` (not deleted) on reseed, and listed ones back to `isActive: true` — so dropping one from `MOVING_SIZE_OPTIONS`/`MOVING_SERVICE_OPTIONS` and reseeding takes it off the site.
 - `seedMovingCatalog()` — `{ priceListId, productId, optionsUpserted, servicesProductId, servicesUpserted }`.

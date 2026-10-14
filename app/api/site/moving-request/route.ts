@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { movingOrderPricing } from "@/lib/orders/movingOrderPricing";
-import { movingOrderDescription, parseMovingFloors, parseMovingHomeType } from "@/lib/orders/movingOrderDescription";
+import { movingOrderDescription } from "@/lib/orders/movingOrderDescription";
+import { movingPropertyLine, parseMovingProperty } from "@/lib/orders/movingProperty";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
@@ -23,7 +24,7 @@ import {
 
 // Priced by size bracket (WEBSITE_MOVING price list — see
 // lib/content/movingCatalog.ts / getMovingCatalog.ts), re-resolved server
-// side from the submitted `sizeOptionCode` (plus optional `serviceCodes` —
+// side from the submitted `origin.sizeOptionCode` (plus optional `serviceCodes` —
 // Nedpakking/Flyttevask, flat prices on the same list) rather
 // than trusting a client-sent
 // price. Lands on the same Order model, same dashboard review UI, same
@@ -67,8 +68,18 @@ class CatalogNotSeededError extends Error {
 
 async function createMovingRequest(
   body: RequestBody,
-  sizeOption: MovingCatalogOption,
-  services: MovingCatalogOption[],
+  {
+    sizeOption,
+    originLine,
+    destinationLine,
+    services,
+  }: {
+    // The origin's size bracket — what the move is priced on.
+    sizeOption: MovingCatalogOption;
+    originLine: string;
+    destinationLine: string;
+    services: MovingCatalogOption[];
+  },
 ): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
   if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
@@ -86,12 +97,9 @@ async function createMovingRequest(
   // The random number customers see; displayId stays internal/sequential.
   const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
-  const floors = parseMovingFloors(body.floors);
-  const homeType = parseMovingHomeType(body.homeType);
   const description = movingOrderDescription({
-    sizeLabel: sizeOption.labelEn,
-    homeTypeLabel: homeType.ok ? homeType.homeType?.labelEn : null,
-    floors: floors.ok ? floors.floors : null,
+    originLine,
+    destinationLine,
     serviceLabels: services.map((service) => service.labelEn),
     notes: str(body.notes),
   });
@@ -233,11 +241,16 @@ export async function POST(req: Request) {
   if (!str(body.pickupAddress)) errors.pickupAddress = "Required";
   if (!str(body.deliveryAddress)) errors.deliveryAddress = "Required";
   if (!str(body.name)) errors.name = "Required";
-  if (!str(body.sizeOptionCode)) errors.sizeOptionCode = "Required";
-  if (!parseMovingFloors(body.floors).ok) errors.floors = "Invalid";
-  if (!parseMovingHomeType(body.homeType).ok) errors.homeType = "Invalid";
+  // Both ends of the move, same questions, same parser as the flow uses.
+  // Errors are keyed "origin.<field>" / "destination.<field>".
+  const ends = { origin: parseMovingProperty(body.origin), destination: parseMovingProperty(body.destination) };
+  for (const [end, parsed] of Object.entries(ends)) {
+    if (!parsed.ok) {
+      for (const [field, message] of Object.entries(parsed.errors)) errors[`${end}.${field}`] = message;
+    }
+  }
 
-  if (Object.keys(errors).length > 0) {
+  if (Object.keys(errors).length > 0 || !ends.origin.ok || !ends.destination.ok) {
     return NextResponse.json({ ok: false, reason: "VALIDATION_FAILED", errors }, { status: 422 });
   }
 
@@ -245,12 +258,17 @@ export async function POST(req: Request) {
     const catalog = await getMovingCatalog();
     if (!catalog) throw new CatalogNotSeededError();
 
-    const sizeOption = findMovingSizeOption(catalog.options, str(body.sizeOptionCode));
-    if (!sizeOption) {
-      return NextResponse.json(
-        { ok: false, reason: "VALIDATION_FAILED", errors: { sizeOptionCode: "Unknown size option" } },
-        { status: 422 },
-      );
+    // The price is the origin's size bracket (how much gets moved); the
+    // destination's size is information for staff, but must still be real.
+    const origin = ends.origin.property;
+    const destination = ends.destination.property;
+    const originSize = findMovingSizeOption(catalog.options, origin.sizeOptionCode);
+    const destinationSize = findMovingSizeOption(catalog.options, destination.sizeOptionCode);
+    if (!originSize || !destinationSize) {
+      const sizeErrors: Record<string, string> = {};
+      if (!originSize) sizeErrors["origin.sizeOptionCode"] = "Unknown size option";
+      if (!destinationSize) sizeErrors["destination.sizeOptionCode"] = "Unknown size option";
+      return NextResponse.json({ ok: false, reason: "VALIDATION_FAILED", errors: sizeErrors }, { status: 422 });
     }
 
     const services = findMovingServiceOptions(catalog.services, body.serviceCodes);
@@ -261,7 +279,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await createMovingRequest(body, sizeOption, services);
+    const result = await createMovingRequest(body, {
+      sizeOption: originSize,
+      originLine: movingPropertyLine(origin, originSize.labelEn),
+      destinationLine: movingPropertyLine(destination, destinationSize.labelEn),
+      services,
+    });
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
     console.error("[moving-request] Order creation failed:", err);

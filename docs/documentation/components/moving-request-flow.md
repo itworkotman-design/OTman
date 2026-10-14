@@ -20,17 +20,20 @@ Submits to `POST /api/site/moving-request`.
 
 ## Functions
 ### `MovingRequestFlow({ locale, onClose })`
-Six sections — Privat/Bedrift (`CustomerTypeStep`, asked first and only
-once, so the size-tier tile prices shown later are already
-in the right VAT mode), home type (`TileSelectStep` with
-`MOVING_HOME_TYPES` — Leilighet/Rekkehus/Enebolig/Kontor, auto-advances on pick,
-sent as `homeType`, required to submit), move details (addresses + size-bracket picker with
-live prices, with a `HouseIllustration` preview + floors stepper (1–4,
-starts at 1) to its right, sent as `floors`), additional services (optional
-toggle tiles for Nedpakking/Flyttevask with price + blurb, sent
-as `serviceCodes`; always present so step positions never shift), timing,
-contact details — plus
-a final review/submit step
-showing the size + selected services total (`movingCustomerTotals`). Copy makes clear the price is based
-on the self-reported size and gets confirmed on staff review, not
-literally instant.
+Sections:
+1. Privat/Bedrift (`CustomerTypeStep`) — asked first so the size prices on the next step are already in the right VAT mode.
+2. "Hvor flytter du fra?" — `PropertySection` for the origin (address, type, size with live prices, floors + `HouseIllustration`, lift for apartment/office, parking distance). Its size is what the move is priced on.
+3. "Hvor flytter du til?" — the same `PropertySection` for the destination, size tiles without prices (information for staff).
+4. Additional services — optional toggle tiles (Nedpakking/Flyttevask) with price + blurb, sent as `serviceCodes`; always present so step positions never shift.
+5. Timing, 6. contact details — then a final review/submit step listing both ends (`propertySummary`), services and the total (`movingCustomerTotals`).
+
+Both ends are `MovingPropertyDraft`s (`lib/orders/movingProperty.ts`), submitted as `origin` / `destination`; "can continue/submit" uses the same `parseMovingProperty` the API validates with. Copy makes clear the price is based on the self-reported size and gets confirmed on staff review.
+
+Sections advance like the delivery modal: no Continue buttons — each opens the next one as soon as its
+required fields are answered (`AutoAdvance`; the services step has none, so it opens the next right away).
+The contact step is the one exception, with a "Gå til oppsummering" button, since moving on swaps the
+modal to the summary.
+
+The "When?" step reuses the delivery modal's date/time layout: a bordered card with
+`DateTimeWindowFields` (same date picker rules and time windows, incl. a specific time); it opens
+the next section once a date is picked and `isTimeWindowComplete(timeWindow)`.

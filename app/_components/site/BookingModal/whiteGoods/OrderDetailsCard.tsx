@@ -3,16 +3,13 @@
 import { useState } from "react";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
-import DatePicker from "@/app/_components/utils/DatePicker";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
-import { addDaysIso, getOsloDateKey } from "@/lib/dates/isoDate";
-import { isNorwegianPublicHoliday } from "@/lib/dates/norwayHolidays";
-import { CalendarIcon, ClockIcon, DocumentIcon, WarningTriangleIcon } from "./orderDetailsIcons";
-import { AddressLabel, FieldLabel, fieldClass, sideColumnClass } from "./formFieldStyles";
+import { DocumentIcon, WarningTriangleIcon } from "./orderDetailsIcons";
+import { DateTimeWindowFields } from "./DateTimeWindowFields";
+import { AddressLabel, FieldLabel, sideColumnClass } from "./formFieldStyles";
 import { isTimeWindowComplete } from "@/lib/booking/timeWindows";
 import { FloorLiftField } from "./floorLiftField";
-import { TimeWindowField } from "./timeWindowField";
 import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 type Props = {
@@ -168,25 +165,15 @@ export function OrderDetailsCard({
           surchargePerFloor={floorSurchargePerFloor}
         />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="block">
-            <FieldLabel icon={<CalendarIcon className="h-4 w-4" />}>{t("Requested date", "Ønsket dato")}</FieldLabel>
-            <DatePicker
-              value={preferredDate}
-              onChange={setPreferredDate}
-              locale={locale}
-              placeholder={t("Select a date", "Velg en dato")}
-              className={fieldClass(dateError)}
-              minDate={addDaysIso(getOsloDateKey(), 1)}
-              blockedWeekdays={[0]}
-              isDateBlocked={isNorwegianPublicHoliday}
-            />
-          </label>
-          <label className="block">
-            <FieldLabel icon={<ClockIcon className="h-4 w-4" />}>{t("Time window", "Tidsvindu")}</FieldLabel>
-            <TimeWindowField locale={locale} value={timeWindow} onChange={setTimeWindow} hasError={timeWindowError} />
-          </label>
-        </div>
+        <DateTimeWindowFields
+          locale={locale}
+          preferredDate={preferredDate}
+          setPreferredDate={setPreferredDate}
+          timeWindow={timeWindow}
+          setTimeWindow={setTimeWindow}
+          dateError={dateError}
+          timeWindowError={timeWindowError}
+        />
       </div>
     </div>
   );

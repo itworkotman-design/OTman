@@ -53,8 +53,9 @@ const validBody = {
   deliveryAddress: "Storgata 2, Oslo",
   preferredDate: "2026-10-01",
   timeWindow: "08:00-16:00",
-  sizeOptionCode: "SIZE_UNDER_40",
-  notes: "Third floor, no lift on either end.",
+  origin: { homeType: "APARTMENT", sizeOptionCode: "SIZE_UNDER_40", floors: 1, hasLift: false, parking: "WITHIN_50M" },
+  destination: { homeType: "DETACHED", sizeOptionCode: "SIZE_UNDER_20", floors: 2, parking: "OUTSIDE" },
+  notes: "Piano in the living room.",
 };
 
 describe("POST /api/site/moving-request", () => {
@@ -133,20 +134,45 @@ describe("POST /api/site/moving-request", () => {
     expect(json.errors.name).toBe("Required");
   });
 
-  it("returns 422 when sizeOptionCode is missing", async () => {
-    const res = await post({ ...validBody, sizeOptionCode: "" });
+  it("returns 422 when the origin's size is missing", async () => {
+    const res = await post({ ...validBody, origin: { ...validBody.origin, sizeOptionCode: "" } });
 
     expect(res.status).toBe(422);
     const json = await res.json();
-    expect(json.errors.sizeOptionCode).toBe("Required");
+    expect(json.errors["origin.sizeOptionCode"]).toBe("Required");
   });
 
-  it("returns 422 when sizeOptionCode doesn't match a real size bracket", async () => {
-    const res = await post({ ...validBody, sizeOptionCode: "NOT_A_REAL_CODE" });
+  it("returns 422 when the origin's size doesn't match a real size bracket", async () => {
+    const res = await post({ ...validBody, origin: { ...validBody.origin, sizeOptionCode: "NOT_A_REAL_CODE" } });
 
     expect(res.status).toBe(422);
     const json = await res.json();
-    expect(json.errors.sizeOptionCode).toBeDefined();
+    expect(json.errors["origin.sizeOptionCode"]).toBeDefined();
+  });
+
+  it("returns 422 when the destination's size doesn't match a real size bracket", async () => {
+    const res = await post({ ...validBody, destination: { ...validBody.destination, sizeOptionCode: "NOT_A_REAL_CODE" } });
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors["destination.sizeOptionCode"]).toBeDefined();
+  });
+
+  it("returns 422 when the destination is missing entirely", async () => {
+    const res = await post({ ...validBody, destination: undefined });
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors["destination.homeType"]).toBe("Required");
+    expect(json.errors["destination.parking"]).toBe("Required");
+  });
+
+  it("returns 422 when an apartment's lift question is unanswered", async () => {
+    const res = await post({ ...validBody, origin: { ...validBody.origin, hasLift: null } });
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors["origin.hasLift"]).toBeDefined();
   });
 
   it("returns 500 when the moving catalog hasn't been seeded yet", async () => {
@@ -165,18 +191,18 @@ describe("POST /api/site/moving-request", () => {
     expect(json.errors.notes).toBeDefined();
   });
 
-  it("returns 422 for an unknown home type", async () => {
-    const res = await post({ ...validBody, homeType: "CASTLE" });
+  it("returns 422 for an unknown property type", async () => {
+    const res = await post({ ...validBody, origin: { ...validBody.origin, homeType: "CASTLE" } });
     expect(res.status).toBe(422);
     const json = await res.json();
-    expect(json.errors.homeType).toBeDefined();
+    expect(json.errors["origin.homeType"]).toBeDefined();
   });
 
   it("returns 422 when floors is out of range", async () => {
-    const res = await post({ ...validBody, floors: 9 });
+    const res = await post({ ...validBody, destination: { ...validBody.destination, floors: 9 } });
     expect(res.status).toBe(422);
     const json = await res.json();
-    expect(json.errors.floors).toBeDefined();
+    expect(json.errors["destination.floors"]).toBeDefined();
   });
 
   it("returns 422 for an unknown additional service", async () => {

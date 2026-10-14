@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   priceListUpsert: vi.fn(),
   productUpsert: vi.fn(),
   productOptionUpsert: vi.fn(),
+  productOptionUpdateMany: vi.fn(),
   priceListItemUpsert: vi.fn(),
 }));
 
@@ -11,7 +12,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     priceList: { upsert: mocks.priceListUpsert },
     product: { upsert: mocks.productUpsert },
-    productOption: { upsert: mocks.productOptionUpsert },
+    productOption: { upsert: mocks.productOptionUpsert, updateMany: mocks.productOptionUpdateMany },
     priceListItem: { upsert: mocks.priceListItemUpsert },
   },
 }));
@@ -114,5 +115,42 @@ describe("seedMovingCatalog", () => {
     expect(productCall.update.allowDeliveryTypes).toBe(false);
     expect(productCall.update.allowQuantity).toBe(false);
     expect(productCall.update.code).toBeUndefined();
+  });
+});
+
+describe("seedMovingCatalog — options removed from code", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving" });
+    mocks.productUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({
+      id: arg.create.code === MOVING_SERVICES_PRODUCT_CODE ? "p-services" : "p-moving",
+    }));
+    mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
+    mocks.priceListItemUpsert.mockResolvedValue({});
+    mocks.productOptionUpdateMany.mockResolvedValue({ count: 0 });
+  });
+
+  it("deactivates options no longer in the code (e.g. Mellomlagring), so a reseed hides them", async () => {
+    await seedMovingCatalog();
+
+    const servicesCall = mocks.productOptionUpdateMany.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg.where.productId === "p-services");
+    expect(servicesCall).toEqual({
+      where: { productId: "p-services", code: { notIn: MOVING_SERVICE_OPTIONS.map((o) => o.code) } },
+      data: { isActive: false },
+    });
+    const sizesCall = mocks.productOptionUpdateMany.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg.where.productId === "p-moving");
+    expect(sizesCall.where.code.notIn).toEqual(MOVING_SIZE_OPTIONS.map((o) => o.code));
+  });
+
+  it("re-activates an option that comes back to the code", async () => {
+    await seedMovingCatalog();
+
+    for (const [arg] of mocks.productOptionUpsert.mock.calls) {
+      expect(arg.update.isActive).toBe(true);
+    }
   });
 });
